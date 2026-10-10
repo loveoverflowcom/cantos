@@ -17,7 +17,8 @@ Production identity deployment, production workers and paid providers are not im
   not import provider transport; the development host has no enabled generation provider.
 - `production.rs`: pure supported-control validation, per-dialogue pronunciation/performance
   resolution, integer planning estimates, tagged input digest and current rights/approval gate.
-  Its catalog is synthetic/reference-only; no provider transport or billable dispatch exists.
+  Its catalog preserves historical reference entries and adds the explicit eSpeak local
+  inspection capability; no billable dispatch exists.
 - `postgres/production.rs` and `http/production.rs`: script-scoped append-only settings,
   declarations, candidates/approvals and thin authenticated route mapping. Current permissions,
   accepted head and evidence are rechecked inside the same PostgreSQL transactions.
@@ -27,7 +28,13 @@ Production identity deployment, production workers and paid providers are not im
 - `script_ir/diff/`: pure stable-ID comparison of two admitted scripts of one episode; `diff-script`
   is its only shell. No HTTP, SQL, UI, provider or file-system dependency.
 - `wav_inspection/`: pure, bounded RIFF/WAVE integer PCM inspection over bytes. No HTTP, SQL,
-  Script IR, provider or file-system dependency; `inspect-wav` is its only shell.
+  Script IR, provider or file-system dependency; consumed by `inspect-wav` and `tts/audio`.
+- `tts/`: receipt inspection over existing frozen documents, conservative recovery advice,
+  bounded WAV bytes and one concrete eSpeak NG 1.52.0 local adapter. `inspect-tts-receipt` is
+  read-only; `probe-local-tts` explicitly invokes the installed local runtime and retains private
+  sample intent/input/receipt files. Neither establishes current production permission, durable
+  jobs, reservations or artifact acceptance. See the
+  [local receipt contract](../../contracts/tts-receipt-v1.md).
 - `migrations/0001_script_revisions.sql`: atomic schema, deferred head FK, operation uniqueness
   and immutable revision/link triggers. Migration replay verifies its SHA-256 checksum.
 - `migrations/0002_editorial_handoff.sql`: preserved sources, immutable editorial reviews and
@@ -116,7 +123,7 @@ explicitly unsupported by this host.
 
 See [evidence and residual risks](../../docs/evidence/script-revision-persistence.md) and the
 [affected read inventory](../../docs/evidence/script-revision-reads.md). Production-input planning
-eligibility is bounded by the reference-only contract below; legal/publication eligibility,
+eligibility remains distinct from the sample-only local adapter below; legal/publication eligibility,
 stable entity identity across revisions and the full #1/010 journey remain
 separate work. Domain rules never import Narrative Forge or AI provider internals.
 
@@ -233,7 +240,7 @@ model generation and output quality remain separately NOT_RUN for this data-pipe
 The [production v1 contract](../../contracts/production-v1.md) adds versioned casting/settings,
 script-scoped rights/budget declarations, reviewable immutable candidates and separate exact
 owner approval. `prepare_inputs` resolves one complete accepted export, required claims and
-reference-only controls; `evaluate_snapshot` computes staleness and rights/time/budget findings
+the exact catalog entry's supported controls; `evaluate_snapshot` computes staleness and rights/time/budget findings
 from current facts. A content digest alone cannot authorize inputs because c1 excludes rights
 and provenance. The separate `production-p1` scope pins complete revision identity/e1, catalog/
 adapter/output versions, settings, required rights versions, actor/time metadata and planning rate.
@@ -261,9 +268,9 @@ helpers obtain actor/member share locks without granting the runtime authority-e
 They use fixed `pg_catalog` search path, fully qualified tables, no dynamic SQL and revoked
 PUBLIC execution. Their only granted outputs are active-actor presence and current member role.
 Migration replay verifies the same recorded checksums. PostgreSQL remains authoritative;
-no additional service/read engine, accounting ledger, provider transport or worker is introduced.
-The static catalog exposes
-synthetic reference controls, always with billable dispatch unavailable. Rates and rights are
+no additional service/read engine, accounting ledger or worker is introduced by #5.
+The catalog retains synthetic reference controls and now adds an explicit local inspection
+entry, always with billable dispatch unavailable. Rates and rights are
 private-planning actor assertions, not provider/legal verification. Estimates are neither
 reservations nor charges. No generation/payment/audio occurs in #5.
 
@@ -272,6 +279,41 @@ the current suites. [Casting evidence and affected reads](../../docs/evidence/ca
 names actual outputs, limits and DBSP deferral; [ADR 0007](../../docs/decisions/0007-casting-production-inputs.md)
 remains proposed for production adoption. Real adapter/dispatch and settlement work follows only
 in its explicitly authorized owning slice.
+
+## Local TTS sample probe and receipt inspection
+
+The user-authorized local selection is eSpeak NG 1.52.0, invoked as a separate installed
+executable. Its exact adapter identity is `espeak-ng-local` / `espeak-ng-1.52.0` /
+`espeak-ng-local-v1`; output contract `wav-pcm-s16le-mono-22050-v1` preserves native 22,050 Hz
+mono signed 16-bit PCM. Supported voices are `vi`, `vi-vn-x-central` and `vi-vn-x-south`, and
+languages are `vi` and `vi-VN`. The current adapter admits rate 1000 permille, pitch zero,
+emotion `neutral` and intensity zero; other controls are rejected before invocation.
+Pronunciation uses the existing resolved spoken text. Installed version and exact voice
+availability are checked for each run, with bounded process time, I/O and private regular-file
+output. The adapter installs nothing and silently substitutes no voice or output format.
+
+```sh
+cargo run --locked --bin probe-local-tts -- /absolute/frozen-document.json dialogue-id /absolute/path/to/espeak-ng /absolute/new-private-output-directory
+cargo run --locked --bin inspect-tts-receipt -- /absolute/new-private-output-directory/frozen-document.json /absolute/new-private-output-directory/receipt.json /absolute/new-private-output-directory/output.wav
+```
+
+Supply an exact frozen document with the supported local provider/voice/controls/output profile;
+do not relabel an existing reference snapshot. The sample probe checks frozen input identity,
+creates a new private directory and writes `intent.json` plus `frozen-document.json` before
+synthesis. Success saves `output.wav`, `receipt.json` and `audit.json`; failure retains its
+intent and a failure receipt when possible. Existing destinations are refused, with no
+overwrite or automatic retry. A retained ambiguous intent requires inspection and reconciliation;
+these local files are not a PostgreSQL job queue or production crash-recovery guarantee.
+The offline path establishes no current owner/rights/budget approval and accepts no production
+asset. Local charge remains unknown; resource use is not a provider billing receipt.
+
+All three Vietnamese voices produced actual inspected samples in the local run; listening
+quality is **NOT_RUN**. [Execution evidence](../../docs/evidence/tts-receipt-inspection.md)
+separates live synthesis from synthetic failure tests. [ADR 0008](../../docs/decisions/0008-local-tts-inspection.md)
+records this local inspection choice, with production adoption proposed. Commercial selection,
+terms, rights, authentication boundary, spending cap and live sample remain deferred in
+[provider prerequisites](../../docs/evidence/tts-provider-prerequisites.md).
+This is part of #6; it grants no publication clearance and does not complete that issue.
 
 ## WAV PCM inspection
 

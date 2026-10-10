@@ -17,6 +17,7 @@ use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::script_ir::{read_canonical_script, ScriptContent};
+use crate::tts::local_contract;
 
 pub const CATALOG_VERSION: &str = "production-reference-v1";
 pub const ADAPTER_VERSION: &str = "reference-only-no-dispatch-v1";
@@ -52,7 +53,7 @@ pub fn production_catalog() -> ProductionCatalogResponse {
     second.model_id = "reference-v2".into();
     ProductionCatalogResponse {
         version: CATALOG_VERSION.into(),
-        capabilities: vec![first, second],
+        capabilities: vec![first, second, local_contract::capability()],
     }
 }
 
@@ -138,7 +139,7 @@ pub fn validate_settings(settings: &ProductionSettings) -> Result<(), Vec<FieldI
                 "unsupported_control",
             );
         }
-        if !LANGUAGES.contains(&binding.language.as_str()) {
+        if !capability.languages.contains(&binding.language) {
             issue(
                 &mut issues,
                 format!("{path}.language"),
@@ -152,14 +153,18 @@ pub fn validate_settings(settings: &ProductionSettings) -> Result<(), Vec<FieldI
                 "id_format",
             );
         }
-        if !(500..=2_000).contains(&binding.performance.rate_permille) {
+        if !(capability.rate_min_permille..=capability.rate_max_permille)
+            .contains(&binding.performance.rate_permille)
+        {
             issue(
                 &mut issues,
                 format!("{path}.performance.rate_permille"),
                 "unsupported_control",
             );
         }
-        if !(-12..=12).contains(&binding.performance.pitch_semitones) {
+        if !(capability.pitch_min_semitones..=capability.pitch_max_semitones)
+            .contains(&binding.performance.pitch_semitones)
+        {
             issue(
                 &mut issues,
                 format!("{path}.performance.pitch_semitones"),
@@ -170,7 +175,7 @@ pub fn validate_settings(settings: &ProductionSettings) -> Result<(), Vec<FieldI
             .performance
             .emotion
             .as_ref()
-            .is_some_and(|s| !EMOTIONS.contains(&s.as_str()))
+            .is_some_and(|s| !capability.emotions.contains(s))
         {
             issue(
                 &mut issues,
@@ -181,7 +186,7 @@ pub fn validate_settings(settings: &ProductionSettings) -> Result<(), Vec<FieldI
         if binding
             .performance
             .intensity_permille
-            .is_some_and(|v| v > 1_000)
+            .is_some_and(|v| v > 1_000 || (!capability.intensity_supported && v != 0))
         {
             issue(
                 &mut issues,
@@ -295,10 +300,11 @@ pub fn validate_rights_declaration(
             model_id,
             voice_id,
         } => {
-            if provider_id != "reference-only"
-                || !["reference-v1", "reference-v2"].contains(&model_id.as_str())
-                || !["synthetic-narrator", "synthetic-character"].contains(&voice_id.as_str())
-            {
+            if !production_catalog().capabilities.iter().any(|capability| {
+                capability.provider_id == *provider_id
+                    && capability.model_id == *model_id
+                    && capability.voice_ids.contains(voice_id)
+            }) {
                 issue(&mut issues, "claim.subject", "unsupported_reference_voice");
             }
         }
@@ -464,6 +470,46 @@ fn resolve_inputs(
                 rule: "effective_text_too_large".into(),
             }]
         })?;
+        let performance = SynthesisPerformance {
+            rate_permille: binding.performance.rate_permille,
+            pitch_semitones: binding.performance.pitch_semitones,
+            emotion: Some(
+                binding
+                    .performance
+                    .emotion
+                    .clone()
+                    .unwrap_or(facts.delivery.emotion),
+            ),
+            intensity_permille: Some(
+                binding
+                    .performance
+                    .intensity_permille
+                    .unwrap_or(facts.delivery.intensity_permille),
+            ),
+        };
+        let local = binding.provider_id == local_contract::PROVIDER_ID;
+        if local {
+            if performance.emotion.as_deref() != Some("neutral")
+                || performance.intensity_permille != Some(0)
+            {
+                issue(
+                    &mut issues,
+                    format!("dialogues.{}.performance", line.dialogue_id()),
+                    "unsupported_control",
+                );
+            }
+            if !local_contract::valid_text(&text) {
+                issue(
+                    &mut issues,
+                    format!("dialogues.{}.text", line.dialogue_id()),
+                    if text.len() > local_contract::MAX_TEXT_BYTES {
+                        "local_text_too_large"
+                    } else {
+                        "invalid_local_text"
+                    },
+                );
+            }
+        }
         let resolved_line = ResolvedSynthesisInput {
             dialogue_id: line.dialogue_id().into(),
             character_id: line.speaker_id().into(),
@@ -473,25 +519,19 @@ fn resolve_inputs(
             model_id: binding.model_id.clone(),
             voice_id: binding.voice_id.clone(),
             voice_rights_record_id: binding.voice_rights_record_id.clone(),
-            adapter_version: ADAPTER_VERSION.into(),
-            output_contract: OUTPUT_CONTRACT.into(),
-            performance: SynthesisPerformance {
-                rate_permille: binding.performance.rate_permille,
-                pitch_semitones: binding.performance.pitch_semitones,
-                emotion: Some(
-                    binding
-                        .performance
-                        .emotion
-                        .clone()
-                        .unwrap_or(facts.delivery.emotion),
-                ),
-                intensity_permille: Some(
-                    binding
-                        .performance
-                        .intensity_permille
-                        .unwrap_or(facts.delivery.intensity_permille),
-                ),
-            },
+            adapter_version: if local {
+                local_contract::ADAPTER_VERSION
+            } else {
+                ADAPTER_VERSION
+            }
+            .into(),
+            output_contract: if local {
+                local_contract::OUTPUT_CONTRACT
+            } else {
+                OUTPUT_CONTRACT
+            }
+            .into(),
+            performance,
             pronunciation,
         };
         let bytes = serde_json::to_vec(&resolved_line).map_err(|_| {

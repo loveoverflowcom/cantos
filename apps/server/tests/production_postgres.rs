@@ -300,6 +300,90 @@ fn fixture_claim(id: &str, subject: ProductionRightsSubject) -> ProductionRights
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
+async fn local_casting_rights_and_snapshot_approval_survive_reopen() {
+    let h = Harness::new(true).await;
+    h.ready().await;
+    let mut request = h.settings().await;
+    for (binding, voice) in
+        request
+            .settings
+            .bindings
+            .iter_mut()
+            .zip(["vi", "vi-vn-x-central", "vi-vn-x-south"])
+    {
+        binding.provider_id = "espeak-ng-local".into();
+        binding.model_id = "espeak-ng-1.52.0".into();
+        binding.voice_id = voice.into();
+        binding.voice_rights_record_id = format!("local_voice_{}", binding.character_id);
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+        h.claim(fixture_claim(
+            &binding.voice_rights_record_id,
+            ProductionRightsSubject::Voice {
+                provider_id: binding.provider_id.clone(),
+                model_id: binding.model_id.clone(),
+                voice_id: binding.voice_id.clone(),
+            },
+        ))
+        .await;
+    }
+    h.store
+        .save_production_settings(ALICE, &h.script, request)
+        .await
+        .unwrap();
+    let snapshot = h.freeze().await;
+    assert!(snapshot.document.resolved.iter().all(|line| {
+        line.provider_id == "espeak-ng-local"
+            && line.adapter_version == "espeak-ng-local-v1"
+            && line.output_contract == "wav-pcm-s16le-mono-22050-v1"
+    }));
+    h.store
+        .approve_production(
+            ALICE,
+            &h.script,
+            &snapshot.id,
+            ApproveProductionRequest {
+                operation_id: Uuid::new_v4().to_string(),
+                input_digest: snapshot.document.input_digest.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    let mut config = h.config.clone();
+    config.user("cantos_app");
+    let reopened = Store::new(config).unwrap();
+    let eligible = reopened
+        .production_eligibility(ALICE, &h.script, &snapshot.id)
+        .await
+        .unwrap();
+    assert!(eligible.inputs_eligible && eligible.approval_current);
+    assert!(!eligible.billable_dispatch_available);
+    assert!(matches!(
+        reopened
+            .production_eligibility(BOB, &h.script, &snapshot.id)
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    let mut changed = h.settings().await;
+    changed.settings.bindings = snapshot.document.settings.settings.bindings.clone();
+    changed.settings.bindings[0].voice_id = "vi-vn-x-central".into();
+    changed.settings.bindings[0].voice_rights_record_id = "local_voice_an".into();
+    h.store
+        .save_production_settings(ALICE, &h.script, changed)
+        .await
+        .unwrap();
+    assert!(
+        !reopened
+            .production_eligibility(ALICE, &h.script, &snapshot.id)
+            .await
+            .unwrap()
+            .approval_current
+    );
+    assert_eq!(h.counts().await.2, 1);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
 async fn immutable_candidates_and_exact_concurrent_replays_survive_reopen() {
     let h = Harness::new(true).await;
     h.ready().await;
@@ -609,7 +693,15 @@ async fn private_http_and_owner_actions_fail_closed_and_blocked_candidate_is_ins
     assert!(production_catalog()
         .capabilities
         .iter()
-        .all(|capability| capability.reference_only && !capability.billable_dispatch_available));
+        .all(|capability| !capability.billable_dispatch_available));
+    assert_eq!(
+        production_catalog()
+            .capabilities
+            .iter()
+            .filter(|c| c.reference_only)
+            .count(),
+        2
+    );
 }
 
 #[tokio::test]

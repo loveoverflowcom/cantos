@@ -18,19 +18,29 @@ Studio comparison flow; see the [import evidence](docs/evidence/manuscript-impor
 The bounded adaptation implementation exports immutable source/revision context through
 [authenticated HTTP/CLI tools](contracts/adaptation-v1.md), validates host-created proposals,
 and supports explicit Studio review/acceptance. Gemini / ChatGPT / Codex generation belongs to
-the user-controlled host; Cantos performs no inference. [Adaptation evidence](docs/evidence/ai-script-adaptation.md)
+the user-controlled host; Cantos performs no model inference for adaptation. [Adaptation evidence](docs/evidence/ai-script-adaptation.md)
 separates actual tool/storage tests from synthetic content and unrun model quality. The [structured Studio editor](docs/evidence/studio-script-editor.md) adds scene/dialogue/character authoring,
 validation previews, source comparison and revision history on that same authority.
 [Casting and production inputs](docs/evidence/casting-production-inputs.md) add versioned
 reference-only voice controls, script-scoped rights/budget declarations, immutable candidates
 and exact owner approval on the same backend. Reference capabilities and rates are planning
-fixtures; no TTS/LLM call, reservation, actual charge or audio is produced. Production execution,
+fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. Production execution,
 Theatre and native mobile playback remain planned. No runnable Gradle project or production
 identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
 reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)
 compares two versions of one episode by stable ID and reports edited, moved, added and removed
 lines, cues and characters plus provenance and rights changes; it is a review aid, not a reuse decision.
+A [local TTS probe and receipt inspection CLI](docs/evidence/tts-receipt-inspection.md) now
+exercise the user-authorized eSpeak NG 1.52.0 path. Real samples from all three supported
+Vietnamese voices were generated and validated as native 22,050 Hz mono 16-bit PCM WAV.
+The probe saves private frozen-input, intent, receipt and output-hash records; the inspector
+checks exact scope and conservative recovery facts. Listening quality is **NOT_RUN**.
+This is a sample path, with explicit neutral/default controls and no production dispatch
+authorization, durable jobs or asset acceptance. Commercial provider/terms/budget selection and
+its live sample remain deferred; this completes only part of #6 and does not close the issue.
+See [local selection](docs/decisions/0008-local-tts-inspection.md) and
+[provider prerequisites](docs/evidence/tts-provider-prerequisites.md).
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 
@@ -87,6 +97,7 @@ python3 scripts/reference_script_ir.py
 cargo run --locked --bin validate-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
 cargo build --locked --bin inspect-wav
 python3 scripts/reference_wav_inspection.py
+cargo test -p cantos-server --test tts_receipt --test tts_attempt --test tts_audio --locked
 cargo run --locked --bin diff-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json contracts/fixtures/script-ir/0.1.0/accept/provenance.json
 ```
 
