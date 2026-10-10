@@ -52,6 +52,13 @@ integer planning estimates and exact frozen input identity, then reevaluates cur
 approval. PostgreSQL production adapters append settings/claims/candidates/approvals on the same
 identity/evidence/revision authority; the HTTP layer and Studio share raw DTOs. No generation,
 accounting engine, provider transport, service or DBSP read model is introduced by #5.
+The focused #6 local inspection slice adds the pure `tts::local_contract` descriptor/text
+predicate and receipt/audio/recovery rules inside the server package. Its explicit
+`probe-local-tts` CLI invokes one installed eSpeak engine and writes private sample evidence;
+HTTP remains planning-only. This is not a production worker, cache or audio-acceptance path.
+[ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
+and proposed production adoption. Existing PostgreSQL queries/schema and publication/listening
+boundaries are unchanged; no new read model or DBSP consumer is justified.
 The Studio WASM consumer imports only `cantos-api`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
 in the same server package. `apps/mobile/` remains a guide; Gradle belongs to the native

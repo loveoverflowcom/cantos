@@ -16,11 +16,21 @@ locally verified #5 slice, including real PostgreSQL/HTTP recovery and observed 
 freeze/approval/stale-input behavior. GitHub owns acceptance and execution status.
 
 The user controls Gemini / ChatGPT / Codex and requests tool calls; Cantos owns the data pipeline.
-The former local/open-source generation prerequisite is superseded, not passed. Do not install
-Ollama/models or run local inference. Provider adapters and real generation belong to #6 and later
-work after explicit provider, rights and spend authorization. #5 supplies only settings, rights,
-budget and immutable authorization inputs: no TTS call, audio preview, reservation, charge,
-worker or provider credential is implied by its acceptance.
+The host-owned adaptation choice superseded the former mandatory local-model prerequisite.
+#5 supplies only settings, rights, budget and immutable authorization inputs: no TTS call,
+audio preview, reservation, charge, worker or provider credential is implied by its acceptance.
+
+For the current #6 slice, the user subsequently authorized local installation and TTS. The
+implemented eSpeak NG 1.52.0 probe generated and validated actual Vietnamese samples for `vi`,
+`vi-vn-x-central` and `vi-vn-x-south`, preserving native 22,050 Hz mono signed 16-bit PCM.
+The adapter admits explicit neutral/default controls and rejects unsupported intent; it saves
+private frozen-input, intent, receipt and output-hash records. This is sample-only execution,
+with no current production authorization, durable jobs, reservation or asset acceptance.
+Listening quality is **NOT_RUN**. [ADR 0008](../decisions/0008-local-tts-inspection.md) records
+the resolved local selection; [execution evidence](../evidence/tts-receipt-inspection.md)
+separates actual synthesis from synthetic tests. Commercial selection, terms, applicable rights,
+authentication boundary, spending cap and live sample remain deferred. This is part of #6 and
+does not satisfy its complete acceptance criteria.
 
 Later slices use PostgreSQL-backed background job states, bounded retries, recovery after
 interruption, cancellation and per-dialogue result caching. Reuse results only when all
@@ -40,8 +50,9 @@ Final episode mastering/publication, a distributed job platform, automatic provi
 ## Suggested sequence
 
 1. Establish casting and generation inputs for one validated episode version.
-2. Integrate explicitly authorized provider adapters with useful errors and cost records; select
-   a real provider and test budget before any paid call. No local inference path is required.
+2. Integrate explicitly authorized provider adapters with useful errors and cost records. The
+   bounded local eSpeak sample path is implemented; choose the commercial provider, applicable
+   terms/rights and test budget before any cloud/paid call. A neural local-model path is not required.
 3. Implement durable execution, restart recovery, and stable result association.
 4. Add casting controls, queue progress, clip preview, and partial regeneration to Studio.
 
@@ -84,8 +95,10 @@ versioned meaning. Real-person voices/cloning require specific recorded consent 
 ## Follow-ups
 
 Defer provider auto-routing, expanded catalogs and batching for throughput. A provider mismatch
-or duplicate-result association is a correctness issue required before mixing. Recommend #6
-only after #5's own acceptance and review; this plan does not start it automatically.
+or duplicate-result association is a correctness issue required before mixing. Continue the
+unfinished #6 commercial and production criteria after their explicit decisions; preserve the
+local probe's sample-only boundary and historical reference snapshots. The current requested
+execution stops at #6 and does not start #7's durable job slice.
 
 ## GitHub execution
 

@@ -26,8 +26,20 @@ rights/budget declarations, immutable frozen candidates and exact owner approval
 and Studio. Its [schema](schema/production/v1.schema.json) and
 [synthetic fixtures](fixtures/production/v1/README.md) describe a reference-only capability
 catalog. Current eligibility is computed from authoritative facts; freezing is preservation,
-not permission to dispatch. No voice availability, legal verification, provider price, audio,
-reservation or actual billing receipt is claimed.
+not permission to dispatch. Those reference fixtures establish no real voice availability,
+legal verification, provider price, audio, reservation or actual billing receipt. Historical
+reference snapshots keep their exact identities and output contracts. The catalog now also
+declares the separately implemented local eSpeak inspection entry; its availability evidence
+belongs to the bounded local TTS slice.
+
+The [offline TTS receipt inspection contract](tts-receipt-v1.md) is a local server CLI format
+over those exact frozen documents. It checks synthetic and actual local WAV bytes plus
+caller-recorded attempt/cost facts without changing authority. A user-invoked eSpeak NG 1.52.0
+probe saves private frozen-input/intent/receipt/output records with an explicit native 22,050 Hz
+PCM profile. Three Vietnamese voices have live synthesis/byte-validation evidence; listening
+quality is **NOT_RUN**. There is no shared synthesis API, current production authorization,
+durable job or audio-asset acceptance. Commercial selection and its live sample remain deferred;
+the local slice does not close #6.
 
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its
 `0.1.0-draft` version is illustrative and explicitly unsupported by the reader. The new fixtures

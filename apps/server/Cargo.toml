@@ -21,6 +21,9 @@ uuid = { version = "=1.18.1", features = ["v4"] }
 quick-xml = "=0.38.4"
 zip = { version = "=4.6.1", default-features = false, features = ["deflate"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.190"
+
 [dev-dependencies]
 jsonschema = { version = "=0.33.0", default-features = false }
 tower = { version = "=0.5.2", features = ["util"] }

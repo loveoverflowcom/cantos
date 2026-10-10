@@ -184,11 +184,15 @@ fn codes(
 #[test]
 fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim() {
     let catalog = production_catalog();
-    assert_eq!(catalog.capabilities.len(), 2);
+    assert_eq!(catalog.capabilities.len(), 3);
     assert!(catalog
         .capabilities
         .iter()
+        .take(2)
         .all(|capability| capability.reference_only && !capability.billable_dispatch_available));
+    let local = &catalog.capabilities[2];
+    assert_eq!(local.provider_id, "espeak-ng-local");
+    assert!(!local.reference_only && !local.billable_dispatch_available);
     let prepared = prepare_inputs("owner", &revision(), &settings(), &rights(), true, NOW).unwrap();
     let preview = prepared.preview();
     assert!(preview.inputs_eligible);
@@ -220,6 +224,141 @@ fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim(
             rate_version: "fixture-rate-v1".into(),
         }
     );
+}
+
+#[test]
+fn local_casting_preserves_requested_identity_and_rejects_inherited_unsupported_delivery() {
+    let mut local_settings = settings();
+    for binding in &mut local_settings.settings.bindings {
+        binding.provider_id = "espeak-ng-local".into();
+        binding.model_id = "espeak-ng-1.52.0".into();
+        binding.voice_id = "vi".into();
+    }
+    let errors = prepare_inputs("owner", &revision(), &local_settings, &[], true, NOW)
+        .err()
+        .unwrap();
+    assert!(errors
+        .iter()
+        .any(|e| e.rule == "unsupported_control" && e.path.contains("performance")));
+    for binding in &mut local_settings.settings.bindings {
+        // This is an explicit reviewed override, never an adapter fallback.
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    let document = prepare_inputs("owner", &revision(), &local_settings, &[], true, NOW)
+        .unwrap()
+        .document();
+    assert_eq!(document.resolved[0].provider_id, "espeak-ng-local");
+    assert_eq!(document.resolved[0].adapter_version, "espeak-ng-local-v1");
+    assert_eq!(
+        document.resolved[0].output_contract,
+        "wav-pcm-s16le-mono-22050-v1"
+    );
+    assert_ne!(document.input_digest, crate::document().input_digest);
+    local_settings.settings.bindings[0]
+        .performance
+        .pitch_semitones = 1;
+    assert_eq!(
+        validate_settings(&local_settings.settings).unwrap_err(),
+        vec![FieldIssue {
+            path: "bindings[0].performance.pitch_semitones".into(),
+            rule: "unsupported_control".into()
+        }]
+    );
+    local_settings.settings.bindings[0]
+        .performance
+        .pitch_semitones = 0;
+    local_settings.settings.bindings[0].voice_id = "invented-voice".into();
+    assert_eq!(
+        validate_settings(&local_settings.settings).unwrap_err(),
+        vec![FieldIssue {
+            path: "bindings[0].voice_id".into(),
+            rule: "unsupported_control".into()
+        }]
+    );
+}
+
+fn local_settings() -> ProductionSettingsResponse {
+    let mut settings = settings();
+    for binding in &mut settings.settings.bindings {
+        binding.provider_id = "espeak-ng-local".into();
+        binding.model_id = "espeak-ng-1.52.0".into();
+        binding.voice_id = "vi".into();
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    settings
+}
+
+#[test]
+fn local_freeze_rejects_line_separators_and_phoneme_syntax_after_pronunciation_resolution() {
+    for replacement in ["Ánh\u{2028}đèn", "Ánh\u{2029}đèn", "[[a]]", "[["] {
+        let mut settings = local_settings();
+        settings.settings.bindings[0].pronunciation = vec![ProductionPronunciation {
+            surface: "Ánh đèn".into(),
+            replacement: replacement.into(),
+        }];
+        // The generic declaration remains valid; the local effective-text gate
+        // must reject the resulting bytes before any candidate can be frozen.
+        assert_eq!(validate_settings(&settings.settings), Ok(()));
+        assert_eq!(
+            prepare_inputs("owner", &revision(), &settings, &[], true, NOW)
+                .err()
+                .unwrap(),
+            vec![FieldIssue {
+                path: "dialogues.dialogue-01.text".into(),
+                rule: "invalid_local_text".into(),
+            }]
+        );
+    }
+}
+
+#[test]
+fn local_freeze_rejects_phoneme_syntax_created_across_pronunciation_boundaries() {
+    let mut raw: Value = serde_json::from_slice(SCRIPT).unwrap();
+    raw["episode"]["acts"][0]["scenes"][0]["dialogues"][0]["text"] = json!("[Ánh");
+    let revision = revision_from_json(&raw);
+    let mut settings = local_settings();
+    settings.settings.bindings[0].pronunciation = vec![ProductionPronunciation {
+        surface: "Ánh".into(),
+        replacement: "[a]]".into(),
+    }];
+    assert_eq!(
+        prepare_inputs("owner", &revision, &settings, &[], true, NOW)
+            .err()
+            .unwrap(),
+        vec![FieldIssue {
+            path: "dialogues.dialogue-01.text".into(),
+            rule: "invalid_local_text".into(),
+        }]
+    );
+}
+
+#[test]
+fn reference_candidates_preserve_preexisting_text_admission_and_exact_replacements() {
+    for replacement in ["Ánh\u{2028}đèn", "Ánh\u{2029}đèn", "[[a]]", "[["] {
+        let mut settings = settings();
+        settings.settings.bindings[0].pronunciation = vec![ProductionPronunciation {
+            surface: "Ánh đèn".into(),
+            replacement: replacement.into(),
+        }];
+        let document = prepare_inputs("owner", &revision(), &settings, &rights(), true, NOW)
+            .unwrap()
+            .document();
+        assert_eq!(
+            document.resolved[0].text,
+            format!("{replacement} cuối cùng còn sáng trên sân khấu.")
+        );
+        assert_eq!(document.resolved[0].provider_id, "reference-only");
+        assert_eq!(
+            document.resolved[0].adapter_version,
+            "reference-only-no-dispatch-v1"
+        );
+        assert_eq!(
+            document.resolved[0].output_contract,
+            "reference-only/no-audio"
+        );
+    }
 }
 
 #[test]

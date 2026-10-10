@@ -1,13 +1,22 @@
 # MVP work queue
 
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
-production-input implementation in [020](020-cast-and-generate-dialogue.md) now has
+production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,
-adaptation and structured editor authority from 010. Recommend
-[#6](https://github.com/loveoverflowcom/cantos/issues/6) next, after #5 acceptance and review,
-for one concrete provider adapter with explicit provider, applicable rights and spend inputs.
-This queue starts no provider call or generation work. GitHub owns acceptance and execution
-status; the queue preserves recommended order and rationale.
+adaptation and structured editor authority from 010. The current work remains
+[#6](https://github.com/loveoverflowcom/cantos/issues/6): its user-authorized local eSpeak NG
+1.52.0 sample path is implemented, with real generation and native 22,050 Hz mono 16-bit PCM
+validation for all three supported Vietnamese voices. Listening quality is **NOT_RUN**.
+GitHub owns acceptance and execution status; this queue preserves recommended order and rationale.
+
+The [local probe and receipt inspection](../evidence/tts-receipt-inspection.md) bind private
+frozen-input/intent/receipt/output records to exact #5 snapshot identity and conservative
+recovery facts. They grant no current production authorization, durable jobs or asset acceptance.
+The [local selection](../decisions/0008-local-tts-inspection.md) is resolved for this sample scope;
+commercial provider/terms/voice rights/authentication/spending cap and its real sample remain
+deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md). Continue only
+within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
+starting #7. The current requested execution stops at #6.
 
 The repository has documentation/templates, an executable
 [Script IR contract](../../contracts/README.md), and a local authenticated immutable revision
@@ -123,10 +132,12 @@ The [casting input evidence](../evidence/casting-production-inputs.md) and
 rights/budget policy, owner approval and immutable snapshots on that same PostgreSQL authority.
 The bounded implementation is locally verified through domain/wire/schema checks, real
 PostgreSQL/HTTP restart journeys and the observed Studio freeze/approval/stale-input flow.
-The reference capability catalog establishes no real voice availability or billable eligibility.
-After #5 acceptance and review, recommend [#6](https://github.com/loveoverflowcom/cantos/issues/6)
-for a concrete, explicitly authorized provider adapter; do not start generation automatically. The
-user's host-owned policy supersedes the former local/open-source generation requirement.
-Ollama/model installation, local inference, paid TTS calls and credentials are outside #5.
+Historical reference capabilities establish no real voice availability or billable eligibility.
+The catalog now also exposes the explicit eSpeak local inspection entry, with billable dispatch
+unavailable. [#6](https://github.com/loveoverflowcom/cantos/issues/6) has actual local sample
+evidence under the user's subsequent local authorization; its commercial path still needs an
+explicit decision and remains unrun. The earlier host-owned adaptation policy and the #5
+no-generation boundary remain intact. This local sample choice grants neither cloud credentials
+nor paid-call permission and does not advance execution to #7.
 DBSP remains deferred for bounded authorized point/history reads; revisit only if measured
 query/cardinality changes meet the admission conditions in the affected read inventory.
