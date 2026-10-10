@@ -1,3 +1,10 @@
-//! Cantos domain modules. There is no HTTP host or persistence adapter yet.
+//! Cantos domain modules, the creator script API and its PostgreSQL adapter.
 
+pub mod auth;
+pub mod editorial;
+mod http;
 pub mod script_ir;
+mod store;
+
+pub use http::router;
+pub use store::migrate;

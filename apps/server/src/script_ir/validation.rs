@@ -265,11 +265,20 @@ pub(super) fn validate(mut raw: RawScript) -> Result<ScriptContent, Vec<Diagnost
 
 // The only conversion into domain fields, called after complete shape + semantic checks.
 fn into_content(raw: RawScript) -> ScriptContent {
+    // Validation has already rejected a work source_ref without a provenance entry.
+    let source_record_id = raw
+        .provenance
+        .iter()
+        .map(RawSource::fields)
+        .find(|(id, ..)| *id == raw.work.source_ref)
+        .map(|(_, record, ..)| record.to_owned())
+        .unwrap_or_default();
     ScriptContent {
         work: Work {
             id: Id(raw.work.id),
             title: Text(raw.work.title),
             source_ref: Id(raw.work.source_ref),
+            source_record_id: Id(source_record_id),
             rights_record_id: Id(raw.work.rights_record_id),
         },
         adaptation: Adaptation {

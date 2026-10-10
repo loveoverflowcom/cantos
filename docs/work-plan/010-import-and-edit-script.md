@@ -16,6 +16,15 @@ Persist source references, script versions, permission/publication eligibility m
 
 TTS, audio mixing, public playback, a general document-conversion service, real-time collaborative editing, or a universal schema for every narrative project.
 
+## Implemented foundation and remaining boundary
+
+The [server](../../apps/server/README.md) implements authenticated Script IR save/read/history,
+immutable acceptance, PostgreSQL persistence and conflict/retry handling. The
+[evidence ledger](../evidence/script-revisions.md) records its exact checks. Source/provenance
+and pending rights assertions are retained; they do not grant publication eligibility.
+The next boundary is the minimal Leptos save/reopen consumer for #1. Importers, adaptation and
+the complete editor remain subsequent work; this slice does not meet the full 010 review gate.
+
 ## Dependencies
 
 The project brief and architecture guidance. An executable [Script IR contract](../../contracts/README.md)

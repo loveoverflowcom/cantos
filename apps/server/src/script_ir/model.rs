@@ -27,6 +27,8 @@ pub(super) struct Work {
     pub id: Id,
     pub title: Text,
     pub source_ref: Id,
+    /// Resolved from `source_ref` by validation; derived, so never encoded.
+    pub source_record_id: Id,
     pub rights_record_id: Id,
 }
 
@@ -159,6 +161,23 @@ impl SpokenLine<'_> {
 }
 
 impl ScriptContent {
+    pub fn work_id(&self) -> &str {
+        &self.work.id.0
+    }
+    pub fn adaptation_id(&self) -> &str {
+        &self.adaptation.id.0
+    }
+    pub fn episode_id(&self) -> &str {
+        &self.episode.id.0
+    }
+    /// External source record behind the work's provenance entry.
+    pub fn work_source_record_id(&self) -> &str {
+        &self.work.source_record_id.0
+    }
+    pub fn work_rights_record_id(&self) -> &str {
+        &self.work.rights_record_id.0
+    }
+
     pub fn spoken_lines(&self) -> impl Iterator<Item = SpokenLine<'_>> {
         self.episode
             .acts

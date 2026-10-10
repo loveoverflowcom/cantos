@@ -1,18 +1,15 @@
 # Radio score
 
 Status: agent-operated authoring convention for the [story workspace](story-workspace.md).
-Script IR 0.1.0 and its editorial revision backend are integration dependencies.
-They were inspected in the local backend work during authoring but are not included in this
-skills-only change. Detect their availability in the active checkout; use the provisional
-draft route below when absent. A Markdown converter, browser importer, production worker and TTS/mix adapter
+The strict [Script IR 0.1.0 contract](../../contracts/README.md) and editorial revision
+backend exist. A Markdown converter, browser importer, production worker and TTS/mix adapter
 are not supplied by this convention.
 
 ## One authoritative script
 
 Store each episode revision under `score/` as
 `episode_0001.r0001.script-ir.json`. The JSON document is the authoritative performance content;
-when the contract is available, it uses `contracts/script-ir/schema.json` without extra fields.
-If it is absent, start with the provisional Markdown draft described below.
+it uses the existing [schema](../../contracts/schema/script-ir/0.1.0.schema.json), without extra fields.
 Episode and revision numbers help people navigate files. They do not determine stable entity
 IDs, database versions, acceptance or approval.
 
@@ -31,10 +28,10 @@ The score index points to exactly one active authoring artifact for that episode
 bindings are resolved, convert/review a new Script IR revision, preserve the draft as provenance
 and mark it superseded by that JSON/hash. Do not keep two independently editable masters.
 
-When present, use `contracts/script-ir/fixtures/accepted/episode.json` as the small complete
-example after checking it against the active validator. The old
+Use [the original Vietnamese accepted fixture](../../contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json)
+as the small complete example. The old
 [`0.1.0-draft` example](../../contracts/examples/episode-draft.json) is illustrative and rejected
-by the inspected 0.1.0 backend; it is not a template for new scores.
+by the current backend; it is not a template for new scores.
 
 The [story workspace contract](story-workspace.md) owns story matching, filenames beyond this
 score convention, indexes, Drive synchronization, offline work and recovery issues. This
@@ -133,24 +130,23 @@ unchanged performance remains tied to its original snapshot. Stable entity and d
 survive all these updates. Follow the workspace's common index, sync and offline protocol for
 both the active map and snapshots.
 
-## Map intent to Script IR 0.1.0
+## Map intent to the implemented contract
 
-When available, the Rust validator at `apps/server/src/script_ir.rs`, with wire definitions
-at `apps/server/src/script_ir/wire.rs`, is authoritative for semantic acceptance. Verify the
-active contract before using the mapping below, which describes the inspected 0.1.0 slice.
-Without that validator, semantic acceptance remains pending. JSON Schema alone is insufficient.
+The [Rust reader and validator](../../apps/server/src/script_ir/mod.rs), with its
+[wire definitions](../../apps/server/src/script_ir/wire.rs), is authoritative for semantic
+acceptance. JSON Schema validation alone is insufficient.
 
 | Authoring intent | Admitted representation | Review obligation |
 | --- | --- | --- |
 | A character speaks | `dialogues[].speaker_id` resolves to a character; `text` holds only words to be spoken | Confirm speaker and source coverage |
 | Narration | A character with `role: "narrator"` speaks an ordinary dialogue | Exactly one narrator character exists, even when used sparingly |
-| Emotional delivery | Optional `delivery` with `emotion` and integer `intensity_permille` | Closed emotions: `neutral`, `calm`, `hopeful`, `warm`, `sad`, `joyful`, `angry`, `fearful`; semantic intensity range is 0–1000 |
-| Inspectable pronunciation | `pronunciation` entries with `surface` and `respelling` | Targets must occur without ambiguity or overlap; do not hide provider markup in text |
-| Audible panting, a door, footsteps | Scene `sound_cues[]` with `kind: "effect"` and a precise description | Identify the performer where relevant; panting as an effect is different from a required breathy speaking style |
+| Emotional delivery | Required `delivery` with `emotion` and integer `intensity_permille` | Closed emotions: `neutral`, `calm`, `hopeful`, `warm`, `sad`, `angry`; semantic intensity range is 0–1000 |
+| Inspectable pronunciation | Optional `pronunciation_overrides` entries with `surface` and `replacement` | Replacements apply to every non-overlapping occurrence; targets from different overrides must not overlap; do not hide provider markup in text |
+| Audible panting, a door, footsteps | Scene `sound_cues[]` with `kind: "sfx"` and a precise description | Identify the performer where relevant; panting as an effect is different from a required breathy speaking style |
 | Gentle music | `kind: "music"` | Describe the intention; actual asset and mixing settings require resolution |
 | Wildlife, rain, background room tone | `kind: "ambience"` | Explain location and dramatic purpose; avoid covering dialogue |
 | Cue placement | `anchor.dialogue_id` and `anchor.edge: "start"` or `"end"` | The referenced dialogue belongs to the same scene |
-| Selected sound asset | Both `asset_ref` and `rights_ref`, or neither | References are opaque IDs, not download links or proof of permission |
+| Selected sound asset | Optional `asset` object with both `id` and `rights_record_id` | References are opaque IDs, not download links or proof of permission |
 
 Keep `[thở gấp]`, `[nhạc nhẹ]`, SSML, sound URLs and mixer commands out of spoken `text`.
 Do not invent fields such as `breath`, `pace`, `pause_ms`, `gain`, `fade`, `audio_url` or
@@ -192,10 +188,13 @@ an event.
 The coverage table, name-map snapshot reference and hash, review findings, file hashes, source
 URLs, workflow status and production notes are provenance/review records outside Script IR.
 Do not add them to the JSON schema.
-`work.source_ref` and `work.rights_ref` refer to matching immutable backend records, not to
-Drive file IDs, URLs or arbitrary rights-status strings. Before backend submission, resolve
-these records using the creator script API described in `contracts/http/script-api.md`, when implemented
-and available in the active checkout.
+`work.source_ref` resolves to a provenance entry carrying `source_record_id` and
+`rights_record_id`; work, adaptation and selected cue assets carry their own
+`rights_record_id` references. These are not Drive file IDs, URLs or rights-status strings.
+The [creator script API](../../contracts/http/script-api.md) creates immutable source/rights
+records matching the work's external references and preserves the complete provenance document.
+Additional provenance, adaptation rights and asset references remain unresolved by this backend;
+their ownership and eligibility require explicit downstream evidence before production.
 
 Preserve IDs when a dialogue or scene moves or changes. Mint new IDs through the workflow's
 identity allocation, never from text, row position or an unvalidated AI response. An edit
@@ -213,11 +212,17 @@ record, unresolved findings/controls, review evidence and next action. A review 
 bound to those bytes. It does not imply backend acceptance, casting clearance, completed audio
 or publication approval.
 
-Run only checks that exist and label their scope. When present,
-`contracts/script-ir/check_fixtures.py` checks its committed fixture corpus; it is not a CLI validator for an arbitrary new score. If the application validator is
-not available for the candidate, record semantic validation as pending instead of calling a
-JSON parse or a schema pass full validation. A new converter or validator command requires a
-separate implementation and evidence.
+Run the implemented reader on the exact candidate from the repository root:
+
+```sh
+cargo run --locked --bin validate-script -- /path/to/episode_0001.r0001.script-ir.json
+```
+
+The CLI checks shape, text and references within the document; it does not resolve external
+records or grant backend acceptance or rights clearance. The independent
+[`reference_script_ir.py`](../../scripts/reference_script_ir.py) checks committed canonical
+goldens, not arbitrary score semantics. If the reader cannot run on the candidate, record
+semantic validation as pending. A JSON parse or a schema pass is not full validation.
 
 The adaptation workflow composes
 [`cantos-script-ir`](../../.agents/skills/cantos-script-ir/SKILL.md), its

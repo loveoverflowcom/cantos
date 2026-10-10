@@ -1,10 +1,12 @@
 # Versioned Script IR
 
 Script IR `0.1.0` has an implemented [JSON Schema, reader and semantic contract](../../contracts/README.md)
-with [local test evidence](../evidence/script-ir-contract.md). The
+with [local test evidence](../evidence/script-ir-contract.md), and the
+[script revision backend](../../apps/server/README.md) persists it as immutable revisions. The
 [policy ADR](../decisions/0002-script-ir-contract.md) remains proposed for production adoption.
 The unchanged [example](../../contracts/examples/episode-draft.json) is historical illustrative
-`0.1.0-draft` JSON, explicitly unsupported by this reader; it is not a Narrative Forge format.
+`0.1.0-draft` JSON, explicitly unsupported by this reader and rejected by the live API; it is not
+a Narrative Forge format.
 
 ## Purpose
 
@@ -36,7 +38,8 @@ The [contract](../../contracts/README.md) specifies canonical content/export/spe
 tagged SHA-256 digests and the exact read/write set `{0.1.0}`. Schema compatibility and semantic
 compatibility both matter: accepting a new field must not silently discard performance meaning.
 Reject unsupported versions with an actionable error; future explicit converters must preserve
-provenance. No converter or persisted revision lifecycle is implemented here.
+provenance. No converter is implemented; persisted revisions store the complete canonical export
+([ADR 0004](../decisions/0004-editorial-persistence.md)).
 
 ## TTS cache boundary
 
@@ -47,3 +50,13 @@ Scene mix fingerprints additionally include ordered speech assets, timing, cue a
 ## Narrative Forge integration
 
 Reuse concepts, not internal types by assumption. Introduce an import/export adapter only after inspecting the actual versioned Narrative Forge contract. Keep its mapping and round-trip fixtures at the boundary; log lossy conversions for review. Cantos remains runnable without that repository, database or service.
+
+## Implemented editorial persistence
+
+The [server API](../../contracts/http/script-api.md) stores every save as an immutable version
+behind a guarded draft head. Acceptance records the exact reviewed saved version; later edits
+leave accepted content unchanged. Source and rights references are private immutable records,
+with rights assertions pending review. New acceptances require the current head; retrying an
+already accepted version returns the original revision. These are editorial facts, not production
+or publication approval. See [ADR 0004](../decisions/0004-editorial-persistence.md) and the
+[evidence ledger](../evidence/script-revisions.md).

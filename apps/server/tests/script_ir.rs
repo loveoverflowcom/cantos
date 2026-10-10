@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
-use cantos_server::script_ir::{read_canonical_script, read_script, ReadError, ScriptContent};
-use serde_json::{json, Value};
+use cantos_server::script_ir::{ReadError, ScriptContent, read_canonical_script, read_script};
+use serde_json::{Value, json};
 use unicode_normalization::UnicodeNormalization;
 
 fn corpus() -> PathBuf {
@@ -581,9 +581,11 @@ fn cli_runs_real_admission_and_returns_nonzero_for_rejected_input() {
         .output()
         .unwrap();
     assert_eq!(invalid.status.code(), Some(1));
-    assert!(String::from_utf8(invalid.stderr)
-        .unwrap()
-        .contains("UnknownSpeaker"));
+    assert!(
+        String::from_utf8(invalid.stderr)
+            .unwrap()
+            .contains("UnknownSpeaker")
+    );
 }
 
 #[test]

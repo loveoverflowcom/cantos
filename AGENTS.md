@@ -2,7 +2,7 @@
 
 ## Scope and source of truth
 
-Read [README.md](README.md), the relevant product/architecture docs and [docs/work-plan/README.md](docs/work-plan/README.md) before implementing a feature. This is a documentation and template bootstrap; inspect actual code before treating a proposed module, schema, command or API as implemented.
+Read [README.md](README.md), the relevant product/architecture docs and [docs/work-plan/README.md](docs/work-plan/README.md) before implementing a feature. The script revision backend and contracts are implemented; Web, mobile and production execution remain planned. Inspect actual code before treating a proposed module, schema, command or API as implemented.
 
 The current user's instructions take priority. Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
 
@@ -41,7 +41,7 @@ Skills own working method; `docs/` owns product rules. Keep one copy of each ski
 
 ## Verification
 
-Run `python3 scripts/check_repository.py`, `python3 -m unittest discover -s scripts -p 'test_*.py'` and `git diff --check` for this bootstrap. Once code exists, run the documented checks appropriate to the change. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
+Run `python3 scripts/check_repository.py`, `python3 -m unittest discover -s scripts -p 'test_*.py'` and `git diff --check` for this bootstrap. For Rust changes run `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings` and `cargo test --workspace --locked`. Persistence changes also require `TEST_DATABASE_URL` pointing to disposable PostgreSQL and `cargo test -p cantos-server --test persistence --locked -- --ignored --test-threads=1`; see `apps/server/README.md`. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
 The implemented Script IR package also requires `cargo fmt --all -- --check`,
 `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked`

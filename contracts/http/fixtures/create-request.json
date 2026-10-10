@@ -1,0 +1,154 @@
+{
+  "operation_id": "00000000-0000-4000-8000-000000000003",
+  "content": {
+    "schema_version": "0.1.0",
+    "work": {
+      "id": "work-demo",
+      "title": "Ánh đèn cuối sân khấu",
+      "rights_record_id": "rights-demo",
+      "source_ref": "origin-demo"
+    },
+    "adaptation": {
+      "id": "adaptation-demo",
+      "language": "vi-VN",
+      "rights_record_id": "rights-adaptation-demo",
+      "provenance_refs": [
+        "origin-demo"
+      ]
+    },
+    "characters": [
+      {
+        "id": "narrator",
+        "name": "Người dẫn chuyện",
+        "role": "narrator",
+        "personality": "Calm and observant"
+      },
+      {
+        "id": "an",
+        "name": "An",
+        "role": "character",
+        "personality": "Curious and hopeful"
+      },
+      {
+        "id": "minh",
+        "name": "Minh",
+        "role": "character",
+        "personality": "Reserved but warm"
+      }
+    ],
+    "episode": {
+      "id": "episode-demo-01",
+      "title": "Một lời hẹn",
+      "acts": [
+        {
+          "id": "act-01",
+          "title": "Sân khấu trống",
+          "scenes": [
+            {
+              "id": "scene-01",
+              "title": "Sau buổi diễn",
+              "dialogues": [
+                {
+                  "id": "dialogue-01",
+                  "speaker_id": "narrator",
+                  "text": "Ánh đèn cuối cùng còn sáng trên sân khấu.",
+                  "delivery": {
+                    "emotion": "calm",
+                    "intensity_permille": 300
+                  },
+                  "pronunciation_overrides": []
+                },
+                {
+                  "id": "dialogue-02",
+                  "speaker_id": "an",
+                  "text": "Ngày mai, mình có diễn tiếp không?",
+                  "delivery": {
+                    "emotion": "hopeful",
+                    "intensity_permille": 600
+                  },
+                  "pronunciation_overrides": []
+                },
+                {
+                  "id": "dialogue-03",
+                  "speaker_id": "minh",
+                  "text": "Có chứ. Tôi sẽ chờ cậu ở đây.",
+                  "delivery": {
+                    "emotion": "warm",
+                    "intensity_permille": 400
+                  },
+                  "pronunciation_overrides": []
+                }
+              ],
+              "sound_cues": [
+                {
+                  "id": "cue-01",
+                  "kind": "ambience",
+                  "description": "Quiet theatre room tone",
+                  "anchor": {
+                    "dialogue_id": "dialogue-01",
+                    "edge": "start"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "scene-02",
+              "title": "Bên cửa sổ",
+              "dialogues": [
+                {
+                  "id": "dialogue-04",
+                  "speaker_id": "an",
+                  "text": "Vọng Đài vẫn sáng… Hẹn gặp lại!",
+                  "delivery": {
+                    "emotion": "warm",
+                    "intensity_permille": 400
+                  },
+                  "pronunciation_overrides": [
+                    {
+                      "surface": "Vọng Đài",
+                      "replacement": "Vọng Đài"
+                    }
+                  ]
+                }
+              ],
+              "sound_cues": [
+                {
+                  "id": "cue-02",
+                  "kind": "sfx",
+                  "description": "Tiếng cửa khép nhẹ",
+                  "anchor": {
+                    "dialogue_id": "dialogue-04",
+                    "edge": "end"
+                  },
+                  "asset": {
+                    "id": "asset-demo",
+                    "rights_record_id": "rights-asset-demo"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "provenance": [
+      {
+        "id": "origin-demo",
+        "kind": "original",
+        "source_record_id": "source-demo",
+        "rights_record_id": "rights-demo"
+      }
+    ]
+  },
+  "source": {
+    "id": "source-demo",
+    "kind": "original",
+    "reference": "fixture:original-stage-scene",
+    "original_text": "Ánh đèn cuối cùng còn sáng trên sân khấu.\nNgày mai, mình có diễn tiếp không?\nHẹn gặp ở Vọng Đài.\n"
+  },
+  "rights": {
+    "id": "rights-demo",
+    "holder": "Cantos test fixture authors",
+    "evidence_reference": "fixture:original-content-declaration"
+  }
+}

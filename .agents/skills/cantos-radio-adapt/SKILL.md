@@ -3,8 +3,8 @@ name: cantos-radio-adapt
 description: >-
   Adapt authorized story source artifacts into a dialogue-forward Cantos radio score with
   explicit speakers, delivery, music, ambience and effects. Preserve plot and source coverage,
-  replace all proper names through a versioned YAML entity map, use available Script IR 0.1.0
-  or a provisional draft until its contract and backend bindings are available, record unresolved controls
+  replace all proper names through a versioned YAML entity map, use implemented Script IR 0.1.0
+  as the authoritative script, record unresolved controls
   and hand off exact revisions through the shared Drive/local story workspace. Use when asked
   to rewrite a story lightly for audio drama, prepare a radio play, mark performance or sound
   cues, or revise a story's score for TTS. This is an artifact authoring workflow, not a new
@@ -27,8 +27,7 @@ It owns the adaptation workflow and handoff, and composes existing rule owners.
    [name-map template](../../../templates/story-name-map.yml).
 4. [`cantos-script-ir`](../cantos-script-ir/SKILL.md), its
    [import/adaptation reference](../cantos-script-ir/references/import-and-adaptation.md) and the
-   actual contract at `contracts/script-ir/README.md`, when present: untrusted input, IDs and
-   validation. If absent, follow the provisional draft route in the radio-score document.
+   [actual contract](../../../contracts/README.md): untrusted input, IDs and validation.
 5. [`cantos-publication`](../cantos-publication/SKILL.md): provenance, applicable rights and the
    distinction between editorial review and permission to produce or publish.
 
@@ -62,9 +61,8 @@ syntax or unsupported field to the score to make a desired performance look impl
 5. **Author one master.** Snapshot the map as a new immutable `score/name_map.rNNNN.yml` and
    pin its filename and byte SHA-256 in the adaptation report, outside Script IR. Write a new
    `score/*.script-ir.json` revision conforming to the
-   available 0.1.0 contract. If the contract or real source/rights bindings are missing,
-   author `*.draft.md` marked `binding_pending` and `not_for_tts` as the sole active master
-   instead; preserve it when a later validated JSON revision supersedes it.
+   implemented 0.1.0 contract. If real source/rights bindings or the backend are unavailable,
+   use the provisional `binding_pending`, `not_for_tts` draft route in the radio-score document.
    Preserve existing stable IDs, allocate new IDs independently of
    content and position, and keep sound instructions out of spoken text. Use typed music,
    ambience and effect cues. Keep unsupported required controls unresolved in review notes

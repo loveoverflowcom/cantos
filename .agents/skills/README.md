@@ -43,11 +43,11 @@ side in the same change when it is in scope.
 
 ## Repository reality
 
-This branch contains documentation, agent workflows and the local story initializer. Backend
-availability can differ between checkouts: inspect the server guide, contracts and actual code
-before naming an implemented validator or worker. The story artifact skills operate files
-through available tools; they are not backend workers. When Script IR or backend bindings are
-unavailable, use the provisional score draft route. Report only checks actually run. The
+Cantos now has an implemented Rust/Axum Script IR and editorial revision backend with
+PostgreSQL persistence; inspect [the server guide](../../apps/server/README.md) and current
+contracts/code. Web, mobile, import/adaptation and production execution remain planned. The
+story artifact skills operate files through available tools; they are not backend workers.
+Discover manifests and scripts before naming commands, and report only checks actually run. The
 checks that exist today are:
 
 ```sh

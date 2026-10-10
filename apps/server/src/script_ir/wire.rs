@@ -167,10 +167,11 @@ fn integer_intensity<'de, D: serde::Deserializer<'de>>(decoder: D) -> Result<u16
     if let Some(number) = number.as_u64() {
         return u16::try_from(number).map_err(serde::de::Error::custom);
     }
-    if let Some(number) = number.as_f64() {
-        if number.fract() == 0.0 && (0.0..=f64::from(u16::MAX)).contains(&number) {
-            return Ok(number as u16);
-        }
+    if let Some(number) = number.as_f64()
+        && number.fract() == 0.0
+        && (0.0..=f64::from(u16::MAX)).contains(&number)
+    {
+        return Ok(number as u16);
     }
     Err(serde::de::Error::custom("expected an unsigned integer"))
 }
@@ -259,7 +260,7 @@ pub(super) fn decode(bytes: &[u8]) -> Result<RawScript, ReadError> {
             return Err(ReadError::UnsupportedSchemaVersion {
                 found: version,
                 supported: WRITE_VERSION,
-            })
+            });
         }
         Some(_) => {}
     }

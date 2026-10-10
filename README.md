@@ -8,8 +8,11 @@ Cantos produces performances with a cast, narration, atmosphere, music and sound
 
 This repository contains product specifications, architecture decisions, directory guides and
 project-management templates, plus an executable Rust [Script IR contract](contracts/README.md)
-and validation CLI. The Axum HTTP host, persistence/auth, Web apps, production workers and mobile
-player are **not implemented yet**. No runnable Gradle project is claimed.
+with a validation CLI and a runnable Axum backend with PostgreSQL-backed, authenticated script
+revisions. See the [server guide](apps/server/README.md) and the evidence for the
+[contract](docs/evidence/script-ir-contract.md) and [revisions](docs/evidence/script-revisions.md).
+Web apps, production workers and the mobile player are **not implemented yet**. No runnable Gradle
+project is claimed. This slice contributes to issue #1; it does not complete the MVP.
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 
@@ -37,10 +40,10 @@ Start with one modular backend. Worker execution can run separately for resource
 
 | Path | Responsibility at bootstrap |
 | --- | --- |
-| `apps/server/` | Script IR domain/reader and validation CLI; guide for the future Axum host |
+| `apps/server/` | Axum host, Script IR reader/validation CLI, editorial core, PostgreSQL migrations and tests |
 | `apps/web/` | Guide for Studio and Theatre Web |
 | `apps/mobile/` | Guide for the native CMP listening app |
-| `contracts/` | Script IR JSON Schema, compatibility/validation fixtures and canonical policy |
+| `contracts/` | Versioned Script IR and HTTP schemas, compatibility/validation fixtures and canonical policy |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |
@@ -48,15 +51,20 @@ Start with one modular backend. Worker execution can run separately for resource
 | `.github/` | Issue forms, PR template and repository checks |
 | `scripts/` | Repository checks, story initializer, independent digest oracle and bounded mutation runner |
 
-## Validate the bootstrap
+## Validate the repository
 
 ```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+# TEST_DATABASE_URL must point to a disposable PostgreSQL instance; see the server guide.
+cargo test -p cantos-server --test persistence --locked -- --ignored --test-threads=1
 python3 scripts/check_repository.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 git diff --check
 ```
 
-Verify the implemented contract with Rust 1.87:
+Verify with the Rust toolchain pinned in [rust-toolchain.toml](rust-toolchain.toml):
 
 ```sh
 cargo fmt --all -- --check
@@ -66,11 +74,14 @@ python3 scripts/reference_script_ir.py
 cargo run --locked --bin validate-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
 ```
 
-[Contract evidence](docs/evidence/script-ir-contract.md) names the actual verification boundary.
+The PostgreSQL integration suite additionally needs a disposable database; the
+[server guide](apps/server/README.md) documents provisioning, migrations, token management and
+startup. [Contract evidence](docs/evidence/script-ir-contract.md) and
+[revision evidence](docs/evidence/script-revisions.md) name the actual verification boundaries.
 On macOS where temporary symlink tests encounter `/var` versus `/private/var`, use
-`TMPDIR=/private/tmp` for the Python unit/mutation runs. Database migration, full application
-and audio QA commands will be added with those implementations. [.env.example](.env.example)
-records proposed configuration names only; it does not start services.
+`TMPDIR=/private/tmp` for the Python unit/mutation runs. [.env.example](.env.example)
+distinguishes consumed server configuration from proposed future service names. No audio or
+mobile test is claimed.
 
 ## MVP completion
 

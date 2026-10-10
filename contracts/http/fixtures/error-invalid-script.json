@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": "invalid_script",
+    "reason": "semantic",
+    "issues": [
+      {
+        "path": "episode/act:act-01/scene:scene-01/dialogue:dialogue-01/speaker_id",
+        "issue": {
+          "code": "unknown_speaker",
+          "speaker_id": "unknown-speaker"
+        }
+      }
+    ]
+  }
+}

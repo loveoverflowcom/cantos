@@ -1,0 +1,46 @@
+[
+  {
+    "file": "create-request.json",
+    "definition": "CreateRequest"
+  },
+  {
+    "file": "save-request.json",
+    "definition": "SaveRequest"
+  },
+  {
+    "file": "accept-request.json",
+    "definition": "AcceptRequest"
+  },
+  {
+    "file": "script-view.json",
+    "definition": "ScriptView"
+  },
+  {
+    "file": "saved-version.json",
+    "definition": "SavedVersion"
+  },
+  {
+    "file": "accepted-revision.json",
+    "definition": "AcceptedRevision"
+  },
+  {
+    "file": "history.json",
+    "definition": "History"
+  },
+  {
+    "file": "error-auth.json",
+    "definition": "ErrorResponse"
+  },
+  {
+    "file": "error-conflict.json",
+    "definition": "ErrorResponse"
+  },
+  {
+    "file": "error-invalid-script.json",
+    "definition": "ErrorResponse"
+  },
+  {
+    "file": "health.json",
+    "definition": "Health"
+  }
+]

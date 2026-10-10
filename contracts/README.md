@@ -3,9 +3,11 @@
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
 [Rust reader and semantic validator](../apps/server/src/script_ir/mod.rs), and
-[Vietnamese fixtures](fixtures/script-ir/0.1.0). This implements the contract part of
-[#1](https://github.com/loveoverflowcom/cantos/issues/1). There are no HTTP endpoints or
-generated client bindings yet.
+[Vietnamese fixtures](fixtures/script-ir/0.1.0). The [creator HTTP API v1](http/script-api.md)
+has a request/response JSON Schema, error and retry contract, and fixtures consumed by tests
+against real Axum/PostgreSQL responses. Together these implement the contract and revision parts
+of [#1](https://github.com/loveoverflowcom/cantos/issues/1). There are no generated client
+bindings yet.
 
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its
 `0.1.0-draft` version is illustrative and explicitly unsupported by the reader. The new fixtures
@@ -78,8 +80,8 @@ placement: `hòa` and `hoà` remain distinct. Source bytes are kept outside Git 
 Semantic errors accumulate in fixed traversal order: work, adaptation references, narrator count,
 characters, episode/acts/scenes/dialogues/cues, provenance IDs. Paths use stable IDs where known;
 lists without identities use indexes. Shape errors use JSON Pointers; deserialization failures
-include a line, column and cause. Shape failure stops before semantic validation. There are no
-HTTP error mappings yet. Bracketed spoken text is retained; detecting cue-like markup for human
+include a line, column and cause. Shape failure stops before semantic validation. The
+[HTTP API](http/script-api.md#errors) maps these to `invalid_script` without serializer text. Bracketed spoken text is retained; detecting cue-like markup for human
 review remains editor/importer work.
 
 ## Canonical bytes and digest c1
@@ -125,7 +127,7 @@ rights expiry, casting completeness and publication readiness are not proved by 
 
 ## Run and verify
 
-From the repository root with Rust 1.87 and Python 3:
+From the repository root with the pinned Rust toolchain and Python 3:
 
 ```sh
 cargo run --locked --bin validate-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
@@ -143,6 +145,6 @@ bytes, digest and speech bytes produced by the independent Python JSON/SHA-256 o
 regeneration uses `python3 scripts/reference_script_ir.py --write-goldens`; tests never update them.
 The mutation runner checks seven named substitutions in a disposable offline copy.
 
-See [local evidence and remaining gates](../docs/evidence/script-ir-contract.md). HTTP/OpenAPI
-contracts and generated Rust/Kotlin bindings must identify their source and generation command
-when real endpoints/consumers are added.
+See [local evidence and remaining gates](../docs/evidence/script-ir-contract.md). Generated
+Leptos/Kotlin bindings must identify their source and generation command when real consumers are
+added. No Narrative Forge interchange is implemented.

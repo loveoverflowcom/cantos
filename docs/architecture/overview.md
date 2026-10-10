@@ -1,9 +1,9 @@
 # Architecture overview
 
-Status: target runtime design. The [Script IR domain/CLI](../../apps/server/README.md) is
-implemented and locally tested; HTTP, persistence, workers and clients remain planned. The
-user-selected stack and modular starting point are recorded in
-[decision 0001](../decisions/0001-modular-monolith.md).
+Status: target runtime design. The [Script IR domain/CLI and script revision backend](../../apps/server/README.md)
+implement the first Script IR/editorial, HTTP and PostgreSQL boundaries and are locally tested;
+workers and clients remain planned. The user-selected stack and modular starting point are
+recorded in [decision 0001](../decisions/0001-modular-monolith.md).
 
 ## Runtime and ownership
 
@@ -39,14 +39,14 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 
 ## Initial source layout
 
-The root Cargo workspace contains one `apps/server/` package, whose Script IR module serves the
-validation CLI and contract tests. `apps/web/` and `apps/mobile/` still contain guides. The
-remaining first implementation slice will establish Axum/PostgreSQL/Leptos runtime paths;
-Gradle belongs to the native listening slice. Keep shared contracts in `contracts/`; add shared
-Rust modules/packages only as their consumers appear.
+The root Cargo workspace contains one runnable `apps/server/` package with migrations and tests;
+its Script IR module also serves the validation CLI and contract tests. `apps/web/` and
+`apps/mobile/` still contain guides; their manifests and verification commands will arrive with
+their consumers, and Gradle belongs to the native listening slice. Keep shared contracts in
+`contracts/`; add shared Rust modules/packages only as their consumers appear.
 
 ## First verification targets
 
 Use an original short two-character scene and synthetic/fake providers for deterministic tests. Then exercise a real provider behind explicit cost limits. Verify editing one dialogue, crashing/restarting a worker, retrying an ambiguous provider attempt, failing upload, failing QC, rejecting stale approval and publishing a replacement while listeners retain a playable prior release.
 
-Do not claim production readiness from document checks or a simulated provider. Deployment, authentication provider, concrete TTS provider, media presets and storage/CDN vendor remain implementation decisions.
+Do not claim production readiness from document checks or a simulated provider. Deployment, browser identity provider, concrete TTS provider, media presets and storage/CDN vendor remain implementation decisions. The initial operator-provisioned creator-token choice is recorded in [ADR 0003](../decisions/0003-creator-authentication.md).
