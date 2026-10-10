@@ -1,0 +1,291 @@
+{
+  "versions": [
+    {
+      "script_id": "00000000-0000-4000-8000-000000000002",
+      "version": 1,
+      "base_version": 0,
+      "operation_id": "00000000-0000-4000-8000-000000000003",
+      "actor_id": "00000000-0000-4000-8000-000000000001",
+      "created_at": "2026-10-09T00:00:00Z",
+      "content": {
+        "schema_version": "0.1.0",
+        "work": {
+          "id": "work-demo",
+          "title": "Ánh đèn cuối sân khấu",
+          "source_ref": "source-demo",
+          "rights_ref": "rights-demo"
+        },
+        "adaptation": {
+          "id": "adaptation-demo",
+          "language": "vi-VN"
+        },
+        "characters": [
+          {
+            "id": "an",
+            "name": "An",
+            "role": "character"
+          },
+          {
+            "id": "narrator",
+            "name": "Người dẫn chuyện",
+            "role": "narrator",
+            "characterization": "Calm and observant"
+          }
+        ],
+        "episode": {
+          "id": "episode-demo-01",
+          "title": "Một lời hẹn",
+          "acts": [
+            {
+              "id": "act-01",
+              "title": "Sân khấu trống",
+              "scenes": [
+                {
+                  "id": "scene-01",
+                  "title": "Sau buổi diễn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-01",
+                      "speaker_id": "narrator",
+                      "text": "Ánh đèn cuối cùng còn sáng trên sân khấu.",
+                      "delivery": {
+                        "emotion": "calm",
+                        "intensity_permille": 300
+                      }
+                    },
+                    {
+                      "id": "dialogue-02",
+                      "speaker_id": "an",
+                      "text": "Ngày mai, mình có diễn tiếp không?"
+                    }
+                  ],
+                  "sound_cues": [
+                    {
+                      "id": "cue-01",
+                      "kind": "ambience",
+                      "description": "Quiet theatre room tone",
+                      "anchor": {
+                        "dialogue_id": "dialogue-01",
+                        "edge": "start"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "scene-02",
+                  "title": "Lời hẹn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-03",
+                      "speaker_id": "an",
+                      "text": "Hẹn gặp ở Vọng Đài.",
+                      "pronunciation": [
+                        {
+                          "surface": "Vọng Đài",
+                          "respelling": "Vọng Đài"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "digest": "cantos-script-v1:sha256:d043e920fc19a6a7bd44d8ed06cecfc001b30b5d43b246cc7371a5458e86d19a"
+    },
+    {
+      "script_id": "00000000-0000-4000-8000-000000000002",
+      "version": 2,
+      "base_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000004",
+      "actor_id": "00000000-0000-4000-8000-000000000001",
+      "created_at": "2026-10-09T00:01:00Z",
+      "content": {
+        "schema_version": "0.1.0",
+        "work": {
+          "id": "work-demo",
+          "title": "Ánh đèn cuối sân khấu",
+          "source_ref": "source-demo",
+          "rights_ref": "rights-demo"
+        },
+        "adaptation": {
+          "id": "adaptation-demo",
+          "language": "vi-VN"
+        },
+        "characters": [
+          {
+            "id": "an",
+            "name": "An",
+            "role": "character"
+          },
+          {
+            "id": "narrator",
+            "name": "Người dẫn chuyện",
+            "role": "narrator",
+            "characterization": "Calm and observant"
+          }
+        ],
+        "episode": {
+          "id": "episode-demo-01",
+          "title": "Một lời hẹn",
+          "acts": [
+            {
+              "id": "act-01",
+              "title": "Sân khấu trống",
+              "scenes": [
+                {
+                  "id": "scene-01",
+                  "title": "Sau buổi diễn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-01",
+                      "speaker_id": "narrator",
+                      "text": "Ánh đèn cuối cùng còn sáng trên sân khấu.",
+                      "delivery": {
+                        "emotion": "calm",
+                        "intensity_permille": 300
+                      }
+                    },
+                    {
+                      "id": "dialogue-02",
+                      "speaker_id": "an",
+                      "text": "Ngày mai, mình có diễn tiếp không?"
+                    }
+                  ],
+                  "sound_cues": [
+                    {
+                      "id": "cue-01",
+                      "kind": "ambience",
+                      "description": "Quiet theatre room tone",
+                      "anchor": {
+                        "dialogue_id": "dialogue-01",
+                        "edge": "start"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "scene-02",
+                  "title": "Lời hẹn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-03",
+                      "speaker_id": "an",
+                      "text": "Hẹn gặp ở Vọng Đài.",
+                      "pronunciation": [
+                        {
+                          "surface": "Vọng Đài",
+                          "respelling": "Vọng Đài"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "digest": "cantos-script-v1:sha256:d043e920fc19a6a7bd44d8ed06cecfc001b30b5d43b246cc7371a5458e86d19a"
+    }
+  ],
+  "revisions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "script_id": "00000000-0000-4000-8000-000000000002",
+      "version": 2,
+      "operation_id": "00000000-0000-4000-8000-000000000005",
+      "actor_id": "00000000-0000-4000-8000-000000000001",
+      "created_at": "2026-10-09T00:02:00Z",
+      "digest": "cantos-script-v1:sha256:d043e920fc19a6a7bd44d8ed06cecfc001b30b5d43b246cc7371a5458e86d19a",
+      "content": {
+        "schema_version": "0.1.0",
+        "work": {
+          "id": "work-demo",
+          "title": "Ánh đèn cuối sân khấu",
+          "source_ref": "source-demo",
+          "rights_ref": "rights-demo"
+        },
+        "adaptation": {
+          "id": "adaptation-demo",
+          "language": "vi-VN"
+        },
+        "characters": [
+          {
+            "id": "an",
+            "name": "An",
+            "role": "character"
+          },
+          {
+            "id": "narrator",
+            "name": "Người dẫn chuyện",
+            "role": "narrator",
+            "characterization": "Calm and observant"
+          }
+        ],
+        "episode": {
+          "id": "episode-demo-01",
+          "title": "Một lời hẹn",
+          "acts": [
+            {
+              "id": "act-01",
+              "title": "Sân khấu trống",
+              "scenes": [
+                {
+                  "id": "scene-01",
+                  "title": "Sau buổi diễn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-01",
+                      "speaker_id": "narrator",
+                      "text": "Ánh đèn cuối cùng còn sáng trên sân khấu.",
+                      "delivery": {
+                        "emotion": "calm",
+                        "intensity_permille": 300
+                      }
+                    },
+                    {
+                      "id": "dialogue-02",
+                      "speaker_id": "an",
+                      "text": "Ngày mai, mình có diễn tiếp không?"
+                    }
+                  ],
+                  "sound_cues": [
+                    {
+                      "id": "cue-01",
+                      "kind": "ambience",
+                      "description": "Quiet theatre room tone",
+                      "anchor": {
+                        "dialogue_id": "dialogue-01",
+                        "edge": "start"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "scene-02",
+                  "title": "Lời hẹn",
+                  "dialogues": [
+                    {
+                      "id": "dialogue-03",
+                      "speaker_id": "an",
+                      "text": "Hẹn gặp ở Vọng Đài.",
+                      "pronunciation": [
+                        {
+                          "surface": "Vọng Đài",
+                          "respelling": "Vọng Đài"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

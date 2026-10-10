@@ -1,7 +1,14 @@
 # Contracts
 
-This directory owns versioned interchange descriptions and representative fixtures. It currently contains only an [illustrative episode](examples/episode-draft.json), described by the [Script IR proposal](../docs/architecture/script-ir.md).
+- [Script IR 0.1.0](script-ir/README.md): authoritative JSON Schema, semantic validation,
+  canonical digest policy and original Vietnamese compatibility fixtures.
+- [Creator HTTP API v1](http/script-api.md): request/response JSON Schema, error and retry
+  contract, fixtures consumed by tests against real Axum/PostgreSQL responses.
 
-The draft fixture is original sample content, with rights deliberately `pending_review`; it is not publishable or proof of an implemented API. No AI provider, production voice or media asset is selected.
+The old [illustrative episode](examples/episode-draft.json) uses `0.1.0-draft` and remains a
+historical design example. The server deliberately rejects it; no silent conversion or loss of
+performance meaning is allowed. No Narrative Forge interchange is implemented.
 
-The first implementation must add an authoritative schema, semantic validation, explicit compatibility/version rules and actual HTTP/OpenAPI contracts where endpoints exist. Validate generated Rust/Kotlin client types against those contracts rather than manually maintaining divergent definitions. Generated files must identify their source and generation command.
+Sources are original synthetic fixtures, not private manuscripts. Rights assertions are pending
+review and grant no production/publication permission. Rust request types are validated against
+these contracts; generated Leptos/Kotlin clients will be added with their actual consumers.

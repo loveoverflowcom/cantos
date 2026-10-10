@@ -25,10 +25,12 @@ and [report](../cantos-engineering/SKILL.md#9-completion-report) without redefin
 
 ## Ground rules
 
-- **Nothing is implemented.** No Script IR module, JSON Schema, validator, migration or fixture
-  corpus exists. [`episode-draft.json`](../../../contracts/examples/episode-draft.json) is an
-  illustrative `0.1.0-draft` sample, not a contract. Every type, path and command below is a
-  proposal; inspect manifests, `contracts/` and existing tests before naming one as real.
+- **Implemented slice.** [Script IR 0.1.0](../../../contracts/script-ir/README.md), its strict
+  schema/validator and the Axum/PostgreSQL revision backend exist. Import/adaptation conversion
+  and production execution remain planned. [`episode-draft.json`](../../../contracts/examples/episode-draft.json)
+  is an illustrative `0.1.0-draft` sample rejected by that contract. The actual contract/code
+  takes precedence over proposed types and examples below; inspect current tests before
+  claiming enforcement for any rule.
 - **Docs win for product behavior.** When this skill and an owning document disagree, follow the
   document, report the conflict and fix the stale side when it is in scope.
 - **The IR is a pure domain value.** It imports no Axum, SQL client, Leptos, Compose, provider
@@ -86,7 +88,7 @@ Drafts admit the incomplete states an editor needs, each as a named variant; sub
 them into the strict types or returns every reason it cannot:
 
 ```rust
-// Illustrative and proposed: no Script IR module exists yet.
+// Illustrative proposed draft API; inspect the implemented strict Script IR separately.
 pub enum SpeakerRef {
     Resolved(CharacterId),
     Unresolved { label: String }, // e.g. an AI-proposed "Bà cụ" not yet in the cast
@@ -100,8 +102,9 @@ pub fn validate_for_submission(draft: &DraftScript) -> Result<ScriptContent, Val
 ## Rules
 
 Each rule states the failure it prevents, a good example and a counterexample, its oracle, its
-enforcement status and its exception. Today every rule is enforced by manual review only; the
-named tests are proposed until the code exists.
+enforcement status and its exception. The current validator and revision backend enforce a
+subset; inspect the actual tests for evidence. Named examples below remain proposals unless
+found in the code. Do not infer that import, TTS or publication is implemented.
 
 **SIR-1 Mint stable IDs; never derive them.** IDs are opaque, ASCII (`[a-z0-9_-]`, bounded),
 unique within the script and minted by the shell, then passed into the core.

@@ -63,3 +63,14 @@ label it as such. Missing evaluator execution is `not run`.
 | R17 | Loads `cantos-engineering` fuzzing + `cantos-script-ir` import; passes the untrusted-input gate; requires an ADR for nightly and a separate fuzz workspace; plans archive/XML limits, a corpus built in code with Vietnamese seeds and promotion of crashes to the suite; labels the result `fuzz-tested`, robustness only | Adds a target without limits; seeds with a private manuscript; claims the importer is verified |
 | R18 | Loads the extraction recipes and `cantos-publication`; extracts a pure `decide_publication` over facts read inside the commit transaction that returns every blocker; commit takes witnesses; tests one defect per row plus an all-defects row and a rejection-changes-nothing check | Keeps `?` short-circuiting; leaves the decision in the handler |
 | R19 | Loads `cantos-production-pipeline`; routes through `classify_failure`, `decide_next_step` and a bounded jittered backoff with the clock and jitter as inputs; separates not-sent from ambiguous failures; counts attempts from durable history; names fault points | A `loop` with `sleep`; retries an ambiguous timeout blindly; resets the counter on re-claim |
+
+## Story workspace routing cases
+
+| ID | Prompt / raw input | Expected boundary and evidence |
+| --- | --- | --- |
+| R20 | "Capture chapters 1–10 from this URL in the Cantos Drive folder." Browser works; curl returns 403. | `cantos-story-ingest`; resolve work identity, browser capture then local extraction, exact coverage and hashes, Drive readback, clean only temporary files. |
+| R21 | "Rewrite this for radio with more dialogue, panting, doors and birds; replace every proper name." Existing name map contains an alias also used as a common noun. | `cantos-radio-adapt`; pin raw and map revision, context-aware mapping across all entity kinds, preserve IDs, typed cues outside spoken text, unresolved controls and exact coverage. |
+| R22 | "Upload finished chapters." Drive response times out; local files exist. | Reconcile operation ID/remote candidates before another upload; retain `pending_sync`; deduplicate recovery issue or preserve `pending_issue` draft if GitHub also fails. |
+| R23 | "Generate final audio; assume the latest score." Map and score changed after review. | `cantos-audio-produce`; pin reviewed score/map/cast, invalidate stale review, capability/cost checks, no unbounded ambiguous retry, no implied publication. |
+| R24 | "Lightly audit this story." Only manifests and half an episode were inspected; a source name survives in a cue. | `cantos-story-audit`; report exact scope/hash, flag surviving name, disclose sampling and listening gap, sync report/index without modifying source or silently regenerating audio. |
+| R25 | Two unrelated stories share a title; the user sends a new host URL with no author. | Read source/catalog evidence; do not merge by slug, record `identity_unresolved` if unresolved, avoid cross-story writes. |

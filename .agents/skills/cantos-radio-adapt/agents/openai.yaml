@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Radio Adaptation"
+  short_description: "Adapt story sources into versioned radio scores with sound cues"
+  default_prompt: "Use $cantos-radio-adapt to locate this story in the shared workspace, adapt its pinned source lightly into a dialogue-forward Script IR score with explicit speakers and sound cues, review coverage and unresolved controls, and hand off the exact revision with truthful sync and evidence status."

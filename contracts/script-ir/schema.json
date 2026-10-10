@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.dev/contracts/script-ir/0.1.0/schema.json",
+  "title": "Cantos Script IR 0.1.0 shape contract",
+  "$comment": "Validate semantics with the Rust Script IR validator after validating shape. Length, uniqueness, reference resolution, language support and normalization are semantic rules.",
+  "description": "Strict versioned wire shape. No audio bytes, URLs, lifecycle status or casting profiles are admitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "work": {
+      "$ref": "#/$defs/work"
+    },
+    "adaptation": {
+      "$ref": "#/$defs/adaptation"
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/character"
+      }
+    },
+    "episode": {
+      "$ref": "#/$defs/episode"
+    }
+  },
+  "required": [
+    "schema_version",
+    "work",
+    "adaptation",
+    "characters",
+    "episode"
+  ],
+  "$defs": {
+    "work": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "rights_ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "source_ref",
+        "rights_ref"
+      ]
+    },
+    "adaptation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "language"
+      ]
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "narrator",
+            "character"
+          ]
+        },
+        "characterization": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "role"
+      ]
+    },
+    "episode": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "acts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/act"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "acts"
+      ]
+    },
+    "act": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scene"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "scenes"
+      ]
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "dialogues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dialogue"
+          }
+        },
+        "sound_cues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cue"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "dialogues"
+      ]
+    },
+    "dialogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "speaker_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/delivery"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pronunciation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pronunciation"
+          },
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "id",
+        "speaker_id",
+        "text"
+      ]
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "emotion": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "calm",
+            "hopeful",
+            "warm",
+            "sad",
+            "joyful",
+            "angry",
+            "fearful"
+          ]
+        },
+        "intensity_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "required": [
+        "emotion",
+        "intensity_permille"
+      ]
+    },
+    "pronunciation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "surface": {
+          "type": "string"
+        },
+        "respelling": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "surface",
+        "respelling"
+      ]
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "ambience",
+            "music",
+            "effect"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/$defs/anchor"
+        },
+        "asset_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rights_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "description",
+        "anchor"
+      ]
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dialogue_id": {
+          "type": "string"
+        },
+        "edge": {
+          "type": "string",
+          "enum": [
+            "start",
+            "end"
+          ]
+        }
+      },
+      "required": [
+        "dialogue_id",
+        "edge"
+      ]
+    }
+  }
+}

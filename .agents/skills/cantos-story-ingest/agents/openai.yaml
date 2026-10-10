@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Story Ingestion"
+  short_description: "Capture website stories into the shared Cantos workspace."
+  default_prompt: "Use $cantos-story-ingest to capture the requested story through computer use, preserve raw sources and sync the correct Drive folder."

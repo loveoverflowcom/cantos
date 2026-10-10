@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "invalid_script",
+    "issues": [
+      {
+        "code": "unknown_speaker",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/speaker_id"
+      }
+    ]
+  }
+}

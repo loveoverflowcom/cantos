@@ -1,0 +1,31 @@
+{
+  "schema_version": "0.1.0",
+  "work": {
+    "id": "work-demo",
+    "title": "Ánh đèn cuối sân khấu",
+    "source_ref": "source-demo",
+    "rights_ref": "rights-demo"
+  },
+  "adaptation": {
+    "id": "adaptation-demo",
+    "language": "vi-VN"
+  },
+  "characters": [
+    {
+      "id": "narrator",
+      "name": "Người dẫn chuyện",
+      "role": "narrator",
+      "characterization": "Calm and observant"
+    },
+    {
+      "id": "an",
+      "name": "An",
+      "role": "character"
+    }
+  ],
+  "episode": {
+    "id": "episode-demo-01",
+    "title": "Một lời hẹn",
+    "acts": []
+  }
+}

@@ -6,7 +6,7 @@ Cantos produces performances with a cast, narration, atmosphere, music and sound
 
 ## Repository status
 
-This initial repository contains product specifications, architecture decisions, directory guides and project-management templates. The server, Web apps, production workers and mobile player are **not implemented yet**. No runnable Rust or Gradle project is claimed by this bootstrap.
+The repository now includes a runnable Rust/Axum backend with PostgreSQL-backed authenticated script revisions and a validated Script IR contract. See the [server guide](apps/server/README.md) and [evidence ledger](docs/evidence/script-revisions.md). Web apps, production workers and the mobile player are not implemented. This slice contributes to issue #1; it does not complete the MVP.
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 
@@ -34,10 +34,10 @@ Start with one modular backend. Worker execution can run separately for resource
 
 | Path | Responsibility at bootstrap |
 | --- | --- |
-| `apps/server/` | Guide for the future Axum host and production execution |
+| `apps/server/` | Axum host, pure Script IR/editorial core, PostgreSQL migrations and tests |
 | `apps/web/` | Guide for Studio and Theatre Web |
 | `apps/mobile/` | Guide for the native CMP listening app |
-| `contracts/` | Versioning guidance and an illustrative Script IR fixture |
+| `contracts/` | Versioned Script IR and HTTP schemas, fixtures and compatibility policy |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |
@@ -45,15 +45,20 @@ Start with one modular backend. Worker execution can run separately for resource
 | `.github/` | Issue forms, PR template and repository checks |
 | `scripts/` | Dependency-free checks (and their tests) for this documentation bootstrap |
 
-## Validate the bootstrap
+## Validate the repository
 
 ```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+# TEST_DATABASE_URL must point to a disposable PostgreSQL instance; see the server guide.
+cargo test -p cantos-server --test persistence --locked -- --ignored --test-threads=1
 python3 scripts/check_repository.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 git diff --check
 ```
 
-Application build, database migration and audio QA commands will be added with the corresponding implementation. [.env.example](.env.example) records proposed configuration names only; it does not start services.
+The [server guide](apps/server/README.md) documents database provisioning, migrations, token management and startup. [.env.example](.env.example) distinguishes consumed server configuration from proposed future service names. No audio or mobile test is claimed.
 
 ## MVP completion
 

@@ -1,6 +1,6 @@
 # Architecture overview
 
-Status: initial design; there is no application implementation in this bootstrap. The user-selected stack and modular starting point are recorded in [decision 0001](../decisions/0001-modular-monolith.md).
+Status: the [script revision backend](../../apps/server/README.md) implements the first Script IR/editorial, HTTP and PostgreSQL boundaries; other runtime sections remain proposed. The user-selected stack and modular starting point are recorded in [decision 0001](../decisions/0001-modular-monolith.md).
 
 ## Runtime and ownership
 
@@ -36,10 +36,10 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 
 ## Initial source layout
 
-The tracked `apps/server/`, `apps/web/` and `apps/mobile/` directories currently contain guides. The first implementation work item will establish actual Rust/Leptos/Gradle manifests and verification commands. Keep shared contracts in `contracts/`; add shared Rust modules/packages only as their consumers appear.
+`apps/server/` is a runnable Cargo package with migrations and tests. `apps/web/` and `apps/mobile/` still contain guides; their manifests and verification commands will arrive with their consumers. Keep shared contracts in `contracts/`; add shared Rust modules/packages only as their consumers appear.
 
 ## First verification targets
 
 Use an original short two-character scene and synthetic/fake providers for deterministic tests. Then exercise a real provider behind explicit cost limits. Verify editing one dialogue, crashing/restarting a worker, retrying an ambiguous provider attempt, failing upload, failing QC, rejecting stale approval and publishing a replacement while listeners retain a playable prior release.
 
-Do not claim production readiness from document checks or a simulated provider. Deployment, authentication provider, concrete TTS provider, media presets and storage/CDN vendor remain implementation decisions.
+Do not claim production readiness from document checks or a simulated provider. Deployment, browser identity provider, concrete TTS provider, media presets and storage/CDN vendor remain implementation decisions. The initial operator-provisioned creator-token choice is recorded in [ADR 0002](../decisions/0002-creator-authentication.md).

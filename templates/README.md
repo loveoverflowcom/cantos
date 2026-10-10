@@ -8,6 +8,9 @@ Copy a template into the relevant project documentation location and replace eve
 | [Feature brief](feature-brief.md) | Define a bounded creator/listener outcome, scope, dependencies, and acceptance criteria. |
 | [Production run](production-run.md) | Record the exact script, casting, provider, render, cost, and QC evidence for an episode production. |
 | [Publication checklist](publication-checklist.md) | Verify permissions, QC, approval, delivery, and recovery before making an episode revision public. |
+| [Story index](story-index.md) | Record artifact hashes, stage handoffs, name-map revisions and Drive synchronization outside Git. |
+| [Story name map](story-name-map.yml) | Map original proper names and aliases to consistent new names before score authoring. |
+| [Story recovery issue](story-recovery-issue.md) | Track a blocked capture/sync operation without uploading manuscript content to GitHub. |
 
 Suggested document names are `NNNN-short-decision.md`, `feature-short-name.md`, `production-episode-revision.md`, and `publication-episode-revision.md`. Choose a stable naming scheme with the project team; these are suggestions, not identifiers assigned by the system.
 

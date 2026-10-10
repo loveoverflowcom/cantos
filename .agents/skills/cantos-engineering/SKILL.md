@@ -19,9 +19,10 @@ vocabulary and report; none of them redefines these.
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
   document, the work-plan item and the code you will touch. Product rules live in
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
-- **Repository reality.** Cantos is a documentation bootstrap. Discover manifests, scripts and
-  workflows before citing a command. A command in a skill is a proposal until the repository
-  implements it; see [`local-execution.md`](references/local-execution.md).
+- **Repository reality.** Script IR validation and the Axum/PostgreSQL revision backend exist;
+  Web/mobile and production execution remain planned. Inspect actual manifests, scripts and
+  workflows before citing a command. Proposed examples in older references are not proof of
+  availability; see [`local-execution.md`](references/local-execution.md).
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with

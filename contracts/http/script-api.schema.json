@@ -1,0 +1,524 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.dev/contracts/http/v1/script-api.schema.json",
+  "title": "Cantos creator script API v1",
+  "$comment": "Hand-authored transport contract. Select a route-specific $defs definition. Script IR references resolve from the committed local schema; no network retrieval is required. Application validation additionally enforces UTF-8 byte limits, nonblank source/rights text, identity, permissions, concurrency and idempotency.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/CreateRequest"
+    },
+    {
+      "$ref": "#/$defs/SaveRequest"
+    },
+    {
+      "$ref": "#/$defs/AcceptRequest"
+    },
+    {
+      "$ref": "#/$defs/ScriptView"
+    },
+    {
+      "$ref": "#/$defs/SavedVersion"
+    },
+    {
+      "$ref": "#/$defs/AcceptedRevision"
+    },
+    {
+      "$ref": "#/$defs/History"
+    },
+    {
+      "$ref": "#/$defs/ErrorResponse"
+    },
+    {
+      "$ref": "#/$defs/Health"
+    }
+  ],
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "OperationId": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Uuid"
+        },
+        {
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        }
+      ]
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "StableId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ScriptDigest": {
+      "type": "string",
+      "pattern": "^cantos-script-v1:sha256:[a-f0-9]{64}$"
+    },
+    "ScriptContent": {
+      "$ref": "https://cantos.dev/contracts/script-ir/0.1.0/schema.json"
+    },
+    "SourceInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StableId"
+        },
+        "kind": {
+          "enum": [
+            "original",
+            "imported"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "original_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "reference",
+        "original_text"
+      ]
+    },
+    "RightsInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StableId"
+        },
+        "holder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "id",
+        "holder",
+        "evidence_reference"
+      ]
+    },
+    "CreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/OperationId"
+        },
+        "content": {
+          "$ref": "#/$defs/ScriptContent"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceInput"
+        },
+        "rights": {
+          "$ref": "#/$defs/RightsInput"
+        }
+      },
+      "required": [
+        "operation_id",
+        "content",
+        "source",
+        "rights"
+      ]
+    },
+    "SaveRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/OperationId"
+        },
+        "base_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775806
+        },
+        "content": {
+          "$ref": "#/$defs/ScriptContent"
+        }
+      },
+      "required": [
+        "operation_id",
+        "base_version",
+        "content"
+      ]
+    },
+    "AcceptRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/OperationId"
+        },
+        "version": {
+          "$ref": "#/$defs/Version"
+        }
+      },
+      "required": [
+        "operation_id",
+        "version"
+      ]
+    },
+    "SourceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StableId"
+        },
+        "kind": {
+          "enum": [
+            "original",
+            "imported"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "original_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "reference",
+        "original_text",
+        "sha256",
+        "actor_id",
+        "created_at"
+      ]
+    },
+    "RightsRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/StableId"
+        },
+        "holder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "status": {
+          "const": "pending_review"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "holder",
+        "evidence_reference",
+        "status",
+        "actor_id",
+        "created_at"
+      ]
+    },
+    "SavedVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "script_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "version": {
+          "$ref": "#/$defs/Version"
+        },
+        "base_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775806
+        },
+        "operation_id": {
+          "$ref": "#/$defs/OperationId"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "content": {
+          "$ref": "#/$defs/ScriptContent"
+        },
+        "digest": {
+          "$ref": "#/$defs/ScriptDigest"
+        }
+      },
+      "required": [
+        "script_id",
+        "version",
+        "base_version",
+        "operation_id",
+        "actor_id",
+        "created_at",
+        "content",
+        "digest"
+      ]
+    },
+    "AcceptedRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "script_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "version": {
+          "$ref": "#/$defs/Version"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/OperationId"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/ScriptDigest"
+        },
+        "content": {
+          "$ref": "#/$defs/ScriptContent"
+        }
+      },
+      "required": [
+        "id",
+        "script_id",
+        "version",
+        "operation_id",
+        "actor_id",
+        "created_at",
+        "digest",
+        "content"
+      ]
+    },
+    "ScriptView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "head": {
+          "$ref": "#/$defs/SavedVersion"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRecord"
+        },
+        "rights": {
+          "$ref": "#/$defs/RightsRecord"
+        }
+      },
+      "required": [
+        "id",
+        "owner_id",
+        "head",
+        "source",
+        "rights"
+      ]
+    },
+    "History": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "versions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/SavedVersion"
+          }
+        },
+        "revisions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/AcceptedRevision"
+          }
+        }
+      },
+      "required": [
+        "versions",
+        "revisions"
+      ]
+    },
+    "ValidationIssue": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_shape",
+            "unsupported_schema_version",
+            "invalid_id",
+            "duplicate_id",
+            "empty_collection",
+            "empty_text",
+            "text_too_long",
+            "forbidden_text_character",
+            "unsupported_language",
+            "narrator_required",
+            "unknown_speaker",
+            "cue_anchor_unresolved",
+            "cue_rights_required",
+            "invalid_intensity",
+            "pronunciation_target_missing",
+            "pronunciation_target_overlap"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        }
+      },
+      "required": [
+        "code",
+        "path"
+      ]
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "enum": [
+                    "unauthenticated",
+                    "not_found",
+                    "operation_reused",
+                    "identity_changed",
+                    "invalid_request",
+                    "storage_error",
+                    "payload_too_large",
+                    "method_not_allowed",
+                    "storage_unavailable"
+                  ]
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "const": "conflict"
+                },
+                "head_version": {
+                  "$ref": "#/$defs/Version"
+                }
+              },
+              "required": [
+                "code",
+                "head_version"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "const": "invalid_script"
+                },
+                "issues": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "$ref": "#/$defs/ValidationIssue"
+                  }
+                }
+              },
+              "required": [
+                "code",
+                "issues"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "error"
+      ]
+    },
+    "Health": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": "ok"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    }
+  }
+}

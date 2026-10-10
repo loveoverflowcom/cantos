@@ -1,0 +1,54 @@
+# Agent/manual workflow template; no YAML parser or automatic renamer is implemented.
+# Copy to score/name_map.yml, replace all examples, then snapshot as name_map.rNNNN.yml.
+# Pin the immutable snapshot's byte SHA-256 in the score review, never in Script IR.
+# All names, locations and sentences below are original fictional examples for this template.
+schema_version: 1
+revision: 1
+story_id: replace_with_existing_workspace_story_id
+inventory_status: pending
+source_scope: "Replace with pinned source artifact hashes and the reviewed chapter/section range."
+unresolved:
+  - "Template inventory only: inspect the actual source before claiming complete renaming."
+entities:
+  - entity_id: ent_7f9a2c4e
+    kind: person
+    original:
+      canonical: "Bình"
+      aliases:
+        - "chị Bình"
+    target:
+      canonical: "Vũ Kha"
+      aliases:
+        - "chị Vũ Kha"
+    resolution: resolved
+    source_locations:
+      - "Original synthetic example, sentence: Bình dừng lại trước cổng."
+    disambiguation:
+      entity_contexts:
+        - "Bình dừng lại trước cổng. → Vũ Kha dừng lại trước cổng."
+        - "Tôi đã đưa thư cho chị Bình. → Tôi đã đưa thư cho chị Vũ Kha."
+      excluded_contexts:
+        - "Bình sứ trên bàn đã vỡ. — ordinary noun meaning vase; keep the sentence unchanged."
+        - "Căn phòng bình yên. — ordinary adjective phrase; do not replace a substring."
+      unresolved_contexts: []
+    notes: "Identity ID is opaque and survives later target-name changes; it is not derived from Bình."
+  - entity_id: ent_b6d13a8f
+    kind: region
+    original:
+      canonical: "Suối Mây"
+      aliases:
+        - "vùng Suối Mây"
+    target:
+      canonical: "Thung Lụa"
+      aliases:
+        - "vùng Thung Lụa"
+    resolution: resolved
+    source_locations:
+      - "Original synthetic example, sentence: Vùng Suối Mây nằm bên kia dãy núi."
+    disambiguation:
+      entity_contexts:
+        - "Họ trở về vùng Suối Mây. → Họ trở về vùng Thung Lụa."
+      excluded_contexts:
+        - "Do not rename an ordinary unnamed stream or clouds merely because the words resemble the name."
+      unresolved_contexts: []
+    notes: "Match the region in context; new entities sharing an alias require their own identity decision."

@@ -27,3 +27,38 @@ jobs:
         run: python3 scripts/check_repository.py
       - name: Test repository checks
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+  rust-and-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: cantos_ci_only
+          POSTGRES_DB: cantos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cantos_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:cantos_ci_only@localhost:5432/cantos_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.96.1 --profile minimal --component rustfmt --component clippy
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint Rust
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Unit and contract tests
+        run: cargo test --workspace --locked
+      - name: PostgreSQL and server restart integration
+        run: cargo test -p cantos-server --test persistence --locked -- --ignored --test-threads=1

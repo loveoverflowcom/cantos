@@ -1,0 +1,194 @@
+[
+  {
+    "file": "unknown-field.json",
+    "layer": "shape",
+    "issues": [
+      {
+        "code": "invalid_shape",
+        "path": "/"
+      }
+    ]
+  },
+  {
+    "file": "unsupported-version.json",
+    "layer": "shape",
+    "issues": [
+      {
+        "code": "unsupported_schema_version",
+        "path": "/schema_version"
+      }
+    ]
+  },
+  {
+    "file": "invalid-id.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "invalid_id",
+        "path": "/work/id"
+      }
+    ]
+  },
+  {
+    "file": "duplicate-id.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "duplicate_id",
+        "path": "/episode/acts/0/scenes/0/dialogues/1/id"
+      }
+    ]
+  },
+  {
+    "file": "empty-collection.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "empty_collection",
+        "path": "/episode/acts"
+      }
+    ]
+  },
+  {
+    "file": "empty-text.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "empty_text",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/text"
+      }
+    ]
+  },
+  {
+    "file": "forbidden-text.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "forbidden_text_character",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/text"
+      }
+    ]
+  },
+  {
+    "file": "unsupported-language.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "unsupported_language",
+        "path": "/adaptation/language"
+      }
+    ]
+  },
+  {
+    "file": "missing-narrator.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "narrator_required",
+        "path": "/characters"
+      }
+    ]
+  },
+  {
+    "file": "unknown-speaker.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "unknown_speaker",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/speaker_id"
+      }
+    ]
+  },
+  {
+    "file": "cross-scene-anchor.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "cue_anchor_unresolved",
+        "path": "/episode/acts/0/scenes/0/sound_cues/0/anchor/dialogue_id"
+      }
+    ]
+  },
+  {
+    "file": "unpaired-asset.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "cue_rights_required",
+        "path": "/episode/acts/0/scenes/0/sound_cues/0"
+      }
+    ]
+  },
+  {
+    "file": "invalid-intensity.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "invalid_intensity",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/delivery/intensity_permille"
+      }
+    ]
+  },
+  {
+    "file": "missing-pronunciation-target.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "pronunciation_target_missing",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/pronunciation/0/surface"
+      }
+    ]
+  },
+  {
+    "file": "overlapping-pronunciation.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "pronunciation_target_overlap",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/pronunciation/1/surface"
+      }
+    ]
+  },
+  {
+    "file": "float-intensity.json",
+    "layer": "shape",
+    "issues": [
+      {
+        "code": "invalid_shape",
+        "path": "/"
+      }
+    ]
+  },
+  {
+    "file": "multiple-independent.json",
+    "layer": "semantic",
+    "issues": [
+      {
+        "code": "empty_text",
+        "path": "/work/title"
+      },
+      {
+        "code": "unsupported_language",
+        "path": "/adaptation/language"
+      },
+      {
+        "code": "unknown_speaker",
+        "path": "/episode/acts/0/scenes/0/dialogues/0/speaker_id"
+      },
+      {
+        "code": "cue_anchor_unresolved",
+        "path": "/episode/acts/0/scenes/0/sound_cues/0/anchor/dialogue_id"
+      }
+    ]
+  },
+  {
+    "file": "too-many-pronunciations.json",
+    "layer": "shape",
+    "issues": [
+      {
+        "code": "invalid_shape",
+        "path": "/"
+      }
+    ]
+  }
+]

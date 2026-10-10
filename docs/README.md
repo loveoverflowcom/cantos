@@ -5,6 +5,9 @@
 | [Product brief](product/brief.md) | Audience, surfaces, scope and MVP outcome |
 | [Business rules](product/business-rules.md) | Domain invariants, rights, revisions and approvals |
 | [Production pipeline](product/production-pipeline.md) | Rendering flow, recovery, costs and publication gates |
+| [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
+| [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
+| [Story workspace evidence](evidence/story-workspace-skills.md) | Skill/initializer checks, editorial rehearsal, verified Drive setup and residual limits |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
 | [Script IR](architecture/script-ir.md) | Versioned interchange and reuse without project coupling |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |

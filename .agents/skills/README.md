@@ -1,6 +1,6 @@
 # Cantos agent skills
 
-Eleven skills shared by every agent runtime in this repository: eight **rule owners** and three
+Fifteen skills shared by every agent runtime in this repository: eight **rule owners** and seven
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -21,6 +21,10 @@ task entrypoints (own a workflow and a report, never a rule):
 cantos-work-item                   ← deliver one work-plan item or issue end to end
 cantos-code-review                 ← read-only, assurance-first review of an existing change
 cantos-ui-inspector                ← report-only UI/UX inspection with reusable scenarios
+cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
+cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
+cantos-audio-produce               ← reviewed score → final audio + production evidence
+cantos-story-audit                 ← artifact coverage, naming, audio and sync audit
 ```
 
 Arrows point from a skill to the owner it composes. Owners never route back to the skill that
@@ -39,10 +43,11 @@ side in the same change when it is in scope.
 
 ## Repository reality
 
-Cantos is a documentation and template bootstrap. No Cargo workspace, Leptos package, Gradle
-build, migration, provider adapter or app exists yet. Skills therefore describe **proposed**
-commands only as proposals: discover manifests, scripts and workflows before running or citing a
-command, and never report a build, test, audio result or device run that did not happen. The
+Cantos now has an implemented Rust/Axum Script IR and editorial revision backend with
+PostgreSQL persistence; inspect [the server guide](../../apps/server/README.md) and current
+contracts/code. Web, mobile, import/adaptation and production execution remain planned. The
+story artifact skills operate files through available tools; they are not backend workers.
+Discover manifests and scripts before naming commands, and report only checks actually run. The
 checks that exist today are:
 
 ```sh
@@ -66,9 +71,18 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | visual design, Material 3 Expressive, tokens, typography, motion, accessibility, copy | [`cantos-ui-design`](cantos-ui-design/SKILL.md) |
 | Leptos Studio or Theatre Web, CSS/SCSS, browser behavior | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md) |
 | Kotlin Compose Multiplatform, Android/iOS playback, downloads, native lifecycle | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md) |
+| acquiring a website story through browser capture/extraction/OCR into Drive/local raw folders | [`cantos-story-ingest`](cantos-story-ingest/SKILL.md) |
+| light radio-drama adaptation, proper-name mapping and performance cue authoring | [`cantos-radio-adapt`](cantos-radio-adapt/SKILL.md) |
+| producing final audio artifacts from a reviewed score, including partial regeneration | [`cantos-audio-produce`](cantos-audio-produce/SKILL.md) |
+| light source/score/audio artifact audit and handoff integrity | [`cantos-story-audit`](cantos-story-audit/SKILL.md) |
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
 | auditing UI/UX and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
+
+The four story artifact entrypoints share [one workspace contract](../../docs/production/story-workspace.md),
+including the configured Drive root, local fallback, indexes and recovery issues. `score/` uses
+[Script IR plus a versioned proper-name map](../../docs/production/radio-score.md).
+They preserve application ownership and never store story material in Git.
 
 A task often spans owners: a Studio casting screen composes `cantos-leptos-web`,
 `cantos-ui-design`, `cantos-production-pipeline` and the foundation. Load each owner's

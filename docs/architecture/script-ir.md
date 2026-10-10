@@ -1,6 +1,6 @@
 # Versioned Script IR
 
-Status: proposed interchange design. The [example](../../contracts/examples/episode-draft.json) is illustrative JSON with `schema_version: 0.1.0-draft`; it is not a stable API, implemented schema or Narrative Forge format.
+Status: the [0.1.0 contract](../../contracts/script-ir/README.md) and pure Rust validator are implemented with canonical bytes, digests and fixtures. The old [example](../../contracts/examples/episode-draft.json) remains an illustrative `0.1.0-draft` design input and is rejected by the live API. It is not a Narrative Forge format.
 
 ## Purpose
 
@@ -24,7 +24,7 @@ Assign stable IDs independently of row position. Moving a dialogue changes scene
 
 Treat imported/AI-adapted content as editable drafts. Accepting a script produces an immutable revision and content digest. Provider requests and approvals reference that revision, not a mutable "latest" row. An edit produces a new revision and invalidates only dependent render/QC/approval artifacts.
 
-Before the first contract implementation, finalize a JSON Schema, semantic validator, canonical serialization/digest policy and compatibility fixtures. Schema compatibility and semantic compatibility both matter: accepting a new field must not silently discard performance meaning. Reject unsupported versions with an actionable error; explicit converters preserve provenance.
+The first contract pins its JSON Schema, semantic validator, canonical serialization/digest policy and compatibility fixtures in [contracts/script-ir](../../contracts/script-ir/README.md). Schema compatibility and semantic compatibility both matter: accepting a new field must not silently discard performance meaning. Reject unsupported versions with an actionable error; explicit converters preserve provenance.
 
 ## TTS cache boundary
 
@@ -35,3 +35,13 @@ Scene mix fingerprints additionally include ordered speech assets, timing, cue a
 ## Narrative Forge integration
 
 Reuse concepts, not internal types by assumption. Introduce an import/export adapter only after inspecting the actual versioned Narrative Forge contract. Keep its mapping and round-trip fixtures at the boundary; log lossy conversions for review. Cantos remains runnable without that repository, database or service.
+
+## Implemented editorial persistence
+
+The [server API](../../contracts/http/script-api.md) stores every save as an immutable version
+behind a guarded draft head. Acceptance records the exact reviewed saved version; later edits
+leave accepted content unchanged. Source and rights references are private immutable records,
+with rights assertions pending review. New acceptances require the current head; retrying an
+already accepted version returns the original revision. These are editorial facts, not production
+or publication approval. See [ADR 0004](../decisions/0004-editorial-persistence.md) and the
+[evidence ledger](../evidence/script-revisions.md).

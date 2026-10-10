@@ -1,0 +1,86 @@
+{
+  "schema_version": "0.1.0",
+  "work": {
+    "id": "work-demo",
+    "title": "Ánh đèn cuối sân khấu",
+    "source_ref": "source-demo",
+    "rights_ref": "rights-demo"
+  },
+  "adaptation": {
+    "id": "adaptation-demo",
+    "language": "vi-VN"
+  },
+  "characters": [
+    {
+      "id": "narrator",
+      "name": "Người dẫn chuyện",
+      "role": "narrator",
+      "characterization": "Calm and observant"
+    },
+    {
+      "id": "an",
+      "name": "An",
+      "role": "character"
+    }
+  ],
+  "episode": {
+    "id": "episode-demo-01",
+    "title": "Một lời hẹn",
+    "acts": [
+      {
+        "id": "act-01",
+        "title": "Sân khấu trống",
+        "scenes": [
+          {
+            "id": "scene-01",
+            "title": "Sau buổi diễn",
+            "dialogues": [
+              {
+                "id": "dialogue-01",
+                "speaker_id": "narrator",
+                "text": "Ánh đèn cuối cùng còn sáng trên sân khấu.",
+                "delivery": {
+                  "emotion": "calm",
+                  "intensity_permille": 300
+                }
+              },
+              {
+                "id": "dialogue-02",
+                "speaker_id": "an",
+                "text": "Ngày mai, mình có diễn tiếp không?"
+              }
+            ],
+            "sound_cues": [
+              {
+                "id": "cue-01",
+                "kind": "ambience",
+                "description": "Quiet theatre room tone",
+                "anchor": {
+                  "dialogue_id": "dialogue-01",
+                  "edge": "start"
+                }
+              }
+            ]
+          },
+          {
+            "id": "scene-02",
+            "title": "Lời hẹn",
+            "dialogues": [
+              {
+                "id": "dialogue-03",
+                "speaker_id": "an",
+                "text": "Hẹn gặp ở Vọng Đài.",
+                "pronunciation": [
+                  {
+                    "surface": "Vọng Đài",
+                    "respelling": "Vọng Đài"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

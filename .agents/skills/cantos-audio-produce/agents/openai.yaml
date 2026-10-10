@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Audio Production"
+  short_description: "Render reviewed scores and hand off measured final audio."
+  default_prompt: "Use $cantos-audio-produce to render the reviewed Cantos score, record actual audio evidence and sync the final audio artifacts."

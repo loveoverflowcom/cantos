@@ -2,7 +2,7 @@
 
 Start with [#1](https://github.com/loveoverflowcom/cantos/issues/1) within [010 — Import and edit a versioned script](010-import-and-edit-script.md). Each item delivers a usable business capability; implementation details must be confirmed against the code created in earlier items.
 
-The repository starts with documentation and templates. The capabilities below are planned, not implemented. Numeric filename prefixes express the current recommended sequence, may be renumbered, and are not permanent task IDs.
+The [script revision backend](../../apps/server/README.md) supplies validated Script IR persistence for #1. The next boundary within #1 is a minimal Leptos save/reopen consumer using that contract; import/adaptation/editor expansion follows the linked issues. The end-to-end capabilities below remain planned. Numeric filename prefixes express the current recommended sequence, may be renumbered, and are not permanent task IDs.
 
 | Order | Outcome | Prerequisite |
 | --- | --- | --- |
@@ -35,6 +35,13 @@ The five capability specifications map to 17 bounded implementation issues. Use 
 - After a completed item, update this queue to make the next task obvious. Record necessary correctness work as a dependency; put optional expansion in [the backlog](backlog/deferred-expansion.md).
 
 ## Shared completion evidence
+
+The [story artifact workspace](../production/story-workspace.md) supplies agent-operated intake,
+proper-name mapping, radio-score authoring, production handoffs and audit through Drive/local
+folders. Its skills and local initializer support editorial preparation for 010–030; they do
+not complete the planned importer, provider workers, Studio UI or publication gates. Continue
+with the existing recommended implementation order above. Artifact sync failures are tracked
+by deduplicated recovery issues (or local drafts while GitHub is unavailable).
 
 For every item, provide the user journey demonstrated, relevant contract/migration changes, targeted failure-case checks, and known limitations. A successful mock response alone does not demonstrate a real provider, storage, or native playback integration. Label mocked and live evidence separately.
 

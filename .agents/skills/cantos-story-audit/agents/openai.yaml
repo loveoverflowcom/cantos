@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Story Audit"
+  short_description: "Audit source, score, audio and Drive handoff evidence."
+  default_prompt: "Use $cantos-story-audit to inspect the selected story artifacts and record checksum-bound findings and sync status."
