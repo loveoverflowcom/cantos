@@ -269,10 +269,43 @@ mod process {
             ["--stdin", "-v", "vi", "-s", "175", "-p", "50", "-a", "100", "-w"]
         );
         assert_eq!(args.len(), 11);
-        assert!(Path::new(args[10]).starts_with(&fixture.root));
-        assert!(args[10].ends_with("/output.wav"));
-        assert!(!Path::new(args[10]).exists());
+        assert_eq!(args[10], "output.wav");
+        assert!(!fixture.root.join("output.wav").exists());
         fixture.assert_clean();
+    }
+
+    #[test]
+    fn deep_workspace_passes_only_owned_relative_output_basename() {
+        let fixture = Fixture::new("exit 98");
+        let mut workspace = fixture.root.clone();
+        for _ in 0..4 {
+            workspace.push("long-owned-workspace-component-for-native-filename-regression");
+        }
+        fs::create_dir_all(&workspace).unwrap();
+        assert!(workspace.as_os_str().len() > 200);
+        fs::write(workspace.join("fixture.wav"), wav()).unwrap();
+        // Model the installed engine's native fixed filename buffer independently of the
+        // adapter: deep absolute argv output is rejected, while the private cwd stays deep.
+        fixture.script("1.52.0", "vi", "[ \"$output\" = 'output.wav' ] || exit 98\n[ \"${#PWD}\" -gt 200 ] || exit 97\n/bin/cp ../fixture.wav \"$output\"");
+        let output = run_local(
+            &LocalSynthesisRequest::from_resolved(&resolved()).unwrap(),
+            &fixture.runtime,
+            &workspace,
+            Duration::from_secs(10),
+        )
+        .unwrap();
+        assert_eq!(output.bytes(), wav());
+        assert_eq!(output.audio().frames(), 2);
+        assert_eq!(
+            output.audio().file_sha256(),
+            "09be58428331ed9da447d529d3130cc702468da81cd3b361d302d5b92e4f0744"
+        );
+        assert_eq!(fs::read(workspace.join("fixture.wav")).unwrap(), wav());
+        assert!(fs::read_dir(&workspace).unwrap().all(|entry| !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("cantos-local-tts-")));
     }
 
     #[test]

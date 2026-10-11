@@ -13,8 +13,8 @@ This sequence does not advance production/listening acceptance or change #6/#7 o
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,
-adaptation and structured editor authority from 010. The current work remains
-[#6](https://github.com/loveoverflowcom/cantos/issues/6): its user-authorized local eSpeak NG
+adaptation and structured editor authority from 010. The acceptance work in
+[#6](https://github.com/loveoverflowcom/cantos/issues/6) remains open: its user-authorized local eSpeak NG
 1.52.0 sample path is implemented, with real generation and native 22,050 Hz mono 16-bit PCM
 validation for all three supported Vietnamese voices. Listening quality is **NOT_RUN**.
 GitHub owns acceptance and execution status; this queue preserves recommended order and rationale.
@@ -27,8 +27,11 @@ commercial provider/terms/voice rights/authentication/spending cap and its real 
 deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md). This is partial
 delivery and cannot close #6. The requester now authorizes two sequential backend PRs: first
 [existing provider verification](../evidence/tts-provider-verification.md), then #7 after the
-first PR merges. The #7 local/fake implementation handoff may proceed under that request while
-commercial live, rights and listening acceptance remain separately open; no paid dispatch is granted.
+first PR merges. [PR #38](https://github.com/loveoverflowcom/cantos/pull/38) merged into
+`develop` at `209e9e905c680e7cecab831f2d8f7894656e14fe`. The subsequent
+[durable local/fake foundation](../evidence/durable-tts-jobs.md) uses the same backend/receipt
+authority under that explicit request. Commercial live, rights and listening acceptance remain
+separately open; no paid dispatch is granted and this bounded handoff does not close #7.
 
 [PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research slice.
 The requester directed its merge into `develop` on 2026-10-11; it does not close #6, and the
@@ -51,12 +54,37 @@ line through the shared receipt audit, with [mocked evidence](../evidence/google
 only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Studio can now record the
 explicit neutral delivery at intensity 0 that eSpeak and Google casting require, and freeze and
 approve those inputs ([Studio casting evidence](../evidence/studio-provider-casting.md)). Within
-#6, next record an operator-paid, capped live sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
-then persists attempts and reservations before any production dispatch. The current
+#6, the commercial acceptance task needs separate operator authorization before a capped live
+sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
+now has the explicitly authorized local/fake foundation that persists attempts and reservations
+before provider invocation. The preceding
 [provider verification](../evidence/tts-provider-verification.md) hardens existing adapters and
-records fresh eSpeak evidence with Google live/listening NOT_RUN. The next bounded PR is the
-requester-authorized #7 local/fake execution slice from the merged develop, without claiming
-#6 commercial acceptance or enabling VieNeu production.
+records fresh eSpeak evidence with Google live/listening NOT_RUN. The new foundation adds
+development-only same-package workers, fenced immutable result selection and conservative
+crash/ambiguous-attempt handling, without claiming #6 commercial acceptance or enabling VieNeu
+production. Its [contract](../../packages/contracts/durable-jobs-v1.md) and
+[evidence](../evidence/durable-tts-jobs.md) keep the actual verification boundary visible.
+
+## Recommended bounded follow-ups
+
+1. Complete the named-listener assessment and exact source/voice rights decisions in #6.
+   Commercial live/billing requires a new explicit operator authorization; keep Google disabled
+   and VieNeu research-only NO_GO while those gates remain open. This resolves acceptance that
+   structural WAVs and local/fake jobs cannot establish.
+2. Complete remaining #7 production-adoption criteria on the existing job authority: reviewed
+   external reconciliation/accounting and storage/asset recovery boundaries when their owning
+   work is authorized. Preserve ambiguity, retained reservations and stale-fence refusal. The
+   foundation's process-kill evidence is not host power-loss or external-billing evidence.
+3. Implement #8's position-free speech fingerprint, scoped cache availability/checksum admission
+   and partial-regeneration plan as its own reviewable slice. The foundation's scoped
+   `durable-input-v1` identity does not serve this purpose; separating this work prevents a
+   complete job from being mistaken for reusable/publishable audio.
+4. Add the corresponding Studio progress/clip-preview journey, then continue 030's mixing,
+   object-storage/CDN and publication gates. UI, Theatre and native mobile remain outside the
+   worker foundation and retain their own evidence requirements.
+
+These are recommendations, not newly authorized execution. GitHub issues/PRs own live status;
+neither #6 nor #7 is closed by this bounded foundation.
 
 Cross-cutting infrastructure, not a work-plan item: four Studio revision routes can negotiate
 MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.md),
@@ -183,6 +211,11 @@ unavailable. [#6](https://github.com/loveoverflowcom/cantos/issues/6) has actual
 evidence under the user's subsequent local authorization; its commercial path still needs an
 explicit decision and remains unrun. The earlier host-owned adaptation policy and the #5
 no-generation boundary remain intact. This local sample choice grants neither cloud credentials
-nor paid-call permission and does not advance execution to #7.
+nor paid-call permission. The separate requester authorization, after PR #38 merged, permits the
+bounded #7 local/fake foundation; it does not satisfy #6's remaining acceptance.
 DBSP remains deferred for bounded authorized point/history reads; revisit only if measured
-query/cardinality changes meet the admission conditions in the affected read inventory.
+query/cardinality changes meet the admission conditions in the affected read inventory. The
+worker foundation adds bounded internal queue claims and authorized run/status/attempt reads;
+its [read assessment](../evidence/durable-tts-jobs.md#affected-read-inventory-and-dbsp-decision)
+retains PostgreSQL transactional consistency and records the baseline without claiming an
+incremental engine or unmeasured speedup.
