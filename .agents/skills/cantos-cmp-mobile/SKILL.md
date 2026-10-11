@@ -7,7 +7,8 @@ description: >-
   durable progress outbox, Material 3 Expressive theming from shared tokens and per-platform
   device evidence. Use for CMP, Compose, Kotlin, apps/cantos/mobile, mini or full player, background
   audio, lock-screen or notification controls, audio focus, interruptions, sleep timer,
-  downloads, offline listening, TalkBack/VoiceOver or Android/iOS lifecycle work.
+  downloads, offline listening, TalkBack/VoiceOver, Android/iOS lifecycle work, emulator-free
+  Compose preview capture, Android CLI render-compose-preview or PNG/semantics inspection.
 ---
 
 # Cantos CMP mobile
@@ -35,7 +36,9 @@ when this skill and a document disagree, the document wins and the conflict is r
 - `apps/cantos/mobile/` (Theatre) and `apps/cantos-studio/mobile/` (reserved for a possible Studio
   client) each contain a README only. This skill's playback, download and progress rules are for
   Theatre; the two apps share no Kotlin module until code is actually common. There is no Gradle build, Xcode project, KMP module,
-  test task, formatter or device runner. Discover `settings.gradle.kts`,
+  test task, formatter or device runner. The optional `cargo xtask compose-preview` adapter is
+  implemented but refuses real capture until that app has a Gradle project and Android Studio
+  Quail 2+ is ready; see [Compose preview](references/compose-preview.md). Discover `settings.gradle.kts`,
   `gradle/libs.versions.toml`, the Xcode project and CI workflows before citing any command; the
   commands in these references are **proposals** until the repository adds them.
 - Every library named here (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
@@ -115,7 +118,9 @@ steps. Skipping a step is a decision you state, as the foundation requires.
    [Material 3 Expressive](../cantos-ui-design/references/material3-expressive.md) at the
    intensity the surface deserves (player vs library vs settings). Trace token source →
    generated Kotlin → `CantosTheme` → mounted component before changing styling. Capture and open
-   the current render in the scenario you will change, with Vietnamese content such as
+   the current render in the scenario you will change. For static Android host evidence, prefer
+   [Compose preview without an emulator](references/compose-preview.md) when its prerequisites
+   exist; keep native runtime gates separate. Use Vietnamese content such as
    `Người dẫn chuyện` and `Ánh đèn cuối sân khấu`.
 4. **Implement at the seam.** Route binds state and effects; screen takes values and `onX`
    events; sections stay dumb. Platform behavior goes behind the existing port, not into a
@@ -154,6 +159,7 @@ steps. Skipping a step is a decision you state, as the foundation requires.
 | download staging and verification, local metadata store, account scoping, revocation, progress outbox, background execution | [`downloads-and-local-state.md`](references/downloads-and-local-state.md) |
 | generated Kotlin theme, Material 3 Expressive in CMP, dynamic color, typography, touch targets, semantics, insets, back, reduced motion, resources | [`cmp-design-system.md`](references/cmp-design-system.md) |
 | choosing CMP evidence, renderers, device runs, blocked gates, acceptance matrix, clocks and dispatchers | [`cmp-testing.md`](references/cmp-testing.md) |
+| Android CLI/Quail 2+ setup, emulator-free PNG and semantics capture, preview inspection, JVM alternative | [`compose-preview.md`](references/compose-preview.md) |
 
 Load foundation references through the foundation router; the ones mobile work reaches most are
 [`decoupling.md`](../cantos-engineering/references/decoupling.md),
@@ -171,7 +177,7 @@ unchanged, then add the fields that make a native judgment reproducible:
 Production entrypoint / callers:
 Build:                  source revision + working-tree state, variant, pinned Kotlin/CMP versions
 Targets / source sets:  touched and executed (commonMain, androidMain, iosMain, commonTest, …)
-Runner per target:      physical | emulator | simulator | JVM desktop | Robolectric — model, OS
+Runner per target:      physical | emulator | simulator | JVM desktop | Robolectric | Studio layout renderer — model/OS or CLI/IDE versions
 UI-test renderer:       per Compose UI suite
 Display:                dp × dp, density, fontScale or Dynamic Type size, orientation,
                         theme, locale, reduced motion, screen reader on/off

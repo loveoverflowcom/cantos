@@ -19,7 +19,7 @@ with the same scenario.
 
 ## Repository reality
 
-No Studio, Theatre Web or CMP app exists yet. Therefore:
+Studio Web now exists; Theatre Web is a skeleton and both CMP apps are guides. Therefore:
 
 - **`live` mode is blocked** until a surface ships with a documented launch path. Report
   `blocked`; never build a demo screen to have something to inspect.
@@ -28,8 +28,11 @@ No Studio, Theatre Web or CMP app exists yet. Therefore:
   the product, and the [reference image](../../../docs/design/ui-system.md#direction-and-reference)
   named in the brief has never been attached, so no visual-fidelity finding is possible yet.
 - The [reviewed scenarios](#references-and-scenarios) are **contracts, runnable once the apps
-  exist**. No runner, capture tool, account registry or report-assembly tool is implemented; the
-  agent writes the report itself.
+  exist**. The optional [Compose preview capture](../cantos-cmp-mobile/references/compose-preview.md)
+  adapter is implemented for static Android host evidence once a mobile Gradle project exists;
+  no complete scenario/device runner, account registry or report-assembly tool is implemented.
+  The agent writes the report itself. An existing preview bundle can be inspected in `existing`
+  mode; name the Studio layout renderer and keep native/interaction checks blocked or not-run.
 - Run evidence goes to `artifacts/ui-evidence/<run-id>/`. `/artifacts/` is ignored by the root
   [`.gitignore`](../../../.gitignore); confirm with `git check-ignore -v` before writing, and
   prefer the ignored location that [`visual-review.md`](../cantos-ui-design/references/visual-review.md)
@@ -48,6 +51,7 @@ No Studio, Theatre Web or CMP app exists yet. Therefore:
 | product requirements | [UI system](../../../docs/design/ui-system.md), [mobile architecture](../../../docs/architecture/mobile.md) |
 | meaning of playback, job, QC, approval and download states | [`cantos-listening`](../cantos-listening/SKILL.md), [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md), [`cantos-publication`](../cantos-publication/SKILL.md) |
 | driving a browser or device, renderer capture and semantics | [web-testing](../cantos-leptos-web/references/web-testing.md), [cmp-testing](../cantos-cmp-mobile/references/cmp-testing.md) — audit mode replaces their fix step with a proposed fix |
+| static Compose PNG/semantics inspection without an emulator | [compose-preview](../cantos-cmp-mobile/references/compose-preview.md) — open captured pixels and assert the observed tree; never infer runtime behavior |
 | what may be executed, secrets | [local-execution](../cantos-engineering/references/local-execution.md) |
 | reviewing a diff instead of a running UI | [`cantos-code-review`](../cantos-code-review/SKILL.md) |
 
