@@ -6,6 +6,18 @@ plugins {
     id("org.jetbrains.compose") version "1.9.0"
 }
 
+// Gradle 8.14.3 may fork a detached single-use daemon even with --no-daemon. Fail before any
+// run-task build/window work when it does. The repository's fixed POSIX exec chain supplies
+// the owned launcher's PID and disables configuration caching so this guard runs every time.
+// A forwarded property in a detached JVM still carries the original PID and fails this check.
+// JVM matching reduces the chance of a fork, but is not itself a lifecycle guarantee.
+if (gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "run" }) {
+    val expectedLauncherPid = System.getProperty("cantos.ui.preview.launcherPid")?.toLongOrNull()
+    check(expectedLauncherPid != null && expectedLauncherPid == ProcessHandle.current().pid()) {
+        "CMP preview run requires its owned foreground launcher PID; refusing a missing, invalid or detached JVM. Use cargo xtask ui-preview cmp run."
+    }
+}
+
 kotlin {
     jvm("desktop") {
         compilerOptions {

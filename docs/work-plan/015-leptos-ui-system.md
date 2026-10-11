@@ -109,3 +109,11 @@ Keep mobile products/listening and production backend scope unchanged. The next 
 an unqualified new component is its missing target runtime/accessibility/design-reference evidence;
 do not promote it to a real app from source parity alone. Platform-specific differences require
 reviewed explicit reasons, not a pretend cross-renderer pass.
+
+[PR41](https://github.com/loveoverflowcom/cantos/pull/41) now owns this preview slice's execution.
+Its Mac review reconciles PR39/40, tightens admission/source freshness and fixes CMP selection,
+availability and canonical field semantics. Bounded actual Safari observations are recorded in
+the preview evidence; two-renderer qualifications remain0/29. Recommended order is to close the
+missing pinned Gradle/CMP test/runtime and aggregate verification gates before normal merge,
+then start the separately requested three CMP sessions. Existing Gradle9.7.0 does not satisfy
+the reviewed8.14.3 gate, and partial Web evidence is not mobile or CMP production acceptance.

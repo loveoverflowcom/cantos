@@ -84,6 +84,17 @@ class PreviewModelTest {
     }
 
     @Test
+    fun filtering_projects_one_displayed_selection_and_preserves_the_preference() {
+        val all = filterComponents("", null)
+        assertEquals("button", resolvePreviewSelection(all, "button")?.id)
+        val filtered = filterComponents("text-field", "fields")
+        assertEquals("text-field", resolvePreviewSelection(filtered, "button")?.id)
+        assertEquals("text-field", resolvePreviewSelection(filtered, "text-field")?.id)
+        assertEquals(null, resolvePreviewSelection(filterComponents("không tồn tại", null), "button"))
+        assertEquals("button", resolvePreviewSelection(all, "button")?.id)
+    }
+
+    @Test
     fun generated_density_aliases_and_motion_are_resolved_by_role() {
         assertEquals("0.2.0", CantosTokens.version)
         assertEquals(CantosTokens.names.size, CantosTokens.names.distinct().size)

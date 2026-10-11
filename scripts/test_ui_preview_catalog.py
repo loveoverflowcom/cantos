@@ -141,6 +141,46 @@ class PreviewCatalog(unittest.TestCase):
         self.write("packages/ui-system/cmp/gradle.properties", "kotlin.native.binary.memoryModel=changed\n")
         self.assertIn("button/cmp: stale source or token qualification", self.failures())
 
+    def test_source_directories_and_same_named_files_are_not_digest_exemptions(self):
+        for renderer, path in (
+            ("leptos", "packages/ui-system/leptos/src/build/control.rs"),
+            ("leptos", "packages/ui-system/leptos/src/nested/preview_catalog.rs"),
+            ("cmp", "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/src/desktopMain/kotlin/com/cantos/ui/PreviewCatalog.kt"),
+            ("cmp", "packages/ui-system/cmp/gradle/libs.versions.toml"),
+        ):
+            with self.subTest(renderer=renderer, path=path):
+                self.qualify()
+                self.write(path, "// changed actual source input\n")
+                self.assertIn(f"button/{renderer}: stale source or token qualification", self.failures())
+
+    def test_repository_ancestor_named_build_does_not_hide_renderer_sources(self):
+        root = self.root / "build" / "repository"
+        for renderer, relative in (
+            ("leptos", "packages/ui-system/leptos/src/control.rs"),
+            ("cmp", "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/Control.kt"),
+        ):
+            with self.subTest(renderer=renderer):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("// original source\n")
+                before = catalog.renderer_digest(renderer, root, self.source["components"])
+                path.write_text("// changed source\n")
+                self.assertNotEqual(before, catalog.renderer_digest(renderer, root, self.source["components"]))
+
+    def test_only_exact_generated_catalogs_and_package_build_outputs_are_excluded(self):
+        for renderer, paths in (
+            ("leptos", (catalog.RUST_OUTPUT.relative_to(catalog.ROOT).as_posix(),)),
+            ("cmp", (catalog.KOTLIN_OUTPUT.relative_to(catalog.ROOT).as_posix(),
+                     "packages/ui-system/cmp/build/generated/Synthetic.kt",
+                     "packages/ui-system/cmp/.gradle/cache/metadata.json")),
+        ):
+            with self.subTest(renderer=renderer):
+                before = catalog.renderer_digest(renderer, self.root, self.source["components"])
+                for path in paths:
+                    self.write(path, "excluded output\n")
+                self.assertEqual(before, catalog.renderer_digest(renderer, self.root, self.source["components"]))
+
     def test_unsupported_is_declared_but_never_silently_approved(self):
         self.source["components"][0]["cmp"]["status"] = "unsupported"
         self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/Components.kt", "// Unsupported: explicit native reason\n")
@@ -189,6 +229,103 @@ class PreviewCatalog(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "explicit"):
                 catalog.imported_components(source, renderer, {"Button"})
+
+    def test_valid_alternate_import_and_reference_syntax_still_requires_qualification(self):
+        cases = (
+            ("leptos", "use cantos_ui :: Button;"),
+            ("leptos", "use :: cantos_ui :: { r#Button as Save };"),
+            ("leptos", "use r#cantos_ui::{r#Button};"),
+            ("leptos", "fn example() { :: cantos_ui :: r#Button(); }"),
+            ("cmp", "import com . cantos . ui . Button as Save"),
+            ("cmp", "import `com`.`cantos`.`ui`.`Button` as `Save`"),
+            ("cmp", "fun example() { com . cantos . ui . `Button`(onClick = {}) }"),
+        )
+        for renderer, content in cases:
+            with self.subTest(renderer=renderer, content=content):
+                self.write("apps/example/web/src/view.rs", "// no shared components\n")
+                self.write("apps/example/mobile/View.kt", "// no shared components\n")
+                path = "apps/example/web/src/view.rs" if renderer == "leptos" else "apps/example/mobile/View.kt"
+                self.write(path, content)
+                self.assertEqual(self.failures(), [f"{path}: new use requires both preview qualifications: Button"])
+
+    def test_character_literals_cannot_swallow_later_shared_component_use(self):
+        cases = (
+            ("leptos", "const QUOTE: char = '\"';\nuse cantos_ui::Button;\nconst LABEL: &str = \"Cantos\";"),
+            ("leptos", "const QUOTE: u8 = b'\\\"';\nuse cantos_ui::Button;\nconst LABEL: &str = \"Cantos\";"),
+            ("cmp", "fun example() { val quote = '\"'; com.cantos.ui.Button(onClick = {}); val label = \"Cantos\" }"),
+        )
+        for renderer, content in cases:
+            with self.subTest(renderer=renderer, content=content):
+                self.assertEqual(catalog.imported_components(content, renderer, {"Button"}), {"Button"})
+        self.assertEqual(catalog.source_text("fn borrow<'a>(value: &'a str) {}", False), "fn borrow<'a>(value: &'a str) {}")
+
+    def test_alternate_wildcards_and_namespace_aliases_fail_closed(self):
+        for renderer, content in (
+            ("leptos", "use :: cantos_ui :: *;"),
+            ("leptos", "use r#cantos_ui :: {self as r#ui};"),
+            ("leptos", "extern crate r#cantos_ui as r#ui;"),
+            ("leptos", "use cantos_ui::{{Button}};"),
+            ("cmp", "import `com` . `cantos` . `ui` . *"),
+        ):
+            with self.subTest(renderer=renderer, content=content):
+                with self.assertRaisesRegex(ValueError, "explicit"):
+                    catalog.imported_components(content, renderer, {"Button"})
+
+    def test_kotlin_templates_cannot_hide_fully_qualified_component_calls(self):
+        for content in (
+            'fun example() { val label = "${com.cantos.ui.Button(onClick = {})}" }',
+            'fun example() { val label = "${run { val prefix = "text"; com.cantos.ui.Button(onClick = {}) }}" }',
+            'fun example() { val label = """${com . cantos . ui . `Button`(onClick = {})}""" }',
+        ):
+            with self.subTest(content=content):
+                self.write("apps/example/mobile/View.kt", content)
+                self.assertEqual(self.failures(), ["apps/example/mobile/View.kt: explicit CMP component imports required for template adoption checks"])
+        self.assertEqual(catalog.imported_components('import com.cantos.ui.Button\nfun example() { val label = "${Button(onClick = {})}" }', "cmp", {"Button"}), {"Button"})
+        self.assertEqual(catalog.imported_components('val note = "com.cantos.ui.Button"', "cmp", {"Button"}), set())
+        self.assertEqual(catalog.imported_components(r'val note = "\${com.cantos.ui.Button}"', "cmp", {"Button"}), set())
+
+    def test_inert_namespaces_and_comments_do_not_become_template_adoption(self):
+        for content in (
+            'val namespace = "com.cantos.ui.Button"\nval value = "${1}"',
+            '/* ${com.cantos.ui.Button(onClick = {})} */\nval value = "${1}"',
+            'val value = "${run { /* nested /* comment */ com.cantos.ui.Button() */ 1 }}"',
+            'val value = "${\"com.cantos.ui.Button\"}"',
+        ):
+            with self.subTest(content=content):
+                self.write("apps/example/mobile/View.kt", content)
+                self.assertEqual(self.failures(), [])
+
+    def test_kotlin_triple_quote_closing_runs_do_not_swallow_following_code(self):
+        for closing_count in (4, 5):
+            prefix = 'val quoted = """x' + '"' * closing_count + '\n'
+            with self.subTest(closing_count=closing_count, region="ordinary"):
+                content = prefix + '@Composable fun Example() { com.cantos.ui.Button("Save", {}) }'
+                self.write("apps/example/mobile/View.kt", content)
+                self.assertEqual(self.failures(), ["apps/example/mobile/View.kt: new use requires both preview qualifications: Button"])
+            with self.subTest(closing_count=closing_count, region="template"):
+                content = prefix + 'val following = "${com.cantos.ui.Button(\"Save\", {})}"'
+                self.write("apps/example/mobile/View.kt", content)
+                self.assertEqual(self.failures(), ["apps/example/mobile/View.kt: explicit CMP component imports required for template adoption checks"])
+            with self.subTest(closing_count=closing_count, region="inventory"):
+                self.assertIn("@Composable fun Example", catalog.source_text(prefix + '@Composable fun Example() { Text("Save") }', False))
+
+    def test_cargo_dependency_renames_cannot_hide_the_shared_crate(self):
+        cases = (
+            ("apps/example/web/Cargo.toml", '[dependencies]\nui = { package = "cantos-ui", path = "../../../../packages/ui-system/leptos" }\n'),
+            ("apps/example/web/Cargo.toml", "[dependencies.ui]\npackage = 'cantos-ui'\npath = '../../../../packages/ui-system/leptos'\n"),
+            ("Cargo.toml", '[workspace.dependencies]\nui = { package = "\\u0063antos-ui", path = "packages/ui-system/leptos" }\n'),
+        )
+        self.write("apps/example/web/src/view.rs", "use ui::Button;\n")
+        for path, content in cases:
+            with self.subTest(path=path, content=content):
+                for old_path in ("Cargo.toml", "apps/example/web/Cargo.toml"):
+                    (self.root / old_path).unlink(missing_ok=True)
+                self.write(path, content)
+                self.assertEqual(self.failures(), [f"{path}: cantos-ui dependency rename hides adoption; use the canonical cantos_ui namespace"])
+        self.write("Cargo.toml", "[workspace]\nmembers = []\n")
+        self.write("apps/example/web/Cargo.toml", '[dependencies]\ncantos-ui = { package = "cantos-ui", path = "../../../../packages/ui-system/leptos" }\n')
+        self.write("apps/example/web/src/view.rs", "use cantos_ui::Button;\n")
+        self.assertEqual(self.failures(), ["apps/example/web/src/view.rs: new use requires both preview qualifications: Button"])
 
     def test_evidence_and_artifact_symlinks_cannot_escape_repository(self):
         outside = Path(self.directory.name).parent / (Path(self.directory.name).name + "-outside")

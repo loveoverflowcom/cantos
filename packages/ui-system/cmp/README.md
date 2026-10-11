@@ -117,6 +117,14 @@ coverage and motion checks remain **NOT_RUN** until the supported JDK can resolv
 under its normal trusted configuration and the renderer executes them.
 No passing Android/iOS or production runtime claim follows from this package.
 
+The subsequent [Mac PR41 review](../../../docs/evidence/ui-system-previews.md#mac-reconciliation-and-review-2026-10-11)
+preserves that historical cloud result separately from changed source. The current suite declares
+23 tests (10 common, 9 desktop semantics and 4 captures), including filtered selection, named
+Select state and interruption behavior. Select callers provide localized expanded/collapsed
+descriptions; losing availability clears its open menu. Final Mac compilation/tests/window
+execution remain NOT_RUN because the installed Gradle9.7.0 is outside the reviewed8.14.3 gate.
+No component is qualified for new app adoption by this partial evidence.
+
 ## Explicit platform differences
 
 - `Link` invokes a caller URI callback. HTML anchor/target/download/history are web-only; preview

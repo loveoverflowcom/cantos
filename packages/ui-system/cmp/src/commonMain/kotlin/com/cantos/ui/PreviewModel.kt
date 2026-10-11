@@ -107,6 +107,10 @@ fun filterComponents(query: String, category: String?): List<PreviewComponent> {
     }
 }
 
+/** One displayed selection for the picker and detail; filtering does not overwrite the preference. */
+fun resolvePreviewSelection(components: List<PreviewComponent>, preferredId: String): PreviewComponent? =
+    components.firstOrNull { it.id == preferredId } ?: components.firstOrNull()
+
 /** Read-only HTML is not a supported native choice-control mode. */
 fun nativeChoiceState(state: FieldState): ButtonState = when (state) {
     FieldState.Editable -> ButtonState.Enabled

@@ -75,6 +75,7 @@ import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.UiRoot
 import com.cantos.ui.filterComponents
+import com.cantos.ui.resolvePreviewSelection
 import com.cantos.ui.generated.CantosIcons
 import com.cantos.ui.generated.CantosTokens
 import com.cantos.ui.generated.PreviewCatalog
@@ -98,7 +99,7 @@ fun PreviewApp(
     var section by remember { mutableStateOf(initialSection) }
     var event by remember { mutableStateOf("Chưa có thao tác. Các ví dụ chỉ thay đổi dữ liệu tại chỗ.") }
     val components = filterComponents(query, category)
-    val selected = PreviewCatalog.components.firstOrNull { it.id == selectedId }
+    val selected = resolvePreviewSelection(components, selectedId)
     UiRoot(preferences = preferences) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewportHeight = maxHeight
@@ -127,7 +128,7 @@ fun PreviewApp(
                             Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
                                 // Local master-detail geometry: one third of the medium breakpoint.
                                 ComponentBrowser(query, { query = it }, category, { category = it }, components,
-                                    selectedId, { selectedId = it }, Modifier.width(tokenDp("breakpoint.medium") / 3))
+                                    selected?.id ?: "", { selectedId = it }, Modifier.width(tokenDp("breakpoint.medium") / 3))
                                 ComponentDetail(selected, { event = it }, Modifier.weight(1f).verticalScroll(rememberScrollState()))
                             }
                         } else {
@@ -138,8 +139,10 @@ fun PreviewApp(
                                     EmptyState("Không có kết quả", "Thử tìm theo tên component hoặc nhóm.")
                                 } else {
                                     Select("Component", components.map { it.name },
-                                        components.indexOfFirst { it.id == selectedId }.coerceAtLeast(0),
-                                        { selectedId = components[it].id })
+                                        components.indexOfFirst { it.id == selected?.id },
+                                        { selectedId = components[it].id },
+                                        expandedDescription = "Danh sách component đang mở",
+                                        collapsedDescription = "Danh sách component đang đóng")
                                 }
                                 ComponentDetail(selected, { event = it })
                             }
@@ -341,7 +344,9 @@ private fun ComponentExample(example: PreviewExample, state: String, onEvent: (S
             "Dữ liệu thử: 1,25. Chủ ứng dụng quyết định quy tắc phân tích số.", error)
         PreviewExample.Select -> Column(modifier) {
             Select("Nhân vật", listOf("Người dẫn chuyện", "Nguyễn Thị Minh Phương", "Người giữ đèn cuối sân khấu"), choice,
-                { choice = it; onEvent("Select: $it") }, state = buttonState)
+                { choice = it; onEvent("Select: $it") }, state = buttonState,
+                expandedDescription = "Danh sách nhân vật đang mở",
+                collapsedDescription = "Danh sách nhân vật đang đóng")
             error?.let { FieldError(it) }
         }
         PreviewExample.Checkbox -> Column(modifier) {

@@ -32,13 +32,15 @@ SHA = re.compile(r"[0-9a-f]{64}")
 def source_text(content, keep_strings=True):
     """Remove comments (including nested blocks), optionally opaque string literals.
 
-    This bounded lexer supports ordinary, Kotlin triple and Rust raw strings. It is not a
-    compiler; renderer compilation/tests remain an independent requirement.
+    This bounded lexer supports ordinary, Kotlin triple and Rust raw strings plus character
+    literals. Rust lifetimes remain identifiers. It is not a compiler; renderer compilation/
+    tests remain an independent requirement.
     """
     result, index = [], 0
-    strings = re.compile(r'"""[\s\S]*?"""|r(?P<hashes>\#*)"[\s\S]*?"(?P=hashes)|"(?:\\.|[^"\\])*"')
+    strings = re.compile(r'"""[\s\S]*?"{3,}|r(?P<hashes>\#*)"[\s\S]*?"(?P=hashes)|"(?:\\.|[^"\\])*"')
+    characters = re.compile(r"'(?:\\(?:u\{[0-9a-fA-F_]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|[^\r\n])|[^'\\\r\n])'")
     while index < len(content):
-        literal = strings.match(content, index)
+        literal = characters.match(content, index) or strings.match(content, index)
         if literal:
             result.append(literal.group() if keep_strings else " ")
             index = literal.end()
@@ -165,8 +167,8 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
     hash, so hashing the whole catalogue would make qualification recursively impossible.
     """
     directory = Path(root) / "packages/ui-system" / renderer
-    suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
-    excluded = {"preview_catalog.rs", "PreviewCatalog.kt"}
+    suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".toml", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
+    excluded = {RUST_OUTPUT.relative_to(ROOT), KOTLIN_OUTPUT.relative_to(ROOT)}
     records = {}
     if declarations is None:
         declarations = load_source((Path(root) / CATALOG.relative_to(ROOT)).read_bytes())["components"]
@@ -176,7 +178,8 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
         path = Path(root) / relative
         records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
     for path in sorted(directory.rglob("*")):
-        if path.is_file() and path.suffix in suffixes and path.name not in excluded and not {"build", ".gradle"}.intersection(path.parts):
+        relative = path.relative_to(directory)
+        if path.is_file() and path.suffix in suffixes and path.relative_to(root) not in excluded and relative.parts[0] not in {"build", ".gradle"}:
             records[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return digest(records)
 
@@ -208,34 +211,159 @@ def validate_evidence(entry, renderer, path, tokens_sha256, root=ROOT, declarati
         raise ValueError(f"{entry['id']}/{renderer}: unsupported cannot be qualified")
 
 
+def kotlin_source_regions(content):
+    """Separate ordinary code from executable template expressions, ignoring inert text.
+
+    This is a bounded lexical walk, not a Kotlin parser. String/comment delimiters and
+    balanced expression braces are enough to keep static namespaces out of admission.
+    """
+    code, expressions, index = [], [], 0
+    stack = [["code", 0]]
+    characters = re.compile(r"'(?:\\(?:u[0-9a-fA-F]{4}|[^\r\n])|[^'\\\r\n])'")
+    while index < len(content):
+        mode = stack[-1][0]
+        if mode in {"string", "triple"}:
+            delimiter = '"""' if mode == "triple" else '"'
+            if content.startswith(delimiter, index):
+                stack.pop()
+                index += len(delimiter)
+                if mode == "triple":
+                    # Kotlin's TRIPLE_QUOTE_CLOSE consumes the complete closing run;
+                    # extra quotes are literal content, never a following string opener.
+                    while index < len(content) and content[index] == '"':
+                        index += 1
+            elif mode == "string" and content[index] == "\\":
+                index += 2
+            elif content.startswith("${", index):
+                expressions.append(" ")
+                stack.append(["expression", 1])
+                index += 2
+            else:
+                index += 1
+            continue
+
+        output = expressions if mode == "expression" else code
+        if content.startswith("//", index):
+            end = content.find("\n", index)
+            index = len(content) if end < 0 else end
+            output.append(" ")
+        elif content.startswith("/*", index):
+            depth, index = 1, index + 2
+            while index < len(content) and depth:
+                if content.startswith("/*", index):
+                    depth, index = depth + 1, index + 2
+                elif content.startswith("*/", index):
+                    depth, index = depth - 1, index + 2
+                else:
+                    index += 1
+            output.append(" ")
+        elif literal := characters.match(content, index):
+            index = literal.end()
+            output.append(" ")
+        elif content.startswith('"', index):
+            triple = content.startswith('"""', index)
+            stack.append(["triple" if triple else "string", 0])
+            index += 3 if triple else 1
+            output.append(" ")
+        elif mode == "expression" and content[index] == "}":
+            stack[-1][1] -= 1
+            if stack[-1][1] == 0:
+                stack.pop()
+                output.append(" ")
+            else:
+                output.append("}")
+            index += 1
+        else:
+            if mode == "expression" and content[index] == "{":
+                stack[-1][1] += 1
+            output.append(content[index])
+            index += 1
+    return "".join(code), "".join(expressions)
+
+
 def imported_components(content, renderer, names):
     """Inspect explicit shared-library imports, including aliases; reject wildcard bypasses."""
+    original = content
     content = source_text(content, False)
     if renderer == "leptos":
+        content = re.sub(r"\br#([A-Za-z_]\w*)", r"\1", content)
+        content = re.sub(r"\s*::\s*", "::", content)
         imports = []
-        for match in re.finditer(r"use\s+cantos_ui::\{([^}]+)\}", content, re.S):
+        for match in re.finditer(r"\buse\b\s*(?:::)?cantos_ui::\{([^}]+)\}", content, re.S):
+            if "{" in match.group(1):
+                raise ValueError("explicit cantos_ui component imports required for adoption checks")
             imports += [re.split(r"\s+as\s+", part.strip())[0] for part in match.group(1).split(",")]
-        imports += re.findall(r"use\s+cantos_ui::([A-Z]\w*)\s*;", content)
-        imports += re.findall(r"cantos_ui::([A-Z]\w*)", content)
+        imports += re.findall(r"\bcantos_ui::([A-Z]\w*)", content)
         opaque_namespace = (
-            r"(?:use|extern\s+crate)\s+(?:::)?cantos_ui\s*(?:as\b|;)"
-            r"|use\s+(?:::)?cantos_ui\s*::\s*\{[^}]*\bself\b"
-            r"|use\s*\{[^}]*\bcantos_ui\b"
+            r"(?:\buse\b|extern\s+crate)\s*(?:::)?cantos_ui\s*(?:as\b|;)"
+            r"|\buse\b\s*(?:::)?cantos_ui::\{[^}]*\bself\b"
+            r"|\buse\b\s*\{[^}]*\bcantos_ui\b"
         )
-        if "*" in imports or re.search(r"use\s+cantos_ui::\*|" + opaque_namespace, content, re.S):
+        if "*" in imports or re.search(r"\buse\b\s*(?:::)?cantos_ui::\*|" + opaque_namespace, content, re.S):
             raise ValueError("explicit cantos_ui component imports required for adoption checks")
     else:
-        imports = re.findall(r"import\s+com\.cantos\.ui\.([A-Z]\w*)", content)
-        imports += re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", content)
-        if re.search(r"import\s+com\.cantos\.ui\.\*", content):
+        content, expressions = kotlin_source_regions(original)
+        content = re.sub(r"`([A-Za-z_]\w*)`", r"\1", content)
+        content = re.sub(r"\s*\.\s*", ".", content)
+        imports = re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", content)
+        if re.search(r"\bimport\s+com\.cantos\.ui\.\*", content):
             raise ValueError("explicit CMP component imports required for adoption checks")
+        # Calls inside executable string templates need explicit imports so admission
+        # cannot be hidden inside a literal. Inert strings and comments are absent here.
+        expressions = re.sub(r"`([A-Za-z_]\w*)`", r"\1", expressions)
+        expressions = re.sub(r"\s*\.\s*", ".", expressions)
+        hidden = set(re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", expressions)) - set(imports)
+        if hidden.intersection(names):
+            raise ValueError("explicit CMP component imports required for template adoption checks")
     return set(imports).intersection(names)
+
+
+def dependency_alias_failures(root):
+    """Keep the shared Rust crate visible under its canonical source namespace.
+
+    TOML is standard-library parsed where available. Older Python conservatively refuses
+    package aliases/escaped keys rather than trusting a lexical interpretation of them.
+    """
+    try:
+        import tomllib
+    except ImportError:
+        tomllib = None
+
+    def renamed_dependencies(value):
+        if not isinstance(value, dict):
+            return False
+        for key, item in value.items():
+            if key in {"dependencies", "dev-dependencies", "build-dependencies"} and isinstance(item, dict):
+                if any(isinstance(dependency, dict) and dependency.get("package") == "cantos-ui"
+                       and name.replace("-", "_") != "cantos_ui" for name, dependency in item.items()):
+                    return True
+            if renamed_dependencies(item):
+                return True
+        return False
+
+    failures = []
+    for path in sorted({root / "Cargo.toml", *(root / "apps").rglob("Cargo.toml")}):
+        if not path.is_file():
+            continue
+        relative, content = path.relative_to(root).as_posix(), path.read_text()
+        if tomllib is None:
+            if re.search(r'''(?:["']?\bpackage\b["']?\s*=|\\[uU])''', content):
+                failures.append(f"{relative}: Python 3.11+ required to inspect dependency package aliases")
+            continue
+        try:
+            manifest = tomllib.loads(content)
+        except ValueError:
+            failures.append(f"{relative}: cannot inspect dependency aliases in invalid TOML")
+            continue
+        if renamed_dependencies(manifest):
+            failures.append(f"{relative}: cantos-ui dependency rename hides adoption; use the canonical cantos_ui namespace")
+    return failures
 
 
 def repository_failures(source, token_source, root=ROOT):
     """Fail absent declarations/samples, drift and new use without both fresh qualifications."""
     root = Path(root)
-    failures = []
+    failures = dependency_alias_failures(root)
     entries = {entry["name"]: entry for entry in source["components"]}
     names = set(entries)
     leptos = root / "packages/ui-system/leptos"

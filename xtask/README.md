@@ -113,6 +113,12 @@ They start no product app, API, PostgreSQL cluster, identity provider or audio a
 Leptos `run --open` opens the browser after readiness. CMP opens its own desktop window; no
 window-readiness, Android/iOS-device or accessibility evidence is implied by launching its task.
 Both use the existing process-group supervisor, which signals only groups this invocation owns.
+CMP `run` additionally needs POSIX `/bin/sh`; other hosts report `UNSUPPORTED`. Its fixed exec
+chain supplies the launcher PID, task-local JVM options, in-process Kotlin compilation and
+disabled configuration caching. The Gradle project rejects a missing or detached run JVM before
+task execution. `--no-daemon` alone can still create a detached single-use JVM; successful task
+launch does not prove window readiness or complete process cleanup. Record actual shutdown
+observations separately.
 
 CMP requires a real package-local Gradle project (both settings and build files), an installed
 Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use

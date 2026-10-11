@@ -28,7 +28,8 @@ import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField as MaterialTextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch as MaterialSwitch
@@ -69,8 +70,9 @@ private fun Modifier.cantosFocus(): Modifier = composed {
         .then(if (focused) Modifier.border(width, color, shape) else Modifier)
 }
 
-private fun Modifier.actionState(state: ButtonState): Modifier = semantics {
-    state.reason()?.let { stateDescription = it }
+private fun Modifier.actionState(state: ButtonState, description: String? = null): Modifier = semantics {
+    val descriptions = listOfNotNull(description, state.reason()).joinToString(". ")
+    if (descriptions.isNotBlank()) stateDescription = descriptions
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,43 +97,57 @@ fun Button(
     state: ButtonState = ButtonState.Enabled,
     variant: ButtonVariant = ButtonVariant.Primary,
 ) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        ButtonControl(label, onPress, state = state, variant = variant)
+        state.reason()?.let { FieldHelp(it) }
+    }
+}
+
+/** Control semantics belong on the native interactive node, separate from adjacent help. */
+@Composable
+private fun ButtonControl(
+    label: String,
+    onPress: () -> Unit,
+    modifier: Modifier = Modifier,
+    state: ButtonState = ButtonState.Enabled,
+    variant: ButtonVariant = ButtonVariant.Primary,
+    name: AccessibleName? = null,
+    description: String? = null,
+) {
     val background = when (variant) {
         ButtonVariant.Primary -> tokenColor("color.primary")
         ButtonVariant.Tonal -> tokenColor("color.primaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.error")
+        ButtonVariant.Danger -> tokenColor("color.errorContainer")
         ButtonVariant.Secondary, ButtonVariant.Text -> Color.Transparent
     }
     val foreground = when (variant) {
         ButtonVariant.Primary -> tokenColor("color.onPrimary")
         ButtonVariant.Tonal -> tokenColor("color.onPrimaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.errorContainer")
+        ButtonVariant.Danger -> tokenColor("color.error")
         ButtonVariant.Secondary, ButtonVariant.Text -> tokenColor("color.primary")
     }
-    val disabledOpacity = CantosTokens.number("state.disabledOpacity").toFloat()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        androidx.compose.material3.Button(
-            onClick = { if (state.canPress()) onPress() },
-            enabled = state.canPress(),
-            modifier = Modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
-            shape = RoundedCornerShape(tokenDp("shape.control")),
-            border = if (variant == ButtonVariant.Secondary) BorderStroke(
-                tokenDp("size.border"), tokenColor("color.outline"),
-            ) else null,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = background,
-                contentColor = foreground,
-                disabledContainerColor = tokenColor("color.surfaceContainer"),
-                disabledContentColor = tokenColor("color.onSurface").copy(alpha = disabledOpacity),
-            ),
-            contentPadding = PaddingValues(horizontal = tokenDp("space.controlInline")),
-        ) {
-            if (state is ButtonState.Loading) {
-                Icon("expand_more")
-                Spacer(Modifier.size(tokenDp("space.sm")))
-            }
-            Text(label)
+    androidx.compose.material3.Button(
+        onClick = { if (state.canPress()) onPress() },
+        enabled = state.canPress(),
+        modifier = modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state, description)
+            .semantics { name?.let { contentDescription = it.text } },
+        shape = RoundedCornerShape(tokenDp("shape.control")),
+        border = if (variant == ButtonVariant.Secondary) BorderStroke(
+            tokenDp("size.border"), tokenColor("color.outline"),
+        ) else null,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = background,
+            contentColor = foreground,
+            disabledContainerColor = tokenColor("color.surfaceContainer"),
+            disabledContentColor = tokenColor("color.onSurfaceVariant"),
+        ),
+        contentPadding = PaddingValues(horizontal = tokenDp("space.controlInline")),
+    ) {
+        if (state is ButtonState.Loading) {
+            Icon("expand_more")
+            Spacer(Modifier.size(tokenDp("space.sm")))
         }
-        state.reason()?.let { FieldHelp(it) }
+        Text(label)
     }
 }
 
@@ -218,7 +234,11 @@ private fun ControlledTextField(
     keyboardType: KeyboardType,
 ) {
     val description = listOfNotNull(help, errorText, state.reason()).joinToString(". ")
-    OutlinedTextField(
+    val fieldContainer = tokenColor(if (state == FieldState.ReadOnly) "color.surfaceContainer" else "color.surfaceContainerHigh")
+    val content = tokenColor("color.onSurface")
+    val secondaryContent = tokenColor("color.onSurfaceVariant")
+    val errorColor = tokenColor("color.error")
+    MaterialTextField(
         value = value,
         onValueChange = { if (state.acceptsInput()) onValueChange(it) },
         modifier = modifier.fillMaxWidth().cantosFocus().semantics {
@@ -233,6 +253,26 @@ private fun ControlledTextField(
         minLines = if (singleLine) 1 else 3,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(tokenDp("shape.field")),
+        colors = TextFieldDefaults.colors(
+            focusedTextColor = content,
+            unfocusedTextColor = content,
+            disabledTextColor = secondaryContent,
+            errorTextColor = content,
+            focusedContainerColor = fieldContainer,
+            unfocusedContainerColor = fieldContainer,
+            disabledContainerColor = tokenColor("color.surfaceContainer"),
+            errorContainerColor = tokenColor("color.errorContainer"),
+            cursorColor = tokenColor("color.primary"),
+            errorCursorColor = errorColor,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = errorColor,
+            focusedLabelColor = tokenColor("color.primary"),
+            unfocusedLabelColor = secondaryContent,
+            disabledLabelColor = secondaryContent,
+            errorLabelColor = errorColor,
+        ),
         supportingText = if (description.isNotBlank()) ({
             Column {
                 help?.let { FieldHelp(it) }
@@ -291,13 +331,23 @@ fun Select(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     state: ButtonState = ButtonState.Enabled,
+    expandedDescription: String,
+    collapsedDescription: String,
 ) {
     require(options.isNotEmpty() && selected in options.indices)
-    var expanded by remember { mutableStateOf(false) }
+    require(expandedDescription.isNotBlank() && collapsedDescription.isNotBlank())
+    // Unavailability ends this open interaction; restoring availability never reopens it.
+    var expanded by remember(state.canPress()) { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         FieldLabel(label)
         Box {
-            Button(options[selected], onPress = { expanded = true }, state = state, variant = ButtonVariant.Secondary)
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                ButtonControl(options[selected], onPress = { expanded = true }, state = state,
+                    variant = ButtonVariant.Secondary,
+                    name = AccessibleName.of("$label: ${options[selected]}"),
+                    description = if (expanded && state.canPress()) expandedDescription else collapsedDescription)
+                state.reason()?.let { FieldHelp(it) }
+            }
             DropdownMenu(expanded = expanded && state.canPress(), onDismissRequest = { expanded = false }) {
                 options.forEachIndexed { index, option ->
                     DropdownMenuItem(

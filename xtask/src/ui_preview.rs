@@ -57,15 +57,39 @@ pub fn leptos_command(workspace: &Workspace, subcommand: &str) -> CommandSpec {
 }
 
 /// Use the installed, reviewed Gradle version. No wrapper or JDK provisioning.
-/// A foreground, non-persistent Gradle invocation keeps the desktop task in our process group.
+/// `--no-daemon` can still fork a detached single-use JVM. For `run`, align launcher options
+/// with this project's JVM and pass the owned shell PID through its exec chain. The project's
+/// configuration guard rejects a different JVM before task work. Shutdown still needs runtime
+/// evidence; this command does not establish window readiness or whole-process cleanup.
 pub fn cmp_command(workspace: &Workspace, task: &str) -> CommandSpec {
-    CommandSpec::new("gradle", workspace.root()).args([
+    let args = [
         "--project-dir",
         UI_CMP_DIR,
         "--no-daemon",
         "-Dorg.gradle.java.installations.auto-download=false",
         task,
-    ])
+    ];
+    if task == "run" {
+        // A fixed POSIX shell program supplies its own PID, then execs Gradle. Task options
+        // remain distinct argv values; no user string is interpolated into shell source.
+        CommandSpec::new("/bin/sh", workspace.root())
+            .args([
+                "-c",
+                "export JAVA_OPTS=\"-Xmx2g -Dfile.encoding=UTF-8 -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\"",
+                "cantos-cmp-preview",
+            ])
+            .args(args)
+            // The pinned distribution's launcher already loads this agent. Match its status;
+            // disabling the requested agent would itself require a separate build JVM.
+            .env("GRADLE_OPTS", "-Dorg.gradle.internal.instrumentation.agent=true")
+            .args([
+                "-Pkotlin.compiler.execution.strategy=in-process",
+                // A cached configuration must not skip the current-launcher guard.
+                "--no-configuration-cache",
+            ])
+    } else {
+        CommandSpec::new("gradle", workspace.root()).args(args)
+    }
 }
 
 pub fn cmp_tools() -> Vec<Tool> {
@@ -160,7 +184,7 @@ fn launch_cmp(workspace: &Workspace) -> Result<ExitCode> {
     supervisor.shutdown();
     match outcome {
         Wait::Interrupted => {
-            println!("Stopped the preview processes xtask started.");
+            println!("Stopped the owned preview process group; complete CMP shutdown requires runtime inspection.");
             Ok(ExitCode::SUCCESS)
         }
         Wait::Exited { status, .. } if status.success() => {
@@ -208,6 +232,16 @@ pub fn execute(
             if renderer == Renderer::Cmp && open {
                 eprintln!("xtask: error: --open applies only to the Leptos browser preview; CMP opens its desktop window");
                 return Ok(ExitCode::from(2));
+            }
+            if renderer == Renderer::Cmp && !cfg!(unix) {
+                let mut report = Report::new("ui-preview run");
+                report.record(
+                    "CMP preview run",
+                    Status::Unsupported,
+                    "requires a POSIX exec chain and Unix process-group supervision",
+                );
+                report.print();
+                return Ok(report.exit_code());
             }
             if let Some(code) = unsupported_run(renderer, tools) {
                 return Ok(code);
@@ -280,6 +314,39 @@ mod tests {
             .args
             .windows(2)
             .any(|pair| pair == ["--features", "preview"]));
+    }
+
+    #[test]
+    fn cmp_run_constrains_only_its_launcher_and_rechecks_configuration() {
+        let workspace = workspace();
+        let run = cmp_command(&workspace, "run");
+        assert_eq!(run.program, "/bin/sh");
+        assert_eq!(run.cwd, workspace.root());
+        assert_eq!(
+            run.env,
+            [(
+                "GRADLE_OPTS".to_owned(),
+                "-Dorg.gradle.internal.instrumentation.agent=true".to_owned()
+            )]
+        );
+        assert_eq!(
+            run.args,
+            [
+                "-c",
+                "export JAVA_OPTS=\"-Xmx2g -Dfile.encoding=UTF-8 -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\"",
+                "cantos-cmp-preview",
+                "--project-dir",
+                UI_CMP_DIR,
+                "--no-daemon",
+                "-Dorg.gradle.java.installations.auto-download=false",
+                "run",
+                "-Pkotlin.compiler.execution.strategy=in-process",
+                "--no-configuration-cache",
+            ]
+        );
+        for task in ["compileKotlinDesktop", "desktopTest"] {
+            assert!(cmp_command(&workspace, task).env.is_empty());
+        }
     }
 
     #[test]
