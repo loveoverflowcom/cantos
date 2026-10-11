@@ -184,7 +184,7 @@ fn codes(
 #[test]
 fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim() {
     let catalog = production_catalog();
-    assert_eq!(catalog.capabilities.len(), 3);
+    assert_eq!(catalog.capabilities.len(), 4);
     assert!(catalog
         .capabilities
         .iter()
@@ -193,6 +193,10 @@ fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim(
     let local = &catalog.capabilities[2];
     assert_eq!(local.provider_id, "espeak-ng-local");
     assert!(!local.reference_only && !local.billable_dispatch_available);
+    let neural = &catalog.capabilities[3];
+    assert_eq!(neural, &cantos_api::tts::neural_contract::capability());
+    assert_eq!(neural.voice_ids, ["duc-tri", "my-duyen"]);
+    assert!(!neural.billable_dispatch_available);
     let prepared = prepare_inputs("owner", &revision(), &settings(), &rights(), true, NOW).unwrap();
     let preview = prepared.preview();
     assert!(preview.inputs_eligible);

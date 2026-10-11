@@ -18,6 +18,21 @@ deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md).
 within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
 starting #7. The current requested execution stops at #6.
 
+[PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research slice.
+The requester directed its merge into `develop` on 2026-10-11; it does not close #6, and the
+listening and production-rights gates below still block any production use.
+The requested [local neural investigation](../evidence/local-neural-tts-research.md) compares
+Piper Vietnamese models with VieNeu Nano. A bounded [research adapter](../evidence/local-neural-tts.md)
+retains exact frozen input/receipt identity, rejects unsupported controls and refuses production
+dispatch. Local installation and all six original samples have now run successfully across the
+two admitted presets, Đức Trí and Mỹ Duyên, with native 24,000 Hz mono 16-bit PCM and checked
+WAV hashes/receipts. The next recommended task is a named-listener assessment of pronunciation,
+naturalness and the neutral delivery; listening remains **NOT_RUN**. Resolve training/voice
+provenance before considering production eligibility, which remains **NO_GO**. Then continue
+the separate unfinished commercial #6 criteria after the required provider/terms/rights and
+budget decisions. Preserve eSpeak and keep #6 open; these research samples do not advance the
+queue to #7's durable workers.
+
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain

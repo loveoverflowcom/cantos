@@ -1,0 +1,25 @@
+{
+  "provenance": "Original Cantos research-only punctuation probes, authored for review. Each sentence has fewer than five whitespace-separated words. No private manuscript or reference recording.",
+  "samples": [
+    {
+      "id": "short-question-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "Em về chưa?"
+    },
+    {
+      "id": "short-question-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "Em về chưa?"
+    },
+    {
+      "id": "short-exclamation-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "An ơi!"
+    },
+    {
+      "id": "short-exclamation-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "An ơi!"
+    }
+  ]
+}

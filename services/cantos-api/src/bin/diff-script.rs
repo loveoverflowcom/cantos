@@ -3,7 +3,7 @@
 use std::{
     env,
     ffi::OsString,
-    fs::File,
+    fs::OpenOptions,
     io::{self, Read, Write},
     path::{Path, PathBuf},
     process::ExitCode,
@@ -104,7 +104,15 @@ fn parse_args(args: impl Iterator<Item = OsString>) -> Result<Command, String> {
 /// The limit is the Script IR document bound, so a larger file could not be admitted anyway.
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     let unreadable = |error: io::Error| format!("input could not be read: {error}");
-    let file = File::open(path).map_err(unreadable)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    // Opening a writerless FIFO must not block before descriptor admission.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(path).map_err(unreadable)?;
     let metadata = file.metadata().map_err(unreadable)?;
     if !metadata.is_file() {
         return Err("input is not a regular file".into());

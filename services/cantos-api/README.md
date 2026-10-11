@@ -21,7 +21,7 @@ route group and permission context in this same service. The `cantos-server` bin
 - `production.rs`: pure supported-control validation, per-dialogue pronunciation/performance
   resolution, integer planning estimates, tagged input digest and current rights/approval gate.
   Its catalog preserves historical reference entries and adds the explicit eSpeak local
-  inspection capability; no billable dispatch exists.
+  inspection capability plus the explicitly research-only VieNeu Nano profile; no billable dispatch exists.
 - `postgres/production.rs` and `http/production.rs`: script-scoped append-only settings,
   declarations, candidates/approvals and thin authenticated route mapping. Current permissions,
   accepted head and evidence are rechecked inside the same PostgreSQL transactions.
@@ -33,7 +33,7 @@ route group and permission context in this same service. The `cantos-server` bin
 - `wav_inspection/`: pure, bounded RIFF/WAVE integer PCM inspection over bytes. No HTTP, SQL,
   Script IR, provider or file-system dependency; consumed by `inspect-wav` and `tts/audio`.
 - `tts/`: receipt inspection over existing frozen documents, conservative recovery advice,
-  bounded WAV bytes and one concrete eSpeak NG 1.52.0 local adapter. `inspect-tts-receipt` is
+  bounded WAV bytes and concrete eSpeak NG 1.52.0 and research-only VieNeu Nano local adapters. `inspect-tts-receipt` is
   read-only; `probe-local-tts` explicitly invokes the installed local runtime and retains private
   sample intent/input/receipt files. Neither establishes current production permission, durable
   jobs, reservations or artifact acceptance. See the
@@ -284,6 +284,25 @@ remains proposed for production adoption. Real adapter/dispatch and settlement w
 in its explicitly authorized owning slice.
 
 ## Local TTS sample probe and receipt inspection
+
+The additional [neural research adapter](../../docs/evidence/local-neural-tts.md) uses a
+separately installed pinned VieNeu Nano runtime/model. Production is refused before runtime
+or model I/O. Its exact two presets and default controls are research-only; current live and
+verification results are recorded in that evidence rather than inferred from source code.
+
+```sh
+cargo run --locked --bin probe-neural-tts -- --research-only /absolute/frozen-document.json dialogue-id /absolute/private/runtime/bin/python /absolute/private/pinned-model /absolute/new-private-output-directory
+cargo test -p cantos-api --test tts_neural --test tts_neural_receipt --locked
+```
+
+The neural probe saves create-only intent, frozen document, research purpose, receipt, inspected
+PCM/hash and resource observations. Existing destinations are refused and errors retain
+uncertainty without retries. It installs/downloads nothing, sends no input to a cloud service
+and creates no accepted asset. The fixed helper verifies local model/SDK/preset identity,
+rejects unsupported text/phonemes and captures mono 24 kHz PCM WAV on stdout under resource
+bounds. Consult [the research comparison](../../docs/evidence/local-neural-tts-research.md) and
+[ADR 0010](../../docs/decisions/0010-local-neural-tts-research.md) before installation. Heavy runs
+need a coordinated execution window; preserve the prior eSpeak evidence described below.
 
 The user-authorized local selection is eSpeak NG 1.52.0, invoked as a separate installed
 executable. Its exact adapter identity is `espeak-ng-local` / `espeak-ng-1.52.0` /

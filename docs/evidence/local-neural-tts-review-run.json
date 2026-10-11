@@ -1,0 +1,963 @@
+{
+  "evidence_version": "cantos-local-neural-review-1",
+  "recorded_at_utc": "2026-10-11T05:25:41.301398+00:00",
+  "review_base": "83eab6061554539193e4d61f7d267de2b55b095a",
+  "review_head": "f75402aaab5ee003d12e2de2da148106c2e07014",
+  "tested_source_commit": "c6025cda01877ef4fb55211e92540aecfb69ec00",
+  "reviewed_commits": [
+    "ac9d3bbb883766de47e5c988a4543e3936c719a3",
+    "8705dda862f4a293448df1c27c1bc708ec295695",
+    "b693fd11e8974812dfba4ffd37ea9ca363b1c9c8",
+    "efa5ae1ca1fb8258e1167159d908bb405452c3de",
+    "4b2f78688048cf73e65d7b9fd11e9ae4fe42bdd4"
+  ],
+  "source_sha256": {
+    "apps/server/src/bin/diff-script.rs": "c79b30a68e70f457d3e85c21d24890415a7d22a52fcee62a8571b9295070eced",
+    "apps/server/src/bin/inspect-wav.rs": "9e0d8dd1815b8268d2dbefd489ad386971c6b628f09cb8f3e1f920b38f4bbfbe",
+    "apps/server/src/tts/neural.rs": "acce9db629cda3e75fa482561f4d1bfcab6d74b9486fc377c7fb208bf2d12672",
+    "apps/server/tests/cli_file_admission.rs": "1a9820b8df68adc9fef2f906e0203cd8f7a724b89066d978173aa9f3ae393d61",
+    "apps/server/tests/tts_neural_receipt.rs": "6c20d015e1934fa98f5dbc4a2c2f94ac4867dbad33575b6503f72200595d3f50",
+    "scripts/fixtures/neural-vietnamese-short.json": "387ac1d1985d7c0efc1fa856b3809a7bb026be4224b7e6117d04ff86c71e5263",
+    "scripts/vieneu_nano_runtime.py": "6f11ba4c33ca1733d91b9aeffef718affdedec198d63b9158b1a5003cd9c415a",
+    "apps/server/src/tts/neural_contract.rs": "af20aeefc275703dc47333d35ee9ae3efe636116f685fbc072184c17b345fba1",
+    "apps/server/src/bin/probe-neural-tts.rs": "8dfd45cee2e90ef601947b1edbb5ba47d3b75f5e2fdff9addeb297f488222b0e",
+    "scripts/fixtures/neural-vietnamese.json": "438942d355c8d737d4ebfb17e875ea1f3b5641ec8e683649f3cbd0d6dbc691a9"
+  },
+  "generation_recipe_changed": false,
+  "production_dispatch": "DISABLED",
+  "merge_gate": "BLOCKED",
+  "rights_gate": "NO_GO",
+  "model_audition": "NOT_RUN",
+  "human_audition": "NOT_RUN",
+  "score_status": "all dimension scores unassigned; see proposed rubric",
+  "workspace_test_counts": {
+    "passed": 342,
+    "failed": 0,
+    "ignored": 54
+  },
+  "python_tests": 103,
+  "helper_tests_included": 23,
+  "mutation": {
+    "killed": 9,
+    "survived": 0,
+    "timeout": 0,
+    "unviable": 0
+  },
+  "cargo_environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "TMPDIR": "/private/tmp",
+  "checks": [
+    {
+      "check": "repository",
+      "command": [
+        "python3",
+        "scripts/check_repository.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.14
+    },
+    {
+      "check": "python-unit",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_*.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.43
+    },
+    {
+      "check": "rust-fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.37
+    },
+    {
+      "check": "rust-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 3.83
+    },
+    {
+      "check": "rust-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--locked",
+        "--offline"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 30.03
+    },
+    {
+      "check": "script-reference",
+      "command": [
+        "python3",
+        "scripts/reference_script_ir.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.04
+    },
+    {
+      "check": "script-mutation",
+      "command": [
+        "python3",
+        "scripts/mutate_script_ir.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 108.02
+    },
+    {
+      "check": "wav-build",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--bin",
+        "inspect-wav"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 3.62
+    },
+    {
+      "check": "wav-reference",
+      "command": [
+        "python3",
+        "scripts/reference_wav_inspection.py"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.37
+    },
+    {
+      "check": "postgres",
+      "command": [
+        "python3",
+        "scripts/test_postgres.py"
+      ],
+      "cwd": ".",
+      "exit_code": 1,
+      "seconds": 0.08,
+      "disposition": "initial sandbox failure before cluster; superseded by successful authorized disposable run"
+    },
+    {
+      "check": "studio-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "cantos-studio",
+        "--target",
+        "wasm32-unknown-unknown",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.32
+    },
+    {
+      "check": "studio-build",
+      "command": [
+        "trunk",
+        "build",
+        "--locked"
+      ],
+      "cwd": "apps/web",
+      "exit_code": 0,
+      "seconds": 1.13
+    },
+    {
+      "check": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": ".",
+      "exit_code": 0,
+      "seconds": 0.01
+    },
+    {
+      "check": "postgres-authorized-rerun",
+      "command": [
+        "python3",
+        "scripts/test_postgres.py"
+      ],
+      "PATH_prefix": "/opt/homebrew/opt/postgresql@17/bin",
+      "exit_code": 0,
+      "tests_passed": 51,
+      "cluster": "new disposable PostgreSQL 17, stopped by runner",
+      "raw_log": "target/neural-review-20261011/checks/postgres-escalated.log"
+    },
+    {
+      "check": "espeak-live",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "cantos-server",
+        "--test",
+        "tts_receipt",
+        "installed_local_runtime_generates_three_snapshot_bound_vietnamese_samples",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "real_samples": 3,
+      "run_id": "62964b06-f50a-46ea-85a7-d38ff608ecab",
+      "raw_log": "target/neural-review-20261011/checks/espeak-live.log"
+    },
+    {
+      "check": "neural-short-live",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "cantos-server",
+        "--test",
+        "tts_neural_receipt",
+        "installed_neural_runtime_generates_private_short_punctuation_samples",
+        "--locked",
+        "--offline",
+        "--",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 23.51,
+      "real_samples": 4,
+      "run_id": "7764b94f-d5be-4bb6-af55-05a127f5d64f"
+    }
+  ],
+  "regression_red_to_green": [
+    {
+      "finding": "FIFO admission",
+      "red": "actual CLI test blocked at 2s; external three operand probes each blocked at 1s and were killed/reaped",
+      "green": "six FIFO/symlink operand probes refuse with exit 2 and no stdout/mutation"
+    },
+    {
+      "finding": "expired deadline before spawn",
+      "red": "ProcessStartFailed instead of TimedOut with expired deadline and absent launcher",
+      "green": "TimedOut before spawn attempt; no pid/input record"
+    }
+  ],
+  "library_delivery": {
+    "bytes": 2560714,
+    "sha256": "e81ca874ed998eb46a40bf41e62c6bcb4117699e6817b57d0ff242128cbca839",
+    "roundtrip_byte_equality": true,
+    "source_and_roundtrip_library_id_xattrs_verified": true,
+    "public_id_or_download_url": "withheld; private delivery record retained outside Git"
+  },
+  "samples": [
+    {
+      "id": "narration",
+      "voice_id": "duc-tri",
+      "text": "Ánh đèn cuối sân khấu vừa tắt. Ngoài hiên, mưa rơi nhẹ; người dẫn chuyện khẽ mở trang giấy, chờ một lời hẹn trở về.",
+      "filename": "01-narration-duc-tri.wav",
+      "wav_sha256": "c146dddc2aad17802ba35206334dcbfe5693fae1f3874d64d42b58bd4cf1ce2e",
+      "bytes": 442604,
+      "frames": 221280,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 9.22,
+      "input_digest": "production-p1:sha256:691ffb65d2b13266f030474381ff74573166e6e2ad5055b8824e1a675e91a5ba",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "duc-tri",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "ac4ae2f9-e26a-4f70-a1fb-83025cab1acd",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "question",
+      "voice_id": "my-duyen",
+      "text": "Anh Minh, ngày mai chúng mình có diễn tiếp không? Em đã chuẩn bị chiếc khăn tím và nhớ từng lời của An rồi.",
+      "filename": "02-question-my-duyen.wav",
+      "wav_sha256": "8e4a65bbdbb1dd1e763a4fdf0d77aef1a28a9ab4c5079193b77a24dfa53faa79",
+      "bytes": 368684,
+      "frames": 184320,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 7.68,
+      "input_digest": "production-p1:sha256:120bba00b1166acf188615ac6a629b52b58853ba05df644604d2b8305bf529e7",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "my-duyen",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "06af068d-48f1-4b2c-b818-112ce61100b9",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "exclamation",
+      "voice_id": "duc-tri",
+      "text": "An ơi, đừng vội đi! Cánh cửa vẫn mở, và khán giả đang chờ chúng ta kể hết câu chuyện này.",
+      "filename": "03-exclamation-duc-tri.wav",
+      "wav_sha256": "37e50424c2f9ce6281810fc34bb7c8745e3402aecf5d700583a0adc8572412c4",
+      "bytes": 367724,
+      "frames": 183840,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 7.66,
+      "input_digest": "production-p1:sha256:b4dcf7d342b131a89c30c9965a76bdf4e2abfd1d2c92d69dac1843a0e295aba1",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "duc-tri",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "93f82fa3-90d8-4f64-a68c-389b9db70762",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "proper-names",
+      "voice_id": "my-duyen",
+      "text": "Nguyễn Ánh gặp Mỹ Duyên bên dòng sông Hương. Từ Thừa Thiên Huế đến Cần Thơ, họ mang theo lời chào của Vọng Đài.",
+      "filename": "04-proper-names-my-duyen.wav",
+      "wav_sha256": "d160048340e53431abdc8fa0ad9445e2c2f97e13d22b9180d0ff8f04d01651eb",
+      "bytes": 376364,
+      "frames": 188160,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 7.84,
+      "input_digest": "production-p1:sha256:56bbd79556b1ba35450315cb7f5a536f3dd37fb3ccfa4405b0f2abd23f2d84d7",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "my-duyen",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "047ae41f-011b-4cdf-81a8-2b4c50347521",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "tones",
+      "voice_id": "duc-tri",
+      "text": "Bà bảo bé bỏ chiếc lá vào giỏ. Má mỉm cười, mở cửa, nhìn đàn cò trắng bay qua ruộng lúa lúc chiều xuống.",
+      "filename": "05-tones-duc-tri.wav",
+      "wav_sha256": "39b87408d9d7e390b138a99d830b95ff9cc24e100bdaf17e7b0239648d1405b4",
+      "bytes": 408044,
+      "frames": 204000,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 8.5,
+      "input_digest": "production-p1:sha256:e2a9b0a602ff3d33fca3955b5a9430ab22b5af61ae6e1334745bde3a83e4d3fc",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "duc-tri",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "4c2c2e5d-3fa0-431c-b7e3-eb660d8a3e52",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "moderate-dialogue",
+      "voice_id": "my-duyen",
+      "text": "Em không chắc lá thư ấy đã đến nơi, nhưng em vẫn muốn đợi thêm một chút. Sáng nay, khi đi ngang qua sân khấu, em nghe tiếng ai gọi tên mình. Có lẽ đó chỉ là gió; cũng có lẽ người bạn cũ đã trở về, mang theo câu chuyện mà chúng ta chưa kịp kể.",
+      "filename": "06-moderate-dialogue-my-duyen.wav",
+      "wav_sha256": "43ce46db97d9b68fc8db30a4e6413aa5d67527a5031bb5498d4090bedadebbf8",
+      "bytes": 904364,
+      "frames": 452160,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 18.84,
+      "input_digest": "production-p1:sha256:e93fb8ee9ba7cf8452cc9ecf0aa92bb15d0ef8466f5b5119e20ef2714d8f223e",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "my-duyen",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "de2a2a2e-7aaa-4799-8770-e9097b1bec6f",
+      "source_run_id": "85f8c3d4-6be8-4d4c-baa6-fde7a535d5ca"
+    },
+    {
+      "id": "short-question-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "Em về chưa?",
+      "filename": "07-short-question-duc-tri-duc-tri.wav",
+      "wav_sha256": "44d1c52ba9f83936c8aed674ee084a786db57e3879164362d956d799d27913ac",
+      "bytes": 58124,
+      "frames": 29040,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 1.21,
+      "input_digest": "production-p1:sha256:f0ca17730fcdb14a3f7c76b5e04adb1c323ae49dd575f1b2cbc74ae33d33e5a4",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "duc-tri",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "082e5f83-40d6-43bc-9893-52764de26d8a",
+      "source_run_id": "7764b94f-d5be-4bb6-af55-05a127f5d64f"
+    },
+    {
+      "id": "short-question-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "Em về chưa?",
+      "filename": "08-short-question-my-duyen-my-duyen.wav",
+      "wav_sha256": "041ecbe37aa21ae6a120630fd5d71359f48f04451b106a17395316c35ad81e7c",
+      "bytes": 64844,
+      "frames": 32400,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 1.35,
+      "input_digest": "production-p1:sha256:d560c052db424374b94f02686e5834bff4029a93434049c7d8863d572a1eb0fe",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "my-duyen",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "4b1fb583-3a2f-4085-a72b-bc3a9a094fad",
+      "source_run_id": "7764b94f-d5be-4bb6-af55-05a127f5d64f"
+    },
+    {
+      "id": "short-exclamation-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "An ơi!",
+      "filename": "09-short-exclamation-duc-tri-duc-tri.wav",
+      "wav_sha256": "04b6db2e3fc99b1613ed585ecf0b241125d91908d8731182342cb269ca93425f",
+      "bytes": 36524,
+      "frames": 18240,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 0.76,
+      "input_digest": "production-p1:sha256:33a6feae42484ba971bb8645dba7c720851b7c96ada5dced835d5ee3933fec32",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "duc-tri",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "e238c5e2-342f-4035-9d4d-6b3ad0af1c2f",
+      "source_run_id": "7764b94f-d5be-4bb6-af55-05a127f5d64f"
+    },
+    {
+      "id": "short-exclamation-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "An ơi!",
+      "filename": "10-short-exclamation-my-duyen-my-duyen.wav",
+      "wav_sha256": "ebbad8bc87c4c765be9774e747e06ce1278df67f6621772dc7cb307361edb942",
+      "bytes": 47564,
+      "frames": 23760,
+      "sample_rate_hz": 24000,
+      "audio_seconds": 0.99,
+      "input_digest": "production-p1:sha256:7fa245a569bacf909e61083df522a4f8f26033bad5d38c3458b782ed1c8be8ff",
+      "dialogue_id": "dialogue-01",
+      "provider": {
+        "provider_id": "vieneu-nano-local",
+        "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+        "voice_id": "my-duyen",
+        "adapter_version": "vieneu-nano-local-v1"
+      },
+      "attempt_id": "28885d4d-34b0-42f3-9565-2c3ce72950af",
+      "source_run_id": "7764b94f-d5be-4bb6-af55-05a127f5d64f"
+    }
+  ],
+  "short_normalization_observation": [
+    {
+      "id": "short-question-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "Em về chưa?",
+      "normalized_chunks": [
+        "em về chưa."
+      ],
+      "gap_seconds": [],
+      "phonemes": [
+        "ˈɛm vˈe2 tʃˌyə."
+      ],
+      "listening": "NOT_RUN"
+    },
+    {
+      "id": "short-question-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "Em về chưa?",
+      "normalized_chunks": [
+        "em về chưa."
+      ],
+      "gap_seconds": [],
+      "phonemes": [
+        "ˈɛm vˈe2 tʃˌyə."
+      ],
+      "listening": "NOT_RUN"
+    },
+    {
+      "id": "short-exclamation-duc-tri",
+      "voice_id": "duc-tri",
+      "text": "An ơi!",
+      "normalized_chunks": [
+        "an ơi."
+      ],
+      "gap_seconds": [],
+      "phonemes": [
+        "ˈaːn ˈəːj."
+      ],
+      "listening": "NOT_RUN"
+    },
+    {
+      "id": "short-exclamation-my-duyen",
+      "voice_id": "my-duyen",
+      "text": "An ơi!",
+      "normalized_chunks": [
+        "an ơi."
+      ],
+      "gap_seconds": [],
+      "phonemes": [
+        "ˈaːn ˈəːj."
+      ],
+      "listening": "NOT_RUN"
+    }
+  ],
+  "short_run_observations": [
+    {
+      "bytes": 58124,
+      "frames": 29040,
+      "input_digest": "production-p1:sha256:f0ca17730fcdb14a3f7c76b5e04adb1c323ae49dd575f1b2cbc74ae33d33e5a4",
+      "listening": "NOT_RUN",
+      "real_time_factor": 4.921214841322314,
+      "sample": "short-question-duc-tri",
+      "sample_rate_hz": 24000,
+      "timing_scope": "cold CLI with model hash verification",
+      "voice_id": "duc-tri",
+      "wall_seconds": 5.954669958,
+      "wav_sha256": "44d1c52ba9f83936c8aed674ee084a786db57e3879164362d956d799d27913ac"
+    },
+    {
+      "bytes": 64844,
+      "frames": 32400,
+      "input_digest": "production-p1:sha256:d560c052db424374b94f02686e5834bff4029a93434049c7d8863d572a1eb0fe",
+      "listening": "NOT_RUN",
+      "real_time_factor": 4.324972314814815,
+      "sample": "short-question-my-duyen",
+      "sample_rate_hz": 24000,
+      "timing_scope": "cold CLI with model hash verification",
+      "voice_id": "my-duyen",
+      "wall_seconds": 5.838712625,
+      "wav_sha256": "041ecbe37aa21ae6a120630fd5d71359f48f04451b106a17395316c35ad81e7c"
+    },
+    {
+      "bytes": 36524,
+      "frames": 18240,
+      "input_digest": "production-p1:sha256:33a6feae42484ba971bb8645dba7c720851b7c96ada5dced835d5ee3933fec32",
+      "listening": "NOT_RUN",
+      "real_time_factor": 7.663924013157894,
+      "sample": "short-exclamation-duc-tri",
+      "sample_rate_hz": 24000,
+      "timing_scope": "cold CLI with model hash verification",
+      "voice_id": "duc-tri",
+      "wall_seconds": 5.82458225,
+      "wav_sha256": "04b6db2e3fc99b1613ed585ecf0b241125d91908d8731182342cb269ca93425f"
+    },
+    {
+      "bytes": 47564,
+      "frames": 23760,
+      "input_digest": "production-p1:sha256:7fa245a569bacf909e61083df522a4f8f26033bad5d38c3458b782ed1c8be8ff",
+      "listening": "NOT_RUN",
+      "real_time_factor": 5.918668813131313,
+      "sample": "short-exclamation-my-duyen",
+      "sample_rate_hz": 24000,
+      "timing_scope": "cold CLI with model hash verification",
+      "voice_id": "my-duyen",
+      "wall_seconds": 5.8594821249999995,
+      "wav_sha256": "ebbad8bc87c4c765be9774e747e06ce1278df67f6621772dc7cb307361edb942"
+    }
+  ],
+  "preserved_initial_short_attempt": {
+    "run_id": "359a2dbe-41f0-41fb-b74f-c9392e93e83b",
+    "test_result": "FAILED",
+    "cause": "time -l sandbox kern.clockrate refusal after successful first output receipt",
+    "confirmed_output_sha256": "44d1c52ba9f83936c8aed674ee084a786db57e3879164362d956d799d27913ac",
+    "overwritten": false
+  },
+  "runtime_package_license_inventory": [
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "license_header": "MPL-2.0",
+      "license_files": [
+        "certifi-2026.7.22.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [],
+      "license_header": "MIT",
+      "license_files": [
+        "charset_normalizer-3.5.2.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "filelock",
+      "version": "4.1.0",
+      "expected_version_matches": true,
+      "license_expression": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_header": null,
+      "license_files": [
+        "filelock-4.1.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.12.19",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": "Apache 2.0",
+      "license_files": []
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "expected_version_matches": true,
+      "license_expression": "BSD-3-Clause",
+      "license_classifiers": [],
+      "license_header": null,
+      "license_files": [
+        "fsspec-2026.9.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.7.0",
+      "expected_version_matches": true,
+      "license_expression": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": null,
+      "license_files": [
+        "hf_xet-1.7.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "0.35.3",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": "Apache",
+      "license_files": [
+        "huggingface_hub-0.35.3.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "expected_version_matches": true,
+      "license_expression": "BSD-3-Clause",
+      "license_classifiers": [],
+      "license_header": null,
+      "license_files": [
+        "idna-3.20.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_header": "BSD",
+      "license_files": [
+        "mpmath-1.3.0.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.3",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_header": "Copyright (c) 2005-2025, NumPy Developers.",
+      "license_files": [
+        "numpy-2.3.3.dist-info/LICENSE.txt",
+        "numpy/_core/include/numpy/random/LICENSE.txt",
+        "numpy/ma/LICENSE",
+        "numpy/random/LICENSE.md"
+      ]
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.24.4",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_header": "MIT License",
+      "license_files": [
+        "onnxruntime/LICENSE",
+        "onnxruntime/ThirdPartyNotices.txt"
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "expected_version_matches": true,
+      "license_expression": "Apache-2.0 OR BSD-2-Clause",
+      "license_classifiers": [],
+      "license_header": null,
+      "license_files": [
+        "packaging-26.3.dist-info/licenses/LICENSE",
+        "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+        "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+        "packaging/licenses/__init__.py",
+        "packaging/licenses/__pycache__/__init__.cpython-313.pyc",
+        "packaging/licenses/__pycache__/_spdx.cpython-313.pyc",
+        "packaging/licenses/_spdx.py"
+      ]
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [],
+      "license_header": "3-Clause BSD License",
+      "license_files": [
+        "protobuf-7.36.2.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_header": "MIT",
+      "license_files": [
+        "pyyaml-6.0.3.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": "Apache-2.0",
+      "license_files": [
+        "requests-2.34.2.dist-info/licenses/LICENSE",
+        "requests-2.34.2.dist-info/licenses/NOTICE"
+      ]
+    },
+    {
+      "name": "sea-g2p",
+      "version": "0.9.1",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": null,
+      "license_files": [
+        "sea_g2p-0.9.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_header": "BSD",
+      "license_files": [
+        "sympy-1.14.0.dist-info/licenses/AUTHORS",
+        "sympy-1.14.0.dist-info/licenses/LICENSE",
+        "sympy/parsing/latex/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [],
+      "license_header": "MPL-2.0 AND MIT",
+      "license_files": [
+        "tqdm-4.70.1.dist-info/licenses/LICENCE"
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "expected_version_matches": true,
+      "license_expression": "PSF-2.0",
+      "license_classifiers": [],
+      "license_header": null,
+      "license_files": [
+        "typing_extensions-4.16.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "expected_version_matches": true,
+      "license_expression": "MIT",
+      "license_classifiers": [],
+      "license_header": null,
+      "license_files": [
+        "urllib3-2.8.0.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "vieneu",
+      "version": "3.8.3",
+      "expected_version_matches": true,
+      "license_expression": null,
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_header": "Apache License",
+      "license_files": [
+        "vieneu-3.8.3.dist-info/licenses/LICENSE"
+      ]
+    }
+  ],
+  "official_card_fetches": [
+    {
+      "name": "nano-pinned-readme",
+      "url": "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/aba295eb96a6fa6003ebe417cc1f2802a7adc1dc/README.md",
+      "exit_code": 0,
+      "bytes": 15403,
+      "sha256": "b384262645214848872036daae39265a268b86c4403f44d6ff4caddf5a183df1"
+    },
+    {
+      "name": "nano-pinned-license",
+      "url": "https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano/resolve/aba295eb96a6fa6003ebe417cc1f2802a7adc1dc/LICENSE",
+      "exit_code": 56,
+      "error": "curl: (56) The requested URL returned error: 404\n"
+    },
+    {
+      "name": "piper-vivos",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/vi/vi_VN/vivos/x_low/MODEL_CARD",
+      "exit_code": 0,
+      "bytes": 272,
+      "sha256": "175c37c171f7f4a66ee2e37546775cb366bd1e00d027d10b18918b5cc1484c86"
+    },
+    {
+      "name": "piper-vais",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/vi/vi_VN/vais1000/medium/MODEL_CARD",
+      "exit_code": 0,
+      "bytes": 361,
+      "sha256": "302db8a930ffc2b1c2181db26deaf8272116eca2b08b8f80da6375b0a994af7b"
+    },
+    {
+      "name": "piper-25hours",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/vi/vi_VN/25hours_single/low/MODEL_CARD",
+      "exit_code": 0,
+      "bytes": 343,
+      "sha256": "ff9abd90c4f33fb318ce2bfa97fa94abe36683216fe8f091c552e6d71ab4ec16"
+    },
+    {
+      "name": "piper-lessac",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/lessac/medium/MODEL_CARD",
+      "exit_code": 0,
+      "bytes": 351,
+      "sha256": "ce49eb457742208166d399a40cdec2c7fa9db77960930031564ab56f12882645"
+    },
+    {
+      "name": "piper-ryan",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/ryan/low/MODEL_CARD",
+      "exit_code": 0,
+      "bytes": 263,
+      "sha256": "82409c9c68863650e407a89dcebfc946afd992203593f0e4af234bce83c4144d"
+    }
+  ],
+  "disk_free_gib_observed": {
+    "start": 3.6,
+    "after_checks": 2.7
+  },
+  "not_run": [
+    "model/human listening",
+    "Studio runtime accessibility",
+    "mobile runtime",
+    "production end-to-end",
+    "steady-state benchmark"
+  ],
+  "residual_limits": [
+    "sampled RSS and advisory concurrency lock are not hard OS quotas",
+    "native dependencies and private stable same-owner installation trusted",
+    "partial cross-commit/UI coverage",
+    "exact-pin training/preset production rights unresolved"
+  ],
+  "delivery_disclosure_recovery": {
+    "pr_body_update": "initially rejected by automatic approval review for unauthorized Library-link disclosure",
+    "current_public_files": "Library ID and URL removed",
+    "old_git_history_reference": "remains in previous documentation commit; no force push",
+    "retire_or_disclose_library_delivery": "requires requester authorization"
+  }
+}

@@ -15,6 +15,14 @@ eSpeak NG 1.52.0 descriptor exposes adapter-supported Vietnamese identities with
 keeps `billable_dispatch_available: false`. Approval grants no agent permission to spend.
 The [receipt contract](tts-receipt-v1.md) owns the separate user-invoked local sample probe.
 
+The optional `vieneu-nano-local` descriptor appends a separate research-only entry with its
+exact pinned model, `duc-tri`/`my-duyen` presets and neutral/default controls. It has
+`reference_only: false` but `billable_dispatch_available: false`; this denotes a concrete research
+adapter, not production rights. Its invocation boundary refuses production before runtime/model
+I/O independently of approval. Model/preset provenance and live evidence are recorded in
+[the neural slice](../../docs/evidence/local-neural-tts.md). Existing entries, catalog version,
+production-p1 encoding, frozen snapshots, shared DTOs and JSON Schema are unchanged.
+
 ## Routes and current permissions
 
 Paths below are relative to `/api/v1`. Script IDs, snapshot IDs and operation IDs are canonical
