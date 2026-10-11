@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::script_ir::{read_canonical_script, ScriptContent};
-use crate::tts::{local_contract, neural_contract};
+use crate::tts::{google_contract, local_contract, neural_contract};
 
 pub const CATALOG_VERSION: &str = "production-reference-v1";
 pub const ADAPTER_VERSION: &str = "reference-only-no-dispatch-v1";
@@ -51,14 +51,16 @@ pub fn production_catalog() -> ProductionCatalogResponse {
     };
     let mut second = first.clone();
     second.model_id = "reference-v2".into();
+    let mut capabilities = vec![
+        first,
+        second,
+        local_contract::capability(),
+        neural_contract::capability(),
+    ];
+    capabilities.extend(google_contract::capabilities());
     ProductionCatalogResponse {
         version: CATALOG_VERSION.into(),
-        capabilities: vec![
-            first,
-            second,
-            local_contract::capability(),
-            neural_contract::capability(),
-        ],
+        capabilities,
     }
 }
 
@@ -538,6 +540,31 @@ fn resolve_inputs(
                 );
             }
         }
+        // Google has no emotion or intensity control: only an explicit neutral delivery at
+        // intensity 0, the voice's default, is castable. Nothing is mapped implicitly.
+        let google = binding.provider_id == google_contract::PROVIDER_ID;
+        if google {
+            if performance.emotion.as_deref() != Some("neutral")
+                || performance.intensity_permille != Some(0)
+            {
+                issue(
+                    &mut issues,
+                    format!("dialogues.{}.performance", line.dialogue_id()),
+                    "unsupported_control",
+                );
+            }
+            if !google_contract::valid_text(&text) {
+                issue(
+                    &mut issues,
+                    format!("dialogues.{}.text", line.dialogue_id()),
+                    if text.len() > google_contract::MAX_TEXT_BYTES {
+                        "google_text_too_large"
+                    } else {
+                        "invalid_google_text"
+                    },
+                );
+            }
+        }
         let resolved_line = ResolvedSynthesisInput {
             dialogue_id: line.dialogue_id().into(),
             character_id: line.speaker_id().into(),
@@ -549,6 +576,8 @@ fn resolve_inputs(
             voice_rights_record_id: binding.voice_rights_record_id.clone(),
             adapter_version: if local {
                 local_contract::ADAPTER_VERSION
+            } else if google {
+                google_contract::ADAPTER_VERSION
             } else if neural {
                 neural_contract::ADAPTER_VERSION
             } else {
@@ -557,6 +586,8 @@ fn resolve_inputs(
             .into(),
             output_contract: if local {
                 local_contract::OUTPUT_CONTRACT
+            } else if google {
+                google_contract::OUTPUT_CONTRACT
             } else if neural {
                 neural_contract::OUTPUT_CONTRACT
             } else {

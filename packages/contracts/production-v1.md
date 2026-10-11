@@ -11,9 +11,17 @@ owns which checks actually ran.
 HTTP remains a planning data pipeline: requests do not call TTS/LLM, install a runtime, reserve
 money or create accepted audio. Two reference entries keep `reference_only: true`. The local
 eSpeak NG 1.52.0 descriptor exposes adapter-supported Vietnamese identities with
-`reference_only: false`; runtime presence is checked by the explicit local probe. Every entry
-keeps `billable_dispatch_available: false`. Approval grants no agent permission to spend.
-The [receipt contract](tts-receipt-v1.md) owns the separate user-invoked local sample probe.
+`reference_only: false`; runtime presence is checked by the explicit local probe. Four Google
+Cloud TTS entries (`google-chirp3-hd`, `google-neural2`, `google-wavenet`, `google-standard`)
+declare the documented vi-VN voices and controls of [ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md),
+not account availability. Like eSpeak, a Google binding freezes only with an explicit `neutral`
+delivery at intensity `0` and text admissible to that adapter (`invalid_google_text`,
+`google_text_too_large`); resolved lines pin `google-cloud-tts-synthesize-2` and
+`wav-pcm-s16le-mono-24000-v1`. Every entry keeps `billable_dispatch_available: false`.
+Approval grants no agent permission to spend. The [receipt contract](tts-receipt-v1.md) owns the
+separate user-invoked local and Google sample probes. The JSON Schema enumerates every
+implemented provider, model, voice, adapter version and output contract; the server remains
+authoritative for which combinations a capability allows.
 
 The optional `vieneu-nano-local` descriptor appends a separate research-only entry with its
 exact pinned model, `duc-tri`/`my-duyen` presets and neutral/default controls. It has
@@ -30,7 +38,7 @@ lowercase UUIDs; actor/evidence/editorial IDs use the existing bounded identifie
 
 | Method and path | Shared request → response | Permission and result |
 | --- | --- | --- |
-| `GET /production/catalog` | — → `ProductionCatalogResponse` | Static non-sensitive reference/local descriptors; no private SQL |
+| `GET /production/catalog` | — → `ProductionCatalogResponse` | Static non-sensitive reference, local and Google descriptors; no private SQL |
 | `GET /scripts/{script}/production` | — → `ProductionStateResponse` | Current reader; latest settings/claims and newest twenty snapshot summaries |
 | `POST /scripts/{script}/production/settings` | `SaveProductionSettingsRequest` → `ProductionSettingsResponse` | Current editor/owner; 200, append version with script/settings CAS |
 | `POST /scripts/{script}/production/rights` | `SaveProductionRightsRequest` → `ProductionRightsClaimResponse` | Current owner; 200, append one script-scoped declaration version |

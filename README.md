@@ -37,9 +37,8 @@ Vietnamese voices were generated and validated as native 22,050 Hz mono 16-bit P
 The probe saves private frozen-input, intent, receipt and output-hash records; the inspector
 checks exact scope and conservative recovery facts. Listening quality is **NOT_RUN**.
 This is a sample path, with explicit neutral/default controls and no production dispatch
-authorization, durable jobs or asset acceptance. Commercial provider/terms/budget selection and
-its live sample remain deferred; this completes only part of #6 and does not close the issue.
-See [local selection](docs/decisions/0008-local-tts-inspection.md) and
+authorization, durable jobs or asset acceptance. See
+[local selection](docs/decisions/0008-local-tts-inspection.md) and
 [provider prerequisites](docs/evidence/tts-provider-prerequisites.md).
 The user-requested [local neural research slice](docs/evidence/local-neural-tts.md) adds a
 bounded VieNeu Nano research adapter while preserving eSpeak. Its pinned model/preset selection
@@ -47,6 +46,13 @@ and [rights comparison](docs/evidence/local-neural-tts-research.md) keep product
 disabled. The pinned ARM64 CPU runtime generated six inspected 24,000 Hz mono 16-bit PCM WAVs
 from the Đức Trí and Mỹ Duyên presets; required native, PostgreSQL and browser checks passed.
 This remains part of #6, with commercial execution and listening acceptance unresolved.
+
+The owner-selected commercial provider, Google Cloud TTS, follows the same pattern: its vi-VN
+voices are castable with an explicit neutral delivery, and an opt-in `probe-google-tts` sends
+one capped request for one frozen line. Its evidence is mocked only; the live Google sample is
+**NOT_RUN** ([Google selection](docs/decisions/0011-google-cloud-tts-adapter.md),
+[adapter evidence](docs/evidence/google-tts-adapter.md)). This completes only part of #6 and
+does not close the issue.
 
 The repository is organised by product and kind: `apps/cantos` (Theatre, for listeners) and
 `apps/cantos-studio` (Studio, for creators) each have `web` and `mobile`; one backend lives in

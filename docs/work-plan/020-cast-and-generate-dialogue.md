@@ -47,6 +47,17 @@ pending training/voice provenance. Actual sample generation does not establish p
 naturalness or emotion quality.
 This adds no commercial authorization, durable queue, retries, clip cache or asset acceptance.
 
+For the commercial path the owner selected Google Cloud TTS with mocked evidence first. Following
+the eSpeak pattern, the casting catalog now offers its dated vi-VN voices; a Google binding freezes
+only with an explicit `neutral` delivery at intensity 0, and frozen lines pin the Google adapter
+and 24 kHz output contract. `probe-google-tts` plans or, only with `--live`, a cents cap and an
+operator-held token, sends exactly one request for one frozen line, recording receipt-v1 and
+private observation files. The [adapter evidence](../evidence/google-tts-adapter.md) and proposed
+[ADR 0011](../decisions/0011-google-cloud-tts-adapter.md) separate these mocked checks from live
+synthesis, which is NOT_RUN. #6 still needs an operator-paid live sample with recorded envelopes;
+Studio cannot yet enter the explicit intensity 0 for capabilities without intensity (eSpeak and
+Google alike).
+
 Later slices use PostgreSQL-backed background job states, bounded retries, recovery after
 interruption, cancellation and per-dialogue result caching. Reuse results only when all
 synthesis-affecting inputs match. Account for production cost and make uncertain provider

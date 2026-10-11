@@ -52,6 +52,15 @@ Claims/rates remain actor assertions rather than legal/provider verification. Se
 former local/open-source inference prerequisite; later adapters need explicit provider/rights/
 spend authorization and cannot treat a planning approval as agent permission to pay.
 
+The first commercial adapter, Google Cloud TTS for vi-VN ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md),
+proposed), is castable like eSpeak: its voices require an explicit neutral delivery, frozen lines
+pin its adapter, and the planner re-checks declared capabilities before any send. Because Google
+documents no request ID, idempotency key, lookup or billing rule for errors, every outcome after
+a connection opened may have executed and needs reconciliation before a repeat; returned audio
+passes the shared inspector. It is reachable only through the opt-in `probe-google-tts` operator
+command; production dispatch still needs durable attempts, reservations and a current approval
+check.
+
 ## Cache and partial regeneration
 
 Build a canonical input fingerprint for each dialogue synthesis request. It must include every effective setting that could alter the output, including provider/model changes and pronunciation rules. For providers whose model version cannot be pinned, record that limitation and provide an explicit refresh/invalidation mechanism.

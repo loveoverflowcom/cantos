@@ -21,6 +21,7 @@
 | [Casting/input evidence](evidence/casting-production-inputs.md) | Frozen planning scope, rights/budget/approval checks, actual tests and affected read/DBSP assessment |
 | [Local TTS evidence](evidence/tts-receipt-inspection.md) | Bounded local samples, snapshot-bound receipts, actual checks and commercial/production limits |
 | [TTS prerequisites](evidence/tts-provider-prerequisites.md) | Official provider declarations, local selection and deferred commercial prerequisites |
+| [Google TTS adapter evidence](evidence/google-tts-adapter.md) | Google casting/adapter claims ledger, mocked checks, NOT_RUN live synthesis and residual provider risk |
 | [Local neural research](evidence/local-neural-tts-research.md) | Piper/VieNeu engine, model, preset and training-rights comparison; pinned local resource plan |
 | [Local neural evidence](evidence/local-neural-tts.md) | Research-only adapter boundary, exact identities, checks, actual versus mocked results and limits |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
@@ -33,6 +34,7 @@
 | [Decision 0008](decisions/0008-local-tts-inspection.md) | Accepted local eSpeak inspection selection; production adoption proposed |
 | [Decision 0009](decisions/0009-monorepo-layout.md) | Product-grouped apps, one backend service and shared packages |
 | [Decision 0010](decisions/0010-local-neural-tts-research.md) | Proposed VieNeu Nano research selection; production dispatch disabled |
+| [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

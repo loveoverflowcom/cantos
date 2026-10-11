@@ -6,7 +6,7 @@ use super::attempt::{
     ReconciliationCapabilities, RecoveryPlan,
 };
 use super::audio::{inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile};
-use super::{local_contract, neural_contract};
+use super::{google_contract, local_contract, neural_contract};
 use crate::production::{prepare_inputs, MAX_MONEY_MINOR, MAX_PRODUCTION_DOCUMENT_BYTES};
 
 pub const RECEIPT_VERSION: &str = "cantos-tts-receipt-1";
@@ -197,6 +197,11 @@ pub fn audit_receipt(
                 // This profile admits research bytes only. ReceiptAudit has no
                 // dispatch, accepted-artifact or publication conversion path.
                 OutputProfile::Neural24Khz
+            } else if line.provider_id == google_contract::PROVIDER_ID
+                && line.adapter_version == google_contract::ADAPTER_VERSION
+                && line.output_contract == google_contract::OUTPUT_CONTRACT
+            {
+                OutputProfile::Google24Khz
             } else if receipt.evidence == ReceiptEvidence::SyntheticFixture {
                 OutputProfile::Offline24Khz
             } else {

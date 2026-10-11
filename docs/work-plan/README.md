@@ -33,6 +33,14 @@ the separate unfinished commercial #6 criteria after the required provider/terms
 budget decisions. Preserve eSpeak and keep #6 open; these research samples do not advance the
 queue to #7's durable workers.
 
+The owner-selected Google Cloud TTS path follows the same pattern: Google vi-VN voices are in the
+casting catalog with an explicit neutral-delivery rule, and an opt-in probe consumes one frozen
+line through the shared receipt audit, with [mocked evidence](../evidence/google-tts-adapter.md)
+only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Within #6, next record an
+operator-paid, capped live sample with real envelopes, and let Studio enter the explicit
+intensity 0 that eSpeak and Google casting require. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
+then persists attempts and reservations before any production dispatch.
+
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain

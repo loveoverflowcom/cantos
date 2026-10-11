@@ -59,7 +59,9 @@ predicate and receipt/audio/recovery rules inside the server package. Its explic
 `probe-local-tts` CLI invokes one installed eSpeak engine and writes private sample evidence;
 HTTP remains planning-only. This is not a production worker, cache or audio-acceptance path.
 [ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
-and proposed production adoption. Existing PostgreSQL queries/schema and publication/listening
+and proposed production adoption. The Google Cloud TTS slice follows the same pattern with
+`tts::google_contract`, a pure `tts::google` planner/classifier and a one-request HTTPS shell
+behind the explicit `probe-google-tts` CLI ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
 boundaries are unchanged; no new read model or DBSP consumer is justified.
 The optional neural research slice adds one concrete `tts::neural` process adapter and pure
 `neural_contract`, with a fixed local Python helper and its own PCM inspection profile. It

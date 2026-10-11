@@ -184,7 +184,7 @@ fn codes(
 #[test]
 fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim() {
     let catalog = production_catalog();
-    assert_eq!(catalog.capabilities.len(), 4);
+    assert_eq!(catalog.capabilities.len(), 8);
     assert!(catalog
         .capabilities
         .iter()
@@ -197,6 +197,29 @@ fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim(
     assert_eq!(neural, &cantos_api::tts::neural_contract::capability());
     assert_eq!(neural.voice_ids, ["duc-tri", "my-duyen"]);
     assert!(!neural.billable_dispatch_available);
+    let google: Vec<_> = catalog.capabilities[4..]
+        .iter()
+        .map(|c| {
+            (
+                c.provider_id.as_str(),
+                c.model_id.as_str(),
+                c.voice_ids.len(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        google,
+        [
+            ("google-cloud-tts", "google-chirp3-hd", 30),
+            ("google-cloud-tts", "google-neural2", 2),
+            ("google-cloud-tts", "google-wavenet", 4),
+            ("google-cloud-tts", "google-standard", 4),
+        ]
+    );
+    assert!(catalog.capabilities[4..].iter().all(|c| !c.reference_only
+        && !c.billable_dispatch_available
+        && !c.intensity_supported
+        && c.emotions == ["neutral"]));
     let prepared = prepare_inputs("owner", &revision(), &settings(), &rights(), true, NOW).unwrap();
     let preview = prepared.preview();
     assert!(preview.inputs_eligible);
@@ -278,6 +301,108 @@ fn local_casting_preserves_requested_identity_and_rejects_inherited_unsupported_
         vec![FieldIssue {
             path: "bindings[0].voice_id".into(),
             rule: "unsupported_control".into()
+        }]
+    );
+}
+
+#[test]
+fn google_casting_pins_its_adapter_and_requires_an_explicit_neutral_delivery() {
+    let mut google = settings();
+    for (binding, (model, voice)) in google.settings.bindings.iter_mut().zip([
+        ("google-neural2", "vi-VN-Neural2-A"),
+        ("google-chirp3-hd", "vi-VN-Chirp3-HD-Aoede"),
+        ("google-wavenet", "vi-VN-Wavenet-D"),
+    ]) {
+        binding.provider_id = "google-cloud-tts".into();
+        binding.model_id = model.into();
+        binding.voice_id = voice.into();
+        // One voice subject per rights record; two voices cannot share a declaration.
+        binding.voice_rights_record_id = format!("rights-voice-{}", binding.character_id);
+    }
+    assert_eq!(validate_settings(&google.settings), Ok(()));
+    // Script IR delivery (calm, hopeful, warm) is inherited and refused, never dropped.
+    let inherited: Vec<_> = prepare_inputs("owner", &revision(), &google, &[], true, NOW)
+        .err()
+        .unwrap()
+        .into_iter()
+        .map(|issue| (issue.path, issue.rule))
+        .collect();
+    assert_eq!(
+        inherited,
+        ["01", "02", "03", "04"].map(|n| (
+            format!("dialogues.dialogue-{n}.performance"),
+            "unsupported_control".to_owned()
+        ))
+    );
+    for binding in &mut google.settings.bindings {
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    let document = prepare_inputs("owner", &revision(), &google, &[], true, NOW)
+        .unwrap()
+        .document();
+    assert!(document.resolved.iter().all(|line| {
+        line.provider_id == "google-cloud-tts"
+            && line.adapter_version == "google-cloud-tts-synthesize-2"
+            && line.output_contract == "wav-pcm-s16le-mono-24000-v1"
+            && line.performance.emotion.as_deref() == Some("neutral")
+            && line.performance.intensity_permille == Some(0)
+    }));
+    assert_ne!(document.input_digest, crate::document().input_digest);
+    // Chirp 3: HD has no rate or pitch parameter; other families accept the documented range.
+    for (index, rate, pitch, field) in [
+        (1, 1_100, 0, "rate_permille"),
+        (1, 1_000, 1, "pitch_semitones"),
+        (0, 2_001, 0, "rate_permille"),
+        (0, 1_000, -21, "pitch_semitones"),
+    ] {
+        let mut changed = google.clone();
+        changed.settings.bindings[index].performance.rate_permille = rate;
+        changed.settings.bindings[index].performance.pitch_semitones = pitch;
+        assert_eq!(
+            validate_settings(&changed.settings).unwrap_err(),
+            vec![FieldIssue {
+                path: format!("bindings[{index}].performance.{field}"),
+                rule: "unsupported_control".into()
+            }]
+        );
+    }
+    let mut accepted = google.clone();
+    accepted.settings.bindings[0].performance.rate_permille = 2_000;
+    accepted.settings.bindings[0].performance.pitch_semitones = -20;
+    assert_eq!(validate_settings(&accepted.settings), Ok(()));
+    // A voice outside the chosen model's family is reported on the voice it does not offer.
+    for (field, change, reported) in [
+        ("voice_id", "vi-VN-Neural2-Z", "voice_id"),
+        ("model_id", "google-wavenet", "voice_id"),
+        ("language", "en-US", "language"),
+    ] {
+        let mut changed = google.clone();
+        let binding = &mut changed.settings.bindings[0];
+        match field {
+            "voice_id" => binding.voice_id = change.into(),
+            "model_id" => binding.model_id = change.into(),
+            _ => binding.language = change.into(),
+        }
+        assert_eq!(
+            validate_settings(&changed.settings).unwrap_err(),
+            vec![FieldIssue {
+                path: format!("bindings[0].{reported}"),
+                rule: "unsupported_control".into()
+            }],
+            "{field}"
+        );
+    }
+    // Google's 5,000-byte request limit is checked on the resolved text before freezing.
+    let mut raw: Value = serde_json::from_slice(SCRIPT).unwrap();
+    raw["episode"]["acts"][0]["scenes"][0]["dialogues"][0]["text"] = json!("ấ".repeat(1_667));
+    assert_eq!(
+        prepare_inputs("owner", &revision_from_json(&raw), &google, &[], true, NOW)
+            .err()
+            .unwrap(),
+        vec![FieldIssue {
+            path: "dialogues.dialogue-01.text".into(),
+            rule: "google_text_too_large".into(),
         }]
     );
 }
