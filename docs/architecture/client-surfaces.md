@@ -1,14 +1,15 @@
 # Client surfaces and ownership
 
 Status: three audience-specific entry points are implemented below. Theatre screens are
-synthetic UI skeletons; production listening and native runtime verification are pending.
+synthetic UI skeletons; the iOS arm64 simulator host builds, while Android SDK37 and native
+runtime verification are pending.
 See [decision 0010](../decisions/0010-client-shells.md) and [evidence](../evidence/client-shells.md).
 
 | Audience / surface | Directory / entry | Implemented authority | Missing boundary |
 | --- | --- | --- | --- |
 | Creator / Cantos Studio Web | `apps/web`, `cantos-studio`, existing `index.html` | Existing authenticated import, adaptation review, revision editor, casting and immutable production-input flows | Existing production identity, durable generation/mix/publication gates |
 | Listener / Cantos Theatre Web | `apps/theatre-web`, `cantos-theatre`, separate `index.html` | Hash routes, discovery, local search, one work/episode, library and disabled player shell | Published catalog/manifest, account/progress/library, delivery and browser audio adapters |
-| Listener / Cantos Theatre app | `apps/mobile/shared`, Android Activity and SwiftUI host | Compose screens, saved navigation/language/theme/query, unavailable playback | Native build/runtime evidence, audio/background controls/downloads/progress |
+| Listener / Cantos Theatre app | `apps/mobile/shared`, Android Activity and SwiftUI host | Compose screens, saved navigation/language/theme/query, unavailable playback; iOS arm64 simulator host compiled/linked | Android SDK37/build and native runtime evidence, audio/background controls/downloads/progress |
 
 The Studio directory and executable name remain stable. Its server static-root and session
 entry still belong to Studio. Theatre has no Studio proxy, credentials or crate dependency.
@@ -41,8 +42,9 @@ expose missing assets. Native runtime comparison remains pending.
 
 ## Next bounded work
 
-1. With sufficient disk and installed dependencies, build Android and the iOS host, then inspect
-   safe areas, back, large text and assistive technology separately from playback acceptance.
+1. With sufficient disk and explicitly provisioned Android SDK37, build Android. The iOS Debug
+   arm64 simulator host already builds; inspect both platforms' safe areas, back, large text and
+   assistive technology separately from playback acceptance. No native runtime was launched.
 2. Continue publication/listener contracts in the existing [queue](../work-plan/README.md).
    Bind catalog/episode state to reviewed DTOs and real retry semantics after public-delivery
    permissions and immutable manifests exist.

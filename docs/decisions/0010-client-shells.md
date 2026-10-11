@@ -25,7 +25,9 @@ download actions remain unavailable. Add no mock success adapters, listener wire
 
 Each audience has an entry/build target. Studio compatibility uses existing tests/WASM build;
 Theatre navigation is inspectable before publication exists. Token/contrast checks guard drift.
-CMP common compilation does not establish native acceptance. Offline Android/iOS dependencies
-are missing; native rendering/accessibility and linked Swift host remain unverified. Follow
+CMP common compilation does not establish native acceptance. The later bounded continuation
+compiled/linked the Debug arm64 iOS Simulator host, corrected its architecture selection and
+aligned Android compile SDK with its dependencies' required SDK37. Android assembly still
+needs that SDK; native rendering/accessibility remain unverified. Follow
 [evidence](../evidence/client-shells.md) and the [surface map](../architecture/client-surfaces.md).
 This decision does not advance durable production or close listening issues.

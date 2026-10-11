@@ -94,8 +94,9 @@ Before feature implementation, add an ADR identifying supported OS versions; CMP
 | Accessibility/UI | Large text, TalkBack/VoiceOver, small window, reduced motion | Per-target captures and assistive-technology walkthrough. |
 
 The [client skeleton](client-surfaces.md) supplies shared Compose screens/navigation/theme,
-Android and SwiftUI/Xcode hosts. Common code compiles/tests on JVM and Xcode recognizes the
-project/scheme; native build/runtime gates remain blocked/unrun as recorded in
+Android and SwiftUI/Xcode hosts. Common code compiles/tests on JVM, and the Debug iOS arm64
+simulator host/framework compile and link. Android SDK37 is absent; native runtime gates remain
+blocked/unrun as recorded in
 [client evidence](../evidence/client-shells.md). No native playback, background behavior,
 downloads, progress synchronization, API generation or native accessibility is verified.
 Web or desktop previews cannot establish native mobile acceptance.

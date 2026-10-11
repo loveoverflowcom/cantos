@@ -1,7 +1,9 @@
 # Client skeleton evidence
 
-Date: 2026-10-11. Scope: local `feat/client-shells-skeleton` from fetched `origin/develop`
-`83eab6061554539193e4d61f7d267de2b55b095a`. Local commit only; no push, PR, deployment or merge.
+Date: 2026-10-11. Scope: `feat/client-shells-skeleton` from fetched `origin/develop`
+`83eab6061554539193e4d61f7d267de2b55b095a`. Initial local delivery is commit
+`130595f44e0eeb93c370004c7f0477d9a1e3dd7a`; the later user-authorized push/cleanup continuation
+is recorded below. No PR, deployment or merge is part of this scope.
 The existing unmerged neural TTS work is outside this branch and its gates are unchanged.
 
 ## Implemented / unavailable
@@ -48,7 +50,7 @@ file/Library export. No stored screenshot deliverable or native screenshot is cl
 No new animation is implemented. Reduced-motion CSS is present, but motion profiling,
 screen readers, IME composition and native large text/safe areas/back gestures remain **NOT_RUN**.
 
-## Executed checks
+## Initial executed checks — 130595f
 
 | Command / layer | Result and meaning |
 | --- | --- |
@@ -72,7 +74,7 @@ older clusters were untouched. The machine reached 219 MiB free during testing a
 to about 1.1 GiB. Further native downloads/builds were stopped at the user's request. Mutation
 details remain locally at `/tmp/cantos-shell-evidence/mutations.log`.
 
-## Native blockers and official compatibility
+## Initial native blockers and official compatibility — 130595f
 
 Android `:androidApp:assembleDebug` was attempted offline and blocked by missing cached AARs
 (Material3 1.12.0-alpha03 / AndroidX 1.5.0-alpha22, ripple and graphics-shapes).
@@ -91,7 +93,7 @@ CMP target/version rules were checked against
 and the [official release list](https://github.com/JetBrains/compose-multiplatform/releases).
 Material3 is an explicit prerelease pin; native compatibility remains a verification gate.
 
-## Review and assurance ledger
+## Initial review and assurance ledger — 130595f
 
 Read-only source review covered the local diff/new files against the base above: all manifests,
 lockfile entry, Rust/Kotlin/Swift/source/CSS, token source/generator/outputs, mutation runner,
@@ -114,7 +116,76 @@ value after reset; native top controls now wrap; discovery filtering is separate
 | CMP hosts are authored with bounded tool use | CMP policy; user accepts native NOT_RUN when unavailable | common UI compiled/example-tested; Xcode project parsed | held as source skeleton; native build/runtime gap explicitly retained |
 | Asset provenance and reference privacy | UI/rights rules; user request | source inventory excludes borrowed art/private locators/raw HTML | held; approved artwork/fonts require later rights decision |
 
-Residual risk: native linking/rendering/back/accessibility are unverified, Material3 is prerelease,
+Initial residual risk: native linking/rendering/back/accessibility are unverified, Material3 is prerelease,
 reference fidelity is partial and media/account/delivery contracts are absent. Continue the
 bounded follow-ups in the [surface map](../architecture/client-surfaces.md) and
 [work queue](../work-plan/README.md); these results do not close 040/050 or authorize production.
+
+## Authorized push continuation
+
+The subsequent user request authorizes finishing this skeleton, pushing its branch and cleaning
+unused generated build/cache. Refetch confirmed `origin/develop` still equals the base above;
+the skeleton branch was absent remotely and is not merged. The unrelated Google TTS branch and
+unmerged neural TTS branch were not changed or merged. No provider/API call was made.
+
+Continuation changes only native build configuration and its owning documentation: both Android
+modules now declare compile SDK37 (target SDK36 is unchanged), the Xcode host explicitly selects
+arm64 in Debug/Release, and its Gradle phase uses one worker with `--no-daemon`. Kotlin, Swift,
+Rust, browser code, fixtures, tokens, domain contracts and gates are unchanged from 130595f.
+
+Two confirmed defects were reproduced and fixed:
+
+- Android assembly reached common/host Kotlin compilation, then AAR metadata rejected SDK36.
+  Ten resolved dependencies require compile SDK ≥37. Both module declarations now match that
+  requirement; the Mac lacks `android-37.0`, so final assembly remains **BLOCKED**. SDK
+  auto-download is disabled; no SDK/emulator was installed and metadata checks were not bypassed.
+- The first generic iOS Simulator host build linked the arm64 framework, then Compose resource
+  synchronization rejected Xcode's default x86_64 architecture. The host now declares arm64,
+  matching both Kotlin targets. The same build succeeded after the fix, including Swift compile,
+  link and application validation. Intel simulator support is deliberately absent.
+
+### Fresh continuation checks
+
+Inputs: 130595f plus the SDK/arm64/build-phase configuration diff above. Pinned Gradle9.7.0,
+Kotlin2.4.20/CMP1.12.0, existing Android SDK through36/build-tools36.0.0 and Xcode16.3/SDK18.4.
+Only required official library dependencies were fetched. Native builds ran sequentially with
+one worker/job and an explicitly installed Kotlin/Native home. Logs remain outside Git at
+`/tmp/cantos-shell-evidence`; no raw build environment is committed or published.
+
+| Check | Result / log |
+| --- | --- |
+| `./gradlew --no-daemon --max-workers=1 :androidApp:assembleDebug` | Failed before fix: `checkDebugAarMetadata` requires SDK37. `android-continuation.log` |
+| Same Android task with `--offline` after compile-SDK fix | **BLOCKED**: installed SDK has no `android-37.0`. `android-sdk37-check.log` |
+| `./gradlew --no-daemon --max-workers=1 -Pkotlin.native.home=<installed-2.4.20> :shared:compileKotlinIosSimulatorArm64` | Passed, actual native shared-source compilation. `ios-compile-continuation.log` |
+| `xcodebuild -project apps/mobile/iosApp/CantosTheatre.xcodeproj -scheme CantosTheatre -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath apps/mobile/iosApp/build/DerivedData -jobs 1 CODE_SIGNING_ALLOWED=NO build` | Passed after arm64 fix and again with final bounded Gradle phase. `ios-host-arm64.log`, `ios-host-final.log`. Framework linked, Swift host compiled/linked; no launch |
+| `./gradlew --offline --no-daemon --max-workers=1 :shared:jvmTest --rerun` | Passed, 3 selected/executed, 0 skipped/failures. `jvm-continuation.log`, copied XML in `continuation-tests/` |
+| Repository/Python/token/format/diff checks | Passed: 80 Python tests, token drift check, repository consistency, Rust format and whitespace |
+
+Native commands used `ANDROID_HOME` for the existing SDK; Xcode inherited the installed native
+home through `ORG_GRADLE_PROJECT_kotlin.native.home`. The final Xcode phase starts no persistent
+Gradle daemon. Physical iOS/release builds, simulator launch, Android APK/runtime, native font
+scale, gestures, assistive technology and playback remain **NOT_RUN**.
+
+The initial Rust workspace/clippy/test, PostgreSQL/mutation/reference, two WASM builds and Safari
+observations above are reused specifically for 130595f's unchanged Rust/web/core sources. They
+were not rerun as full gates after cache cleanup and do not verify the new native configurations.
+No further browser interaction was performed in this continuation.
+
+### Review and cleanup boundary
+
+Self-review compares the complete continuation diff against 130595f, tracing Gradle's AAR
+metadata → both compile-SDK declarations and Kotlin targets → Xcode architectures/build phase.
+Native reproduction/fix/recheck belongs to those configuration owners; no UI/domain/permission
+or persisted behavior changed. Assessment: **no-actionable-findings** for these configuration
+fixes; Android assembly remains an environment evidence gap, never a pass.
+
+After remote SHA verification, cleanup is limited to unused task-created mobile build/project
+cache and generated web bundles. Logs/test XML are preserved first. Task-owned preview/Gradle
+processes are stopped; shared SDK/compiler/dependency caches and all `target/` TTS, audio,
+receipts, evidence, database data and source/Git/lockfiles are retained. No broad `cargo clean`,
+browser cleanup, Trash deletion or shutdown is authorized by this record. Exact removal/free-disk
+measurements are reported after cleanup, outside this source commit.
+
+Residual risk: Android requires explicitly provisioned SDK37 and a real assembly; native
+rendering/back/accessibility/playback are unverified; Material3 is prerelease and artwork/font
+rights remain unresolved. No production listening or 040/050 acceptance is claimed.

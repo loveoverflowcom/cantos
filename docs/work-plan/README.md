@@ -22,8 +22,9 @@ The subsequent user-requested [client skeleton](../evidence/client-shells.md) in
 establishes audience/build boundaries for Studio, Theatre Web and the CMP app. It adds labeled
 synthetic UI, not production listening; #6/#7 gates and GitHub execution status are unchanged.
 Before connecting 040/050, retain 030's publication prerequisites. Next for this skeleton:
-bounded native dependency/build and safe-area/back/large-text accessibility validation when
-disk permits, then asset-rights resolution. These follow-ups belong to 040/050 and do not
+Android SDK37/build provisioning and native safe-area/back/large-text accessibility validation
+when disk permits; the Debug arm64 iOS Simulator host now builds. Then resolve asset rights.
+These follow-ups belong to 040/050 and do not
 authorize native playback or advance their acceptance.
 
 The repository has documentation/templates, an executable

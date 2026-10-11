@@ -27,8 +27,9 @@ and exact owner approval on the same backend. Reference capabilities and rates a
 fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. Durable
 production and listener playback remain planned. Separate [Theatre Web](apps/theatre-web/README.md)
 and [CMP listener shells](apps/mobile/README.md) now provide labeled demo navigation, themes
-and disabled player surfaces. Common CMP UI compiles/tests on JVM; native builds/runtime are
-unverified. [Client evidence](docs/evidence/client-shells.md) records their exact boundary.
+and disabled player surfaces. Common CMP UI compiles/tests on JVM and the Debug iOS arm64
+simulator host builds. Android needs SDK37; native runtime remains unverified.
+[Client evidence](docs/evidence/client-shells.md) records the exact boundary.
 No production identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
 reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)

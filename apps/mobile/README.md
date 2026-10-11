@@ -13,7 +13,8 @@ consume reviewed publication/listening contracts.
 ## Toolchain and local commands
 
 Pinned: Gradle 9.7.0 with official checksum, Kotlin/Compose compiler 2.4.20, CMP 1.12.0,
-AGP 9.3.1, Java target 17, compile/target SDK 36 and minimum Android API 24. The iOS host
+AGP 9.3.1, Java target 17, compile SDK 37, target SDK 36 and minimum Android API 24. CMP's
+resolved Android dependencies require compile SDK ≥37; SDK36 cannot assemble this app. The iOS host
 deployment target is 16.0; Kotlin targets are device arm64 and simulator arm64. Material3 is
 the upstream companion `1.12.0-alpha03`, a prerelease dependency using ordinary Material
 components here. Validate native targets before upgrading or adding expressive animation APIs.
@@ -29,7 +30,9 @@ open iosApp/CantosTheatre.xcodeproj
 ```
 
 Choose the shared **CantosTheatre** Xcode scheme. Its build phase calls
-`:shared:embedAndSignAppleFrameworkForXcode`; simulator builds need no signing team. Configure
+`:shared:embedAndSignAppleFrameworkForXcode` with one worker and `--no-daemon`. Both host
+configurations declare arm64, matching the Kotlin targets; Intel/x86_64 simulators are unsupported.
+Simulator builds need no signing team. Configure
 your own team locally for a device. The wrapper may download its pinned Gradle distribution
 if absent; `--offline` only controls dependency resolution. On constrained machines use an
 installed distribution and do not install SDKs/emulators to force a pass.
@@ -49,6 +52,11 @@ Discovery → work → player, search and library are navigation shells. All con
 The state menu exposes loading/empty/error/not-implemented examples and reset. Theme and density
 map shared semantic tokens to native components; fonts use system fallbacks. No borrowed cover
 art or embedded reference HTML is distributed.
+
+The Debug SwiftUI host and static framework have compiled/linked for arm64 iOS Simulator with
+installed Xcode 16.3 / SDK18.4. This is build evidence, not a simulator launch. Android assembly
+remains blocked by absent SDK37; no SDK was installed to force a result. See the continuation
+linked evidence record for exact commands and the two corrected SDK/architecture mismatches.
 
 Three JVM tests exercise back/root navigation, unavailable playback and Vietnamese search
 against actual common code. This host compiles all common UI but does not prove native rendering,

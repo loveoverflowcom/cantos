@@ -10,7 +10,7 @@ plugins {
 kotlin {
     android {
         namespace = "com.cantos.theatre.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 24
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
         withHostTest {}
