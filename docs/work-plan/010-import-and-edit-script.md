@@ -18,7 +18,7 @@ TTS, audio mixing, public playback, a general document-conversion service, real-
 
 ## Dependencies
 
-The project brief and architecture guidance. An executable [Script IR contract](../../contracts/README.md)
+The project brief and architecture guidance. An executable [Script IR contract](../../packages/contracts/README.md)
 now supplies structured-draft validation, exports and speech bytes. The local
 [revision slice](../evidence/script-revision-persistence.md) supplies Axum/PostgreSQL and an
 authorized Leptos save/read consumer with crash/retry/concurrency evidence. Review its actual

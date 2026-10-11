@@ -32,7 +32,7 @@ Do not invent labels, reviewer identities, provider accounts, or approval polici
 
 ## Architecture and contracts
 
-Keep the initial architecture modular without introducing microservices prematurely. Separate domain rules, provider adapters, production orchestration, storage, APIs, and app presentation through explicit interfaces.
+Keep the initial architecture modular without introducing microservices prematurely. Put code where the [repository layout](docs/architecture/repository-layout.md) says: listener apps in `apps/cantos`, creator apps in `apps/cantos-studio`, the backend in `services/cantos-api`, and only genuinely shared contracts or tokens in `packages/`. Separate domain rules, provider adapters, production orchestration, storage, APIs, and app presentation through explicit interfaces.
 
 Treat the versioned Script IR as the boundary for exchanging narrative data with Narrative Forge. Reuse concepts and documented contracts rather than importing another project's internal modules. Record schema compatibility, migration behavior, and stable identities for works, episodes, scenes, and dialogue segments before changing persisted data.
 
@@ -62,7 +62,7 @@ git diff --check
 
 For the implemented Script IR contract, use Rust 1.87 and run `cargo fmt --all -- --check`,
 `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked`
-and `python3 scripts/reference_script_ir.py`. See [the contract](contracts/README.md) for the
+and `python3 scripts/reference_script_ir.py`. See [the contract](packages/contracts/README.md) for the
 CLI, fixture-authoring and bounded mutation commands. On affected macOS temporary-path setups,
 run Python tests with `TMPDIR=/private/tmp`.
 

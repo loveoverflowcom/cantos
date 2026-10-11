@@ -19,7 +19,7 @@ within #6 after those decisions. This is partial delivery, cannot close #6, and 
 starting #7. The current requested execution stops at #6.
 
 The repository has documentation/templates, an executable
-[Script IR contract](../../contracts/README.md), and a local authenticated immutable revision
+[Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain
 planned. Numeric filename prefixes express the current recommended sequence, may be renumbered,
 and are not permanent task IDs.
@@ -128,7 +128,7 @@ review and immutable acceptance/save/reopen. Keep production identity/legal righ
 host-generated quality separate from this local authoring evidence.
 
 The [casting input evidence](../evidence/casting-production-inputs.md) and
-[production v1 contract](../../contracts/production-v1.md) bound #5 to versioned casting,
+[production v1 contract](../../packages/contracts/production-v1.md) bound #5 to versioned casting,
 rights/budget policy, owner approval and immutable snapshots on that same PostgreSQL authority.
 The bounded implementation is locally verified through domain/wire/schema checks, real
 PostgreSQL/HTTP restart journeys and the observed Studio freeze/approval/stale-input flow.

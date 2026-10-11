@@ -7,7 +7,7 @@
 
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. No endpoint exists yet; the first
-slice establishes the contract tooling ([contracts README](../../../../contracts/README.md)).
+slice establishes the contract tooling ([contracts README](../../../../packages/contracts/README.md)).
 
 For database-backed GET/read/fetch, load the foundation's mandatory
 [read-performance workflow](postgresql-read-performance.md). Include internal reads behind
@@ -71,7 +71,7 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
 ## Contracts
 
 - One source of truth per contract (OpenAPI or JSON Schema), versioned, with serialized fixtures
-  in `contracts/`. Record how the Rust types (consumed by the server and the Leptos client) and
+  in `packages/contracts/`. Record how the Rust types (consumed by the server and the Leptos client) and
   the Kotlin types are generated or validated; generated files name their source and generation
   command.
 - Identifiers are opaque stable IDs, never titles or storage paths.

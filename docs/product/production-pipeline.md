@@ -40,7 +40,7 @@ Before synthesis, create a production run that references an immutable snapshot 
 
 Editing the draft while a run is active must not change that run's inputs. A creator may start a replacement run against the revised script. Preserve the relationship between revisions, runs, attempts, artifacts and releases.
 
-The bounded [#5 contract](../../contracts/production-v1.md) freezes a planning candidate before
+The bounded [#5 contract](../../packages/contracts/production-v1.md) freezes a planning candidate before
 any run exists. It pins one complete accepted export/c1/e1, resolved reference-only controls,
 required claim versions and budget/rate policy under a separate production-input digest. A
 blocked candidate may be preserved for inspection; a separate owner approval requires current

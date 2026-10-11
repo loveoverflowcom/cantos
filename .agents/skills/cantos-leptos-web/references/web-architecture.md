@@ -6,11 +6,14 @@
 > crates in WASM, secrets, the shell-owned mini-player, module organization and the open SSR/CSR
 > decision. Use before creating a route tree, context provider, port, adapter, crate or module.
 
-The product owner is [`apps/web/README.md`](../../../../apps/web/README.md) and the Web row of the
+The product owner is [`apps/cantos-studio/web/README.md`](../../../../apps/cantos-studio/web/README.md) and the Web row of the
 [architecture overview](../../../../docs/architecture/overview.md#runtime-and-ownership). The
 dependency rule itself is the foundation's [`decoupling.md`](../../cantos-engineering/references/decoupling.md);
-this reference applies it to the browser. No Leptos package exists yet: every path, crate and
-type below is a **proposal** until the first Web work item creates it.
+this reference applies it to the browser. Two Leptos packages exist, one per product:
+[`apps/cantos-studio/web`](../../../../apps/cantos-studio/web/README.md) (implemented) and
+[`apps/cantos/web`](../../../../apps/cantos/web/README.md) (a skeleton with no listener behavior).
+Every path, crate and type below that the repository does not contain is a **proposal** until a Web
+work item creates it.
 
 ## 1. Two surfaces, two permission contexts
 
@@ -40,7 +43,7 @@ port (trait)         capability the screen needs, provided through Leptos contex
     ↓
 HTTP adapter         URLs, generated contract DTOs, status → typed PortError, retries executed
     ↓
-contract types       generated from contracts/ (OpenAPI / JSON Schema), never hand-copied
+contract types       generated from packages/contracts/ (OpenAPI / JSON Schema), never hand-copied
 ```
 
 | Layer | Owns | Must not own |
@@ -108,7 +111,7 @@ browser. It must not pull in `tokio`, SQL clients, Axum, provider SDKs or object
 | Rule | Oracle | Status |
 |---|---|---|
 | Web depends on pure core crates and generated contract types only, never on backend application or infrastructure crates | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
-| DTOs live in the adapter and map to view-model types | adapter contract test against fixtures generated from `contracts/` | proposed; see [`contracts/README.md`](../../../../contracts/README.md) |
+| DTOs live in the adapter and map to view-model types | adapter contract test against fixtures generated from `packages/contracts/` | proposed; see [`packages/contracts/README.md`](../../../../packages/contracts/README.md) |
 | A new crate needs a consumer and a reason to change of its own | review against [decision 0001](../../../../docs/decisions/0001-modular-monolith.md) | always |
 
 Generated client types follow the foundation's [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md).
@@ -160,23 +163,28 @@ above the inspector, timeline and narrow-screen panes ([`script-editor.md`](scri
 ## 7. Feature-first module organization
 
 ```text
-apps/web/                         proposed; discover the real layout first
+apps/cantos-studio/web/           implemented as flat modules (adaptation, authoring, editor, import,
+                                  inspector, production, view); this tree is the proposed direction
   src/
-    app.rs                        router, surface roots, context providers, theme/lang attributes
-    studio/
-      script_editor/              page, rows, status region, resources, styles (.scss beside .rs)
-      import/                     upload, source preview, adaptation review
-      casting/                    character ↔ voice profile, sample preview
-      production/                 run status, job progress, regeneration scope, QC findings
-      publication/                approval and publish controls (render server gates)
-    theatre/
-      discovery/  work/  episode/  library/
-      player/                     session, mini_player, full_player, media_host
-    ui/                           primitives with two real consumers (button, chip, dialog, field)
-    platform/                     web-sys helpers: media, storage, clipboard, dialog, visibility
-    adapters/                     HTTP adapters per port, generated contract types
-    i18n/                         locale resources and message keys
+    app.rs                        router, surface root, context providers, theme/lang attributes
+    script_editor/                page, rows, status region, resources, styles (.scss beside .rs)
+    import/                       upload, source preview, adaptation review
+    casting/                      character ↔ voice profile, sample preview
+    production/                   run status, job progress, regeneration scope, QC findings
+    publication/                  approval and publish controls (render server gates)
+apps/cantos/web/                  skeleton today (lib, main, one placeholder view); proposed for the first item
+  src/
+    app.rs                        router, surface root, context providers, theme/lang attributes
+    discovery/  work/  episode/  library/
+    player/                       session, mini_player, full_player, media_host
+packages/                         code both apps really use; nothing Web-side is shared yet
 ```
+
+Each package also gets `platform/` (web-sys helpers: media, storage, clipboard, dialog, visibility),
+`adapters/` (HTTP adapters per port over `cantos-contracts` and generated contract types) and
+`i18n/` (locale resources and message keys) when it needs them. `ui/` primitives (button, chip,
+dialog, field) move to `packages/` only once both apps have a real consumer; until then each app
+owns its own. Studio and Theatre never share a route tree, session context or permission context.
 
 Never create `components/`, `hooks/`, `utils/`, `helpers/` or `common/` buckets; they collect
 unrelated reasons to change. A feature folder owns its page, its resources, its styles and its

@@ -205,7 +205,7 @@ line, capture logs and persisted observations, assert neither sentinel appears.
 selected by production configuration (the provider registry rejects it). It keeps its own ledger
 of provider-side executions, honors idempotency keys and lookups as configured, and can execute a
 request and then lose the response. Evidence from it is `example-tested` or `fault-injected`,
-never `provider-live-tested`; the [server guide](../../../../apps/server/README.md) already says
+never `provider-live-tested`; the [server guide](../../../../services/cantos-api/README.md) already says
 fakes are never presented as production support.
 
 **Recorded fixtures.** Capture real envelopes once, during a cost-capped live session using

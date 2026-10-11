@@ -58,7 +58,7 @@ consumers the change reaches.
 | Touched paths | Load |
 |---|---|
 | Rust domain, application, adapters, migrations | the foundation [`SKILL.md`](../SKILL.md) and the matching domain skill |
-| Script IR, `contracts/` | [`cantos-script-ir`](../../cantos-script-ir/SKILL.md) |
+| Script IR, `packages/contracts/` | [`cantos-script-ir`](../../cantos-script-ir/SKILL.md) |
 | jobs, providers, cost, cache, mixing, QC | [`cantos-production-pipeline`](../../cantos-production-pipeline/SKILL.md) |
 | rights, approvals, manifests, storage, delivery | [`cantos-publication`](../../cantos-publication/SKILL.md) |
 | listener APIs, progress, bookmarks, downloads | [`cantos-listening`](../../cantos-listening/SKILL.md) |

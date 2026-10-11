@@ -11,8 +11,8 @@
 
 Retain the existing PostgreSQL serving path and migration. The
 [read inventory](script-revision-reads.md) and current
-[Store](../../apps/server/src/postgres.rs), [routes](../../apps/server/src/http.rs) and
-[schema](../../apps/server/migrations/0001_script_revisions.sql) supply head/history point
+[Store](../../services/cantos-api/src/postgres.rs), [routes](../../services/cantos-api/src/http.rs) and
+[schema](../../services/cantos-api/migrations/0001_script_revisions.sql) supply head/history point
 reads, authentication, save replay and evidence resolution. The session–actor join is bounded
 by a token lookup; no implemented list, catalog, repeated large join or aggregate consumer
 exists. Save-side evidence fan-out is a write-path concern, not an incremental read consumer.

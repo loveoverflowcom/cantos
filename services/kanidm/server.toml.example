@@ -1,0 +1,10 @@
+# Example Kanidm server configuration for LOCAL DEVELOPMENT only.
+# Copy to a private location, replace the domain with one you control and supply real TLS
+# material through your deployment secret store. Never commit certificates, keys or the database.
+version = "2"
+bindaddress = "[::]:8443"
+db_path = "/data/kanidm.db"
+tls_chain = "/data/chain.pem"
+tls_key = "/data/key.pem"
+domain = "idm.cantos.localhost"
+origin = "https://idm.cantos.localhost:8443"

@@ -170,7 +170,7 @@ def assert_adaptation_delta(before, after, **changes):
 
 def adaptation_before_restart(env, port, token, app_url):
     """Synthetic caller-created output crosses the actual CLI, socket, host and PostgreSQL."""
-    original = (ROOT / "contracts/fixtures/adaptation/source-vi.txt").read_bytes()
+    original = (ROOT / "packages/contracts/fixtures/adaptation/source-vi.txt").read_bytes()
     import_request = {
         "metadata": {"operation_id": str(uuid.uuid4()), "file_name": "adaptation-source-vi.txt",
                      "format": "txt", "reference": "original synthetic CLI recovery fixture",
@@ -205,7 +205,7 @@ def adaptation_before_restart(env, port, token, app_url):
     assert context["latest_submission"] is None
     assert context["accepted_revision"] is None
     assert json.loads(context["proposal_schema_json"]) == json.loads(
-        (ROOT / "contracts/schema/adaptation/cantos-adaptation-1.schema.json").read_text())
+        (ROOT / "packages/contracts/schema/adaptation/cantos-adaptation-1.schema.json").read_text())
     prompt_source = json.loads(context["user_prompt"])["source"]
     assert prompt_source["id"] == source["id"]
     assert prompt_source["sha256"] == hashlib.sha256(original).hexdigest()
@@ -233,7 +233,7 @@ def adaptation_before_restart(env, port, token, app_url):
     assert_adaptation_delta(created, adaptation_snapshot(env, app_url), submissions=1)
 
     # This is repository-authored proposal data, never a synthetic service labelled as AI.
-    document = json.loads((ROOT / "contracts/fixtures/adaptation/proposal-vi.json").read_text())
+    document = json.loads((ROOT / "packages/contracts/fixtures/adaptation/proposal-vi.json").read_text())
     document["scenes"][0]["cues"].extend([
         {"kind": "music", "description": "Nhạc nền là đề xuất cần tác giả duyệt.",
          "line_index": 1, "edge": "start", "source_blocks": [1]},
@@ -446,11 +446,11 @@ def main():
         run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", f"-h 127.0.0.1 -p {port} -k /tmp", "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
-        run(["cargo", "test", "-p", "cantos-server", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-server", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-server", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-server", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
-        run(["cargo", "build", "-p", "cantos-server", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
         migration_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}"

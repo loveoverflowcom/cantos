@@ -168,7 +168,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "schemas":
-            result = decode_json((ROOT / "contracts/adaptation-tools-v1.json").read_bytes())
+            result = decode_json((ROOT / "packages/contracts/adaptation-tools-v1.json").read_bytes())
             code = 0
         else:
             if args.base_url is None:

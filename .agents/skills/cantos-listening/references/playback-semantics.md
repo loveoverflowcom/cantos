@@ -228,7 +228,7 @@ Open product decisions — encode none of them until the owning doc records it:
 ## Shared contract vectors
 
 The two reducers agree because both pass one **reviewed corpus of data**, not because they
-share code. Proposed location: `contracts/listening/player-vectors/<id>.json`, one scenario per
+share code. Proposed location: `packages/contracts/listening/player-vectors/<id>.json`, one scenario per
 file, versioned with the player contract.
 
 ```json
