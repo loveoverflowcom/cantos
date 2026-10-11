@@ -376,8 +376,9 @@ fn FormField(
     english: RwSignal<bool>,
     readonly: Signal<bool>,
     #[prop(default = "text")] kind: &'static str,
-    #[prop(optional)] min: Option<String>,
-    #[prop(optional)] max: Option<String>,
+    #[prop(optional, into)] min: MaybeProp<String>,
+    #[prop(optional, into)] max: MaybeProp<String>,
+    #[prop(optional, into)] unsupported: MaybeProp<bool>,
 ) -> impl IntoView {
     let node = NodeRef::<leptos::html::Input>::new();
     let initial = value.get_untracked();
@@ -403,11 +404,17 @@ fn FormField(
             let _ = typing_context.1.try_update(|s| s.input_composing = active);
         }
     });
-    view! { <label class="production-field" for=id.clone()><span>{move || text(label,english.get())}</span>
-        <input id=id.clone() node_ref=node type=kind min=min max=max step="1" autocomplete="off" disabled=move || readonly.get() prop:value=initial
+    let flagged = move || unsupported.get().unwrap_or(false);
+    let note = format!("{id}-unsupported");
+    let label_id = format!("{id}-label");
+    view! { <label class="production-field" for=id.clone()><span id=label_id.clone()>{move || text(label,english.get())}</span>
+        <input id=id.clone() node_ref=node type=kind min=move || min.get() max=move || max.get() step="1" autocomplete="off" disabled=move || readonly.get() prop:value=initial
+            aria-labelledby=label_id
+            aria-invalid=move || flagged().then_some("true") aria-describedby={let note=note.clone(); move || flagged().then(|| note.clone())}
             on:input=move |e| { if !readonly.get_untracked() && !composing.get_untracked() { change.run(event_target_value(&e)); } }
             on:compositionstart=move |_|{if readonly.get_untracked(){return;}composing.set(true);typing.update(|fields|{fields.insert(identity.get_value());});typing_context.1.update(|s|s.input_composing=true);}
             on:compositionend=move |e|{if !readonly.get_untracked(){change.run(event_target_value(&e));}composing.set(false);typing.update(|fields|{fields.remove(&identity.get_value());});typing_context.1.update(|s|s.input_composing=typing.with_untracked(|fields|!fields.is_empty()));} />
+        <Show when=flagged><small id=note.clone() class="production-unsupported">{move || text(Key::UnsupportedControl,english.get())}</small></Show>
     </label> }
 }
 
@@ -420,21 +427,41 @@ fn FormSelect(
     change: Callback<String>,
     english: RwSignal<bool>,
     readonly: Signal<bool>,
+    #[prop(optional, into)] unsupported: MaybeProp<bool>,
+    #[prop(default = Key::UnsupportedControl)] note: Key,
 ) -> impl IntoView {
-    view! { <label class="production-field" for=id.clone()><span>{move || text(label,english.get())}</span>
-        <select id=id.clone() disabled=move || readonly.get() prop:value=move || value.get() on:change=move |e| { if !readonly.get_untracked() { change.run(event_target_value(&e)); } }>
+    let value = Memo::new(move |_| value.get());
+    let flagged = move || unsupported.get().unwrap_or(false);
+    let note_id = format!("{id}-unsupported");
+    let label_id = format!("{id}-label");
+    // Keep native option nodes stable when only the selected value changes. Rebuilding them
+    // during rapid keyboard changes can reset the DOM value before the change handler reads it.
+    let choices = Memo::new(move |_| {
+        let mut choices = options.get();
+        let current = value.get();
+        if !current.is_empty() && !choices.iter().any(|(choice, _)| choice == &current) {
+            choices.push((
+                current.clone(),
+                format!(
+                    "{} · {current}",
+                    text(Key::UnsupportedChoice, english.get())
+                ),
+            ));
+        }
+        choices
+    });
+    view! { <label class="production-field" for=id.clone()><span id=label_id.clone()>{move || text(label,english.get())}</span>
+        <select id=id.clone() disabled=move || readonly.get() prop:value=move || value.get() on:change=move |e| { if !readonly.get_untracked() { change.run(event_target_value(&e)); } }
+            aria-labelledby=label_id
+            aria-invalid=move || flagged().then_some("true") aria-describedby={let note_id=note_id.clone(); move || flagged().then(|| note_id.clone())}>
             {move || {
-                let mut choices = options.get();
-                let current = value.get();
-                if !current.is_empty() && !choices.iter().any(|(choice,_)|choice==&current) {
-                    choices.push((current.clone(),format!("{} · {current}",text(Key::UnsupportedChoice,english.get()))));
-                }
-                choices.into_iter().map(|(choice,label)| {
-                    let choice=StoredValue::new(choice);
-                    view! { <option value=choice.get_value() prop:selected=move || value.get()==choice.get_value()>{label}</option> }
+                choices.get().into_iter().map(|(choice,label)| {
+                    let selected = choice.clone();
+                    view! { <option value=choice prop:selected=move || value.get()==selected>{label}</option> }
                 }).collect_view()
             }}
         </select>
+        <Show when=flagged><small id=note_id.clone() class="production-unsupported">{move || { let current = value.get(); (!current.is_empty()).then(|| view! { <code>{current}</code>" · " }) }}{move || text(note,english.get())}</small></Show>
     </label> }
 }
 
@@ -510,20 +537,26 @@ fn CastingCharacter(
                 .cloned()
         })
     });
-    let capability = Signal::derive(move || {
+    let capability = Memo::new(move |_| {
+        let binding = binding.get()?;
         state.with(|s| {
             s.catalog
                 .as_ref()
-                .and_then(|c| {
-                    c.capabilities.iter().find(|c| {
-                        binding.get().is_some_and(|b| {
-                            b.provider_id == c.provider_id && b.model_id == c.model_id
-                        })
-                    })
-                })
-                .cloned()
+                .and_then(|c| binding.capability(c).cloned())
         })
     });
+    let unsupported = Memo::new(move |_| {
+        binding
+            .get()
+            .map(|b| b.unsupported(capability.get().as_ref()))
+            .unwrap_or_default()
+    });
+    let flag = move |control: CastingControl| {
+        Signal::derive(move || unsupported.with(|u| u.contains(&control)))
+    };
+    // A profile without an intensity control admits only "inherit" or an explicit 0.
+    let fixed_delivery =
+        Memo::new(move |_| capability.get().is_some_and(|c| !c.intensity_supported));
     let name = move || {
         Document::parse(&script.get())
             .ok()
@@ -575,10 +608,10 @@ fn CastingCharacter(
         })
     });
     let models = Signal::derive(move || {
+        let mut models = vec![(String::new(), text(Key::ChooseModel, english.get()).into())];
         state.with(|s| {
-            s.catalog
-                .as_ref()
-                .map(|c| {
+            if let Some(c) = &s.catalog {
+                models.extend(
                     c.capabilities
                         .iter()
                         .filter(|c| {
@@ -586,12 +619,40 @@ fn CastingCharacter(
                                 .get()
                                 .is_some_and(|b| b.provider_id == c.provider_id)
                         })
-                        .map(|c| (c.model_id.clone(), c.model_id.clone()))
-                        .collect()
-                })
-                .unwrap_or_default()
+                        .map(|c| (c.model_id.clone(), c.model_id.clone())),
+                );
+            }
+        });
+        models
+    });
+    let select_provider = Callback::new(move |provider: String| {
+        state.update(|s| {
+            let Some(catalog) = s.catalog.clone() else {
+                return;
+            };
+            *s = s.edit(|f| {
+                if let Some(binding) = f
+                    .bindings
+                    .iter_mut()
+                    .find(|b| b.character_id == id.get_value())
+                {
+                    binding.select_provider(&catalog, provider);
+                }
+            })
         })
     });
+    let intensities = Signal::derive(move || {
+        vec![
+            (String::new(), text(Key::Inherit, english.get()).into()),
+            (
+                "0".into(),
+                text(Key::DefaultIntensity, english.get()).into(),
+            ),
+        ]
+    });
+    let range = move |bound: fn(&ProductionCapability) -> String| {
+        Signal::derive(move || capability.get().as_ref().map(bound))
+    };
     let voices = Signal::derive(move || {
         let mut voices = vec![(String::new(), text(Key::ChooseVoice, english.get()).into())];
         if let Some(c) = capability.get() {
@@ -619,17 +680,23 @@ fn CastingCharacter(
     });
     view! { <fieldset class="production-character" disabled=move ||readonly.get()><legend>{name}<code>{id.get_value()}</code></legend>
         <div class="production-fields">
-            <FormSelect id=format!("{prefix}-provider") label=Key::Provider value=value(BindingField::Provider) options=providers change=change(BindingField::Provider) english=english readonly=readonly />
-            <FormSelect id=format!("{prefix}-model") label=Key::Model value=value(BindingField::Model) options=models change=change(BindingField::Model) english=english readonly=readonly />
-            <FormSelect id=format!("{prefix}-voice") label=Key::Voice value=value(BindingField::Voice) options=voices change=change(BindingField::Voice) english=english readonly=readonly />
-            <FormSelect id=format!("{prefix}-language") label=Key::Language value=value(BindingField::Language) options=languages change=change(BindingField::Language) english=english readonly=readonly />
+            <FormSelect id=format!("{prefix}-provider") label=Key::Provider value=value(BindingField::Provider) options=providers change=select_provider english=english readonly=readonly />
+            <FormSelect id=format!("{prefix}-model") label=Key::Model value=value(BindingField::Model) options=models change=change(BindingField::Model) english=english readonly=readonly unsupported=flag(CastingControl::Model) note=Key::ModelRequired />
+            <FormSelect id=format!("{prefix}-voice") label=Key::Voice value=value(BindingField::Voice) options=voices change=change(BindingField::Voice) english=english readonly=readonly unsupported=flag(CastingControl::Voice) />
+            <FormSelect id=format!("{prefix}-language") label=Key::Language value=value(BindingField::Language) options=languages change=change(BindingField::Language) english=english readonly=readonly unsupported=flag(CastingControl::Language) />
             <FormField id=format!("{prefix}-rights") label=Key::VoiceRights value=value(BindingField::Rights) change=change(BindingField::Rights) english=english readonly=readonly />
-            <FormField id=format!("{prefix}-rate") label=Key::Rate value=value(BindingField::Rate) change=change(BindingField::Rate) english=english readonly=readonly kind="number" min=capability.get_untracked().map(|c|c.rate_min_permille.to_string()).unwrap_or_default() max=capability.get_untracked().map(|c|c.rate_max_permille.to_string()).unwrap_or_default() />
-            <FormField id=format!("{prefix}-pitch") label=Key::Pitch value=value(BindingField::Pitch) change=change(BindingField::Pitch) english=english readonly=readonly kind="number" min=capability.get_untracked().map(|c|c.pitch_min_semitones.to_string()).unwrap_or_default() max=capability.get_untracked().map(|c|c.pitch_max_semitones.to_string()).unwrap_or_default() />
-            <FormSelect id=format!("{prefix}-emotion") label=Key::Emotion value=value(BindingField::Emotion) options=emotions change=change(BindingField::Emotion) english=english readonly=readonly />
-            <FormField id=format!("{prefix}-intensity") label=Key::Intensity value=value(BindingField::Intensity) change=change(BindingField::Intensity) english=english readonly=Signal::derive(move ||readonly.get()||capability.get().is_none_or(|c|!c.intensity_supported)) kind="number" min="0".into() max="1000".into() />
+            <FormField id=format!("{prefix}-rate") label=Key::Rate value=value(BindingField::Rate) change=change(BindingField::Rate) english=english readonly=readonly kind="number" min=range(|c|c.rate_min_permille.to_string()) max=range(|c|c.rate_max_permille.to_string()) unsupported=flag(CastingControl::Rate) />
+            <FormField id=format!("{prefix}-pitch") label=Key::Pitch value=value(BindingField::Pitch) change=change(BindingField::Pitch) english=english readonly=readonly kind="number" min=range(|c|c.pitch_min_semitones.to_string()) max=range(|c|c.pitch_max_semitones.to_string()) unsupported=flag(CastingControl::Pitch) />
+            <FormSelect id=format!("{prefix}-emotion") label=Key::Emotion value=value(BindingField::Emotion) options=emotions change=change(BindingField::Emotion) english=english readonly=readonly unsupported=flag(CastingControl::Emotion) />
+            {move || if fixed_delivery.get() {
+                view! { <FormSelect id=format!("{prefix}-intensity") label=Key::Intensity value=value(BindingField::Intensity) options=intensities change=change(BindingField::Intensity) english=english readonly=readonly unsupported=flag(CastingControl::Intensity) /> }.into_any()
+            } else {
+                view! { <FormField id=format!("{prefix}-intensity") label=Key::Intensity value=value(BindingField::Intensity) change=change(BindingField::Intensity) english=english readonly=Signal::derive(move ||readonly.get()||capability.get().is_none()) kind="number" min="0" max="1000" unsupported=flag(CastingControl::Intensity) /> }.into_any()
+            }}
         </div>
+        <Show when=move || fixed_delivery.get()><p class="help">{move ||text(Key::FixedDelivery,english.get())}</p></Show>
         <h4>{move ||text(Key::Pronunciation,english.get())}</h4>
+        <Show when=move || flag(CastingControl::Pronunciation).get()><p class="production-unsupported">{move ||text(Key::UnsupportedControl,english.get())}</p></Show>
         <For each=move || binding.get().map(|b|(0..b.pronunciation.len()).collect::<Vec<_>>()).unwrap_or_default() key=|i|*i let:index>
             <div class="production-pronunciation">
                 <FormField id=format!("production-{}-pronunciation-{index}-surface",id.get_value()) label=Key::Surface value=Signal::derive(move ||binding.get().and_then(|b|b.pronunciation.get(index).map(|p|p.surface.clone())).unwrap_or_default()) change=Callback::new(move |value|state.update(|s|*s=s.edit(|f|if let Some(p)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()).and_then(|b|b.pronunciation.get_mut(index)){p.surface=value;}))) english=english readonly=readonly />
@@ -699,15 +766,15 @@ fn BudgetFields(
     };
     view! {<fieldset class="production-budget" disabled=move ||readonly.get()><legend>{move ||text(Key::Budget,english.get())}</legend><div class="production-fields">
         <FormSelect id="production-currency".into() label=Key::Currency value=Signal::derive(move ||state.with(|s|s.form.as_ref().map(|f|format!("{:?}",f.currency)).unwrap_or_default())) options=Signal::derive(||vec![("USD".into(),"USD".into()),("VND".into(),"VND".into())]) change=Callback::new(move |value:String|state.update(|s|*s=s.edit(|f|f.currency=if value=="VND"{ProductionCurrency::VND}else{ProductionCurrency::USD}))) english=english readonly=readonly />
-        <FormField id="production-limit".into() label=Key::Limit value=value(BudgetField::Limit) change=change(BudgetField::Limit) english=english readonly=readonly kind="number" min="0".into() />
+        <FormField id="production-limit".into() label=Key::Limit value=value(BudgetField::Limit) change=change(BudgetField::Limit) english=english readonly=readonly kind="number" min="0" />
         <FormField id="production-scope".into() label=Key::Scope value=value(BudgetField::Scope) change=change(BudgetField::Scope) english=english readonly=readonly />
         <FormField id="production-territory".into() label=Key::Territory value=value(BudgetField::Territory) change=change(BudgetField::Territory) english=english readonly=readonly />
     </div><label class="adaptation-confirm" for="production-known-rate"><input id="production-known-rate" type="checkbox" disabled=move ||readonly.get() prop:checked=move ||state.with(|s|s.form.as_ref().is_some_and(|f|f.known_rate)) on:change=move |e|{if !readonly.get_untracked(){state.update(|s|*s=s.edit(|f|f.known_rate=event_target_checked(&e)));}} /><span>{move ||text(Key::KnownRate,english.get())}</span></label>
     <Show when=move ||state.with(|s|s.form.as_ref().is_some_and(|f|f.known_rate))><div class="production-fields">
         <FormField id="production-rate-reference".into() label=Key::RateReference value=value(BudgetField::Reference) change=change(BudgetField::Reference) english=english readonly=readonly />
         <FormField id="production-rate-version".into() label=Key::RateVersion value=value(BudgetField::Version) change=change(BudgetField::Version) english=english readonly=readonly />
-        <FormField id="production-rate-units".into() label=Key::RateUnits value=value(BudgetField::Units) change=change(BudgetField::Units) english=english readonly=readonly kind="number" min="1".into() />
-        <FormField id="production-rate-amount".into() label=Key::RateAmount value=value(BudgetField::Amount) change=change(BudgetField::Amount) english=english readonly=readonly kind="number" min="0".into() />
+        <FormField id="production-rate-units".into() label=Key::RateUnits value=value(BudgetField::Units) change=change(BudgetField::Units) english=english readonly=readonly kind="number" min="1" />
+        <FormField id="production-rate-amount".into() label=Key::RateAmount value=value(BudgetField::Amount) change=change(BudgetField::Amount) english=english readonly=readonly kind="number" min="0" />
     </div></Show></fieldset>}
 }
 

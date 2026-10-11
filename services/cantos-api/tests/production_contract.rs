@@ -215,3 +215,13 @@ fn every_implemented_catalog_identity_round_trips_through_the_published_schema()
         .validate(&serde_json::to_value(candidate.document()).unwrap())
         .unwrap();
 }
+
+/// Studio casting tests consume this fixture; it must stay the exact served catalog.
+#[test]
+fn published_catalog_fixture_is_the_served_catalog() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../packages/contracts/fixtures/production/v1/catalog-response.json"
+    ))
+    .unwrap();
+    assert_eq!(serde_json::to_value(production_catalog()).unwrap(), fixture);
+}

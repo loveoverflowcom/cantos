@@ -382,6 +382,178 @@ async fn local_casting_rights_and_snapshot_approval_survive_reopen() {
     assert_eq!(h.counts().await.2, 1);
 }
 
+/// The Studio journey over HTTP: casting mixes eSpeak and two Google families, inherited
+/// non-neutral script delivery is blocked at review, and an explicit neutral delivery at
+/// intensity 0 saves, freezes and receives owner approval without enabling dispatch.
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn mixed_espeak_and_google_casting_freezes_and_approves_only_explicit_neutral_delivery() {
+    let h = Harness::new(true).await;
+    h.ready().await;
+    let prefix = format!("/scripts/{}/production", h.script);
+    let (status, catalog) = h
+        .json("GET", "/production/catalog", Some(ALICE), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let choices = [
+        (
+            "espeak-ng-local",
+            "espeak-ng-1.52.0",
+            "vi-vn-x-south",
+            1_000,
+            0,
+        ),
+        (
+            "google-cloud-tts",
+            "google-neural2",
+            "vi-VN-Neural2-A",
+            1_200,
+            -2,
+        ),
+        (
+            "google-cloud-tts",
+            "google-chirp3-hd",
+            "vi-VN-Chirp3-HD-Aoede",
+            1_000,
+            0,
+        ),
+    ];
+    for (provider, model, voice, _, _) in choices {
+        assert!(catalog["capabilities"].as_array().unwrap().iter().any(|c| {
+            c["provider_id"] == provider
+                && c["model_id"] == model
+                && c["intensity_supported"] == false
+                && c["voice_ids"].as_array().unwrap().contains(&json!(voice))
+        }));
+    }
+    let mut settings = fixture_settings();
+    for (binding, (provider, model, voice, rate, pitch)) in
+        settings.bindings.iter_mut().zip(choices)
+    {
+        binding.provider_id = provider.into();
+        binding.model_id = model.into();
+        binding.voice_id = voice.into();
+        binding.voice_rights_record_id = format!("voice_{}", binding.character_id);
+        binding.performance.rate_permille = rate;
+        binding.performance.pitch_semitones = pitch;
+        h.claim(fixture_claim(
+            &binding.voice_rights_record_id,
+            ProductionRightsSubject::Voice {
+                provider_id: provider.into(),
+                model_id: model.into(),
+                voice_id: voice.into(),
+            },
+        ))
+        .await;
+    }
+    let save = |version: u64, settings: &ProductionSettings| {
+        json!(SaveProductionSettingsRequest {
+            operation_id: Uuid::new_v4().to_string(),
+            expected_revision: 1,
+            expected_settings_version: version,
+            settings: settings.clone(),
+        })
+    };
+    let (status, saved) = h
+        .json(
+            "POST",
+            &format!("{prefix}/settings"),
+            Some(ALICE),
+            Some(save(1, &settings)),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let (status, review) = h
+        .json("GET", &format!("{prefix}/review"), Some(ALICE), None)
+        .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "inherited calm/hopeful/warm delivery: {review}"
+    );
+    assert_eq!(review["code"], "invalid_request");
+    assert!(review["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["rule"] == "unsupported_control"
+            && issue["path"].as_str().unwrap().ends_with(".performance")
+    }));
+    for binding in &mut settings.bindings {
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    let (status, saved) = h
+        .json(
+            "POST",
+            &format!("{prefix}/settings"),
+            Some(ALICE),
+            Some(save(2, &settings)),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    let (status, review) = h
+        .json("GET", &format!("{prefix}/review"), Some(ALICE), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{review}");
+    assert_eq!(review["inputs_eligible"], true, "{review}");
+    let (status, snapshot) = h
+        .json(
+            "POST",
+            &format!("{prefix}/snapshots"),
+            Some(ALICE),
+            Some(json!(FreezeProductionRequest {
+                operation_id: Uuid::new_v4().to_string(),
+                expected_revision: 1,
+                settings_version: review["settings_version"].as_u64().unwrap(),
+                input_digest: review["input_digest"].as_str().unwrap().into(),
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{snapshot}");
+    let lines = snapshot["document"]["resolved"].as_array().unwrap();
+    assert!(!lines.is_empty());
+    for line in lines {
+        let (adapter, output) = if line["provider_id"] == "espeak-ng-local" {
+            ("espeak-ng-local-v1", "wav-pcm-s16le-mono-22050-v1")
+        } else {
+            assert_eq!(line["provider_id"], "google-cloud-tts");
+            (
+                "google-cloud-tts-synthesize-2",
+                "wav-pcm-s16le-mono-24000-v1",
+            )
+        };
+        assert_eq!(line["adapter_version"], adapter);
+        assert_eq!(line["output_contract"], output);
+        assert_eq!(line["performance"]["emotion"], "neutral");
+        assert_eq!(line["performance"]["intensity_permille"], 0);
+    }
+    let id = snapshot["id"].as_str().unwrap();
+    let digest = snapshot["document"]["input_digest"].as_str().unwrap();
+    let (status, approval) = h
+        .json(
+            "POST",
+            &format!("{prefix}/snapshots/{id}/approvals"),
+            Some(ALICE),
+            Some(json!(ApproveProductionRequest {
+                operation_id: Uuid::new_v4().to_string(),
+                input_digest: digest.into(),
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{approval}");
+    let (status, eligibility) = h
+        .json(
+            "GET",
+            &format!("{prefix}/snapshots/{id}/eligibility"),
+            Some(ALICE),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(eligibility["inputs_eligible"], true);
+    assert_eq!(eligibility["approval_current"], true);
+    assert_eq!(eligibility["billable_dispatch_available"], false);
+    assert_eq!(h.counts().await.2, 1);
+}
+
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
 async fn immutable_candidates_and_exact_concurrent_replays_survive_reopen() {

@@ -54,9 +54,11 @@ and 24 kHz output contract. `probe-google-tts` plans or, only with `--live`, a c
 operator-held token, sends exactly one request for one frozen line, recording receipt-v1 and
 private observation files. The [adapter evidence](../evidence/google-tts-adapter.md) and proposed
 [ADR 0011](../decisions/0011-google-cloud-tts-adapter.md) separate these mocked checks from live
-synthesis, which is NOT_RUN. #6 still needs an operator-paid live sample with recorded envelopes;
-Studio cannot yet enter the explicit intensity 0 for capabilities without intensity (eSpeak and
-Google alike).
+synthesis, which is NOT_RUN. #6 still needs an operator-paid live sample with recorded envelopes.
+Studio casting now follows each selected provider/model profile: for eSpeak and Google it offers
+"inherit" or an explicit intensity 0, a provider switch changes only the provider and model, and
+kept values the profile cannot honor are flagged rather than replaced
+([Studio casting evidence](../evidence/studio-provider-casting.md)).
 
 Later slices use PostgreSQL-backed background job states, bounded retries, recovery after
 interruption, cancellation and per-dialogue result caching. Reuse results only when all
