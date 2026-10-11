@@ -97,8 +97,10 @@ def main():
             shutil.copy2(ROOT / name, workspace / name)
         shutil.copytree(ROOT / "apps/server", workspace / "apps/server")
         # Cargo resolves every workspace manifest, even for a package-scoped test.
-        # Keep the new concrete Web consumer, without copying its generated bundle.
-        shutil.copytree(ROOT / "apps/web", workspace / "apps/web", ignore=shutil.ignore_patterns("dist"))
+        # Keep both concrete Web consumers, without their generated bundles.
+        for app in ("web", "theatre-web"):
+            shutil.copytree(ROOT / f"apps/{app}", workspace / f"apps/{app}",
+                            ignore=shutil.ignore_patterns("dist"))
         shutil.copytree(ROOT / "contracts", workspace / "contracts")
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         baseline = run(workspace, env)

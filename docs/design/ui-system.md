@@ -1,16 +1,26 @@
 # Cantos UI System
 
-Status: design requirements. A minimal live Leptos Studio save/read surface consumes
-[versioned tokens](../../contracts/design/studio-tokens-0.1.0.json), with
+Status: design requirements with bounded implementation. Studio and Theatre shells consume
+[shared tokens 0.2.0](../../contracts/design/cantos-tokens-0.2.0.json), with
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
-Theatre/CMP journeys and exact reference fidelity remain unimplemented.
+Theatre navigation/demo states are implemented separately from Studio. Native runtime,
+production listening and exact reference fidelity remain unverified; see
+[client evidence](../evidence/client-shells.md).
 
 ## Direction and reference
 
 Cantos uses Material 3 Expressive principles with a soft lavender/purple identity, rounded controls, clear hierarchy, and purposeful motion. Studio prioritizes reading and editing scripts; Theatre prioritizes choosing and listening to episodes. The brand is shared, while density and navigation follow each task.
 
-The brief mentions an attached reference image, but the image was not available during repository initialization. Capture the supplied image and its viewport in the design issue before visual implementation. Do not claim visual fidelity until that comparison exists. Logo, font, exact color values, and artwork treatment remain open design decisions; the lavender/purple direction is confirmed by the brief.
+Initialization had no reference pixels. The later supplied stored web/mobile HTML designs were
+read and rendered outside Git for the client skeleton: Theatre discovery/work/library/player,
+mobile discovery/navigation/mini-player and Studio creator workspace. Their paper surface
+`#f7f3eb`, raised surface `#fffcf7` and lavender primary `#675080` inform token 0.2.0;
+contrast-adjusted supporting roles preserve readable text and focus. Serif story headings and
+system body fonts retain the nostalgic, lightly fantastical direction with compact geometry.
+Artwork/font distribution rights remain unresolved, so explicit placeholders/system fonts
+replace embedded assets. Private locators and original HTML are excluded from Git. This is
+an interpretation of the reference for skeleton scope, not a faithful-clone acceptance claim.
 
 ## Semantic tokens
 
@@ -30,6 +40,11 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 | Motion | `motion.feedback`, `motion.navigation`, `motion.emphasis`, `motion.reduced` | Specify intent; choose supported framework mechanisms during implementation and verify each target. |
 
 Dynamic system colors must not silently replace Cantos's identity. Exact palette, type scale, shape sizes, and animation curves belong in the first reviewed design implementation, with recorded contrast measurements.
+
+Token 0.2.0 maps light/dark/system themes to both web shells and light/dark Compose themes.
+The generator records version/source hash, and tests check drift, consumed CSS roles and
+contrast pairs. Historical 0.1.0 remains available. Components/layout stay renderer-owned;
+no shared Rust/Kotlin UI abstraction is introduced. No animation is added in this skeleton.
 
 ## Studio: text-first production
 

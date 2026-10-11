@@ -1,12 +1,19 @@
 # Cantos Studio Web
 
+This directory remains the creator surface and keeps its existing crate, entry point and
+backend/session routes. The listener website is independently built at
+[`apps/theatre-web`](../theatre-web/README.md); native listener hosts are at
+[`apps/mobile`](../mobile/README.md). See the [surface map](../../docs/architecture/client-surfaces.md).
+Shared semantic tokens 0.2.0 update the palette without replacing the authoring workspace.
+
 `cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the actual local Axum/PostgreSQL
 revision API. Its text-first workspace has scene/act/character navigation, native dialogue,
 narration, emotion, pronunciation and cue controls, and a source/validation/change inspector.
 Import, proposal review and accepted-revision editing keep their state mounted when switching
 workspace sections. Advanced complete JSON is optional; unsupported documents stay available
 there without projection or silent field deletion. Casting and immutable production-input
-review use that same authority; audio production and Cantos Theatre remain planned. Cantos
+review use that same authority; production listening remains planned, with a separate Theatre
+UI skeleton. Cantos
 provides a data/tool pipeline: generation belongs to the user's chosen Gemini, ChatGPT or Codex
 host under their control. Cantos has no AI API client or generation runtime. Fixture and live host
 evidence are separately recorded in the

@@ -1,5 +1,5 @@
 [workspace]
-members = ["apps/server", "apps/web", "contracts/api"]
+members = ["apps/server", "apps/web", "apps/theatre-web", "contracts/api"]
 resolver = "3"
 
 [profile.dev]

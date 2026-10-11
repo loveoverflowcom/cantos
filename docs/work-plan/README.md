@@ -18,6 +18,14 @@ deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md).
 within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
 starting #7. The current requested execution stops at #6.
 
+The subsequent user-requested [client skeleton](../evidence/client-shells.md) independently
+establishes audience/build boundaries for Studio, Theatre Web and the CMP app. It adds labeled
+synthetic UI, not production listening; #6/#7 gates and GitHub execution status are unchanged.
+Before connecting 040/050, retain 030's publication prerequisites. Next for this skeleton:
+bounded native dependency/build and safe-area/back/large-text accessibility validation when
+disk permits, then asset-rights resolution. These follow-ups belong to 040/050 and do not
+authorize native playback or advance their acceptance.
+
 The repository has documentation/templates, an executable
 [Script IR contract](../../contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain

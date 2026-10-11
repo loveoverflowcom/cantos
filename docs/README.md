@@ -20,6 +20,8 @@
 | [Local TTS evidence](evidence/tts-receipt-inspection.md) | Bounded local samples, snapshot-bound receipts, actual checks and commercial/production limits |
 | [TTS prerequisites](evidence/tts-provider-prerequisites.md) | Official provider declarations, local selection and deferred commercial prerequisites |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
+| [Client surfaces](architecture/client-surfaces.md) | Studio/Theatre ownership, entry points and missing adapter boundaries |
+| [Client skeleton evidence](evidence/client-shells.md) | Web renders/interactions, common CMP checks and blocked native gates |
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |
 | [Decision 0002](decisions/0002-script-ir-contract.md) | Proposed adoption of implemented Script IR and digest policy |
@@ -27,6 +29,7 @@
 | [Decision 0004](decisions/0004-editorial-handoff.md) | Compatible editorial handoff on the existing revision backend |
 | [Decision 0007](decisions/0007-casting-production-inputs.md) | Proposed production adoption of versioned casting and scoped input authorization |
 | [Decision 0008](decisions/0008-local-tts-inspection.md) | Accepted local eSpeak inspection selection; production adoption proposed |
+| [Decision 0010](decisions/0010-client-shells.md) | Separate listener Web/CMP shells from the existing creator Studio |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

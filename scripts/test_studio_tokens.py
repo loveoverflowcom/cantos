@@ -1,7 +1,7 @@
 import json
 import re
 import unittest
-from studio_tokens import ROOT, SOURCE, OUTPUT, render, variable
+from studio_tokens import ROOT, SOURCE, OUTPUT, THEATRE_OUTPUT, KOTLIN_OUTPUT, render, render_kotlin, variable
 
 
 def luminance(color):
@@ -26,10 +26,14 @@ class StudioTokens(unittest.TestCase):
 
     def test_generated_css_and_consumed_roles_match_source(self):
         self.assertEqual(OUTPUT.read_text(), render(SOURCE.read_bytes()))
+        self.assertEqual(THEATRE_OUTPUT.read_text(), render(SOURCE.read_bytes()))
+        self.assertEqual(KOTLIN_OUTPUT.read_text(), render_kotlin(SOURCE.read_bytes()))
         source = json.loads(SOURCE.read_text())
         roles = set(source["logical_dimensions"]) | set(source["themes"]["light"])
         defined = {variable(role) for role in roles}
-        used = set(re.findall(r"var\((--cantos-[a-z-]+)\)", (ROOT / "apps/web/studio.css").read_text()))
+        styles = "\n".join((ROOT / path).read_text() for path in
+                           ("apps/web/studio.css", "apps/theatre-web/theatre.css"))
+        used = set(re.findall(r"var\((--cantos-[a-z-]+)\)", styles))
         self.assertLessEqual(used, defined)
         self.assertEqual(set(source["themes"]["light"]), set(source["themes"]["dark"]))
 

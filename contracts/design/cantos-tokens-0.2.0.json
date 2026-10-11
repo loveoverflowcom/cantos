@@ -1,0 +1,108 @@
+{
+  "version": "0.2.0",
+  "themes": {
+    "light": {
+      "color.surface": "#f7f3eb",
+      "color.surfaceRaised": "#fffcf7",
+      "color.surfaceContainer": "#eee8f1",
+      "color.surfaceContainerHigh": "#e7dfea",
+      "color.primary": "#675080",
+      "color.onPrimary": "#ffffff",
+      "color.primaryContainer": "#e6d9f1",
+      "color.onPrimaryContainer": "#332340",
+      "color.onSurface": "#292331",
+      "color.onSurfaceVariant": "#6c616f",
+      "color.outline": "#837587",
+      "color.outlineVariant": "#dcd4dd",
+      "color.accent": "#886638",
+      "color.error": "#a33436",
+      "color.errorContainer": "#fce3dd",
+      "color.focus": "#744b98"
+    },
+    "dark": {
+      "color.surface": "#211d25",
+      "color.surfaceRaised": "#2c2631",
+      "color.surfaceContainer": "#372f3e",
+      "color.surfaceContainerHigh": "#463a4e",
+      "color.primary": "#d9bdf1",
+      "color.onPrimary": "#352044",
+      "color.primaryContainer": "#513b63",
+      "color.onPrimaryContainer": "#f0defe",
+      "color.onSurface": "#f1e9f2",
+      "color.onSurfaceVariant": "#c4b8ca",
+      "color.outline": "#9d8ba4",
+      "color.outlineVariant": "#514658",
+      "color.accent": "#d9b57d",
+      "color.error": "#ffb3a9",
+      "color.errorContainer": "#4d2627",
+      "color.focus": "#e0b8fc"
+    }
+  },
+  "logical_dimensions": {
+    "space.sm": 8,
+    "space.md": 16,
+    "space.lg": 24,
+    "shape.control": 24,
+    "shape.field": 4,
+    "type.body.size": 16,
+    "type.title.size": 28,
+    "space.xs": 4,
+    "space.moderate": 12,
+    "space.xl": 32,
+    "shape.container": 24,
+    "type.metadata.size": 12,
+    "type.display.size": 34
+  },
+  "contrast_pairs": [
+    [
+      "color.onPrimary",
+      "color.primary",
+      4.5
+    ],
+    [
+      "color.onSurface",
+      "color.surface",
+      4.5
+    ],
+    [
+      "color.onSurface",
+      "color.surfaceContainer",
+      4.5
+    ],
+    [
+      "color.onSurfaceVariant",
+      "color.surfaceContainer",
+      4.5
+    ],
+    [
+      "color.outline",
+      "color.surfaceContainer",
+      3
+    ],
+    [
+      "color.focus",
+      "color.surface",
+      3
+    ],
+    [
+      "color.onPrimaryContainer",
+      "color.primaryContainer",
+      4.5
+    ],
+    [
+      "color.onSurface",
+      "color.surfaceRaised",
+      4.5
+    ],
+    [
+      "color.onSurfaceVariant",
+      "color.surface",
+      4.5
+    ],
+    [
+      "color.error",
+      "color.errorContainer",
+      4.5
+    ]
+  ]
+}

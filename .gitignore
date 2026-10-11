@@ -3,6 +3,10 @@
 !.env.example
 /target/
 /apps/web/dist/
+/apps/theatre-web/dist/
+**/.kotlin/
+**/DerivedData/
+**/xcuserdata/
 **/build/
 .gradle/
 node_modules/

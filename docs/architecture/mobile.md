@@ -93,4 +93,9 @@ Before feature implementation, add an ADR identifying supported OS versions; CMP
 | Lifecycle | App restart, suspended sync, OS termination, restored session | Recovery works within platform limits; cold launch does not auto-play. |
 | Accessibility/UI | Large text, TalkBack/VoiceOver, small window, reduced motion | Per-target captures and assistive-technology walkthrough. |
 
-No native playback, background behavior, downloads, progress synchronization, API generation, or accessibility validation has been performed during repository initialization. Web or desktop previews cannot establish native mobile acceptance.
+The [client skeleton](client-surfaces.md) supplies shared Compose screens/navigation/theme,
+Android and SwiftUI/Xcode hosts. Common code compiles/tests on JVM and Xcode recognizes the
+project/scheme; native build/runtime gates remain blocked/unrun as recorded in
+[client evidence](../evidence/client-shells.md). No native playback, background behavior,
+downloads, progress synchronization, API generation or native accessibility is verified.
+Web or desktop previews cannot establish native mobile acceptance.

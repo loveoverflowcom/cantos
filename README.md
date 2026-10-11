@@ -24,9 +24,12 @@ validation previews, source comparison and revision history on that same authori
 [Casting and production inputs](docs/evidence/casting-production-inputs.md) add versioned
 reference-only voice controls, script-scoped rights/budget declarations, immutable candidates
 and exact owner approval on the same backend. Reference capabilities and rates are planning
-fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. Production execution,
-Theatre and native mobile playback remain planned. No runnable Gradle project or production
-identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
+fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. Durable
+production and listener playback remain planned. Separate [Theatre Web](apps/theatre-web/README.md)
+and [CMP listener shells](apps/mobile/README.md) now provide labeled demo navigation, themes
+and disabled player surfaces. Common CMP UI compiles/tests on JVM; native builds/runtime are
+unverified. [Client evidence](docs/evidence/client-shells.md) records their exact boundary.
+No production identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
 reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)
 compares two versions of one episode by stable ID and reports edited, moved, added and removed
@@ -69,8 +72,9 @@ Start with one modular backend. Worker execution can run separately for resource
 | Path | Responsibility at bootstrap |
 | --- | --- |
 | `apps/server/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
-| `apps/web/` | Structured Leptos Studio CSR editor and casting/input review; Theatre remains planned |
-| `apps/mobile/` | Guide for the native CMP listening app |
+| `apps/web/` | Creator Studio: structured Leptos editor and casting/input review, entry preserved |
+| `apps/theatre-web/` | Listener Leptos shell; synthetic discovery/search/work/library/player |
+| `apps/mobile/` | Theatre CMP shared UI/navigation/theme and Android/iOS hosts; no playback |
 | `contracts/` | Script IR and Studio v1 schemas/fixtures, shared Rust wire DTOs and design tokens |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
@@ -137,7 +141,10 @@ samples/plans locally under ignored `target/read-benchmarks/`. It never accepts 
 
 The MVP must demonstrate an authorized script imported into Studio, reviewed adaptation and casting, resumable production, partial regeneration, mixed audio passing QC, approved publication, Theatre Web playback and native Android/iOS listening with background controls, offline playback and synchronized progress. See the [work plan](docs/work-plan/README.md) for individual acceptance gates.
 
-The referenced UI image was not attached to this request. Exact visual matching remains pending receipt of that reference. The lavender/purple, compact Material 3 Expressive direction is recorded in the UI specification.
+The supplied stored web/mobile HTML designs have been inspected for the client skeleton.
+Paper/lavender semantic roles and compact Material 3 intent are recorded in the
+[UI system](docs/design/ui-system.md). Artwork/font rights and exact fidelity remain unresolved;
+the shells use visible placeholders and system fonts.
 
 ## Licensing and content
 

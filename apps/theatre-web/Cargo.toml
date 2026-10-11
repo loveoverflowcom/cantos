@@ -1,0 +1,12 @@
+[package]
+name = "cantos-theatre"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+publish = false
+
+# Theatre has no dependency on Studio credentials, private APIs or server internals.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+leptos = { version = "=0.7.8", features = ["csr"] }
+web-sys = { version = "=0.3.77", features = ["Window", "Location", "Document", "HtmlElement", "Element", "EventTarget"] }
+wasm-bindgen = "=0.2.100"
