@@ -185,6 +185,7 @@ example-tested            specific inputs are asserted
 property-tested           a law holds over generated inputs
 differentially-tested     an independent oracle or golden fixture agrees
 fault-injected            a crash, timeout or duplicate was injected at a named point
+mock-integration-tested   production modules exercised together with named mocked external dependencies
 mutation-tested           the assertions kill inserted defects
 bounded-model-checked     a proposition holds over a stated symbolic domain and bound
 fuzz-tested               a coverage-guided fuzzer ran a named target under resource bounds with no crash,
@@ -207,8 +208,9 @@ device-tested             ran on a named Android/iOS device, emulator or simulat
 production-observed       observed in production, not proven
 ```
 
-A fake provider is `example-tested` against a double, never `provider-live-tested`. An in-memory
-store is never `integration-tested`. A desktop or JVM host render is never `device-tested`.
+A fake provider alone is `example-tested`; a production flow across modules with external doubles
+is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory store is never
+`integration-tested`. A desktop or JVM host render is never `device-tested`.
 A document check never proves that an app builds. Agent-authored JSON or assertions are not
 verifier output; report only what a tool actually printed.
 
@@ -221,6 +223,11 @@ verifier output; report only what a tool actually printed.
 | Pipeline / publication change | fault-injected crash, retry, duplicate-delivery and stale-revision cases at the changed step |
 | UI change | the renderer skill's evidence loop: driven flow, inspected captures, viewports, themes, Vietnamese text, focus, text scaling |
 | Phase exit | the work plan's [review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence) with live and mocked evidence labeled separately |
+
+For implementation handoff and PR creation, use the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion):
+applicable local tests, mocked integration and verification checks pass; no waiting for GitHub CI.
+Real local infrastructure is still needed for claims a mock cannot establish. Production and
+phase-exit acceptance remain separate. Docs-only work gets no invented integration requirement.
 
 Repository-level checks go through [`cargo xtask`](../../../xtask/README.md); scripts are its
 primitives. Report each gate as xtask printed it (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`, which

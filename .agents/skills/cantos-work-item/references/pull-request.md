@@ -15,7 +15,7 @@ Run in this order; stop at the first failure and fix or report it.
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
 | 2. format, lint, test | the formatter (check mode), linter and focused tests of each touched toolchain, as the foundation's [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion) requires; commands discovered from the manifests, never assumed | "green tests" with unformatted code |
-| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`) | broken links, skill structure, whitespace, unselected gates |
+| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`); use only the documented [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start) if Cargo/Rust is unavailable | broken links, skill structure, whitespace, unselected gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
 
@@ -50,7 +50,7 @@ gh pr create --base develop --head <branch> --title "<type>: <outcome>" --body-f
 ```
 
 Write the body file outside the repository. A request to open a PR authorizes that PR against
-`develop`; confirm the title and whether it is a draft when the user did not specify them. Never
+`develop`; choose a descriptive title and a regular PR unless the user asks for a draft. Never
 push to `develop` directly and never force-push a branch someone else may use. Labels, reviewers,
 assignees, milestones and Project status are separate GitHub writes: confirm each, and use only
 labels that `gh label list` shows exist.
@@ -91,6 +91,7 @@ with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6
 | What ran | Write | Never write |
 |---|---|---|
 | a fake synthesizer in tests | `example-tested against a fake synthesizer (mocked)` | "TTS works" |
+| production handler/application/adapter flow with external doubles | `mock-integration-tested (<flow>; <named doubles>)` | unqualified `integration-tested` or "live provider verified" |
 | tests against a real local PostgreSQL | `integration-tested (local PostgreSQL <version>)` | `integration-tested` for an in-memory store |
 | a local S3-compatible server | `integration-tested (local S3-compatible server)`; the deployed CDN path not exercised | "delivery verified" |
 | one real provider call under a cost cap | `provider-live-tested (<provider alias>, 1 call, <cost>)` | the provider name with credentials or a request ID that exposes an account |
@@ -98,9 +99,11 @@ with levels from the [foundation vocabulary](../../cantos-engineering/SKILL.md#6
 
 ## After the PR opens
 
-- The only CI today is [`repository-checks.yml`](../../../../.github/workflows/repository-checks.yml),
-  which runs the repository check on PRs to `develop`; re-read it before describing CI. Report CI
-  status only after reading it (`gh pr checks <n>`); do not dispatch or re-run workflows unasked.
+- Follow the foundation's [local handoff policy](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion).
+  Return the PR link and local results when the PR opens; do not wait or poll for GitHub Actions.
+  [`repository-checks.yml`](../../../../.github/workflows/repository-checks.yml) runs the xtask
+  repository, Rust, Web and PostgreSQL jobs automatically. Describe remote CI as `not checked`
+  unless actually read; it is not an agent completion requirement. Do not dispatch or re-run it unasked.
 - A review is a separate read-only pass through
   [`cantos-code-review`](../../cantos-code-review/SKILL.md). Answering review comments, pushing
   fixes and resolving threads are further outward actions: confirm before each kind.

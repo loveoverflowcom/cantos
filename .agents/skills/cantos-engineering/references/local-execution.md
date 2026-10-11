@@ -45,6 +45,50 @@ the command fails before running anything.
 Docs-only or read-only work must not start a heavy build merely to "have a baseline". Report any
 required gate that remains unrun on the residual-risk line.
 
+## Local handoff and PR completion
+
+The default implementation handoff is complete when the applicable local checks pass with no
+reported failures. Open the requested PR and return its link and local evidence immediately;
+GitHub Actions need not finish. Do not poll, wait for, dispatch or re-run remote workflows to
+complete this handoff. This is a working rule, not a change to GitHub merge protection.
+
+| Change or claim | Local evidence |
+|---|---|
+| behavior change | focused deterministic regression, then the applicable module tests and changed-only preflight |
+| flow spanning application modules or an external adapter | production code exercised together with deterministic mocks/fakes at external boundaries; report `mock-integration-tested` and name the doubles |
+| PostgreSQL constraints, SQL, transactions, migrations or concurrent writes | disposable real local PostgreSQL checks; mocks cannot establish database semantics |
+| documents or skills only | repository verification and changed-only preflight; no application or integration test required |
+
+For mocked integration, exercise the real handler/application/adapter code and assert observable
+results and relevant errors, timeouts or retry behavior. A fabricated successful response or a
+test of an isolated fake is not integration evidence. No paid vendor, deployed service, cloud
+storage or production environment is required for routine implementation handoff. A requirement
+for real provider, device, publication or phase-exit acceptance stays with that capability's owner;
+record it as deferred acceptance rather than claiming it from mocks.
+
+`FAIL` blocks a clean handoff: fix it or report the failure. `NOT_RUN`, `UNSUPPORTED` and zero
+selected tests do not satisfy a required check. If a required local check cannot run, report the
+blocker and deliver the requested PR with verification explicitly incomplete; do not wait for CI
+to supply evidence. Use `--skip` only with the reason stated, never to hide a failure.
+
+### Docs-only fallback when xtask cannot start
+
+When Cargo/Rust is unavailable and **every changed path is documentation or a skill**, run the
+existing `repository` gate's primitives from the repository root:
+
+```sh
+python3 scripts/check_repository.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
+git diff --check
+git diff --cached --check
+```
+
+This is a narrow fallback to existing checks, not a second orchestration entrypoint. All four
+must pass. Report their actual results and xtask/preflight as unavailable, with Rust formatting
+not run and no Rust sources changed. Do not invent a xtask summary. This exception does not cover
+code, scripts, fixtures, contracts, workflow changes or uncertain impact; those still need their
+applicable local gates. No new regression test is required for wording alone.
+
 ## Resources
 
 Before an expensive build, browser or emulator run: check free disk on the filesystems that will
@@ -67,9 +111,10 @@ never authorizes weaker checks or remote compute.
 The repository workflow provisions toolchains and PostgreSQL, then runs `cargo xtask ci --job
 <repository|rust|web|postgres>` on pushes and pull requests to `develop`; `cargo xtask ci` runs the
 same jobs locally. Pushing a
-branch or opening a PR consumes CI and is outward-facing: do it only when the user asks. Never
-debug by repeatedly re-running remote jobs, never relax branch protection, and never treat a
-remote green check as a substitute for the local evidence a claim needs.
+branch or opening a PR consumes CI and is outward-facing: do it only when the user asks. That
+request authorizes any CI automatically triggered by the PR; it does not require waiting for it.
+Report remote CI as `not checked` unless its status was actually read. Never debug by repeatedly
+re-running remote jobs, relax branch protection or substitute a remote green check for local evidence.
 
 ## Secrets, private content and media
 

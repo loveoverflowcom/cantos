@@ -312,8 +312,9 @@ supplies no database correctness or performance evidence.
 - **Weakened evidence:** relaxed assertions, raised tolerances, a fixture in `packages/contracts/` edited
   to match the new behavior instead of a new fixture added beside the old one, a golden file
   regenerated from the new output.
-- **Mislabeled evidence:** an in-memory store or fake provider in a test named or reported as
-  integration; a fake synthesizer reported as `provider-live-tested`.
+- **Mislabeled evidence:** an in-memory store or fake provider reported as real `integration-tested`
+  evidence; a fake synthesizer reported as `provider-live-tested`. A production flow with named
+  external doubles can be `mock-integration-tested`; check the real code and asserted outcomes.
 - **Oracle independence:** expected values computed by the function under test
   (`assert_eq!(fingerprint(&a), fingerprint(&a))`).
 - **Properties** state a law, generate reachable values — Vietnamese diacritics, NFD input, empty
@@ -325,6 +326,8 @@ supplies no database correctness or performance evidence.
 **Not a finding:** a missing test for an exemption the foundation lists
 ([§ 5](../../cantos-engineering/SKILL.md#5-every-behavior-change-gets-the-cheapest-deterministic-regression-evidence)).
 A missing test is an evidence gap, never by itself a reproduced defect.
+Pending, unrun or unread GitHub CI alone is not a gap under the [local handoff policy](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion).
+Review the applicable local evidence; do not add a requirement to wait for remote jobs.
 
 ## 10. Focused execution
 

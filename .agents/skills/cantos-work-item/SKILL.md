@@ -175,7 +175,9 @@ each owner's rules. Before handing off, answer each line for the slice (a senten
 ## 9. Verify by tier
 
 Run the [foundation tiers](../cantos-engineering/SKILL.md#7-verification-tiers) that apply, with the
-commands the repository actually provides. A slice that contributes to a phase exit names which
+commands the repository actually provides. Use its [local handoff policy](../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
+local tests, mocked integration where applicable and verification checks, without waiting for
+GitHub CI. A slice that contributes to a phase exit names which
 part of the [phase review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence)
 it demonstrates and which part remains. Label live and mocked evidence separately
 ([shared completion evidence](../../../docs/work-plan/README.md#shared-completion-evidence)). Never
