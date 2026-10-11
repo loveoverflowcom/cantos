@@ -2,7 +2,7 @@
 
 This is the requested UI-only sequence alongside the MVP queue, not advancement of #6/#7 or
 production acceptance. GitHub owns linked execution status; this file owns next order and scope.
-Session 1 delivers the [foundation](../../packages/ui-system/README.md) locally. Later sessions
+The [foundation](../../packages/ui-system/README.md) and [component library](../evidence/ui-system-components.md) establish the local shared boundary. Later sessions
 must inspect their actual starting SHA and disk budget; they are not started by this task.
 
 ## Why and boundary
@@ -59,3 +59,14 @@ Runtime visual/focus/zoom/reduced-motion evidence requires an unlocked Mac and a
 The named fonts need licensed delivery; system fallbacks are used meanwhile. The minimal preview
 is a diagnostic sample, not a production site. Refer to [foundation evidence](../evidence/ui-system-foundation.md)
 for actual runs; generation/compile/string-render results do not establish native accessibility.
+
+## Component handoff and next integration order
+
+Session 3 should consume the [component API](../../packages/ui-system/leptos/README.md) and
+[session 2 evidence](../evidence/ui-system-components.md) before touching app surfaces. Scope broad
+app tag selectors first, then migrate a representative edit/casting flow and bounded Theatre
+navigation. Preserve controlled raw numeric zero and Vietnamese composition hooks. Native
+NavTabs uses links; an in-page ARIA tab widget is not supplied. Select option children need
+caller-owned selected bindings when options are inserted asynchronously without a value change.
+Run exact viewport, zoom, focus, IME and app state preservation checks against the integrated
+surfaces; component gallery observations do not establish app or mobile acceptance.

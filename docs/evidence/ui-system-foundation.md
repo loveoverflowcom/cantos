@@ -146,3 +146,9 @@ limitation documented in [Google adapter evidence](google-tts-adapter.md), witho
 Full backend/workspace Rust tests/lint, PostgreSQL, mutation/WAV/provider/audio checks and mobile
 build/tests are **NOT_RUN** for this UI-only bounded change. Existing AGENTS requirements remain
 applicable when those owners change; this resource-constrained slice runs focused UI checks.
+
+## Successor boundary
+
+The [session 2 component evidence](ui-system-components.md) records the reusable Leptos library,
+state gallery, focused checks and session 3 API handoff on this foundation. This session 1
+record remains historical evidence; successor builds and runtime limitations are recorded there.

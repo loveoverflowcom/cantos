@@ -8,7 +8,7 @@ This is a small renderer package, not a second application or a domain authority
 | Owner | Contents | State |
 | --- | --- | --- |
 | [`shared`](shared/README.md) | Versioned semantic tokens, schema contract, licensed icon originals and provenance | Implemented |
-| [`leptos`](leptos/README.md) | `cantos-ui` on Leptos 0.7.8; generated CSS/Rust; UiRoot, Button and decorative Icon | Implemented foundation |
+| [`leptos`](leptos/README.md) | `cantos-ui` on Leptos 0.7.8; generated CSS/Rust; UiRoot, composable controls/layout/feedback, native dialog and decorative Icon | Implemented components and development gallery |
 | [`cmp`](cmp/README.md) | Future native mapping and ownership contract | Deferred documentation only |
 
 Generate with `python3 scripts/ui_tokens.py` and `python3 scripts/ui_icons.py`; append `--check`
@@ -38,10 +38,15 @@ app CSS. Each app must scope its own broad selectors when integrating components
 Button children provide visible localized text; SVG icons are decorative. A disabled Button
 requires non-empty `DisabledReason`, rendered visibly and linked through `aria-describedby`.
 Native disabled behavior and a callback guard prevent activation. Buttons are `type="button"`;
-navigation and submit controls belong to later dedicated APIs. Callers provide unique IDs and
+native Link/NavItem own navigation; submit flows remain app-owned. Callers provide unique IDs and
 must keep the generated `<id>-reason` ID available. Focus rings, sufficient hit areas, text
 wrapping, forced-colors and reduced motion are part of the foundation contract.
 
 Documented API and compile/string-render checks do not prove keyboard, screen-reader, responsive
 appearance or animation behavior. Use the [evidence record](../../docs/evidence/ui-system-foundation.md)
 for the exact boundary of this delivery.
+
+The [Leptos API/state contract](leptos/README.md) records controlled field values (including numeric
+zero), safe class/description hooks, composition events, native navigation and dialog ownership.
+The [component evidence](../../docs/evidence/ui-system-components.md) and its session 3 handoff
+separate source/string-render/build results from actual browser observations.

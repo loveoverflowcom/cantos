@@ -1,0 +1,628 @@
+//! Native controlled fields. Apps own values, validation, localization and durable decisions.
+
+use crate::DisabledReason;
+use leptos::{ev::CompositionEvent, prelude::*};
+
+/// Text entry supports native read-only selection/copy without disabling the field.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum FieldState {
+    #[default]
+    Editable,
+    ReadOnly,
+    Disabled(DisabledReason),
+    Loading(DisabledReason),
+}
+
+impl FieldState {
+    pub const fn accepts_input(&self) -> bool {
+        matches!(self, Self::Editable)
+    }
+
+    pub const fn is_disabled(&self) -> bool {
+        matches!(self, Self::Disabled(_) | Self::Loading(_))
+    }
+
+    pub const fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading(_))
+    }
+
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Editable => "editable",
+            Self::ReadOnly => "readonly",
+            Self::Disabled(_) => "disabled",
+            Self::Loading(_) => "loading",
+        }
+    }
+
+    pub fn reason(&self) -> Option<&DisabledReason> {
+        match self {
+            Self::Disabled(reason) | Self::Loading(reason) => Some(reason),
+            Self::Editable | Self::ReadOnly => None,
+        }
+    }
+}
+
+/// Native select, checked and range controls do not support a read-only attribute.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ChoiceState {
+    #[default]
+    Enabled,
+    Disabled(DisabledReason),
+    Loading(DisabledReason),
+}
+
+impl ChoiceState {
+    pub const fn accepts_input(&self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+
+    pub const fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading(_))
+    }
+
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Enabled => "enabled",
+            Self::Disabled(_) => "disabled",
+            Self::Loading(_) => "loading",
+        }
+    }
+
+    pub fn reason(&self) -> Option<&DisabledReason> {
+        match self {
+            Self::Disabled(reason) | Self::Loading(reason) => Some(reason),
+            Self::Enabled => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextFieldKind {
+    #[default]
+    Text,
+    Search,
+    Email,
+    Password,
+    Url,
+    Telephone,
+}
+
+impl TextFieldKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Search => "search",
+            Self::Email => "email",
+            Self::Password => "password",
+            Self::Url => "url",
+            Self::Telephone => "tel",
+        }
+    }
+}
+
+/// Label primitive for an app-composed native control with the same stable ID.
+#[component]
+pub fn FieldLabel(
+    #[prop(into)] for_id: String,
+    children: Children,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+) -> impl IntoView {
+    view! { <label for=for_id class=move || format!("cui-field-label {}", class.get())>{children()}</label> }
+}
+
+#[component]
+pub fn FieldHelp(
+    #[prop(into)] id: String,
+    children: Children,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+) -> impl IntoView {
+    view! { <p id=id class=move || format!("cui-field-help {}", class.get())>{children()}</p> }
+}
+
+/// Inline error text. The app chooses when to announce validation; typing is not a live region.
+#[component]
+pub fn FieldError(
+    #[prop(into)] id: String,
+    children: Children,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+) -> impl IntoView {
+    view! { <p id=id class=move || format!("cui-field-error {}", class.get())>{children()}</p> }
+}
+
+fn has_text(text: &Option<String>) -> bool {
+    text.as_ref().is_some_and(|text| !text.trim().is_empty())
+}
+
+fn described_by(
+    id: &str,
+    external: &Option<String>,
+    help: bool,
+    error: bool,
+    reason: bool,
+) -> Option<String> {
+    let mut ids: Vec<String> = external
+        .as_deref()
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(str::to_owned)
+        .collect();
+    for (visible, suffix) in [(help, "help"), (error, "error"), (reason, "reason")] {
+        if visible {
+            let message_id = format!("{id}-{suffix}");
+            if !ids.contains(&message_id) {
+                ids.push(message_id);
+            }
+        }
+    }
+    if ids.is_empty() {
+        None
+    } else {
+        Some(ids.join(" "))
+    }
+}
+
+fn descriptions(
+    id: String,
+    external: Signal<Option<String>>,
+    help: Signal<Option<String>>,
+    error: Signal<Option<String>>,
+    reason: Signal<Option<DisabledReason>>,
+) -> Signal<Option<String>> {
+    Signal::derive(move || {
+        described_by(
+            &id,
+            &external.get(),
+            has_text(&help.get()),
+            has_text(&error.get()),
+            reason.get().is_some(),
+        )
+    })
+}
+
+fn error_reference(id: String, error: Signal<Option<String>>) -> Signal<Option<String>> {
+    Signal::derive(move || has_text(&error.get()).then(|| format!("{id}-error")))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn textarea_initial_text(value: String) -> String {
+    // Pinned tachys treats textarea children as unescaped SSR raw text. Encode only this
+    // native HTML shell; the HTML parser decodes it back into the original textarea value.
+    let mut encoded = value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    // HTML drops the first LF immediately after a textarea start tag.
+    if value.starts_with('\n') {
+        encoded.insert(0, '\n');
+    }
+    encoded
+}
+
+#[cfg(target_arch = "wasm32")]
+fn textarea_initial_text(value: String) -> String {
+    // CSR creates a text node and uses the raw value property; entity-encoding here would
+    // change visible text. This renderer package does not deploy WASM-side HTML serialization.
+    value
+}
+
+#[component]
+fn FieldMessages(
+    id: String,
+    help: Signal<Option<String>>,
+    error: Signal<Option<String>>,
+    reason: Signal<Option<DisabledReason>>,
+) -> impl IntoView {
+    view! {
+        <p id=format!("{id}-help") class="cui-field-help" hidden=move || !has_text(&help.get())>
+            {move || help.get().unwrap_or_default()}
+        </p>
+        <p id=format!("{id}-error") class="cui-field-error" hidden=move || !has_text(&error.get())>
+            {move || error.get().unwrap_or_default()}
+        </p>
+        <p id=format!("{id}-reason") class="cui-field-help" hidden=move || reason.get().is_none()>
+            {move || reason.get().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
+        </p>
+    }
+}
+
+#[component]
+fn InputField(
+    id: String,
+    label: Signal<String>,
+    value: Signal<String>,
+    on_input: Callback<String>,
+    on_composition_start: Option<Callback<CompositionEvent>>,
+    on_composition_end: Option<Callback<CompositionEvent>>,
+    input_type: &'static str,
+    state: Signal<FieldState>,
+    help: Signal<Option<String>>,
+    error: Signal<Option<String>>,
+    described_by: Signal<Option<String>>,
+    class: Signal<String>,
+    name: Option<String>,
+    required: bool,
+    placeholder: Option<String>,
+    autocomplete: Option<String>,
+    min: Option<String>,
+    max: Option<String>,
+    step: Option<String>,
+) -> impl IntoView {
+    let reason = Signal::derive(move || state.get().reason().cloned());
+    let descriptions = descriptions(id.clone(), described_by, help, error, reason);
+    let error_reference = error_reference(id.clone(), error);
+    view! {
+        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
+                placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
+                value=move || value.get() prop:value=move || value.get()
+                readonly=move || matches!(state.get(), FieldState::ReadOnly)
+                disabled=move || state.get().is_disabled()
+                aria-busy=move || state.get().is_loading().to_string()
+                aria-invalid=move || has_text(&error.get()).to_string()
+                aria-describedby=move || descriptions.get()
+                aria-errormessage=move || error_reference.get()
+                on:input=move |event| {
+                    if state.get_untracked().accepts_input() {
+                        on_input.run(event_target_value(&event));
+                    }
+                }
+                on:compositionstart=move |event| {
+                    if let Some(callback) = on_composition_start { callback.run(event); }
+                }
+                on:compositionend=move |event| {
+                    if let Some(callback) = on_composition_end { callback.run(event); }
+                }
+            />
+            <FieldMessages id=id help=help error=error reason=reason/>
+        </div>
+    }
+}
+
+/// Controlled single-line input; no validation, normalization or value ownership is hidden here.
+/// Native input dispatch includes composition edits. The app can gate validation/autosave using
+/// the composition callbacks; the library never reformats or commits text during composition.
+#[component]
+pub fn TextField(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] on_input: Callback<String>,
+    #[prop(optional)] on_composition_start: Option<Callback<CompositionEvent>>,
+    #[prop(optional)] on_composition_end: Option<Callback<CompositionEvent>>,
+    #[prop(optional)] kind: TextFieldKind,
+    #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(optional)] required: bool,
+    #[prop(into, optional)] placeholder: Option<String>,
+    #[prop(into, optional)] autocomplete: Option<String>,
+) -> impl IntoView {
+    view! {
+        <InputField id=id label=label value=value on_input=on_input input_type=kind.as_str()
+            on_composition_start=on_composition_start on_composition_end=on_composition_end
+            state=state help=help error=error described_by=described_by class=class name=name
+            required=required placeholder=placeholder autocomplete=autocomplete min=None max=None step=None/>
+    }
+}
+
+/// Raw numeric strings include valid zero and an empty editing value. Parse in the app.
+#[component]
+pub fn NumberField(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] on_input: Callback<String>,
+    #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(optional)] required: bool,
+    #[prop(into, optional)] placeholder: Option<String>,
+    #[prop(into, optional)] min: Option<String>,
+    #[prop(into, optional)] max: Option<String>,
+    #[prop(into, optional)] step: Option<String>,
+) -> impl IntoView {
+    view! {
+        <InputField id=id label=label value=value on_input=on_input input_type="number"
+            on_composition_start=None on_composition_end=None
+            state=state help=help error=error described_by=described_by class=class name=name
+            required=required placeholder=placeholder autocomplete=None min=min max=max step=step/>
+    }
+}
+
+#[component]
+pub fn TextArea(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] on_input: Callback<String>,
+    #[prop(optional)] on_composition_start: Option<Callback<CompositionEvent>>,
+    #[prop(optional)] on_composition_end: Option<Callback<CompositionEvent>>,
+    #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(optional)] required: bool,
+    #[prop(into, optional)] placeholder: Option<String>,
+    #[prop(default = 4)] rows: u32,
+) -> impl IntoView {
+    let reason = Signal::derive(move || state.get().reason().cloned());
+    let descriptions = descriptions(id.clone(), described_by, help, error, reason);
+    let error_reference = error_reference(id.clone(), error);
+    // Text content is the initial SSR value; the property owns subsequent browser editing.
+    let initial = textarea_initial_text(value.get_untracked());
+    view! {
+        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <textarea id=id.clone() class="cui-field-control cui-textarea" name=name required=required
+                placeholder=placeholder rows=rows prop:value=move || value.get()
+                readonly=move || matches!(state.get(), FieldState::ReadOnly)
+                disabled=move || state.get().is_disabled()
+                aria-busy=move || state.get().is_loading().to_string()
+                aria-invalid=move || has_text(&error.get()).to_string()
+                aria-describedby=move || descriptions.get()
+                aria-errormessage=move || error_reference.get()
+                on:input=move |event| {
+                    if state.get_untracked().accepts_input() {
+                        on_input.run(event_target_value(&event));
+                    }
+                }
+                on:compositionstart=move |event| {
+                    if let Some(callback) = on_composition_start { callback.run(event); }
+                }
+                on:compositionend=move |event| {
+                    if let Some(callback) = on_composition_end { callback.run(event); }
+                }>{initial}</textarea>
+            <FieldMessages id=id help=help error=error reason=reason/>
+        </div>
+    }
+}
+
+/// Native single-select with app-owned options. Options must carry stable values.
+#[component]
+pub fn Select(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] on_input: Callback<String>,
+    children: Children,
+    #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(optional)] required: bool,
+) -> impl IntoView {
+    let reason = Signal::derive(move || state.get().reason().cloned());
+    let descriptions = descriptions(id.clone(), described_by, help, error, reason);
+    let error_reference = error_reference(id.clone(), error);
+    let node = NodeRef::<leptos::html::Select>::new();
+    // A select property set before its options mount cannot choose a non-first option.
+    // Reading the NodeRef in an owner-scoped effect applies the controlled value after mount.
+    Effect::new(move |_| {
+        let current = value.get();
+        if let Some(select) = node.get() {
+            select.set_value(&current);
+        }
+    });
+    view! {
+        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <select id=id.clone() node_ref=node class="cui-field-control" name=name required=required
+                prop:value=move || value.get() disabled=move || !state.get().accepts_input()
+                aria-busy=move || state.get().is_loading().to_string()
+                aria-invalid=move || has_text(&error.get()).to_string()
+                aria-describedby=move || descriptions.get()
+                aria-errormessage=move || error_reference.get()
+                on:change=move |event| {
+                    if state.get_untracked().accepts_input() {
+                        on_input.run(event_target_value(&event));
+                    }
+                }>{children()}</select>
+            <FieldMessages id=id help=help error=error reason=reason/>
+        </div>
+    }
+}
+
+#[component]
+fn CheckedField(
+    id: String,
+    label: Signal<String>,
+    checked: Signal<bool>,
+    on_change: Callback<bool>,
+    input_type: &'static str,
+    role: Option<&'static str>,
+    state: Signal<ChoiceState>,
+    help: Signal<Option<String>>,
+    error: Signal<Option<String>>,
+    described_by: Signal<Option<String>>,
+    class: Signal<String>,
+    name: Option<String>,
+    value: Option<String>,
+    required: bool,
+) -> impl IntoView {
+    let reason = Signal::derive(move || state.get().reason().cloned());
+    let descriptions = descriptions(id.clone(), described_by, help, error, reason);
+    let error_reference = error_reference(id.clone(), error);
+    view! {
+        <div class=move || format!("cui-field cui-choice {}", class.get()) data-state=move || state.get().as_str()>
+            <label for=id.clone() class="cui-choice-label">
+                <input id=id.clone() class="cui-choice-control" type=input_type role=role name=name value=value
+                    required=required checked=move || checked.get() prop:checked=move || checked.get()
+                    disabled=move || !state.get().accepts_input()
+                    aria-busy=move || state.get().is_loading().to_string()
+                    aria-checked=move || role.map(|_| checked.get().to_string())
+                    aria-invalid=move || has_text(&error.get()).to_string()
+                    aria-describedby=move || descriptions.get()
+                    aria-errormessage=move || error_reference.get()
+                    on:change=move |event| {
+                        if state.get_untracked().accepts_input() {
+                            on_change.run(event_target_checked(&event));
+                        }
+                    }/>
+                <span class="cui-field-label">{move || label.get()}</span>
+            </label>
+            <FieldMessages id=id help=help error=error reason=reason/>
+        </div>
+    }
+}
+
+#[component]
+pub fn Checkbox(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] checked: Signal<bool>,
+    #[prop(into)] on_change: Callback<bool>,
+    #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(into, optional)] value: Option<String>,
+    #[prop(optional)] required: bool,
+) -> impl IntoView {
+    view! {
+        <CheckedField id=id label=label checked=checked on_change=on_change input_type="checkbox" role=None
+            state=state help=help error=error described_by=described_by class=class name=name value=value required=required/>
+    }
+}
+
+/// Native radios with the same name form a group; the app controls the checked signals.
+/// Compose a fieldset/legend in the app for the group's shared question.
+#[component]
+pub fn Radio(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] name: String,
+    #[prop(into)] value: String,
+    #[prop(into)] checked: Signal<bool>,
+    #[prop(into)] on_change: Callback<bool>,
+    #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(optional)] required: bool,
+) -> impl IntoView {
+    view! {
+        <CheckedField id=id label=label checked=checked on_change=on_change input_type="radio" role=None
+            state=state help=help error=error described_by=described_by class=class name=Some(name) value=Some(value) required=required/>
+    }
+}
+
+/// Native checkbox input with switch semantics. Its label remains stable as it changes state.
+#[component]
+pub fn Switch(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] checked: Signal<bool>,
+    #[prop(into)] on_change: Callback<bool>,
+    #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+) -> impl IntoView {
+    view! {
+        <CheckedField id=id label=label checked=checked on_change=on_change input_type="checkbox" role=Some("switch")
+            state=state help=help error=error described_by=described_by class=class name=name value=None required=false/>
+    }
+}
+
+/// The browser owns native range normalization and keyboard steps; this component does no parsing.
+/// Supply localized value_text when a number alone is not meaningful (for example elapsed time).
+#[component]
+pub fn RangeField(
+    #[prop(into)] id: String,
+    #[prop(into)] label: Signal<String>,
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] on_input: Callback<String>,
+    #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
+    #[prop(into, default = None.into())] value_text: Signal<Option<String>>,
+    #[prop(into, default = None.into())] help: Signal<Option<String>>,
+    #[prop(into, default = None.into())] error: Signal<Option<String>>,
+    #[prop(into, default = None.into())] described_by: Signal<Option<String>>,
+    #[prop(into, default = String::new().into())] class: Signal<String>,
+    #[prop(into, optional)] name: Option<String>,
+    #[prop(into, optional)] min: Option<String>,
+    #[prop(into, optional)] max: Option<String>,
+    #[prop(into, optional)] step: Option<String>,
+) -> impl IntoView {
+    let reason = Signal::derive(move || state.get().reason().cloned());
+    let descriptions = descriptions(id.clone(), described_by, help, error, reason);
+    let error_reference = error_reference(id.clone(), error);
+    view! {
+        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <input id=id.clone() class="cui-range-control" type="range" name=name min=min max=max step=step
+                value=move || value.get() prop:value=move || value.get()
+                disabled=move || !state.get().accepts_input()
+                aria-busy=move || state.get().is_loading().to_string()
+                aria-invalid=move || has_text(&error.get()).to_string()
+                aria-valuetext=move || value_text.get()
+                aria-describedby=move || descriptions.get()
+                aria-errormessage=move || error_reference.get()
+                on:input=move |event| {
+                    if state.get_untracked().accepts_input() {
+                        on_input.run(event_target_value(&event));
+                    }
+                }/>
+            <FieldMessages id=id help=help error=error reason=reason/>
+        </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn descriptions_keep_external_ids_and_only_visible_messages() {
+        assert_eq!(described_by("title", &None, false, false, false), None);
+        assert_eq!(
+            described_by(
+                "title",
+                &Some("context title-help".into()),
+                true,
+                true,
+                true
+            ),
+            Some("context title-help title-error title-reason".into())
+        );
+        assert_eq!(
+            described_by(
+                "title",
+                &Some("  context\nmore  ".into()),
+                false,
+                false,
+                false
+            ),
+            Some("context more".into())
+        );
+        assert!(!has_text(&Some(" \n".into())));
+        assert!(has_text(&Some("Thiếu tên nhân vật".into())));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn native_textarea_shell_encodes_raw_text_without_reinterpreting_entities() {
+        assert_eq!(
+            textarea_initial_text("&amp; < >".into()),
+            "&amp;amp; &lt; &gt;"
+        );
+        assert_eq!(textarea_initial_text("\nLời thoại".into()), "\n\nLời thoại");
+        assert_eq!(textarea_initial_text(String::new()), "");
+    }
+}
