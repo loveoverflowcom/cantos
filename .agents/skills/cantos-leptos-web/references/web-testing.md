@@ -136,7 +136,7 @@ Follow the [shared UI loop](../../cantos-ui-design/SKILL.md#shared-ui-loop) and 
 [`visual-review.md`](../../cantos-ui-design/references/visual-review.md). Web specifics:
 
 ```text
-start the app with the documented command (never a hand-rolled server)
+start the app with `cargo xtask run|app <app> --web` (never a hand-rolled server)
 → run the scenario: cantos-ui-inspector scenarios, e.g. studio-script-editor-v1.json or
   theatre-web-player-v1.json, copied to working notes when adapted
 → open every capture; record path, state, viewport, theme, zoom, reviewer (agent | human)

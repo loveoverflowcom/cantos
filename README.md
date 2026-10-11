@@ -99,49 +99,47 @@ Start with one modular backend. Worker execution can run separately for resource
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |
 | `.claude/skills/` | Per-skill symlinks so Claude Code discovers `.agents/skills/` |
-| `.github/` | Issue forms, PR template and repository checks |
-| `scripts/` | Repository checks, story initializer, digest and WAV inspection oracles, mutation checks, isolated PostgreSQL runner and token generator |
+| `.github/` | Issue forms, PR template and the CI workflow that runs `cargo xtask ci` jobs |
+| `xtask/`, `.cargo/` | The `cargo xtask` command surface and its Cargo alias |
+| `scripts/` | Primitives invoked by xtask: repository checks, digest and WAV inspection oracles, mutation checks, isolated PostgreSQL runner; plus the story initializer, benchmark and token generator |
 
-## Validate the bootstrap
+## Build, run and verify
+
+Repository-level operations go through [`cargo xtask`](xtask/README.md); the scripts in
+`scripts/` and the Cargo/Trunk commands they replace are its implementation primitives. It works
+from any directory and checks every prerequisite before it starts.
 
 ```sh
-python3 scripts/check_repository.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
-git diff --check
+cargo xtask doctor                         # tools, gates and surfaces available here
+cargo xtask preflight --changed-only       # gates selected from your diff against origin/develop
+cargo xtask verify repository              # documents, links, skills, Python tests, whitespace
+cargo xtask verify rust                    # fmt, clippy -D warnings, workspace tests
+cargo xtask verify contracts               # Script IR goldens, wire/WAV/TTS receipt contracts, WAV oracle
+cargo xtask verify web                     # WASM clippy, both Web clients and the shared component gallery
+cargo xtask verify postgres                # disposable PostgreSQL cluster (never an inherited DATABASE_URL)
+cargo xtask verify mutation                # bounded Script IR mutation checks
+cargo xtask build all                      # cantos-api plus Studio and Theatre Web
+cargo xtask run cantos-studio --web --test-cluster   # after `verify postgres --keep`
+cargo xtask ci                             # the four CI jobs, as GitHub Actions runs them
 ```
 
-Verify the implemented contract with Rust 1.87:
+Use Rust 1.87 (CI sets `RUSTUP_TOOLCHAIN=1.87.0`), the `wasm32-unknown-unknown` target, Trunk
+0.21.14 and, for the database gate, PostgreSQL 17 binaries on `PATH` (on a Mac, for example
+`PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"`). Summaries report `PASS`, `FAIL`, `NOT_RUN`
+or `UNSUPPORTED`; only explicit `--skip` leaves a gate out, and it is shown as `NOT_RUN`. Mobile
+surfaces are `UNSUPPORTED` until a Gradle project exists. [Contract evidence](docs/evidence/script-ir-contract.md)
+names the actual verification boundary. On macOS where temporary symlink tests encounter `/var`
+versus `/private/var`, use `TMPDIR=/private/tmp` for the Python unit/mutation runs.
+
+The CLIs remain directly usable, for example:
 
 ```sh
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-python3 scripts/reference_script_ir.py
 cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
-cargo build --locked --bin inspect-wav
-python3 scripts/reference_wav_inspection.py
-cargo test -p cantos-api --test tts_receipt --test tts_attempt --test tts_audio --locked
 cargo run --locked --bin diff-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json packages/contracts/fixtures/script-ir/0.1.0/accept/provenance.json
 ```
 
-[Contract evidence](docs/evidence/script-ir-contract.md) names the actual verification boundary.
-On macOS where temporary symlink tests encounter `/var` versus `/private/var`, use
-`TMPDIR=/private/tmp` for the Python unit/mutation runs.
-
-Verify the persistence slice against a fresh disposable PostgreSQL cluster (never an inherited
-`DATABASE_URL`), then build the browser target:
-
-```sh
-PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" python3 scripts/test_postgres.py
-rustup target add wasm32-unknown-unknown --toolchain 1.87.0
-cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
-(cd apps/cantos-studio/web && NO_COLOR=true trunk build --locked)
-(cd apps/cantos/web && NO_COLOR=true trunk build --locked)
-```
-
 [API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos/web/README.md) describe migration, test-role
-permissions and local serving. PostgreSQL binaries must be on `PATH`; the Homebrew path above is
-Mac-specific. [.env.example](.env.example) distinguishes implemented development configuration
+permissions and local serving. [.env.example](.env.example) distinguishes implemented development configuration
 from future provider/storage configuration; no dotenv loader or audio QA runtime is provided.
 
 Measure the implemented revision reads against synthetic data in a fresh disposable cluster:

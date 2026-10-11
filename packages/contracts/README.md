@@ -170,11 +170,9 @@ From the repository root with Rust 1.87 and Python 3:
 
 ```sh
 cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-python3 scripts/reference_script_ir.py
-python3 scripts/mutate_script_ir.py
+cargo xtask verify rust        # fmt, clippy -D warnings, workspace tests
+cargo xtask verify contracts   # reference_script_ir.py, contract test targets, WAV oracle
+cargo xtask verify mutation    # mutate_script_ir.py
 ```
 
 The CLI returns 0 plus the digest on success, 1 for rejected content and 2 for usage/I/O failure.

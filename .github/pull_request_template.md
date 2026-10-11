@@ -13,11 +13,12 @@ Describe the problem and resulting behavior. Link the issue with `Closes #...` o
 List the checks actually run and their results. Include screenshots for UI changes and relevant failure/recovery evidence for pipeline changes.
 
 ```text
-python3 scripts/check_repository.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
+cargo xtask preflight --changed-only
 ```
 
-Add applicable build, test, contract, or device checks once those implementations exist. Explain checks that could not be run.
+Paste the preflight summary, plus any `cargo xtask verify` suite you ran separately. Report gates as
+xtask printed them (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`) and explain every skipped or
+unsupported gate. Add device or runtime checks once those implementations exist.
 
 ## Compatibility and production impact
 

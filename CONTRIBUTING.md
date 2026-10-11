@@ -52,18 +52,22 @@ Attach the relevant reference and before/after evidence to design work. Cover ke
 
 ## Verification
 
-Run the repository consistency checks and their tests from the repository root:
+Repository-level build, run and verification commands go through [`cargo xtask`](xtask/README.md).
+Scripts in `scripts/` and raw Cargo/Trunk commands are its primitives; do not add a parallel
+entrypoint. From any directory in the repository:
 
 ```bash
-python3 scripts/check_repository.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
-git diff --check
+cargo xtask doctor
+cargo xtask preflight --changed-only
 ```
 
-For the implemented Script IR contract, use Rust 1.87 and run `cargo fmt --all -- --check`,
-`cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked`
-and `python3 scripts/reference_script_ir.py`. See [the contract](packages/contracts/README.md) for the
-CLI, fixture-authoring and bounded mutation commands. On affected macOS temporary-path setups,
-run Python tests with `TMPDIR=/private/tmp`.
+Preflight compares your branch, staged, unstaged and untracked files with `origin/develop`, runs
+the gates they affect and broadens to every gate when the impact is uncertain. Use Rust 1.87 and
+see [the command contract](xtask/README.md) for the individual `cargo xtask verify` suites
+(`repository`, `rust`, `contracts`, `web`, `postgres`, `mutation`) and `cargo xtask ci`, which
+runs the same jobs as GitHub Actions. If a gate cannot run on your machine, it is reported as
+`UNSUPPORTED` and preflight fails; `--skip <gate>` records it as `NOT_RUN`. State every skipped or
+unsupported gate in the pull request. On affected macOS temporary-path setups, run with
+`TMPDIR=/private/tmp`.
 
 For runtime changes, run the relevant stack-specific checks once the corresponding implementation and tooling exist. Include meaningful integration evidence for job retry/resume, partial regeneration, publishing, streaming, and native background playback when those behaviors change. Record any environment limitations instead of claiming an unrun check passed.

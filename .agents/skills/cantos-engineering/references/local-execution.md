@@ -21,22 +21,26 @@ Cantos has implemented Script IR, revision and Studio slices. Before citing or r
 None implies another. A command written in a skill, a work-plan item or an issue is a proposal
 until the repository implements it. Mark unknown capability as unknown.
 
-Current checks (run from the repository root):
+Repository-level operations go through [`cargo xtask`](../../../../xtask/README.md); scripts and
+external tools are its primitives, not competing entrypoints. It runs from any directory:
 
 ```sh
-python3 scripts/check_repository.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
-git diff --check
+cargo xtask doctor                     # which tools, gates and surfaces exist here
+cargo xtask verify repository          # documents, links, JSON, skills, Python tests, whitespace
+cargo xtask preflight --changed-only   # gates selected from the diff; uncertain impact runs all
+cargo xtask preflight --changed-only --dry-run   # the plan, without running it
 ```
 
-They validate documents, links, JSON syntax, text hygiene and skill structure. They do not build,
-test or run any application.
+`verify repository` validates documents, links, JSON syntax, text hygiene and skill structure; it
+does not build, test or run any application. `doctor` and the gate prerequisites are the
+"executable is available here" source in the table above; a missing tool is `UNSUPPORTED` and
+the command fails before running anything.
 
 ## Focused first, proportionate after
 
 1. Run the single test or check that settles the claim.
-2. Then the module or package suite.
-3. Then the broader gates the change warrants, sequentially on a constrained machine.
+2. Then the module or package suite (`cargo xtask verify <suite>`).
+3. Then `cargo xtask preflight --changed-only`, which runs its gates sequentially.
 
 Docs-only or read-only work must not start a heavy build merely to "have a baseline". Report any
 required gate that remains unrun on the residual-risk line.
@@ -60,7 +64,9 @@ never authorizes weaker checks or remote compute.
 
 ## Remote CI and publishing
 
-The repository workflow runs document checks on pushes and pull requests to `develop`. Pushing a
+The repository workflow provisions toolchains and PostgreSQL, then runs `cargo xtask ci --job
+<repository|rust|web|postgres>` on pushes and pull requests to `develop`; `cargo xtask ci` runs the
+same jobs locally. Pushing a
 branch or opening a PR consumes CI and is outward-facing: do it only when the user asks. Never
 debug by repeatedly re-running remote jobs, never relax branch protection, and never treat a
 remote green check as a substitute for the local evidence a claim needs.
@@ -78,4 +84,5 @@ remote green check as a substitute for the local evidence a claim needs.
 For every check, record: exact command, working directory, source revision plus dirty state,
 toolchain version, result (`passed | failed | blocked | not-run | unavailable | zero-selected`)
 and where its output lives. `blocked`, `not-run`, `unavailable` and `zero-selected` are never
-reported as passing.
+reported as passing. xtask summaries already use `PASS`/`FAIL`/`NOT_RUN`/`UNSUPPORTED` for
+`passed`/`failed`/`not-run`/`unavailable`; an explicit `--skip` is still `not-run`.

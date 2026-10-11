@@ -52,16 +52,14 @@ Kanidm configuration in `services/kanidm` and shared `packages/`; read the
 skeletons or only reserved. Theatre Web is a skeleton and both mobile apps are guides.
 Bounded local manuscript import is implemented. Mobile, AI adaptation and production execution remain planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
-draft route when real source/rights bindings are unavailable. Report only checks actually run. The
-checks that exist today are:
+draft route when real source/rights bindings are unavailable. Report only checks actually run.
+Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:
 
 ```sh
-python3 scripts/check_repository.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
-git diff --check
+cargo xtask verify repository
 ```
 
-`check_repository.py` also validates this directory: frontmatter, names, Codex metadata, index
+Its `scripts/check_repository.py` primitive also validates this directory: frontmatter, names, Codex metadata, index
 completeness, orphaned references and local links. Passing it proves skill hygiene only.
 
 ## Which skill to load

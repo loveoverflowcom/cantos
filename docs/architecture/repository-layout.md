@@ -23,7 +23,9 @@ packages/
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Native mapping contract        (documentation only)            DEFERRED
-docs/  templates/  scripts/  .agents/  .github/             unchanged roles
+xtask/                     cargo xtask: build, run and verification command surface (package xtask)
+.cargo/                    the `cargo xtask` alias
+docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
 ```
 
 - **IMPLEMENTED** has code that existed before the restructure and kept its tests.
@@ -81,7 +83,7 @@ Not shared, deliberately:
 
 ## Cargo workspace
 
-The root `Cargo.toml` lists five members and one `Cargo.lock`. Each builds on its own.
+The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its own.
 
 | Member | Package | Build target |
 | --- | --- | --- |
@@ -90,27 +92,26 @@ The root `Cargo.toml` lists five members and one `Cargo.lock`. Each builds on it
 | `apps/cantos/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
+| `xtask` | `xtask` | native developer tool; never a dependency of another member |
 
 Package names follow their directories, except `cantos-contracts`, which was renamed from
 `cantos-api` so that two packages do not share a name. Binary names did not change.
 
 ## Build and verify per target
 
+[`cargo xtask`](../../xtask/README.md) is the single entrypoint; it maps each target to Cargo or
+Trunk and refuses reserved surfaces instead of simulating them.
+
 ```sh
-# service and shared contracts (native)
-cargo test -p cantos-api -p cantos-contracts --locked
-
-# Studio web
-cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings
-(cd apps/cantos-studio/web && NO_COLOR=true trunk build --locked)
-
-# Theatre web skeleton
-cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
-(cd apps/cantos/web && NO_COLOR=true trunk build --locked)
-
-# Kanidm example config (container image pinned by the deployer)
-see services/kanidm/README.md
+cargo xtask build cantos-api           # service binaries (native)
+cargo xtask build cantos-studio --web  # Studio Web through Trunk
+cargo xtask build cantos --web         # Theatre Web skeleton through Trunk
+cargo xtask build cantos --mobile      # UNSUPPORTED: no Gradle project
+cargo xtask verify rust                # workspace fmt, clippy and tests
+cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
+
+Kanidm has no build or run command: see services/kanidm/README.md for its example config.
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that

@@ -101,7 +101,7 @@ Once toolchains exist, each owns one formatter and one linter, run in check mode
 
 | Toolchain | Formatter | Linter | Status |
 |---|---|---|---|
-| Rust | `rustfmt` | `clippy` with warnings denied in CI | proposed until a Cargo workspace exists |
+| Rust | `rustfmt` (`cargo xtask verify rust`) | `clippy -D warnings`, native and WASM (`verify rust`, `verify web`) | current |
 | Kotlin | candidate: ktlint | candidates: detekt, Compose Rules | proposed; record the choice in an ADR |
 | Python scripts | standard library style, 4-space indent | none configured | current |
 | Markdown/JSON/YAML | `.editorconfig` + `scripts/check_repository.py` | the same script | current |
