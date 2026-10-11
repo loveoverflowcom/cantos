@@ -13,7 +13,9 @@ Product rules: [mobile § API contracts](../../../../docs/architecture/mobile.md
 [040 acceptance criteria](../../../../docs/work-plan/040-theatre-web-listening.md#acceptance-criteria).
 Generic Axum handler, DTO and error-mapping technique lives in
 [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md); this file adds
-only what is specific to listeners. Progress and bookmark semantics are in
+only what is specific to listeners. Listener routes are JSON; adding MessagePack to one follows
+the foundation's [wire codec procedure](../../cantos-engineering/references/wire-codec.md#5-extending-to-theatre-and-cmp)
+and needs a measured listener payload first. Progress and bookmark semantics are in
 [`progress-sync.md`](progress-sync.md); download grants in [`downloads-contract.md`](downloads-contract.md).
 
 ## Resource map (proposed)

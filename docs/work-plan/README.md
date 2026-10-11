@@ -42,6 +42,11 @@ approve those inputs ([Studio casting evidence](../evidence/studio-provider-cast
 #6, next record an operator-paid, capped live sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
 then persists attempts and reservations before any production dispatch.
 
+Cross-cutting infrastructure, not a work-plan item: four Studio revision routes can negotiate
+MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.md),
+[evidence](../evidence/messagepack-wire.md)). The Studio still ships JSON; this changes no order,
+prerequisite or issue status above.
+
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain

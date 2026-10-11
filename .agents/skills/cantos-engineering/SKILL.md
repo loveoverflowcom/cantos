@@ -20,9 +20,11 @@ vocabulary and report; none of them redefines these.
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
   document, the work-plan item and the code you will touch. Product rules live in
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
-- **Repository reality.** Script IR, the Axum/PostgreSQL revision backend and minimal Leptos
-  Studio exist; mobile and production execution remain planned. Inspect manifests, scripts and
-  workflows before citing a command; see [`local-execution.md`](references/local-execution.md).
+- **Repository reality.** Script IR, the Axum/PostgreSQL backend (revisions, editorial handoff,
+  import, caller-hosted adaptation, casting and frozen production inputs, local/Google TTS probe
+  CLIs) and the Leptos Studio exist; Theatre Web is a skeleton; mobile apps and production
+  execution remain planned. Inspect manifests, scripts and workflows before citing a command; see
+  [`local-execution.md`](references/local-execution.md).
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with
@@ -275,7 +277,8 @@ A report with an empty residual-risk line is a report nobody can act on.
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
 | PostgreSQL transactions, constraints, concurrency control, migrations, test databases | [`persistence.md`](references/persistence.md) |
 | database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, CDC, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |
-| Axum handlers, DTOs, error mapping, authorization, OpenAPI and client contracts | [`http-api-boundary.md`](references/http-api-boundary.md) |
+| Axum handlers, DTOs, error mapping, authorization and client contracts | [`http-api-boundary.md`](references/http-api-boundary.md) |
+| JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, wire goldens, codec benchmarks, extending the codec to Theatre or CMP | [`wire-codec.md`](references/wire-codec.md) |
 | naming, function shape, errors, comments, Rust/Kotlin/Leptos style | [`clean-code.md`](references/clean-code.md) |
 | choosing an oracle, partitioning edge cases, the verification ledger | [`verification-strategy.md`](references/verification-strategy.md) |
 | laws over generated inputs, state machines, golden fixtures, reference models | [`property-and-differential-testing.md`](references/property-and-differential-testing.md) |

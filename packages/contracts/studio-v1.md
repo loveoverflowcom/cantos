@@ -137,3 +137,19 @@ The preview writes no records, resolves no registry evidence, proves no target p
 moves no revision head. Any authenticated actor can validate text they supply. Acceptance/save
 remain the authority for current access, provenance evidence, optimistic concurrency and immutable
 storage. Existing v1 DTOs, Script IR 0.1.0, c1/e1, old fixtures and migrations remain unchanged.
+
+## Representations
+
+`GET /scripts/{UUID}/head`, `GET /scripts/{UUID}/revisions/{revision}`, `POST /scripts/{UUID}/revisions`
+and `POST /validation` carry their DTOs as JSON by default or as MessagePack (`application/msgpack`,
+named maps) when the request asks for it. `Content-Type` selects the request decoder and `Accept`
+the response encoder; errors stay JSON `ApiError` with the codes above. A `Content-Type` that is
+neither JSON nor `application/msgpack` on these routes is `415 invalid_request`, and an `Accept`
+that allows neither is `406 invalid_request`, each with one issue naming the header. Successful
+negotiated responses carry `Vary: Accept`. Every other route in this contract is JSON only.
+
+The DTOs, Schema, fixtures, retry semantics and c1/e1 digests are unchanged: `script_json` is the
+same text in both representations, and a retry may use either representation with the same
+operation key. [`msgpack-goldens.json`](fixtures/studio/v1/msgpack-goldens.json) pins the
+MessagePack bytes; `save-revision.json` and `validate-script.json` are the request fixtures it
+covers. Rules, limits and rollback: [wire codec](../../docs/architecture/wire-codec.md).

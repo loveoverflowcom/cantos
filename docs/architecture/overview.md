@@ -36,7 +36,7 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 ## Interfaces
 
 - Version Script IR independently of Narrative Forge; exchange files/data through a compatibility-tested adapter. No path dependency or direct access to another project's database.
-- Define HTTP/OpenAPI and serialized contract fixtures when the first endpoints are implemented. Generate or validate TypeScript/Rust/Kotlin types where practical; do not share UI implementation across frameworks.
+- HTTP contracts are hand-authored JSON Schemas with serialized fixtures and raw Rust DTOs shared by the server and the Studio (`cantos-contracts`); no OpenAPI or generated client exists. Kotlin types, when CMP needs them, are generated or drift-checked against the same fixtures. JSON is the default representation; a route may also negotiate MessagePack only as described in the [wire codec](wire-codec.md). Do not share UI implementation across frameworks.
 - Keep a provider-neutral TTS request and capability model. Record which emotional/pronunciation controls the chosen provider actually supports; unsupported controls require an explicit fallback or correction.
 - Separate audio render settings from script content. A mixing-profile revision can invalidate mixes without regenerating unchanged speech.
 

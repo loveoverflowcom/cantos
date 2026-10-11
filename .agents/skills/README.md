@@ -43,14 +43,17 @@ side in the same change when it is in scope.
 
 ## Repository reality
 
-Cantos implements Script IR validation, authenticated PostgreSQL revisions and a minimal
-Leptos Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
+Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
+Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
 [contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos` (Theatre) and
 `apps/cantos-studio` (Studio), each with `web` and `mobile`, one backend in `services/cantos-api`,
 Kanidm configuration in `services/kanidm` and shared `packages/`; read the
 [repository layout](../../docs/architecture/repository-layout.md) for which parts are implemented,
 skeletons or only reserved. Theatre Web is a skeleton and both mobile apps are guides.
-Bounded local manuscript import is implemented. Mobile, AI adaptation and production execution remain planned. Story artifact skills
+Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
+casting with frozen production inputs, local/Google TTS probe CLIs and an optional MessagePack
+representation for four Studio routes are implemented. Mobile apps and production execution
+remain planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
 Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:
@@ -68,6 +71,7 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 |---|---|
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
 | database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
+| JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, codec benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
 | Script IR schema, stable IDs, revisions, digests, import, AI adaptation output, Narrative Forge | [`cantos-script-ir`](cantos-script-ir/SKILL.md) |
 | production runs, jobs, leases, TTS/adaptation providers, budgets, cache keys, mixing, QC records | [`cantos-production-pipeline`](cantos-production-pipeline/SKILL.md) |
 | rights, approvals, release manifests, object storage, CDN, publish/republish/retract | [`cantos-publication`](cantos-publication/SKILL.md) |

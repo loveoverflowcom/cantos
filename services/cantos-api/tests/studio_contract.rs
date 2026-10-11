@@ -30,6 +30,14 @@ fn studio_wire_fixtures_match_schema_and_independent_complete_export() {
             "ScriptValidation",
             include_str!("../../../packages/contracts/fixtures/studio/v1/validation.json"),
         ),
+        (
+            "SaveRevision",
+            include_str!("../../../packages/contracts/fixtures/studio/v1/save-revision.json"),
+        ),
+        (
+            "ValidateScript",
+            include_str!("../../../packages/contracts/fixtures/studio/v1/validate-script.json"),
+        ),
     ] {
         let schema = json!({"$ref":format!("#/$defs/{name}"),"$defs":schema["$defs"]});
         jsonschema::validator_for(&schema)

@@ -14,6 +14,8 @@ use serde::{de::DeserializeOwned, Serialize};
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{AbortController, Window};
 
+use crate::wire::{self, REVISION_CODEC};
+
 const HTTP_DEADLINE_MS: i32 = 15_000;
 
 /// Keep the callback and signal alive until headers and the complete response body settle.
@@ -110,6 +112,48 @@ async fn post<T: DeserializeOwned, P: Serialize>(path: &str, body: &P) -> Result
     execute(request, deadline).await
 }
 
+/// The negotiated routes (head, pinned revision, save, validation) declare `REVISION_CODEC` and
+/// decode each response by its own `Content-Type`; every other route keeps `get`/`post` above.
+async fn negotiate<T: DeserializeOwned>(
+    request: Request,
+    deadline: RequestDeadline,
+) -> Result<T, ApiError> {
+    let response = request.send().await.map_err(|_| unavailable())?;
+    let content_type = response.headers().get("content-type");
+    let ok = response.ok();
+    // As in `execute`, a lost body after the headers is ambiguous, and nothing is retried.
+    let body = response.binary().await.map_err(|_| unavailable());
+    drop(deadline);
+    wire::decode_response(REVISION_CODEC, ok, content_type.as_deref(), &body?)
+}
+
+async fn negotiated_get<T: DeserializeOwned>(path: &str) -> Result<T, ApiError> {
+    let deadline = RequestDeadline::new()?;
+    let signal = deadline.controller.signal();
+    let request = Request::get(path)
+        .header("Accept", wire::accept(REVISION_CODEC))
+        .abort_signal(Some(&signal))
+        .build()
+        .map_err(|_| unavailable())?;
+    negotiate(request, deadline).await
+}
+
+async fn negotiated_post<T: DeserializeOwned, P: Serialize>(
+    path: &str,
+    body: &P,
+) -> Result<T, ApiError> {
+    let bytes = wire::encode_body(REVISION_CODEC, body)?;
+    let deadline = RequestDeadline::new()?;
+    let signal = deadline.controller.signal();
+    let request = Request::post(path)
+        .header("Content-Type", REVISION_CODEC.media_type())
+        .header("Accept", wire::accept(REVISION_CODEC))
+        .abort_signal(Some(&signal))
+        .body(js_sys::Uint8Array::from(bytes.as_slice()))
+        .map_err(|_| unavailable())?;
+    negotiate(request, deadline).await
+}
+
 impl StudioHttp {
     pub async fn production_catalog(&self) -> Result<ProductionCatalogResponse, ApiError> {
         get("/api/v1/production/catalog").await
@@ -189,7 +233,7 @@ impl StudioHttp {
         &self,
         request: &ValidateScriptRequest,
     ) -> Result<ScriptValidationResponse, ApiError> {
-        post("/api/v1/validation", request).await
+        negotiated_post("/api/v1/validation", request).await
     }
 
     pub async fn history(
@@ -253,7 +297,7 @@ impl StudioHttp {
         if revision == 0 || revision > i64::MAX as u64 {
             return Err(invalid_request());
         }
-        get(&format!("{}/revisions/{revision}", script_path(script)?)).await
+        negotiated_get(&format!("{}/revisions/{revision}", script_path(script)?)).await
     }
     pub async fn import(&self, request: &ImportRequest) -> Result<ImportResponse, ApiError> {
         post("/api/v1/imports", request).await
@@ -270,14 +314,14 @@ impl StudioHttp {
         post("/api/v1/session", &SessionRequest { token }).await
     }
     pub async fn read(&self, script: &str) -> Result<RevisionResponse, ApiError> {
-        get(&format!("{}/head", script_path(script)?)).await
+        negotiated_get(&format!("{}/head", script_path(script)?)).await
     }
     pub async fn save(
         &self,
         script: &str,
         request: &SaveRevisionRequest,
     ) -> Result<RevisionResponse, ApiError> {
-        post(&format!("{}/revisions", script_path(script)?), request).await
+        negotiated_post(&format!("{}/revisions", script_path(script)?), request).await
     }
 }
 
