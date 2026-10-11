@@ -43,6 +43,33 @@ class PostgresRunnerTests(unittest.TestCase):
         host.kill.assert_called_once_with()
         host.wait.assert_called_once_with(timeout=5)
 
+    def test_msgpack_probe_sends_independent_bytes_and_decodes_by_response_type(self):
+        revision = {"script_id": "s", "revision": 2, "script_json": "{\"t\":\"Ngày\"}"}
+        fixture = {"script": "s", "token": "synthetic-session",
+                   "request": {"expected_revision": 1, "operation_id": "o", "script_json": "{}"}}
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                            "Content-Type": "application/msgpack", "Vary": "accept"}
+        response.read.return_value = runner.reference_msgpack.encode(revision)
+        opener = MagicMock()
+        opener.open.return_value = response
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(runner.msgpack_http(12345, fixture, "POST"), (200, revision))
+        sent = opener.open.call_args.args[0]
+        self.assertEqual(sent.get_header("Content-type"), "application/msgpack")
+        self.assertEqual(sent.get_header("Accept"), "application/msgpack")
+        self.assertEqual(runner.reference_msgpack.decode(sent.data), fixture["request"])
+        response.headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                            "Content-Type": "application/json"}
+        response.status = 406
+        response.read.return_value = b'{"code":"invalid_request"}'
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(runner.msgpack_http(12345, fixture, accept="text/html"),
+                             (406, {"code": "invalid_request"}))
+        self.assertIsNone(opener.open.call_args.args[0].data)
+
     def test_editor_readiness_uses_the_latest_saved_revision_without_replacing_the_fixture(self):
         fixture = {"script": "editor-script", "token": "synthetic-session",
                    "first": {"revision": 1}, "second": {"revision": 2},

@@ -54,6 +54,11 @@ one capped request for one frozen line. Its evidence is mocked only; the live Go
 [adapter evidence](docs/evidence/google-tts-adapter.md)). This completes only part of #6 and
 does not close the issue.
 
+Four Studio revision routes (head, pinned revision, save, validation) can also negotiate
+MessagePack beside JSON with the same DTOs and error semantics; the Studio ships JSON until the
+measured benefit justifies a switch ([wire codec](docs/architecture/wire-codec.md),
+[evidence](docs/evidence/messagepack-wire.md)).
+
 The repository is organised by product and kind: `apps/cantos` (Theatre, for listeners) and
 `apps/cantos-studio` (Studio, for creators) each have `web` and `mobile`; one backend lives in
 `services/cantos-api` beside Kanidm deployment notes; shared contracts and design tokens live in

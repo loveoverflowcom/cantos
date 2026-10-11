@@ -60,6 +60,11 @@ see a dependency. Inside the shared module, organize by feature and capability:
   api/              generated client and DTOs — never hand-edited
 ```
 
+`api/` speaks JSON. A MessagePack representation is added only through the foundation's
+[wire codec procedure](../../cantos-engineering/references/wire-codec.md#5-extending-to-theatre-and-cmp):
+decode by response `Content-Type`, named maps, the committed goldens in `commonTest` and a JSON
+default switch. No CMP client or Kotlin binding exists yet.
+
 `playback/`, `downloads/`, `progress/`, `catalog/` and `session/` are the **shared application
 layer** from mobile.md. Feature packages consume them; they never import each other's `state/`.
 Features communicate through the application layer or through navigation arguments that carry

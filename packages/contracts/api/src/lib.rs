@@ -8,6 +8,7 @@ mod adaptations;
 pub use adaptations::*;
 mod production;
 pub use production::*;
+pub mod wire;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

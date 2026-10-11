@@ -8,17 +8,19 @@ use axum::{
     Json, Router,
 };
 use cantos_contracts::{
-    ApiError, ErrorCode, ReviewRequest, SaveRevisionRequest, ScriptValidationResponse,
-    SessionRequest, SessionResponse, ValidateScriptRequest,
+    wire::WireFormat, ApiError, ErrorCode, ReviewRequest, SaveRevisionRequest,
+    ScriptValidationResponse, SessionRequest, SessionResponse, ValidateScriptRequest,
 };
 use tower_http::services::ServeDir;
 
 use crate::diagnostics::validation_issues;
 use crate::postgres::{Store, StoreError};
+use wire::{respond, Accepts, WireBody};
 
 mod adaptations;
 mod imports;
 mod production;
+mod wire;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -153,24 +155,28 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Response {
     }
 }
 
+// Head, pinned revision, save and validation negotiate JSON or MessagePack (see `wire`); the
+// representation is settled by the extractors before the store is called.
 async fn head(
     State(state): State<AppState>,
     Path(script): Path<String>,
+    Accepts(format): Accepts,
     headers: HeaderMap,
 ) -> Response {
-    read_revision(state, script, None, headers).await
+    read_revision(state, script, None, headers, format).await
 }
 
 async fn revision(
     State(state): State<AppState>,
     path: Result<Path<(String, u64)>, axum::extract::rejection::PathRejection>,
+    Accepts(format): Accepts,
     headers: HeaderMap,
 ) -> Response {
     let (script, revision) = match path {
         Ok(Path(path)) => path,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    read_revision(state, script, Some(revision), headers).await
+    read_revision(state, script, Some(revision), headers, format).await
 }
 
 async fn read_revision(
@@ -178,13 +184,14 @@ async fn read_revision(
     script: String,
     revision: Option<u64>,
     headers: HeaderMap,
+    format: WireFormat,
 ) -> Response {
     let token = match cookie_token(&headers) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
     match state.store.load(&token, &script, revision).await {
-        Ok(saved) => Json(saved).into_response(),
+        Ok(saved) => respond(format, saved),
         Err(error) => error_response(error),
     }
 }
@@ -192,19 +199,16 @@ async fn read_revision(
 async fn save(
     State(state): State<AppState>,
     Path(script): Path<String>,
+    Accepts(format): Accepts,
     headers: HeaderMap,
-    body: Result<Json<SaveRevisionRequest>, axum::extract::rejection::JsonRejection>,
+    WireBody(request): WireBody<SaveRevisionRequest>,
 ) -> Response {
-    let request = match body {
-        Ok(Json(request)) => request,
-        Err(_) => return error_response(StoreError::InvalidRequest),
-    };
     let token = match cookie_token(&headers) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
     match state.store.save(&token, &script, request).await {
-        Ok(saved) => Json(saved).into_response(),
+        Ok(saved) => respond(format, saved),
         Err(error) => error_response(error),
     }
 }
@@ -213,14 +217,11 @@ async fn save(
 /// Authentication and Origin are checked by the shared middleware; this route reveals no
 /// target/evidence facts and does not establish permission to accept, produce or publish.
 async fn validate_script(
-    body: Result<Json<ValidateScriptRequest>, axum::extract::rejection::JsonRejection>,
+    Accepts(format): Accepts,
+    WireBody(request): WireBody<ValidateScriptRequest>,
 ) -> Response {
-    let request = match body {
-        Ok(Json(request)) => request,
-        Err(_) => return error_response(StoreError::InvalidRequest),
-    };
     match crate::script_ir::read_script(request.script_json.as_bytes()) {
-        Ok(_) => Json(ScriptValidationResponse { issues: vec![] }).into_response(),
+        Ok(_) => respond(format, ScriptValidationResponse { issues: vec![] }),
         Err(error) => error_response(StoreError::InvalidScript(error)),
     }
 }

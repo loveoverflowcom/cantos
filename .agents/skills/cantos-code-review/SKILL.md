@@ -66,11 +66,12 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 
 ## Repository reality
 
-Cantos has no application code yet, so most changes today touch docs, templates, skills or
-scripts. Review them with lens A (policy under review, against the policy trusted before the
-patch) and pass 9; the repository checks are the only runnable evidence and prove document
-hygiene only. Once code exists, discover manifests and runners before saying a check exists,
-could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)).
+Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, the Leptos
+Studio, a Theatre Web skeleton, `cargo xtask` and Python oracles; both mobile directories are
+guides without a Gradle project. Discover manifests and runners before saying a check exists,
+could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review
+docs, templates, skills and scripts with lens A (policy under review, against the policy trusted
+before the patch) and pass 9; repository checks prove document hygiene only.
 
 ## The review order
 
@@ -107,6 +108,7 @@ Skipping a pass is a decision to state, not silence.
 | job claim, lease, heartbeat, retry, provider call, budget, cancellation, outbox | § 5 production durability | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
 | rights, QC, approvals, manifest, active pointer, upload, bucket policy, signed URL, CDN | § 6 publication gates | [`cantos-publication`](../cantos-publication/SKILL.md) |
 | catalog or listener routes, play, progress, bookmarks, downloads, listener DTOs | § 7 listening contracts | [`cantos-listening`](../cantos-listening/SKILL.md) |
+| `Content-Type`/`Accept` handling, `cantos_contracts::wire`, a client codec switch, serde attributes of a negotiated DTO, MessagePack goldens | § 2, § 3 and § 9 | [wire codec](../cantos-engineering/references/wire-codec.md) |
 | Leptos views, CSS, Compose UI, tokens, strings, motion, UI evidence | § 8 UI | [`cantos-ui-design`](../cantos-ui-design/SKILL.md) and the renderer skill |
 | tests, fixtures, golden files, generators, mutation config, CI workflows | § 9 tests and evidence | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
 | database-backed GET/read/fetch, query/index changes, DBSP/CDC or writes feeding read models | § 9 tests and evidence, plus the applicable domain pass | [read-performance acceptance](../cantos-engineering/references/postgresql-read-performance.md#review-and-acceptance) |

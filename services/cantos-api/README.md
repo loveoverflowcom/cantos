@@ -30,6 +30,9 @@ route group and permission context in this same service. The `cantos-server` bin
 - `postgres.rs`: current actor/session/access facts, transactions, locked heads, complete
   immutable bytes, evidence ownership links and integrity checks on every load.
 - `http.rs`: thin Axum mapping over the [Studio v1 contract](../../packages/contracts/studio-v1.md).
+- `http/wire.rs`: JSON/MessagePack negotiation for the head, pinned revision, save and validation
+  routes; extractors settle the representation before the store is called and errors stay JSON
+  ([wire codec](../../docs/architecture/wire-codec.md)).
 - `script_ir/diff/`: pure stable-ID comparison of two admitted scripts of one episode; `diff-script`
   is its only shell. No HTTP, SQL, UI, provider or file-system dependency.
 - `wav_inspection/`: pure, bounded RIFF/WAVE integer PCM inspection over bytes. No HTTP, SQL,

@@ -106,7 +106,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
+| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `web-lint` | `cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |

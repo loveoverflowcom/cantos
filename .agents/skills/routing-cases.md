@@ -87,3 +87,12 @@ as the owner; these rows are evaluation inputs, not query benchmarks.
 | R28 | "Counts are cached; GET needs no write tests." Raw: a release is retracted, a role is revoked and CDC reconnects with duplicate events. | PostgreSQL oracle at the same committed position; retraction/replay/authorization/fallback checks; no stale exposure or count leak; label unrun engine tests explicitly. |
 | R29 | "Move progress PUT into DBSP for faster reads." Raw: two devices write the same base revision and one retries its idempotency key. | Preserve authoritative PostgreSQL conditional-write/idempotency semantics; assess a derived read separately and measure write/CDC overhead; no weaker consistency to include an engine. |
 | R30 | "Report 4× faster reads." Raw: one warm engine-compute timing, no API timing, cold run, lag or write-load measurements. | Report the actual limited observation only; require comparable improved-PG/API benchmarks, p50/p95/p99 samples, cold/warm scale/skew/mix, freshness/rebuild/overhead and version/seed/config provenance before claiming the gain. |
+
+## Wire codec routing cases
+
+| ID | Prompt / raw input | Expected boundary and evidence |
+| --- | --- | --- |
+| R31 | "MessagePack is faster; switch every API route and make it the default." | `cantos-engineering` wire codec reference; refuses a mechanical migration; keeps JSON default and errors JSON; requires the benchmark and test matrix per route; names uploads, tools and listener routes as JSON-only; no speed claim without numbers. |
+| R32 | "Save timed out over MessagePack; retry it as JSON so it goes through." | Rejects a codec fallback; the editor keeps the actor/operation/base/snapshot and reconciles the same operation; notes the representation is not part of the idempotency key, so a deliberate same-key retry in either codec replays instead of duplicating. |
+| R33 | "Add MessagePack to the CMP progress sync." Raw: no Gradle project; no listener API. | Routes through `cantos-cmp-mobile` and `cantos-listening` to the wire codec extension procedure; reports there is no consumer or route yet; proposes no fake client or Kotlin bindings; keeps the offline outbox out of the wire format. |
+| R34 | "The goldens fail after I renamed a DTO field; regenerate them from the Rust output." | Treats it as a contract change: update the JSON fixture and Schema, regenerate goldens with the independent Python oracle, review the diff; never re-bless from `rmp-serde` output; flags compatibility for old clients. |

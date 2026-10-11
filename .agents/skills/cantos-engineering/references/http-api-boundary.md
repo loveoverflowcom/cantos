@@ -2,12 +2,17 @@
 
 > **Scope.** Keep Cantos Axum handlers thin and its contracts explicit: raw request DTOs,
 > backend-enforced authorization, typed error mapping, idempotent retriable writes, versioned
-> OpenAPI/JSON Schema, and generated clients for Leptos and CMP. Use when adding or changing an
+> JSON Schema with fixtures, and shared DTOs for the Rust clients. Use when adding or changing an
 > endpoint, DTO, error code, pagination, authentication rule or client contract.
 
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
-this reference owns the general shape every endpoint follows. No endpoint exists yet; the first
-slice establishes the contract tooling ([contracts README](../../../../packages/contracts/README.md)).
+this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
+manuscript import, adaptation and production-input contracts in
+[`services/cantos-api/src/http`](../../../../services/cantos-api/src/http.rs), each with a
+hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
+Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
+no generated client and no listener API yet. Whether a route also carries MessagePack is owned by
+[`wire-codec.md`](wire-codec.md).
 
 For database-backed GET/read/fetch, load the foundation's mandatory
 [read-performance workflow](postgresql-read-performance.md). Include internal reads behind
@@ -41,7 +46,9 @@ async fn save_draft(
 }
 ```
 
-The handler holds no business rule, builds no SQL and inspects no provider payload.
+The handler holds no business rule, builds no SQL and inspects no provider payload. A route that
+negotiates its representation takes `Accepts` and `WireBody<T>` instead of `Json<T>` and answers
+through `respond`, so the codec is settled before the store is called ([`wire-codec.md`](wire-codec.md)).
 
 ## Authorization lives in the backend
 
@@ -56,6 +63,7 @@ account.
 
 - Domain errors are enums. The adapter maps each variant to an HTTP status and a stable,
   documented error code; the message is safe for display after localization on the client.
+- Error bodies are always the JSON `ApiError`, whatever the request's representation.
 - Never return raw SQL, provider or stack-trace text. Never put secrets, signed URLs or private
   manuscript text in error bodies or logs.
 - Validation errors at a creator-facing endpoint list every independent field problem.
@@ -70,10 +78,11 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
 
 ## Contracts
 
-- One source of truth per contract (OpenAPI or JSON Schema), versioned, with serialized fixtures
-  in `packages/contracts/`. Record how the Rust types (consumed by the server and the Leptos client) and
-  the Kotlin types are generated or validated; generated files name their source and generation
-  command.
+- One source of truth per contract, versioned, with serialized fixtures in `packages/contracts/`.
+  Today that is a hand-authored JSON Schema plus raw Rust DTOs in `cantos-contracts`, used by the
+  server and the Studio and checked against the same fixtures on both sides. Kotlin types, when a
+  CMP consumer exists, are generated or drift-checked against those fixtures; generated files name
+  their source and generation command.
 - Identifiers are opaque stable IDs, never titles or storage paths.
 - Pagination, ordering, server timestamps and revisions are explicit fields.
 - Compatibility: additive changes are safe only when consumers ignore unknown fields
@@ -91,3 +100,4 @@ and rejects reuse of the key with different content. Test duplicate delivery exp
 | constraint, transaction or idempotency behavior | `integration-tested` against PostgreSQL |
 | schema conformance | contract test over fixtures for each supported version |
 | a client decodes the response | the client's own fixture test on its platform |
+| a second representation carries the same facts | the [wire codec test matrix](wire-codec.md#3-test-matrix-for-any-codec-change) |

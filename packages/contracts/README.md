@@ -182,6 +182,18 @@ bytes, digest and speech bytes produced by the independent Python JSON/SHA-256 o
 regeneration uses `python3 scripts/reference_script_ir.py --write-goldens`; tests never update them.
 The mutation runner checks nine named substitutions in a disposable offline copy.
 
+## Byte representations
+
+[`api/src/wire.rs`](api/src/wire.rs) (`cantos_contracts::wire`) is the one place a DTO becomes JSON
+or MessagePack bytes: MessagePack is a named map, decoded from a buffered slice with a nesting
+bound, a top-level map and no trailing bytes. Which routes negotiate it is owned by the
+[wire codec](../../docs/architecture/wire-codec.md) and the [Studio contract](studio-v1.md#representations).
+[`fixtures/studio/v1/msgpack-goldens.json`](fixtures/studio/v1/msgpack-goldens.json) holds the
+MessagePack bytes of each Studio fixture, written by the independent standard-library oracle
+`scripts/reference_msgpack.py`; Rust tests require `rmp-serde` to produce the same bytes and decode
+them to the JSON fixture values. After a deliberate fixture change, regenerate with
+`python3 scripts/reference_msgpack.py --write-goldens`, review the diff and never edit hex by hand.
+
 See [contract evidence](../../docs/evidence/script-ir-contract.md) and
 [revision evidence](../../docs/evidence/script-revision-persistence.md). Studio v1 uses hand-authored
 DTOs checked against the same Schema/fixtures in both native and browser-consumer tests; it is
