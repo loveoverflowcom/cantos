@@ -43,6 +43,15 @@ Exact `espeak-ng-local` / `espeak-ng-1.52.0` / `espeak-ng-local-v1` identity and
 `wav-pcm-s16le-mono-22050-v1` contract select local output inspection;
 this does not authenticate a caller or accept a production asset.
 
+The optional neural research adapter admits exact `vieneu-nano-local` /
+`vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc` / `vieneu-nano-local-v1` identity
+and `wav-pcm-s16le-mono-24000-vieneu-v1` output with one of its exact two presets. It uses the
+distinct `cantos-vieneu-nano-tts-pcm-1` profile at 24,000 Hz; it does not gain output admission
+through the historical synthetic profile. Receipt shape/version and scope checks are unchanged.
+This is research inspection only; production purpose is refused at the adapter dispatch
+boundary before any model/runtime I/O even if a planning document/approval is eligible.
+See [neural evidence and exact limits](../docs/evidence/local-neural-tts.md).
+
 `usage` is `{ "status": "unknown" }` or `reported` with identifier `unit` and integer `count`.
 `charge` is independently `unknown` or `reported` with USD/VND `currency`, integer `amount_minor`
 and identifier `reference`. Counts/money fit the existing nonnegative signed-bigint bound.

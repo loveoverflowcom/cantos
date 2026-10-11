@@ -14,6 +14,7 @@ use crate::wav_inspection::{inspect_wav, StructuralError, INSPECTOR_VERSION};
 /// Changing admission rules requires a new version; this is not a mastering/QC profile.
 pub const OUTPUT_PROFILE_VERSION: &str = "cantos-offline-tts-pcm-1";
 pub const ESPEAK_OUTPUT_PROFILE_VERSION: &str = "cantos-espeak-tts-pcm-1";
+pub const NEURAL_OUTPUT_PROFILE_VERSION: &str = "cantos-vieneu-nano-tts-pcm-1";
 /// Checked against actual bytes before hashing or walking any RIFF chunks.
 pub const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_OUTPUT_SECONDS: u64 = 120;
@@ -30,6 +31,7 @@ const WAVE_FORMAT_PCM: u16 = 1;
 pub enum OutputProfile {
     Offline24Khz,
     Espeak22Khz,
+    Neural24Khz,
 }
 
 impl OutputProfile {
@@ -37,6 +39,7 @@ impl OutputProfile {
         match self {
             Self::Offline24Khz => OUTPUT_SAMPLE_RATE_HZ,
             Self::Espeak22Khz => ESPEAK_OUTPUT_SAMPLE_RATE_HZ,
+            Self::Neural24Khz => OUTPUT_SAMPLE_RATE_HZ,
         }
     }
 
@@ -44,6 +47,7 @@ impl OutputProfile {
         match self {
             Self::Offline24Khz => OUTPUT_PROFILE_VERSION,
             Self::Espeak22Khz => ESPEAK_OUTPUT_PROFILE_VERSION,
+            Self::Neural24Khz => NEURAL_OUTPUT_PROFILE_VERSION,
         }
     }
 }

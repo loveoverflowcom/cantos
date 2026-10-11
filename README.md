@@ -41,6 +41,12 @@ authorization, durable jobs or asset acceptance. Commercial provider/terms/budge
 its live sample remain deferred; this completes only part of #6 and does not close the issue.
 See [local selection](docs/decisions/0008-local-tts-inspection.md) and
 [provider prerequisites](docs/evidence/tts-provider-prerequisites.md).
+The user-requested [local neural research slice](docs/evidence/local-neural-tts.md) adds a
+bounded VieNeu Nano research adapter while preserving eSpeak. Its pinned model/preset selection
+and [rights comparison](docs/evidence/local-neural-tts-research.md) keep production dispatch
+disabled. The pinned ARM64 CPU runtime generated six inspected 24,000 Hz mono 16-bit PCM WAVs
+from the Đức Trí and Mỹ Duyên presets; required native, PostgreSQL and browser checks passed.
+This remains part of #6, with commercial execution and listening acceptance unresolved.
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 

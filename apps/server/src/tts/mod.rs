@@ -3,6 +3,8 @@ pub mod attempt;
 pub mod audio;
 pub mod local;
 pub mod local_contract;
+pub mod neural;
+pub mod neural_contract;
 mod receipt;
 
 pub use receipt::{

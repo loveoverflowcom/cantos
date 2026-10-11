@@ -7,6 +7,10 @@ credentials, account setup and paid spending remain unauthorized. Installation, 
 audio verification are **NOT_RUN** in this research; the implementation owns live evidence.
 
 The local boundary is recorded in [ADR 0008](../decisions/0008-local-tts-inspection.md).
+The subsequent user-requested neural investigation has its own
+[current comparison](local-neural-tts-research.md) and
+[research-only decision](../decisions/0009-local-neural-tts-research.md). This older provider record
+remains the eSpeak/commercial prerequisite evidence; it does not establish neural production rights.
 This record supports the unfinished commercial-provider decision for
 [#6](https://github.com/loveoverflowcom/cantos/issues/6). It does not complete that issue's live
 sample criteria. [Work plan 020](../work-plan/020-cast-and-generate-dialogue.md) supersedes the

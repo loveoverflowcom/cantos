@@ -6,7 +6,7 @@ use super::attempt::{
     ReconciliationCapabilities, RecoveryPlan,
 };
 use super::audio::{inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile};
-use super::local_contract;
+use super::{local_contract, neural_contract};
 use crate::production::{prepare_inputs, MAX_MONEY_MINOR, MAX_PRODUCTION_DOCUMENT_BYTES};
 
 pub const RECEIPT_VERSION: &str = "cantos-tts-receipt-1";
@@ -189,6 +189,14 @@ pub fn audit_receipt(
                 && line.output_contract == local_contract::OUTPUT_CONTRACT
             {
                 OutputProfile::Espeak22Khz
+            } else if line.provider_id == neural_contract::PROVIDER_ID
+                && line.model_id == neural_contract::MODEL_ID
+                && line.adapter_version == neural_contract::ADAPTER_VERSION
+                && line.output_contract == neural_contract::OUTPUT_CONTRACT
+            {
+                // This profile admits research bytes only. ReceiptAudit has no
+                // dispatch, accepted-artifact or publication conversion path.
+                OutputProfile::Neural24Khz
             } else if receipt.evidence == ReceiptEvidence::SyntheticFixture {
                 OutputProfile::Offline24Khz
             } else {

@@ -100,6 +100,12 @@ def main():
         # Keep the new concrete Web consumer, without copying its generated bundle.
         shutil.copytree(ROOT / "apps/web", workspace / "apps/web", ignore=shutil.ignore_patterns("dist"))
         shutil.copytree(ROOT / "contracts", workspace / "contracts")
+        # The concrete neural adapter embeds its fixed helper; its integration
+        # fixture is also a compile-time input even for this package-scoped test.
+        (workspace / "scripts").mkdir()
+        shutil.copy2(ROOT / "scripts/vieneu_nano_runtime.py",
+                     workspace / "scripts/vieneu_nano_runtime.py")
+        shutil.copytree(ROOT / "scripts/fixtures", workspace / "scripts/fixtures")
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         baseline = run(workspace, env)
         summary = f"test result: ok. {EXPECTED_CONTRACT_TESTS} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"

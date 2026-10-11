@@ -59,6 +59,11 @@ HTTP remains planning-only. This is not a production worker, cache or audio-acce
 [ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
 and proposed production adoption. Existing PostgreSQL queries/schema and publication/listening
 boundaries are unchanged; no new read model or DBSP consumer is justified.
+The optional neural research slice adds one concrete `tts::neural` process adapter and pure
+`neural_contract`, with a fixed local Python helper and its own PCM inspection profile. It
+reuses complete frozen-document/receipt admission and refuses production before any model or
+runtime I/O. The eSpeak adapter/probe, Script IR, production-p1, PostgreSQL authority and listener
+boundaries remain intact. See [ADR 0009](../decisions/0009-local-neural-tts-research.md).
 The Studio WASM consumer imports only `cantos-api`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
 in the same server package. `apps/mobile/` remains a guide; Gradle belongs to the native
