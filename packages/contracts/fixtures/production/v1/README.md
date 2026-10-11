@@ -6,6 +6,12 @@ real provider, voice or price. `rights-request.json` records a **pending** priva
 voice assertion; it intentionally grants no eligibility. These fixtures include no credentials,
 consent, legal verification, audio, provider receipt, reservation or actual charge.
 
+`catalog-response.json` is the exact `GET /production/catalog` body the server serves; a server
+contract test fails when it drifts, and Studio casting tests read it so that provider switching
+and unsupported-control display are checked against the real eSpeak NG, VieNeu Nano and Google
+Cloud TTS profiles. A listed profile describes adapter support, not an installed runtime, a
+provider account or a voice permission.
+
 The [v1 schema](../../../schema/production/v1.schema.json) owns shape. Domain and actual
 HTTP/PostgreSQL tests separately own resolution, invalidation, permissions, immutable candidate
 identity and restart behavior. Use actual owned script/revision/operation IDs at runtime; retain

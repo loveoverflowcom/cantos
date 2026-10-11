@@ -131,10 +131,17 @@ mixing or listener control is provided.
 
 ## Casting and production-input review
 
-The [production v1 contract](../../../packages/contracts/production-v1.md) provides a static reference-only
+The [production v1 contract](../../../packages/contracts/production-v1.md) provides a static
 capability catalog and authenticated settings, rights, preview, freeze, exact snapshot and owner
-approval routes. Studio binds existing accepted script characters to synthetic reference voice/
-model controls with versioned performance/pronunciation and an explicit private-planning budget.
+approval routes. Studio binds existing accepted script characters to catalog provider/model/voice
+profiles (synthetic reference, eSpeak NG, VieNeu Nano research and Google Cloud TTS) with
+versioned performance/pronunciation and an explicit private-planning budget. Controls follow the
+selected profile: voice, language and emotion choices, rate/pitch bounds, and, where a profile has
+no intensity control, a choice between each line's setting and an explicit `0`. Switching provider
+changes only the provider and model (a sole model is adopted; several require a choice). Kept
+voice, language, performance or pronunciation values the profile cannot honor stay unchanged and
+are marked unsupported with `aria-invalid` and a described note; the backend still decides
+admission and preview.
 It displays recorded claim status/term/scope, estimate and typed blockers. Missing rates remain
 unknown; a caller-recorded estimate never appears as a reservation or settled charge.
 

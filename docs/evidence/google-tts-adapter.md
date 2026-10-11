@@ -106,8 +106,9 @@ two `cloned_ref_to_slice_refs` lints in the pre-existing `tests/wav_inspection.r
 - The declaration, prices and error mapping are documentation-tested only. Google may answer
   with a WAV header the inspector rejects, bill rejected or rate-limited requests, or change
   voices or prices without notice.
-- Studio cannot record the explicit intensity `0` for capabilities without intensity, so Google
-  (and eSpeak) casting currently needs the API or Script IR lines that are already neutral/0.
+- Superseded: Studio could not record the explicit intensity `0` for capabilities without
+  intensity when this record was written. The [Studio casting evidence](studio-provider-casting.md)
+  records the correction.
 - Receipt v1 records a refused connection as `timeout` and 503 as `permanent`; the exact cause
   is only in the private `observation.json`.
 - The 5,000-byte check covers the text only. If Google counts other request bytes against the
