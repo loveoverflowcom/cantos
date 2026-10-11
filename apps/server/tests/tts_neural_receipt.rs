@@ -256,6 +256,21 @@ fn cli_preserves_conservative_intent_and_permanent_not_sent_preflight_failure() 
 #[test]
 #[ignore = "requires an explicitly installed pinned local model/runtime and coordinated resource window"]
 fn installed_neural_runtime_generates_private_original_vietnamese_samples() {
+    generate_private_samples(samples());
+}
+
+#[test]
+#[ignore = "requires an explicitly installed pinned local model/runtime and coordinated resource window"]
+fn installed_neural_runtime_generates_private_short_punctuation_samples() {
+    generate_private_samples(
+        serde_json::from_slice(include_bytes!(
+            "../../../scripts/fixtures/neural-vietnamese-short.json"
+        ))
+        .unwrap(),
+    );
+}
+
+fn generate_private_samples(samples: Value) {
     let python = std::env::var_os("CANTOS_NEURAL_PYTHON").expect("explicit Python path required");
     let model = std::env::var_os("CANTOS_NEURAL_MODEL").expect("explicit model directory required");
     let root = std::env::current_dir()
@@ -272,7 +287,7 @@ fn installed_neural_runtime_generates_private_original_vietnamese_samples() {
     builder.create(&root).unwrap();
     let root = fs::canonicalize(root).unwrap();
     let mut records = Vec::new();
-    for sample in samples()["samples"].as_array().unwrap() {
+    for sample in samples["samples"].as_array().unwrap() {
         let id = sample["id"].as_str().unwrap();
         let document = document(
             sample["text"].as_str().unwrap(),

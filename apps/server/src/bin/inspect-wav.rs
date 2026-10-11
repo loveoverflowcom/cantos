@@ -2,7 +2,7 @@
 use std::{
     env,
     ffi::OsString,
-    fs::File,
+    fs::OpenOptions,
     io::{self, Read, Write},
     path::PathBuf,
     process::ExitCode,
@@ -100,7 +100,15 @@ fn parse_max_bytes(value: Option<OsString>) -> Result<u64, String> {
 /// Refuses oversized input before reading it, and again if the file grows while it is read.
 fn read_bounded(request: &Request) -> Result<Vec<u8>, String> {
     let unreadable = |error: io::Error| format!("input could not be read: {error}");
-    let file = File::open(&request.path).map_err(unreadable)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    // Opening a writerless FIFO must not block before descriptor admission.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(&request.path).map_err(unreadable)?;
     let metadata = file.metadata().map_err(unreadable)?;
     if !metadata.is_file() {
         return Err("input is not a regular file".into());

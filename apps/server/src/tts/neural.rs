@@ -518,6 +518,11 @@ mod unix {
                 Ok(())
             });
         }
+        // Preflight hashing, encoding or scheduling can exhaust the same wall
+        // deadline. Refuse inference before crossing the process boundary.
+        if Instant::now() >= deadline {
+            return Err(NeuralRunError::TimedOut);
+        }
         let mut child = OwnedChild(
             command
                 .spawn()
@@ -802,6 +807,24 @@ mod unix {
             bytes.extend(4_u32.to_le_bytes());
             bytes.extend([1, 0, 255, 255]);
             bytes
+        }
+
+        #[test]
+        fn expired_preflight_deadline_refuses_even_an_attempt_to_spawn() {
+            let _lane = PROCESS_TESTS.lock().unwrap();
+            let fixture = Fixture::new("exec /bin/cat fixture.wav");
+            // An absent launcher distinguishes refusing dispatch from spawning
+            // first and only checking the deadline in the monitoring loop.
+            let error = execute(
+                &request(),
+                &fixture.root.join("absent-runtime"),
+                &fixture.root,
+                Instant::now() - Duration::from_secs(1),
+            )
+            .unwrap_err();
+            assert_eq!(error, NeuralRunError::TimedOut);
+            assert!(!fixture.root.join("pid").exists());
+            assert!(!fixture.root.join("input").exists());
         }
 
         #[test]
