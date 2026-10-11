@@ -1,7 +1,7 @@
 # Kanidm identity provider (configuration only)
 
-Cantos is to use [Kanidm](https://kanidm.com) for identity and single sign-on rather than its own
-account system. This directory holds **deployment documentation and an example server
+[Kanidm](https://kanidm.com) is the **proposed** identity and single sign-on provider, so Cantos
+would not run its own account system. The choice is not yet a recorded decision. This directory holds **deployment documentation and an example server
 configuration**; it contains no code and Cantos does not reimplement any Kanidm behavior.
 
 ## Status

@@ -57,7 +57,7 @@ both mobile directories are guides. See the [repository layout](docs/architectur
 | Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web (`apps/cantos-studio/web`); a mobile client is reserved |
 | Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
 | Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
-| Identity | Sign-in and single sign-on | Kanidm, deployment/config only (`services/kanidm`) |
+| Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
 
 Start with one modular backend. Worker execution can run separately for resource isolation while sharing the same codebase and PostgreSQL job model.
