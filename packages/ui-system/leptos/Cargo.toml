@@ -1,0 +1,23 @@
+[package]
+name = "cantos-ui"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.87"
+publish = false
+
+[features]
+default = []
+csr = ["leptos/csr"]
+preview = ["csr"]
+
+[[bin]]
+name = "ui-foundation-preview"
+path = "preview/main.rs"
+required-features = ["preview"]
+
+[dependencies]
+leptos = { version = "=0.7.8", default-features = false }
+
+# Native tests render component anatomy to strings; browser bundles stay CSR-only.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+leptos = { version = "=0.7.8", default-features = false, features = ["ssr"] }

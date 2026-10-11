@@ -108,8 +108,9 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
 | `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
-| `web-lint` | `cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
+| `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
+| `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
 
@@ -117,7 +118,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | --- | --- |
 | `repository` | repository |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
-| `web` | web-lint, web-build for Studio and Theatre |
+| `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, contract-tests, wav-reference |
 | `mutation` | mutation |
 | `postgres` | postgres |
@@ -155,7 +156,9 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   that depends on it (`rust-lint`/`rust-tests` with `-p`). A package's top-level `README.md` is a
   document. All of `packages/contracts` (fixtures, schemas, examples and the DTO crate) is an input
   of `cantos-contracts` and its dependents; only its non-fixture Markdown is documentation.
-- An affected Web package or `packages/design-tokens` selects `web-lint`/`web-build` for that client.
+- An affected Web package selects `web-lint`/`web-build` for that client. Shared
+  `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
+  both Web consumers and `ui-preview`; renderer documentation alone remains a document.
   An affected `cantos-api` selects `wav-reference` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`

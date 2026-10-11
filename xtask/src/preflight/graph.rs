@@ -148,11 +148,12 @@ pub mod testing {
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
-                    &["cantos-contracts"],
+                    &["cantos-contracts", "cantos-ui"],
                 ),
                 package("cantos-contracts", "packages/contracts/api", &[]),
                 package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
-                package("cantos-theatre", "apps/cantos/web", &[]),
+                package("cantos-theatre", "apps/cantos/web", &["cantos-ui"]),
+                package("cantos-ui", "packages/ui-system/leptos", &[]),
                 package("xtask", "xtask", &[]),
             ],
         }

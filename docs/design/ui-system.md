@@ -1,7 +1,7 @@
 # Cantos UI System
 
-Status: design requirements. A minimal live Leptos Studio save/read surface consumes
-[versioned tokens](../../packages/design-tokens/studio-tokens-0.1.0.json), with
+Status: product requirements plus an implemented [UI foundation](../../packages/ui-system/README.md).
+The live Leptos Studio save/read surface consumes [canonical v0.2.0 tokens](../../packages/ui-system/shared/tokens.json), with earlier
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
 Theatre/CMP journeys and exact reference fidelity remain unimplemented.
@@ -10,7 +10,12 @@ Theatre/CMP journeys and exact reference fidelity remain unimplemented.
 
 Cantos uses Material 3 Expressive principles with a soft lavender/purple identity, rounded controls, clear hierarchy, and purposeful motion. Studio prioritizes reading and editing scripts; Theatre prioritizes choosing and listening to episodes. The brand is shared, while density and navigation follow each task.
 
-The brief mentions an attached reference image, but the image was not available during repository initialization. Capture the supplied image and its viewport in the design issue before visual implementation. Do not claim visual fidelity until that comparison exists. Logo, font, exact color values, and artwork treatment remain open design decisions; the lavender/purple direction is confirmed by the brief.
+The original reference was unavailable during initialization. The authenticated 2026-10-11 design
+handoff now supplies identical light/dark paper/lavender palettes, Noto Sans/Noto Serif family
+names, component specs and official outlined icons. The [shared contract](../../packages/ui-system/shared/README.md)
+records adopted values and bounded foundation choices. Embedded artwork/fonts are not
+redistributed. Exact fidelity, interactions and font rendering need actual browser inspection;
+static boards do not establish an HTML screenshot comparison.
 
 ## Semantic tokens
 
@@ -22,14 +27,17 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 | Action | `color.primary`, `color.onPrimary`, `color.primaryContainer`, `color.onPrimaryContainer` | Main action, selected control, and supporting emphasis; use paired foreground/background roles. |
 | Content | `color.surface`, `color.surfaceContainer`, `color.onSurface`, `color.onSurfaceVariant` | Low-chroma reading surfaces and distinct foreground hierarchy; light/dark themes require separate checks. |
 | Structure | `color.outline`, `color.outlineVariant`, `color.focus` | Functional grouping, input boundaries, and visible focus; avoid decorative borders. |
-| Status | `color.error`, `color.warning`, `color.success` and matching foreground roles | Pair color with text/icon; never use color alone to identify QC or production state. |
+| Status | `color.error`, `color.warning`, `color.success` on their matching `*Container` backgrounds | Pair color with text/icon; never use color alone to identify QC or production state. |
 | Type | `type.headline`, `type.title`, `type.body`, `type.label`, `type.metadata` | Fonts must support Vietnamese diacritics and long character/work names. Use tabular figures for comparable time/cost data. |
-| Space | `space.xs` through `space.xl` | Initial rhythm: 4/8/12/16/24/32 in platform-appropriate units; reduce chrome before text or touch targets. |
+| Space | `space.xs`, `sm`, `inset`, `md`, `section`, `lg`, `xl`, `xxl` | Adopted rhythm:4/8/12/16/20/24/32/36 in platform-appropriate units; reduce chrome before text or touch targets. |
 | Shape | `shape.control`, `shape.container`, `shape.overlay`, `shape.pill` | Pills suit filters, speed, and compact actions; scripts and data tables need stable rectangular reading areas. |
 | Elevation | `elevation.base`, `elevation.overlay` | Prefer surface tone and spacing; use elevation where it communicates overlap. |
 | Motion | `motion.feedback`, `motion.navigation`, `motion.emphasis`, `motion.reduced` | Specify intent; choose supported framework mechanisms during implementation and verify each target. |
 
-Dynamic system colors must not silently replace Cantos's identity. Exact palette, type scale, shape sizes, and animation curves belong in the first reviewed design implementation, with recorded contrast measurements.
+Dynamic system colors must not silently replace Cantos's identity. Shared values belong in the
+canonical source, with generated CSS/Rust, contrast checks and a separate deferred CMP mapping.
+Studio and Theatre vary density/layout, not palettes. The [foundation evidence](../evidence/ui-system-foundation.md)
+separates source/compile checks from pending runtime appearance, motion and interaction review.
 
 ## Studio: text-first production
 

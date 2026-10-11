@@ -1,5 +1,15 @@
 # MVP work queue
 
+The requested UI-only [Leptos UI system sequence](015-leptos-ui-system.md) delivers a small
+canonical foundation before components, responsive app integration and independent review.
+The [independent session 4 review](../evidence/ui-system-review.md) records scoped Safari fixes,
+actual local interaction/reflow evidence and remaining accessibility/platform gates. The four
+implementation sessions are complete. The subsequent requester-authorized publication is
+[PR #33](https://github.com/loveoverflowcom/cantos/pull/33), with
+[combined verification evidence](../evidence/ui-system-publication.md). Additional UI/CMP work
+needs a new request; GitHub owns publication execution status.
+This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
+
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,

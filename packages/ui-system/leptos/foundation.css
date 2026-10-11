@@ -1,0 +1,619 @@
+/* Generated from Cantos UI tokens v0.2.0 sha256:e9713d5ad276be53bf3a63b6ce72ad04d1dbf0b5918cbb759a39ea7c2c1f39a2 template-sha256:a8236bb1ae1f0f1076d6d43ef4f11d5f8b081952f4bcb2f9f32cdcc7832b9945
+   by python3 scripts/ui_tokens.py. Do not edit. */
+/* Component-owned styles. All selectors stay inside the theme boundary. */
+:where(.cantos-ui) {
+  color: var(--cantos-color-on-surface);
+  background: var(--cantos-color-background);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-body-size);
+  line-height: var(--cantos-type-body-line-height);
+  font-weight: var(--cantos-type-body-weight);
+}
+:where(.cantos-ui) .cui-icon {
+  display: inline-block;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  flex-shrink: 0;
+  fill: currentColor;
+  vertical-align: middle;
+}
+:where(.cantos-ui) .cui-button-field {
+  display: inline-grid;
+  justify-items: start;
+  gap: var(--cantos-space-xs);
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cantos-space-sm);
+  min-block-size: var(--cantos-size-control);
+  min-inline-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border: 0;
+  border-radius: var(--cantos-shape-control);
+  background: var(--cantos-color-primary);
+  color: var(--cantos-color-on-primary);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-button[data-variant="tonal"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-button[data-variant="text"] {
+  background: transparent;
+  color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-button:where(:hover, :active):not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-button:active:not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-button:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+:where(.cantos-ui) .cui-button:disabled {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+:where(.cantos-ui) .cui-button-reason {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-button-reason[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-button { transition: none; }
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-button { border: var(--cantos-size-border) solid ButtonText; }
+  :where(.cantos-ui) .cui-button:disabled { color: GrayText; }
+}
+/* Bounded development preview layout; app pane rules remain app-owned. */
+:where(.cantos-ui) .cui-preview {
+  box-sizing: border-box;
+  max-inline-size: 60rem;
+  margin-inline: auto;
+  padding: var(--cantos-space-lg);
+}
+:where(.cantos-ui) .cui-preview-title {
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-headline-size);
+  line-height: var(--cantos-type-headline-line-height);
+  font-weight: var(--cantos-type-headline-weight);
+}
+:where(.cantos-ui) .cui-preview-samples {
+  display: grid;
+  gap: var(--cantos-space-lg);
+}
+@media (min-width: 37.5rem) {
+  :where(.cantos-ui) .cui-preview-samples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Composable layout and quiet feedback. Width measures are renderer-local geometry. */
+:where(.cantos-ui) :where(.cui-container, .cui-surface, .cui-stack, .cui-grid-container, .cui-grid) {
+  box-sizing: border-box;
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-container { inline-size: 100%; margin-inline: auto; padding-inline: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-container[data-width="reading"] { max-inline-size: 75ch; }
+:where(.cantos-ui) .cui-container[data-width="wide"] { max-inline-size: 76rem; }
+:where(.cantos-ui) .cui-surface { background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-container); padding: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-surface[data-tone="container"] { background: var(--cantos-color-surface-container); }
+:where(.cantos-ui) .cui-surface[data-tone="high"] { background: var(--cantos-color-surface-container-high); }
+:where(.cantos-ui) .cui-surface[data-tone="reading"] { border-radius: var(--cantos-shape-reading); font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
+:where(.cantos-ui) .cui-surface[data-inset="none"] { padding: 0; }
+:where(.cantos-ui) .cui-surface[data-inset="xs"] { padding: var(--cantos-space-xs); }
+:where(.cantos-ui) .cui-surface[data-inset="sm"] { padding: var(--cantos-space-sm); }
+:where(.cantos-ui) .cui-surface[data-inset="lg"] { padding: var(--cantos-space-lg); }
+:where(.cantos-ui) .cui-stack { display: flex; flex-direction: column; gap: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-stack[data-direction="horizontal"] { flex-direction: row; flex-wrap: wrap; align-items: center; }
+:where(.cantos-ui) :where(.cui-stack, .cui-grid) > * { min-inline-size: 0; }
+:where(.cantos-ui) .cui-grid-container { container-type: inline-size; inline-size: 100%; flex: 1 1 100%; }
+:where(.cantos-ui) .cui-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
+:where(.cantos-ui) :where(.cui-stack, .cui-grid)[data-gap="none"] { gap: 0; }
+:where(.cantos-ui) :where(.cui-stack, .cui-grid)[data-gap="xs"] { gap: var(--cantos-space-xs); }
+:where(.cantos-ui) :where(.cui-stack, .cui-grid)[data-gap="sm"] { gap: var(--cantos-space-sm); }
+:where(.cantos-ui) :where(.cui-stack, .cui-grid)[data-gap="lg"] { gap: var(--cantos-space-lg); }
+@container (min-width: 37.5rem) {
+  :where(.cantos-ui) .cui-grid:where([data-columns="two"], [data-columns="three"]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (min-width: 52.5rem) {
+  :where(.cantos-ui) .cui-grid[data-columns="three"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+:where(.cantos-ui) :where(.cui-badge, .cui-status, .cui-loading-state, .cui-empty-state, .cui-error-state) {
+  display: flex;
+  align-items: start;
+  gap: var(--cantos-space-sm);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui) .cui-badge { display: inline-flex; align-items: center; padding: var(--cantos-space-xs) var(--cantos-space-sm); border-radius: var(--cantos-shape-reading); font-size: var(--cantos-type-metadata-size); }
+:where(.cantos-ui) .cui-status { padding: var(--cantos-space-inset); border-radius: var(--cantos-shape-reading); }
+:where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="neutral"] { background: var(--cantos-color-surface-container); }
+:where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="info"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
+:where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="success"] { background: var(--cantos-color-success-container); color: var(--cantos-color-success); }
+:where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="warning"] { background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); }
+:where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="error"] { background: var(--cantos-color-error-container); color: var(--cantos-color-error); }
+:where(.cantos-ui) :where(.cui-status-content, .cui-empty-state > div, .cui-error-state > div) { min-inline-size: 0; }
+:where(.cantos-ui) .cui-empty-state { padding: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-error-state { padding: var(--cantos-space-md); background: var(--cantos-color-error-container); color: var(--cantos-color-error); border-radius: var(--cantos-shape-reading); }
+:where(.cantos-ui) .cui-state-title { margin-block: 0 var(--cantos-space-sm); font-weight: var(--cantos-type-label-weight); }
+:where(.cantos-ui) .cui-loading-mark { display: block; flex-shrink: 0; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); border: var(--cantos-size-focus-width) dotted currentColor; border-radius: var(--cantos-shape-pill); box-sizing: border-box; }
+@media (forced-colors: active) {
+  :where(.cantos-ui) :where(.cui-badge, .cui-status, .cui-error-state) { border: var(--cantos-size-border) solid CanvasText; }
+}
+
+/* Actions/navigation additions; merge into foundation.css.in, then regenerate. */
+:where(.cantos-ui) .cui-button[data-variant="secondary"] {
+  border: var(--cantos-size-border) solid var(--cantos-color-outline);
+  background: transparent;
+  color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-button[data-variant="danger"] {
+  background: var(--cantos-color-error-container);
+  color: var(--cantos-color-error);
+}
+:where(.cantos-ui) .cui-button:disabled {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-icon-button {
+  padding: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+:where(.cantos-ui) :where(.cui-link, .cui-nav-item) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cantos-space-sm);
+  min-block-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  color: var(--cantos-color-primary);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+  text-underline-offset: var(--cantos-space-xs);
+}
+:where(.cantos-ui) .cui-link:hover {
+  text-decoration-thickness: var(--cantos-size-border);
+}
+:where(.cantos-ui) .cui-nav-item {
+  min-inline-size: var(--cantos-size-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-inset);
+  border-radius: var(--cantos-shape-control);
+  color: var(--cantos-color-on-surface);
+  text-decoration: none;
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-nav-label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-nav-item[aria-current="page"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+  text-decoration: underline;
+}
+:where(.cantos-ui) .cui-nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--cantos-space-xs);
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-nav-tabs > .cui-nav-item {
+  flex: 0 1 auto;
+}
+:where(.cantos-ui) .cui-filter-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cantos-space-xs);
+  min-block-size: var(--cantos-size-control);
+  min-inline-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-inset);
+  border: 0;
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-chip-check {
+  display: inline-flex;
+  visibility: hidden;
+  flex-shrink: 0;
+}
+:where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] .cui-chip-check {
+  visibility: visible;
+}
+:where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip):where(:hover, :active):not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-filter-chip:active:not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) :where(.cui-link, .cui-nav-item, .cui-filter-chip):focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+:where(.cantos-ui) .cui-filter-chip:disabled {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) :where(.cui-nav-item, .cui-filter-chip) { transition: none; }
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-nav-item[aria-current="page"] {
+    text-decoration-thickness: var(--cantos-size-focus-width);
+  }
+  :where(.cantos-ui) .cui-filter-chip { border: var(--cantos-size-border) solid ButtonText; }
+  :where(.cantos-ui) .cui-filter-chip:disabled { color: GrayText; }
+  :where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] { border-color: Highlight; }
+}
+
+/* Filled native fields: tone identifies the editable area; space groups questions.
+   Persistent labels stay outside the control for long Vietnamese text and zoom. */
+:where(.cantos-ui) .cui-field {
+  display: grid;
+  align-content: start;
+  gap: var(--cantos-space-xs);
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-field-label {
+  color: var(--cantos-color-on-surface);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-field-control {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border: 0;
+  border-radius: var(--cantos-shape-field);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  font: inherit;
+  line-height: var(--cantos-type-body-line-height);
+}
+:where(.cantos-ui) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
+}
+:where(.cantos-ui) .cui-field-control::placeholder {
+  color: var(--cantos-color-on-surface-variant);
+  opacity: 1;
+}
+/* Safari's native menulist ignores min-block-size. Style the native select while
+   keeping its built-in option popup, keyboard handling and form semantics. */
+:where(.cantos-ui) .cui-select {
+  position: relative;
+  align-self: start;
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-select > select {
+  appearance: none;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-inline-end: calc(var(--cantos-space-control-inline) + var(--cantos-size-icon) + var(--cantos-space-xs));
+}
+:where(.cantos-ui) .cui-select > .cui-icon {
+  position: absolute;
+  inset-inline-end: var(--cantos-space-control-inline);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-textarea {
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-field-control[readonly] {
+  background: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui) .cui-field-control:disabled {
+  color: var(--cantos-color-on-surface-variant);
+  background: var(--cantos-color-surface-container);
+  opacity: 1;
+  cursor: default;
+}
+:where(.cantos-ui) .cui-field-control[aria-invalid="true"] {
+  background: var(--cantos-color-error-container);
+  box-shadow: inset 0 calc(-2 * var(--cantos-size-border)) 0 var(--cantos-color-error);
+}
+:where(.cantos-ui) :is(.cui-field-control, .cui-choice-control, .cui-range-control):focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+:where(.cantos-ui) :is(.cui-field-help, .cui-field-error) {
+  margin: 0;
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-field-help {
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-field-error {
+  padding: var(--cantos-space-xs) var(--cantos-space-sm);
+  border-radius: var(--cantos-shape-field);
+  color: var(--cantos-color-error);
+  background: var(--cantos-color-error-container);
+}
+:where(.cantos-ui) :is(.cui-field-help, .cui-field-error)[hidden] { display: none; }
+/* The associated native label enlarges the click/touch area without enlarging the glyph. */
+:where(.cantos-ui) .cui-choice-label {
+  display: flex;
+  align-items: center;
+  gap: var(--cantos-space-sm);
+  min-block-size: var(--cantos-size-control);
+  min-inline-size: var(--cantos-size-control);
+  cursor: pointer;
+}
+:where(.cantos-ui) .cui-choice-control {
+  flex: 0 0 auto;
+  margin: 0;
+  inline-size: var(--cantos-size-icon-compact);
+  block-size: var(--cantos-size-icon-compact);
+  accent-color: var(--cantos-color-primary);
+  cursor: inherit;
+}
+:where(.cantos-ui) .cui-choice[data-state="disabled"] .cui-choice-label,
+:where(.cantos-ui) .cui-choice[data-state="loading"] .cui-choice-label {
+  cursor: default;
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"] {
+  appearance: none;
+  position: relative;
+  box-sizing: border-box;
+  inline-size: var(--cantos-size-control);
+  block-size: var(--cantos-size-icon);
+  border: var(--cantos-size-border) solid var(--cantos-color-outline);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"]::before {
+  content: "";
+  position: absolute;
+  inset-block-start: calc((var(--cantos-size-icon) - var(--cantos-size-icon-compact)) / 2 - var(--cantos-size-border));
+  inset-inline-start: calc((var(--cantos-size-icon) - var(--cantos-size-icon-compact)) / 2 - var(--cantos-size-border));
+  inline-size: var(--cantos-size-icon-compact);
+  block-size: var(--cantos-size-icon-compact);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"]:checked {
+  background: var(--cantos-color-primary);
+  border-color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"]:checked::before {
+  inset-inline-start: calc(var(--cantos-size-control) - var(--cantos-size-icon-compact) - (var(--cantos-size-icon) - var(--cantos-size-icon-compact)) / 2 - var(--cantos-size-border));
+  background: var(--cantos-color-on-primary);
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"]:disabled {
+  background: var(--cantos-color-surface-container);
+  border-color: var(--cantos-color-outline);
+}
+:where(.cantos-ui) .cui-choice-control[role="switch"]:disabled::before {
+  background: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-range-control {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--cantos-size-control);
+  margin: 0;
+  accent-color: var(--cantos-color-primary);
+}
+/* No continuous motion or custom range keyboard logic; native controls own these interactions. */
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-field-control { border: var(--cantos-size-border) solid FieldText; }
+  :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible) { outline: var(--cantos-size-border) dashed FieldText; }
+  :where(.cantos-ui) .cui-field-control:disabled { color: GrayText; }
+  :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
+  :where(.cantos-ui) .cui-choice-control[role="switch"]::before { background: ButtonText; }
+  :where(.cantos-ui) .cui-choice-control[role="switch"]:checked { background: Highlight; }
+  :where(.cantos-ui) .cui-choice-control[role="switch"]:checked::before { background: HighlightText; }
+  :where(.cantos-ui) .cui-choice-control[role="switch"]:disabled::before { background: GrayText; }
+}
+
+/* Native dialog owns top-layer containment; no scripted motion or background dismissal. */
+:where(.cantos-ui) .cui-dialog {
+  box-sizing: border-box;
+  inline-size: min(35rem, calc(100% - 2 * var(--cantos-space-md)));
+  max-inline-size: calc(100% - 2 * var(--cantos-space-md));
+  max-block-size: calc(100dvh - 2 * var(--cantos-space-md));
+  margin: auto;
+  padding: var(--cantos-space-md);
+  border: 0;
+  border-radius: var(--cantos-shape-overlay);
+  background: var(--cantos-color-surface);
+  color: var(--cantos-color-on-surface);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-body-size);
+  line-height: var(--cantos-type-body-line-height);
+  box-shadow: var(--cantos-elevation-overlay);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-dialog::backdrop {
+  background: color-mix(in srgb, var(--cantos-color-primary) 32%, transparent);
+}
+:where(.cantos-ui) .cui-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--cantos-space-sm);
+  min-inline-size: 0;
+  flex-shrink: 0;
+}
+:where(.cantos-ui) .cui-dialog-title {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  margin: 0;
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-title-size);
+  line-height: var(--cantos-type-title-line-height);
+  font-weight: var(--cantos-type-title-weight);
+}
+:where(.cantos-ui) .cui-dialog-close {
+  flex: 0 1 auto;
+  margin-inline-start: auto;
+}
+:where(.cantos-ui) .cui-dialog-description {
+  margin: 0 0 var(--cantos-space-md);
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-dialog-body {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(var(--cantos-size-focus-width) + var(--cantos-size-focus-offset));
+  /* Keep focus room inside the content box. Negative margins produce horizontal
+     scrollable overflow in Safari's native dialog even when all text fits. */
+}
+:where(.cantos-ui) .cui-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--cantos-space-sm);
+  min-inline-size: 0;
+  flex-shrink: 0;
+}
+@media (min-width: 37.5rem) {
+  :where(.cantos-ui) .cui-dialog { padding: var(--cantos-space-lg); }
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-dialog { border: var(--cantos-size-border) solid CanvasText; }
+}
+
+/* Development gallery only; product pane/navigation rules belong to their apps. */
+:where(.cantos-ui) .cui-preview {
+  max-inline-size: none;
+  min-block-size: 100vh;
+  padding-block: var(--cantos-space-lg);
+  padding-inline: 0;
+}
+:where(.cantos-ui) .cui-gallery-page :where(h1, h2, h3, p) {
+  margin-block: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-gallery-header {
+  display: grid;
+  gap: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-gallery-eyebrow {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-metadata-size);
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-gallery-page h2 {
+  font-size: var(--cantos-type-title-size);
+  line-height: var(--cantos-type-title-line-height);
+  font-weight: var(--cantos-type-title-weight);
+}
+:where(.cantos-ui) .cui-gallery-page h3 {
+  font-size: var(--cantos-type-body-size);
+  line-height: var(--cantos-type-body-line-height);
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-gallery-note {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+}
+:where(.cantos-ui) .cui-gallery-output {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+}
+:where(.cantos-ui) .cui-gallery-fieldset {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+:where(.cantos-ui) .cui-gallery-fieldset legend {
+  margin-block-end: var(--cantos-space-sm);
+  padding: 0;
+  font-weight: var(--cantos-type-label-weight);
+}
+:where(.cantos-ui) .cui-gallery-icons > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cantos-space-xs);
+  padding: var(--cantos-space-xs) var(--cantos-space-sm);
+  background: var(--cantos-color-surface-container);
+  border-radius: var(--cantos-shape-reading);
+}
+:where(.cantos-ui) .cui-gallery-page article {
+  display: grid;
+  gap: var(--cantos-space-md);
+}
+:where(.cantos-ui) .cui-gallery-page footer {
+  display: grid;
+  justify-items: start;
+  gap: var(--cantos-space-sm);
+}
+:where(.cantos-ui) :where(#gallery-actions, #gallery-fields, #gallery-feedback, #gallery-layout) {
+  scroll-margin-block-start: var(--cantos-space-lg);
+}
+:where(.cantos-ui) .cui-gallery-page .cui-surface > p + p { margin-block-start: var(--cantos-space-sm); }

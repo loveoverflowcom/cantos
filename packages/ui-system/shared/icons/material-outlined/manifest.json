@@ -1,0 +1,43 @@
+{
+  "repository": "https://github.com/google/material-design-icons",
+  "revision": "49d4db35df873165d6bd6ba09b063c7dafbac2f4",
+  "license": "Apache-2.0",
+  "icons": {
+    "expand_more": {
+      "path": "src/navigation/expand_more/materialiconsoutlined/24px.svg",
+      "sha256": "5295578525e1a0b07f046e994fe32f108913debeac3053ed37124200bb44924f"
+    },
+    "add": {
+      "path": "src/content/add/materialiconsoutlined/24px.svg",
+      "sha256": "670df546c8e7b8f19fb262ec89156108f87fcbcb57b19a40f37244b980cb7b53"
+    },
+    "check": {
+      "path": "src/navigation/check/materialiconsoutlined/24px.svg",
+      "sha256": "e7bd57a6f37125b7363cfc9fb11f8c1dc9aec12003c94e96329d1cca5c11d8f8"
+    },
+    "close": {
+      "path": "src/navigation/close/materialiconsoutlined/24px.svg",
+      "sha256": "817eeece6e725ef03c5be0b0ade63c53506d6f8678684dd41eb0c0deaae3ac7b"
+    },
+    "search": {
+      "path": "src/action/search/materialiconsoutlined/24px.svg",
+      "sha256": "4679a3ccd253f707eeacf7edbb2fb3e395174b690a9ca55ab5fe8a3826002625"
+    },
+    "light_mode": {
+      "path": "src/device/light_mode/materialiconsoutlined/24px.svg",
+      "sha256": "14663a04fa08793052c5a43cbf5ed0d0f9ca5ca54a780327337aa400d444fea8"
+    },
+    "dark_mode": {
+      "path": "src/device/dark_mode/materialiconsoutlined/24px.svg",
+      "sha256": "39467d90533e60eedb473848dda3a25b5f17341d0cae19463d09cef9b4f4cd8e"
+    },
+    "menu_book": {
+      "path": "src/maps/menu_book/materialiconsoutlined/24px.svg",
+      "sha256": "05b74ea83dccc734c8c1e4c37b3f49e263766ccb1eef9c8609db3410d1587268"
+    },
+    "warning_amber": {
+      "path": "src/alert/warning_amber/materialiconsoutlined/24px.svg",
+      "sha256": "fc42aa44a2a9ec7fb65ab036b511ce9c9fa1a048f29c0af81a56e65433f5e1a6"
+    }
+  }
+}

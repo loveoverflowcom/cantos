@@ -107,7 +107,7 @@ pub fn ScriptAdaptation(
             <p id="adaptation-reason" class="help">{move || state.with(|review| if review.pending.is_some() { copy().pending } else { "" })}</p>
             <Show when=move || state.with(|review| review.pending.is_some())>
                 <p class="identity">{move || copy().operation}<output>{move || state.with(|review| review.pending.as_ref().map(|intent| intent.operation_id().to_owned()).unwrap_or_default())}</output></p>
-                <button type="button" aria-describedby="adaptation-reason" aria-disabled=move || activity.get() || state.with(|review| !review.can_retry()) on:click=move |_| {
+                <button class="cui-button" data-variant="secondary" type="button" aria-describedby="adaptation-reason" disabled=move || activity.get() || state.with(|review| !review.can_retry()) on:click=move |_| {
                     if activity.get_untracked() { return; }
                     if let Some((sending, intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state, api, intent); }
                 }>{move || copy().retry}</button>
@@ -115,15 +115,15 @@ pub fn ScriptAdaptation(
             <form class="adaptation-reopen" on:submit=move |event| { event.prevent_default(); if !activity.get_untracked() { read_run(state, api, activity); } }>
                 <label for="adaptation-run-id">{move || copy().run_id}</label>
                 <div class="toolbar">
-                    <input id="adaptation-run-id" maxlength="36" disabled=move || blocked() || state.with(|review| review.draft_changed) autocomplete="off" spellcheck="false"
+                    <input class="cui-field-control" id="adaptation-run-id" maxlength="36" disabled=move || blocked() || state.with(|review| review.draft_changed) autocomplete="off" spellcheck="false"
                         prop:value=move || state.with(|review| review.run_id.clone())
                         on:input=move |event| state.update(|review| *review = review.select_run(event_target_value(&event))) />
-                    <button type="submit" aria-disabled=move || activity.get() || state.with(|review| !review.can_read()) aria-describedby="adaptation-new-help">{move || copy().open}</button>
+                    <button class="cui-button" data-variant="secondary" type="submit" disabled=move || activity.get() || state.with(|review| !review.can_read()) aria-describedby="adaptation-new-help">{move || copy().open}</button>
                 </div>
             </form>
             <div class="toolbar">
-                <button type="button" aria-disabled=move || activity.get() || state.with(|review| !review.can_read()) on:click=move |_| { if !activity.get_untracked() { read_run(state, api, activity); } }>{move || copy().refresh}</button>
-                <button type="button" aria-disabled=blocked aria-describedby="adaptation-new-help" on:click=move |_| {
+                <button class="cui-button" data-variant="secondary" type="button" disabled=move || activity.get() || state.with(|review| !review.can_read()) on:click=move |_| { if !activity.get_untracked() { read_run(state, api, activity); } }>{move || copy().refresh}</button>
+                <button class="cui-button" data-variant="secondary" type="button" disabled=blocked aria-describedby="adaptation-new-help" on:click=move |_| {
                     if blocked() || (state.with_untracked(|review| review.draft_changed) && !confirm_discard(english.get_untracked())) { return; }
                     state.update(|review| *review = review.new_run()); preview.set(ValidationPreview::default()); issues.set(vec![]);
                 }>{move || copy().new_run}</button>
@@ -146,13 +146,13 @@ pub fn ScriptAdaptation(
                         {move || stored.get().map(|response| view! { <ReviewDetails response=response english=english /> })}
                     </details>
                 </StructuredEditor>
-                <ValidationControls preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
+                <ValidationControls id="adaptation-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
                 <label class="adaptation-confirm" for="adaptation-reviewed">
                     <input id="adaptation-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || state.with(|review| review.reviewed_findings)
                         on:change=move |event| state.update(|review| *review = review.review_findings(event_target_checked(&event))) />
                     <span>{move || copy().review}</span>
                 </label>
-                <button class="primary" type="button" aria-disabled=accept_blocked aria-describedby="adaptation-accept-reason adaptation-accept-help" on:click=move |_| {
+                <button class="cui-button" data-variant="primary" type="button" disabled=accept_blocked aria-describedby="adaptation-accept-reason adaptation-accept-help" on:click=move |_| {
                     if accept_blocked() { return; }
                     match operation_id() {
                         Ok(operation) => if let Some((sending, intent)) = state.get_untracked().start_accept(operation) { state.set(sending); dispatch(state, api, intent); },
@@ -176,7 +176,7 @@ pub fn ScriptAdaptation(
                         <p class="identity">{revision.with_value(|revision| format!("{} / {} · {} · {}", revision.script_id, revision.revision, revision.accepted_by, revision.accepted_at))}</p>
                         <p class="identity"><code>{revision.with_value(|revision| revision.export_digest.clone())}</code></p>
                         <details><summary>{move || crate::messages::workspace::text(crate::messages::workspace::Key::Stored, english.get())}</summary><pre tabindex="0" lang="vi-VN">{revision.with_value(|revision| revision.script_json.clone())}</pre></details>
-                        <button type="button" aria-disabled=blocked on:click=move |_| {
+                        <button class="cui-button" data-variant="secondary" type="button" disabled=blocked on:click=move |_| {
                             if activity.get_untracked() { return; }
                             let Some(reading) = state.get_untracked().start_accepted_read() else { return; };
                             let actor = reading.actor.clone(); let ticket = reading.ticket;

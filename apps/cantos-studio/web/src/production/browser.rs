@@ -1,5 +1,6 @@
 //! Native Leptos shell over immutable, actor-bound production commands.
 use super::*;
+use crate::ui::{ActionButton, BlockReason, ContextSelect};
 use crate::{
     api::{StudioContext, StudioHttp},
     messages::{
@@ -8,6 +9,7 @@ use crate::{
     },
     view::{confirm_discard, operation_id},
 };
+use cantos_ui::{Announcement, ButtonVariant, FieldLabel, Status as UiStatus};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 
@@ -302,7 +304,7 @@ pub fn ProductionInputs(
         <dl class="source-identity"><dt>{move || text(Key::Revision, english.get())}</dt><dd><code>{move || state.with(|s| format!("{} · {}", s.context.script, s.context.revision))}</code></dd>
             <dt>{move || text(Key::ExportDigest, english.get())}</dt><dd><code>{move || state.with(|s| s.context.export_digest.clone())}</code></dd>
         </dl>
-        <button type="button" aria-disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
+        <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
             let Some((reading, ticket)) = state.get_untracked().start_read(ReadKind::State) else { return; };
             let script = editor.with_untracked(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default());
             state.set(reading);
@@ -311,17 +313,17 @@ pub fn ProductionInputs(
                 let _ = state.try_update(|s| *s = match result { Ok((catalog, stored)) => s.loaded(&ticket, catalog, stored, &script), Err(error) => s.read_failed(&ticket, error) });
             });
         }>{move || text(Key::Load, english.get())}</button>
-        <button type="button" aria-disabled=move ||state.with(Production::has_activity)||composing.with(|f|!f.is_empty()) on:click=move |_|{
+        <button class="cui-button" data-variant="secondary" type="button" disabled=move ||state.with(Production::has_activity)||composing.with(|f|!f.is_empty()) on:click=move |_|{
             if state.with_untracked(Production::has_activity)||composing.with_untracked(|f|!f.is_empty())||!confirm_discard(english.get_untracked()){return;}
             if let Some(discarded)=state.get_untracked().discard_drafts(){state.set(discarded);rights.set(RightsForm::default());rights_dirty.set(false);retained_rights.set(None);}
         }>{move ||text(Key::Discard,english.get())}</button>
-        <p class="status" role="status" aria-live="polite">{move || state.with(|s| if let Some(error) = &s.error { messages::status(crate::editor::error_status(&error.code), english.get()) } else if s.busy() { text(Key::Busy, english.get()) } else if s.stored.is_some() { text(Key::Ready, english.get()) } else { "" })}</p>
+        <UiStatus announcement=Announcement::Polite>{move || state.with(|s| if let Some(error) = &s.error { messages::status(crate::editor::error_status(&error.code), english.get()) } else if s.busy() { text(Key::Busy, english.get()) } else if s.stored.is_some() { text(Key::Ready, english.get()) } else { "" })}</UiStatus>
         <ul class="production-findings">{move || state.with(|s|s.error.as_ref().map(|e|e.issues.clone()).unwrap_or_default()).into_iter().map(|issue|view!{<li><code>{issue.path}" · "{issue.rule}</code></li>}).collect_view()}</ul>
         <Show when=move || state.with(|s| s.pending.is_some())><section class="production-pending" aria-describedby="production-pending-help">
             <p id="production-pending-help">{move || text(Key::PendingHelp, english.get())}</p>
             <dl class="source-identity"><dt>{move || text(Key::Actor, english.get())}</dt><dd>{move || state.with(|s| s.pending.as_ref().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
                 <dt>{move || text(Key::Operation, english.get())}</dt><dd><code>{move || state.with(|s| s.pending.as_ref().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
-            <button type="button" aria-disabled=move || !state.with(Production::can_retry) on:click=move |_| { if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
+            <button class="cui-button" data-variant="secondary" type="button" disabled=move || !state.with(Production::can_retry) on:click=move |_| { if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
         </section></Show>
         <Show when=move || state.with(|s| s.form.is_some())><div class="production-layout">
             <section class="production-settings" aria-labelledby="casting-title"><h3 id="casting-title">{move || text(Key::Settings, english.get())}</h3>
@@ -329,39 +331,39 @@ pub fn ProductionInputs(
                 <Show when=move ||state.with(Production::is_dirty)><p class="help">{move ||text(Key::Revalidate,english.get())}</p></Show>
                 <CastingFields state=state english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default())) />
                 <BudgetFields state=state english=english readonly=readonly />
-                <button type="button" class="primary" aria-disabled=blocked aria-describedby="production-dirty-reason" on:click=move |_| {
+                <ActionButton id="production-settings-save" english=english blocked=Signal::derive(blocked) reason=BlockReason::ProductionReview described_by="production-dirty-reason" on_press=Callback::new(move |_| {
                     if blocked() { return; }
                     let Some(settings) = state.with_untracked(|s| s.form.as_ref().and_then(SettingsForm::settings)) else { state.update(|s| s.error = Some(error(ErrorCode::InvalidRequest))); return; };
                     match operation_id() { Ok(operation_id) => submit(state,api,Command::Settings(SaveProductionSettingsRequest { operation_id, expected_revision: state.with_untracked(|s| s.context.revision), expected_settings_version:saved_version(),settings })), Err(error) => state.update(|s| s.error=Some(error)) }
-                }>{move || text(Key::Save,english.get())}</button>
+                })>{move || text(Key::Save,english.get())}</ActionButton>
             </section>
             <section class="production-inspector" aria-labelledby="production-review-title"><h3 id="production-review-title">{move || text(Key::Validate,english.get())}</h3>
                 <p class="help">{move || text(Key::ValidationHelp,english.get())}</p>
-                <button type="button" aria-disabled=review_blocked on:click=move |_| {
+                <ActionButton id="production-review" english=english blocked=Signal::derive(review_blocked) reason=BlockReason::ProductionReview variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
                     if review_blocked() { return; } let Some((reading,ticket)) = state.get_untracked().start_read(ReadKind::Preview) else { return; }; state.set(reading);
                     spawn_local(async move { let result=api.production_preview(&ticket.context.script).await; let _=state.try_update(|s| *s=match result { Ok(preview)=>s.preview_loaded(&ticket,preview),Err(error)=>s.read_failed(&ticket,error) }); });
-                }>{move || text(Key::Validate,english.get())}</button>
+                })>{move || text(Key::Validate,english.get())}</ActionButton>
                 {move || state.with(|s| s.preview.clone()).map(|preview| view! { <dl class="source-identity"><dt>{move || text(Key::Digest,english.get())}</dt><dd><code>{preview.input_digest}</code></dd></dl><Estimate estimate=preview.estimate english=english /><Findings findings=preview.findings english=english /> })}
                 <p class="help">{move || text(Key::FreezeHelp,english.get())}</p>
-                <button type="button" class="primary" aria-disabled=freeze_blocked on:click=move |_| {
+                <ActionButton id="production-freeze" english=english blocked=Signal::derive(freeze_blocked) reason=BlockReason::ProductionReview on_press=Callback::new(move |_| {
                     if freeze_blocked() { return; } let Some(preview)=state.with_untracked(|s| s.preview.clone()) else { return; };
                     match operation_id() { Ok(operation_id)=>submit(state,api,Command::Freeze(FreezeProductionRequest { operation_id,expected_revision:preview.script_revision,settings_version:preview.settings_version,input_digest:preview.input_digest })),Err(error)=>state.update(|s| s.error=Some(error)) }
-                }>{move || text(Key::Freeze,english.get())}</button>
+                })>{move || text(Key::Freeze,english.get())}</ActionButton>
             </section>
         </div>
         <RightsFields state=state rights=rights rights_dirty=rights_dirty english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default())) />
         </Show>
         <section class="production-snapshots" aria-labelledby="production-snapshot-title"><h3 id="production-snapshot-title">{move || text(Key::Snapshot,english.get())}</h3>
-            <div class="toolbar"><label for="production-snapshot-id">{move || text(Key::SnapshotId,english.get())}</label><input id="production-snapshot-id" autocomplete="off" spellcheck="false" prop:value=move || snapshot_id.get() on:input=move |e| snapshot_id.set(event_target_value(&e)) />
-                <button type="button" aria-disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| read_snapshot(state,api,snapshot_id.get_untracked())>{move || text(Key::Inspect,english.get())}</button></div>
-            <div class="toolbar">{move || state.with(|s| s.stored.as_ref().map(|s| s.snapshots.clone()).unwrap_or_default()).into_iter().map(|snapshot| { let id=StoredValue::new(snapshot.id.clone()); view! { <button type="button" aria-disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) on:click=move |_| { snapshot_id.set(id.get_value());read_snapshot(state,api,id.get_value()); }><code>{snapshot.id}</code>" · "{snapshot.script_revision}</button> } }).collect_view()}</div>
+            <div class="toolbar"><label for="production-snapshot-id">{move || text(Key::SnapshotId,english.get())}</label><input class="cui-field-control" id="production-snapshot-id" autocomplete="off" spellcheck="false" prop:value=move || snapshot_id.get() on:input=move |e| snapshot_id.set(event_target_value(&e)) />
+                <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| read_snapshot(state,api,snapshot_id.get_untracked())>{move || text(Key::Inspect,english.get())}</button></div>
+            <div class="toolbar">{move || state.with(|s| s.stored.as_ref().map(|s| s.snapshots.clone()).unwrap_or_default()).into_iter().map(|snapshot| { let id=StoredValue::new(snapshot.id.clone()); view! { <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) on:click=move |_| { snapshot_id.set(id.get_value());read_snapshot(state,api,id.get_value()); }><code>{snapshot.id}</code>" · "{snapshot.script_revision}</button> } }).collect_view()}</div>
             {move || state.with(|s| s.snapshot.clone()).map(|snapshot| view! { <SnapshotDetails snapshot=snapshot english=english /> })}
             <Show when=move || state.with(|s| s.snapshot.is_some())><label class="adaptation-confirm" for="production-confirm"><input id="production-confirm" type="checkbox" disabled=move || blocked() || state.with(Production::is_dirty) prop:checked=move || state.with(|s| s.confirmation.is_some()) on:change=move |e| state.update(|s| *s=s.confirm(event_target_checked(&e))) /><span>{move || text(Key::ConfirmApproval,english.get())}</span></label>
                 <p id="production-approval-help" class="help">{move || text(Key::ApprovalHelp,english.get())}</p>
-                <button type="button" class="primary" aria-disabled=approve_blocked aria-describedby="production-approval-help" on:click=move |_| {
+                <ActionButton id="production-approve" english=english blocked=Signal::derive(approve_blocked) reason=BlockReason::ProductionReview described_by="production-approval-help" on_press=Callback::new(move |_| {
                     if approve_blocked() { return; } let Some(snapshot)=state.with_untracked(|s| s.snapshot.clone()) else { return; };
                     match operation_id() { Ok(operation_id)=>submit(state,api,Command::Approve { snapshot_id:snapshot.id,request:ApproveProductionRequest { operation_id,input_digest:snapshot.document.input_digest } }),Err(error)=>state.update(|s| s.error=Some(error)) }
-                }>{move || text(Key::Approve,english.get())}</button>
+                })>{move || text(Key::Approve,english.get())}</ActionButton>
             </Show>
         </section>
     </section> }
@@ -407,15 +409,16 @@ fn FormField(
     let flagged = move || unsupported.get().unwrap_or(false);
     let note = format!("{id}-unsupported");
     let label_id = format!("{id}-label");
-    view! { <label class="production-field" for=id.clone()><span id=label_id.clone()>{move || text(label,english.get())}</span>
-        <input id=id.clone() node_ref=node type=kind min=move || min.get() max=move || max.get() step="1" autocomplete="off" disabled=move || readonly.get() prop:value=initial
-            aria-labelledby=label_id
+    let labelled_by = label_id.clone();
+    view! { <div class="production-field"><FieldLabel for_id=id.clone()><span id=label_id.clone()>{move || text(label,english.get())}</span></FieldLabel>
+        <input class="cui-field-control" id=id.clone() node_ref=node type=kind min=move || min.get() max=move || max.get() step="1" autocomplete="off" disabled=move || readonly.get() prop:value=initial
+            aria-labelledby=labelled_by
             aria-invalid=move || flagged().then_some("true") aria-describedby={let note=note.clone(); move || flagged().then(|| note.clone())}
             on:input=move |e| { if !readonly.get_untracked() && !composing.get_untracked() { change.run(event_target_value(&e)); } }
             on:compositionstart=move |_|{if readonly.get_untracked(){return;}composing.set(true);typing.update(|fields|{fields.insert(identity.get_value());});typing_context.1.update(|s|s.input_composing=true);}
             on:compositionend=move |e|{if !readonly.get_untracked(){change.run(event_target_value(&e));}composing.set(false);typing.update(|fields|{fields.remove(&identity.get_value());});typing_context.1.update(|s|s.input_composing=typing.with_untracked(|fields|!fields.is_empty()));} />
         <Show when=flagged><small id=note.clone() class="production-unsupported">{move || text(Key::UnsupportedControl,english.get())}</small></Show>
-    </label> }
+    </div> }
 }
 
 #[component]
@@ -430,39 +433,14 @@ fn FormSelect(
     #[prop(optional, into)] unsupported: MaybeProp<bool>,
     #[prop(default = Key::UnsupportedControl)] note: Key,
 ) -> impl IntoView {
-    let value = Memo::new(move |_| value.get());
-    let flagged = move || unsupported.get().unwrap_or(false);
-    let note_id = format!("{id}-unsupported");
-    let label_id = format!("{id}-label");
-    // Keep native option nodes stable when only the selected value changes. Rebuilding them
-    // during rapid keyboard changes can reset the DOM value before the change handler reads it.
-    let choices = Memo::new(move |_| {
-        let mut choices = options.get();
+    view! { <ContextSelect id=id label=Signal::derive(move || text(label, english.get()).to_owned())
+    value=value options=options unknown_label=Signal::derive(move || text(Key::UnsupportedChoice, english.get()).to_owned())
+    error=Signal::derive(move || unsupported.get().unwrap_or(false).then(|| {
         let current = value.get();
-        if !current.is_empty() && !choices.iter().any(|(choice, _)| choice == &current) {
-            choices.push((
-                current.clone(),
-                format!(
-                    "{} · {current}",
-                    text(Key::UnsupportedChoice, english.get())
-                ),
-            ));
-        }
-        choices
-    });
-    view! { <label class="production-field" for=id.clone()><span id=label_id.clone()>{move || text(label,english.get())}</span>
-        <select id=id.clone() disabled=move || readonly.get() prop:value=move || value.get() on:change=move |e| { if !readonly.get_untracked() { change.run(event_target_value(&e)); } }
-            aria-labelledby=label_id
-            aria-invalid=move || flagged().then_some("true") aria-describedby={let note_id=note_id.clone(); move || flagged().then(|| note_id.clone())}>
-            {move || {
-                choices.get().into_iter().map(|(choice,label)| {
-                    let selected = choice.clone();
-                    view! { <option value=choice prop:selected=move || value.get()==selected>{label}</option> }
-                }).collect_view()
-            }}
-        </select>
-        <Show when=flagged><small id=note_id.clone() class="production-unsupported">{move || { let current = value.get(); (!current.is_empty()).then(|| view! { <code>{current}</code>" · " }) }}{move || text(note,english.get())}</small></Show>
-    </label> }
+        if current.is_empty() { text(note, english.get()).to_owned() }
+        else { format!("{current} · {}", text(note, english.get())) }
+    }))
+    on_change=change english=english readonly=readonly /> }
 }
 
 #[derive(Clone, Copy)]
@@ -701,10 +679,10 @@ fn CastingCharacter(
             <div class="production-pronunciation">
                 <FormField id=format!("production-{}-pronunciation-{index}-surface",id.get_value()) label=Key::Surface value=Signal::derive(move ||binding.get().and_then(|b|b.pronunciation.get(index).map(|p|p.surface.clone())).unwrap_or_default()) change=Callback::new(move |value|state.update(|s|*s=s.edit(|f|if let Some(p)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()).and_then(|b|b.pronunciation.get_mut(index)){p.surface=value;}))) english=english readonly=readonly />
                 <FormField id=format!("production-{}-pronunciation-{index}-replacement",id.get_value()) label=Key::Replacement value=Signal::derive(move ||binding.get().and_then(|b|b.pronunciation.get(index).map(|p|p.replacement.clone())).unwrap_or_default()) change=Callback::new(move |value|state.update(|s|*s=s.edit(|f|if let Some(p)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()).and_then(|b|b.pronunciation.get_mut(index)){p.replacement=value;}))) english=english readonly=readonly />
-                <button type="button" aria-disabled=move ||readonly.get() on:click=move |_|{if !readonly.get_untracked(){state.update(|s|*s=s.edit(|f|if let Some(b)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()){if index<b.pronunciation.len(){b.pronunciation.remove(index);}}));if let Some(element)=leptos::leptos_dom::helpers::document().get_element_by_id(&format!("production-{}-pronunciation-add",id.get_value())).and_then(|e|e.dyn_into::<web_sys::HtmlElement>().ok()){let _=element.focus();}}}>{move ||text(Key::Remove,english.get())}</button>
+                <button class="cui-button" data-variant="secondary" type="button" disabled=move ||readonly.get() on:click=move |_|{if !readonly.get_untracked(){state.update(|s|*s=s.edit(|f|if let Some(b)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()){if index<b.pronunciation.len(){b.pronunciation.remove(index);}}));if let Some(element)=leptos::leptos_dom::helpers::document().get_element_by_id(&format!("production-{}-pronunciation-add",id.get_value())).and_then(|e|e.dyn_into::<web_sys::HtmlElement>().ok()){let _=element.focus();}}}>{move ||text(Key::Remove,english.get())}</button>
             </div>
         </For>
-        <button id=format!("production-{}-pronunciation-add",id.get_value()) type="button" aria-disabled=move ||readonly.get()||capability.get().is_none_or(|c|!c.pronunciation_supported) on:click=move |_|{if !readonly.get_untracked()&&capability.get_untracked().is_some_and(|c|c.pronunciation_supported){state.update(|s|*s=s.edit(|f|if let Some(b)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()){b.pronunciation.push(ProductionPronunciation{surface:String::new(),replacement:String::new()});}));}}>{move ||text(Key::AddPronunciation,english.get())}</button>
+        <button class="cui-button" data-variant="secondary" id=format!("production-{}-pronunciation-add",id.get_value()) type="button" disabled=move ||readonly.get()||capability.get().is_none_or(|c|!c.pronunciation_supported) on:click=move |_|{if !readonly.get_untracked()&&capability.get_untracked().is_some_and(|c|c.pronunciation_supported){state.update(|s|*s=s.edit(|f|if let Some(b)=f.bindings.iter_mut().find(|b|b.character_id==id.get_value()){b.pronunciation.push(ProductionPronunciation{surface:String::new(),replacement:String::new()});}));}}>{move ||text(Key::AddPronunciation,english.get())}</button>
     </fieldset> }
 }
 
@@ -913,7 +891,7 @@ fn RightsFields(
             <FormField id="production-rights-restrictions".into() label=Key::Restrictions value=value(RightsField::Restrictions) change=change(RightsField::Restrictions) english=english readonly=readonly />
             <FormField id="production-rights-from".into() label=Key::ValidFrom value=value(RightsField::From) change=change(RightsField::From) english=english readonly=readonly kind="number" />
             <FormField id="production-rights-until".into() label=Key::ValidUntil value=value(RightsField::Until) change=change(RightsField::Until) english=english readonly=readonly kind="number" />
-        </div><p class="help">{move ||text(Key::TimeHelp,english.get())}</p><p class="help">{move ||text(Key::RestrictionsHelp,english.get())}</p><button type="button" aria-disabled=mutation_blocked on:click=move |_|{
+        </div><p class="help">{move ||text(Key::TimeHelp,english.get())}</p><p class="help">{move ||text(Key::RestrictionsHelp,english.get())}</p><button class="cui-button" data-variant="secondary" type="button" disabled=mutation_blocked on:click=move |_|{
             if mutation_blocked(){return;}let current=state.get_untracked();let Some(claim)=current.form.as_ref().and_then(|form|rights.get_untracked().declaration(form))else{state.update(|s|s.error=Some(error(ErrorCode::InvalidRequest)));return;};
             let expected_version=current.stored.as_ref().and_then(|s|s.rights.iter().find(|r|r.claim.declaration.record_id==claim.record_id).map(|r|r.claim.version)).unwrap_or(0);
             match operation_id(){Ok(operation_id)=>{submit(state,api,Command::Rights(SaveProductionRightsRequest{operation_id,expected_version,claim}));},Err(error)=>state.update(|s|s.error=Some(error))}

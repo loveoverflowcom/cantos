@@ -34,10 +34,28 @@ pub enum Key {
     Invalidated,
     PendingReview,
     BinarySourceHelp,
+    ControlReadOnly,
+    ControlBlocked,
+    ControlUnavailable,
+    Cancel,
+    DiscardNow,
+    DialogFailure,
 }
 
 pub fn text(key: Key, english: bool) -> &'static str {
     match (key, english) {
+        (Key::ControlBlocked, true) => "Finish current input or requests, then select an available signed-in context before continuing.",
+        (Key::ControlBlocked, false) => "Hoàn tất phần đang nhập hoặc yêu cầu, rồi chọn ngữ cảnh phiên đăng nhập khả dụng trước khi tiếp tục.",
+        (Key::ControlReadOnly, true) => "This control is unavailable for the current context or provider. Its value is retained.",
+        (Key::ControlReadOnly, false) => "Điều khiển chưa khả dụng trong ngữ cảnh hoặc nhà cung cấp hiện tại. Giá trị được giữ nguyên.",
+        (Key::ControlUnavailable, true) => "Control unavailable",
+        (Key::ControlUnavailable, false) => "Điều khiển chưa khả dụng",
+        (Key::Cancel, true) => "Keep draft",
+        (Key::Cancel, false) => "Giữ bản nháp",
+        (Key::DiscardNow, true) => "Discard browser draft",
+        (Key::DiscardNow, false) => "Bỏ bản nháp trong trình duyệt",
+        (Key::DialogFailure, true) => "The dialog or focus operation could not complete. Check the current state before trying again.",
+        (Key::DialogFailure, false) => "Thao tác hộp thoại hoặc đặt focus chưa hoàn tất. Kiểm tra trạng thái hiện tại trước khi thử lại.",
         (Key::Import, true) => "Import source",
         (Key::Import, false) => "Nhập nguồn",
         (Key::Proposal, true) => "Review proposal",

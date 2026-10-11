@@ -97,7 +97,8 @@ def main():
             shutil.copy2(ROOT / name, workspace / name)
         # Cargo resolves every workspace manifest, even for a package-scoped test, so each
         # member is copied without generated bundles.
-        for member in ("services/cantos-api", "apps/cantos/web", "apps/cantos-studio/web", "packages/contracts", "xtask"):
+        for member in ("services/cantos-api", "apps/cantos/web", "apps/cantos-studio/web",
+                       "packages/contracts", "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
         # The concrete neural adapter embeds its fixed helper; its integration
         # fixture is also a compile-time input even for this package-scoped test.

@@ -10,7 +10,7 @@ use crate::{
     build::{self, Profile},
     cli::VerifySuite,
     command::CommandSpec,
-    config::{App, API_PACKAGE, WASM_TARGET},
+    config::{App, API_PACKAGE, UI_PACKAGE, WASM_TARGET},
     pipeline::Step,
     tools::Tool,
     workspace::Workspace,
@@ -28,6 +28,7 @@ pub enum GateKind {
     WavReference,
     WebLint,
     WebBuild,
+    UiPreview,
     Mutation,
     Postgres,
 }
@@ -68,6 +69,7 @@ pub enum Gate {
     WavReference,
     WebLint(BTreeSet<App>),
     WebBuild(App),
+    UiPreview,
     Mutation,
     Postgres { keep: bool },
 }
@@ -101,6 +103,7 @@ impl Gate {
             Gate::WavReference => GateKind::WavReference,
             Gate::WebLint(_) => GateKind::WebLint,
             Gate::WebBuild(_) => GateKind::WebBuild,
+            Gate::UiPreview => GateKind::UiPreview,
             Gate::Mutation => GateKind::Mutation,
             Gate::Postgres { .. } => GateKind::Postgres,
         }
@@ -134,7 +137,9 @@ impl Gate {
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
             Gate::WebLint(_) => vec![Tool::Cargo, Tool::Clippy, Tool::Wasm32Target],
-            Gate::WebBuild(_) => vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk],
+            Gate::WebBuild(_) | Gate::UiPreview => {
+                vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk]
+            }
             Gate::Postgres { .. } => vec![
                 Tool::Cargo,
                 Tool::Python3,
@@ -193,9 +198,33 @@ impl Gate {
                 python(&["scripts/reference_wav_inspection.py"]),
             ],
             Gate::WebLint(apps) => vec![cargo(&["clippy"])
+                .args(["-p", UI_PACKAGE])
                 .args(apps.iter().flat_map(|app| ["-p", app.web_package()]))
-                .args(["--target", WASM_TARGET, "--locked", "--", "-D", "warnings"])],
+                .args([
+                    "--all-targets",
+                    "--target",
+                    WASM_TARGET,
+                    "--features",
+                    "cantos-ui/preview",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ])],
             Gate::WebBuild(app) => vec![build::trunk(workspace, *app, "build", Profile::Dev)],
+            Gate::UiPreview => {
+                vec![
+                    CommandSpec::new("trunk", workspace.path("packages/ui-system/leptos"))
+                        .args([
+                            "build",
+                            "preview.html",
+                            "--locked",
+                            "--dist",
+                            "../../../target/ui-foundation-preview",
+                        ])
+                        .env("NO_COLOR", "true"),
+                ]
+            }
             Gate::Mutation => vec![python(&["scripts/mutate_script_ir.py"])],
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
@@ -220,6 +249,7 @@ pub fn full() -> Vec<Gate> {
         Gate::WebLint(App::ALL.into_iter().collect()),
         Gate::WebBuild(App::Studio),
         Gate::WebBuild(App::Theatre),
+        Gate::UiPreview,
         Gate::Mutation,
         Gate::Postgres { keep: false },
     ]
@@ -238,6 +268,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             Gate::WebLint(App::ALL.into_iter().collect()),
             Gate::WebBuild(App::Studio),
             Gate::WebBuild(App::Theatre),
+            Gate::UiPreview,
         ],
         VerifySuite::Contracts => vec![
             Gate::ScriptIrReference,
@@ -287,11 +318,15 @@ mod tests {
         );
         assert_eq!(
             lines(&Gate::WebLint(App::ALL.into_iter().collect())),
-            ["cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings"]
+            ["cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings"]
         );
         assert_eq!(
             lines(&Gate::WebBuild(App::Theatre)),
             ["(in apps/cantos/web) NO_COLOR=true trunk build --locked"]
+        );
+        assert_eq!(
+            lines(&Gate::UiPreview),
+            ["(in packages/ui-system/leptos) NO_COLOR=true trunk build preview.html --locked --dist ../../../target/ui-foundation-preview"]
         );
         assert_eq!(
             lines(&Gate::Postgres { keep: true }),

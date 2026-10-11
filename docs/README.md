@@ -30,6 +30,11 @@
 | [Local neural evidence](evidence/local-neural-tts.md) | Research-only adapter boundary, exact identities, checks, actual versus mocked results and limits |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
+| [UI foundation evidence](evidence/ui-system-foundation.md) | Token/icon provenance, focused verification and unrun runtime gates |
+| [UI consumer integration](evidence/ui-system-integration.md) | Studio, bounded Theatre, PR29 reconciliation and runtime gaps |
+| [UI publication verification](evidence/ui-system-publication.md) | PR31/PR32 reconciliation, combined local gates and remaining acceptance |
+| [UI migration](architecture/ui-system-migration.md) | Token package rename, public role compatibility and renderer ownership |
+| [UI sequence](work-plan/015-leptos-ui-system.md) | Component, app integration and independent review handoff |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |
 | [Decision 0002](decisions/0002-script-ir-contract.md) | Proposed adoption of implemented Script IR and digest policy |
 | [Decision 0003](decisions/0003-script-revision-persistence.md) | Local revision persistence and the minimal Studio consumer |
@@ -41,6 +46,7 @@
 | [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
 | [Decision 0012](decisions/0012-xtask-command-surface.md) | `cargo xtask` as the single build, run and verification surface; CI runs its jobs |
 | [Decision 0013](decisions/0013-optional-messagepack-wire.md) | Optional MessagePack beside JSON on four Studio routes; the Studio ships JSON until revisit conditions hold |
+| [Decision 0014](decisions/0014-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

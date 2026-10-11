@@ -99,7 +99,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | `services/cantos-api/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
-| `packages/design-tokens/` | Versioned semantic token source (Studio set) |
+| `packages/ui-system/` | Canonical semantic tokens and Leptos foundation; CMP mapping deferred |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |
@@ -120,7 +120,7 @@ cargo xtask preflight --changed-only       # gates selected from your diff again
 cargo xtask verify repository              # documents, links, skills, Python tests, whitespace
 cargo xtask verify rust                    # fmt, clippy -D warnings, workspace tests
 cargo xtask verify contracts               # Script IR goldens, wire/WAV/TTS receipt contracts, WAV oracle
-cargo xtask verify web                     # WASM clippy and Trunk builds of both Web clients
+cargo xtask verify web                     # WASM clippy, both Web clients and the shared component gallery
 cargo xtask verify postgres                # disposable PostgreSQL cluster (never an inherited DATABASE_URL)
 cargo xtask verify mutation                # bounded Script IR mutation checks
 cargo xtask build all                      # cantos-api plus Studio and Theatre Web

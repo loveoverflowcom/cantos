@@ -9,6 +9,7 @@ use crate::{
     view::operation_id,
 };
 use cantos_contracts::{Extraction, ImportFormat, ImportOutcome, ImportResponse};
+use cantos_ui::{Icon, IconName};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -86,7 +87,7 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                 }
             }>
                 <label for="import-file">{move || copy().file}</label>
-                <input id="import-file" type="file" accept=".txt,.md,.markdown,.docx,.json" disabled=blocked
+                <input class="cui-field-control" id="import-file" type="file" accept=".txt,.md,.markdown,.docx,.json" disabled=blocked
                     aria-describedby="import-help import-reason import-field-findings" on:change=move |event| {
                         let Some(input) = event.target().and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok()) else { return; };
                         let Some(file) = input.files().and_then(|files| files.get(0)) else { return; };
@@ -111,42 +112,45 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                         }
                     } />
                 <label for="import-format">{move || copy().format}</label>
-                <select id="import-format" disabled=blocked prop:value=move || state.with(|editor| format_value(editor.metadata.format))
+                <div class="cui-select">
+                <select class="cui-field-control" id="import-format" disabled=blocked prop:value=move || state.with(|editor| format_value(editor.metadata.format))
                     on:change=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.format = selected_format(&event_target_value(&event))))>
                     <option value="txt">{move || copy().txt}</option>
                     <option value="markdown">{move || copy().markdown}</option>
                     <option value="docx">{move || copy().docx}</option>
                     <option value="script_ir">{move || copy().script_ir}</option>
                 </select>
+                    <Icon name=IconName::ExpandMore/>
+                </div>
                 <label for="import-reference">{move || copy().reference}</label>
-                <input id="import-reference" disabled=blocked maxlength="2048" autocomplete="off" required aria-describedby="import-field-findings"
+                <input class="cui-field-control" id="import-reference" disabled=blocked maxlength="2048" autocomplete="off" required aria-describedby="import-field-findings"
                     prop:value=move || state.with(|editor| editor.metadata.reference.clone())
                     on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.reference = event_target_value(&event))) />
                 <div class="import-metadata">
                     <div>
                         <label for="import-rights-holder">{move || copy().rights_holder}</label>
-                        <input id="import-rights-holder" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
+                        <input class="cui-field-control" id="import-rights-holder" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
                             prop:value=move || state.with(|editor| editor.metadata.rights_holder.clone().unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.rights_holder = optional_metadata(event_target_value(&event)))) />
                     </div>
                     <div>
                         <label for="import-permission">{move || copy().permission_evidence}</label>
-                        <input id="import-permission" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
+                        <input class="cui-field-control" id="import-permission" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
                             prop:value=move || state.with(|editor| editor.metadata.permission_evidence.clone().unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.permission_evidence = optional_metadata(event_target_value(&event)))) />
                     </div>
                     <div>
                         <label for="import-usage">{move || copy().usage_scope}</label>
-                        <input id="import-usage" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
+                        <input class="cui-field-control" id="import-usage" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
                             prop:value=move || state.with(|editor| editor.metadata.usage_scope.clone().unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.usage_scope = optional_metadata(event_target_value(&event)))) />
                     </div>
                 </div>
                 <p id="import-rights-help" class="help">{move || copy().rights_help}</p>
                 <div class="toolbar">
-                    <button class="primary" type="submit" aria-disabled=save_blocked aria-describedby="import-reason">{move || copy().save}</button>
+                    <button class="cui-button" data-variant="primary" type="submit" disabled=save_blocked aria-describedby="import-reason">{move || copy().save}</button>
                     <Show when=move || state.with(|editor| editor.pending.is_some() && !editor.busy)>
-                        <button type="button" aria-describedby="import-reason" aria-disabled=move || state.with(|editor| editor.pending.as_ref().is_some_and(|intent| intent.actor != editor.actor))
+                        <button class="cui-button" data-variant="secondary" type="button" aria-describedby="import-reason" disabled=move || state.with(|editor| editor.pending.as_ref().is_some_and(|intent| intent.actor != editor.actor))
                             on:click=move |_| {
                                 if let Some((saving, intent)) = state.get_untracked().retry() {
                                     state.set(saving);
@@ -179,10 +183,10 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
             }>
                 <label for="import-source-id">{move || copy().source_id}</label>
                 <div class="toolbar">
-                    <input id="import-source-id" maxlength="36" disabled=blocked autocomplete="off" spellcheck="false"
+                    <input class="cui-field-control" id="import-source-id" maxlength="36" disabled=blocked autocomplete="off" spellcheck="false"
                         prop:value=move || state.with(|editor| editor.source_id.clone())
                         on:input=move |event| state.update(|editor| *editor = editor.select_source(event_target_value(&event))) />
-                    <button type="submit" aria-disabled=read_blocked aria-describedby="import-reason">{move || copy().open}</button>
+                    <button class="cui-button" data-variant="secondary" type="submit" disabled=read_blocked aria-describedby="import-reason">{move || copy().open}</button>
                 </div>
             </form>
             <p id="import-status" class="status" role="status" aria-live="polite">{move || state.with(|editor| messages::import_status(&editor.status, english.get()))}</p>
@@ -272,8 +276,8 @@ pub(crate) fn ExtractionPreview(
     view! {
         <p class="identity">{move || copy().extractor}<output>{extraction.with_value(|extraction| extraction.extractor_version.clone())}</output></p>
         <div class="toolbar">
-            <button type="button" aria-describedby=move || range_id.get_value() aria-disabled=move || page.get() == 0 on:click=move |_| page.update(|page| *page = page.saturating_sub(1))>{move || copy().previous_blocks}</button>
-            <button type="button" aria-describedby=move || range_id.get_value() aria-disabled=move || page_bounds(page.get(), total).end == total on:click=move |_| {
+            <button class="cui-button" data-variant="secondary" type="button" aria-describedby=move || range_id.get_value() disabled=move || page.get() == 0 on:click=move |_| page.update(|page| *page = page.saturating_sub(1))>{move || copy().previous_blocks}</button>
+            <button class="cui-button" data-variant="secondary" type="button" aria-describedby=move || range_id.get_value() disabled=move || page_bounds(page.get(), total).end == total on:click=move |_| {
                 if page_bounds(page.get_untracked(), total).end < total { page.update(|page| *page += 1); }
             }>{move || copy().next_blocks}</button>
         </div>

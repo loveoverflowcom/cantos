@@ -12,6 +12,7 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 pub const DEFAULT_BASE: &str = "origin/develop";
 
 pub const API_PACKAGE: &str = "cantos-api";
+pub const UI_PACKAGE: &str = "cantos-ui";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;
 /// Written by `scripts/test_postgres.py --keep`; read by `scripts/serve_studio.py`.
@@ -121,6 +122,7 @@ mod tests {
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos/web/Cargo.toml",
             "packages/contracts/api/Cargo.toml",
+            "packages/ui-system/leptos/Cargo.toml",
             "xtask/Cargo.toml",
         ] {
             assert!(

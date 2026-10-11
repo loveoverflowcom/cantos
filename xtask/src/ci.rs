@@ -21,7 +21,7 @@ pub enum CiJob {
     Repository,
     /// Formatting, clippy and tests for the whole Cargo workspace plus the WAV oracle.
     Rust,
-    /// WASM clippy and Trunk builds of both Web clients.
+    /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
     /// PostgreSQL integration tests in a new disposable cluster.
     Postgres,
@@ -43,6 +43,7 @@ impl CiJob {
                 Gate::WebLint(App::ALL.into_iter().collect()),
                 Gate::WebBuild(App::Studio),
                 Gate::WebBuild(App::Theatre),
+                Gate::UiPreview,
             ],
             CiJob::Postgres => vec![Gate::Postgres { keep: false }],
         }

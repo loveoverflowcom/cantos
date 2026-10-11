@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE},
+    config::{App, API_PACKAGE, UI_PACKAGE},
     gate::{self, Gate, Scope},
 };
 
@@ -95,6 +95,9 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::WavReference);
         gates.insert(Gate::Postgres { keep: false });
     }
+    if affected.contains(UI_PACKAGE) {
+        gates.insert(Gate::UiPreview);
+    }
     Selection {
         gates: gates.into_iter().collect(),
         broadened: None,
@@ -127,9 +130,9 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
         }
-    } else if within(path, "packages/design-tokens") {
+    } else if within(path, "packages/ui-system") {
         if !is_doc {
-            impact.apps.insert(App::Studio);
+            impact.packages.insert(UI_PACKAGE.to_owned());
         }
     } else if let Some(package) = graph.owner(path) {
         if path != format!("{}/README.md", package.dir) {
@@ -166,6 +169,9 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
 
 fn classify_script(script: &str, impact: &mut Impact) {
     match script {
+        "ui_tokens.py" | "ui_icons.py" | "studio_tokens.py" => {
+            impact.packages.insert(UI_PACKAGE.to_owned());
+        }
         "reference_script_ir.py" => {
             impact.gates.insert(Gate::ScriptIrReference);
         }
@@ -187,7 +193,6 @@ fn classify_script(script: &str, impact: &mut Impact) {
         }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
-        | "studio_tokens.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
         | "serve_studio.py" => {}
@@ -218,7 +223,7 @@ mod tests {
             ".agents/skills/cantos-engineering/SKILL.md",
             "services/cantos-api/README.md",
             "packages/contracts/adaptation-v1.md",
-            "packages/design-tokens/README.md",
+            "packages/ui-system/README.md",
             ".github/pull_request_template.md",
             "docs/evidence/casting-production-read-results.json",
         ]);
@@ -305,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn theatre_and_design_token_changes_select_their_web_client() {
+    fn theatre_changes_select_their_web_client() {
         assert_eq!(
             names(&pick(&["apps/cantos/web/index.html"])),
             [
@@ -315,15 +320,6 @@ mod tests {
                 "rust-tests (cantos-theatre)",
                 "web-lint (cantos)",
                 "web-build (cantos)",
-            ]
-        );
-        assert_eq!(
-            names(&pick(&["packages/design-tokens/studio-tokens-0.1.0.json"])),
-            [
-                "repository",
-                "rust-format",
-                "web-lint (cantos-studio)",
-                "web-build (cantos-studio)",
             ]
         );
     }
@@ -344,7 +340,7 @@ mod tests {
         assert_eq!(
             names(&pick(&[
                 "scripts/test_check_repository.py",
-                "scripts/studio_tokens.py"
+                "scripts/test_ui_tokens.py"
             ])),
             ["repository", "rust-format"]
         );
@@ -366,5 +362,35 @@ mod tests {
         assert!(within("xtask", "xtask"));
         assert!(!within("apps/cantos-studio/web/x", "apps/cantos"));
         assert!(!within("xtaskish/a", "xtask"));
+    }
+
+    #[test]
+    fn shared_ui_inputs_reach_both_web_consumers_and_the_gallery() {
+        for path in [
+            "packages/ui-system/shared/tokens.json",
+            "packages/ui-system/shared/icons/material-outlined/manifest.json",
+            "packages/ui-system/leptos/foundation.css.in",
+            "packages/ui-system/leptos/src/fields.rs",
+            "scripts/ui_tokens.py",
+            "scripts/ui_icons.py",
+            "scripts/studio_tokens.py",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-studio, cantos-theatre, cantos-ui)",
+                    "rust-tests (cantos-studio, cantos-theatre, cantos-ui)",
+                    "web-lint (cantos-studio, cantos)",
+                    "web-build (cantos-studio)",
+                    "web-build (cantos)",
+                    "ui-preview",
+                ],
+                "{path}"
+            );
+        }
     }
 }

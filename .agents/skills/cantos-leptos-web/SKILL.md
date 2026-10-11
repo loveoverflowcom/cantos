@@ -50,10 +50,11 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Ground rules
 
-- **Repository reality.** Studio Web (implemented) and Theatre Web (skeleton) are Leptos CSR
-  packages built with Trunk. Build, serve and verify them only through
-  [`cargo xtask`](../../../xtask/README.md) (`build|run|app <app> --web`, `verify web`); no Web test
-  harness exists. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
+- **Repository reality.** Studio Web, the Theatre Web skeleton and the shared `cantos-ui`
+  foundation are Leptos CSR packages built with Trunk. Build, serve and verify Web through
+  [`cargo xtask`](../../../xtask/README.md) (`build|run|app <app> --web`, `verify web`);
+  native component examples and a development gallery exist, while an automated browser test
+  harness does not. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.

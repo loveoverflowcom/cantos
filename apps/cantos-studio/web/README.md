@@ -103,11 +103,14 @@ receipt. Revision conflicts require a new reviewed run against the current base.
 
 ## Tokens and evidence
 
-`packages/design-tokens/studio-tokens-0.1.0.json` is the versioned source of semantic light/dark
-colors and logical dimensions. Generate CSS with `python3 scripts/studio_tokens.py`; verify
-drift with `python3 scripts/studio_tokens.py --check`. System/light/dark selection changes
-only this page. System fonts retain Vietnamese diacritics; no downloaded font is bundled.
-CMP mapping is deferred until its real runtime exists.
+[`packages/ui-system/shared/tokens.json`](../../../packages/ui-system/shared/tokens.json) is the
+canonical v0.2.0 light/dark source. Studio links generated shared token CSS directly and uses
+`cantos_ui::Theme` under `.studio-shell.cantos-ui`; system/light/dark selection stays scoped.
+Generate with `python3 scripts/ui_tokens.py`; append `--check` for drift. The old
+`scripts/studio_tokens.py` CLI forwards to it. The [migration](../../../docs/architecture/ui-system-migration.md)
+records retained role names and intentional value changes. Noto family names keep system/local
+fallbacks; no downloaded font is bundled. CMP mapping remains deferred. Shared component
+integration follows in the [UI sequence](../../../docs/work-plan/015-leptos-ui-system.md).
 
 [Browser observations](../../../docs/evidence/script-revision-persistence.md#browser-observations)
 separate real keyboard/read/save and inspected captures from pure reducer tests and compilation.
@@ -167,3 +170,22 @@ checks from actual browser interaction and inspected viewport/zoom captures.
 Recorded rights assertions are not legal verification. This interface creates no real provider
 account, terms acceptance, payment, generation request or audio; no cloning/real-person voice is
 implied by synthetic labels. The former local generation prerequisite is superseded.
+
+## Shared UI consumer
+
+The shell uses `cantos-ui` root/container, native fields, pane selection, feedback and revision/
+casting actions. Studio's [`ui.rs`](src/ui.rs) owns presentation adapters and localized reasons;
+it infers no permissions. FormSubmit keeps native Enter/form submission while each form retains
+its original guard. Workspace panes remain mounted, preserving session drafts. Explicit revision
+discard uses the controlled native Dialog; Escape/cancel preserve the draft. Other existing
+navigation/discard paths keep their browser confirmations.
+
+Buffered authoring/casting fields retain native NodeRefs, IME and commit/undo behavior, using
+shared FieldLabel/FieldError and `cui-field-control` anatomy. Casting Select preserves PR29's
+memoized options, provider/model switching, reactive bounds and full unsupported values. Neutral
+0/inherit remain separate. The default comfortable density selects canonical 48px control targets;
+app panes retain compact spacing. See the [consumer map and evidence](../../../docs/evidence/ui-system-integration.md).
+
+Native consumer anatomy tests run with `cargo test -p cantos-studio -p cantos-theatre -p cantos-ui --locked`.
+They serialize real presentation adapters to HTML; they do not exercise browser events or IME.
+SSR is a native test feature only. Browser builds remain CSR.

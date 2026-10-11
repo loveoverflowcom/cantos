@@ -2,8 +2,11 @@
 
 `cantos-theatre` is a Leptos 0.7.8 CSR/WASM crate that mounts one page saying that no catalog,
 account or playback exists. It is a build target and a location, **not** a Theatre feature: it has
-no API client, player, tokens or styling, and it must not be cited as evidence for any listening
-work item.
+no API client or player, and it must not be cited as evidence for any listening
+work item. It consumes `cantos-ui` for the themed shell, native appearance selector and explicit
+empty state; [integration evidence](../../../docs/evidence/ui-system-integration.md) separates
+compile/native-string checks from unrun browser observations. Both themes use canonical roles
+and the comfortable density (48px control target); measured browser bounds remain pending.
 
 ## Build
 
