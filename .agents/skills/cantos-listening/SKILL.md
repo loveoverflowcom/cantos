@@ -184,7 +184,7 @@ Foundation techniques these references build on:
 ## Decoupling map
 
 ```text
-contracts/ (schema, fixtures, player vectors, conflict tables)   ← reviewed spec, no code
+packages/contracts/ (schema, fixtures, player vectors, conflict tables)   ← reviewed spec, no code
         ↑ generated or drift-checked from
 backend listening module      reads the active release via cantos-publication; never imports
         ↑                     production orchestration, provider ports or job enqueue APIs

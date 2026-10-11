@@ -44,7 +44,12 @@ side in the same change when it is in scope.
 ## Repository reality
 
 Cantos implements Script IR validation, authenticated PostgreSQL revisions and a minimal
-Leptos Studio; inspect [the server guide](../../apps/server/README.md) and current contracts/code.
+Leptos Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
+[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos` (Theatre) and
+`apps/cantos-studio` (Studio), each with `web` and `mobile`, one backend in `services/cantos-api`,
+Kanidm configuration in `services/kanidm` and shared `packages/`; read the
+[repository layout](../../docs/architecture/repository-layout.md) for which parts are implemented,
+skeletons or only reserved. Theatre Web is a skeleton and both mobile apps are guides.
 Bounded local manuscript import is implemented. Mobile, AI adaptation and production execution remain planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run. The

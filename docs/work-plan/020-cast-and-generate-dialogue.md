@@ -10,7 +10,7 @@ Add Studio casting and freeze the selected voice, versioned performance/pronunci
 model and supported controls against one accepted script revision. Production authorization
 binds that exact input scope, applicable rights records and budget policy; draft edits cannot
 change an existing snapshot. A frozen candidate and eligibility for billable work are separate
-facts. The [production input contract](../../contracts/production-v1.md) and
+facts. The [production input contract](../../packages/contracts/production-v1.md) and
 [casting evidence](../evidence/casting-production-inputs.md) describe the implemented and
 locally verified #5 slice, including real PostgreSQL/HTTP recovery and observed Studio
 freeze/approval/stale-input behavior. GitHub owns acceptance and execution status.

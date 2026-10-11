@@ -6,6 +6,10 @@ Read [README.md](README.md), the relevant product/architecture docs and [docs/wo
 
 The current user's instructions take priority. Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
 
+## Repository layout
+
+`apps/cantos/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/{web,mobile}` is Cantos Studio (creators), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, and `packages/` holds shared contracts and design tokens. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
+
 ## Architecture boundaries
 
 - Begin with a modular monolith; add a service, crate or generic abstraction only for a concrete consumer and reviewed need.
@@ -50,7 +54,7 @@ bounded validator/encoder mutation checks. WAV inspection changes also require
 `python3 scripts/reference_wav_inspection.py` after `cargo build --locked --bin inspect-wav`.
 The local revision slice additionally requires `python3 scripts/test_postgres.py` with PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`,
 `cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings`, and
-`NO_COLOR=true trunk build --locked` from `apps/web`. PostgreSQL checks must create a new
+`NO_COLOR=true trunk build --locked` from `apps/cantos-studio/web` (and `apps/cantos/web` for the Theatre skeleton, with `-p cantos-theatre` in the clippy command). PostgreSQL checks must create a new
 disposable cluster; never substitute a production or inherited database URL. Studio runtime
 interaction/accessibility evidence is separate from the WASM build; no mobile runtime gate exists.
 On affected macOS temporary-path setups, use

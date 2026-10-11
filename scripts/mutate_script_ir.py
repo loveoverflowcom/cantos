@@ -75,7 +75,7 @@ MUTANTS = (
 
 def run(workspace, env):
     return subprocess.run(
-        ["cargo", "test", "-p", "cantos-server", "--offline", "--locked", "--test", "script_ir"],
+        ["cargo", "test", "-p", "cantos-api", "--offline", "--locked", "--test", "script_ir"],
         cwd=workspace,
         env=env,
         stdout=subprocess.PIPE,
@@ -87,7 +87,7 @@ def run(workspace, env):
 
 
 def main():
-    module = ROOT / "apps/server/src/script_ir"
+    module = ROOT / "services/cantos-api/src/script_ir"
     for name in ("validation.rs", "canonical.rs", "mod.rs", "wire.rs"):
         print(f"input {name}: {hashlib.sha256((module / name).read_bytes()).hexdigest()}", flush=True)
     with tempfile.TemporaryDirectory(prefix="cantos-script-ir-mutations-") as temp:
@@ -95,11 +95,10 @@ def main():
         workspace.mkdir()
         for name in ("Cargo.toml", "Cargo.lock"):
             shutil.copy2(ROOT / name, workspace / name)
-        shutil.copytree(ROOT / "apps/server", workspace / "apps/server")
-        # Cargo resolves every workspace manifest, even for a package-scoped test.
-        # Keep the new concrete Web consumer, without copying its generated bundle.
-        shutil.copytree(ROOT / "apps/web", workspace / "apps/web", ignore=shutil.ignore_patterns("dist"))
-        shutil.copytree(ROOT / "contracts", workspace / "contracts")
+        # Cargo resolves every workspace manifest, even for a package-scoped test, so each
+        # member is copied without generated bundles.
+        for member in ("services/cantos-api", "apps/cantos/web", "apps/cantos-studio/web", "packages/contracts"):
+            shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         baseline = run(workspace, env)
         summary = f"test result: ok. {EXPECTED_CONTRACT_TESTS} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
@@ -108,7 +107,7 @@ def main():
         print(f"baseline: passed ({EXPECTED_CONTRACT_TESTS} tests)", flush=True)
         counts = dict(killed=0, survived=0, timeout=0, unviable=0)
         for label, filename, needle, replacement in MUTANTS:
-            target = workspace / "apps/server/src/script_ir" / filename
+            target = workspace / "services/cantos-api/src/script_ir" / filename
             original = target.read_text(encoding="utf-8")
             if original.count(needle) != 1:
                 raise SystemExit(f"Mutation target changed: {label}")

@@ -276,7 +276,7 @@ def production_before_restart(env, port, token, app_url):
         "original_bytes": list(source_bytes)}
     source = http(port, token, "/api/v1/imports", import_request)
     assert source["sha256"] == hashlib.sha256(source_bytes).hexdigest()
-    document = json.loads((ROOT / "contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json").read_text())
+    document = json.loads((ROOT / "packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json").read_text())
     document["provenance"][0]["source_record_id"] = source["id"]
     # NFD input is normalized by the real accepted export; an astral scalar is one unit.
     document["episode"]["acts"][0]["scenes"][0]["dialogues"][1]["text"] = "Nga\u0300y mai, mình có diễn tiếp không? 🎭"

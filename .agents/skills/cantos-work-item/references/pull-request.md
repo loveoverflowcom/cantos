@@ -25,7 +25,7 @@ Never in a commit, even in a fixture or a test:
 |---|---|---|
 | provider credentials, tokens, `.env` values | copied into a test or example config | search the staged diff for keys, `Authorization`, `Bearer`, `secret`, `token` |
 | signed URLs | pasted from a log into a fixture or doc | search for signature query parameters and expiring URLs |
-| private manuscripts, real personal data | "realistic" fixture text | fixtures are original or permitted, like [the example episode](../../../../contracts/examples/episode-draft.json) |
+| private manuscripts, real personal data | "realistic" fixture text | fixtures are original or permitted, like [the example episode](../../../../packages/contracts/examples/episode-draft.json) |
 | generated audio, downloaded media | test output beside the source | `git check-ignore -v <file>`; [`.gitignore`](../../../../.gitignore) covers common audio extensions and `/artifacts/`, not every media type |
 | screenshots with private content | evidence copied into `docs/` | evidence stays under the ignored `artifacts/` tree and is attached, not committed |
 

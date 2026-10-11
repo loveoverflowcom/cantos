@@ -19,7 +19,7 @@ The invariant is that documented provider capabilities cannot become billable el
 publication rights without exact input, provider, voice, rights and cost evidence. The owning
 rules remain in the [production pipeline](../product/production-pipeline.md),
 [business rules](../product/business-rules.md) and
-[production input contract](../../contracts/production-v1.md). This record adds no competing
+[production input contract](../../packages/contracts/production-v1.md). This record adds no competing
 authorization system.
 
 ## Selected local inspection engine

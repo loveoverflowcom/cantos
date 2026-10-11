@@ -20,7 +20,7 @@
   ],
   "fixtures": {
     "episode": {
-      "source": "contracts/examples/episode-draft.json",
+      "source": "packages/contracts/examples/episode-draft.json",
       "rights_status": "pending_review",
       "title": "Một lời hẹn",
       "work": "Ánh đèn cuối sân khấu",
