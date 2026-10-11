@@ -10,12 +10,13 @@ work item.
 Requires Rust 1.87 with `wasm32-unknown-unknown` and Trunk 0.21.14, as for [Studio](../../cantos-studio/web/README.md).
 
 ```sh
-cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
-cd apps/cantos/web
-NO_COLOR=true trunk build --locked
+cargo xtask build cantos --web   # NO_COLOR=true trunk build --locked in this directory
+cargo xtask verify web           # WASM clippy plus Trunk builds of Studio and Theatre
 ```
 
-`trunk serve` listens on 127.0.0.1:8082; there is no backend proxy because no listener API exists.
+`cargo xtask run cantos --web` serves it with `trunk serve` on 127.0.0.1:8082; there is no backend
+proxy because no listener API exists. `--mobile` is `UNSUPPORTED` until `apps/cantos/mobile` has
+a Gradle project.
 
 ## Before building the listener experience
 

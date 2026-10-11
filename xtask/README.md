@@ -1,0 +1,217 @@
+# Cantos xtask
+
+`cargo xtask` is the repository-level command surface for building, running and verifying Cantos.
+It is a workspace member (`xtask/`) invoked through the alias in [`.cargo/config.toml`](../.cargo/config.toml),
+and it finds the repository root from its own manifest, so it behaves the same from any directory.
+
+> **Single Surface Rule.** Repository-level operations go through `cargo xtask`. Scripts and
+> external tools are implementation primitives, not competing orchestration interfaces.
+
+The architecture follows VOT Workspace's xtask (typed targets, plan-then-execute, a pure
+changed-path selector, one CI contract), scaled down to what Cantos actually implements.
+The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surface.md).
+
+## Ownership boundaries
+
+| Layer | Owns |
+| --- | --- |
+| Cargo, rustup, Trunk, Python 3, Git, PostgreSQL binaries | Primitive tool execution |
+| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and the test-cluster Studio host. Their logic is reused, not rewritten |
+| `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
+| GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
+
+xtask does not install toolchains, provision databases, start Kanidm, call TTS or adaptation
+providers, download models, create cloud resources, publish or deploy.
+
+## Commands
+
+```sh
+cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
+cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
+cargo xtask build cantos --web [--release]         # trunk build --locked in apps/cantos/web
+cargo xtask build all [--release]                  # the API and both Web clients
+
+cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
+cargo xtask run cantos-studio --web [--test-cluster] [--open]
+cargo xtask run cantos --web [--open]
+cargo xtask app cantos-studio --web [--open]
+cargo xtask app cantos --web [--open]
+
+cargo xtask verify repository|rust|web|contracts|mutation
+cargo xtask verify postgres [--keep]
+
+cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
+cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
+cargo xtask doctor
+```
+
+`cargo xtask <command> --help` documents every flag.
+
+### Targets, surfaces and profiles
+
+`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) and `cantos` (Theatre,
+listeners) are products with a `--web` and a `--mobile` surface; one must be named. `--mobile` is
+an extension point: both mobile directories are guides without a Gradle project, so it is
+refused as `UNSUPPORTED` rather than simulated. `build all` covers the API and both Web clients
+and notes that mobile and `services/kanidm` (configuration only) are not built.
+
+`dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
+produces an optimized local artifact. It is not a production image, a signed bundle or a
+deployment; none of those exist yet.
+
+Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
+inherited `NO_COLOR=1`).
+
+### run and app
+
+| Command | Starts | Requires |
+| --- | --- | --- |
+| `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
+| `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
+| `run cantos --web`, `app cantos --web` | `trunk serve` for the Theatre skeleton on 8082 | nothing; no listener API exists |
+| `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+
+`--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
+retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask
+never reads, prints or invents a database URL. It sets `CANTOS_ENV=development` and the loopback
+bind address; the server itself refuses anything else.
+
+Process lifecycle:
+
+- Preconditions are checked before any build: required variables and files, tools, and that
+  every port is free. A taken port fails with an explanation; xtask never stops a process it did
+  not start, and never looks processes up by port or name.
+- Each service starts in its own process group with inherited output. Readiness is a TCP accept
+  for the API and an HTTP 200 containing the app's `<title>` for Trunk (up to 15 minutes for the
+  first WASM build). A process that exits before readiness fails the command.
+- Ctrl-C, SIGTERM or SIGHUP stops every started group, newest first: SIGINT (graceful for Axum and
+  Trunk), then SIGKILL after 10 seconds. If any service exits by itself, the others are stopped and
+  the command fails.
+- If xtask itself is killed with SIGKILL its children survive; the next run finds their ports taken
+  and refuses to start. `--open` uses `xdg-open` or `open` after readiness.
+
+The Trunk development proxy is a convenience. The browser walkthroughs recorded in
+`docs/evidence/` used the API serving `apps/cantos-studio/web/dist` same-origin; do not cite a
+`trunk serve` session as that evidence.
+
+### Verification gates
+
+Every check is a gate with declared prerequisites; `verify`, `preflight` and `ci` select from the
+same catalog in [`gate.rs`](src/gate.rs).
+
+| Gate | Commands | Needs |
+| --- | --- | --- |
+| `repository` | `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | python3, git |
+| `rust-format` | `cargo fmt --all -- --check` | rustfmt |
+| `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
+| `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
+| `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
+| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
+| `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
+| `web-lint` | `cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings` | clippy, wasm32 target |
+| `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
+| `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
+| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
+
+| `verify` suite | Gates |
+| --- | --- |
+| `repository` | repository |
+| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
+| `web` | web-lint, web-build for Studio and Theatre |
+| `contracts` | script-ir-reference, contract-tests, wav-reference |
+| `mutation` | mutation |
+| `postgres` | postgres |
+
+The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
+new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
+with `TMPDIR=/private/tmp`.
+
+### Outcome vocabulary
+
+Multi-step commands end with a summary:
+
+| Status | Meaning | Exit |
+| --- | --- | --- |
+| `PASS` | ran and succeeded | success |
+| `FAIL` | ran, or could not start, and failed | failure |
+| `NOT_RUN` | selected but not executed: skipped with `--skip`, stopped by an earlier failure, or blocked by another step's missing prerequisite | success only when explicitly skipped and another step passed |
+| `UNSUPPORTED` | cannot run here: a tool is missing, or the target has no implementation (mobile) | failure |
+
+Prerequisites of every selected step are checked before the first one runs, so a long run never
+ends with a surprise missing tool. Execution stops at the first failure. In the engineering skill's
+reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN` is `not-run` and
+`UNSUPPORTED` is `unavailable`. Usage errors exit with status 2.
+
+### preflight
+
+`cargo xtask preflight` runs every gate. `--changed-only` compares the working tree with the merge
+base of `--base` (default `origin/develop`): committed, staged, unstaged and untracked paths, with
+both ends of a rename. A missing base fails before any gate runs. `--dry-run` prints the plan.
+
+Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conservative:
+
+- `repository` and `rust-format` always run.
+- A path inside a Cargo package selects that package and, through `cargo metadata`, every package
+  that depends on it (`rust-lint`/`rust-tests` with `-p`). A package's top-level `README.md` is a
+  document. All of `packages/contracts` (fixtures, schemas, examples and the DTO crate) is an input
+  of `cantos-contracts` and its dependents; only its non-fixture Markdown is documentation.
+- An affected Web package or `packages/design-tokens` selects `web-lint`/`web-build` for that client.
+  An affected `cantos-api` selects `wav-reference` and `postgres`.
+- Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
+- Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
+  are `cantos-api` inputs.
+- Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
+  and mobile guides are noted as having no executable gate.
+- Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
+  verification tooling (`xtask/`, `.github/workflows/`), a non-document mobile file, an
+  unclassified path or an empty change set select every gate.
+
+`--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
+`NOT_RUN`, never `PASS`. Use it, for example, for `postgres` on a machine without PostgreSQL, and
+state it in the pull request.
+
+### ci
+
+| Job | Gates |
+| --- | --- |
+| `repository` | repository, script-ir-reference |
+| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), wav-reference |
+| `web` | web-lint, web-build (Studio and Theatre) |
+| `postgres` | `cargo fetch --locked`, then postgres |
+
+`cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
+runs one per GitHub job with `RUSTUP_TOOLCHAIN=1.87.0`. CI has no `--skip`. Every full-preflight gate
+runs in CI except `mutation`, which stays opt-in through `verify mutation` and is selected by
+preflight when Script IR sources change. Branch protection and required checks are configured
+outside this repository.
+
+### doctor
+
+Reports the selected `rustc` against the pinned 1.87, each tool and its version, which gates can
+run here, the unsupported mobile surfaces and Kanidm's configuration-only status. It exits with
+failure only when Cargo, Git or Python 3 is missing.
+
+## Code layout
+
+| Module | Responsibility |
+| --- | --- |
+| `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |
+| `workspace.rs`, `config.rs` | root discovery; ports, packages, directories and versions, checked against the repository by tests |
+| `command.rs` | immutable `CommandSpec` values and the `Runner` abstraction |
+| `tools.rs` | tool detection behind `ToolProbe` |
+| `pipeline.rs`, `report.rs` | prerequisite checks, sequential execution and the summary |
+| `gate.rs`, `build.rs`, `ci.rs` | gate catalog, build plans and CI jobs |
+| `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
+| `preflight/` | Git change collection, the Cargo package graph and pure selection |
+| `doctor.rs` | read-only environment report |
+
+Plans are values: tests assert exact commands with a recording runner and fake tools, while
+process tests start and stop real `sh` and `python3` children. Run them with
+`cargo test -p xtask --locked` (part of `verify rust`).
+
+## Adding a capability
+
+Add a command only for an implemented, reviewed capability. A mobile surface becomes a plan when
+a Gradle project exists (a `config.rs` test fails when one appears). A new script becomes a gate
+in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
+in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure.

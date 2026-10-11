@@ -19,20 +19,22 @@ From the repository root:
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain 1.87.0
-cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings
-cd apps/cantos-studio/web
-NO_COLOR=true trunk build --locked
+cargo xtask build cantos-studio --web   # NO_COLOR=true trunk build --locked in this directory
+cargo xtask verify web                  # WASM clippy plus Trunk builds of Studio and Theatre
 ```
 
 Trunk fetches its matching wasm-bindgen helper on its first build. An offline build requires
 that helper on `PATH` as well as the Cargo cache; the Mac run used
 `~/Library/Caches/dev.trunkrs.trunk/wasm-bindgen-0.2.100`. Generated `dist/` is ignored.
 Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-api/README.md).
-The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`.
+The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`; today
+`cargo xtask run cantos-api --test-cluster` starts that same primitive after
+`cargo xtask verify postgres --keep`.
 
-`Trunk.toml` also declares an optional 8081 development proxy to 8080. If using
-`trunk serve --locked`, explicitly set the backend's `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`.
-That proxy mode was not used as browser evidence.
+`Trunk.toml` also declares an optional 8081 development proxy to 8080.
+`cargo xtask run cantos-studio --web` starts the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`
+and then `trunk serve --locked`; `cargo xtask app cantos-studio --web` starts only Trunk against an
+API that is already listening. That proxy mode was not used as browser evidence.
 
 ## Interaction and ownership
 

@@ -216,13 +216,16 @@ verifier output; report only what a tool actually printed.
 
 | Tier | What runs |
 |---|---|
-| Every change today | `python3 scripts/check_repository.py`, `python3 -m unittest discover -s scripts -p 'test_*.py'`, `git diff --check` |
-| Every code change, once manifests exist | the formatter, linter and focused tests of each touched toolchain, plus the cheapest regression per behavior change |
+| Every change today | `cargo xtask verify repository` (repository checks, Python unit tests, `git diff --check`) |
+| Every code change | the focused test first, then `cargo xtask preflight --changed-only`, which selects fmt, clippy, tests, contracts, Web, mutation and PostgreSQL gates from the diff and broadens when impact is uncertain; plus the cheapest regression per behavior change |
 | Pipeline / publication change | fault-injected crash, retry, duplicate-delivery and stale-revision cases at the changed step |
 | UI change | the renderer skill's evidence loop: driven flow, inspected captures, viewports, themes, Vietnamese text, focus, text scaling |
 | Phase exit | the work plan's [review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence) with live and mocked evidence labeled separately |
 
-Report every slow or unavailable gate on the residual-risk line, never by omission.
+Repository-level checks go through [`cargo xtask`](../../../xtask/README.md); scripts are its
+primitives. Report each gate as xtask printed it (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`, which
+map to `passed`, `failed`, `not-run`, `unavailable`). Report every slow, skipped or unavailable
+gate on the residual-risk line, never by omission.
 
 ## 8. Clean syntax and formatting before completion
 
