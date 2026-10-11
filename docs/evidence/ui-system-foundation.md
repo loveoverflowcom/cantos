@@ -53,7 +53,7 @@ are retained with local/system fallbacks; embedded font/art distribution rights 
 VOT develop was read at `f3fea641a5fd226b883c4e32224ad8c97b8323f0`, including its actual
 `ui-system/primitives/{styles,leptos,cmp}` and `ui-system/workspace` icon boundary. VOT's CSS
 canonical source/native parser/palette/layer graph are not copied. The
-[decision](../decisions/0013-ui-system-foundation.md) records the smaller Cantos choice.
+[decision](../decisions/0014-ui-system-foundation.md) records the smaller Cantos choice.
 
 ## Executed checks
 

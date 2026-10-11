@@ -13,6 +13,8 @@
 | [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
 | [Restructure evidence](evidence/monorepo-restructure.md) | Checks run for the monorepo reorganization and what remains unverified |
 | [xtask evidence](evidence/unified-xtask.md) | Commands run for the `cargo xtask` surface, with PASS, NOT_RUN and UNSUPPORTED results |
+| [Wire codec](architecture/wire-codec.md) | JSON and optional MessagePack representations: route scope, negotiation, limits, errors, client switch and rollback |
+| [MessagePack wire evidence](evidence/messagepack-wire.md) | Goldens, parity and hostile-input tests, native/WASM codec timings, bundle sizes, browser runs and unrun PostgreSQL checks |
 | [Script IR](architecture/script-ir.md) | Versioned interchange and reuse without project coupling |
 | [Script IR evidence](evidence/script-ir-contract.md) | Executed contract checks and unrun application gates |
 | [Final revision sequence review](evidence/script-revision-final-review.md) | Independent findings, fixes, final local checks and remaining runtime limits |
@@ -42,7 +44,8 @@
 | [Decision 0010](decisions/0010-local-neural-tts-research.md) | Proposed VieNeu Nano research selection; production dispatch disabled |
 | [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
 | [Decision 0012](decisions/0012-xtask-command-surface.md) | `cargo xtask` as the single build, run and verification surface; CI runs its jobs |
-| [Decision 0013](decisions/0013-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
+| [Decision 0013](decisions/0013-optional-messagepack-wire.md) | Optional MessagePack beside JSON on four Studio routes; the Studio ships JSON until revisit conditions hold |
+| [Decision 0014](decisions/0014-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

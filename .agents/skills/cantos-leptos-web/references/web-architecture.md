@@ -41,9 +41,10 @@ resource / action    owns one remote read or one mutation: states, stale guard, 
     ↓
 port (trait)         capability the screen needs, provided through Leptos context
     ↓
-HTTP adapter         URLs, generated contract DTOs, status → typed PortError, retries executed
+HTTP adapter         URLs, contract DTOs, representation (wire codec), status → typed PortError
     ↓
-contract types       generated from packages/contracts/ (OpenAPI / JSON Schema), never hand-copied
+contract types       cantos-contracts raw DTOs shared with the server and checked against the
+                     packages/contracts fixtures; never hand-copied into the client
 ```
 
 | Layer | Owns | Must not own |
@@ -51,7 +52,7 @@ contract types       generated from packages/contracts/ (OpenAPI / JSON Schema),
 | Component | markup, local element state (open menu, focus), localized text lookup, token classes | URLs, DTOs, HTTP status codes, provider error text, retry loops, durable rules |
 | Resource / action | `Idle/Loading/Ready/Empty/Failed`, request keys, duplicate-submit behavior | transport details, permission policy |
 | Port | a narrow trait named for the job: `ScriptPort`, `CastingPort`, `ProductionPort`, `CatalogPort`, `PlaybackAccessPort`, `ProgressPort` | vendor names, `reqwest`/`gloo` types in signatures |
-| HTTP adapter | request building, auth header/cookie, DTO ↔ view-model mapping, `PortError` classification | rendering, Leptos signals |
+| HTTP adapter | request building, auth header/cookie, codec headers and body bytes, DTO ↔ view-model mapping, `PortError` classification | rendering, Leptos signals, codec fallback or retry |
 | Pure core crate | validation, reducers, merge, retry and poll decisions, progress reconciliation | `web-sys`, Leptos, async runtime, I/O |
 
 ```rust
@@ -110,12 +111,13 @@ browser. It must not pull in `tokio`, SQL clients, Axum, provider SDKs or object
 
 | Rule | Oracle | Status |
 |---|---|---|
-| Web depends on pure core crates and generated contract types only, never on backend application or infrastructure crates | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
-| DTOs live in the adapter and map to view-model types | adapter contract test against fixtures generated from `packages/contracts/` | proposed; see [`packages/contracts/README.md`](../../../../packages/contracts/README.md) |
+| Web depends on pure core crates and `cantos-contracts` only, never on backend application or infrastructure crates | manifest review; `cargo tree --target wasm32-unknown-unknown -e normal` shows no server-only crate (proposed check) | manual until a dependency check exists |
+| DTOs live in the adapter and map to view-model types | host tests decode the shared `packages/contracts/` fixtures (Studio `wire.rs`, adaptation tests) | partial; see [`packages/contracts/README.md`](../../../../packages/contracts/README.md) |
 | A new crate needs a consumer and a reason to change of its own | review against [decision 0001](../../../../docs/decisions/0001-modular-monolith.md) | always |
 
-Generated client types follow the foundation's [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md).
-Hand-maintained DTOs that mirror server structs are the drift this rule prevents.
+Shared DTOs follow the foundation's [`http-api-boundary.md`](../../cantos-engineering/references/http-api-boundary.md);
+a second representation follows [`wire-codec.md`](../../cantos-engineering/references/wire-codec.md).
+A client-side copy of a server struct is the drift this rule prevents.
 
 ## 5. Secrets and private media never reach browser code
 
@@ -181,7 +183,7 @@ packages/                         code both apps really use; nothing Web-side is
 ```
 
 Each package also gets `platform/` (web-sys helpers: media, storage, clipboard, dialog, visibility),
-`adapters/` (HTTP adapters per port over `cantos-contracts` and generated contract types) and
+`adapters/` (HTTP adapters per port over `cantos-contracts`) and
 `i18n/` (locale resources and message keys) when it needs them. `ui/` primitives (button, chip,
 dialog, field) move to `packages/` only once both apps have a real consumer; until then each app
 owns its own. Studio and Theatre never share a route tree, session context or permission context.
@@ -200,10 +202,12 @@ job tracking) a pure reducer in a core crate and a thin Leptos layer over it.
 | Focus after client-side navigation | router integration | move focus to the new page heading or main region and update the title ([`dom-and-media-interop.md`](dom-and-media-interop.md)) |
 | Localized strings | [`localization.md`](../../cantos-ui-design/references/localization.md) | no string literals in `view!`; error text comes from typed error → message key |
 
-## 9. SSR versus CSR is an open decision
+## 9. CSR today; SSR needs a decision
 
-The rendering mode is not decided. Record it with [`templates/adr.md`](../../../../templates/adr.md)
-before the first Web package lands; do not assume Trunk, `cargo-leptos` or server functions.
+Both packages are client-side rendered and built with Trunk: Studio is implemented, Theatre is a
+skeleton. Moving any surface to server rendering (for example Theatre discovery) needs a decision
+recorded with [`templates/adr.md`](../../../../templates/adr.md) first; do not add `cargo-leptos`
+or server functions without it.
 
 | Concern | Client-side rendering | Server rendering + hydration |
 |---|---|---|
@@ -214,8 +218,8 @@ before the first Web package lands; do not assume Trunk, `cargo-leptos` or serve
 | Delivery | static assets behind the CDN | a Rust process renders pages |
 
 A hybrid (server-rendered Theatre, client-rendered Studio) is a legitimate option to evaluate.
-Until the ADR exists, write code that works under both: no `window()` or `document()` in a
-component body, browser APIs only inside effects and `platform/` helpers.
+Keep that option open: no `window()` or `document()` in a component body, browser APIs only inside
+effects and `platform/` helpers.
 
 ## 10. Performance order
 

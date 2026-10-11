@@ -1,7 +1,7 @@
 //! Real boundary tests. Only the disposable-cluster runner enables these ignored tests.
 use axum::{
     body::Body,
-    http::{Request, StatusCode},
+    http::{HeaderMap, Request, StatusCode},
     Router,
 };
 use cantos_api::{
@@ -9,8 +9,13 @@ use cantos_api::{
     postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };
-use cantos_contracts::{RevisionResponse, SaveRevisionRequest};
+use cantos_contracts::{
+    wire::{decode, encode, WireFormat},
+    ReviewRequest, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
+    ValidateScriptRequest,
+};
 use http_body_util::BodyExt;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 use std::{
     env, fs,
@@ -147,6 +152,117 @@ impl Harness {
         };
         validate_response(&value, definition);
         (status, value)
+    }
+}
+
+const MSGPACK: &str = "application/msgpack";
+
+/// One exchange with explicit representation headers; every API response keeps its headers.
+struct Exchange {
+    status: StatusCode,
+    headers: HeaderMap,
+    body: Vec<u8>,
+}
+
+impl Exchange {
+    /// A MessagePack success with the negotiated headers, decoded as `T`.
+    fn packed<T: DeserializeOwned>(&self) -> T {
+        assert_eq!(
+            self.status,
+            StatusCode::OK,
+            "{:?}",
+            String::from_utf8_lossy(&self.body)
+        );
+        assert_eq!(self.headers["content-type"], MSGPACK);
+        assert_eq!(self.headers["vary"], "accept");
+        decode(WireFormat::MessagePack, &self.body).unwrap()
+    }
+
+    /// Every failure stays a JSON ApiError, whatever the request asked for.
+    fn error(&self, status: StatusCode) -> Value {
+        assert_eq!(self.status, status);
+        assert_eq!(self.headers["content-type"], "application/json");
+        let value: Value = serde_json::from_slice(&self.body).unwrap();
+        validate_response(&value, "ApiError");
+        value
+    }
+}
+
+fn packed<T: Serialize>(value: &T) -> Vec<u8> {
+    encode(WireFormat::MessagePack, value).unwrap()
+}
+
+impl Harness {
+    async fn exchange(
+        &self,
+        origin: &str,
+        method: &str,
+        path: &str,
+        token: Option<&str>,
+        (content_type, accept): (Option<&str>, Option<&str>),
+        body: Vec<u8>,
+    ) -> Exchange {
+        let mut request = Request::builder()
+            .method(method)
+            .uri(format!("/api/v1{path}"))
+            .header("origin", origin);
+        for (name, value) in [("content-type", content_type), ("accept", accept)] {
+            if let Some(value) = value {
+                request = request.header(name, value);
+            }
+        }
+        if let Some(token) = token {
+            request = request.header("cookie", format!("cantos_session={token}"));
+        }
+        let response = self
+            .app
+            .clone()
+            .oneshot(request.body(Body::from(body)).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+        Exchange {
+            status: response.status(),
+            headers: response.headers().clone(),
+            body: response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        }
+    }
+
+    async fn msgpack(
+        &self,
+        method: &str,
+        path: &str,
+        token: Option<&str>,
+        body: Vec<u8>,
+    ) -> Exchange {
+        let content_type = (!body.is_empty()).then_some(MSGPACK);
+        self.exchange(
+            ORIGIN,
+            method,
+            path,
+            token,
+            (content_type, Some(MSGPACK)),
+            body,
+        )
+        .await
+    }
+
+    async fn reviews(&self, script: &str) -> i64 {
+        self.admin
+            .query_one(
+                "SELECT count(*) FROM script_reviews WHERE script_id=$1",
+                &[&script],
+            )
+            .await
+            .unwrap()
+            .get(0)
     }
 }
 
@@ -1141,4 +1257,255 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
         h.store.authenticate(ALICE).await,
         Err(StoreError::Unauthenticated)
     ));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn msgpack_and_json_carry_the_same_revision_facts_on_every_negotiated_route() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let first = h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let head = format!("/scripts/{script}/head");
+    for path in [head.clone(), format!("/scripts/{script}/revisions/1")] {
+        let (status, json) = h.request("GET", &path, Some(ALICE), None).await;
+        assert_eq!(status, StatusCode::OK);
+        let packed: RevisionResponse = h.msgpack("GET", &path, Some(ALICE), vec![]).await.packed();
+        assert_eq!(
+            packed,
+            serde_json::from_value::<RevisionResponse>(json).unwrap()
+        );
+        assert_eq!(packed, first);
+    }
+    let writes = format!("/scripts/{script}/revisions");
+    let second: RevisionResponse = h
+        .msgpack("POST", &writes, Some(ALICE), packed(&request(1)))
+        .await
+        .packed();
+    assert_eq!((second.revision, second.accepted_by.as_str()), (2, "alice"));
+    let (_, json) = h.request("GET", &head, Some(ALICE), None).await;
+    assert_eq!(
+        serde_json::from_value::<RevisionResponse>(json).unwrap(),
+        second
+    );
+
+    let valid = ValidateScriptRequest {
+        script_json: second.script_json.clone(),
+    };
+    let preview: ScriptValidationResponse = h
+        .msgpack("POST", "/validation", Some(ALICE), packed(&valid))
+        .await
+        .packed();
+    assert!(preview.issues.is_empty());
+    let invalid = ValidateScriptRequest {
+        script_json: include_str!(
+            "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+        )
+        .into(),
+    };
+    let (status, json_error) = h
+        .request(
+            "POST",
+            "/validation",
+            Some(ALICE),
+            Some(serde_json::to_value(&invalid).unwrap()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let packed_error = h
+        .msgpack("POST", "/validation", Some(ALICE), packed(&invalid))
+        .await
+        .error(StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(packed_error, json_error);
+    assert_eq!(h.count(&script).await, (2, 2));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn a_lost_msgpack_response_replays_in_either_representation_without_a_second_revision() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let writes = format!("/scripts/{script}/revisions");
+    let intent = request(1);
+    let committed: RevisionResponse = h
+        .msgpack("POST", &writes, Some(ALICE), packed(&intent))
+        .await
+        .packed();
+    // The client lost that response. The same key, base and snapshot replays the first result
+    // whichever representation the retry uses; the codec never changes the idempotency key.
+    let (status, replay) = h
+        .request(
+            "POST",
+            &writes,
+            Some(ALICE),
+            Some(serde_json::to_value(&intent).unwrap()),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_value::<RevisionResponse>(replay).unwrap(),
+        committed
+    );
+    let replay: RevisionResponse = h
+        .msgpack("POST", &writes, Some(ALICE), packed(&intent))
+        .await
+        .packed();
+    assert_eq!(replay, committed);
+    assert_eq!(h.count(&script).await, (2, 2));
+
+    let reused = h
+        .msgpack(
+            "POST",
+            &writes,
+            Some(ALICE),
+            packed(&changed_rights(intent)),
+        )
+        .await
+        .error(StatusCode::CONFLICT);
+    assert_eq!(reused["code"], "operation_reused");
+    let stale = h
+        .msgpack("POST", &writes, Some(ALICE), packed(&request(1)))
+        .await
+        .error(StatusCode::CONFLICT);
+    assert_eq!(stale["code"], "stale_revision");
+    assert_eq!(stale["current_revision"], 2);
+    assert_eq!(h.count(&script).await, (2, 2));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn refused_representations_write_nothing_and_other_routes_stay_json_only() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let writes = format!("/scripts/{script}/revisions");
+    let intent = request(1);
+    let body = packed(&intent);
+    let not_acceptable = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            &writes,
+            Some(ALICE),
+            (Some(MSGPACK), Some("text/html")),
+            body.clone(),
+        )
+        .await;
+    assert_eq!(not_acceptable.headers["vary"], "accept");
+    assert_eq!(
+        not_acceptable.error(StatusCode::NOT_ACCEPTABLE),
+        json!({"code":"invalid_request","current_revision":null,
+               "issues":[{"path":"accept","rule":"not_acceptable"}]})
+    );
+    let unsupported = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            &writes,
+            Some(ALICE),
+            (Some("text/plain"), None),
+            serde_json::to_vec(&intent).unwrap(),
+        )
+        .await;
+    assert_eq!(
+        unsupported.error(StatusCode::UNSUPPORTED_MEDIA_TYPE)["issues"],
+        json!([{"path":"content-type","rule":"unsupported_media_type"}])
+    );
+    let forged_field = packed(&json!({
+        "expected_revision": 1, "operation_id": intent.operation_id,
+        "script_json": intent.script_json, "accepted_by": "mallory"}));
+    for malformed in [body[..body.len() - 1].to_vec(), forged_field] {
+        let refused = h.msgpack("POST", &writes, Some(ALICE), malformed).await;
+        assert_eq!(
+            refused.error(StatusCode::BAD_REQUEST)["code"],
+            "invalid_request"
+        );
+    }
+    assert_eq!(h.count(&script).await, (1, 1));
+    // Nothing was half-applied: the same intent still commits once.
+    let saved: RevisionResponse = h.msgpack("POST", &writes, Some(ALICE), body).await.packed();
+    assert_eq!(saved.revision, 2);
+
+    let review = ReviewRequest {
+        operation_id: Uuid::new_v4().to_string(),
+        revision: 2,
+    };
+    let refused = h
+        .msgpack(
+            "POST",
+            &format!("/scripts/{script}/reviews"),
+            Some(ALICE),
+            packed(&review),
+        )
+        .await;
+    assert_eq!(
+        refused.error(StatusCode::BAD_REQUEST)["code"],
+        "invalid_request"
+    );
+    assert_eq!(h.reviews(&script).await, 0);
+    let history = h
+        .msgpack(
+            "GET",
+            &format!("/scripts/{script}/history"),
+            Some(ALICE),
+            vec![],
+        )
+        .await;
+    assert_eq!(history.status, StatusCode::OK);
+    assert_eq!(history.headers["content-type"], "application/json");
+    assert!(!history.headers.contains_key("vary"));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn msgpack_requests_get_the_same_origin_session_and_permission_decisions() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let saved = h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let head = format!("/scripts/{script}/head");
+    let writes = format!("/scripts/{script}/revisions");
+    let body = packed(&request(1));
+    for (method, path, body) in [("GET", &head, vec![]), ("POST", &writes, body.clone())] {
+        let anonymous = h.msgpack(method, path, None, body.clone()).await;
+        assert_eq!(
+            anonymous.error(StatusCode::UNAUTHORIZED)["code"],
+            "unauthenticated"
+        );
+        let stranger = h.msgpack(method, path, Some(BOB), body).await;
+        let hidden = stranger.error(StatusCode::NOT_FOUND);
+        assert_eq!(hidden["code"], "not_found");
+        assert!(!hidden.to_string().contains("Ánh đèn"));
+    }
+    let forged = h
+        .exchange(
+            "https://attacker.invalid",
+            "POST",
+            &writes,
+            Some(ALICE),
+            (Some(MSGPACK), Some(MSGPACK)),
+            body.clone(),
+        )
+        .await;
+    assert_eq!(forged.error(StatusCode::FORBIDDEN)["code"], "forbidden");
+    h.admin
+        .execute(
+            "INSERT INTO script_members VALUES($1,'bob','reader')",
+            &[&script],
+        )
+        .await
+        .unwrap();
+    let read: RevisionResponse = h.msgpack("GET", &head, Some(BOB), vec![]).await.packed();
+    assert_eq!(read, saved);
+    let denied = h.msgpack("POST", &writes, Some(BOB), body).await;
+    assert_eq!(denied.error(StatusCode::FORBIDDEN)["code"], "forbidden");
+    h.admin
+        .execute("UPDATE sessions SET revoked=true WHERE actor_id='bob'", &[])
+        .await
+        .unwrap();
+    let revoked = h.msgpack("GET", &head, Some(BOB), vec![]).await;
+    assert_eq!(
+        revoked.error(StatusCode::UNAUTHORIZED)["code"],
+        "unauthenticated"
+    );
+    assert_eq!(h.count(&script).await, (1, 1));
 }

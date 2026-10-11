@@ -56,7 +56,10 @@ denial after an ambiguous attempt does not discard it. A different actor cannot 
 Editing during a request survives its acknowledgement.
 
 The component obtains the concrete HTTP adapter from Studio context; URLs and wire decoding
-stay in `api.rs`. The browser does not decide backend permissions or Script IR validity.
+stay in `api.rs`. Head, pinned revision, save and validation go through the pure `wire.rs`: one
+constant, `REVISION_CODEC`, picks JSON (shipped) or MessagePack, responses are decoded by their own
+`Content-Type`, and a request is never retried in the other representation. Switching or rolling
+back is that constant and a rebuild ([wire codec](../../../docs/architecture/wire-codec.md)). The browser does not decide backend permissions or Script IR validity.
 `packages/contracts/api/` is shared with Axum; no server crate enters the WASM dependency graph.
 
 Vietnamese/English resources cover every async/error state. Semantic labels, polite status,

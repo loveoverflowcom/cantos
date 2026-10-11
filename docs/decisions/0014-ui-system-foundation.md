@@ -1,4 +1,4 @@
-# ADR 0013: Shared token source with separate UI renderers
+# ADR 0014: Shared token source with separate UI renderers
 
 - Status: accepted for the user-authorized local foundation slice; bounded Safari review recorded,
   comprehensive accessibility/platform acceptance pending
@@ -6,7 +6,8 @@
 - Decision owner: Cantos maintainers (requested four-session implementation boundary)
 - Related issue or PR: none created; local-only delivery
 - Supersedes: active token ownership in decision 0009; historical restructure evidence unchanged
-- Number reconciled after PR30 reserved ADR 0012 for the command surface; the UI decision is unchanged.
+- Number reconciled after PR30 reserved ADR 0012 and PR32 reserved ADR 0013;
+  the UI decision is unchanged.
 
 ## Context
 

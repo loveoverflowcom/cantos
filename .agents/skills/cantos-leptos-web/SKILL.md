@@ -83,11 +83,12 @@ the browser renders and drives it, the owner decides what is true.
 | The editor keys rows by dialogue ID and never commits, reformats or rewrites text during IME composition | Telex/VNI input corrupted; edits attached to the wrong line | insert-above focus test; composition regression; recorded IME walkthrough | [`script-editor.md`](references/script-editor.md) |
 | Styles consume token roles; classes are semantic; state styles hang off semantic attributes; themes, reduced motion and focus are always handled | literal colors and radii; utility walls; invisible focus | manual review now, proposed style gate later; inspected captures | [`styling.md`](references/styling.md) |
 | Evidence is named exactly: `DOM-tested` ≠ `interaction-tested` ≠ `integration-tested`; `compiled` and `screenshot-captured` are not inspection | overclaiming from fakes, synthetic events or unopened images | report review against the vocabulary | [`web-testing.md`](references/web-testing.md) |
+| JSON or MessagePack is chosen once per route group by a client constant; responses decode by their own `Content-Type`; a request is sent once, never retried in another codec | a JSON error read as garbage; a timed-out save applied twice | host tests on the client `wire.rs`; bundle check for the JSON build | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
 
 How the foundation lands in the browser:
 
-- **Decoupling.** Web depends on pure core crates and generated contract types, never on backend
-  application or infrastructure crates, provider SDKs or Narrative Forge types.
+- **Decoupling.** Web depends on pure core crates and the shared `cantos-contracts` DTOs, never on
+  backend application or infrastructure crates, provider SDKs or Narrative Forge types.
 - **Immutability.** Reducers take state by value and return new state; a save snapshot is an
   immutable value; accepted revisions, approvals and release manifests arrive read-only and are
   never patched client-side.
@@ -113,8 +114,8 @@ these Web specifics:
 1  scope      surface + permission context, route, ports, the owning doc's acceptance line,
               the claim and its failure mode
 2  core       a durable decision? → its owner's pure crate with plain #[test] first
-3  boundary   port provided through context; HTTP adapter over generated contract types;
-              typed PortError
+3  boundary   port provided through context; HTTP adapter over cantos-contracts DTOs, with the
+              representation fixed by the client's codec constant; typed PortError
 4  async      resource/action states, request key, duplicate-submit policy, retry decision
 5  view       semantic HTML, NodeRef, cleanup, locale keys, token classes, attribute-driven state
 6  evidence   cheapest regression first: core → component with TestWorld → real-browser input
@@ -165,6 +166,7 @@ A skill-only or docs-only edit needs no app run; say that no Web behavior was ex
 | The work is about… | Reference |
 |---|---|
 | surfaces, permission contexts, layering, ports in context, core crates in WASM, secrets, shell-owned mini-player, modules, SSR vs CSR | [`web-architecture.md`](references/web-architecture.md) |
+| binary request/response bodies, the codec switch, decoding by `Content-Type`, codec bundle cost | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
 | resources, actions, explicit states, stale responses, duplicate submits, retries, optimistic UI, job progress | [`leptos-async.md`](references/leptos-async.md) |
 | `web-sys`, listeners and cleanup, focus and dialogs, shortcuts, storage, `HTMLMediaElement`, Media Session, autoplay, ranges, signed URLs | [`dom-and-media-interop.md`](references/dom-and-media-interop.md) |
 | the Studio editor: dialogue identity, IME composition, save/version/conflict, undo, reordering, speakers, validation, large scripts | [`script-editor.md`](references/script-editor.md) |

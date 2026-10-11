@@ -21,6 +21,7 @@ import uuid
 import zipfile
 
 from production_oracle import production_after_restart, production_before_restart
+import reference_msgpack
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "target" / "revision-evidence"
@@ -108,6 +109,34 @@ def http(port, fixture, method="GET"):
     with urllib.request.urlopen(request, timeout=3) as response:
         assert response.headers["Cache-Control"] == "no-store"
         return json.load(response)
+
+
+def msgpack_http(port, fixture, method="GET", accept="application/msgpack"):
+    """The negotiated revision routes over the real socket, decoded by the independent oracle."""
+    path = "head" if method == "GET" else "revisions"
+    headers = {"Cookie": f"cantos_session={fixture['token']}",
+               "Origin": f"http://127.0.0.1:{port}", "Accept": accept}
+    body = None
+    if method != "GET":
+        body = reference_msgpack.encode(fixture["request"])
+        headers["Content-Type"] = "application/msgpack"
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/v1/scripts/{fixture['script']}/{path}",
+        data=body, method=method, headers=headers)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        response = opener.open(request, timeout=3)
+    except urllib.error.HTTPError as error:
+        response = error
+    with response:
+        assert response.headers["Cache-Control"] == "no-store"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        if response.status != 200:
+            assert response.headers["Content-Type"] == "application/json"
+            return response.status, json.load(response)
+        assert response.headers["Content-Type"] == "application/msgpack"
+        assert response.headers["Vary"] == "accept"
+        return response.status, reference_msgpack.decode(response.read())
 
 
 def import_http(port, token, source=None, request=None, original=False):
@@ -500,6 +529,12 @@ def main():
             editor_host = start_host(editor_env, editor_http_port, editor_log, editor_probe(editor))
             assert http(http_port, fixture) == fixture["response"]
             assert http(http_port, fixture, "POST") == fixture["response"]
+            # The lost-response replay again, in MessagePack, after process death and restart.
+            assert msgpack_http(http_port, fixture) == (200, fixture["response"])
+            assert msgpack_http(http_port, fixture, "POST") == (200, fixture["response"])
+            assert msgpack_http(http_port, fixture, accept="text/html") == (406, {
+                "code": "invalid_request", "current_revision": None,
+                "issues": [{"path": "accept", "rule": "not_acceptable"}]})
             for item, receipt in zip(imports, receipts):
                 assert import_http(http_port, fixture["token"], request=item) == receipt
                 assert import_http(http_port, fixture["token"], source=receipt["id"]) == receipt
@@ -517,6 +552,7 @@ def main():
             (EVIDENCE / "import-restart.json").write_text(json.dumps({"sources": receipts}, ensure_ascii=False, indent=2) + "\n")
             print("PASS: original TXT/DOCX/failed-input bytes and SHA-256 + HTTP kill + PostgreSQL restart + immutable receipt replay")
             print("PASS: HTTP process kill + PostgreSQL restart + migration replay + exact export/actor/time + same-operation replay")
+            print("PASS: MessagePack head/replay decoded by the independent oracle equal the JSON revision; 406 stays a JSON error")
         (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "script": fixture["script"]}, indent=2) + "\n")
         (EDITOR_EVIDENCE / "run.json").write_text(json.dumps({
             "cluster": str(cluster), "data": str(data), "port": port,
