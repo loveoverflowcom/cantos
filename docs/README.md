@@ -19,6 +19,7 @@
 | [Casting/input evidence](evidence/casting-production-inputs.md) | Frozen planning scope, rights/budget/approval checks, actual tests and affected read/DBSP assessment |
 | [Local TTS evidence](evidence/tts-receipt-inspection.md) | Bounded local samples, snapshot-bound receipts, actual checks and commercial/production limits |
 | [TTS prerequisites](evidence/tts-provider-prerequisites.md) | Official provider declarations, local selection and deferred commercial prerequisites |
+| [Google TTS adapter evidence](evidence/google-tts-adapter.md) | Mocked adapter claims ledger, commands run, NOT_RUN live synthesis and residual provider risk |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |
@@ -27,6 +28,7 @@
 | [Decision 0004](decisions/0004-editorial-handoff.md) | Compatible editorial handoff on the existing revision backend |
 | [Decision 0007](decisions/0007-casting-production-inputs.md) | Proposed production adoption of versioned casting and scoped input authorization |
 | [Decision 0008](decisions/0008-local-tts-inspection.md) | Accepted local eSpeak inspection selection; production adoption proposed |
+| [Decision 0009](decisions/0009-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

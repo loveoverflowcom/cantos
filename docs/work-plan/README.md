@@ -18,6 +18,10 @@ deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md).
 within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
 starting #7. The current requested execution stops at #6.
 
+A separate adapter slice adds the owner-selected Google Cloud TTS adapter with
+[mocked evidence](../evidence/google-tts-adapter.md) only ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md)). A live sample needs an operator-paid, capped run and recorded envelopes; Google capabilities in casting need an explicit
+emotion/intensity mapping before [#7](https://github.com/loveoverflowcom/cantos/issues/7) persists attempts and reservations.
+
 The repository has documentation/templates, an executable
 [Script IR contract](../../contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain
