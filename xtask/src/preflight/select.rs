@@ -193,6 +193,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
         }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
+        | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
         | "serve_studio.py" => {}

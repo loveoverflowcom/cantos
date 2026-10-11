@@ -43,6 +43,8 @@ cargo xtask verify postgres [--keep]
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
+cargo xtask compose-preview cantos|cantos-studio --file PATH --composable NAME \
+  [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 ```
 
 `cargo xtask <command> --help` documents every flag.
@@ -194,6 +196,31 @@ Reports the selected `rustc` against the pinned 1.87, each tool and its version,
 run here, the unsupported mobile surfaces and Kanidm's configuration-only status. It exits with
 failure only when Cargo, Git or Python 3 is missing.
 
+### compose-preview
+
+Capture an existing `@Preview` through the official Android CLI's
+[`android studio render-compose-preview`](https://developer.android.com/tools/agents/android-cli/commands/studio_render-compose-preview).
+It requires Android Studio Quail 2+ running with the selected mobile Gradle project open and ready;
+it does not require an emulator or phone. Both mobile directories still lack a Gradle project,
+so real Cantos capture is **UNSUPPORTED today**. Tool/IDE setup is manual and never performed by
+xtask. This optional operation is outside `preflight`/CI; its deterministic adapter tests run
+in the existing repository gate.
+
+`--file` resolves from the repository root and must stay inside the selected app's mobile
+directory. `--project` is derived from that directory; `--pid` selects an IDE instance.
+`--android-cli` can point to the official executable when the legacy SDK tool occupies `PATH`.
+Each CLI operation has a 1–300 second timeout (default 60). `--label` is provenance only:
+preview annotations/state configure theme, locale, font scale and layout. `--dry-run` prints
+the plan without probing the CLI/IDE or writing artifacts; its result is `NOT_RUN`.
+
+The Python capture primitive saves a fresh PNG, unchanged semantics JSON, raw logs and source/
+command/output provenance under ignored `artifacts/ui-evidence/compose-preview/`. Missing
+prerequisites are `UNSUPPORTED`; render/invalid output/timeouts are `FAIL`. A successful capture
+proves files exist, not inspected pixels, asserted semantics, interaction, a mobile build or
+Android/iOS device behavior. Follow the [CMP workflow](../.agents/skills/cantos-cmp-mobile/references/compose-preview.md)
+to inspect and report them; [tooling evidence](../docs/evidence/compose-preview-tooling.md)
+separates mock adapter tests from unrun real rendering.
+
 ## Code layout
 
 | Module | Responsibility |
@@ -207,6 +234,7 @@ failure only when Cargo, Git or Python 3 is missing.
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `preflight/` | Git change collection, the Cargo package graph and pure selection |
 | `doctor.rs` | read-only environment report |
+| `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
 Plans are values: tests assert exact commands with a recording runner and fake tools, while
 process tests start and stop real `sh` and `python3` children. Run them with

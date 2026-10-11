@@ -69,4 +69,11 @@ gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not re
 interaction/accessibility evidence is separate from the WASM build; no mobile runtime gate exists.
 On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python unit/mutation runs.
 
+Static Compose UI capture goes through `cargo xtask compose-preview <cantos|cantos-studio>`;
+read the [CMP preview workflow](.agents/skills/cantos-cmp-mobile/references/compose-preview.md).
+It needs a real mobile Gradle project and Android Studio Quail 2+ with that project open, but no
+emulator or phone. Both mobile directories remain guides, so real capture is currently
+`UNSUPPORTED`. Open the PNG and assert the observed semantics before claiming inspected/tested
+evidence; host rendering does not replace Android/iOS runtime or screen-reader gates.
+
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.
