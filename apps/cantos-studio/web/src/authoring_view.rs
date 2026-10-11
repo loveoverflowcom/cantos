@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use cantos_contracts::FieldIssue;
+use cantos_ui::{FieldError, FieldLabel};
 use leptos::context::Provider;
 use leptos::prelude::*;
 
@@ -314,8 +315,8 @@ pub fn StructuredEditor(
             <div class="authoring-heading">
                 <h2 id=format!("{namespace}-authoring-title")>{move || copy().title}</h2>
                 <div class="toolbar authoring-history" aria-describedby=format!("{namespace}-history-help")>
-                    <button type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_undo)) on:click=move |_| move_history(false)>{move || copy().undo}</button>
-                    <button type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_redo)) on:click=move |_| move_history(true)>{move || copy().redo}</button>
+                    <button class="cui-button" data-variant="secondary" type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_undo)) on:click=move |_| move_history(false)>{move || copy().undo}</button>
+                    <button class="cui-button" data-variant="secondary" type="button" disabled=move || readonly.get() || !history.with(|history| history.as_ref().is_some_and(History::can_redo)) on:click=move |_| move_history(true)>{move || copy().redo}</button>
                 </div>
             </div>
             <p class="help" id=format!("{namespace}-history-help")>{move || copy().history_help}</p>
@@ -340,14 +341,14 @@ pub fn StructuredEditor(
                             let id = StoredValue::new(act.id);
                             view! {
                                 <div class="authoring-act">
-                                        <button type="button" class="authoring-nav-item" aria-pressed=move || selected.get() == Some(Target::Act(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Act(id.get_value()))); } }>
+                                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Act(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Act(id.get_value()))); } }>
                                         <span class="authoring-nav-kind">{move || copy().act}</span>
                                         <span lang="vi-VN">{move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.title).unwrap_or_default()}</span>
                                     </button>
                                     <For each=move || document.get().and_then(|document| document.acts().into_iter().find(|act| act.id == id.get_value())).map(|act| act.scenes).unwrap_or_default() key=|scene| scene.id.clone() children=move |scene| {
                                         let scene_id = StoredValue::new(scene.id);
                                         view! {
-                                            <button type="button" class="authoring-nav-item authoring-nav-scene" aria-pressed=move || selected.get() == Some(Target::Scene(scene_id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Scene(scene_id.get_value()))); } }>
+                                            <button type="button" class="cui-button authoring-nav-item authoring-nav-scene" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Scene(scene_id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Scene(scene_id.get_value()))); } }>
                                                 <span class="authoring-nav-kind">{move || copy().scene}</span>
                                                 <span lang="vi-VN">{move || document.get().and_then(|document| crate::authoring_view::scene(&document, &scene_id.get_value())).map(|scene| scene.title).unwrap_or_default()}</span>
                                             </button>
@@ -356,7 +357,7 @@ pub fn StructuredEditor(
                                 </div>
                             }
                         } />
-                        <button type="button" disabled=move || readonly.get() on:click=move |_| {
+                        <button class="cui-button" data-variant="secondary" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("act") {
                                 if ctx.structural_change(|document| document.insert_act(&id, authoring_copy(document.metadata().language.starts_with("en")).new_act)) { selected.set(Some(Target::Act(id))); }
                             }
@@ -365,17 +366,17 @@ pub fn StructuredEditor(
                         <For each=move || document.get().map(|document| document.characters()).unwrap_or_default() key=|character| character.id.clone() children=move |character| {
                             let id = StoredValue::new(character.id);
                             view! {
-                                <button type="button" class="authoring-nav-item" aria-pressed=move || selected.get() == Some(Target::Character(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Character(id.get_value()))); } }>
+                                <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Character(id.get_value())) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Character(id.get_value()))); } }>
                                     <span lang="vi-VN">{move || document.get().and_then(|document| document.characters().into_iter().find(|character| character.id == id.get_value())).map(|character| character.name).unwrap_or_default()}</span>
                                 </button>
                             }
                         } />
-                        <button type="button" disabled=move || readonly.get() on:click=move |_| {
+                        <button class="cui-button" data-variant="secondary" type="button" disabled=move || readonly.get() on:click=move |_| {
                             if let Ok(id) = minted_id("character") {
                                 if ctx.structural_change(|document| document.insert_character(&id, authoring_copy(document.metadata().language.starts_with("en")).new_character, "character", "")) { selected.set(Some(Target::Character(id))); }
                             }
                         }>{move || copy().add_character}</button>
-                        <button type="button" class="authoring-nav-item" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); } }>{move || copy().metadata}</button>
+                        <button type="button" class="cui-button authoring-nav-item" data-variant="text" aria-pressed=move || selected.get() == Some(Target::Work) on:click=move |_| { if !activity.get_untracked() { selected.set(Some(Target::Work)); } }>{move || copy().metadata}</button>
                     </nav>
                     <div class="authoring-canvas" id=format!("{namespace}-canvas") tabindex="-1">
                         {move || match selected.get() {
@@ -393,7 +394,7 @@ pub fn StructuredEditor(
                             <ul class="authoring-findings">{move || issues.get().into_iter().map(|issue| {
                                 let finding = issue.clone();
                                 view! {
-                                    <li><button type="button" on:click=move |_| {
+                                    <li><button class="cui-button" data-variant="secondary" type="button" on:click=move |_| {
                                         if activity.get_untracked() { return; }
                                         if let Some(document) = document.get_untracked() {
                                             let (pane, field) = finding_location(&document, namespace, &finding);
@@ -505,8 +506,8 @@ fn BufferedText(
         });
         view! {
             <div class="authoring-field">
-                <label for=id.clone()>{move || label.get()}</label>
-                <textarea id=id node_ref=node lang=language spellcheck="false" prop:value=initial readonly=move || readonly.get() aria-invalid=invalid aria-describedby=move || described_by.map(|signal| signal.get()).filter(|value| !value.is_empty())
+                <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+                <textarea class="cui-field-control" id=id node_ref=node lang=language spellcheck="false" prop:value=initial readonly=move || readonly.get() aria-invalid=invalid aria-describedby=move || described_by.map(|signal| signal.get()).filter(|value| !value.is_empty())
                     on:focus=move |_| focused.set(true)
                     on:input=move |event| update(event_target_value(&event))
                     on:compositionstart=move |_| { composing.set(true); mark_pending(true); }
@@ -538,8 +539,8 @@ fn BufferedText(
         });
         view! {
             <div class="authoring-field">
-                <label for=id.clone()>{move || label.get()}</label>
-                <input id=id node_ref=node type=if numeric { "number" } else { "text" } min=if numeric { Some("0") } else { None } max=if numeric { Some("1000") } else { None } step=if numeric { Some("1") } else { None }
+                <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+                <input class="cui-field-control" id=id node_ref=node type=if numeric { "number" } else { "text" } min=if numeric { Some("0") } else { None } max=if numeric { Some("1000") } else { None } step=if numeric { Some("1") } else { None }
                     lang=language autocomplete="off" prop:value=initial readonly=move || readonly.get() aria-invalid=invalid aria-describedby=move || described_by.map(|signal| signal.get()).filter(|value| !value.is_empty())
                     on:focus=move |_| focused.set(true)
                     on:input=move |event| update(event_target_value(&event))
@@ -586,7 +587,7 @@ fn TextField(
         <BufferedText id=id label=label value=Signal::derive(move || ctx.document.get().and_then(|document| document.field(&target.get_value(), field).ok()).unwrap_or_default())
             readonly=ctx.readonly activity=ctx.activity multiline=multiline numeric=field == Field::Intensity invalid=invalid described_by=Signal::derive(move || if invalid.get() { error_id.get_value() } else { String::new() })
             on_commit=Callback::new(move |text: String| ctx.change(|document| document.set(&target.get_value(), field, &text))) />
-        <Show when=move || invalid.get()><p id=error_id.get_value() class="authoring-field-error">{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</p></Show>
+        <Show when=move || invalid.get()><FieldError id=error_id.get_value()>{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
     }
 }
 
@@ -635,13 +636,13 @@ fn ChoiceField(
     let invalid = move || unresolved() || !findings.get().is_empty();
     view! {
         <div class="authoring-field">
-            <label for=id.clone()>{move || label.get()}</label>
-            <select id=id disabled=move || ctx.readonly.get() aria-invalid=invalid aria-describedby=move || invalid().then(|| error_id.get_value()) on:change=move |event| { ctx.change(|document| document.set(&target.get_value(), field, &event_target_value(&event))); }>
+            <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <select class="cui-field-control" id=id disabled=move || ctx.readonly.get() aria-invalid=invalid aria-describedby=move || invalid().then(|| error_id.get_value()) on:change=move |event| { ctx.change(|document| document.set(&target.get_value(), field, &event_target_value(&event))); }>
                 // A select value written before its dynamic children exist is ignored by the
                 // browser. Set option.selected from the current model on every option rebuild.
                 {move || selected_choices(&current.get(), options.get(), unresolved_copy()).into_iter().map(|(value, label, selected)| view! { <option value=value prop:selected=selected>{label}</option> }).collect_view()}
             </select>
-            <Show when=invalid><p id=error_id.get_value() class="authoring-field-error">{move || if unresolved() { unresolved_copy().to_string() } else { findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ") }}</p></Show>
+            <Show when=invalid><FieldError id=error_id.get_value()>{move || if unresolved() { unresolved_copy().to_string() } else { findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ") }}</FieldError></Show>
         </div>
     }
 }
@@ -739,13 +740,13 @@ fn ItemActions(target: Target) -> impl IntoView {
     };
     view! {
         <div class="authoring-actions">
-            <button type="button" aria-label=move || item_action(ItemAction::MoveUp, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(true) on:click=move |_| movement(true)>{move || authoring_copy(ctx.english.get()).move_up}</button>
-            <button type="button" aria-label=move || item_action(ItemAction::MoveDown, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(false) on:click=move |_| movement(false)>{move || authoring_copy(ctx.english.get()).move_down}</button>
-            <button type="button" aria-label=move || item_action(ItemAction::Remove, target_id(&target.get_value()), ctx.english.get()) node_ref=trigger disabled=move || ctx.readonly.get() on:click=move |_| confirm.set(true)>{move || authoring_copy(ctx.english.get()).remove}</button>
+            <button class="cui-button" data-variant="secondary" type="button" aria-label=move || item_action(ItemAction::MoveUp, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(true) on:click=move |_| movement(true)>{move || authoring_copy(ctx.english.get()).move_up}</button>
+            <button class="cui-button" data-variant="secondary" type="button" aria-label=move || item_action(ItemAction::MoveDown, target_id(&target.get_value()), ctx.english.get()) disabled=move || ctx.readonly.get() || at_edge(false) on:click=move |_| movement(false)>{move || authoring_copy(ctx.english.get()).move_down}</button>
+            <button class="cui-button" data-variant="secondary" type="button" aria-label=move || item_action(ItemAction::Remove, target_id(&target.get_value()), ctx.english.get()) node_ref=trigger disabled=move || ctx.readonly.get() on:click=move |_| confirm.set(true)>{move || authoring_copy(ctx.english.get()).remove}</button>
             <Show when=move || confirm.get()>
                 <div class="authoring-remove-confirm" role="group" aria-label=move || authoring_copy(ctx.english.get()).confirm_remove on:keydown=move |event| { if event.key() == "Escape" { event.stop_propagation(); cancel(); } }>
                     <p>{move || authoring_copy(ctx.english.get()).remove_help}</p><code>{move || target_id(&target.get_value()).to_string()}</code>
-                    <button type="button" aria-label=move || item_action(ItemAction::ConfirmRemove, target_id(&target.get_value()), ctx.english.get()) node_ref=confirmation disabled=move || ctx.readonly.get() on:click=move |_| {
+                    <button class="cui-button" data-variant="secondary" type="button" aria-label=move || item_action(ItemAction::ConfirmRemove, target_id(&target.get_value()), ctx.english.get()) node_ref=confirmation disabled=move || ctx.readonly.get() on:click=move |_| {
                         if ctx.structural_change(|document| document.remove(&target.get_value())) {
                             confirm.set(false);
                             if let Some(element) = leptos::leptos_dom::helpers::document().get_element_by_id(&format!("{}-canvas", ctx.namespace)) {
@@ -753,7 +754,7 @@ fn ItemActions(target: Target) -> impl IntoView {
                             }
                         }
                     }>{move || authoring_copy(ctx.english.get()).confirm_remove}</button>
-                    <button type="button" on:click=move |_| cancel()>{move || authoring_copy(ctx.english.get()).cancel}</button>
+                    <button class="cui-button" data-variant="secondary" type="button" on:click=move |_| cancel()>{move || authoring_copy(ctx.english.get()).cancel}</button>
                 </div>
             </Show>
         </div>
@@ -796,7 +797,7 @@ fn ActEditor(id: String, selected: RwSignal<Option<Target>>) -> impl IntoView {
         <h3>{move || copy().act}</h3><code class="authoring-id">{id.clone()}</code>
         <TextField target=Target::Act(id.clone()) field=Field::Title label=Signal::derive(move || copy().act_title) />
         <ItemActions target=Target::Act(id) />
-        <button type="button" disabled=move || ctx.readonly.get() on:click=move |_| {
+        <button class="cui-button" data-variant="secondary" type="button" disabled=move || ctx.readonly.get() on:click=move |_| {
             if let Ok(id) = minted_id("scene") {
                 if ctx.structural_change(|document| document.insert_scene(&saved_id.get_value(), &id, authoring_copy(document.metadata().language.starts_with("en")).new_scene)) { selected.set(Some(Target::Scene(id))); }
             }
@@ -831,12 +832,12 @@ fn SceneEditor(id: String) -> impl IntoView {
             <For each=move || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).map(|scene| scene.dialogues).unwrap_or_default() key=|dialogue| dialogue.id.clone() children=move |dialogue| view! { <DialogueEditor id=dialogue.id /> } />
         </div>
         <div class="toolbar">
-            <button type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(false)>{move || copy().add_dialogue}</button>
-            <button type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(true)>{move || copy().add_narration}</button>
+            <button class="cui-button" data-variant="secondary" type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(false)>{move || copy().add_dialogue}</button>
+            <button class="cui-button" data-variant="secondary" type="button" disabled=move || ctx.readonly.get() on:click=move |_| add_dialogue(true)>{move || copy().add_narration}</button>
         </div>
         <h4>{move || copy().cues}</h4>
         <For each=move || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).map(|scene| scene.sound_cues).unwrap_or_default() key=|cue| cue.id.clone() children=move |cue| view! { <CueEditor id=cue.id scene_id=saved_id.get_value() /> } />
-        <button type="button" disabled=move || ctx.readonly.get() || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).is_none_or(|scene| scene.dialogues.is_empty()) on:click=move |_| {
+        <button class="cui-button" data-variant="secondary" type="button" disabled=move || ctx.readonly.get() || ctx.document.get().and_then(|document| scene(&document, &saved_id.get_value())).is_none_or(|scene| scene.dialogues.is_empty()) on:click=move |_| {
             if let Ok(id) = minted_id("cue") {
                 ctx.structural_change(|document| {
                     let anchor = scene(document, &saved_id.get_value()).and_then(|scene| scene.dialogues.first().map(|dialogue| dialogue.id.clone())).unwrap_or_default();
@@ -879,7 +880,7 @@ fn DialogueEditor(id: String) -> impl IntoView {
                 </div>
                 <h5>{move || copy().pronunciation}</h5><p class="help">{move || copy().pronunciation_help}</p>
                 <For each=move || ctx.document.get().map(|document| document.acts().into_iter().flat_map(|act| act.scenes).flat_map(|scene| scene.dialogues).find(|dialogue| dialogue.id == saved_id.get_value()).map(|dialogue| (0..dialogue.pronunciation_overrides.len()).collect::<Vec<_>>()).unwrap_or_default()).unwrap_or_default() key=|index| *index children=move |index| view! { <PronunciationEditor dialogue_id=saved_id.get_value() index=index /> } />
-                <button type="button" disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.add_pronunciation(&saved_id.get_value(), "", "")); }>{move || copy().add_pronunciation}</button>
+                <button class="cui-button" data-variant="secondary" type="button" disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.add_pronunciation(&saved_id.get_value(), "", "")); }>{move || copy().add_pronunciation}</button>
             </details>
             <ItemActions target=target />
         </section>
@@ -895,7 +896,7 @@ fn PronunciationEditor(dialogue_id: String, index: usize) -> impl IntoView {
         <div class="authoring-pronunciation authoring-fields">
             <PronunciationText dialogue_id=dialogue_id.clone() index=index field=PronunciationField::Surface />
             <PronunciationText dialogue_id=dialogue_id index=index field=PronunciationField::Replacement />
-            <button type="button" aria-label=move || pronunciation_remove(&id.get_value(), index, ctx.english.get()) disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.remove_pronunciation(&id.get_value(), index)); }>{move || copy().remove}</button>
+            <button class="cui-button" data-variant="secondary" type="button" aria-label=move || pronunciation_remove(&id.get_value(), index, ctx.english.get()) disabled=move || ctx.readonly.get() on:click=move |_| { ctx.structural_change(|document| document.remove_pronunciation(&id.get_value(), index)); }>{move || copy().remove}</button>
         </div>
     }
 }
@@ -963,7 +964,7 @@ fn PronunciationText(
         <div class="authoring-pronunciation-field">
             <BufferedText id=input_id label=Signal::derive(move || match field { PronunciationField::Surface => authoring_copy(ctx.english.get()).surface, PronunciationField::Replacement => authoring_copy(ctx.english.get()).replacement }) value=value readonly=ctx.readonly activity=ctx.activity invalid=invalid described_by=Signal::derive(move || if invalid.get() { error_id.get_value() } else { String::new() })
                 on_commit=Callback::new(move |text: String| ctx.change(|document| document.set_pronunciation(&id.get_value(), index, field, &text))) />
-            <Show when=move || invalid.get()><p id=error_id.get_value() class="authoring-field-error">{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</p></Show>
+            <Show when=move || invalid.get()><FieldError id=error_id.get_value()>{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
         </div>
     }
 }

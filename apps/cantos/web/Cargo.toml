@@ -5,5 +5,13 @@ edition = "2021"
 rust-version = "1.87"
 publish = false
 
+[dependencies]
+cantos-ui = { path = "../../../packages/ui-system/leptos" }
+leptos = { version = "=0.7.8", default-features = false }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 leptos = { version = "=0.7.8", features = ["csr"] }
+cantos-ui = { path = "../../../packages/ui-system/leptos", features = ["csr"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+leptos = { version = "=0.7.8", default-features = false, features = ["ssr"] }

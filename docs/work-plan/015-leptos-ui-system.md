@@ -28,7 +28,7 @@ disabled explanations, errors and empty/loading states in component examples. Ea
 the existing evidence record and this queue rationale without claiming unrun gates.
 
 Session 3/4 regression consideration: [Google adapter evidence](../evidence/google-tts-adapter.md)
-records that Studio cannot yet explicitly enter intensity0 for providers without intensity support.
+records the original intensity0 limitation. [PR29 casting evidence](../evidence/studio-provider-casting.md) now owns its correction, provider/model switching, reactive bounds and preserved unsupported input.
 Numeric field/component APIs must preserve valid zero values. This is a contract consideration,
 not a TTS feature or authorization to change the backend/provider gates in this sequence.
 
@@ -60,7 +60,7 @@ The named fonts need licensed delivery; system fallbacks are used meanwhile. The
 is a diagnostic sample, not a production site. Refer to [foundation evidence](../evidence/ui-system-foundation.md)
 for actual runs; generation/compile/string-render results do not establish native accessibility.
 
-## Component handoff and next integration order
+## Component handoff and consumer review order
 
 Session 3 should consume the [component API](../../packages/ui-system/leptos/README.md) and
 [session 2 evidence](../evidence/ui-system-components.md) before touching app surfaces. Scope broad
@@ -70,3 +70,13 @@ NavTabs uses links; an in-page ARIA tab widget is not supplied. Select option ch
 caller-owned selected bindings when options are inserted asynchronously without a value change.
 Run exact viewport, zoom, focus, IME and app state preservation checks against the integrated
 surfaces; component gallery observations do not establish app or mobile acceptance.
+
+Independent session 4 should inspect the [consumer integration record](../evidence/ui-system-integration.md)
+and exact local commit before reviewing the whole branch. PR29 was reconciled through local merge
+`83fbadb40c7655d5721c6c8b346638390ef49c74`, whose second parent is develop
+`03ba1416aa0e646b1d6022534f97e44f5b2ea1a4`. Compare UI-only changes against that merged develop
+context as well as the original requested base; do not attribute PR29's accepted behavior or
+historical Linux browser evidence to this Mac integration. Prioritize mounted-pane preservation,
+native Enter submission, stable casting options/neutral0, dialog Escape/return focus and CSS
+scope at 320/360/600/768/840/1440, both themes and 200% zoom. Source and native HTML-string
+checks do not settle those runtime gates. No later session starts automatically.

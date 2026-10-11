@@ -192,3 +192,9 @@ belongs to session 3; independent final review belongs to session 4.
   one authorized local commit only. No linked GitHub execution status changed.
 - Not covered / residual risk: all runtime gates above; full workspace/backend/DB/TTS/audio/mobile
   checks NOT_RUN for the explicitly bounded UI slice. Font distribution rights remain unresolved.
+
+## Consumer successor
+
+[Session 3 integration](ui-system-integration.md) records actual Studio and Theatre-skeleton
+consumers, the PR29 reconciliation and their fresh focused checks. This component record remains
+historical; it does not imply that the changed apps have passed browser, focus or IME checks.

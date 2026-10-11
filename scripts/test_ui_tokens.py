@@ -1,6 +1,7 @@
 """Token contract checks independent of the Leptos runtime and browser."""
 
 import json
+from html.parser import HTMLParser
 from pathlib import Path
 import re
 import subprocess
@@ -87,6 +88,30 @@ class TokenContract(unittest.TestCase):
         current_roles = set(canonical["tokens"]) | set(canonical["themes"]["light"]) | set(canonical["aliases"])
         self.assertLessEqual(set(historical["themes"]["light"]) | set(historical["logical_dimensions"]),
                              current_roles)
+
+    def test_real_web_consumers_load_tokens_and_component_styles_before_app_geometry(self):
+        class Stylesheets(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.paths = []
+
+            def handle_starttag(self, tag, attributes):
+                attributes = dict(attributes)
+                if tag == "link" and "data-trunk" in attributes and attributes.get("rel") == "css":
+                    self.paths.append(attributes["href"])
+
+        for app, geometry in (("cantos-studio", "studio.css"), ("cantos", "theatre.css")):
+            with self.subTest(app=app):
+                app_root = ROOT / "apps" / app / "web"
+                links = Stylesheets()
+                links.feed((app_root / "index.html").read_text())
+                paths = [(app_root / path).resolve() for path in links.paths]
+                expected = [ROOT / OUTPUTS["css"], ROOT / OUTPUTS["foundation"], app_root / geometry]
+                for path in expected:
+                    self.assertEqual(paths.count(path), 1, f"missing/duplicate stylesheet: {path}")
+                    self.assertTrue(path.is_file(), f"missing stylesheet source: {path}")
+                positions = [paths.index(path) for path in expected]
+                self.assertEqual(positions, sorted(positions), "app geometry must follow the shared foundation")
 
     def refuse(self, message):
         with self.assertRaisesRegex(ValueError, message):

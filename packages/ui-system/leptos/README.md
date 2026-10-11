@@ -104,3 +104,28 @@ cargo fmt --all -- --check
 Runtime focus/dialog/keyboard, exact responsive widths, text scaling, forced colors, motion and
 screen-reader observations have separate evidence in the [component record](../../../docs/evidence/ui-system-components.md).
 Continue with the [app integration sequence](../../../docs/work-plan/015-leptos-ui-system.md).
+
+## Consumer map
+
+| Primitive / contract | Studio Web | Theatre Web |
+| --- | --- | --- |
+| UiRoot + Theme + Density | app root, appearance selector; comfortable targets and compact pane spacing | themed skeleton, appearance selector; comfortable targets |
+| Container / Surface / Stack / EmptyState | fluid shell; app owns editorial panes | reading measure and honest unavailable-listener state |
+| Button / FilterChip | language action, pane navigation, guarded revision and casting actions | no listener actions implemented |
+| TextField / Select | development token; theme; ContextSelect for casting/catalog choices | native theme selector only |
+| FieldLabel / FieldError + native control classes | buffered editor/casting inputs, retaining NodeRef/IME/undo; app-owned submit buttons | none |
+| Status / Announcement | stable revision/validation/production feedback, visible dialog errors | empty state has no automatic announcement |
+| Dialog | explicit browser-draft discard; caller owns approval, open/error state and callback | none |
+
+`cui-button`, `cui-button-field`, `cui-button-reason` and `cui-field-control` are also the native
+anatomy style hooks used with FieldLabel/FieldError when an app must retain buffered input or a
+real `type="submit"` form. State/guards/description IDs then remain caller-owned. Ordinary actions
+should use Button; a native form submit is intentionally distinct from its non-submit contract.
+
+Studio's ContextSelect memoizes value/options as in PR29, binds option selected attributes for
+initial/late choices, and uses the shared error/reason associations. App unsupported descriptions
+move from `<id>-unsupported` to `<id>-error` for migrated selects; accessible labels stay separate
+from the complete retained-value note. Buffered numeric inputs keep their existing unsupported ID.
+No library API, tokens or icon geometry changed during integration. [Evidence](../../../docs/evidence/ui-system-integration.md)
+records app regressions, builds and runtime gaps; component-gallery evidence alone never verifies
+an app, and no CMP runtime consumer is implemented.

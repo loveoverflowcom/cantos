@@ -28,6 +28,7 @@
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
 | [UI foundation evidence](evidence/ui-system-foundation.md) | Token/icon provenance, focused verification and unrun runtime gates |
+| [UI consumer integration](evidence/ui-system-integration.md) | Studio, bounded Theatre, PR29 reconciliation and runtime gaps |
 | [UI migration](architecture/ui-system-migration.md) | Token package rename, public role compatibility and renderer ownership |
 | [UI sequence](work-plan/015-leptos-ui-system.md) | Component, app integration and independent review handoff |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |

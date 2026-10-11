@@ -165,3 +165,22 @@ checks from actual browser interaction and inspected viewport/zoom captures.
 Recorded rights assertions are not legal verification. This interface creates no real provider
 account, terms acceptance, payment, generation request or audio; no cloning/real-person voice is
 implied by synthetic labels. The former local generation prerequisite is superseded.
+
+## Shared UI consumer
+
+The shell uses `cantos-ui` root/container, native fields, pane selection, feedback and revision/
+casting actions. Studio's [`ui.rs`](src/ui.rs) owns presentation adapters and localized reasons;
+it infers no permissions. FormSubmit keeps native Enter/form submission while each form retains
+its original guard. Workspace panes remain mounted, preserving session drafts. Explicit revision
+discard uses the controlled native Dialog; Escape/cancel preserve the draft. Other existing
+navigation/discard paths keep their browser confirmations.
+
+Buffered authoring/casting fields retain native NodeRefs, IME and commit/undo behavior, using
+shared FieldLabel/FieldError and `cui-field-control` anatomy. Casting Select preserves PR29's
+memoized options, provider/model switching, reactive bounds and full unsupported values. Neutral
+0/inherit remain separate. The default comfortable density selects canonical 48px control targets;
+app panes retain compact spacing. See the [consumer map and evidence](../../../docs/evidence/ui-system-integration.md).
+
+Native consumer anatomy tests run with `cargo test -p cantos-studio -p cantos-theatre -p cantos-ui --locked`.
+They serialize real presentation adapters to HTML; they do not exercise browser events or IME.
+SSR is a native test feature only. Browser builds remain CSR.

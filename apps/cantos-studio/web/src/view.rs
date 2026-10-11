@@ -1,3 +1,6 @@
+use crate::ui::{
+    ActionButton, BlockReason, DiscardDraftDialog, FormSubmit, WorkspaceNavigation, WorkspacePane,
+};
 use crate::{
     adaptation::ScriptAdaptation,
     api::{StudioContext, StudioHttp},
@@ -12,7 +15,10 @@ use crate::{
     production::ProductionInputs,
 };
 use cantos_contracts::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
-use cantos_ui::Theme;
+use cantos_ui::{
+    Announcement, Button, ButtonVariant, Container, ContainerWidth, Density, FieldLabel, Select,
+    Status as UiStatus, TextField, TextFieldKind, Theme, UiRoot,
+};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 
@@ -103,17 +109,17 @@ pub(crate) fn ValidationControls(
     let api = expect_context::<StudioContext>().api;
     view! {
         <div class="validation-controls">
-            <button type="button" aria-disabled=move || disabled.get() || preview.with(|p| p.busy) || actor.get().is_empty() on:click=move |_| {
+            <ActionButton id="revision-validate" english=english variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || disabled.get() || actor.get().is_empty()) busy=Signal::derive(move || preview.with(|p| p.busy)) on_press=Callback::new(move |_| {
                 if !disabled.get_untracked() { check_script(preview, issues, api, actor.get_untracked(), draft.get_untracked(), draft); }
-            }>{move || text(Key::Validate, english.get())}</button>
-            <p role="status" aria-live="polite">{move || preview.with(|p| {
+            })>{move || text(Key::Validate, english.get())}</ActionButton>
+            <UiStatus announcement=Announcement::Polite>{move || preview.with(|p| {
                 if p.busy { text(Key::Validating, english.get()) }
                 else if p.is_current(&actor.get(), &draft.get()) { text(Key::Valid, english.get()) }
                 else if !p.snapshot.is_empty() && (p.snapshot != draft.get() || p.actor != actor.get()) { text(Key::Invalidated, english.get()) }
                 else if let Some(error) = &p.error { messages::status(crate::editor::error_status(error), english.get()) }
                 else if !p.snapshot.is_empty() { text(Key::Invalidated, english.get()) }
                 else { text(Key::ValidateFirst, english.get()) }
-            })}</p>
+            })}</UiStatus>
             <p class="help">{move || text(Key::ValidateHelp, english.get())}</p>
         </div>
     }
@@ -156,7 +162,9 @@ pub fn Studio() -> impl IntoView {
     let selection = RwSignal::new(String::new());
     let english = RwSignal::new(false);
     let theme = RwSignal::new(Theme::System);
-    let panel = RwSignal::new(1u8);
+    let panel = RwSignal::new(WorkspacePane::Proposal);
+    let discard_open = RwSignal::new(false);
+    let dialog_failure = RwSignal::new(false);
     let activity = RwSignal::new(false);
     let proposal_dirty = RwSignal::new(false);
     let proposal_activity = RwSignal::new(false);
@@ -232,18 +240,20 @@ pub fn Studio() -> impl IntoView {
     on_cleanup(move || restored.remove());
 
     view! {
-        <div class="studio-shell cantos-ui" data-theme=move || theme.get().as_str() data-density="compact">
-        <main lang=move || if english.get() { "en" } else { "vi-VN" }>
+        <UiRoot class="studio-shell" theme=theme density=Density::Comfortable>
+        <Container width=ContainerWidth::Fluid>
+        <main class="studio-main" lang=move || if english.get() { "en" } else { "vi-VN" }>
             <header class="studio-header">
                 <h1>{move || copy().title}<small>"Vọng Đài"</small></h1>
                 <div class="toolbar">
-                    <button type="button" on:click=move |_| english.update(|en| *en = !*en)>{move || if english.get() { "Tiếng Việt" } else { "English" }}</button>
-                    <label for="theme-select">{move || copy().theme}</label>
-                    <select id="theme-select" prop:value=move || theme.get().as_str() on:change=move |event| {
-                        if let Some(selected) = Theme::from_attribute(&event_target_value(&event)) { theme.set(selected); }
-                    }>
-                        <option value="system">{move || copy().system}</option><option value="light">{move || copy().light}</option><option value="dark">{move || copy().dark}</option>
-                    </select>
+                    <Button id="studio-language" variant=ButtonVariant::Text on_press=Callback::new(move |_| english.update(|en| *en = !*en))>{move || if english.get() { "Tiếng Việt" } else { "English" }}</Button>
+                    <Select id="theme-select" label=Signal::derive(move || copy().theme.to_owned())
+                        value=Signal::derive(move || theme.get().as_str().to_owned())
+                        on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })>
+                        <option value="system" selected=move || theme.get() == Theme::System>{move || copy().system}</option>
+                        <option value="light" selected=move || theme.get() == Theme::Light>{move || copy().light}</option>
+                        <option value="dark" selected=move || theme.get() == Theme::Dark>{move || copy().dark}</option>
+                    </Select>
                 </div>
             </header>
             <details class="session-panel" open=move || state.with(|e| e.actor.is_empty())>
@@ -260,21 +270,18 @@ pub fn Studio() -> impl IntoView {
                         }
                     });
                 }>
-                    <label for="session-token">{move || copy().token}</label>
-                    <div class="toolbar"><input id="session-token" type="password" autocomplete="off" prop:value=move || token.get() on:input=move |e| token.set(event_target_value(&e)) />
-                        <button type="submit" aria-disabled=move || state.with(|e| e.busy) || activity.get() || proposal_activity.get()>{move || copy().login}</button></div>
+                    <div class="toolbar session-controls">
+                        <TextField id="session-token" kind=TextFieldKind::Password autocomplete="off" label=Signal::derive(move || copy().token.to_owned())
+                            value=token on_input=Callback::new(move |value| token.set(value)) />
+                        <FormSubmit id="session-submit" english=english blocked=Signal::derive(move || state.with(|e| e.busy) || activity.get() || proposal_activity.get())>{move || copy().login}</FormSubmit>
+                    </div>
                 </form>
             </details>
-            <nav class="workspace-nav" aria-label=move || text(Key::Workspace, english.get())>
-                <button type="button" aria-pressed=move || panel.get() == 0 on:click=move |_| panel.set(0)>{move || text(Key::Import, english.get())}</button>
-                <button type="button" aria-pressed=move || panel.get() == 1 on:click=move |_| panel.set(1)>{move || text(Key::Proposal, english.get())}</button>
-                <button type="button" aria-pressed=move || panel.get() == 2 on:click=move |_| panel.set(2)>{move || text(Key::Revisions, english.get())}</button>
-                <button type="button" aria-pressed=move || panel.get() == 3 on:click=move |_| panel.set(3)>{move || messages::production::text(messages::production::Key::Pane, english.get())}</button>
-            </nav>
-            <div hidden=move || panel.get() != 0><ManuscriptImport actor=actor english=english /></div>
-            <div hidden=move || panel.get() != 1><ScriptAdaptation actor=actor english=english dirty=proposal_dirty activity=proposal_activity /></div>
-            <div hidden=move || panel.get() != 3><ProductionInputs editor=state english=english script_activity=activity dirty=production_dirty activity=production_activity /></div>
-            <section hidden=move || panel.get() != 2 aria-labelledby="revision-title">
+            <WorkspaceNavigation panel=panel english=english/>
+            <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english /></div>
+            <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor english=english dirty=proposal_dirty activity=proposal_activity /></div>
+            <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state english=english script_activity=activity dirty=production_dirty activity=production_activity /></div>
+            <section id="workspace-revisions" hidden=move || panel.get() != WorkspacePane::Revisions aria-labelledby="revision-title">
                 <h2 id="revision-title">{move || text(Key::Revisions, english.get())}</h2>
                 <form on:submit=move |event| {
                     event.prevent_default(); if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
@@ -291,9 +298,9 @@ pub fn Studio() -> impl IntoView {
                         let _ = state.try_update(|e| *e = match result { Ok(response) => e.loaded_with_buffer(ticket, response, activity.get_untracked()), Err(error) => e.read_failed(ticket, &error) });
                     });
                 }>
-                    <label for="script-id">{move || copy().script}</label>
-                    <div class="toolbar"><input id="script-id" autocomplete="off" spellcheck="false" disabled=blocked prop:value=move || selection.get() on:input=move |e| selection.set(event_target_value(&e)) />
-                        <button type="submit" aria-disabled=blocked>{move || copy().read}</button></div>
+                    <FieldLabel for_id="script-id">{move || copy().script}</FieldLabel>
+                    <div class="toolbar"><input class="cui-field-control" id="script-id" autocomplete="off" spellcheck="false" disabled=blocked prop:value=move || selection.get() on:input=move |e| selection.set(event_target_value(&e)) />
+                        <FormSubmit id="revision-read" english=english blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())>{move || copy().read}</FormSubmit></div>
                 </form>
                 <div class="revision-strip">
                     <p class="identity"><code>{move || state.with(|e| e.script.clone())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(|e| e.base)}</output></p>
@@ -310,27 +317,39 @@ pub fn Studio() -> impl IntoView {
                 <label class="adaptation-confirm" for="revision-reviewed"><input id="revision-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || reviewed.get()
                     on:change=move |e| reviewed.set(event_target_checked(&e)) /><span>{move || text(Key::ReviewBeforeSave, english.get())}</span></label>
                 <div class="toolbar">
-                    <button class="primary" type="button" aria-disabled=save_blocked aria-describedby="request-reason" on:click=move |_| {
+                    <ActionButton id="revision-save" english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(|e| e.busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
                         if save_blocked() { return; }
                         match operation_id() {
                             Ok(op) => if let Some((saving,intent)) = state.get_untracked().start_save(op) { state.set(saving); issues.set(vec![]); dispatch_save(state,issues,api,intent); },
                             Err(error) => state.update(|e| *e = e.failed(&error)),
                         }
-                    }>{move || copy().save}</button>
-                    <Show when=move || state.with(|e| e.pending.is_some() && !e.busy)><button type="button" aria-disabled=move || activity.get() || state.with(|e| e.pending.as_ref().is_some_and(|i| i.actor != e.actor)) on:click=move |_| {
+                    })>{move || copy().save}</ActionButton>
+                    <Show when=move || state.with(|e| e.pending.is_some() && !e.busy)><ActionButton id="revision-retry" english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || activity.get() || state.with(|e| e.pending.as_ref().is_some_and(|i| i.actor != e.actor))) on_press=Callback::new(move |_| {
                         if activity.get_untracked() { return; }
                         if let Some((saving,intent)) = state.get_untracked().retry() { state.set(saving); dispatch_save(state,issues,api,intent); }
-                    }>{move || copy().retry}</button></Show>
-                    <button type="button" aria-disabled=move || blocked() || activity.get() || production_activity.get() on:click=move |_| {
-                        if blocked() || activity.get_untracked() || production_activity.get_untracked() || ((state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked()) && !confirm_discard(english.get_untracked())) { return; }
-                        state.update(|e| *e = e.discard_and_select(String::new())); selection.set(String::new()); reviewed.set(false); issues.set(vec![]); preview.set(ValidationPreview::default());
-                    }>{move || text(Key::Discard, english.get())}</button>
+                    })>{move || copy().retry}</ActionButton></Show>
+                    <ActionButton id="revision-discard" english=english variant=ButtonVariant::Secondary
+                        blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
+                        on_press=Callback::new(move |_| {
+                            if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
+                            dialog_failure.set(false); discard_open.set(true);
+                        })>{move || text(Key::Discard, english.get())}</ActionButton>
                 </div>
                 <p id="request-reason" class="help">{move || state.with(|e| if e.busy { copy().busy } else if e.pending.is_some() { copy().pending } else if e.actor.is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, english.get()) } else { "" })}</p>
                 <p class="help">{move || text(Key::PermissionHelp, english.get())}</p>
             </section>
-            <p id="status" role="status" aria-live="polite">{move || messages::status(state.with(|e| e.status),english.get())}</p>
+            <UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(|e| e.status),english.get())}</span></UiStatus>
+            <Show when=move || dialog_failure.get()><UiStatus announcement=Announcement::Polite><p>{move || text(Key::DialogFailure, english.get())}</p></UiStatus></Show>
+            <DiscardDraftDialog open=discard_open english=english
+                blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
+                on_error=Callback::new(move |_| { dialog_failure.set(true); discard_open.set(false); })
+                on_confirm=Callback::new(move |()| {
+                    if blocked() || activity.get_untracked() || production_activity.get_untracked() { return false; }
+                    state.update(|e| *e = e.discard_and_select(String::new())); selection.set(String::new());
+                    reviewed.set(false); issues.set(vec![]); preview.set(ValidationPreview::default()); true
+                })/>
         </main>
-        </div>
+        </Container>
+        </UiRoot>
     }
 }

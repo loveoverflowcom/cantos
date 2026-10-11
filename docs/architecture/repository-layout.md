@@ -62,7 +62,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | Shared | Where | Consumers today |
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio` |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio theme/CSS; bounded development preview; Theatre integration planned |
+| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre skeleton; development gallery |
 
 Not shared, deliberately:
 

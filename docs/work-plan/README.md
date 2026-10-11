@@ -2,7 +2,7 @@
 
 The requested UI-only [Leptos UI system sequence](015-leptos-ui-system.md) delivers a small
 canonical foundation before components, responsive app integration and independent review.
-Continue with session 3 app integration after reading the [component handoff](../evidence/ui-system-components.md); no later session is started automatically.
+Continue with independent session 4 review after reading the [consumer integration handoff](../evidence/ui-system-integration.md) and the [component handoff](../evidence/ui-system-components.md); no later session is started automatically.
 This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
 
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
