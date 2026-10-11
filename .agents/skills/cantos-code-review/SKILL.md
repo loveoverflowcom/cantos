@@ -135,6 +135,8 @@ Before handing off, check:
   confidence with its reason;
 - every check is listed with its result from the local-execution vocabulary and a reason when
   it did not pass;
+- apply the [local handoff policy](../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
+  pending or unread GitHub CI alone is not a required evidence gap;
 - coverage is stated per path and per target, including what was not read;
 - the residual-risk line is not empty.
 

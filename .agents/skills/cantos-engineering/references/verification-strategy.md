@@ -62,8 +62,8 @@ Inspect each category; keep only what the change can reach:
 - Assert structured outcomes and exact error variants, never `is_err()` alone.
 - Assert that a rejection changed nothing (state, rows or canonical bytes).
 - Name tests as theorems; keep arrange/act/assert within one screen.
-- Prefer pure `#[test]` for rules; use fakes for application tests; real infrastructure for
-  integration claims.
+- Prefer pure `#[test]` for rules; exercise production modules together with external fakes for
+  `mock-integration-tested` claims; use real local infrastructure for `integration-tested` claims.
 - Do not assert mock call counts unless the count is the contract (for example, "exactly one
   provider call per fingerprint").
 - Fixed clocks, sequence IDs and seeded randomness; wait on observable conditions, never sleep.
@@ -117,6 +117,11 @@ design, so do not adopt them speculatively.
 3. Fix; run the single test, the module suite, then proportionate broader checks.
 
 ## Mocked and live evidence are different rows
+
+Routine implementation handoff uses the [local handoff policy](local-execution.md#local-handoff-and-pr-completion):
+local regression tests, mocked integration where a flow crosses modules, and applicable verification
+checks. Do not wait for GitHub CI. Mocked integration is adequate for orchestration and contract
+behavior against doubles; database semantics and real-provider acceptance require their own evidence.
 
 The work plan requires labeling them separately
 ([work plan § Shared completion evidence](../../../../docs/work-plan/README.md#shared-completion-evidence)).

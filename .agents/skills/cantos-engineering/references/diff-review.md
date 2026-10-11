@@ -96,7 +96,7 @@ injection; CI permissions. A security finding names a threat, a trigger and a re
 
 **E. Tests and evidence.** A checker passing, a test existing, a test running and an assertion
 proving the claim are four different facts. Look for deleted or ignored tests, weakened
-assertions, fixtures edited to match a bug, zero selected tests, fakes reported as integration,
+assertions, fixtures edited to match a bug, zero selected tests, fakes reported as real integration,
 captures reported as inspected. A missing test is a coverage gap, not by itself a defect.
 
 ## 4. Verify each candidate

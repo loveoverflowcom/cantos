@@ -26,6 +26,11 @@ because the reviewer values it, and a requirement is not waived because it is ex
 missing test is an evidence gap, not a reproduced production bug. The report creates no required
 check, exit code or approval and claims no merge protection it has not inspected.
 
+Apply the [local handoff policy](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
+when deciding whether evidence is required: pending or unread remote CI alone does not block an
+implementation handoff. Adequate `mock-integration-tested` evidence satisfies the mocked flow
+claim; it does not establish real database or vendor behavior. Production acceptance remains separate.
+
 ## Assurance ledger
 
 One compact row for **every** changed durable or high-impact claim; the disposition is never
@@ -67,7 +72,8 @@ Next verification action + owner
 Cell rules:
 
 - Levels come from the foundation vocabulary with their scope: `example-tested against a fake
-  synthesizer`, `integration-tested (local PostgreSQL)`, `fault-injected at after-provider-response`.
+  synthesizer`, `mock-integration-tested (production flow; fake provider)`,
+  `integration-tested (local PostgreSQL)`, `fault-injected at after-provider-response`.
   Evidence that exists but did not run in this review is cited with its provenance and marked
   `not rerun`.
 - Keep core, integration, rendered, device and provider evidence in separate rows or cells;
