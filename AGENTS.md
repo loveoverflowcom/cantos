@@ -8,7 +8,7 @@ The current user's instructions take priority. Preserve Cantos Studio and Cantos
 
 ## Repository layout
 
-`apps/cantos/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/{web,mobile}` is Cantos Studio (creators), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, and `packages/` holds shared contracts and design tokens. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
+`apps/cantos/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/{web,mobile}` is Cantos Studio (creators), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, `packages/` holds shared contracts and design tokens, and `xtask/` is the `cargo xtask` developer command surface. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
 
 ## Architecture boundaries
 
@@ -45,19 +45,23 @@ Skills own working method; `docs/` owns product rules. Keep one copy of each ski
 
 ## Verification
 
-Run `python3 scripts/check_repository.py`, `python3 -m unittest discover -s scripts -p 'test_*.py'` and `git diff --check` for this bootstrap. Once code exists, run the documented checks appropriate to the change. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
+Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
-The implemented Script IR package also requires `cargo fmt --all -- --check`,
-`cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked`
-and `python3 scripts/reference_script_ir.py`. Use `python3 scripts/mutate_script_ir.py` for the
-bounded validator/encoder mutation checks. WAV inspection changes also require
-`python3 scripts/reference_wav_inspection.py` after `cargo build --locked --bin inspect-wav`.
-The local revision slice additionally requires `python3 scripts/test_postgres.py` with PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`,
-`cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings`, and
-`NO_COLOR=true trunk build --locked` from `apps/cantos-studio/web` (and `apps/cantos/web` for the Theatre skeleton, with `-p cantos-theatre` in the clippy command). PostgreSQL checks must create a new
-disposable cluster; never substitute a production or inherited database URL. Studio runtime
+| Change | Required command |
+| --- | --- |
+| Any change (documents, skills, scripts) | `cargo xtask verify repository` |
+| Before handoff or a pull request | `cargo xtask preflight --changed-only` (it broadens to every gate when impact is uncertain) |
+| Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
+| Script IR validator/encoder | additionally `cargo xtask verify mutation` |
+| Studio or Theatre Web | `cargo xtask verify web` |
+| Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
+
+Use Rust 1.87 (`RUSTUP_TOOLCHAIN=1.87.0`, as in CI). PostgreSQL checks create a new disposable
+cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start
+only local processes they own and never provision databases, identity or providers. Report each
+gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not reached) or
+`UNSUPPORTED` (missing tool, or a mobile surface without a Gradle project). Studio runtime
 interaction/accessibility evidence is separate from the WASM build; no mobile runtime gate exists.
-On affected macOS temporary-path setups, use
-`TMPDIR=/private/tmp` for Python unit/mutation runs.
+On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python unit/mutation runs.
 
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.

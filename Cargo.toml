@@ -1,5 +1,5 @@
 [workspace]
-members = ["services/cantos-api", "apps/cantos/web", "apps/cantos-studio/web", "packages/contracts/api"]
+members = ["services/cantos-api", "apps/cantos/web", "apps/cantos-studio/web", "packages/contracts/api", "xtask"]
 resolver = "3"
 
 [profile.dev]

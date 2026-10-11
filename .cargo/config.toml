@@ -1,0 +1,3 @@
+# `cargo xtask` is the repository-level command surface; see xtask/README.md.
+[alias]
+xtask = "run --quiet --locked --package xtask --"

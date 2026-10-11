@@ -12,6 +12,7 @@
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
 | [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
 | [Restructure evidence](evidence/monorepo-restructure.md) | Checks run for the monorepo reorganization and what remains unverified |
+| [xtask evidence](evidence/unified-xtask.md) | Commands run for the `cargo xtask` surface, with PASS, NOT_RUN and UNSUPPORTED results |
 | [Script IR](architecture/script-ir.md) | Versioned interchange and reuse without project coupling |
 | [Script IR evidence](evidence/script-ir-contract.md) | Executed contract checks and unrun application gates |
 | [Final revision sequence review](evidence/script-revision-final-review.md) | Independent findings, fixes, final local checks and remaining runtime limits |
@@ -36,6 +37,7 @@
 | [Decision 0009](decisions/0009-monorepo-layout.md) | Product-grouped apps, one backend service and shared packages |
 | [Decision 0010](decisions/0010-local-neural-tts-research.md) | Proposed VieNeu Nano research selection; production dispatch disabled |
 | [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
+| [Decision 0012](decisions/0012-xtask-command-surface.md) | `cargo xtask` as the single build, run and verification surface; CI runs its jobs |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

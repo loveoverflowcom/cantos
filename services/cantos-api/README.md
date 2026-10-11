@@ -68,13 +68,12 @@ Run from the repository root with Rust 1.87 and PostgreSQL binaries on `PATH`:
 
 ```sh
 cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" python3 scripts/test_postgres.py
+cargo xtask verify rust
+cargo xtask verify contracts
+PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" cargo xtask verify postgres
 ```
 
-The runner removes inherited `DATABASE_URL`, `PG*` and `CANTOS_*` configuration, disables psql
+`verify postgres` runs `scripts/test_postgres.py`, the primitive described here. The runner removes inherited `DATABASE_URL`, `PG*` and `CANTOS_*` configuration, disables psql
 startup files, and refuses optimized Python (`-O`) before starting processes. It initializes a
 fresh loopback-only cluster in ignored `target/revision-evidence/`, creates a non-superuser app
 role, runs the real revision and manuscript PostgreSQL suites, and then kills/restarts HTTP
@@ -93,12 +92,14 @@ also needs access to `ps`/`sysctl`; a denied/missing tool is a blocker, not a ze
 For a synthetic live Studio walkthrough, build Web using [its guide](../../apps/cantos-studio/web/README.md), then:
 
 ```sh
-PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" python3 scripts/test_postgres.py --keep
-python3 scripts/serve_studio.py
+PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" cargo xtask verify postgres --keep
+cargo xtask run cantos-api --test-cluster
 ```
 
-Use the printed UUID and synthetic alice token. The runner prints the exact `pg_ctl ... stop`
-command for its retained cluster. Stop the HTTP host with Ctrl-C. No production data, real
+`run --test-cluster` builds `cantos-server` and starts `scripts/serve_studio.py`, which refuses any
+database other than the retained disposable one. Use the printed UUID and synthetic alice token.
+The runner prints the exact `pg_ctl ... stop` command for its retained cluster. Stop the HTTP host
+with Ctrl-C; xtask stops only the process group it started. No production data, real
 credential, provider call or object-storage write is needed.
 
 For another isolated development database, run `cargo run --locked --bin cantos-migrate`
@@ -124,8 +125,9 @@ to the HTTP host. PostgreSQL superusers can bypass constraints/triggers; they ar
 application threat boundary. The local runner's trust authentication and predictable tokens
 are disposable test fixtures, not deployment guidance.
 
-Run `cargo run --locked --bin cantos-server` with `CANTOS_ENV=development`, loopback
-`CANTOS_BIND_ADDRESS` and the app-role local `DATABASE_URL`. Default origin is the bind URL
+Run `cargo xtask run cantos-api` with the app-role local `DATABASE_URL` exported; it builds
+`cantos-server` and sets `CANTOS_ENV=development` and `CANTOS_BIND_ADDRESS=127.0.0.1:8080`
+(`--web-origin` sets `CANTOS_WEB_ORIGIN`). Default origin is the bind URL
 and default static directory is `apps/cantos-studio/web/dist`; overrides are `CANTOS_WEB_ORIGIN` and
 `CANTOS_WEB_DIST`. No dotenv loader exists. Remote PostgreSQL/TLS/production hosting are
 explicitly unsupported by this host.

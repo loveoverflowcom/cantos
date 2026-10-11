@@ -1,5 +1,8 @@
 name: Repository checks
 
+# Each job only provisions its environment (toolchain, Trunk, PostgreSQL binaries) and then
+# runs one job of the shared `cargo xtask ci` contract; xtask owns what is verified.
+
 on:
   push:
     branches: [develop]
@@ -14,22 +17,11 @@ concurrency:
   group: repository-checks-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  RUSTUP_TOOLCHAIN: 1.87.0
+
 jobs:
-  documents-and-fixtures:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Validate documents, fixtures and agent skills
-        run: python3 scripts/check_repository.py
-      - name: Test repository checks
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
-      - name: Check independent Script IR goldens
-        run: python3 scripts/reference_script_ir.py
-  script-ir:
+  repository:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -37,17 +29,25 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Select pinned Rust toolchain for xtask
+        run: rustup toolchain install 1.87.0 --profile minimal
+      - name: Documents, fixtures, skills and the Script IR oracle
+        run: cargo xtask ci --job repository
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Select pinned Rust toolchain
         run: rustup toolchain install 1.87.0 --profile minimal --component rustfmt --component clippy
-      - name: Check Rust formatting
-        run: cargo +1.87.0 fmt --all -- --check
-      - name: Lint Script IR
-        run: cargo +1.87.0 clippy --workspace --all-targets --locked -- -D warnings
-      - name: Test Script IR contracts
-        run: cargo +1.87.0 test --workspace --locked
+      - name: Format, lint, test and the WAV oracle
+        run: cargo xtask ci --job rust
   web:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,27 +55,15 @@ jobs:
           persist-credentials: false
       - name: Select pinned Rust toolchain with the WASM target
         run: rustup toolchain install 1.87.0 --profile minimal --component clippy --target wasm32-unknown-unknown
-      - name: Lint Studio Web and the Theatre Web skeleton for WASM
-        run: cargo +1.87.0 clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
+      - name: Install the documented Trunk version
+        env:
+          RUSTUP_TOOLCHAIN: stable
+        run: cargo install trunk --version 0.21.14 --locked
+      - name: WASM lint and Trunk builds of Studio and Theatre Web
+        run: cargo xtask ci --job web
   postgres:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: cantos_test_admin
-          POSTGRES_PASSWORD: cantos_ci_only
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U cantos_test_admin -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      CANTOS_TEST_CLUSTER_URL: postgresql://cantos_test_admin:cantos_ci_only@127.0.0.1:5432/postgres
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -83,11 +71,12 @@ jobs:
           persist-credentials: false
       - name: Select pinned Rust toolchain
         run: rustup toolchain install 1.87.0 --profile minimal
-      - name: Provision restricted test application role
-        run: docker exec ${{ job.services.postgres.id }} psql -U cantos_test_admin -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD 'cantos_ci_only'"
-      - name: Test PostgreSQL migrations, permissions and recovery
-        run: cargo +1.87.0 test -p cantos-api --test revisions_postgres --locked -- --ignored --test-threads=1
-      - name: Test manuscript intake, isolation, byte preservation and retries
-        run: cargo +1.87.0 test -p cantos-api --test imports_postgres --locked -- --ignored --test-threads=1
-      - name: Test adaptation attempts, proposal isolation and atomic acceptance
-        run: cargo +1.87.0 test -p cantos-api --test adaptations_postgres --locked -- --ignored --test-threads=1
+      - name: Install PostgreSQL 17 server binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Disposable-cluster migrations, persistence, restart and recovery tests
+        run: cargo xtask ci --job postgres

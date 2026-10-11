@@ -15,7 +15,7 @@ Run in this order; stop at the first failure and fix or report it.
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
 | 2. format, lint, test | the formatter (check mode), linter and focused tests of each touched toolchain, as the foundation's [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion) requires; commands discovered from the manifests, never assumed | "green tests" with unformatted code |
-| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers), including `python3 scripts/check_repository.py` and `git diff --check` | broken links, skill structure, whitespace |
+| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`) | broken links, skill structure, whitespace, unselected gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
 
@@ -128,7 +128,8 @@ reopen it unchanged after a backend restart. Part of #1.
 - `<test command> revision_reopens_with_same_digest_after_restart`: pass —
   integration-tested against local PostgreSQL <version> (live).
 - `<test command> validator`: 6 passed — example-tested, exact `UnresolvedSpeaker` variant.
-- `python3 scripts/check_repository.py`, `git diff --check`: pass.
+- `cargo xtask preflight --changed-only`: PASS (repository, rust-format, rust-lint, rust-tests,
+  postgres); `web-build`: NOT_RUN (`--skip web-build`, no UI change).
 - Not run: no UI in this slice; no provider involved.
 
 ## Compatibility and production impact
