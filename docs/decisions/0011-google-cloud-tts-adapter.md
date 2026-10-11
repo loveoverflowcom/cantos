@@ -118,8 +118,8 @@ Implement Google inside the existing `tts` boundary of the `cantos-server` packa
 ## Consequences
 
 - Product and user impact: a creator can cast Google vi-VN voices and freeze them through the
-  existing API. Studio lists them, but its intensity field is read-only for capabilities without
-  intensity, so it cannot yet record the required explicit `0`; this affects eSpeak equally.
+  existing API and Studio. Studio offers "inherit" or the explicit `0` for capabilities without
+  intensity, for eSpeak equally ([Studio casting evidence](../evidence/studio-provider-casting.md)).
 - Compatibility and migrations: no migration. The production v1 JSON Schema now lists the
   eSpeak and Google identities, adapter versions and output contracts that the server already
   or newly emits; reference and eSpeak snapshots and digests are unchanged. `Cargo.lock` adds

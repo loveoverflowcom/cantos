@@ -1,0 +1,236 @@
+{
+  "version": "production-reference-v1",
+  "capabilities": [
+    {
+      "provider_id": "reference-only",
+      "model_id": "reference-v1",
+      "voice_ids": [
+        "synthetic-narrator",
+        "synthetic-character"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN",
+        "en",
+        "en-US"
+      ],
+      "emotions": [
+        "neutral",
+        "calm",
+        "hopeful",
+        "warm",
+        "sad",
+        "angry"
+      ],
+      "rate_min_permille": 500,
+      "rate_max_permille": 2000,
+      "pitch_min_semitones": -12,
+      "pitch_max_semitones": 12,
+      "intensity_supported": true,
+      "pronunciation_supported": true,
+      "reference_only": true,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "reference-only",
+      "model_id": "reference-v2",
+      "voice_ids": [
+        "synthetic-narrator",
+        "synthetic-character"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN",
+        "en",
+        "en-US"
+      ],
+      "emotions": [
+        "neutral",
+        "calm",
+        "hopeful",
+        "warm",
+        "sad",
+        "angry"
+      ],
+      "rate_min_permille": 500,
+      "rate_max_permille": 2000,
+      "pitch_min_semitones": -12,
+      "pitch_max_semitones": 12,
+      "intensity_supported": true,
+      "pronunciation_supported": true,
+      "reference_only": true,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "espeak-ng-local",
+      "model_id": "espeak-ng-1.52.0",
+      "voice_ids": [
+        "vi",
+        "vi-vn-x-central",
+        "vi-vn-x-south"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 1000,
+      "rate_max_permille": 1000,
+      "pitch_min_semitones": 0,
+      "pitch_max_semitones": 0,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "vieneu-nano-local",
+      "model_id": "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc",
+      "voice_ids": [
+        "duc-tri",
+        "my-duyen"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 1000,
+      "rate_max_permille": 1000,
+      "pitch_min_semitones": 0,
+      "pitch_max_semitones": 0,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "google-cloud-tts",
+      "model_id": "google-chirp3-hd",
+      "voice_ids": [
+        "vi-VN-Chirp3-HD-Achernar",
+        "vi-VN-Chirp3-HD-Achird",
+        "vi-VN-Chirp3-HD-Algenib",
+        "vi-VN-Chirp3-HD-Algieba",
+        "vi-VN-Chirp3-HD-Alnilam",
+        "vi-VN-Chirp3-HD-Aoede",
+        "vi-VN-Chirp3-HD-Autonoe",
+        "vi-VN-Chirp3-HD-Callirrhoe",
+        "vi-VN-Chirp3-HD-Charon",
+        "vi-VN-Chirp3-HD-Despina",
+        "vi-VN-Chirp3-HD-Enceladus",
+        "vi-VN-Chirp3-HD-Erinome",
+        "vi-VN-Chirp3-HD-Fenrir",
+        "vi-VN-Chirp3-HD-Gacrux",
+        "vi-VN-Chirp3-HD-Iapetus",
+        "vi-VN-Chirp3-HD-Kore",
+        "vi-VN-Chirp3-HD-Laomedeia",
+        "vi-VN-Chirp3-HD-Leda",
+        "vi-VN-Chirp3-HD-Orus",
+        "vi-VN-Chirp3-HD-Puck",
+        "vi-VN-Chirp3-HD-Pulcherrima",
+        "vi-VN-Chirp3-HD-Rasalgethi",
+        "vi-VN-Chirp3-HD-Sadachbia",
+        "vi-VN-Chirp3-HD-Sadaltager",
+        "vi-VN-Chirp3-HD-Schedar",
+        "vi-VN-Chirp3-HD-Sulafat",
+        "vi-VN-Chirp3-HD-Umbriel",
+        "vi-VN-Chirp3-HD-Vindemiatrix",
+        "vi-VN-Chirp3-HD-Zephyr",
+        "vi-VN-Chirp3-HD-Zubenelgenubi"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 1000,
+      "rate_max_permille": 1000,
+      "pitch_min_semitones": 0,
+      "pitch_max_semitones": 0,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "google-cloud-tts",
+      "model_id": "google-neural2",
+      "voice_ids": [
+        "vi-VN-Neural2-A",
+        "vi-VN-Neural2-D"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 250,
+      "rate_max_permille": 2000,
+      "pitch_min_semitones": -20,
+      "pitch_max_semitones": 20,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "google-cloud-tts",
+      "model_id": "google-wavenet",
+      "voice_ids": [
+        "vi-VN-Wavenet-A",
+        "vi-VN-Wavenet-B",
+        "vi-VN-Wavenet-C",
+        "vi-VN-Wavenet-D"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 250,
+      "rate_max_permille": 2000,
+      "pitch_min_semitones": -20,
+      "pitch_max_semitones": 20,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    },
+    {
+      "provider_id": "google-cloud-tts",
+      "model_id": "google-standard",
+      "voice_ids": [
+        "vi-VN-Standard-A",
+        "vi-VN-Standard-B",
+        "vi-VN-Standard-C",
+        "vi-VN-Standard-D"
+      ],
+      "languages": [
+        "vi",
+        "vi-VN"
+      ],
+      "emotions": [
+        "neutral"
+      ],
+      "rate_min_permille": 250,
+      "rate_max_permille": 2000,
+      "pitch_min_semitones": -20,
+      "pitch_max_semitones": 20,
+      "intensity_supported": false,
+      "pronunciation_supported": true,
+      "reference_only": false,
+      "billable_dispatch_available": false
+    }
+  ]
+}

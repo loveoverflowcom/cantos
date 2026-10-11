@@ -22,6 +22,7 @@
 | [Local TTS evidence](evidence/tts-receipt-inspection.md) | Bounded local samples, snapshot-bound receipts, actual checks and commercial/production limits |
 | [TTS prerequisites](evidence/tts-provider-prerequisites.md) | Official provider declarations, local selection and deferred commercial prerequisites |
 | [Google TTS adapter evidence](evidence/google-tts-adapter.md) | Google casting/adapter claims ledger, mocked checks, NOT_RUN live synthesis and residual provider risk |
+| [Studio provider casting evidence](evidence/studio-provider-casting.md) | Explicit neutral/0, capability-driven controls, retained unsupported values and real backend/browser checks |
 | [Local neural research](evidence/local-neural-tts-research.md) | Piper/VieNeu engine, model, preset and training-rights comparison; pinned local resource plan |
 | [Local neural evidence](evidence/local-neural-tts.md) | Research-only adapter boundary, exact identities, checks, actual versus mocked results and limits |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |

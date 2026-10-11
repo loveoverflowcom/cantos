@@ -41,9 +41,10 @@ queue to #7's durable workers.
 The owner-selected Google Cloud TTS path follows the same pattern: Google vi-VN voices are in the
 casting catalog with an explicit neutral-delivery rule, and an opt-in probe consumes one frozen
 line through the shared receipt audit, with [mocked evidence](../evidence/google-tts-adapter.md)
-only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Within #6, next record an
-operator-paid, capped live sample with real envelopes, and let Studio enter the explicit
-intensity 0 that eSpeak and Google casting require. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
+only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Studio can now record the
+explicit neutral delivery at intensity 0 that eSpeak and Google casting require, and freeze and
+approve those inputs ([Studio casting evidence](../evidence/studio-provider-casting.md)). Within
+#6, next record an operator-paid, capped live sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
 then persists attempts and reservations before any production dispatch.
 
 The repository has documentation/templates, an executable

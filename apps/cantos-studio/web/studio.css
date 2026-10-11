@@ -142,6 +142,8 @@ main { max-width: 94rem; }
 .production-field > span { display: block; font-weight: 500; margin-block-end: calc(var(--cantos-space-sm) / 2); overflow-wrap: anywhere; }
 .production-field input, .production-field select { width: 100%; min-height: 2.75rem; }
 .production-field select { height: 2.75rem; overflow: hidden; text-overflow: ellipsis; }
+.production-unsupported { display: block; margin-block-start: calc(var(--cantos-space-sm) / 2); border-inline-start: 4px solid var(--cantos-color-focus); padding-inline-start: var(--cantos-space-sm); font-weight: 400; overflow-wrap: anywhere; }
+.production-field [aria-invalid="true"]:not(:focus-visible) { outline: 2px dashed var(--cantos-color-focus); outline-offset: 1px; }
 .production-pronunciation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: var(--cantos-space-sm); align-items: end; }
 .production-pronunciation button { margin-block-end: var(--cantos-space-sm); }
 .production-snapshot { padding-block: var(--cantos-space-md); border-block: 1px solid var(--cantos-color-outline); }

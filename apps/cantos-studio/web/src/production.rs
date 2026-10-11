@@ -34,6 +34,19 @@ impl Context {
     }
 }
 
+/// A casting control that the selected provider/model profile may not support.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CastingControl {
+    Model,
+    Voice,
+    Language,
+    Rate,
+    Pitch,
+    Emotion,
+    Intensity,
+    Pronunciation,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BindingForm {
     pub character_id: String,
@@ -68,6 +81,82 @@ impl BindingForm {
                 .unwrap_or_default(),
             pronunciation: binding.pronunciation.clone(),
         }
+    }
+
+    /// The exact provider/model profile, never a fallback to another catalog entry.
+    pub fn capability<'a>(
+        &self,
+        catalog: &'a ProductionCatalogResponse,
+    ) -> Option<&'a ProductionCapability> {
+        catalog
+            .capabilities
+            .iter()
+            .find(|c| c.provider_id == self.provider_id && c.model_id == self.model_id)
+    }
+
+    /// A provider switch changes only the provider and model. Voice, language, performance and
+    /// pronunciation keep their text so an unsupported value is shown, never replaced. The model
+    /// is kept when the provider offers it, adopted when the provider has exactly one, and left
+    /// for an explicit choice otherwise.
+    pub fn select_provider(&mut self, catalog: &ProductionCatalogResponse, provider: String) {
+        let models: Vec<_> = catalog
+            .capabilities
+            .iter()
+            .filter(|c| c.provider_id == provider)
+            .map(|c| c.model_id.clone())
+            .collect();
+        if !models.contains(&self.model_id) {
+            self.model_id = match models.as_slice() {
+                [only] => only.clone(),
+                _ => String::new(),
+            };
+        }
+        self.provider_id = provider;
+    }
+
+    /// Controls whose current value the selected profile cannot honor, for display only: backend
+    /// admission and preview still decide. Text that does not parse is reported by settings
+    /// parsing, not here. An unknown profile reports only the model, because nothing else can be
+    /// judged against it.
+    pub fn unsupported(&self, capability: Option<&ProductionCapability>) -> Vec<CastingControl> {
+        let Some(c) = capability else {
+            return vec![CastingControl::Model];
+        };
+        let mut controls = Vec::new();
+        if !self.voice_id.is_empty() && !c.voice_ids.contains(&self.voice_id) {
+            controls.push(CastingControl::Voice);
+        }
+        if !c.languages.contains(&self.language) {
+            controls.push(CastingControl::Language);
+        }
+        if self
+            .rate
+            .parse::<u16>()
+            .is_ok_and(|v| !(c.rate_min_permille..=c.rate_max_permille).contains(&v))
+        {
+            controls.push(CastingControl::Rate);
+        }
+        if self
+            .pitch
+            .parse::<i16>()
+            .is_ok_and(|v| !(c.pitch_min_semitones..=c.pitch_max_semitones).contains(&v))
+        {
+            controls.push(CastingControl::Pitch);
+        }
+        if !self.emotion.is_empty() && !c.emotions.contains(&self.emotion) {
+            controls.push(CastingControl::Emotion);
+        }
+        if self
+            .intensity
+            .parse::<u16>()
+            .is_ok_and(|v| v > 1_000 || (!c.intensity_supported && v != 0))
+        {
+            controls.push(CastingControl::Intensity);
+        }
+        if !c.pronunciation_supported && !self.pronunciation.is_empty() {
+            controls.push(CastingControl::Pronunciation);
+        }
+        controls
     }
 
     fn binding(&self) -> Option<CharacterCasting> {
@@ -819,6 +908,190 @@ mod tests {
             }),
             ..Editor::default()
         }
+    }
+
+    fn catalog() -> ProductionCatalogResponse {
+        serde_json::from_str(include_str!(
+            "../../../../packages/contracts/fixtures/production/v1/catalog-response.json"
+        ))
+        .unwrap()
+    }
+
+    fn narrator() -> BindingForm {
+        SettingsForm::from_settings(&request().settings).bindings[0].clone()
+    }
+
+    #[test]
+    fn explicit_neutral_at_intensity_zero_round_trips_distinct_from_inheritance() {
+        let mut form = narrator();
+        assert_eq!((form.emotion.as_str(), form.intensity.as_str()), ("", ""));
+        let inherited = form.binding().unwrap().performance;
+        assert_eq!(
+            (inherited.emotion, inherited.intensity_permille),
+            (None, None)
+        );
+        form.emotion = "neutral".into();
+        form.intensity = "0".into();
+        let explicit = form.binding().unwrap();
+        assert_eq!(explicit.performance.emotion.as_deref(), Some("neutral"));
+        assert_eq!(explicit.performance.intensity_permille, Some(0));
+        let reopened = BindingForm::from_binding(&explicit);
+        assert_eq!(
+            (reopened.emotion.as_str(), reopened.intensity.as_str()),
+            ("neutral", "0")
+        );
+    }
+
+    #[test]
+    fn provider_switch_changes_only_provider_and_model_and_flags_kept_values() {
+        let catalog = catalog();
+        let mut form = narrator();
+        form.rate = "1200".into();
+        form.emotion = "warm".into();
+        form.intensity = "600".into();
+        form.pronunciation = vec![ProductionPronunciation {
+            surface: "Vọng Đài".into(),
+            replacement: "Vọng Đài".into(),
+        }];
+        let before = form.clone();
+        form.select_provider(&catalog, "espeak-ng-local".into());
+        assert_eq!(
+            form.model_id, "espeak-ng-1.52.0",
+            "the only model is adopted"
+        );
+        assert_eq!(
+            BindingForm {
+                provider_id: before.provider_id.clone(),
+                model_id: before.model_id.clone(),
+                ..form.clone()
+            },
+            before,
+            "voice, language, performance and pronunciation are never rewritten"
+        );
+        assert_eq!(
+            form.unsupported(form.capability(&catalog)),
+            vec![
+                CastingControl::Voice,
+                CastingControl::Rate,
+                CastingControl::Emotion,
+                CastingControl::Intensity
+            ]
+        );
+        form.select_provider(&catalog, "google-cloud-tts".into());
+        assert_eq!(
+            form.model_id, "",
+            "several models require an explicit choice"
+        );
+        assert!(form.capability(&catalog).is_none());
+        assert_eq!(form.unsupported(None), vec![CastingControl::Model]);
+        form.model_id = "google-neural2".into();
+        form.select_provider(&catalog, "google-cloud-tts".into());
+        assert_eq!(
+            form.model_id, "google-neural2",
+            "a model of the same provider is kept"
+        );
+        assert_eq!(
+            form.unsupported(form.capability(&catalog)),
+            vec![
+                CastingControl::Voice,
+                CastingControl::Emotion,
+                CastingControl::Intensity
+            ],
+            "Neural2 admits rate 1200"
+        );
+    }
+
+    #[test]
+    fn espeak_and_google_profiles_accept_only_explicit_neutral_or_inherited_delivery() {
+        let catalog = catalog();
+        for (provider, model, voice) in [
+            ("espeak-ng-local", "espeak-ng-1.52.0", "vi-vn-x-south"),
+            (
+                "google-cloud-tts",
+                "google-chirp3-hd",
+                "vi-VN-Chirp3-HD-Aoede",
+            ),
+            ("google-cloud-tts", "google-wavenet", "vi-VN-Wavenet-D"),
+        ] {
+            let mut form = narrator();
+            form.select_provider(&catalog, provider.into());
+            form.model_id = model.into();
+            form.voice_id = voice.into();
+            let capability = form.capability(&catalog);
+            assert!(
+                capability.is_some_and(|c| !c.intensity_supported),
+                "{model}"
+            );
+            assert_eq!(form.unsupported(capability), vec![], "{model} inherit");
+            form.emotion = "neutral".into();
+            form.intensity = "0".into();
+            assert_eq!(form.unsupported(capability), vec![], "{model} explicit");
+            let performance = form.binding().unwrap().performance;
+            assert_eq!(performance.intensity_permille, Some(0), "{model}");
+            for (emotion, intensity, expected) in [
+                ("calm", "0", CastingControl::Emotion),
+                ("neutral", "1", CastingControl::Intensity),
+            ] {
+                let mut changed = form.clone();
+                changed.emotion = emotion.into();
+                changed.intensity = intensity.into();
+                assert_eq!(
+                    changed.unsupported(capability),
+                    vec![expected],
+                    "{model} {emotion}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unsupported_controls_follow_the_selected_profile_bounds() {
+        let catalog = catalog();
+        let mut form = narrator();
+        form.select_provider(&catalog, "google-cloud-tts".into());
+        form.model_id = "google-neural2".into();
+        form.voice_id = "vi-VN-Neural2-A".into();
+        for (rate, pitch, expected) in [
+            ("250", "-20", vec![]),
+            ("2000", "20", vec![]),
+            (
+                "249",
+                "21",
+                vec![CastingControl::Rate, CastingControl::Pitch],
+            ),
+            ("not-a-number", "", vec![]),
+        ] {
+            form.rate = rate.into();
+            form.pitch = pitch.into();
+            assert_eq!(
+                form.unsupported(form.capability(&catalog)),
+                expected,
+                "{rate}"
+            );
+        }
+        form.rate = "1000".into();
+        form.pitch = "0".into();
+        form.language = "en".into();
+        assert_eq!(
+            form.unsupported(form.capability(&catalog)),
+            vec![CastingControl::Language]
+        );
+        form.language = "vi-VN".into();
+        form.pronunciation.push(ProductionPronunciation {
+            surface: "a".into(),
+            replacement: "b".into(),
+        });
+        let mut without = form.capability(&catalog).unwrap().clone();
+        without.pronunciation_supported = false;
+        assert_eq!(
+            form.unsupported(Some(&without)),
+            vec![CastingControl::Pronunciation]
+        );
+        assert_eq!(
+            form.pronunciation.len(),
+            1,
+            "flagging never removes overrides"
+        );
     }
 
     #[test]
