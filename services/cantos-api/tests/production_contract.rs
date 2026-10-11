@@ -1,5 +1,6 @@
 use cantos_api::production::{
-    prepare_inputs, production_catalog, validate_rights_declaration, validate_settings,
+    admit_frozen_document, prepare_inputs, production_catalog, production_input_digest,
+    validate_rights_declaration, validate_settings,
 };
 use cantos_api::script_ir::read_script;
 use cantos_contracts::{
@@ -207,13 +208,34 @@ fn every_implemented_catalog_identity_round_trips_through_the_published_schema()
         .document()
         .resolved
         .iter()
-        .all(|line| line.adapter_version == "google-cloud-tts-synthesize-2"));
+        .all(|line| line.adapter_version == "google-cloud-tts-synthesize-3"));
     schema_validator("ProductionPreviewResponse")
         .validate(&serde_json::to_value(candidate.preview()).unwrap())
         .unwrap();
     schema_validator("FrozenProductionDocument")
         .validate(&serde_json::to_value(candidate.document()).unwrap())
         .unwrap();
+    // Previously frozen v2 is still a valid history wire value, while new candidates emit v3.
+    let mut historical = candidate.document();
+    for line in &mut historical.resolved {
+        line.adapter_version = "google-cloud-tts-synthesize-2".into();
+    }
+    historical.input_digest = production_input_digest(&historical).unwrap();
+    schema_validator("FrozenProductionDocument")
+        .validate(&serde_json::to_value(&historical).unwrap())
+        .unwrap();
+    assert_eq!(
+        admit_frozen_document(
+            &historical,
+            &historical.revision,
+            &historical.settings,
+            &historical.rights
+        ),
+        Ok(())
+    );
+    let mut unsupported = serde_json::to_value(historical).unwrap();
+    unsupported["resolved"][0]["adapter_version"] = json!("google-cloud-tts-synthesize-unknown");
+    assert!(!schema_validator("FrozenProductionDocument").is_valid(&unsupported));
 }
 
 /// Studio casting tests consume this fixture; it must stay the exact served catalog.

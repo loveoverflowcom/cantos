@@ -24,9 +24,11 @@ frozen-input/intent/receipt/output records to exact #5 snapshot identity and con
 recovery facts. They grant no current production authorization, durable jobs or asset acceptance.
 The [local selection](../decisions/0008-local-tts-inspection.md) is resolved for this sample scope;
 commercial provider/terms/voice rights/authentication/spending cap and its real sample remain
-deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md). Continue only
-within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
-starting #7. The current requested execution stops at #6.
+deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md). This is partial
+delivery and cannot close #6. The requester now authorizes two sequential backend PRs: first
+[existing provider verification](../evidence/tts-provider-verification.md), then #7 after the
+first PR merges. The #7 local/fake implementation handoff may proceed under that request while
+commercial live, rights and listening acceptance remain separately open; no paid dispatch is granted.
 
 [PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research slice.
 The requester directed its merge into `develop` on 2026-10-11; it does not close #6, and the
@@ -40,8 +42,8 @@ WAV hashes/receipts. The next recommended task is a named-listener assessment of
 naturalness and the neutral delivery; listening remains **NOT_RUN**. Resolve training/voice
 provenance before considering production eligibility, which remains **NO_GO**. Then continue
 the separate unfinished commercial #6 criteria after the required provider/terms/rights and
-budget decisions. Preserve eSpeak and keep #6 open; these research samples do not advance the
-queue to #7's durable workers.
+budget decisions. Preserve eSpeak and keep #6 open; these research samples do not establish
+production acceptance; the subsequent requester-authorized #7 PR must preserve these gates.
 
 The owner-selected Google Cloud TTS path follows the same pattern: Google vi-VN voices are in the
 casting catalog with an explicit neutral-delivery rule, and an opt-in probe consumes one frozen
@@ -50,7 +52,11 @@ only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Studio can now
 explicit neutral delivery at intensity 0 that eSpeak and Google casting require, and freeze and
 approve those inputs ([Studio casting evidence](../evidence/studio-provider-casting.md)). Within
 #6, next record an operator-paid, capped live sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
-then persists attempts and reservations before any production dispatch.
+then persists attempts and reservations before any production dispatch. The current
+[provider verification](../evidence/tts-provider-verification.md) hardens existing adapters and
+records fresh eSpeak evidence with Google live/listening NOT_RUN. The next bounded PR is the
+requester-authorized #7 local/fake execution slice from the merged develop, without claiming
+#6 commercial acceptance or enabling VieNeu production.
 
 Cross-cutting infrastructure, not a work-plan item: four Studio revision routes can negotiate
 MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.md),

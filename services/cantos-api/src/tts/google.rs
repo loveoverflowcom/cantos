@@ -3,6 +3,8 @@
 //! Pure: capability checks, the exact request body, classification of one transport
 //! observation into the shared receipt vocabulary and returned-audio admission. No network,
 //! clock, credential or file access; `google_http` is the shell. See ADR 0011.
+use std::borrow::Cow;
+
 use base64::Engine as _;
 use cantos_contracts::ResolvedSynthesisInput;
 use serde::{Deserialize, Serialize};
@@ -10,7 +12,9 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use super::attempt::{DeliveryState, FailureClass};
-use super::audio::{inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile};
+use super::audio::{
+    inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile, MAX_OUTPUT_BYTES,
+};
 use super::google_contract::{
     self, find_voice, GoogleVoice, VoiceFamily, ADAPTER_VERSION, CAPABILITIES_VERIFIED_ON,
     LANGUAGE_CODE, MAX_TEXT_BYTES, OUTPUT_CONTRACT, PROVIDER_ID,
@@ -65,9 +69,11 @@ pub enum PlanFinding {
     EmotionUnsupported {
         requested: String,
     },
+    NeutralDeliveryRequired,
     IntensityUnsupported {
         requested_permille: u16,
     },
+    ZeroIntensityRequired,
     InvalidText,
     TextTooLong {
         bytes: usize,
@@ -166,15 +172,19 @@ pub fn plan(input: &ResolvedSynthesisInput) -> Result<GooglePlan, Vec<PlanFindin
         Some(voice) => check_prosody(voice.family, input, &mut findings),
     }
     let performance = &input.performance;
-    if let Some(emotion) = performance.emotion.as_ref().filter(|e| *e != "neutral") {
-        findings.push(PlanFinding::EmotionUnsupported {
-            requested: emotion.clone(),
-        });
+    match performance.emotion.as_deref() {
+        Some("neutral") => {}
+        Some(emotion) => findings.push(PlanFinding::EmotionUnsupported {
+            requested: emotion.to_owned(),
+        }),
+        None => findings.push(PlanFinding::NeutralDeliveryRequired),
     }
-    if let Some(intensity) = performance.intensity_permille.filter(|v| *v != 0) {
-        findings.push(PlanFinding::IntensityUnsupported {
+    match performance.intensity_permille {
+        Some(0) => {}
+        Some(intensity) => findings.push(PlanFinding::IntensityUnsupported {
             requested_permille: intensity,
-        });
+        }),
+        None => findings.push(PlanFinding::ZeroIntensityRequired),
     }
     if input.text.len() > MAX_TEXT_BYTES {
         findings.push(PlanFinding::TextTooLong {
@@ -416,9 +426,9 @@ const fn class_for_status(status: u16) -> FailureClass {
 }
 
 #[derive(Deserialize)]
-struct SynthesizeResponse {
-    #[serde(rename = "audioContent")]
-    audio_content: Option<String>,
+struct SynthesizeResponse<'a> {
+    #[serde(rename = "audioContent", borrow)]
+    audio_content: Option<Cow<'a, str>>,
 }
 
 #[derive(Deserialize)]
@@ -431,18 +441,38 @@ struct ErrorStatus {
     status: Option<String>,
 }
 
-/// Keeps only the canonical status name; the message can echo the submitted text.
+/// Keeps only defined Google RPC status names. A provider can echo private text even in an
+/// uppercase field, so syntax alone is not sufficient redaction.
 fn provider_status(body: &ResponseBody) -> Option<String> {
     let ResponseBody::Complete(bytes) = body else {
         return None;
     };
+    if bytes.len() > MAX_RESPONSE_BYTES {
+        return None;
+    }
     let status = serde_json::from_slice::<ErrorEnvelope>(bytes)
         .ok()?
         .error
         .status?;
-    let canonical = !status.is_empty()
-        && status.len() <= 64
-        && status.bytes().all(|b| b.is_ascii_uppercase() || b == b'_');
+    let canonical = matches!(
+        status.as_str(),
+        "OK" | "CANCELLED"
+            | "UNKNOWN"
+            | "INVALID_ARGUMENT"
+            | "DEADLINE_EXCEEDED"
+            | "NOT_FOUND"
+            | "ALREADY_EXISTS"
+            | "PERMISSION_DENIED"
+            | "UNAUTHENTICATED"
+            | "RESOURCE_EXHAUSTED"
+            | "FAILED_PRECONDITION"
+            | "ABORTED"
+            | "OUT_OF_RANGE"
+            | "UNIMPLEMENTED"
+            | "INTERNAL"
+            | "UNAVAILABLE"
+            | "DATA_LOSS"
+    );
     canonical.then_some(status)
 }
 
@@ -457,16 +487,31 @@ pub fn decode_audio(body: ResponseBody) -> Result<GoogleAudio, AudioDefect> {
         }
         ResponseBody::Interrupted => return Err(AudioDefect::ResponseInterrupted),
     };
+    // The core is also reachable through test/caller transports. Never rely on the HTTP shell
+    // having enforced its limit before parsing an untrusted complete response.
+    if bytes.len() > MAX_RESPONSE_BYTES {
+        return Err(AudioDefect::ResponseTooLarge {
+            limit_bytes: MAX_RESPONSE_BYTES,
+        });
+    }
     let response: SynthesizeResponse =
         serde_json::from_slice(&bytes).map_err(|_| AudioDefect::NotJson)?;
     let encoded = response
         .audio_content
         .ok_or(AudioDefect::MissingAudioContent)?;
     let audio = base64::engine::general_purpose::STANDARD
-        .decode(encoded)
+        .decode(encoded.as_bytes())
         .map_err(|_| AudioDefect::InvalidBase64)?;
     if audio.is_empty() {
         return Err(AudioDefect::EmptyAudio);
+    }
+    if audio.len() > MAX_OUTPUT_BYTES {
+        return Err(AudioDefect::Rejected {
+            error: AudioError::OutputTooLarge {
+                actual_bytes: audio.len(),
+                maximum_bytes: MAX_OUTPUT_BYTES,
+            },
+        });
     }
     // The checksum is computed here, so admission checks format, frames and duration.
     let sha256 = format!("{:x}", Sha256::digest(&audio));

@@ -38,10 +38,12 @@ conflict and fix the stale side when in scope.
 
 ## Repository reality
 
-No worker, job table, provider adapter, audio tool or fingerprint code exists. Every name here —
-`FrozenProductionInputs`, `decide_next_step`, `classify_failure`, `plan_reconciliation`,
-`plan_regeneration`, `lease_token`, `Money`, `evaluate_technical_qc` — is a **proposal**. Discover
-the real manifests, migrations and modules first. A provider, an audio tool, a numeric loudness or
+The backend implements frozen production candidates, scoped approval, bounded WAV/receipt
+inspection and sample-only eSpeak/Google probes. VieNeu Nano remains research-only and refuses
+production dispatch. No durable worker/job table, reservation, cache acceptance, mixer or
+publication pipeline exists. The production spine and illustrative types below remain
+**proposed** unless named implementation evidence says otherwise. Discover the real manifests,
+migrations and modules first. A provider, an audio tool, a numeric loudness or
 peak target, a retry schedule and a budget currency each need a recorded decision
 ([ADR](../../../templates/adr.md), after listening tests for audio) and a pinned, verified version
 before they are treated as settled. Libraries (sqlx, proptest, a failpoint crate, cargo-fuzz,
@@ -69,8 +71,10 @@ restart reads and what the next claim does.
 
 ## Rules this skill owns
 
-Every rule is **proposed** (nothing is implemented). Rule cards with good example, counterexample,
-oracle and exception live in the linked reference.
+These rules govern later production implementation; frozen-input admission and sample adapters
+already implement bounded parts, as recorded in the repository evidence. Do not infer durable
+execution from a probe or current approval from an offline receipt. Rule cards with good example,
+counterexample, oracle and exception live in the linked reference.
 
 | # | Rule | Failure it prevents | Oracle | Reference |
 |---|---|---|---|---|

@@ -14,8 +14,11 @@ The product rules live in [business rules § Casting and performance](../../../.
 (provider-neutral request and capability model) and [pipeline § Jobs and failure recovery](../../../../docs/product/production-pipeline.md#jobs-and-failure-recovery)
 (timeouts may already be billed). [Work plan 020](../../../../docs/work-plan/020-cast-and-generate-dialogue.md#risks--unknowns)
 records that idempotency, billing, language support and emotion controls differ per provider.
-No provider is selected; every type below is a **proposal**, and a vendor SDK is a candidate
-needing an [ADR](../../../../templates/adr.md) and a verified, pinned version.
+eSpeak NG and Google Cloud TTS have bounded sample adapters; VieNeu Nano is research-only.
+The production port types below remain **proposed**, with no durable dispatch consumer. Follow
+the current [provider verification evidence](../../../../docs/evidence/tts-provider-verification.md)
+for sample limits, exact adapter versions and unrun commercial acceptance. Any added SDK needs
+an [ADR](../../../../templates/adr.md) and a verified, pinned version.
 
 ## 1. Ports are named for the capability
 
@@ -187,8 +190,10 @@ pub fn plan_reconciliation(
 
 `probe_audio(bytes, expected: &OutputFormat) -> Result<AudioFacts, AudioDefect>` checks the
 container, codec, sample rate, channels, non-zero duration and truncation before an artifact row
-exists. A defect becomes `AttemptFailure::MalformedAudio`: retried within the bound, with its cost
-still settled. Provider bytes are untrusted input, so the probe is a fuzzing target for
+exists. A defect becomes `AttemptFailure::MalformedAudio`; preserve usage and charge observations
+(including Unknown). A potentially executed attempt must be reconciled before any repeat under
+§5; malformed bytes neither prove non-execution nor authorize another paid request. Provider
+bytes are untrusted input, so the probe is a fuzzing target for
 robustness (no panic, bounded allocation) seeded with synthetic headers built in code, never
 with provider output ([`audio-mix-and-qc.md`](audio-mix-and-qc.md#8-decoders-are-fuzz-targets)).
 

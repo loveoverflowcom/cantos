@@ -939,6 +939,7 @@
             "reference-only-no-dispatch-v1",
             "espeak-ng-local-v1",
             "google-cloud-tts-synthesize-2",
+            "google-cloud-tts-synthesize-3",
             "vieneu-nano-local-v1"
           ]
         },

@@ -4,12 +4,12 @@
 use std::{future::Future, sync::Mutex};
 
 use base64::Engine as _;
-use cantos_api::production::prepare_inputs;
+use cantos_api::production::{prepare_inputs, production_input_digest};
 use cantos_api::script_ir::read_script;
 use cantos_api::tts::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities, RecoveryPlan,
 };
-use cantos_api::tts::audio::AudioError;
+use cantos_api::tts::audio::{AudioError, MAX_OUTPUT_BYTES};
 use cantos_api::tts::google::{
     classify, decode_audio, observation, plan, AudioDefect, FailureEvidence, GoogleFailure,
     GoogleOutcome, GooglePlan, LostCause, PlanFinding, ResponseBody, TransportObservation,
@@ -21,7 +21,7 @@ use cantos_api::tts::{
     audit_receipt, ChargeObservation, ReceiptError, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
-use cantos_api::wav_inspection::StructuralError;
+use cantos_api::wav_inspection::{ChunkId, StructuralError};
 use cantos_contracts::{
     CharacterCasting, FrozenProductionDocument, ProductionBudget, ProductionCurrency,
     ProductionSettings, ProductionSettingsResponse, ResolvedSynthesisInput, RevisionResponse,
@@ -203,7 +203,7 @@ fn frozen_lines_map_to_exact_request_bodies_and_digests() {
     );
     assert_eq!(
         narrator.request_digest(),
-        "google-tts-request-1:sha256:d842d03f8cd49f583ceb54b0630a0ee653157320e925f5d1ff9e94ed4da47b4a"
+        "google-tts-request-1:sha256:73ded6a8bddb4b16e784ef2b0d0115e140b09e2c4635dec4d8caf445b1cfba6a"
     );
     // Chirp 3: HD has no rate or pitch parameter, so neither is sent.
     let an = plan(&line(1)).unwrap();
@@ -213,7 +213,7 @@ fn frozen_lines_map_to_exact_request_bodies_and_digests() {
     );
     assert_eq!(
         an.request_digest(),
-        "google-tts-request-1:sha256:f565fd193009f1a80ad77370954d5ce91afbbb165967034cb91298f62d090702"
+        "google-tts-request-1:sha256:996bc7edb0fc0ee8d87343dbd67ff93943f84a41ce635657cbf3adc9b8fb8574"
     );
     for resolved in &document().resolved {
         assert!(plan(resolved).is_ok(), "{}", resolved.dialogue_id);
@@ -346,6 +346,16 @@ fn every_unsupported_input_is_an_exact_blocking_finding() {
         ),
         (
             0,
+            |i| i.performance.emotion = None,
+            vec![PlanFinding::NeutralDeliveryRequired],
+        ),
+        (
+            0,
+            |i| i.performance.intensity_permille = None,
+            vec![PlanFinding::ZeroIntensityRequired],
+        ),
+        (
+            0,
             |i| i.performance.intensity_permille = Some(600),
             vec![PlanFinding::IntensityUnsupported {
                 requested_permille: 600,
@@ -419,14 +429,19 @@ fn a_line_frozen_for_another_adapter_is_refused_not_reinterpreted() {
             },
         ]
     );
-    let mut previous = line(0);
-    previous.adapter_version = "google-cloud-tts-synthesize-1".into();
-    assert_eq!(
-        findings(&previous),
-        vec![PlanFinding::AdapterVersionMismatch {
-            found: "google-cloud-tts-synthesize-1".into()
-        }]
-    );
+    for version in [
+        "google-cloud-tts-synthesize-1",
+        "google-cloud-tts-synthesize-2",
+    ] {
+        let mut previous = line(0);
+        previous.adapter_version = version.into();
+        assert_eq!(
+            findings(&previous),
+            vec![PlanFinding::AdapterVersionMismatch {
+                found: version.into()
+            }]
+        );
+    }
 }
 
 #[test]
@@ -549,6 +564,11 @@ fn provider_status_keeps_only_canonical_names() {
             Some("INVALID_ARGUMENT"),
         ),
         (r#"{"error":{"status":"invalid argument"}}"#, None),
+        (
+            r#"{"error":{"status":"PRIVATE_MANUSCRIPT_SENTINEL"}}"#,
+            None,
+        ),
+        (r#"{"error":{"status":"PROVIDER_EXTENSION"}}"#, None),
         (r#"{"error":{"status":""}}"#, None),
         (r#"{"error":{"message":"no status"}}"#, None),
         ("not json", None),
@@ -568,6 +588,44 @@ fn provider_status_keeps_only_canonical_names() {
         FailureEvidence::Status {
             http_status: 400,
             provider_status: None,
+        }
+    );
+}
+
+#[test]
+fn complete_response_bodies_cannot_bypass_the_decoder_resource_limit() {
+    assert_eq!(
+        defect(vec![b' '; MAX_RESPONSE_BYTES + 1]),
+        AudioDefect::ResponseTooLarge {
+            limit_bytes: MAX_RESPONSE_BYTES
+        }
+    );
+    let oversized_error = vec![b' '; MAX_RESPONSE_BYTES + 1];
+    assert_eq!(
+        failed(classify(TransportObservation::Responded {
+            status: 503,
+            body: ResponseBody::Complete(oversized_error),
+        })),
+        GoogleFailure {
+            class: FailureClass::Permanent,
+            delivery: DeliveryState::MayHaveExecuted,
+            evidence: FailureEvidence::Status {
+                http_status: 503,
+                provider_status: None
+            },
+        }
+    );
+}
+
+#[test]
+fn decoded_audio_is_bounded_before_hashing_or_inspection() {
+    assert_eq!(
+        defect(envelope(&vec![0; MAX_OUTPUT_BYTES + 1])),
+        AudioDefect::Rejected {
+            error: AudioError::OutputTooLarge {
+                actual_bytes: MAX_OUTPUT_BYTES + 1,
+                maximum_bytes: MAX_OUTPUT_BYTES,
+            },
         }
     );
 }
@@ -600,6 +658,19 @@ fn valid_mono_24khz_pcm_is_admitted_with_exact_facts() {
 }
 
 #[test]
+fn json_escaped_base64_is_admitted_without_changing_audio_bytes() {
+    let audio = wav(1, 1, 24_000, 16, 480);
+    let plain = String::from_utf8(envelope(&audio)).unwrap();
+    assert!(
+        plain.contains('/'),
+        "synthetic input exercises JSON escaping"
+    );
+    let escaped = plain.replace('/', "\\/");
+    let admitted = decode_audio(ResponseBody::Complete(escaped.into_bytes())).unwrap();
+    assert_eq!(admitted.bytes(), audio.as_slice());
+}
+
+#[test]
 fn malformed_or_unexpected_audio_is_rejected_with_its_exact_defect() {
     assert_eq!(defect(b"<html>".to_vec()), AudioDefect::NotJson);
     assert_eq!(defect(b"{}".to_vec()), AudioDefect::MissingAudioContent);
@@ -617,10 +688,25 @@ fn malformed_or_unexpected_audio_is_rejected_with_its_exact_defect() {
     );
     let mut truncated = wav(1, 1, 24_000, 16, 100);
     truncated.truncate(100);
-    assert!(matches!(
+    assert_eq!(
         defect(envelope(&truncated)),
-        AudioDefect::Rejected { error: AudioError::InvalidWav { errors } } if !errors.is_empty()
-    ));
+        AudioDefect::Rejected {
+            error: AudioError::InvalidWav {
+                errors: vec![
+                    StructuralError::RiffSizeExceedsFile {
+                        riff_end: 244,
+                        file_bytes: 100
+                    },
+                    StructuralError::ChunkOverrun {
+                        id: ChunkId::DATA,
+                        offset: 36,
+                        declared_size: 200,
+                        available: 56
+                    },
+                ],
+            },
+        }
+    );
     for (tag, channels, rate, bits) in [
         (1, 2, 24_000, 16),
         (1, 1, 48_000, 16),
@@ -810,6 +896,18 @@ async fn admitted_google_audio_passes_the_shared_receipt_audit() {
         audit.audio().unwrap().output_profile_version(),
         "cantos-google-tts-pcm-1"
     );
+    // Structurally valid audio still cannot pass under the checksum of a different output.
+    let mut changed_audio = admitted.bytes().to_vec();
+    changed_audio[44] ^= 1;
+    assert_eq!(
+        audit_receipt(&document(), &output, Some(&changed_audio)).unwrap_err(),
+        ReceiptError::InvalidAudio {
+            error: AudioError::Sha256Mismatch {
+                expected: admitted.inspected().file_sha256().into(),
+                actual: format!("{:x}", Sha256::digest(&changed_audio)),
+            },
+        }
+    );
     // The eSpeak rate is not this line's contract, even with a matching checksum.
     let espeak_rate = wav(1, 1, 22_050, 16, 480);
     let mut mismatched = output.clone();
@@ -833,6 +931,44 @@ async fn admitted_google_audio_passes_the_shared_receipt_audit() {
     );
 }
 
+#[test]
+fn historical_google_output_receipts_remain_inspectable_without_current_dispatch_permission() {
+    let audio = wav(1, 1, 24_000, 16, 480);
+    let mut historical = document();
+    for line in &mut historical.resolved {
+        line.adapter_version = "google-cloud-tts-synthesize-2".into();
+    }
+    historical.input_digest = production_input_digest(&historical).unwrap();
+    let before = serde_json::to_vec(&historical).unwrap();
+    let mut output = receipt(ReceiptOutcome::Output {
+        audio_sha256: format!("{:x}", Sha256::digest(&audio)),
+    });
+    output.input_digest = historical.input_digest.clone();
+    output.provider.adapter_version = "google-cloud-tts-synthesize-2".into();
+    assert_eq!(output.evidence, ReceiptEvidence::CallerReported);
+    let audit = audit_receipt(&historical, &output, Some(&audio)).unwrap();
+    assert_eq!(audit.receipt(), &output);
+    assert_eq!(
+        audit.audio().unwrap().output_profile_version(),
+        "cantos-google-tts-pcm-1"
+    );
+    assert_eq!(serde_json::to_vec(&historical).unwrap(), before);
+    assert_eq!(
+        findings(&historical.resolved[0]),
+        vec![PlanFinding::AdapterVersionMismatch {
+            found: "google-cloud-tts-synthesize-2".into(),
+        }]
+    );
+    // A fresh digest does not make fabricated history authoritative for receipt inspection.
+    historical.resolved[0].text.push('!');
+    historical.input_digest = production_input_digest(&historical).unwrap();
+    output.input_digest = historical.input_digest.clone();
+    assert_eq!(
+        audit_receipt(&historical, &output, Some(&audio)).unwrap_err(),
+        ReceiptError::InvalidDocument
+    );
+}
+
 #[tokio::test]
 async fn observations_never_contain_dialogue_text_or_provider_messages() {
     for reply in [
@@ -844,7 +980,7 @@ async fn observations_never_contain_dialogue_text_or_provider_messages() {
         let outcome = synthesize_once(&transport, &plan).await;
         let record = observation(&plan, &outcome);
         assert_eq!(record.limitations, LIMITATIONS);
-        assert_eq!(record.adapter_version, "google-cloud-tts-synthesize-2");
+        assert_eq!(record.adapter_version, "google-cloud-tts-synthesize-3");
         let rendered = serde_json::to_string(&record).unwrap();
         assert!(!rendered.contains("Ánh đèn"), "{rendered}");
         assert!(!rendered.contains("could not be processed"), "{rendered}");

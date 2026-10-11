@@ -133,6 +133,16 @@ impl GoogleHttpTransport {
         let client = Client::builder()
             .connect_timeout(limits.connect_timeout)
             .timeout(limits.total_timeout)
+            // Pinned reqwest 0.12.15 can internally replay HTTP/2 protocol failures. Keep this
+            // paid POST on HTTP/1.1 even if another dependency enables the HTTP/2 feature.
+            .http1_only()
+            // Avoid idle pooled-connection cancellation and its library reconnection path.
+            .pool_max_idle_per_host(0)
+            // Keep the resource cap about actual response bytes if features are unified later.
+            .no_gzip()
+            .no_brotli()
+            .no_zstd()
+            .no_deflate()
             .redirect(Policy::none())
             .https_only(https_only)
             .build()
@@ -169,7 +179,7 @@ impl GoogleHttpTransport {
         let mut body = Vec::new();
         loop {
             match response.chunk().await {
-                Ok(Some(chunk)) if body.len() + chunk.len() > limit => {
+                Ok(Some(chunk)) if chunk.len() > limit.saturating_sub(body.len()) => {
                     return ResponseBody::TooLarge
                 }
                 Ok(Some(chunk)) => body.extend_from_slice(&chunk),
@@ -216,8 +226,10 @@ fn unanswered(error: &reqwest::Error) -> TransportObservation {
 mod tests {
     //! A scripted loopback server drives the real client; it is not the provider.
     use super::*;
+    use crate::tts::attempt::{DeliveryState, FailureClass};
     use crate::tts::google::plan;
     use crate::tts::google_contract::{ADAPTER_VERSION, OUTPUT_CONTRACT, PROVIDER_ID};
+    use base64::Engine as _;
     use cantos_contracts::{ResolvedSynthesisInput, SynthesisPerformance};
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
@@ -230,6 +242,7 @@ mod tests {
     enum Reply {
         Bytes(Vec<u8>),
         Stall(Duration),
+        PartialThenStall(Vec<u8>, Duration),
         Close,
     }
 
@@ -300,15 +313,43 @@ mod tests {
         let server = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             let request = read_request(&mut stream).await;
-            match reply {
-                Reply::Bytes(bytes) => {
-                    let _ = stream.write_all(&bytes).await;
-                    let _ = stream.shutdown().await;
-                }
-                Reply::Stall(duration) => tokio::time::sleep(duration).await,
-                Reply::Close => drop(stream),
-            }
+            send_reply(stream, reply).await;
             request
+        });
+        (port, server)
+    }
+
+    async fn send_reply(mut stream: TcpStream, reply: Reply) {
+        match reply {
+            Reply::Bytes(bytes) => {
+                let _ = stream.write_all(&bytes).await;
+                let _ = stream.shutdown().await;
+            }
+            Reply::Stall(duration) => tokio::time::sleep(duration).await,
+            Reply::PartialThenStall(bytes, duration) => {
+                let _ = stream.write_all(&bytes).await;
+                tokio::time::sleep(duration).await;
+            }
+            Reply::Close => drop(stream),
+        }
+    }
+
+    /// The server keeps an independent request ledger and remains available after the first
+    /// outcome. A client resend would be observed rather than hidden by a closed listener.
+    async fn serve_counted(reply: Reply) -> (u16, JoinHandle<Vec<Vec<u8>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut requests = vec![read_request(&mut stream).await];
+            send_reply(stream, reply).await;
+            while let Ok(Ok((mut stream, _))) =
+                tokio::time::timeout(Duration::from_millis(500), listener.accept()).await
+            {
+                requests.push(read_request(&mut stream).await);
+                drop(stream);
+            }
+            requests
         });
         (port, server)
     }
@@ -378,6 +419,92 @@ mod tests {
         assert_eq!(
             observation,
             TransportObservation::LostAfterSend(LostCause::ConnectionError)
+        );
+        assert!(!server.await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn charged_or_uncertain_http_outcomes_are_never_replayed() {
+        let partial = b"HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\n{\"audioContent\":".to_vec();
+        let cases = [
+            (
+                Reply::Bytes(response(
+                    "429 Too Many Requests",
+                    br#"{"error":{"status":"RESOURCE_EXHAUSTED"}}"#,
+                )),
+                FailureClass::RateLimit,
+            ),
+            (
+                Reply::Bytes(response(
+                    "503 Service Unavailable",
+                    br#"{"error":{"status":"UNAVAILABLE"}}"#,
+                )),
+                FailureClass::Permanent,
+            ),
+            (Reply::Close, FailureClass::Permanent),
+            (
+                Reply::Stall(Duration::from_millis(600)),
+                FailureClass::Timeout,
+            ),
+            (
+                Reply::PartialThenStall(partial.clone(), Duration::from_millis(600)),
+                FailureClass::MalformedAudio,
+            ),
+            (Reply::Bytes(partial), FailureClass::MalformedAudio),
+            (
+                Reply::Bytes(response("200 OK", br#"{"audioContent":""}"#)),
+                FailureClass::MalformedAudio,
+            ),
+        ];
+        for (reply, expected_class) in cases {
+            let (port, server) = serve_counted(reply).await;
+            let plan = sample_plan();
+            let outcome = synthesize_once(&transport(port, fast_limits()), &plan).await;
+            let GoogleOutcome::Failure(failure) = outcome else {
+                panic!("expected failure");
+            };
+            assert_eq!(failure.class, expected_class);
+            assert_eq!(failure.delivery, DeliveryState::MayHaveExecuted);
+            let requests = server.await.unwrap();
+            assert_eq!(requests.len(), 1, "{failure:?}");
+            let request = &requests[0];
+            let end = request.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+            assert_eq!(&request[end + 4..], plan.body());
+        }
+    }
+
+    #[tokio::test]
+    async fn http_success_is_decoded_and_inspected_by_the_production_core() {
+        // Synthetic nonempty silence, not a provider sample or listening-quality oracle.
+        let mut wav = b"RIFF".to_vec();
+        wav.extend_from_slice(&132_u32.to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16_u32.to_le_bytes());
+        for value in [1_u16, 1] {
+            wav.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in [24_000_u32, 48_000] {
+            wav.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in [2_u16, 16] {
+            wav.extend_from_slice(&value.to_le_bytes());
+        }
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&96_u32.to_le_bytes());
+        wav.extend_from_slice(&[0_u8; 96]);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&wav);
+        let body = format!(r#"{{"audioContent":"{encoded}"}}"#).into_bytes();
+        let (port, server) = serve_once(Reply::Bytes(response("200 OK", &body))).await;
+        let outcome = synthesize_once(&transport(port, fast_limits()), &sample_plan()).await;
+        let GoogleOutcome::Output(audio) = outcome else {
+            panic!("expected inspected output");
+        };
+        assert_eq!(audio.bytes(), wav.as_slice());
+        assert_eq!(audio.inspected().frames(), 48);
+        assert_eq!(audio.inspected().sample_rate_hz(), 24_000);
+        assert_eq!(
+            audio.inspected().output_profile_version(),
+            "cantos-google-tts-pcm-1"
         );
         assert!(!server.await.unwrap().is_empty());
     }

@@ -41,7 +41,7 @@ The fields are `version` (`cantos-tts-receipt-1`), `evidence`, `attempt_id`, `op
 declarations. No live-evidence flag exists. Reference-only inputs reject caller-reported output.
 Exact `espeak-ng-local` / `espeak-ng-1.52.0` / `espeak-ng-local-v1` identity and
 `wav-pcm-s16le-mono-22050-v1` contract select local output inspection; exact `google-cloud-tts` /
-`google-cloud-tts-synthesize-2` identity and `wav-pcm-s16le-mono-24000-v1` contract select
+`google-cloud-tts-synthesize-3` identity and `wav-pcm-s16le-mono-24000-v1` contract select
 Google output inspection. Neither authenticates a caller or accepts a production asset.
 
 The optional neural research adapter admits exact `vieneu-nano-local` /
@@ -149,3 +149,7 @@ guarantee. Successful usage is `effective-unicode-scalars`; charge stays `unknow
 retry, reservation, current approval check or accepted asset. See
 [ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md) and the
 [adapter evidence](../../docs/evidence/google-tts-adapter.md).
+
+Historical Google `google-cloud-tts-synthesize-2` receipts retain their scoped inspection profile
+and original digest. Historical admission is inspection only; current planning refuses that
+adapter and requires a new frozen candidate.

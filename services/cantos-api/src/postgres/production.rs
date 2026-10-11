@@ -16,7 +16,8 @@ use super::{
     Store, StoreError, REVISION_COLUMNS,
 };
 use crate::production::{
-    evaluate_snapshot, prepare_inputs, validate_rights_declaration, validate_settings,
+    admit_frozen_document, evaluate_snapshot, prepare_inputs, validate_rights_declaration,
+    validate_settings,
 };
 use crate::revisions::{permits, Access, Action};
 use crate::script_ir::read_canonical_script;
@@ -252,18 +253,8 @@ fn read_snapshot_document(row: &Row) -> Result<FrozenProductionDocument, StoreEr
     {
         return Err(StoreError::CorruptRevision);
     }
-    let prepared = prepare_inputs(
-        &doc.owner_id,
-        &doc.revision,
-        &doc.settings,
-        &doc.rights,
-        true,
-        0,
-    )
-    .map_err(|_| StoreError::CorruptRevision)?;
-    if prepared.document() != doc {
-        return Err(StoreError::CorruptRevision);
-    }
+    admit_frozen_document(&doc, &doc.revision, &doc.settings, &doc.rights)
+        .map_err(|_| StoreError::CorruptRevision)?;
     Ok(doc)
 }
 
@@ -315,18 +306,8 @@ async fn snapshot(
         .iter()
         .map(decode_rights)
         .collect::<Result<_, _>>()?;
-    let pinned = prepare_inputs(
-        &doc.owner_id,
-        &pinned_revision,
-        &pinned_settings,
-        &pinned_rights,
-        true,
-        0,
-    )
-    .map_err(|_| StoreError::CorruptRevision)?;
-    if pinned.document() != doc {
-        return Err(StoreError::CorruptRevision);
-    }
+    admit_frozen_document(&doc, &pinned_revision, &pinned_settings, &pinned_rights)
+        .map_err(|_| StoreError::CorruptRevision)?;
     let query = format!(
         "SELECT {APPROVAL_COLUMNS} FROM production_approvals WHERE snapshot_id=$1 AND script_id=$2"
     );

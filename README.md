@@ -53,6 +53,10 @@ one capped request for one frozen line. Its evidence is mocked only; the live Go
 **NOT_RUN** ([Google selection](docs/decisions/0011-google-cloud-tts-adapter.md),
 [adapter evidence](docs/evidence/google-tts-adapter.md)). This completes only part of #6 and
 does not close the issue.
+The [existing provider verification](docs/evidence/tts-provider-verification.md) hardens
+conservative HTTP execution, pinned sample rights/budget checks and private local output safety.
+Fresh eSpeak samples remain structurally verified; Google live and listening remain NOT_RUN.
+The next separately authorized backend PR adds durable jobs using local/fake execution.
 
 Four Studio revision routes (head, pinned revision, save, validation) can also negotiate
 MessagePack beside JSON with the same DTOs and error semantics; the Studio ships JSON until the

@@ -16,7 +16,7 @@ Cloud TTS entries (`google-chirp3-hd`, `google-neural2`, `google-wavenet`, `goog
 declare the documented vi-VN voices and controls of [ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md),
 not account availability. Like eSpeak, a Google binding freezes only with an explicit `neutral`
 delivery at intensity `0` and text admissible to that adapter (`invalid_google_text`,
-`google_text_too_large`); resolved lines pin `google-cloud-tts-synthesize-2` and
+`google_text_too_large`); resolved lines pin `google-cloud-tts-synthesize-3` and
 `wav-pcm-s16le-mono-24000-v1`. Every entry keeps `billable_dispatch_available: false`.
 Approval grants no agent permission to spend. The [receipt contract](tts-receipt-v1.md) owns the
 separate user-invoked local and Google sample probes. The JSON Schema enumerates every
@@ -219,3 +219,7 @@ unauthenticated, forbidden/not-found, stale revision, operation reuse and corrup
 retain their existing meanings. A failed or rolled-back mutation writes no partial record.
 Restart reopens the same document/approval and reconciles exact operations; no worker/provider
 lease or billing recovery claim follows from database recovery.
+
+Historical Google adapter `google-cloud-tts-synthesize-2` remains valid for immutable snapshot
+read/receipt inspection. Current freeze emits `-3`; old adapter eligibility is blocked and a new
+candidate/approval is required. This read compatibility does not permit dispatch.

@@ -516,7 +516,7 @@ async fn mixed_espeak_and_google_casting_freezes_and_approves_only_explicit_neut
         } else {
             assert_eq!(line["provider_id"], "google-cloud-tts");
             (
-                "google-cloud-tts-synthesize-2",
+                "google-cloud-tts-synthesize-3",
                 "wav-pcm-s16le-mono-24000-v1",
             )
         };
@@ -552,6 +552,159 @@ async fn mixed_espeak_and_google_casting_freezes_and_approves_only_explicit_neut
     assert_eq!(eligibility["approval_current"], true);
     assert_eq!(eligibility["billable_dispatch_available"], false);
     assert_eq!(h.counts().await.2, 1);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn historical_google_snapshot_reads_and_replays_without_becoming_current_authorization() {
+    use cantos_api::tts::google::{plan, PlanFinding};
+
+    const HISTORICAL_ADAPTER: &str = "google-cloud-tts-synthesize-2";
+    let h = Harness::new(true).await;
+    h.ready().await;
+    let mut settings = h.settings().await;
+    for binding in &mut settings.settings.bindings {
+        binding.provider_id = "google-cloud-tts".into();
+        binding.model_id = "google-neural2".into();
+        binding.voice_id = "vi-VN-Neural2-A".into();
+        binding.voice_rights_record_id = "google_voice_fixture".into();
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    h.claim(fixture_claim(
+        "google_voice_fixture",
+        ProductionRightsSubject::Voice {
+            provider_id: "google-cloud-tts".into(),
+            model_id: "google-neural2".into(),
+            voice_id: "vi-VN-Neural2-A".into(),
+        },
+    ))
+    .await;
+    h.store
+        .save_production_settings(ALICE, &h.script, settings)
+        .await
+        .unwrap();
+    let current = h.freeze().await;
+    assert!(current.eligibility.inputs_eligible);
+    let mut historical = current.document.clone();
+    assert!(!historical.resolved.is_empty());
+    for line in &mut historical.resolved {
+        assert_eq!(line.adapter_version, "google-cloud-tts-synthesize-3");
+        line.adapter_version = HISTORICAL_ADAPTER.into();
+    }
+    historical.input_digest = cantos_api::production::production_input_digest(&historical).unwrap();
+    assert_ne!(historical.input_digest, current.document.input_digest);
+
+    // Seed the old immutable shape against real pinned revision/settings/rights
+    // receipts. Setup never rewrites a settled row or disables its protection trigger.
+    let id = Uuid::new_v4().to_string();
+    let freeze = FreezeProductionRequest {
+        operation_id: Uuid::new_v4().to_string(),
+        expected_revision: historical.revision.revision,
+        settings_version: historical.settings.version,
+        input_digest: historical.input_digest.clone(),
+    };
+    let freeze_bytes = serde_json::to_vec(&freeze).unwrap();
+    let document_bytes = serde_json::to_vec(&historical).unwrap();
+    let revision = i64::try_from(historical.revision.revision).unwrap();
+    let settings_version = i64::try_from(historical.settings.version).unwrap();
+    h.admin.execute("INSERT INTO production_snapshots(id,script_id,owner_id,script_revision,settings_version,operation_id,created_by,input_digest,request_bytes,document_bytes) VALUES($1,$2,'alice',$3,$4,$5,'alice',$6,$7,$8)", &[&id,&h.script,&revision,&settings_version,&freeze.operation_id,&historical.input_digest,&freeze_bytes,&document_bytes]).await.unwrap();
+    let approval_id = Uuid::new_v4().to_string();
+    let approval = ApproveProductionRequest {
+        operation_id: Uuid::new_v4().to_string(),
+        input_digest: historical.input_digest.clone(),
+    };
+    let approval_bytes = serde_json::to_vec(&approval).unwrap();
+    h.admin.execute("INSERT INTO production_approvals(id,snapshot_id,script_id,operation_id,approved_by,input_digest,request_bytes) VALUES($1,$2,$3,$4,'alice',$5,$6)", &[&approval_id,&id,&h.script,&approval.operation_id,&historical.input_digest,&approval_bytes]).await.unwrap();
+    let before = h.counts().await;
+
+    let mut config = h.config.clone();
+    config.user("cantos_app");
+    let reopened = Store::new(config).unwrap();
+    let saved = reopened
+        .production_snapshot(ALICE, &h.script, &id)
+        .await
+        .unwrap();
+    assert_eq!(saved.document, historical);
+    assert_eq!(saved.approval.as_ref().unwrap().id, approval_id);
+    assert!(!saved.eligibility.inputs_eligible);
+    assert!(!saved.eligibility.approval_current);
+    assert!(!saved.eligibility.billable_dispatch_available);
+    assert!(saved.eligibility.findings.iter().any(|finding| {
+        finding.code == ProductionFindingCode::ApprovalScopeMismatch
+            && finding.path == "resolved.adapter_version"
+    }));
+
+    let prefix = format!("/scripts/{}/production", h.script);
+    let (status, response) = h
+        .json(
+            "GET",
+            &format!("{prefix}/snapshots/{id}"),
+            Some(ALICE),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{response}");
+    assert_eq!(response["document"], json!(historical));
+    assert_eq!(response["approval"]["id"], approval_id);
+    assert_eq!(response["eligibility"]["inputs_eligible"], false);
+    assert_eq!(response["eligibility"]["approval_current"], false);
+    let replay = reopened
+        .freeze_production(ALICE, &h.script, freeze.clone())
+        .await
+        .unwrap();
+    assert_eq!(replay, saved);
+    let (status, response) = h
+        .json(
+            "POST",
+            &format!("{prefix}/snapshots"),
+            Some(ALICE),
+            Some(json!(freeze)),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{response}");
+    assert_eq!(response["id"], id);
+    assert_eq!(response["document"], json!(historical));
+
+    let (status, response) = h
+        .json(
+            "POST",
+            &format!("{prefix}/snapshots/{id}/approvals"),
+            Some(ALICE),
+            Some(json!(ApproveProductionRequest {
+                operation_id: Uuid::new_v4().to_string(),
+                input_digest: historical.input_digest.clone(),
+            })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{response}");
+    assert_eq!(response["code"], "production_blocked");
+    assert!(response["issues"].as_array().unwrap().iter().any(|issue| {
+        issue["rule"] == "approval_scope_mismatch" && issue["path"] == "resolved.adapter_version"
+    }));
+    for line in &historical.resolved {
+        assert_eq!(
+            plan(line),
+            Err(vec![PlanFinding::AdapterVersionMismatch {
+                found: HISTORICAL_ADAPTER.into(),
+            }])
+        );
+    }
+
+    let error = h
+        .admin
+        .execute(
+            "UPDATE production_snapshots SET document_bytes=$2 WHERE id=$1",
+            &[&id, &document_bytes],
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code().unwrap().code(), "55000");
+    let row = h.admin.query_one("SELECT s.document_bytes,s.request_bytes,a.request_bytes AS approval_bytes FROM production_snapshots s JOIN production_approvals a ON a.snapshot_id=s.id WHERE s.id=$1", &[&id]).await.unwrap();
+    assert_eq!(row.get::<_, Vec<u8>>("document_bytes"), document_bytes);
+    assert_eq!(row.get::<_, Vec<u8>>("request_bytes"), freeze_bytes);
+    assert_eq!(row.get::<_, Vec<u8>>("approval_bytes"), approval_bytes);
+    assert_eq!(h.counts().await, before);
 }
 
 #[tokio::test]

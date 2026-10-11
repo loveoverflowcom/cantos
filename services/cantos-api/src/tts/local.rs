@@ -241,7 +241,7 @@ mod unix {
     use std::fs::{DirBuilder, OpenOptions};
     use std::io::{self, Read, Write};
     use std::os::fd::AsRawFd;
-    use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
     use std::os::unix::process::CommandExt;
     use std::path::PathBuf;
     use std::process::{Child, Command, Stdio};
@@ -333,9 +333,19 @@ mod unix {
         )?;
         let voices =
             std::str::from_utf8(&voices).map_err(|_| LocalRunError::RuntimeVoiceUnavailable)?;
-        if !voices
+        // A language match alone permits a replacement voice file. The supported
+        // built-in voice must have exactly one row and its expected data-file ID.
+        let expected_voice_file = match request.voice_id() {
+            "vi" => "aav/vi",
+            "vi-vn-x-central" => "aav/vi-VN-x-central",
+            "vi-vn-x-south" => "aav/vi-VN-x-south",
+            _ => return Err(LocalRunError::RuntimeVoiceUnavailable),
+        };
+        let mut rows = voices
             .lines()
-            .any(|line| line.split_whitespace().nth(1) == Some(request.voice_id()))
+            .filter(|line| line.split_whitespace().nth(1) == Some(request.voice_id()));
+        if rows.next().and_then(|line| line.split_whitespace().nth(4)) != Some(expected_voice_file)
+            || rows.next().is_some()
         {
             return Err(LocalRunError::RuntimeVoiceUnavailable);
         }
@@ -381,7 +391,7 @@ mod unix {
     fn read_output(path: &Path) -> Result<Vec<u8>, LocalRunError> {
         let metadata =
             fs::symlink_metadata(path).map_err(|_| LocalRunError::MissingOrUnsafeOutput)?;
-        if !metadata.is_file() || metadata.file_type().is_symlink() {
+        if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.nlink() != 1 {
             return Err(LocalRunError::MissingOrUnsafeOutput);
         }
         let file = OpenOptions::new()
@@ -389,7 +399,14 @@ mod unix {
             .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
             .open(path)
             .map_err(|_| LocalRunError::OutputReadFailed)?;
-        if !file.metadata().is_ok_and(|metadata| metadata.is_file()) {
+        let opened = file
+            .metadata()
+            .map_err(|_| LocalRunError::OutputReadFailed)?;
+        if !opened.is_file()
+            || opened.nlink() != 1
+            || opened.dev() != metadata.dev()
+            || opened.ino() != metadata.ino()
+        {
             return Err(LocalRunError::MissingOrUnsafeOutput);
         }
         let mut bytes = Vec::new();
@@ -459,6 +476,14 @@ mod unix {
         command
             .args(args)
             .current_dir(private)
+            // Runtime configuration, voice data overrides and loader variables
+            // are not frozen synthesis inputs. Use only the trusted installation's
+            // defaults; child scratch/configuration stays in this owned directory.
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("LC_ALL", "C")
+            .env("HOME", private)
+            .env("TMPDIR", private)
             .stdin(if input.is_some() {
                 Stdio::piped()
             } else {

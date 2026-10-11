@@ -1,6 +1,7 @@
 use cantos_api::production::{
-    authorize_inputs, estimate_cost, evaluate_snapshot, prepare_inputs, production_catalog,
-    production_input_digest, validate_rights_declaration, validate_settings, MAX_MONEY_MINOR,
+    admit_frozen_document, authorize_inputs, estimate_cost, evaluate_snapshot, prepare_inputs,
+    production_catalog, production_input_digest, validate_rights_declaration, validate_settings,
+    MAX_MONEY_MINOR,
 };
 use cantos_api::script_ir::read_script;
 use cantos_contracts::{
@@ -153,6 +154,66 @@ fn document() -> FrozenProductionDocument {
     prepare_inputs("owner", &revision(), &settings(), &rights(), true, NOW)
         .unwrap()
         .document()
+}
+
+fn google_document(mixed_local: bool) -> FrozenProductionDocument {
+    let mut settings = settings();
+    for binding in &mut settings.settings.bindings {
+        let local = mixed_local && binding.character_id == "narrator";
+        binding.provider_id = if local {
+            "espeak-ng-local"
+        } else {
+            "google-cloud-tts"
+        }
+        .into();
+        binding.model_id = if local {
+            "espeak-ng-1.52.0"
+        } else {
+            "google-neural2"
+        }
+        .into();
+        binding.voice_id = if local { "vi" } else { "vi-VN-Neural2-A" }.into();
+        binding.performance.emotion = Some("neutral".into());
+        binding.performance.intensity_permille = Some(0);
+    }
+    let mut rights = rights();
+    for right in &mut rights {
+        if let ProductionRightsSubject::Voice {
+            provider_id,
+            model_id,
+            voice_id,
+        } = &mut right.claim.declaration.subject
+        {
+            let local = mixed_local && right.claim.declaration.record_id == "rights-voice-narrator";
+            *provider_id = if local {
+                "espeak-ng-local"
+            } else {
+                "google-cloud-tts"
+            }
+            .into();
+            *model_id = if local {
+                "espeak-ng-1.52.0"
+            } else {
+                "google-neural2"
+            }
+            .into();
+            *voice_id = if local { "vi" } else { "vi-VN-Neural2-A" }.into();
+        }
+    }
+    prepare_inputs("owner", &revision(), &settings, &rights, true, NOW)
+        .unwrap()
+        .document()
+}
+
+fn historical_google_document(mixed_local: bool) -> FrozenProductionDocument {
+    let mut document = google_document(mixed_local);
+    for line in &mut document.resolved {
+        if line.provider_id == "google-cloud-tts" {
+            line.adapter_version = "google-cloud-tts-synthesize-2".into();
+        }
+    }
+    document.input_digest = production_input_digest(&document).unwrap();
+    document
 }
 
 fn approval(document: &FrozenProductionDocument) -> ProductionApprovalResponse {
@@ -343,7 +404,7 @@ fn google_casting_pins_its_adapter_and_requires_an_explicit_neutral_delivery() {
         .document();
     assert!(document.resolved.iter().all(|line| {
         line.provider_id == "google-cloud-tts"
-            && line.adapter_version == "google-cloud-tts-synthesize-2"
+            && line.adapter_version == "google-cloud-tts-synthesize-3"
             && line.output_contract == "wav-pcm-s16le-mono-24000-v1"
             && line.performance.emotion.as_deref() == Some("neutral")
             && line.performance.intensity_permille == Some(0)
@@ -404,6 +465,135 @@ fn google_casting_pins_its_adapter_and_requires_an_explicit_neutral_delivery() {
             path: "dialogues.dialogue-01.text".into(),
             rule: "google_text_too_large".into(),
         }]
+    );
+}
+
+#[test]
+fn historical_google_inputs_remain_exact_inspectable_history_but_approval_is_stale() {
+    for mixed_local in [false, true] {
+        let current = google_document(mixed_local);
+        let historical = historical_google_document(mixed_local);
+        let before = serde_json::to_vec(&historical).unwrap();
+        assert_ne!(historical.input_digest, current.input_digest);
+        assert_eq!(
+            admit_frozen_document(
+                &historical,
+                &historical.revision,
+                &historical.settings,
+                &historical.rights
+            ),
+            Ok(())
+        );
+        assert_eq!(serde_json::to_vec(&historical).unwrap(), before);
+        let approved = approval(&historical);
+        let eligibility = evaluate_snapshot(
+            &historical,
+            1,
+            1,
+            &historical.rights,
+            true,
+            Some(&approved),
+            NOW,
+        );
+        assert!(!eligibility.inputs_eligible);
+        assert!(!eligibility.approval_current);
+        assert!(!eligibility.billable_dispatch_available);
+        assert_eq!(eligibility.findings.len(), 1);
+        assert_eq!(
+            eligibility.findings[0].code,
+            ProductionFindingCode::ApprovalScopeMismatch
+        );
+        assert_eq!(eligibility.findings[0].path, "resolved.adapter_version");
+        assert!(authorize_inputs(
+            &historical,
+            1,
+            1,
+            &historical.rights,
+            true,
+            Some(&approved),
+            NOW
+        )
+        .is_err());
+        assert!(
+            evaluate_snapshot(
+                &current,
+                1,
+                1,
+                &current.rights,
+                true,
+                Some(&approval(&current)),
+                NOW
+            )
+            .approval_current
+        );
+        if mixed_local {
+            assert!(historical
+                .resolved
+                .iter()
+                .any(|line| line.adapter_version == "espeak-ng-local-v1"));
+        }
+    }
+}
+
+#[test]
+fn historical_admission_never_normalizes_forged_effective_inputs_even_with_a_new_digest() {
+    type Mutation = fn(&mut FrozenProductionDocument);
+    let original = historical_google_document(false);
+    let mutations: [Mutation; 12] = [
+        |d| d.catalog_version = "production-reference-v2".into(),
+        |d| d.resolved[0].text.push('!'),
+        |d| d.resolved[0].provider_id = "reference-only".into(),
+        |d| d.resolved[0].model_id = "google-wavenet".into(),
+        |d| d.resolved[0].voice_id = "vi-VN-Neural2-Z".into(),
+        |d| d.resolved[0].voice_rights_record_id = "other-rights".into(),
+        |d| d.resolved[0].output_contract = "wav-pcm-s16le-mono-22050-v1".into(),
+        |d| d.resolved[0].performance.rate_permille += 1,
+        |d| d.resolved[0].performance.emotion = None,
+        |d| d.resolved[0].adapter_version = "google-cloud-tts-synthesize-unknown".into(),
+        |d| d.resolved[0].adapter_version = "google-cloud-tts-synthesize-3".into(),
+        |d| d.resolved.swap(0, 1),
+    ];
+    for (index, mutation) in mutations.into_iter().enumerate() {
+        let mut forged = original.clone();
+        mutation(&mut forged);
+        forged.input_digest = production_input_digest(&forged).unwrap();
+        assert_eq!(
+            admit_frozen_document(&forged, &forged.revision, &forged.settings, &forged.rights),
+            Err(vec![FieldIssue {
+                path: "document.input_digest".into(),
+                rule: "frozen_document_identity_mismatch".into(),
+            }]),
+            "historical mutation {index}"
+        );
+    }
+    let mut digest_only = original.clone();
+    digest_only.input_digest = google_document(false).input_digest;
+    assert_eq!(
+        admit_frozen_document(
+            &digest_only,
+            &digest_only.revision,
+            &digest_only.settings,
+            &digest_only.rights
+        ),
+        Err(vec![FieldIssue {
+            path: "document.input_digest".into(),
+            rule: "frozen_document_identity_mismatch".into(),
+        }])
+    );
+    // Settled shell facts must also match, even if embedded receipts are self-consistent.
+    let mut other_settings = original.settings.clone();
+    other_settings.recorded_by = "other-editor".into();
+    assert_eq!(
+        admit_frozen_document(
+            &original,
+            &original.revision,
+            &other_settings,
+            &original.rights
+        ),
+        Err(vec![FieldIssue {
+            path: "document.input_digest".into(),
+            rule: "frozen_document_identity_mismatch".into(),
+        }])
     );
 }
 
