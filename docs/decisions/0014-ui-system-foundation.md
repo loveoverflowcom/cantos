@@ -4,7 +4,8 @@
   comprehensive accessibility/platform acceptance pending
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers (requested four-session implementation boundary)
-- Related issue or PR: none created; local-only delivery
+- Related issue or PR: [#33](https://github.com/loveoverflowcom/cantos/pull/33), subsequent
+  requester-authorized publication; [verification](../evidence/ui-system-publication.md)
 - Supersedes: active token ownership in decision 0009; historical restructure evidence unchanged
 - Number reconciled after PR30 reserved ADR 0012 and PR32 reserved ADR 0013;
   the UI decision is unchanged.

@@ -32,6 +32,7 @@
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
 | [UI foundation evidence](evidence/ui-system-foundation.md) | Token/icon provenance, focused verification and unrun runtime gates |
 | [UI consumer integration](evidence/ui-system-integration.md) | Studio, bounded Theatre, PR29 reconciliation and runtime gaps |
+| [UI publication verification](evidence/ui-system-publication.md) | PR31/PR32 reconciliation, combined local gates and remaining acceptance |
 | [UI migration](architecture/ui-system-migration.md) | Token package rename, public role compatibility and renderer ownership |
 | [UI sequence](work-plan/015-leptos-ui-system.md) | Component, app integration and independent review handoff |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |

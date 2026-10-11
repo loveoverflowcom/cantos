@@ -247,3 +247,10 @@ artifacts, source, Git, models/runtime assets, audio, database files and evidenc
 Final observed free disk was approximately 1.9 GiB. No Docker, model/SDK download, broad Cargo
 clean, remote CI polling or machine shutdown occurred. The final source/doc diff was inspected;
 the separate refinement commit preserves the earlier checkpoints without rewriting history.
+
+## Subsequent publication authorization
+
+The requester later authorized pushing all UI commits and merging into develop. The
+[publication record](ui-system-publication.md) owns that subsequent scope, PR31/PR32
+reconciliation and rerun evidence. The earlier local-only statements above describe their
+original session boundary. After PR32 kept ADR 0013, the same UI decision moved to ADR 0014.

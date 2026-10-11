@@ -90,3 +90,12 @@ filled tonal controls, spacing and quiet inspector containers; its actual light/
 keyboard and 200% Safari observations are recorded separately from earlier captures. Preserve
 PR29's casting/neutral-zero contracts and the deferred CMP boundary. This queue recommends closing the requested UI sequence
 with its evidence, then addressing only those residual gates a subsequent request selects.
+
+## Subsequent publication request
+
+The requester authorized pushing all UI commits and merging into develop after the local
+sequence. [PR #33](https://github.com/loveoverflowcom/cantos/pull/33) owns execution status;
+the [publication record](../evidence/ui-system-publication.md) records final reconciliation with
+PR31/PR32, the mutation workspace-copy correction and actual combined local verification.
+The UI decision is now ADR 0014, preserving upstream MessagePack ADR 0013. This request does
+not start CMP or advance production/listening acceptance; residual UI gates remain explicit.
