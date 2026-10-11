@@ -68,6 +68,11 @@ Final episode mastering/publication, a distributed job platform, automatic provi
 2. Assess the completed local samples with a named listener and resolve the neural model's
    training/voice provenance. Preserve the implemented eSpeak probe and the VieNeu Nano
    research-only dispatch boundary; installation and sample generation are no longer pending.
+   Use the [review fixes and fresh gates](../evidence/local-neural-tts-review.md) and
+   [ten-sample listening handoff](../evidence/local-neural-tts-listening.md), including both
+   voices' <5-word questions/exclamations whose pinned normalization ends in a period.
+   Resolve listening and exact-pin rights before any minimal production connection or merge;
+   a planning approval or a valid WAV cannot clear either dependency.
 3. Complete #6's separate commercial provider selection, applicable terms/rights, authentication
    boundary and test budget before an explicitly authorized cloud/paid sample. Keep #6 open
    until its complete criteria are met or the user explicitly approves a scope change.

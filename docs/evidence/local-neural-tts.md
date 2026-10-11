@@ -7,6 +7,12 @@ engine/model/preset rights from unresolved training lineage. Production dispatch
 Commercial synthesis, durable workers, clip cache, mixing/publication, Studio/player changes,
 S3/CDN, CMP and new CI remain outside this slice. Existing eSpeak source/samples are preserved.
 
+The later [five-commit boundary review](local-neural-tts-review.md) records separate CLI/deadline
+fixes, fresh local gates, official rights rechecks and a byte-verified Library listening handoff.
+Its [rubric and short punctuation probes](local-neural-tts-listening.md) supplement the original
+six samples below. Historical timings/source fingerprints remain historical; listening is still
+NOT_RUN and production remains NO_GO.
+
 ## Invariant and owner
 
 **Invariant:** only exact admitted research inputs may invoke the pinned local neural runtime;
