@@ -18,6 +18,8 @@ deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md).
 within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
 starting #7. The current requested execution stops at #6.
 
+[Draft PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research
+slice; GitHub owns its review status, and it must not merge or close #6.
 The requested [local neural investigation](../evidence/local-neural-tts-research.md) compares
 Piper Vietnamese models with VieNeu Nano. A bounded [research adapter](../evidence/local-neural-tts.md)
 retains exact frozen input/receipt identity, rejects unsupported controls and refuses production

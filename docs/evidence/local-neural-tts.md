@@ -70,7 +70,9 @@ replacement during use remain explicit limitations before production use.
 ## Resource coordination and execution
 
 Base: freshly fetched `origin/develop` at `83eab6061554539193e4d61f7d267de2b55b095a`, clean at
-start. Branch: `feat/local-neural-tts`; the draft PR head identifies the committed source.
+start. Branch: `feat/local-neural-tts`; [draft PR #26](https://github.com/loveoverflowcom/cantos/pull/26)
+targets `develop`. Tested implementation commit: `ac9d3bbb883766de47e5c988a4543e3936c719a3`;
+subsequent documentation records pin that source and link the PR.
 [Machine-readable evidence](local-neural-tts-run.json) records exact tested helper/adapter/CLI
 and binary digests, all 21 installed package versions/wheel hashes, measurements and input/WAV
 hashes. Host: Apple M4, 10 CPU cores, ARM64, 24 GiB RAM, macOS 15.6 (24G84), CPython 3.13.5,

@@ -2,7 +2,7 @@
   "evidence_version": "cantos-local-neural-research-run-1",
   "recorded_at_utc": "2026-10-11T04:39:42.337565+00:00",
   "base_commit": "83eab6061554539193e4d61f7d267de2b55b095a",
-  "source_commit": "See draft PR head; source file digests below identify the tested bytes.",
+  "source_commit": "ac9d3bbb883766de47e5c988a4543e3936c719a3",
   "host": {
     "cpu": "Apple M4",
     "cpu_cores": 10,
@@ -356,5 +356,13 @@
   ],
   "probe_binary_sha256": "d45c4b35db590c9c4d09d6cc4983c6056622d0d745588de901e76a4f4f56b2cd",
   "after_postgres_build_binary_sha256": "c3158af8a8564fca957fc8d0603cda95d58beeeb4b65d6c110099ec8d31e2e79",
-  "binary_digest_scope": "Live binary digest was captured before execution. The later PostgreSQL runner cargo build -p cantos-server --bins rebuilt the dev-profile binary after all samples; the second digest identifies that build, not the live-sample executable."
+  "binary_digest_scope": "Live binary digest was captured before execution. The later PostgreSQL runner cargo build -p cantos-server --bins rebuilt the dev-profile binary after all samples; the second digest identifies that build, not the live-sample executable.",
+  "draft_pull_request": "https://github.com/loveoverflowcom/cantos/pull/26",
+  "independent_review": {
+    "assessment": "no-actionable-findings",
+    "reviewed_source_commit": "ac9d3bbb883766de47e5c988a4543e3936c719a3",
+    "reviewed_diff_sha256": "c5ca11a77e5abf01211ea14cf47056250fd06c174f2b003a8131fed5bc251807",
+    "scope": "Process/input/model/control/rights/privacy/receipt/no-overwrite source plus all six raw WAV, hashes, PCM/frames, RTF, receipt/audit and RSS/time records independently compared with the committed evidence. Text-only 27-file change; no CI/audio/weights/private records.",
+    "not_rerun": "Heavy tests, install and inference were not independently rerun; no auditory evaluation or merge authorization."
+  }
 }
