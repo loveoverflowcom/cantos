@@ -92,26 +92,24 @@ Its native string-render tests cover anatomy/escaping/ID uniqueness, not browser
 The preview feature is diagnostic CSR, not a production route or service:
 
 ```sh
-cd packages/ui-system/leptos
-CARGO_BUILD_JOBS=2 NO_COLOR=true trunk build preview.html --locked --dist ../../../target/ui-foundation-preview
-CARGO_BUILD_JOBS=2 NO_COLOR=true trunk serve preview.html --locked --dist ../../../target/ui-foundation-preview --port 8083
+CARGO_BUILD_JOBS=2 cargo xtask verify web
 ```
 
-Focused checks from repository root:
-
-```sh
-python3 scripts/ui_tokens.py --check
-python3 scripts/ui_icons.py --check
-CARGO_BUILD_JOBS=2 cargo test -p cantos-ui --locked
-CARGO_BUILD_JOBS=2 cargo clippy -p cantos-ui --all-targets --locked -- -D warnings
-CARGO_BUILD_JOBS=2 cargo clippy -p cantos-ui --all-targets --target wasm32-unknown-unknown --features preview --locked -- -D warnings
-CARGO_BUILD_JOBS=2 cargo clippy -p cantos-ui -p cantos-studio --target wasm32-unknown-unknown --features cantos-ui/csr --locked -- -D warnings
-cargo fmt --all -- --check
-```
+This canonical gate lints all three WASM consumers (including the preview feature), builds both
+apps and builds the gallery into `target/ui-foundation-preview`. For changed-path checks use
+`cargo xtask preflight --changed-only`; `cargo xtask verify repository` checks generator drift,
+icons and Python examples, while `cargo xtask verify rust` checks native workspace examples.
+No gallery production route or CMP runtime is added.
 
 Runtime focus/dialog/keyboard, exact responsive widths, text scaling, forced colors, motion and
 screen-reader observations have separate evidence in the [component record](../../../docs/evidence/ui-system-components.md).
 Continue with the [app integration sequence](../../../docs/work-plan/015-leptos-ui-system.md).
+
+Filled text, search, number, textarea and native select controls use `surfaceContainerHigh` with
+persistent labels, help and error descriptions. Hover adds the shared state layer; keyboard focus
+retains the full contrast outline. Invalid controls use an error surface and transient bottom cue
+plus text. Forced colors retains a functional boundary. Grouping uses spacing and tonal surfaces,
+not permanent field outlines or section separators.
 
 ## Consumer map
 

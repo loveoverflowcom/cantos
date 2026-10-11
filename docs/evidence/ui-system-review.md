@@ -128,15 +128,89 @@ restart/production-input test database with the correct grants. The first editor
 no production grants and returned 503 on production reads; its error was not treated as a
 casting UI pass. No inherited or production database URL was used.
 
-## PR30 integration checkpoint
+## Requested filled-form refinement
 
-The independent remote read and authorized fetch pinned develop to
-`44886f1a7f22e2b40c68362cb2b47a0e781bf70a` (PR30, two commits after PR29). PR30 changes the
-canonical developer command surface and documentation, not app/domain Rust or CSS. The requester
-then authorized a local merge after the separate UI review-fix commit. At this report snapshot
-the merge and final xtask compatibility checks are pending; their concrete results must replace
-this checkpoint before handoff. The incoming command selector still names `packages/design-tokens`
-and its fake graph omits `cantos-ui`; its ADR 0012 number also collides with the UI decision.
+After review-fix checkpoint `fa21268d7286ec13ebbeccff7735fbf0b8eee8ea`, the requester
+asked to remove the remaining outlined inputs and section separators using VotHub as a reference.
+The local VotHub develop checkout and its origin/develop both resolve to
+`3de94ae93790550d1edcb4d86fce17d005fbbd29`. Read-only source inspection used
+`apps/vot-hub/web/src/pages/new_project.rs`, `styles/forms/fields.css`,
+`styles/pages/projects.css` and `ui-system/primitives/styles/{tokens,components}.css`.
+Source hashes are recorded outside Git. VotHub was not edited or built; no VotHub runtime
+claim is made. Its default New Project forms use filled, rounded tonal fields; its other
+business forms also offer an outlined opt-in. Cantos follows the requested filled example,
+not an inferred universal VotHub policy.
+
+| Reference mechanism | Cantos mapping and reason |
+| --- | --- |
+| Filled field wrapper, `surface-container-highest`, 16 px radius, no permanent outline | Shared `.cui-field-control` uses existing Cantos `surfaceContainerHigh` and `shape.field`; input/search/number/textarea/select retain one native control and exact event/buffer bindings. No new palette or token schema was needed. |
+| Field-group spacing and borderless New Project regions | Studio inspectors use quiet `surfaceContainer` and container radius with padding; inline/block section dividers are removed at their owner, including responsive overrides. Field grids use `space.md`. Existing fieldsets remain semantic, borderless tonal groups. |
+| Transient focus/error cue, helper text and tonal selected options | Full keyboard focus outline remains; invalid fields use an error surface and bottom cue plus existing error text. Unsupported casting values use a warning callout. Chips retain check marks and selected fill without a permanent outline. Forced colors retains functional boundaries. |
+| Floating labels adapt to narrow inspectors | Cantos keeps persistent, separately associated labels instead of importing label animation, so long Vietnamese text and page zoom do not overlap control values. Existing dialogs, native select popup, zero/IME hooks and all domain decisions stay unchanged. |
+
+Before refinement, native Safari captured the gallery field group at desktop and 320 px
+and the loaded Studio editor at desktop/320: permanent field outlines and the inspector separator
+were visible. A native scroll operation briefly returned `noWindowsAvailable`; AX actions and
+keyboard traversal remained available. No lock bypass, security setting change or browser-driver
+substitution was needed. Before/after captures are in this task's native Computer Use transcript.
+
+Refinement runtime result: **rendered-observed**, bounded Safari 18.6 examples:
+
+| Final build scenario | Actual observation |
+| --- | --- |
+| Gallery light and dark, 1440/320 CSS viewport | Filled native input/search/number/select/textarea; computed permanent border 0 px; document 1425/1425 or 305/305, no duplicate IDs or out-of-bounds content. Light/dark linked error text and error surface observed at 320; dark errors also observed at desktop. |
+| Gallery keyboard, state and zoom | Native Tab reached title/search with 3 px focus; pasted Vietnamese `< > &` remained text. Native theme/state choices changed; dark disabled controls exposed native disabled state and reasons without clearing values. Actual Safari Page Menu read 200%; light 320 child document was 313/313, parent viewport 810 CSS px. This is page zoom, not OS text scaling. |
+| Gallery dialog | Dark 320 modal was 273/273 with safe initial close focus and Escape return. Final direct gallery at 200% accepted Vietnamese `< > &` in the filled dialog input, showed the focus outline and returned to its opener on Escape. Direct-page behavior is distinguished from iframe containment. |
+| Studio light and dark, 1440/320 | Loaded the same disposable revision fixture. Seven selects stayed 48 px. Filled inputs/selects/textareas had 0 px permanent borders, inspector inline/block borders 0 px and document widths 1425/1425 or 305/305. Quiet inspector containment replaced the visible divider in captures. |
+| Studio native editing / zoom / discard | Native scene input and textarea paste retained Vietnamese `< > &`; native speaker popup changed to Minh. Dark 320 at confirmed 200% had document 313/313 and visible 3 px select focus. Discard modal at that zoom had client/scroll width 281/281, initial safe close and Escape; the synthetic draft remained. Zoom was restored to 100%. No save/freeze/provider operation was needed for refinement. |
+
+The disposable fixture's one-hour session expired during these checks. Its rejection was observed;
+only Alice's already-expired synthetic session was extended one hour in the task-created
+`cantos_test_restart` database. That local fixture operation is recorded outside Git and did not
+change script revisions, permissions or backend source. Missing device acceptance remains below.
+Independent mathematical examples also passed for normal/hover field text and focus contrast in
+both themes (text >=4.5:1; focus >=3:1 on the tested filled/error roles). They do not certify all
+rendered colors/states. The VotHub-inspired refinement changes no Rust component signature,
+event hook, token schema, reducer, transport, casting rule, numeric buffer or IME hook.
+
+## PR30 integration result and final gates
+
+Develop was fetched and pinned to `44886f1a7f22e2b40c68362cb2b47a0e781bf70a`
+(PR30, two commits after PR29). The previously authorized local merge is now
+`9e916661c71cf3658c11118f6141aa7c9b16907e`, with parents
+`fa21268d7286ec13ebbeccff7735fbf0b8eee8ea` and the pinned develop commit. It preserves
+both the separate review checkpoint and PR29 ancestry. No remote merge or push occurred.
+
+Minimal compatibility fixes retain six real workspace packages in Cargo and xtask's test graph,
+route canonical shared UI paths/generators to both Web consumers, lint the gallery preview feature
+and add its existing Trunk build as `ui-preview` to preflight/verify-web/CI-web. No additional
+product target, dependency or runtime was introduced. The colliding UI ADR is now 0013; PR30
+keeps 0012. The real-metadata graph regression and new shared-path selection regression failed
+before and passed after. Seven earlier xtask failures were sandbox process/socket restrictions;
+all 61 xtask tests passed with the required local process permissions. These are tooling results,
+not a review of the backend implementation.
+
+Final `CARGO_BUILD_JOBS=2 TMPDIR=/private/tmp NO_COLOR=true cargo xtask preflight --changed-only
+--skip mutation --skip postgres` selected the full gate set because the merged Cargo/tooling
+inputs broaden impact. Result: **PASS with two explicit NOT_RUN skips**:
+
+- PASS: repository (294 text files / 15 skills, 130 Python tests, both whitespace checks),
+  rust-format, Script IR reference, workspace Clippy, workspace tests (481 passed / 55 ignored),
+  WAV reference, WASM Clippy across three consumers, Studio build, Theatre build, gallery build.
+- NOT_RUN in this final preflight: mutation (unchanged Script IR; bounded UI scope) and postgres
+  (the separate fresh disposable-cluster runner already passed earlier in this review). Ignored
+  native integration/provider cases are not counted as executed by workspace tests.
+- The first preflight stopped on one new trailing blank line in Studio CSS; it was corrected and
+  the complete rerun above passed. Logs for both outcomes are retained outside Git.
+- Final source review limited the forced-colors invalid outline to unfocused fields so it cannot
+  replace keyboard focus. `cargo xtask verify web` was rerun afterward: all four steps PASS;
+  a final direct gallery capture reloaded that build. The OS forced-colors query was false
+  throughout, so forced-colors runtime remains NOT_RUN.
+- After all source changes, final artifact inspection independently found byte-identical canonical
+  token/foundation CSS in all three consumers and valid local asset links. Updated CSS differs
+  from the pre-refinement snapshot intentionally; final runtime captures used the rebuilt assets.
+- Final report/queue edits received `cargo xtask verify repository`: PASS (294 text files,
+  15 skills, 130 Python tests and whitespace). No app code changes follow the successful builds.
 
 ## Remaining evidence and stopping boundary
 
@@ -157,3 +231,19 @@ and its fake graph omits `cantos-ui`; its ADR 0012 number also collides with the
 
 Residual risk: bounded Safari examples and build/source evidence leave the listed accessibility,
 other-browser, font-rights and production/listening gates open; they are not waived by this report.
+
+## Local resource handoff
+
+Only this task's API, gallery static server, Studio static/API harness and newly created
+PostgreSQL cluster were stopped. The two task browser tabs were closed after restoring zoom
+to 100%; existing user tabs were preserved. Logs, fresh fixture receipt copies, artifact hashes,
+reference hashes and the diagnostic method are retained in ignored
+`target/ui-system-review-runtime/`; the earlier receipt backup remains outside Git.
+Native images remain in the Computer Use transcript, not an exported PNG deliverable.
+
+After checking compiler processes were inactive, only regenerable native/WASM incremental
+caches for the three UI packages were removed (1,174,175,362 bytes total). Built dependency
+artifacts, source, Git, models/runtime assets, audio, database files and evidence were retained.
+Final observed free disk was approximately 1.9 GiB. No Docker, model/SDK download, broad Cargo
+clean, remote CI polling or machine shutdown occurred. The final source/doc diff was inspected;
+the separate refinement commit preserves the earlier checkpoints without rewriting history.

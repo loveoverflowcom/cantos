@@ -37,16 +37,10 @@ not a TTS feature or authorization to change the backend/provider gates in this 
 From repository root:
 
 ```sh
-python3 scripts/ui_tokens.py --check
-python3 scripts/ui_icons.py --check
-python3 scripts/check_repository.py
-TMPDIR=/private/tmp python3 -m unittest discover -s scripts -p 'test_*.py'
-cargo fmt --all -- --check
-CARGO_BUILD_JOBS=2 cargo test -p cantos-ui --locked
-CARGO_BUILD_JOBS=2 cargo clippy -p cantos-ui -p cantos-studio --target wasm32-unknown-unknown --features cantos-ui/csr --locked -- -D warnings
-(cd apps/cantos-studio/web && CARGO_BUILD_JOBS=2 NO_COLOR=true trunk build --locked)
-(cd packages/ui-system/leptos && CARGO_BUILD_JOBS=2 NO_COLOR=true trunk build preview.html --locked --dist ../../../target/ui-foundation-preview)
-git diff --check
+CARGO_BUILD_JOBS=2 cargo xtask verify repository
+CARGO_BUILD_JOBS=2 cargo xtask verify rust
+CARGO_BUILD_JOBS=2 cargo xtask verify web
+CARGO_BUILD_JOBS=2 cargo xtask preflight --changed-only
 ```
 
 Run app-native checks only when their owner changes. PostgreSQL, TTS and mobile verification
@@ -90,7 +84,9 @@ focus. Safari observations now cover a bounded local gallery and Studio fixture 
 separately. VoiceOver, OS IME, reduced motion/forced colors, other browsers and mobile remain
 explicit evidence gaps. No production or listening acceptance follows from these checks.
 
-Before any publication, finish the authorized local PR30/develop reconciliation and read its
-final command/path compatibility result in that review. Preserve PR29's casting/neutral-zero
-contracts and the deferred CMP boundary. This queue recommends closing the requested UI sequence
+The authorized local PR30/develop reconciliation is recorded in that review, including canonical
+shared-path and gallery gate compatibility. The requester's subsequent VotHub refinement uses
+filled tonal controls, spacing and quiet inspector containers; its actual light/dark, 320/desktop,
+keyboard and 200% Safari observations are recorded separately from earlier captures. Preserve
+PR29's casting/neutral-zero contracts and the deferred CMP boundary. This queue recommends closing the requested UI sequence
 with its evidence, then addressing only those residual gates a subsequent request selects.

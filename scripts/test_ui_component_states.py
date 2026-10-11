@@ -49,6 +49,24 @@ class ComponentStates(unittest.TestCase):
         self.assertAlmostEqual(ratio(channels("#777777"), channels("#ffffff")),
                                4.478089453577214)
 
+    def test_filled_fields_keep_text_and_focus_contrast_in_both_themes(self):
+        source = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
+        alpha = source["tokens"]["state.hoverOpacity"]["value"]
+        for theme, roles in source["themes"].items():
+            ink = channels(roles["color.onSurface"]["value"])
+            focus = channels(roles["color.focus"]["value"])
+            for role in ("color.surfaceContainer", "color.surfaceContainerHigh",
+                         "color.errorContainer"):
+                paper = channels(roles[role]["value"])
+                with self.subTest(theme=theme, role=role):
+                    self.assertGreaterEqual(ratio(ink, paper), 4.5)
+                    self.assertGreaterEqual(ratio(focus, paper), 3)
+            paper = channels(roles["color.surfaceContainerHigh"]["value"])
+            hovered = tuple(alpha * foreground + (1 - alpha) * background
+                            for foreground, background in zip(ink, paper))
+            with self.subTest(theme=theme, state="hover"):
+                self.assertGreaterEqual(ratio(ink, hovered), 4.5)
+
     def test_actual_navigation_foreground_retains_text_contrast_under_hover(self):
         source = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
         template = (ROOT / "packages/ui-system/leptos/foundation.css.in").read_text()

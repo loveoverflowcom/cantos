@@ -239,9 +239,9 @@
   min-inline-size: var(--cantos-size-control);
   max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-inset);
-  border: var(--cantos-size-border) solid var(--cantos-color-outline);
+  border: 0;
   border-radius: var(--cantos-shape-pill);
-  background: var(--cantos-color-surface);
+  background: var(--cantos-color-surface-container);
   color: var(--cantos-color-on-surface);
   font-family: var(--cantos-type-family-ui);
   font-size: var(--cantos-type-label-size);
@@ -252,7 +252,6 @@
   transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
 }
 :where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] {
-  border-color: var(--cantos-color-primary);
   background: var(--cantos-color-primary-container);
   color: var(--cantos-color-on-primary-container);
 }
@@ -286,12 +285,13 @@
   :where(.cantos-ui) .cui-nav-item[aria-current="page"] {
     text-decoration-thickness: var(--cantos-size-focus-width);
   }
-  :where(.cantos-ui) .cui-filter-chip { border-color: ButtonText; }
+  :where(.cantos-ui) .cui-filter-chip { border: var(--cantos-size-border) solid ButtonText; }
   :where(.cantos-ui) .cui-filter-chip:disabled { color: GrayText; }
   :where(.cantos-ui) .cui-filter-chip[aria-pressed="true"] { border-color: Highlight; }
 }
 
-/* Native form fields: functional boundaries remain; grouping comes from space. */
+/* Filled native fields: tone identifies the editable area; space groups questions.
+   Persistent labels stay outside the control for long Vietnamese text and zoom. */
 :where(.cantos-ui) .cui-field {
   display: grid;
   align-content: start;
@@ -312,12 +312,15 @@
   min-block-size: var(--cantos-size-control);
   max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
-  border: var(--cantos-size-border) solid var(--cantos-color-outline);
+  border: 0;
   border-radius: var(--cantos-shape-field);
-  background: var(--cantos-color-surface);
+  background: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
   font: inherit;
   line-height: var(--cantos-type-body-line-height);
+}
+:where(.cantos-ui) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container-high));
 }
 :where(.cantos-ui) .cui-field-control::placeholder {
   color: var(--cantos-color-on-surface-variant);
@@ -360,7 +363,8 @@
   cursor: default;
 }
 :where(.cantos-ui) .cui-field-control[aria-invalid="true"] {
-  border-color: var(--cantos-color-error);
+  background: var(--cantos-color-error-container);
+  box-shadow: inset 0 calc(-2 * var(--cantos-size-border)) 0 var(--cantos-color-error);
 }
 :where(.cantos-ui) :is(.cui-field-control, .cui-choice-control, .cui-range-control):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
@@ -448,7 +452,8 @@
 }
 /* No continuous motion or custom range keyboard logic; native controls own these interactions. */
 @media (forced-colors: active) {
-  :where(.cantos-ui) .cui-field-control { border-color: FieldText; }
+  :where(.cantos-ui) .cui-field-control { border: var(--cantos-size-border) solid FieldText; }
+  :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible) { outline: var(--cantos-size-border) dashed FieldText; }
   :where(.cantos-ui) .cui-field-control:disabled { color: GrayText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]::before { background: ButtonText; }
