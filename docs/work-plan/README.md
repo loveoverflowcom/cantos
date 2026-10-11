@@ -18,16 +18,31 @@ deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md).
 within #6 after those decisions. This is partial delivery, cannot close #6, and does not recommend
 starting #7. The current requested execution stops at #6.
 
+[PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research slice.
+The requester directed its merge into `develop` on 2026-10-11; it does not close #6, and the
+listening and production-rights gates below still block any production use.
+The requested [local neural investigation](../evidence/local-neural-tts-research.md) compares
+Piper Vietnamese models with VieNeu Nano. A bounded [research adapter](../evidence/local-neural-tts.md)
+retains exact frozen input/receipt identity, rejects unsupported controls and refuses production
+dispatch. Local installation and all six original samples have now run successfully across the
+two admitted presets, Đức Trí and Mỹ Duyên, with native 24,000 Hz mono 16-bit PCM and checked
+WAV hashes/receipts. The next recommended task is a named-listener assessment of pronunciation,
+naturalness and the neutral delivery; listening remains **NOT_RUN**. Resolve training/voice
+provenance before considering production eligibility, which remains **NO_GO**. Then continue
+the separate unfinished commercial #6 criteria after the required provider/terms/rights and
+budget decisions. Preserve eSpeak and keep #6 open; these research samples do not advance the
+queue to #7's durable workers.
+
 The owner-selected Google Cloud TTS path follows the same pattern: Google vi-VN voices are in the
 casting catalog with an explicit neutral-delivery rule, and an opt-in probe consumes one frozen
 line through the shared receipt audit, with [mocked evidence](../evidence/google-tts-adapter.md)
-only ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md)). Within #6, next record an
+only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Within #6, next record an
 operator-paid, capped live sample with real envelopes, and let Studio enter the explicit
 intensity 0 that eSpeak and Google casting require. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
 then persists attempts and reservations before any production dispatch.
 
 The repository has documentation/templates, an executable
-[Script IR contract](../../contracts/README.md), and a local authenticated immutable revision
+[Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
 store with a minimal Studio consumer. The end-to-end capabilities below remain
 planned. Numeric filename prefixes express the current recommended sequence, may be renumbered,
 and are not permanent task IDs.
@@ -136,7 +151,7 @@ review and immutable acceptance/save/reopen. Keep production identity/legal righ
 host-generated quality separate from this local authoring evidence.
 
 The [casting input evidence](../evidence/casting-production-inputs.md) and
-[production v1 contract](../../contracts/production-v1.md) bound #5 to versioned casting,
+[production v1 contract](../../packages/contracts/production-v1.md) bound #5 to versioned casting,
 rights/budget policy, owner approval and immutable snapshots on that same PostgreSQL authority.
 The bounded implementation is locally verified through domain/wire/schema checks, real
 PostgreSQL/HTTP restart journeys and the observed Studio freeze/approval/stale-input flow.

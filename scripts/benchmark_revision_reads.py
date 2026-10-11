@@ -29,7 +29,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "target" / "read-benchmarks"
-FIXTURE = ROOT / "contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+FIXTURE = ROOT / "packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
 EVIDENCE_REFS = [("rights", "rights-demo"), ("rights", "rights-adaptation-demo"),
                  ("rights", "rights-asset-demo"), ("source", "source-demo"),
                  ("asset", "asset-demo")]
@@ -82,7 +82,7 @@ def make_document(dialogues):
 
 def source_queries():
     """Extract the real SQL, failing closed on code drift instead of benchmarking a stale copy."""
-    source = (ROOT / "apps/server/src/postgres.rs").read_text()
+    source = (ROOT / "services/cantos-api/src/postgres.rs").read_text()
     columns = re.search(r'const REVISION_COLUMNS: &str = ("(?:\\.|[^"\\])*");', source)
     if columns is None:
         raise RuntimeError("revision projection changed; update the read inventory/harness")
@@ -537,7 +537,7 @@ def main():
         raise RuntimeError("resource budget: less than 5 GiB disk free")
     output = OUTPUT / f"run-{time.time_ns()}"
     output.mkdir(parents=True)
-    run(["cargo", "build", "-p", "cantos-server", "--bins", "--locked", "--offline"])
+    run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"])
     benchmark = Benchmark(output, args)
     report = {"source_sha": run(["git", "rev-parse", "HEAD"]),
               "dirty_paths": run(["git", "status", "--porcelain"]), "args": vars(args),
@@ -546,8 +546,8 @@ def main():
               "hardware": run(["sysctl", "-n", "machdep.cpu.brand_string", "hw.memsize", "hw.logicalcpu"]),
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
-                                ("apps/server/src/postgres.rs", "apps/server/src/http.rs",
-                                 "apps/server/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
+                                ("services/cantos-api/src/postgres.rs", "services/cantos-api/src/http.rs",
+                                 "services/cantos-api/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:
         benchmark.start()

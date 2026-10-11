@@ -10,6 +10,8 @@
 | [Story workspace evidence](evidence/story-workspace-skills.md) | Skill/initializer checks, editorial rehearsal, verified Drive setup and residual limits |
 | [PostgreSQL/DBSP skill evidence](evidence/postgresql-dbsp-skills.md) | Read-performance workflow validation, routing walkthrough and explicitly unrun database/engine gates |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
+| [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
+| [Restructure evidence](evidence/monorepo-restructure.md) | Checks run for the monorepo reorganization and what remains unverified |
 | [Script IR](architecture/script-ir.md) | Versioned interchange and reuse without project coupling |
 | [Script IR evidence](evidence/script-ir-contract.md) | Executed contract checks and unrun application gates |
 | [Final revision sequence review](evidence/script-revision-final-review.md) | Independent findings, fixes, final local checks and remaining runtime limits |
@@ -20,6 +22,8 @@
 | [Local TTS evidence](evidence/tts-receipt-inspection.md) | Bounded local samples, snapshot-bound receipts, actual checks and commercial/production limits |
 | [TTS prerequisites](evidence/tts-provider-prerequisites.md) | Official provider declarations, local selection and deferred commercial prerequisites |
 | [Google TTS adapter evidence](evidence/google-tts-adapter.md) | Google casting/adapter claims ledger, mocked checks, NOT_RUN live synthesis and residual provider risk |
+| [Local neural research](evidence/local-neural-tts-research.md) | Piper/VieNeu engine, model, preset and training-rights comparison; pinned local resource plan |
+| [Local neural evidence](evidence/local-neural-tts.md) | Research-only adapter boundary, exact identities, checks, actual versus mocked results and limits |
 | [Mobile architecture](architecture/mobile.md) | CMP shell and native listening behavior |
 | [UI system](design/ui-system.md) | Shared semantic design requirements and validation |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |
@@ -28,7 +32,9 @@
 | [Decision 0004](decisions/0004-editorial-handoff.md) | Compatible editorial handoff on the existing revision backend |
 | [Decision 0007](decisions/0007-casting-production-inputs.md) | Proposed production adoption of versioned casting and scoped input authorization |
 | [Decision 0008](decisions/0008-local-tts-inspection.md) | Accepted local eSpeak inspection selection; production adoption proposed |
-| [Decision 0009](decisions/0009-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
+| [Decision 0009](decisions/0009-monorepo-layout.md) | Product-grouped apps, one backend service and shared packages |
+| [Decision 0010](decisions/0010-local-neural-tts-research.md) | Proposed VieNeu Nano research selection; production dispatch disabled |
+| [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

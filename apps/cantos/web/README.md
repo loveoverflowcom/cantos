@@ -1,0 +1,27 @@
+# Cantos Theatre Web (skeleton)
+
+`cantos-theatre` is a Leptos 0.7.8 CSR/WASM crate that mounts one page saying that no catalog,
+account or playback exists. It is a build target and a location, **not** a Theatre feature: it has
+no API client, player, tokens or styling, and it must not be cited as evidence for any listening
+work item.
+
+## Build
+
+Requires Rust 1.87 with `wasm32-unknown-unknown` and Trunk 0.21.14, as for [Studio](../../cantos-studio/web/README.md).
+
+```sh
+cargo clippy -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
+cd apps/cantos/web
+NO_COLOR=true trunk build --locked
+```
+
+`trunk serve` listens on 127.0.0.1:8082; there is no backend proxy because no listener API exists.
+
+## Before building the listener experience
+
+Follow the [listening rules](../../../.agents/skills/cantos-listening/SKILL.md) and the
+[Leptos web method](../../../.agents/skills/cantos-leptos-web/SKILL.md): a versioned listener
+contract in `packages/contracts`, a playback reducer, then the player. The page must stay free of
+Studio code, and the API must keep private drafts, voice assets and previews out of public
+delivery. Theatre uses the shared Material 3 Expressive roles at its own calm, media-first
+intensity; see the [UI system](../../../docs/design/ui-system.md).

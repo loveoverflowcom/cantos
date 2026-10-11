@@ -187,8 +187,8 @@ goes on the residual-risk line.
 | Changed | Update in the same PR |
 |---|---|
 | implemented behavior or a decision changes a documented rule or status line | the owning doc, distinguishing proposed, implemented and verified |
-| first real manifest, command or migration path | the matching `apps/*/README.md`, the root README validation section and the verification commands in `AGENTS.md`, flagged for the user |
-| a schema or contract | `contracts/` with fixtures and compatibility notes |
+| first real manifest, command or migration path | the matching README under `apps/`, `services/` or `packages/`, the root README validation section and the verification commands in `AGENTS.md`, flagged for the user |
+| a schema or contract | `packages/contracts/` with fixtures and compatibility notes |
 | next task, new correctness dependency, corrected rationale | the queue and planning guide ([how](references/planning-and-slicing.md#updating-the-queue-after-implementation)) |
 | nothing the queue owns | nothing; say "queue: no change" and why |
 

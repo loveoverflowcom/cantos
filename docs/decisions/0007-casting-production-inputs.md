@@ -102,7 +102,7 @@ PostgreSQL authority. Script IR `0.1.0`, source registry, c1/e1 and previous mig
 compatible. Snapshot history is bounded; known historical IDs remain inspectable under current
 access. No media bytes, private manuscript fixtures, credentials or generated audio enter Git.
 
-The [production v1 contract](../../contracts/production-v1.md) owns wire names and bounds.
+The [production v1 contract](../../packages/contracts/production-v1.md) owns wire names and bounds.
 The [execution evidence](../evidence/casting-production-inputs.md) names the actual pure,
 HTTP/PostgreSQL, crash/retry, independent oracle and Studio observations; an unrun gate is not
 production adoption. No reference catalog entry can make `billable_dispatch_available` true.

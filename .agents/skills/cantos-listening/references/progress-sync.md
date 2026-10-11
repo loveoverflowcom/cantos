@@ -214,7 +214,7 @@ sending" already prevents them; add the refinement only with its own table rows 
 Episode `Một lời hẹn` (`pub_7f3a`, 26:09) of `Ánh đèn cuối sân khấu`. Device A is an Android
 phone, B is Theatre Web on a laptop. Times are shown as mm:ss; fixtures use integer
 milliseconds. Each row is a named example test of `reconcile` plus the shell, and a fixture
-under `contracts/` (proposed) so client response handling decodes the same cases.
+under `packages/contracts/` (proposed) so client response handling decodes the same cases.
 
 | # | Server current | Candidate | Expected | Why |
 |---|---|---|---|---|

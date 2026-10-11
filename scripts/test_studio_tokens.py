@@ -29,7 +29,7 @@ class StudioTokens(unittest.TestCase):
         source = json.loads(SOURCE.read_text())
         roles = set(source["logical_dimensions"]) | set(source["themes"]["light"])
         defined = {variable(role) for role in roles}
-        used = set(re.findall(r"var\((--cantos-[a-z-]+)\)", (ROOT / "apps/web/studio.css").read_text()))
+        used = set(re.findall(r"var\((--cantos-[a-z-]+)\)", (ROOT / "apps/cantos-studio/web/studio.css").read_text()))
         self.assertLessEqual(used, defined)
         self.assertEqual(set(source["themes"]["light"]), set(source["themes"]["dark"]))
 

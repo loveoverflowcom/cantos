@@ -198,7 +198,7 @@ bytes that actually deliver.
 
 ## 9. Fixtures and vectors
 
-Commit under `contracts/` (proposed): a manifest with two assets, a grant per `GrantState`, the
+Commit under `packages/contracts/` (proposed): a manifest with two assets, a grant per `GrantState`, the
 denial table (one row per `DownloadDenial` with its error code) and the revalidation table of § 5.
 Rust and Kotlin decode and re-encode every fixture; regenerate-and-diff covers the schema. The
 client reducer's transition vectors (`reduce(entry, event)`) belong to the CMP skill and consume

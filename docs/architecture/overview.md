@@ -1,6 +1,6 @@
 # Architecture overview
 
-Status: target runtime design. The [Script IR domain/CLI](../../apps/server/README.md) is
+Status: target runtime design. The [Script IR domain/CLI](../../services/cantos-api/README.md) is
 implemented and locally tested. Local Axum/PostgreSQL revision persistence and a minimal Leptos
 Studio consumer have [bounded evidence](../evidence/script-revision-persistence.md).
 [Casting/input planning](../evidence/casting-production-inputs.md) reuses that authority;
@@ -18,8 +18,8 @@ Use one Rust backend with Axum API handlers, domain/application modules and infr
 | Application | Permission checks, revision transitions, production planning, cost limits and publication gates | Provider-specific request shapes |
 | Production | Durable step execution, TTS/mixing/QC adapters and asset manifests | Listener navigation or public permissions bypasses |
 | Infrastructure | PostgreSQL transactions, object storage, AI providers, media tools and delivery adapters | Product state-transition policy |
-| Web | Studio editor and Theatre player | Credentials for AI/object storage or authoritative approvals |
-| Mobile | Shared CMP screens/state plus native playback/download adapters | Server orchestration or in-app TTS for published episodes |
+| Web | Studio editor (`apps/cantos-studio/web`) and Theatre player (`apps/cantos/web`), as separate applications | Credentials for AI/object storage or authoritative approvals |
+| Mobile | CMP screens/state plus native playback/download adapters for Theatre (`apps/cantos/mobile`); a Studio client is reserved (`apps/cantos-studio/mobile`) | Server orchestration or in-app TTS for published episodes |
 
 These are module responsibilities, not requirements to create one crate per row. Create packages only when a real build target or independent consumer justifies them.
 
@@ -42,7 +42,9 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 
 ## Initial source layout
 
-The root Cargo workspace contains `apps/server/`, `apps/web/` and `contracts/api/`. Server
+The [repository layout](repository-layout.md) names every app, service and package. The root Cargo
+workspace contains `services/cantos-api/`, `apps/cantos-studio/web/`, the `apps/cantos/web/` Theatre
+skeleton and `packages/contracts/api/`. Server
 `script_ir`, `revisions` and the adaptation admission kernel are pure rules; `postgres` owns
 transactions and `http` maps the shared wire contract to Axum. Adaptation tools export frozen context and admit caller-created proposals over the same HTTP
 service and a thin CLI. Generation belongs to the user-controlled AI host; the domain and
@@ -59,12 +61,17 @@ HTTP remains planning-only. This is not a production worker, cache or audio-acce
 [ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
 and proposed production adoption. The Google Cloud TTS slice follows the same pattern with
 `tts::google_contract`, a pure `tts::google` planner/classifier and a one-request HTTPS shell
-behind the explicit `probe-google-tts` CLI ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
+behind the explicit `probe-google-tts` CLI ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
 boundaries are unchanged; no new read model or DBSP consumer is justified.
-The Studio WASM consumer imports only `cantos-api`, never server
+The optional neural research slice adds one concrete `tts::neural` process adapter and pure
+`neural_contract`, with a fixed local Python helper and its own PCM inspection profile. It
+reuses complete frozen-document/receipt admission and refuses production before any model or
+runtime I/O. The eSpeak adapter/probe, Script IR, production-p1, PostgreSQL authority and listener
+boundaries remain intact. See [ADR 0010](../decisions/0010-local-neural-tts-research.md).
+The Studio WASM consumer imports only `cantos-contracts`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
-in the same server package. `apps/mobile/` remains a guide; Gradle belongs to the native
-listening slice. [ADR 0003](../decisions/0003-script-revision-persistence.md) is proposed for
+in the same `cantos-api` package. `apps/cantos/mobile/` and `apps/cantos-studio/mobile/` remain guides;
+Gradle belongs to the native listening slice. [ADR 0003](../decisions/0003-script-revision-persistence.md) is proposed for
 production adoption, not an accepted deployment decision.
 
 ## First verification targets

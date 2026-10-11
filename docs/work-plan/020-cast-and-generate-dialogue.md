@@ -10,7 +10,7 @@ Add Studio casting and freeze the selected voice, versioned performance/pronunci
 model and supported controls against one accepted script revision. Production authorization
 binds that exact input scope, applicable rights records and budget policy; draft edits cannot
 change an existing snapshot. A frozen candidate and eligibility for billable work are separate
-facts. The [production input contract](../../contracts/production-v1.md) and
+facts. The [production input contract](../../packages/contracts/production-v1.md) and
 [casting evidence](../evidence/casting-production-inputs.md) describe the implemented and
 locally verified #5 slice, including real PostgreSQL/HTTP recovery and observed Studio
 freeze/approval/stale-input behavior. GitHub owns acceptance and execution status.
@@ -32,13 +32,28 @@ separates actual synthesis from synthetic tests. Commercial selection, terms, ap
 authentication boundary, spending cap and live sample remain deferred. This is part of #6 and
 does not satisfy its complete acceptance criteria.
 
+The user's additional local-neural request is bounded by
+[ADR 0010](../decisions/0010-local-neural-tts-research.md). The
+[candidate comparison](../evidence/local-neural-tts-research.md) separates engine licenses,
+weights/preset grants and training-data provenance. The concrete VieNeu Nano adapter is
+research-only: production is refused at invocation regardless of a frozen planning approval.
+[Neural evidence](../evidence/local-neural-tts.md) records the exact profile, original fixtures,
+resource coordination, actual versus mocked results and remaining listening/rights gaps.
+Local installation and all six original fixture samples are now verified across the admitted
+Đức Trí and Mỹ Duyên presets, with native 24,000 Hz mono 16-bit PCM and checked hashes/receipts.
+The cold CLI runs took 6.38–7.32 seconds for 7.66–18.84 seconds of audio, with real-time factors
+of 0.389–0.838. Listening remains **NOT_RUN**, and production eligibility remains **NO_GO**
+pending training/voice provenance. Actual sample generation does not establish pronunciation,
+naturalness or emotion quality.
+This adds no commercial authorization, durable queue, retries, clip cache or asset acceptance.
+
 For the commercial path the owner selected Google Cloud TTS with mocked evidence first. Following
 the eSpeak pattern, the casting catalog now offers its dated vi-VN voices; a Google binding freezes
 only with an explicit `neutral` delivery at intensity 0, and frozen lines pin the Google adapter
 and 24 kHz output contract. `probe-google-tts` plans or, only with `--live`, a cents cap and an
 operator-held token, sends exactly one request for one frozen line, recording receipt-v1 and
 private observation files. The [adapter evidence](../evidence/google-tts-adapter.md) and proposed
-[ADR 0009](../decisions/0009-google-cloud-tts-adapter.md) separate these mocked checks from live
+[ADR 0011](../decisions/0011-google-cloud-tts-adapter.md) separate these mocked checks from live
 synthesis, which is NOT_RUN. #6 still needs an operator-paid live sample with recorded envelopes;
 Studio cannot yet enter the explicit intensity 0 for capabilities without intensity (eSpeak and
 Google alike).
@@ -61,11 +76,19 @@ Final episode mastering/publication, a distributed job platform, automatic provi
 ## Suggested sequence
 
 1. Establish casting and generation inputs for one validated episode version.
-2. Integrate explicitly authorized provider adapters with useful errors and cost records. The
-   bounded local eSpeak sample path is implemented; choose the commercial provider, applicable
-   terms/rights and test budget before any cloud/paid call. A neural local-model path is not required.
-3. Implement durable execution, restart recovery, and stable result association.
-4. Add casting controls, queue progress, clip preview, and partial regeneration to Studio.
+2. Assess the completed local samples with a named listener and resolve the neural model's
+   training/voice provenance. Preserve the implemented eSpeak probe and the VieNeu Nano
+   research-only dispatch boundary; installation and sample generation are no longer pending.
+   Use the [review fixes and fresh gates](../evidence/local-neural-tts-review.md) and
+   [ten-sample listening handoff](../evidence/local-neural-tts-listening.md), including both
+   voices' <5-word questions/exclamations whose pinned normalization ends in a period.
+   Resolve listening and exact-pin rights before any minimal production connection or merge;
+   a planning approval or a valid WAV cannot clear either dependency.
+3. Complete #6's separate commercial provider selection, applicable terms/rights, authentication
+   boundary and test budget before an explicitly authorized cloud/paid sample. Keep #6 open
+   until its complete criteria are met or the user explicitly approves a scope change.
+4. Implement durable execution, restart recovery, and stable result association after #6.
+5. Add casting controls, queue progress, clip preview, and partial regeneration to Studio.
 
 ## Acceptance criteria
 
@@ -106,10 +129,11 @@ versioned meaning. Real-person voices/cloning require specific recorded consent 
 ## Follow-ups
 
 Defer provider auto-routing, expanded catalogs and batching for throughput. A provider mismatch
-or duplicate-result association is a correctness issue required before mixing. Continue the
-unfinished #6 commercial and production criteria after their explicit decisions; preserve the
-local probe's sample-only boundary and historical reference snapshots. The current requested
-execution stops at #6 and does not start #7's durable job slice.
+or duplicate-result association is a correctness issue required before mixing. Prioritize actual
+listening assessment and training/voice provenance for the completed local neural samples, then
+continue the unfinished #6 commercial and production criteria after their explicit decisions.
+Preserve the local probes' sample-only boundaries and historical reference snapshots. The current
+requested execution stops at #6 and does not start #7's durable job slice.
 
 ## GitHub execution
 

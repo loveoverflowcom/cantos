@@ -8,7 +8,7 @@
 
 The product requirement is in
 [Script IR § Revision and validation policy](../../../../docs/architecture/script-ir.md#revision-and-validation-policy)
-and [`contracts/README.md`](../../../../contracts/README.md): a JSON Schema, a semantic validator,
+and [`packages/contracts/README.md`](../../../../packages/contracts/README.md): a JSON Schema, a semantic validator,
 explicit compatibility rules, actionable rejection of unsupported versions and converters that
 preserve provenance. None of these exists yet; the shapes below are proposals to settle in the
 first contract ADR.
@@ -28,7 +28,7 @@ first contract ADR.
 
 | Layer | Checks | Owner | Consumers |
 |---|---|---|---|
-| JSON Schema (Draft 2020-12, proposed) | shape: required fields, types, enum spellings, string limits, no unknown fields | `contracts/` (proposed path `contracts/schema/script-ir/<version>.schema.json`) | external producers, generated clients, editors with schema support |
+| JSON Schema (Draft 2020-12, proposed) | shape: required fields, types, enum spellings, string limits, no unknown fields | `packages/contracts/` (proposed path `packages/contracts/schema/script-ir/<version>.schema.json`) | external producers, generated clients, editors with schema support |
 | Semantic validator (Rust, pure) | cross-references and meaning: unique IDs, speakers resolve, cue anchors resolve, ordering, text invariants, submission completeness | the Script IR domain module | every Cantos entry path |
 
 The Rust validator is authoritative. The JSON Schema is a published shape contract, so it must
@@ -42,7 +42,7 @@ for every semantic fixture:  schema_accepts(f) && rust_validate(f) == expected e
 
 Whether the schema is hand-written or generated from Rust types (a `schemars`-style generator is
 a candidate) is an ADR decision. If generated, the committed file names its source and generation
-command ([`contracts/README.md`](../../../../contracts/README.md)) and a drift test regenerates it
+command ([`packages/contracts/README.md`](../../../../packages/contracts/README.md)) and a drift test regenerates it
 and compares bytes.
 
 ## 2. Version identifiers and dispatch
@@ -242,7 +242,7 @@ pub struct ConversionNote {
 Proposed layout (confirm against the repository first):
 
 ```text
-contracts/fixtures/script-ir/
+packages/contracts/fixtures/script-ir/
   0.1.0-draft/accept/two-speakers-narrator.json      + .expected (digest, notes)
   0.1.0-draft/reject/missing-speaker.json            + .expected (exact diagnostics)
   0.2.0/accept/…
@@ -260,7 +260,7 @@ contracts/fixtures/script-ir/
 - Expected files change only through a named regeneration command (proposed) and a PR that says
   why each value changed. A test harness never rewrites fixtures.
 
-The existing [`episode-draft.json`](../../../../contracts/examples/episode-draft.json) is a seed,
+The existing [`episode-draft.json`](../../../../packages/contracts/examples/episode-draft.json) is a seed,
 not yet a fixture: it stores intensity as a float, embeds `voice_profile_id` and a mutable
 `rights_status`, and carries `revision`/`status` inside content. Decide each in the first schema
 ADR ([`canonical-digest.md` § Field classification](canonical-digest.md#2-field-classification)).

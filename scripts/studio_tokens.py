@@ -7,8 +7,8 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "contracts/design/studio-tokens-0.1.0.json"
-OUTPUT = ROOT / "apps/web/tokens.css"
+SOURCE = ROOT / "packages/design-tokens/studio-tokens-0.1.0.json"
+OUTPUT = ROOT / "apps/cantos-studio/web/tokens.css"
 
 
 def variable(role):

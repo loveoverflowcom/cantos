@@ -96,8 +96,8 @@ The ID format (UUID, ULID, prefixed) is a decision for the first schema; the bar
 **A2 — The committed OpenAPI document is the reviewed contract; wire types are derived from it.**
 
 - *Why.* Hand-maintained Kotlin or Leptos DTOs drift from the server silently; the
-  [contracts guide](../../../../contracts/README.md) forbids divergent definitions.
-- *Good.* `contracts/listener-api/openapi.yaml` (proposed path) reviewed in the PR that changes
+  [contracts guide](../../../../packages/contracts/README.md) forbids divergent definitions.
+- *Good.* `packages/contracts/listener-api/openapi.yaml` (proposed path) reviewed in the PR that changes
   behavior; Kotlin wire types generated from it; Rust either generated from it or emitting it,
   with CI regenerating and failing on any diff.
 - *Counterexample.* A `data class ProgressDto` written by hand "until generation is set up", or a
@@ -134,7 +134,7 @@ domain, application or SQL modules. Add TypeScript types only when a JavaScript 
 
 ### Contract fixtures
 
-Keep request/response fixtures per operation (proposed `contracts/listener-api/fixtures/<operation>/<case>.json`):
+Keep request/response fixtures per operation (proposed `packages/contracts/listener-api/fixtures/<operation>/<case>.json`):
 a normal case, each error code the operation can return, a conflict carrying the current record,
 an empty page, the last page and long Vietnamese titles such as `Ánh đèn cuối sân khấu — Tập 1:
 Một lời hẹn`. Each fixture must validate against the schema, decode in Rust and Kotlin wire

@@ -1,7 +1,7 @@
 # Cantos UI System
 
 Status: design requirements. A minimal live Leptos Studio save/read surface consumes
-[versioned tokens](../../contracts/design/studio-tokens-0.1.0.json), with
+[versioned tokens](../../packages/design-tokens/studio-tokens-0.1.0.json), with
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
 Theatre/CMP journeys and exact reference fidelity remain unimplemented.

@@ -56,12 +56,12 @@ an index, explicit `if`s instead of a table) or it will share the bug.
 
 ## Golden fixtures and reference data
 
-- Golden Script IR files, manifests and fingerprints under `contracts/` (or a test fixture
+- Golden Script IR files, manifests and fingerprints under `packages/contracts/` (or a test fixture
   directory) are reviewed artifacts: changing one is a deliberate, explained diff.
 - Recorded provider responses are fixtures for adapter contract tests. Redact credentials and
   private content before committing; never commit generated audio.
 - Original or permitted sample content only, with rights recorded as in the existing
-  [episode fixture](../../../../contracts/examples/episode-draft.json).
+  [episode fixture](../../../../packages/contracts/examples/episode-draft.json).
 
 ## Bounded exhaustive loops
 

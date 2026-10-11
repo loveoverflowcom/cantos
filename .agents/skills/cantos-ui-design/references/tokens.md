@@ -7,15 +7,17 @@
 
 Token families, roles and their rules are owned by
 [UI system § Semantic tokens](../../../../docs/design/ui-system.md#semantic-tokens). This
-reference owns the pipeline that keeps both renderers faithful to them. Nothing below exists yet:
-every path, format and command is **proposed** until the first UI slice implements it.
+reference owns the pipeline that keeps both renderers faithful to them. Implemented so far: the
+Studio token source in `packages/design-tokens/`, `scripts/studio_tokens.py` and the committed CSS
+it generates, with a drift check. There is no Theatre token set and no Kotlin output; every other
+path, format and command below is **proposed** until a UI slice implements it.
 
 ## 1. The pipeline
 
 ```text
 reviewed design decision (design issue or ADR, with contrast record)
         ↓
-one versioned semantic token source          proposed: a contract file outside apps/
+one versioned semantic token source          packages/design-tokens/ (outside apps/)
         ↓ deterministic generator             pinned, tested, run by one documented command
    ┌────┴─────────────────────────┐
 CSS custom properties          Kotlin theme mapping
@@ -26,7 +28,7 @@ component styles               CantosTheme + component wrappers
 
 | Decision for the first slice | Constraint | Candidates |
 |---|---|---|
-| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | a file under `contracts/` beside other interchange contracts, or a dedicated shared design directory |
+| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | **decided and implemented:** `packages/design-tokens/` (Studio set `studio-tokens-0.1.0.json`); interchange contracts stay in `packages/contracts/` |
 | source format | names, types, theme variants and references expressible without code | Design Tokens Community Group JSON (check its current status), or a small project schema |
 | generator | deterministic, dependency-light, runnable on Linux and macOS, covered by tests | a repository script, a Rust `xtask`, or a Node tool such as Style Dictionary |
 | generated outputs | committed with a drift test, or built on demand by both toolchains | choose one; committing keeps Trunk and Gradle builds free of the generator |

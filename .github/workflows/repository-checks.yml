@@ -45,6 +45,18 @@ jobs:
         run: cargo +1.87.0 clippy --workspace --all-targets --locked -- -D warnings
       - name: Test Script IR contracts
         run: cargo +1.87.0 test --workspace --locked
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select pinned Rust toolchain with the WASM target
+        run: rustup toolchain install 1.87.0 --profile minimal --component clippy --target wasm32-unknown-unknown
+      - name: Lint Studio Web and the Theatre Web skeleton for WASM
+        run: cargo +1.87.0 clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -74,8 +86,8 @@ jobs:
       - name: Provision restricted test application role
         run: docker exec ${{ job.services.postgres.id }} psql -U cantos_test_admin -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD 'cantos_ci_only'"
       - name: Test PostgreSQL migrations, permissions and recovery
-        run: cargo +1.87.0 test -p cantos-server --test revisions_postgres --locked -- --ignored --test-threads=1
+        run: cargo +1.87.0 test -p cantos-api --test revisions_postgres --locked -- --ignored --test-threads=1
       - name: Test manuscript intake, isolation, byte preservation and retries
-        run: cargo +1.87.0 test -p cantos-server --test imports_postgres --locked -- --ignored --test-threads=1
+        run: cargo +1.87.0 test -p cantos-api --test imports_postgres --locked -- --ignored --test-threads=1
       - name: Test adaptation attempts, proposal isolation and atomic acceptance
-        run: cargo +1.87.0 test -p cantos-server --test adaptations_postgres --locked -- --ignored --test-threads=1
+        run: cargo +1.87.0 test -p cantos-api --test adaptations_postgres --locked -- --ignored --test-threads=1

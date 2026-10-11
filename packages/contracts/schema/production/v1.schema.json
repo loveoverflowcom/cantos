@@ -1,0 +1,1480 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/production/v1",
+  "title": "Cantos private production input API v1",
+  "description": "Reference-only casting/planning contracts. No provider availability, spend authority or generated audio. Text maxLength is a scalar bound; Rust additionally checks UTF-8 bytes, NFC and controls. Semantic relation, rights term/coverage, digest and capability checks remain authoritative in Rust.",
+  "$defs": {
+    "ProductionCurrency": {
+      "enum": [
+        "USD",
+        "VND"
+      ]
+    },
+    "ProductionRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "version",
+        "units_per_charge",
+        "amount_minor"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "units_per_charge": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "amount_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "ProductionBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "limit_minor",
+        "rate",
+        "scope",
+        "territory"
+      ],
+      "properties": {
+        "currency": {
+          "$ref": "#/$defs/ProductionCurrency"
+        },
+        "limit_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProductionRate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "territory": {
+          "const": "private-planning"
+        }
+      }
+    },
+    "ProductionPronunciation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "replacement"
+      ],
+      "properties": {
+        "surface": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "replacement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "SynthesisPerformance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rate_permille",
+        "pitch_semitones",
+        "emotion",
+        "intensity_permille"
+      ],
+      "properties": {
+        "rate_permille": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 2000
+        },
+        "pitch_semitones": {
+          "type": "integer",
+          "minimum": -12,
+          "maximum": 12
+        },
+        "emotion": {
+          "anyOf": [
+            {
+              "enum": [
+                "neutral",
+                "calm",
+                "hopeful",
+                "warm",
+                "sad",
+                "angry"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "intensity_permille": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "CharacterCasting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "character_id",
+        "provider_id",
+        "model_id",
+        "voice_id",
+        "language",
+        "voice_rights_record_id",
+        "performance",
+        "pronunciation"
+      ],
+      "properties": {
+        "character_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "provider_id": {
+          "enum": [
+            "reference-only",
+            "espeak-ng-local",
+            "google-cloud-tts",
+            "vieneu-nano-local"
+          ]
+        },
+        "model_id": {
+          "enum": [
+            "reference-v1",
+            "reference-v2",
+            "espeak-ng-1.52.0",
+            "google-chirp3-hd",
+            "google-neural2",
+            "google-wavenet",
+            "google-standard",
+            "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc"
+          ]
+        },
+        "voice_id": {
+          "enum": [
+            "synthetic-narrator",
+            "synthetic-character",
+            "vi",
+            "vi-vn-x-central",
+            "vi-vn-x-south",
+            "vi-VN-Chirp3-HD-Achernar",
+            "vi-VN-Chirp3-HD-Achird",
+            "vi-VN-Chirp3-HD-Algenib",
+            "vi-VN-Chirp3-HD-Algieba",
+            "vi-VN-Chirp3-HD-Alnilam",
+            "vi-VN-Chirp3-HD-Aoede",
+            "vi-VN-Chirp3-HD-Autonoe",
+            "vi-VN-Chirp3-HD-Callirrhoe",
+            "vi-VN-Chirp3-HD-Charon",
+            "vi-VN-Chirp3-HD-Despina",
+            "vi-VN-Chirp3-HD-Enceladus",
+            "vi-VN-Chirp3-HD-Erinome",
+            "vi-VN-Chirp3-HD-Fenrir",
+            "vi-VN-Chirp3-HD-Gacrux",
+            "vi-VN-Chirp3-HD-Iapetus",
+            "vi-VN-Chirp3-HD-Kore",
+            "vi-VN-Chirp3-HD-Laomedeia",
+            "vi-VN-Chirp3-HD-Leda",
+            "vi-VN-Chirp3-HD-Orus",
+            "vi-VN-Chirp3-HD-Puck",
+            "vi-VN-Chirp3-HD-Pulcherrima",
+            "vi-VN-Chirp3-HD-Rasalgethi",
+            "vi-VN-Chirp3-HD-Sadachbia",
+            "vi-VN-Chirp3-HD-Sadaltager",
+            "vi-VN-Chirp3-HD-Schedar",
+            "vi-VN-Chirp3-HD-Sulafat",
+            "vi-VN-Chirp3-HD-Umbriel",
+            "vi-VN-Chirp3-HD-Vindemiatrix",
+            "vi-VN-Chirp3-HD-Zephyr",
+            "vi-VN-Chirp3-HD-Zubenelgenubi",
+            "vi-VN-Neural2-A",
+            "vi-VN-Neural2-D",
+            "vi-VN-Standard-A",
+            "vi-VN-Standard-B",
+            "vi-VN-Standard-C",
+            "vi-VN-Standard-D",
+            "vi-VN-Wavenet-A",
+            "vi-VN-Wavenet-B",
+            "vi-VN-Wavenet-C",
+            "vi-VN-Wavenet-D",
+            "duc-tri",
+            "my-duyen"
+          ]
+        },
+        "language": {
+          "enum": [
+            "vi",
+            "vi-VN",
+            "en",
+            "en-US",
+            "duc-tri",
+            "my-duyen"
+          ]
+        },
+        "voice_rights_record_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "performance": {
+          "$ref": "#/$defs/SynthesisPerformance"
+        },
+        "pronunciation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionPronunciation"
+          },
+          "maxItems": 100
+        }
+      }
+    },
+    "ProductionSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bindings",
+        "budget"
+      ],
+      "properties": {
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CharacterCasting"
+          },
+          "maxItems": 1000
+        },
+        "budget": {
+          "$ref": "#/$defs/ProductionBudget"
+        }
+      }
+    },
+    "SaveProductionSettingsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "expected_settings_version",
+        "settings"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "expected_settings_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "settings": {
+          "$ref": "#/$defs/ProductionSettings"
+        }
+      }
+    },
+    "ProductionSettingsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "script_id",
+        "version",
+        "script_revision",
+        "operation_id",
+        "recorded_by",
+        "recorded_at",
+        "settings"
+      ],
+      "properties": {
+        "script_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "script_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "recorded_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "settings": {
+          "$ref": "#/$defs/ProductionSettings"
+        }
+      }
+    },
+    "ProductionRightsSubject": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "record_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "evidence"
+            },
+            "record_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9_-]{1,64}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "provider_id",
+            "model_id",
+            "voice_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "voice"
+            },
+            "provider_id": {
+              "enum": [
+                "reference-only",
+                "espeak-ng-local",
+                "google-cloud-tts",
+                "vieneu-nano-local"
+              ]
+            },
+            "model_id": {
+              "enum": [
+                "reference-v1",
+                "reference-v2",
+                "espeak-ng-1.52.0",
+                "google-chirp3-hd",
+                "google-neural2",
+                "google-wavenet",
+                "google-standard",
+                "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc"
+              ]
+            },
+            "voice_id": {
+              "enum": [
+                "synthetic-narrator",
+                "synthetic-character",
+                "vi",
+                "vi-vn-x-central",
+                "vi-vn-x-south",
+                "vi-VN-Chirp3-HD-Achernar",
+                "vi-VN-Chirp3-HD-Achird",
+                "vi-VN-Chirp3-HD-Algenib",
+                "vi-VN-Chirp3-HD-Algieba",
+                "vi-VN-Chirp3-HD-Alnilam",
+                "vi-VN-Chirp3-HD-Aoede",
+                "vi-VN-Chirp3-HD-Autonoe",
+                "vi-VN-Chirp3-HD-Callirrhoe",
+                "vi-VN-Chirp3-HD-Charon",
+                "vi-VN-Chirp3-HD-Despina",
+                "vi-VN-Chirp3-HD-Enceladus",
+                "vi-VN-Chirp3-HD-Erinome",
+                "vi-VN-Chirp3-HD-Fenrir",
+                "vi-VN-Chirp3-HD-Gacrux",
+                "vi-VN-Chirp3-HD-Iapetus",
+                "vi-VN-Chirp3-HD-Kore",
+                "vi-VN-Chirp3-HD-Laomedeia",
+                "vi-VN-Chirp3-HD-Leda",
+                "vi-VN-Chirp3-HD-Orus",
+                "vi-VN-Chirp3-HD-Puck",
+                "vi-VN-Chirp3-HD-Pulcherrima",
+                "vi-VN-Chirp3-HD-Rasalgethi",
+                "vi-VN-Chirp3-HD-Sadachbia",
+                "vi-VN-Chirp3-HD-Sadaltager",
+                "vi-VN-Chirp3-HD-Schedar",
+                "vi-VN-Chirp3-HD-Sulafat",
+                "vi-VN-Chirp3-HD-Umbriel",
+                "vi-VN-Chirp3-HD-Vindemiatrix",
+                "vi-VN-Chirp3-HD-Zephyr",
+                "vi-VN-Chirp3-HD-Zubenelgenubi",
+                "vi-VN-Neural2-A",
+                "vi-VN-Neural2-D",
+                "vi-VN-Standard-A",
+                "vi-VN-Standard-B",
+                "vi-VN-Standard-C",
+                "vi-VN-Standard-D",
+                "vi-VN-Wavenet-A",
+                "vi-VN-Wavenet-B",
+                "vi-VN-Wavenet-C",
+                "vi-VN-Wavenet-D",
+                "duc-tri",
+                "my-duyen"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ProductionRightsDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "subject",
+        "scope",
+        "rights_holder",
+        "languages",
+        "territory",
+        "attribution",
+        "restrictions",
+        "permitted_scope",
+        "status",
+        "reference",
+        "valid_from_unix",
+        "valid_until_unix"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "subject": {
+          "$ref": "#/$defs/ProductionRightsSubject"
+        },
+        "scope": {
+          "const": "production_synthesis"
+        },
+        "rights_holder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "vi",
+              "vi-VN",
+              "en",
+              "en-US",
+              "all",
+              "duc-tri",
+              "my-duyen"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "territory": {
+          "const": "private-planning"
+        },
+        "attribution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "restrictions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "permitted_scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "granted",
+            "revoked"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "valid_from_unix": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "valid_until_unix": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "SaveProductionRightsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_version",
+        "claim"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "expected_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "claim": {
+          "$ref": "#/$defs/ProductionRightsDeclaration"
+        }
+      }
+    },
+    "ProductionRightsClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "declaration"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "declaration": {
+          "$ref": "#/$defs/ProductionRightsDeclaration"
+        }
+      }
+    },
+    "ProductionRightsClaimResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim",
+        "operation_id",
+        "recorded_by",
+        "recorded_at"
+      ],
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/ProductionRightsClaim"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "recorded_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        }
+      }
+    },
+    "ProductionCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "model_id",
+        "voice_ids",
+        "languages",
+        "emotions",
+        "rate_min_permille",
+        "rate_max_permille",
+        "pitch_min_semitones",
+        "pitch_max_semitones",
+        "intensity_supported",
+        "pronunciation_supported",
+        "reference_only",
+        "billable_dispatch_available"
+      ],
+      "properties": {
+        "provider_id": {
+          "enum": [
+            "reference-only",
+            "espeak-ng-local",
+            "google-cloud-tts",
+            "vieneu-nano-local"
+          ]
+        },
+        "model_id": {
+          "enum": [
+            "reference-v1",
+            "reference-v2",
+            "espeak-ng-1.52.0",
+            "google-chirp3-hd",
+            "google-neural2",
+            "google-wavenet",
+            "google-standard",
+            "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc"
+          ]
+        },
+        "voice_ids": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "synthetic-narrator",
+              "synthetic-character",
+              "vi",
+              "vi-vn-x-central",
+              "vi-vn-x-south",
+              "vi-VN-Chirp3-HD-Achernar",
+              "vi-VN-Chirp3-HD-Achird",
+              "vi-VN-Chirp3-HD-Algenib",
+              "vi-VN-Chirp3-HD-Algieba",
+              "vi-VN-Chirp3-HD-Alnilam",
+              "vi-VN-Chirp3-HD-Aoede",
+              "vi-VN-Chirp3-HD-Autonoe",
+              "vi-VN-Chirp3-HD-Callirrhoe",
+              "vi-VN-Chirp3-HD-Charon",
+              "vi-VN-Chirp3-HD-Despina",
+              "vi-VN-Chirp3-HD-Enceladus",
+              "vi-VN-Chirp3-HD-Erinome",
+              "vi-VN-Chirp3-HD-Fenrir",
+              "vi-VN-Chirp3-HD-Gacrux",
+              "vi-VN-Chirp3-HD-Iapetus",
+              "vi-VN-Chirp3-HD-Kore",
+              "vi-VN-Chirp3-HD-Laomedeia",
+              "vi-VN-Chirp3-HD-Leda",
+              "vi-VN-Chirp3-HD-Orus",
+              "vi-VN-Chirp3-HD-Puck",
+              "vi-VN-Chirp3-HD-Pulcherrima",
+              "vi-VN-Chirp3-HD-Rasalgethi",
+              "vi-VN-Chirp3-HD-Sadachbia",
+              "vi-VN-Chirp3-HD-Sadaltager",
+              "vi-VN-Chirp3-HD-Schedar",
+              "vi-VN-Chirp3-HD-Sulafat",
+              "vi-VN-Chirp3-HD-Umbriel",
+              "vi-VN-Chirp3-HD-Vindemiatrix",
+              "vi-VN-Chirp3-HD-Zephyr",
+              "vi-VN-Chirp3-HD-Zubenelgenubi",
+              "vi-VN-Neural2-A",
+              "vi-VN-Neural2-D",
+              "vi-VN-Standard-A",
+              "vi-VN-Standard-B",
+              "vi-VN-Standard-C",
+              "vi-VN-Standard-D",
+              "vi-VN-Wavenet-A",
+              "vi-VN-Wavenet-B",
+              "vi-VN-Wavenet-C",
+              "vi-VN-Wavenet-D",
+              "duc-tri",
+              "my-duyen"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 30,
+          "uniqueItems": true
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "vi",
+              "vi-VN",
+              "en",
+              "en-US",
+              "duc-tri",
+              "my-duyen"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "emotions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "neutral",
+              "calm",
+              "hopeful",
+              "warm",
+              "sad",
+              "angry"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "rate_min_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rate_max_permille": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "pitch_min_semitones": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        "pitch_max_semitones": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        "intensity_supported": {
+          "type": "boolean"
+        },
+        "pronunciation_supported": {
+          "type": "boolean"
+        },
+        "reference_only": {
+          "type": "boolean"
+        },
+        "billable_dispatch_available": {
+          "const": false
+        }
+      }
+    },
+    "ProductionCatalogResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "capabilities"
+      ],
+      "properties": {
+        "version": {
+          "const": "production-reference-v1"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionCapability"
+          },
+          "minItems": 2,
+          "maxItems": 8
+        }
+      }
+    },
+    "ResolvedSynthesisInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dialogue_id",
+        "character_id",
+        "text",
+        "language",
+        "provider_id",
+        "model_id",
+        "voice_id",
+        "voice_rights_record_id",
+        "adapter_version",
+        "output_contract",
+        "performance",
+        "pronunciation"
+      ],
+      "properties": {
+        "dialogue_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "character_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "language": {
+          "enum": [
+            "vi",
+            "vi-VN",
+            "en",
+            "en-US",
+            "duc-tri",
+            "my-duyen"
+          ]
+        },
+        "provider_id": {
+          "enum": [
+            "reference-only",
+            "espeak-ng-local",
+            "google-cloud-tts",
+            "vieneu-nano-local"
+          ]
+        },
+        "model_id": {
+          "enum": [
+            "reference-v1",
+            "reference-v2",
+            "espeak-ng-1.52.0",
+            "google-chirp3-hd",
+            "google-neural2",
+            "google-wavenet",
+            "google-standard",
+            "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc"
+          ]
+        },
+        "voice_id": {
+          "enum": [
+            "synthetic-narrator",
+            "synthetic-character",
+            "vi",
+            "vi-vn-x-central",
+            "vi-vn-x-south",
+            "vi-VN-Chirp3-HD-Achernar",
+            "vi-VN-Chirp3-HD-Achird",
+            "vi-VN-Chirp3-HD-Algenib",
+            "vi-VN-Chirp3-HD-Algieba",
+            "vi-VN-Chirp3-HD-Alnilam",
+            "vi-VN-Chirp3-HD-Aoede",
+            "vi-VN-Chirp3-HD-Autonoe",
+            "vi-VN-Chirp3-HD-Callirrhoe",
+            "vi-VN-Chirp3-HD-Charon",
+            "vi-VN-Chirp3-HD-Despina",
+            "vi-VN-Chirp3-HD-Enceladus",
+            "vi-VN-Chirp3-HD-Erinome",
+            "vi-VN-Chirp3-HD-Fenrir",
+            "vi-VN-Chirp3-HD-Gacrux",
+            "vi-VN-Chirp3-HD-Iapetus",
+            "vi-VN-Chirp3-HD-Kore",
+            "vi-VN-Chirp3-HD-Laomedeia",
+            "vi-VN-Chirp3-HD-Leda",
+            "vi-VN-Chirp3-HD-Orus",
+            "vi-VN-Chirp3-HD-Puck",
+            "vi-VN-Chirp3-HD-Pulcherrima",
+            "vi-VN-Chirp3-HD-Rasalgethi",
+            "vi-VN-Chirp3-HD-Sadachbia",
+            "vi-VN-Chirp3-HD-Sadaltager",
+            "vi-VN-Chirp3-HD-Schedar",
+            "vi-VN-Chirp3-HD-Sulafat",
+            "vi-VN-Chirp3-HD-Umbriel",
+            "vi-VN-Chirp3-HD-Vindemiatrix",
+            "vi-VN-Chirp3-HD-Zephyr",
+            "vi-VN-Chirp3-HD-Zubenelgenubi",
+            "vi-VN-Neural2-A",
+            "vi-VN-Neural2-D",
+            "vi-VN-Standard-A",
+            "vi-VN-Standard-B",
+            "vi-VN-Standard-C",
+            "vi-VN-Standard-D",
+            "vi-VN-Wavenet-A",
+            "vi-VN-Wavenet-B",
+            "vi-VN-Wavenet-C",
+            "vi-VN-Wavenet-D",
+            "duc-tri",
+            "my-duyen"
+          ]
+        },
+        "voice_rights_record_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "adapter_version": {
+          "enum": [
+            "reference-only-no-dispatch-v1",
+            "espeak-ng-local-v1",
+            "google-cloud-tts-synthesize-2",
+            "vieneu-nano-local-v1"
+          ]
+        },
+        "output_contract": {
+          "enum": [
+            "reference-only/no-audio",
+            "wav-pcm-s16le-mono-22050-v1",
+            "wav-pcm-s16le-mono-24000-v1",
+            "wav-pcm-s16le-mono-24000-vieneu-v1"
+          ]
+        },
+        "performance": {
+          "$ref": "#/$defs/SynthesisPerformance"
+        },
+        "pronunciation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResolvedPronunciation"
+          }
+        }
+      }
+    },
+    "ProductionEstimate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "currency",
+            "amount_minor",
+            "units",
+            "rate_reference",
+            "rate_version"
+          ],
+          "properties": {
+            "status": {
+              "const": "known"
+            },
+            "currency": {
+              "$ref": "#/$defs/ProductionCurrency"
+            },
+            "amount_minor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "units": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "rate_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "rate_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        }
+      ]
+    },
+    "ProductionFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "path",
+        "detail"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "script_unreviewed",
+            "rights_missing",
+            "rights_pending",
+            "rights_revoked",
+            "rights_not_yet_valid",
+            "rights_expired",
+            "rights_subject_mismatch",
+            "rights_language_mismatch",
+            "rights_territory_mismatch",
+            "rights_scope_mismatch",
+            "rights_restrictions_require_review",
+            "estimate_unavailable",
+            "budget_exceeded",
+            "revision_changed",
+            "settings_changed",
+            "rights_changed",
+            "approval_missing",
+            "approval_scope_mismatch"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "ProductionPreviewResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_digest",
+        "script_revision",
+        "settings_version",
+        "resolved",
+        "estimate",
+        "findings",
+        "inputs_eligible",
+        "billable_dispatch_available"
+      ],
+      "properties": {
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        },
+        "script_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "settings_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "resolved": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResolvedSynthesisInput"
+          }
+        },
+        "estimate": {
+          "$ref": "#/$defs/ProductionEstimate"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionFinding"
+          }
+        },
+        "inputs_eligible": {
+          "type": "boolean"
+        },
+        "billable_dispatch_available": {
+          "const": false
+        }
+      }
+    },
+    "RevisionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "script_id",
+        "revision",
+        "accepted_by",
+        "accepted_at",
+        "content_digest",
+        "export_digest",
+        "script_json"
+      ],
+      "properties": {
+        "script_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "accepted_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "accepted_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sir-c1:sha256:[a-f0-9]{64}$"
+        },
+        "export_digest": {
+          "type": "string",
+          "pattern": "^sir-e1:sha256:[a-f0-9]{64}$"
+        },
+        "script_json": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2097152
+        }
+      }
+    },
+    "FrozenProductionDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_id",
+        "catalog_version",
+        "revision",
+        "settings",
+        "rights",
+        "resolved",
+        "estimate",
+        "input_digest"
+      ],
+      "properties": {
+        "owner_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "catalog_version": {
+          "const": "production-reference-v1"
+        },
+        "revision": {
+          "$ref": "#/$defs/RevisionResponse"
+        },
+        "settings": {
+          "$ref": "#/$defs/ProductionSettingsResponse"
+        },
+        "rights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionRightsClaimResponse"
+          },
+          "maxItems": 128
+        },
+        "resolved": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResolvedSynthesisInput"
+          }
+        },
+        "estimate": {
+          "$ref": "#/$defs/ProductionEstimate"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "FreezeProductionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "settings_version",
+        "input_digest"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "settings_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "ApproveProductionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "input_digest"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "ProductionApprovalResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "snapshot_id",
+        "approved_by",
+        "approved_at",
+        "operation_id",
+        "input_digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "approved_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "approved_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "ProductionEligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputs_eligible",
+        "approval_current",
+        "billable_dispatch_available",
+        "findings"
+      ],
+      "properties": {
+        "inputs_eligible": {
+          "type": "boolean"
+        },
+        "approval_current": {
+          "type": "boolean"
+        },
+        "billable_dispatch_available": {
+          "const": false
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionFinding"
+          }
+        }
+      }
+    },
+    "ProductionSnapshotResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "script_id",
+        "created_by",
+        "recorded_at",
+        "operation_id",
+        "document",
+        "approval",
+        "eligibility"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "script_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "created_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "document": {
+          "$ref": "#/$defs/FrozenProductionDocument"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProductionApprovalResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibility": {
+          "$ref": "#/$defs/ProductionEligibility"
+        }
+      }
+    },
+    "ProductionSnapshotSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "script_id",
+        "created_by",
+        "recorded_at",
+        "input_digest",
+        "script_revision",
+        "settings_version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "script_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "created_by": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^production-p1:sha256:[a-f0-9]{64}$"
+        },
+        "script_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "settings_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "ProductionStateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "settings",
+        "rights",
+        "snapshots"
+      ],
+      "properties": {
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProductionSettingsResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionRightsClaimResponse"
+          },
+          "maxItems": 128
+        },
+        "snapshots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProductionSnapshotSummary"
+          },
+          "maxItems": 20
+        }
+      }
+    },
+    "ResolvedPronunciation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "replacement"
+      ],
+      "properties": {
+        "surface": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "replacement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      }
+    }
+  }
+}
