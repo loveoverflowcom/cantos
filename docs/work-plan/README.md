@@ -64,6 +64,12 @@ development-only same-package workers, fenced immutable result selection and con
 crash/ambiguous-attempt handling, without claiming #6 commercial acceptance or enabling VieNeu
 production. Its [contract](../../packages/contracts/durable-jobs-v1.md) and
 [evidence](../evidence/durable-tts-jobs.md) keep the actual verification boundary visible.
+The sequential [PR #40](https://github.com/loveoverflowcom/cantos/pull/40) review integrates
+PR #39's preview tooling and closes a confirmed owner-session expiry gap with final transaction
+checks and six real PostgreSQL lock-wait regressions for new commands and exact retries. This
+review also corrects an inherited macOS preview-process reap race exposed by the integrated
+repository gate. It preserves the recommended acceptance/reuse order below; GitHub owns its
+merge status.
 
 ## Recommended bounded follow-ups
 

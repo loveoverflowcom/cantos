@@ -275,6 +275,32 @@ while True:
                     for name in ("render-pid", "child-pid", "child-stopped"):
                         (self.root / name).unlink(missing_ok=True)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX group cleanup")
+    def test_transient_group_denial_waits_for_exit_and_preserves_timeout(self):
+        (self.root / "mode.txt").write_text("timeout-child")
+        original_signal = os.killpg
+        denied = []
+        def exiting_group(group, signum):
+            leader = self.root / "render-pid"
+            if signum == 0 and leader.exists() and group == int(leader.read_text()) and len(denied) < 2:
+                denied.append(group)
+                raise PermissionError("test-owned exiting group is not yet reaped")
+            return original_signal(group, signum)
+        try:
+            with mock.patch.object(os, "killpg", side_effect=exiting_group):
+                with self.assertRaises(preview.PreviewError) as failure:
+                    self.capture(self.args("cantos", "--timeout-seconds", "1"))
+            self.assertIn("timed out", str(failure.exception))
+            self.assertEqual(len(denied), 2)
+            self.assertEqual(denied[0], denied[1])
+            self.assertTrue((self.root / "child-stopped").exists())
+            self.assert_test_child_exited()
+            bundle, = self.bundles()
+            self.assertIn("partial render output", (bundle / "render.stdout.log").read_text())
+            self.assertEqual(json.loads((bundle / "capture.json").read_text())["status"], "FAIL")
+        finally:
+            self.stop_test_processes()
+
     @unittest.skipUnless(os.name == "posix", "POSIX signals and process groups")
     def test_signals_stop_cli_children_and_record_failure(self):
         (self.root / "mode.txt").write_text("interrupt-child")

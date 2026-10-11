@@ -6,7 +6,7 @@ use cantos_api::{
     jobs::{ExecutionMode, LeaseDuration, RetryPolicy, RunEvent, RunStatus},
     postgres::{
         durable::{AttemptWork, DurableError, JobLease, JobSummary, StepWork},
-        local_config, migrate, token_hash, Store,
+        local_config, migrate, token_hash, Store, StoreError,
     },
     script_ir::read_script,
     tts::{
@@ -517,6 +517,314 @@ fn independent_budget_checker_rejects_corrupted_counters_and_overrun() {
         check_budget(2, 3, 4, 2, 3),
         Err("reserved plus settled exceeds frozen budget")
     );
+}
+
+// A rejected owner command, including an exact replay, preserves every durable row and
+// the immutable production inputs. Read raw database records, not the store's summary.
+async fn expiry_persisted_state(h: &Harness) -> Value {
+    let mut state = serde_json::Map::new();
+    for table in [
+        "durable_runs",
+        "durable_jobs",
+        "durable_steps",
+        "durable_budgets",
+        "durable_reservations",
+        "durable_attempts",
+        "durable_dispatches",
+        "durable_observations",
+        "durable_settlements",
+        "durable_resolutions",
+        "durable_controls",
+        "scripts",
+        "script_revisions",
+        "revision_evidence",
+        "script_evidence",
+        "script_reviews",
+        "script_review_operations",
+        "production_settings",
+        "production_rights_claims",
+        "production_snapshots",
+        "production_approvals",
+    ] {
+        // Table names are the fixed fixture inventory above, never caller input.
+        let query = format!(
+            "SELECT COALESCE(jsonb_agg(data ORDER BY data::text COLLATE \"C\"), '[]'::jsonb)::text \
+             FROM (SELECT to_jsonb(record) AS data FROM {table} record) rows"
+        );
+        let text: String = h.admin.query_one(&query, &[]).await.unwrap().get(0);
+        state.insert(table.into(), serde_json::from_str(&text).unwrap());
+    }
+    Value::Object(state)
+}
+
+async fn expire_session_behind_owned_lock<F>(
+    h: &Harness,
+    lock_query: &str,
+    resource: &str,
+    waiter_query: &str,
+    caller: F,
+) -> Result<JobSummary, DurableError>
+where
+    F: std::future::Future<Output = Result<JobSummary, DurableError>>,
+{
+    // Warm the existing pool before imposing the short expiry window. Do not change the
+    // production statement, lock or idle-transaction timeouts to make a test pass.
+    assert_eq!(h.store.authenticate(ALICE).await.unwrap(), "alice");
+    let mut blocker_config = h.app_config.clone();
+    blocker_config.application_name("cantos-expiry-blocker");
+    let mut blocker = connect(&blocker_config).await;
+    let blocker_pid: i32 = blocker
+        .query_one("SELECT pg_backend_pid()", &[])
+        .await
+        .unwrap()
+        .get(0);
+    let tx = blocker.transaction().await.unwrap();
+    tx.query_one(lock_query, &[&resource]).await.unwrap();
+    assert_eq!(
+        h.admin
+            .execute(
+                "UPDATE sessions SET expires_at=clock_timestamp()+interval '2 seconds' \
+                 WHERE token_hash=$1",
+                &[&token_hash(ALICE)],
+            )
+            .await
+            .unwrap(),
+        1
+    );
+
+    let monitor = async {
+        let observed = tokio::time::timeout(std::time::Duration::from_millis(2_500), async {
+            let valid_at_lock = loop {
+                let witness = h
+                    .admin
+                    .query_one(
+                        "SELECT EXISTS(SELECT 1 FROM pg_stat_activity a \
+                         WHERE a.datname=current_database() AND a.usename='cantos_app' \
+                         AND a.application_name='cantos-durable-test' AND a.state='active' \
+                         AND a.wait_event_type='Lock' AND $1=ANY(pg_blocking_pids(a.pid)) \
+                         AND a.query LIKE $2), \
+                         (SELECT expires_at>clock_timestamp() FROM sessions WHERE token_hash=$3)",
+                        &[&blocker_pid, &waiter_query, &token_hash(ALICE)],
+                    )
+                    .await?;
+                if witness.get::<_, bool>(0) {
+                    break witness.get::<_, bool>(1);
+                }
+                tokio::task::yield_now().await;
+            };
+            if !valid_at_lock {
+                return Ok::<_, tokio_postgres::Error>((false, false));
+            }
+            loop {
+                let expired: bool = h
+                    .admin
+                    .query_one(
+                        "SELECT expires_at<=clock_timestamp() FROM sessions WHERE token_hash=$1",
+                        &[&token_hash(ALICE)],
+                    )
+                    .await?
+                    .get(0);
+                if expired {
+                    return Ok::<_, tokio_postgres::Error>((valid_at_lock, true));
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        // Always release this test's blocker before returning any failure or asserting.
+        let released = tx.rollback().await;
+        match (observed, released) {
+            (Ok(Ok((true, true))), Ok(())) => {
+                println!(
+                    "expiry witness: query={waiter_query}; owned_blocker_pid={blocker_pid}; \
+                     session_valid_at_lock=true; database_expired=true; blocker_rolled_back=true"
+                );
+                Ok(())
+            }
+            (observation, release) => Err(format!(
+                "owned lock witness (valid_at_lock, database_expired): {observation:?}; \
+                 rollback: {release:?}"
+            )),
+        }
+    };
+    // Both futures live in this task: a failed monitor cannot abandon a spawned request.
+    let (result, monitored) = tokio::join!(
+        tokio::time::timeout(std::time::Duration::from_secs(6), caller),
+        monitor,
+    );
+    monitored.expect("owner command did not reach the intended lock before session expiry");
+    result.expect("owner command did not finish after its blocker was released")
+}
+
+async fn assert_enqueue_expiry_case(replay: bool) {
+    let h = Harness::new(4).await;
+    let operation = Uuid::new_v4().to_string();
+    if replay {
+        h.store
+            .enqueue_job(
+                ALICE,
+                &h.script,
+                &h.snapshot.id,
+                &operation,
+                ExecutionMode::SyntheticFake,
+                policy(),
+            )
+            .await
+            .unwrap();
+    }
+    let before = expiry_persisted_state(&h).await;
+    let result = expire_session_behind_owned_lock(
+        &h,
+        "SELECT id FROM scripts WHERE id=$1 FOR UPDATE",
+        &h.script,
+        "SELECT owner_id,head_revision FROM scripts%FOR UPDATE",
+        h.store.enqueue_job(
+            ALICE,
+            &h.script,
+            &h.snapshot.id,
+            &operation,
+            ExecutionMode::SyntheticFake,
+            policy(),
+        ),
+    )
+    .await;
+    let after = expiry_persisted_state(&h).await;
+    assert!(
+        matches!(
+            result,
+            Err(DurableError::Store(StoreError::Unauthenticated))
+        ),
+        "replay={replay}: expected Unauthenticated after session expiry, got {result:?}; \
+         persisted_state_unchanged={}",
+        after == before,
+    );
+    assert_eq!(
+        after, before,
+        "replay={replay}: rejected enqueue changed persisted state"
+    );
+    assert_invariants(&h).await;
+}
+
+async fn assert_control_expiry_case(replay: bool) {
+    let h = Harness::new(4).await;
+    let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+    let operation = Uuid::new_v4().to_string();
+    if replay {
+        h.store
+            .control_job(ALICE, &job.run_id, &operation, RunEvent::Pause)
+            .await
+            .unwrap();
+    }
+    let before = expiry_persisted_state(&h).await;
+    let result = expire_session_behind_owned_lock(
+        &h,
+        "SELECT id FROM durable_jobs WHERE run_id=$1 FOR UPDATE",
+        &job.run_id,
+        "SELECT * FROM durable_jobs WHERE run_id=%FOR UPDATE",
+        h.store
+            .control_job(ALICE, &job.run_id, &operation, RunEvent::Pause),
+    )
+    .await;
+    let after = expiry_persisted_state(&h).await;
+    assert!(
+        matches!(
+            result,
+            Err(DurableError::Store(StoreError::Unauthenticated))
+        ),
+        "replay={replay}: expected Unauthenticated after session expiry, got {result:?}; \
+         persisted_state_unchanged={}",
+        after == before,
+    );
+    assert_eq!(
+        after, before,
+        "replay={replay}: rejected control changed persisted state"
+    );
+    assert_invariants(&h).await;
+}
+
+async fn assert_resolution_expiry_case(replay: bool) {
+    let h = Harness::new(4).await;
+    let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+    let lease = h.lease("expiry-unresolved-attempt").await;
+    // Persist intent/reservation only. No provider send or audio generation occurs.
+    let work = h.dispatch(&lease).await;
+    h.store
+        .control_job(
+            ALICE,
+            &job.run_id,
+            &Uuid::new_v4().to_string(),
+            RunEvent::Pause,
+        )
+        .await
+        .unwrap();
+    let evidence = "Synthetic fixture owner attestation; no provider was called";
+    if replay {
+        h.store
+            .resolve_not_executed(ALICE, &job.run_id, &work.intent.attempt_id, evidence)
+            .await
+            .unwrap();
+    }
+    let before = expiry_persisted_state(&h).await;
+    let result = expire_session_behind_owned_lock(
+        &h,
+        "SELECT id FROM durable_jobs WHERE run_id=$1 FOR UPDATE",
+        &job.run_id,
+        "SELECT id,status FROM durable_jobs WHERE run_id=%FOR UPDATE",
+        h.store
+            .resolve_not_executed(ALICE, &job.run_id, &work.intent.attempt_id, evidence),
+    )
+    .await;
+    let after = expiry_persisted_state(&h).await;
+    assert!(
+        matches!(
+            result,
+            Err(DurableError::Store(StoreError::Unauthenticated))
+        ),
+        "replay={replay}: expected Unauthenticated after session expiry, got {result:?}; \
+         persisted_state_unchanged={}",
+        after == before,
+    );
+    assert_eq!(
+        after, before,
+        "replay={replay}: rejected resolution changed persisted state"
+    );
+    assert_invariants(&h).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn enqueue_rechecks_expired_session_after_script_lock_for_new() {
+    assert_enqueue_expiry_case(false).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn enqueue_rechecks_expired_session_after_script_lock_for_exact_replay() {
+    assert_enqueue_expiry_case(true).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn control_rechecks_expired_session_after_job_lock_for_new() {
+    assert_control_expiry_case(false).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn control_rechecks_expired_session_after_job_lock_for_exact_replay() {
+    assert_control_expiry_case(true).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn resolution_rechecks_expired_session_after_job_lock_for_new() {
+    assert_resolution_expiry_case(false).await;
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn resolution_rechecks_expired_session_after_job_lock_for_exact_replay() {
+    assert_resolution_expiry_case(true).await;
 }
 
 #[tokio::test]

@@ -74,14 +74,23 @@ and the subsequent repair closes process, resource and file-boundary defects in 
   signal aimed only at the xtask parent also stops its capture. Android Studio is never signalled.
 - Cleanup failure is fatal, including during Git provenance collection. Pipes always close,
   and the direct child is reaped. On macOS a zombie-only group can return EPERM: the adapter
-  reaps its own leader and retries the identical operation once; a persistent permission error
-  still fails. This was diagnosed against an observed zombie group and the matching
+  polls only its own leader and retries the identical group/signal operation for at most
+  0.2 seconds; a persistent permission error still fails. This was diagnosed against an observed zombie group and the matching
   [Apple XNU source](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-11417.140.69/bsd/kern/kern_sig.c).
 - Command streams/source reads are capped at 4 MiB and PNG reads at 32 MiB. Hashing is streamed;
   this is an admission/read bound, not a hard quota on external IDE writes.
 - Symlinked product roots, special/linked PNG files and linked artifact paths are rejected.
   Fresh bundles use mode 0700; adapter files use 0600 and exclusive creation. Semantics values
   and existing command/status contracts are preserved.
+
+The subsequent integrated PR #40 repository gate exposed a transient macOS cleanup race:
+one nonblocking leader poll followed by an immediate retry could fail before the leader became
+waitable, replacing the expected timeout with a cleanup error. The original FAIL log remains
+in `target/pr40-review/verify-repository-final.log`. A deterministic real CLI/child regression
+injects two transient probe denials for the exact owned render group, then requires the original
+timeout, retained partial output, FAIL metadata and stopped descendant. It fails on the unchanged
+PR #39 adapter in `preview-reap-fail-first.log`; the bounded grace above fixes the race without
+ignoring persistent denial or changing existing assertions. This is tooling evidence only.
 
 Current host: macOS arm64, Rust 1.87.0, Python 3.13.5; Python runs use
 `TMPDIR=/private/tmp`. Source pins and attributable logs are retained under ignored

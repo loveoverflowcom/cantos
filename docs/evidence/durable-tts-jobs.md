@@ -1,13 +1,15 @@
 # Durable local/fake TTS job foundation
 
 Status: bounded implementation for [issue #7](https://github.com/loveoverflowcom/cantos/issues/7),
-2026-10-11. Branch `feat/durable-tts-jobs`, base `origin/develop`
-`209e9e905c680e7cecab831f2d8f7894656e14fe`, after
-[PR #38](https://github.com/loveoverflowcom/cantos/pull/38) merged. Targeted PostgreSQL/local
-eSpeak, Rust, contracts, repository and the full PostgreSQL gate have passed as recorded below.
-The partial preflight passed five selected steps with PostgreSQL explicitly NOT_RUN.
-**Full preflight/handoff is BLOCKED by disk space.** A verification-incomplete draft PR may
-record this work; the partial result does not authorize automatic merge.
+2026-10-11. Branch `feat/durable-tts-jobs`, originally based on merged
+[PR #38](https://github.com/loveoverflowcom/cantos/pull/38)
+`209e9e905c680e7cecab831f2d8f7894656e14fe`. The sequential review integrated merged
+[PR #39](https://github.com/loveoverflowcom/cantos/pull/39)
+`0ff16fd7e50b556487bd16c8f36d4a9b6ae754da` through a normal merge, then fixed the owner-session
+expiry defect below. Fresh PostgreSQL and actual local eSpeak reruns passed on that fixed source.
+The original disk-blocked handoff is preserved as historical evidence below; disk space is now
+available. Final no-skip preflight, review, commit/tree identity and merge disposition belong to
+[PR #40](https://github.com/loveoverflowcom/cantos/pull/40) and the ignored local review record.
 
 This slice supplies same-package development-only local/fake jobs and immutable result
 selection, not complete #7/020 acceptance. Issue #6's live/listening/rights gaps remain open.
@@ -22,6 +24,50 @@ duplicates and stale workers cannot silently repeat possible execution, attach a
 revision/dialogue's output or overrun the frozen budget. An observation of possible execution
 survives lease loss and is reconciled before another dispatch. This is idempotent selection,
 not an exactly-once third-party synthesis or billing claim.
+
+## Sequential review: session expiry during lock waits
+
+Independent defect-first review found a confirmed P1: enqueue, control and owner resolution
+authenticated before acquiring script/job locks, but a session could expire during that wait.
+New commands could commit and exact retries could return success with an expired token.
+Holding the session row against revocation does not stop the database clock advancing.
+
+All five successful commit paths now call the existing `durable_actor` immediately before
+commit, including enqueue/control early replay branches and the shared resolution replay path.
+The check returns `Unauthenticated` and rolls back the whole transaction when expiry has passed.
+Worker observations remain unfenced facts; migration, operation identities, wire contracts,
+immutable receipts and valid-session behavior are unchanged.
+
+The integrated repository gate also exposed a transient macOS reap race in inherited PR #39
+preview tooling. Its separately fail-first regression and bounded cleanup correction are
+recorded in [preview evidence](compose-preview-tooling.md#review-repairs-and-macos-checkpoint).
+That correction affects the private tooling process boundary, not job dispatch or mobile UI.
+
+Six real PostgreSQL regressions cover new operations and exact replays for each command.
+An independent restricted app-role transaction holds the precise script/job row; the database
+oracle witnesses the authenticated caller waiting on that owned blocker while the session is
+valid, then witnesses expiry before releasing it. Each test compares all columns across eleven
+durable tables and ten input/editorial tables and checks the relational invariants. Polling,
+queries and the caller are bounded; the owned blocker is rolled back before assertions.
+
+`target/pr40-review/postgres-expiry-fail-first.log` records all six failing on unchanged
+production source: each returned `Ok`; the three new operations changed state. With only the
+final authentication checks added, `postgres-expiry-fixed.log` records **PASS**: 27 durable tests
+(21 existing plus six regressions), and 84 real PostgreSQL tests overall, followed by the
+existing CLI/HTTP, host-kill, database-restart, immutable replay and independent JSON/MessagePack
+oracles. No timeout, assertion or durability setting was weakened. The fresh owned cluster
+`cluster-1791743854249687000` was retained and stopped; no old database was removed.
+
+`target/pr40-review/local-espeak-final.log` records **PASS**, one actual installed-runtime test
+in 1.10 seconds, on the same fixed/integrated source and fresh retained cluster. Four dialogue
+WAVs completed with native 22,050 Hz mono 16-bit PCM and the same measured hashes/frame counts
+as the earlier table below. Fresh receipts and audio facts are in ignored
+`target/durable-job-evidence/f15d2708-4027-4d8a-9fca-10e9bf2a8033/installed-local-audio-facts.json`:
+run `f8239cd0-6796-458e-abf5-5da7973dc028`, snapshot
+`57c95b2b-f1ca-48f9-a884-da54472c5266`, revision 1, input digest
+`production-p1:sha256:51afcbf3056a71368050db9de107d574d9610dfe1642bcf79907f82fcd1ac2f6`.
+This is local `provider-live-tested` and structural `audio-measured` evidence. Actual charge
+remains unknown; listening, commercial dispatch and production asset acceptance are **NOT_RUN**.
 
 The existing `services/cantos-api` package owns the pure `jobs.rs` state/retry/fingerprint
 decisions and the `postgres/durable.rs` transaction shell. `production-jobs` is an authenticated
@@ -111,7 +157,7 @@ filesystem evidence, not an object-storage adapter or an accepted production ass
 kill tests do not establish host power-loss/filesystem durability or shared-storage behavior.
 Listening, loudness/true-peak acceptance and editorial/publication approval are **NOT_RUN**.
 
-Final actual local eSpeak job: **PASS**, one selected integration test in
+Original implementation's actual local eSpeak job: **PASS**, one selected integration test in
 `target/durable-jobs/local-espeak-realpg-final.log`, 1.13 seconds. It completed all four original
 `two-scenes.json` fixture dialogues through the real installed eSpeak NG 1.52.0 runtime at
 `/opt/homebrew/bin/espeak-ng`, with synthetic private rights assertions and exact current
@@ -134,7 +180,11 @@ revision 1, snapshot `5b25efca-8d75-4478-bbe4-12d0220b115b` and input digest
 This confirms the development job/receipt path, not source/voice legal clearance, listening,
 resource cost or production asset acceptance.
 
-## Verification and assurance ledger
+## Original implementation verification and assurance ledger
+
+This section preserves the pre-review checkpoint at head `9150a8c34c428fc9b1199968f5ee90fd72c2681c`.
+Its source hashes, test counts and disk-blocked handoff are historical, not the integrated
+review source. The sequential review section and PR #40 handoff record supersede its status.
 
 Actual initial core output in `target/durable-jobs/domain-tests.log` recorded seven pure tests
 PASS before subsequent jitter and shell hardening. That result is historical and does not

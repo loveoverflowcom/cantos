@@ -232,13 +232,19 @@ def git_provenance(root, bundle):
 
 
 def signal_owned_group(process, signum):
-    try:
-        os.killpg(process.pid, signum)
-    except PermissionError:
-        # Darwin excludes zombies from group signalling and can report EPERM until reaped.
-        # Reap only our leader and retry once; a live group's permission failure still escapes.
-        process.poll()
-        os.killpg(process.pid, signum)
+    # Darwin can return EPERM while a group is exiting but its leader is not yet waitable.
+    # Allow a bounded reap grace for only our leader; persistent permission failures escape.
+    deadline = time.monotonic() + 0.2
+    while True:
+        try:
+            os.killpg(process.pid, signum)
+            return
+        except PermissionError:
+            process.poll()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise
+            time.sleep(min(0.01, remaining))
 
 
 def stop_owned_group(process):

@@ -281,8 +281,20 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = durable_actor(&tx, token).await?;
         let candidate = current_snapshot(&tx, &actor, &script, &snapshot).await?;
-        if let Some(prior)=tx.query_opt("SELECT id,request_bytes FROM durable_runs WHERE script_id=$1 AND created_by=$2 AND operation_id=$3", &[&script,&actor,&operation]).await? {
-            if prior.get::<_,Vec<u8>>("request_bytes")!=request {return Err(DurableError::Conflict);}let result=summary(&tx,&prior.get::<_,String>("id")).await?;tx.commit().await?;return Ok(result);
+        if let Some(prior) = tx
+            .query_opt(
+                "SELECT id,request_bytes FROM durable_runs WHERE script_id=$1 AND created_by=$2 AND operation_id=$3",
+                &[&script, &actor, &operation],
+            )
+            .await?
+        {
+            if prior.get::<_, Vec<u8>>("request_bytes") != request {
+                return Err(DurableError::Conflict);
+            }
+            let result = summary(&tx, &prior.get::<_, String>("id")).await?;
+            durable_actor(&tx, token).await?;
+            tx.commit().await?;
+            return Ok(result);
         }
         let doc = &candidate.document;
         for line in &doc.resolved {
@@ -309,6 +321,8 @@ impl Store {
         // Recheck time-sensitive eligibility immediately before commit under authority locks.
         current_snapshot(&tx, &actor, &script, &snapshot).await?;
         let result = summary(&tx, &run).await?;
+        // Session expiry advances even while the transaction holds authority locks.
+        durable_actor(&tx, token).await?;
         tx.commit().await?;
         Ok(result)
     }
@@ -911,7 +925,21 @@ impl Store {
             )
             .await?;
         let job_id: String = job.get("id");
-        if let Some(prior)=tx.query_opt("SELECT action FROM durable_controls WHERE job_id=$1 AND actor_id=$2 AND operation_id=$3", &[&job_id,&actor,&operation]).await?{if prior.get::<_,String>(0)!=action{return Err(DurableError::Conflict);}let result=summary(&tx,&id).await?;tx.commit().await?;return Ok(result);}
+        if let Some(prior) = tx
+            .query_opt(
+                "SELECT action FROM durable_controls WHERE job_id=$1 AND actor_id=$2 AND operation_id=$3",
+                &[&job_id, &actor, &operation],
+            )
+            .await?
+        {
+            if prior.get::<_, String>(0) != action {
+                return Err(DurableError::Conflict);
+            }
+            let result = summary(&tx, &id).await?;
+            durable_actor(&tx, token).await?;
+            tx.commit().await?;
+            return Ok(result);
+        }
         if matches!(event, RunEvent::Resume | RunEvent::Retry) {
             authority(&tx, &r).await?;
             let unresolved:bool=tx.query_one("SELECT EXISTS(SELECT 1 FROM durable_attempts a JOIN durable_steps s ON s.id=a.step_id LEFT JOIN durable_observations o ON o.attempt_id=a.id LEFT JOIN durable_resolutions x ON x.attempt_id=a.id WHERE s.job_id=$1 AND ((x.attempt_id IS NOT NULL AND o.created_at>x.created_at) OR (x.attempt_id IS NULL AND (o.attempt_id IS NULL OR convert_from(o.receipt_bytes,'UTF8')::jsonb#>>'{outcome,delivery}'='may_have_executed'))))", &[&job_id]).await?.get(0);
@@ -938,6 +966,7 @@ impl Store {
         };
         tx.execute("UPDATE durable_steps SET status=$2,lease_token=lease_token+1,lease_owner=NULL,lease_expires_at=NULL WHERE job_id=$1 AND status IN ('pending','leased','failed')", &[&job_id,&step_status]).await?;
         let result = summary(&tx, &id).await?;
+        durable_actor(&tx, token).await?;
         tx.commit().await?;
         Ok(result)
     }
@@ -1014,6 +1043,7 @@ impl Store {
         )
         .await?;
         let result = summary(&tx, &id).await?;
+        durable_actor(&tx, token).await?;
         tx.commit().await?;
         Ok(result)
     }

@@ -53,6 +53,9 @@ the existing run's current summary; a changed snapshot, mode or retry policy und
 conflicts. Current authorization is rechecked even for retries. Control operations similarly
 bind `(job_id, actor_id, operation_id)` to one action and return the current summary on exact
 replay. They do not rewind completed work or reset append-only attempt counts.
+Enqueue, control and owner non-execution resolution recheck the current session immediately
+before committing, including exact replays. Expiry during a script/job lock wait rejects the
+command as unauthenticated and rolls back all of its writes.
 
 ## Frozen authority and identity
 
