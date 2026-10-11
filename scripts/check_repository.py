@@ -43,7 +43,7 @@ REQUIRED = (
     "services/cantos-api/README.md",
     "services/kanidm/README.md",
     "packages/README.md",
-    "packages/design-tokens/README.md",
+    "packages/ui-system/README.md",
     ".agents/skills/README.md",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/config.yml",

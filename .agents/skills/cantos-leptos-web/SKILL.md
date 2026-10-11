@@ -50,8 +50,8 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Ground rules
 
-- **Repository reality.** No Leptos package, toolchain config, dev server or Web test harness
-  exists. Discover manifests, scripts and CI before citing a command. Commands, crates, paths and
+- **Repository reality.** Studio, the Theatre skeleton and a shared Leptos foundation now exist.
+  Discover their manifests, scripts and CI before citing a command. Commands, crates, paths and
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.

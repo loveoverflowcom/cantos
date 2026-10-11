@@ -12,6 +12,7 @@ use crate::{
     production::ProductionInputs,
 };
 use cantos_contracts::{ApiError, ErrorCode, FieldIssue, ValidateScriptRequest};
+use cantos_ui::Theme;
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 
@@ -154,7 +155,7 @@ pub fn Studio() -> impl IntoView {
     let token = RwSignal::new(String::new());
     let selection = RwSignal::new(String::new());
     let english = RwSignal::new(false);
-    let theme = RwSignal::new(String::from("system"));
+    let theme = RwSignal::new(Theme::System);
     let panel = RwSignal::new(1u8);
     let activity = RwSignal::new(false);
     let proposal_dirty = RwSignal::new(false);
@@ -231,14 +232,16 @@ pub fn Studio() -> impl IntoView {
     on_cleanup(move || restored.remove());
 
     view! {
-        <div class="studio-shell" data-theme=move || theme.get()>
+        <div class="studio-shell cantos-ui" data-theme=move || theme.get().as_str() data-density="compact">
         <main lang=move || if english.get() { "en" } else { "vi-VN" }>
             <header class="studio-header">
                 <h1>{move || copy().title}<small>"Vọng Đài"</small></h1>
                 <div class="toolbar">
                     <button type="button" on:click=move |_| english.update(|en| *en = !*en)>{move || if english.get() { "Tiếng Việt" } else { "English" }}</button>
                     <label for="theme-select">{move || copy().theme}</label>
-                    <select id="theme-select" prop:value=move || theme.get() on:change=move |event| theme.set(event_target_value(&event))>
+                    <select id="theme-select" prop:value=move || theme.get().as_str() on:change=move |event| {
+                        if let Some(selected) = Theme::from_attribute(&event_target_value(&event)) { theme.set(selected); }
+                    }>
                         <option value="system">{move || copy().system}</option><option value="light">{move || copy().light}</option><option value="dark">{move || copy().dark}</option>
                     </select>
                 </div>

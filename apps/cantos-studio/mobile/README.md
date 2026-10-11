@@ -10,7 +10,7 @@ When it starts, it must:
 
 - consume the Studio v1 contracts in [`packages/contracts`](../../../packages/contracts/README.md)
   and keep authority, validation and approvals in the backend;
-- use the shared Material 3 Expressive token roles in [`packages/design-tokens`](../../../packages/design-tokens/README.md)
+- use the shared Material 3 Expressive token roles in [`packages/ui-system`](../../../packages/ui-system/README.md)
   at Studio's denser, task-first intensity;
 - follow the [CMP skill](../../../.agents/skills/cantos-cmp-mobile/SKILL.md) and
   [UI system](../../../docs/design/ui-system.md); and

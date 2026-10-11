@@ -1,0 +1,102 @@
+/* Component-owned styles. All selectors stay inside the theme boundary. */
+:where(.cantos-ui) {
+  color: var(--cantos-color-on-surface);
+  background: var(--cantos-color-background);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-body-size);
+  line-height: var(--cantos-type-body-line-height);
+  font-weight: var(--cantos-type-body-weight);
+}
+:where(.cantos-ui) .cui-icon {
+  display: inline-block;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  flex-shrink: 0;
+  fill: currentColor;
+  vertical-align: middle;
+}
+:where(.cantos-ui) .cui-button-field {
+  display: inline-grid;
+  justify-items: start;
+  gap: var(--cantos-space-xs);
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cantos-space-sm);
+  min-block-size: var(--cantos-size-control);
+  min-inline-size: var(--cantos-size-control);
+  max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border: 0;
+  border-radius: var(--cantos-shape-control);
+  background: var(--cantos-color-primary);
+  color: var(--cantos-color-on-primary);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-label-size);
+  line-height: var(--cantos-type-label-line-height);
+  font-weight: var(--cantos-type-label-weight);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-button[data-variant="tonal"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-button[data-variant="text"] {
+  background: transparent;
+  color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-button:where(:hover, :active):not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-button:active:not(:disabled) {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-pressed-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-button:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+:where(.cantos-ui) .cui-button:disabled {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+:where(.cantos-ui) .cui-button-reason {
+  color: var(--cantos-color-on-surface-variant);
+  font-size: var(--cantos-type-metadata-size);
+  line-height: var(--cantos-type-metadata-line-height);
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-button-reason[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-button { transition: none; }
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-button { border: var(--cantos-size-border) solid ButtonText; }
+  :where(.cantos-ui) .cui-button:disabled { color: GrayText; }
+}
+/* Bounded development preview layout; app pane rules remain app-owned. */
+:where(.cantos-ui) .cui-preview {
+  box-sizing: border-box;
+  max-inline-size: 60rem;
+  margin-inline: auto;
+  padding: var(--cantos-space-lg);
+}
+:where(.cantos-ui) .cui-preview-title {
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-headline-size);
+  line-height: var(--cantos-type-headline-line-height);
+  font-weight: var(--cantos-type-headline-weight);
+}
+:where(.cantos-ui) .cui-preview-samples {
+  display: grid;
+  gap: var(--cantos-space-lg);
+}
+@media (min-width: {{breakpoint.medium}}) {
+  :where(.cantos-ui) .cui-preview-samples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

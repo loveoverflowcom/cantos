@@ -39,19 +39,18 @@ skill and a document disagree on product behavior, the document wins; report the
 
 ## Repository reality
 
-No Leptos package, Gradle build, token source, generator, localization framework, font, icon set,
-UI test harness or evidence directory exists, and the reference UI image named in the brief was
-never attached. Therefore:
+Studio, the Theatre skeleton and `packages/ui-system` Web foundation now exist. The authenticated
+design handoff supplies palette/font roles and official outlined icons. CMP runtime remains
+deferred. Therefore:
 
-- every path, command, tool and API name in this skill is **proposed** or a **candidate**;
-  discover the real manifests before citing one;
-- no exact palette, type scale, shape size or spring constant is decided — never invent final hex
-  values, sizes or curves; work with token *names* and *relationships*;
-- no visual-fidelity claim is possible until the reference image and its viewport are captured in
-  the design issue ([UI system § Direction and reference](../../../docs/design/ui-system.md#direction-and-reference));
-- the first UI slice in the queue — 010.4, the accessible Studio script editor
-  ([work item 010](../../../docs/work-plan/010-import-and-edit-script.md)) — inherits the
-  first-slice decisions below.
+- discover the actual manifests, generator and evidence before citing a command; illustrative
+  paths/APIs remain **proposed** until the owning package implements them;
+- consume selected values from the canonical source; never invent a parallel palette or silently
+  treat proposed spring/native values as implemented;
+- no visual-fidelity claim is possible until actual reference/runtime pixels and viewport are
+  inspected ([UI system § Direction and reference](../../../docs/design/ui-system.md#direction-and-reference));
+- the [UI sequence](../../../docs/work-plan/015-leptos-ui-system.md) owns component and responsive
+  integration order, with the foundation decisions linked below.
 
 | First-slice decision | Detailed in |
 |---|---|

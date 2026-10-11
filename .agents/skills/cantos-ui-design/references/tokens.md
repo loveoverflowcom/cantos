@@ -8,16 +8,19 @@
 Token families, roles and their rules are owned by
 [UI system § Semantic tokens](../../../../docs/design/ui-system.md#semantic-tokens). This
 reference owns the pipeline that keeps both renderers faithful to them. Implemented so far: the
-Studio token source in `packages/design-tokens/`, `scripts/studio_tokens.py` and the committed CSS
-it generates, with a drift check. There is no Theatre token set and no Kotlin output; every other
-path, format and command below is **proposed** until a UI slice implements it.
+canonical source `packages/ui-system/shared/tokens.json`, `scripts/ui_tokens.py`, generated scoped
+CSS and typed Rust, plus a compatibility `scripts/studio_tokens.py` CLI. Studio consumes shared
+roles; Theatre integration and Kotlin output remain deferred. The
+[shared schema](../../../../packages/ui-system/shared/README.md) and
+[migration](../../../../docs/architecture/ui-system-migration.md) describe implemented ownership;
+illustrations below remain proposed unless that contract implements them.
 
 ## 1. The pipeline
 
 ```text
 reviewed design decision (design issue or ADR, with contrast record)
         ↓
-one versioned semantic token source          packages/design-tokens/ (outside apps/)
+one versioned semantic token source          packages/ui-system/shared/ (outside apps/)
         ↓ deterministic generator             pinned, tested, run by one documented command
    ┌────┴─────────────────────────┐
 CSS custom properties          Kotlin theme mapping
@@ -28,7 +31,7 @@ component styles               CantosTheme + component wrappers
 
 | Decision for the first slice | Constraint | Candidates |
 |---|---|---|
-| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | **decided and implemented:** `packages/design-tokens/` (Studio set `studio-tokens-0.1.0.json`); interchange contracts stay in `packages/contracts/` |
+| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | **implemented:** `packages/ui-system/shared/tokens.json` v0.2.0; v0.1.0 is an immutable legacy snapshot; interchange contracts stay in `packages/contracts/` |
 | source format | names, types, theme variants and references expressible without code | Design Tokens Community Group JSON (check its current status), or a small project schema |
 | generator | deterministic, dependency-light, runnable on Linux and macOS, covered by tests | a repository script, a Rust `xtask`, or a Node tool such as Style Dictionary |
 | generated outputs | committed with a drift test, or built on demand by both toolchains | choose one; committing keeps Trunk and Gradle builds free of the generator |
@@ -70,8 +73,8 @@ to it so stock Material components pick it up. Roles Material lacks — success,
 metadata type — go into an extension object; never smuggle them into an unrelated Material role
 (`tertiary` as "warning" breaks the day a component uses `tertiary` for its own purpose).
 
-Known gap: the UI system lists `space.xs` through `space.xl` with six rhythm values. Five names
-cannot hold six values; the first slice must name the sixth step before generating anything.
+The implemented source names the full eight-step rhythm explicitly in the shared contract.
+Existing `sm/md/lg` meanings remain compatible; native mappings remain deferred.
 
 ## 4. Units per platform
 
@@ -213,7 +216,7 @@ oracle is not the implementation. Record the resulting table in the design issue
 passing token check does not prove rendered contrast over cover art, scrims, gradients or
 disabled text; those need inspected captures.
 
-## 10. Proposed tests
+## 10. Test evidence
 
 | Test | Oracle | Level when it exists |
 |---|---|---|
@@ -224,7 +227,10 @@ disabled text; those need inspected captures.
 | reference tier unused | components reference only semantic or component roles | `statically-checked` |
 | placeholder refusal | a `<pending …>` value fails generation with an exact error | `example-tested` |
 
-All are **proposed**. Until they exist, say so in the report instead of implying a gate.
+Generator drift, both-theme contrast, CSS-role completeness and placeholder/type refusal now
+have implemented checks in `scripts/test_ui_tokens.py`; typed Rust mapping has native smoke.
+No-raw-literal/reference-tier gates and Kotlin mapping checks remain **proposed**. Runtime
+contrast, interaction and native evidence remain separate; cite the exact executed result.
 
 ## 11. Common mistakes
 

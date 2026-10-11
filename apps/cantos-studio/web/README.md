@@ -98,11 +98,14 @@ receipt. Revision conflicts require a new reviewed run against the current base.
 
 ## Tokens and evidence
 
-`packages/design-tokens/studio-tokens-0.1.0.json` is the versioned source of semantic light/dark
-colors and logical dimensions. Generate CSS with `python3 scripts/studio_tokens.py`; verify
-drift with `python3 scripts/studio_tokens.py --check`. System/light/dark selection changes
-only this page. System fonts retain Vietnamese diacritics; no downloaded font is bundled.
-CMP mapping is deferred until its real runtime exists.
+[`packages/ui-system/shared/tokens.json`](../../../packages/ui-system/shared/tokens.json) is the
+canonical v0.2.0 light/dark source. Studio links generated shared token CSS directly and uses
+`cantos_ui::Theme` under `.studio-shell.cantos-ui`; system/light/dark selection stays scoped.
+Generate with `python3 scripts/ui_tokens.py`; append `--check` for drift. The old
+`scripts/studio_tokens.py` CLI forwards to it. The [migration](../../../docs/architecture/ui-system-migration.md)
+records retained role names and intentional value changes. Noto family names keep system/local
+fallbacks; no downloaded font is bundled. CMP mapping remains deferred. Shared component
+integration follows in the [UI sequence](../../../docs/work-plan/015-leptos-ui-system.md).
 
 [Browser observations](../../../docs/evidence/script-revision-persistence.md#browser-observations)
 separate real keyboard/read/save and inspected captures from pure reducer tests and compilation.

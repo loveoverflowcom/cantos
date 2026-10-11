@@ -318,6 +318,7 @@ name = "cantos-studio"
 version = "0.1.0"
 dependencies = [
  "cantos-contracts",
+ "cantos-ui",
  "gloo-net",
  "js-sys",
  "leptos",
@@ -331,6 +332,13 @@ dependencies = [
 [[package]]
 name = "cantos-theatre"
 version = "0.1.0"
+dependencies = [
+ "leptos",
+]
+
+[[package]]
+name = "cantos-ui"
+version = "0.2.0"
 dependencies = [
  "leptos",
 ]
@@ -1038,11 +1046,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d35485b3dcbf7e044b8f28c73f04f13e7b509c2466fd10cb2a8a447e38f8a93a"
 dependencies = [
  "futures",
+ "js-sys",
  "once_cell",
  "or_poisoned",
  "pin-project-lite",
  "serde",
  "throw_error",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1220,6 +1230,15 @@ name = "interpolator"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71dd52191aae121e8611f1e8dc3e324dd0dd1dee1e6dd91d10ee07a3cfb4d9d8"
+
+[[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "io-uring"
@@ -2461,6 +2480,7 @@ dependencies = [
  "futures",
  "gloo-net",
  "http",
+ "inventory",
  "js-sys",
  "once_cell",
  "pin-project-lite",

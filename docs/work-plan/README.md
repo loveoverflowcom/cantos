@@ -1,5 +1,10 @@
 # MVP work queue
 
+The requested UI-only [Leptos UI system sequence](015-leptos-ui-system.md) delivers a small
+canonical foundation before components, responsive app integration and independent review.
+Continue session 2 from the local foundation handoff; no later session is started automatically.
+This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
+
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,

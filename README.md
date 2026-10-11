@@ -94,7 +94,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | `services/cantos-api/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
-| `packages/design-tokens/` | Versioned semantic token source (Studio set) |
+| `packages/ui-system/` | Canonical semantic tokens and Leptos foundation; CMP mapping deferred |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |

@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); font: var(--cantos-type-body-size)/1.6 system-ui, sans-serif; }
-.studio-shell { min-height: 100vh; background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); }
+body { margin: 0; }
+.studio-shell { min-height: 100vh; background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); font: var(--cantos-type-body-size)/var(--cantos-type-body-line-height) var(--cantos-type-family-ui); }
 main { max-width: 68rem; margin: auto; padding: var(--cantos-space-lg); }
 header, .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
 header { justify-content: space-between; }
