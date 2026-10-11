@@ -10,7 +10,7 @@ Add Studio casting and freeze the selected voice, versioned performance/pronunci
 model and supported controls against one accepted script revision. Production authorization
 binds that exact input scope, applicable rights records and budget policy; draft edits cannot
 change an existing snapshot. A frozen candidate and eligibility for billable work are separate
-facts. The [production input contract](../../contracts/production-v1.md) and
+facts. The [production input contract](../../packages/contracts/production-v1.md) and
 [casting evidence](../evidence/casting-production-inputs.md) describe the implemented and
 locally verified #5 slice, including real PostgreSQL/HTTP recovery and observed Studio
 freeze/approval/stale-input behavior. GitHub owns acceptance and execution status.
@@ -33,7 +33,7 @@ authentication boundary, spending cap and live sample remain deferred. This is p
 does not satisfy its complete acceptance criteria.
 
 The user's additional local-neural request is bounded by
-[ADR 0009](../decisions/0009-local-neural-tts-research.md). The
+[ADR 0010](../decisions/0010-local-neural-tts-research.md). The
 [candidate comparison](../evidence/local-neural-tts-research.md) separates engine licenses,
 weights/preset grants and training-data provenance. The concrete VieNeu Nano adapter is
 research-only: production is refused at invocation regardless of a frozen planning approval.

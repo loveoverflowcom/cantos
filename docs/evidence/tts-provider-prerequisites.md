@@ -9,7 +9,7 @@ audio verification are **NOT_RUN** in this research; the implementation owns liv
 The local boundary is recorded in [ADR 0008](../decisions/0008-local-tts-inspection.md).
 The subsequent user-requested neural investigation has its own
 [current comparison](local-neural-tts-research.md) and
-[research-only decision](../decisions/0009-local-neural-tts-research.md). This older provider record
+[research-only decision](../decisions/0010-local-neural-tts-research.md). This older provider record
 remains the eSpeak/commercial prerequisite evidence; it does not establish neural production rights.
 This record supports the unfinished commercial-provider decision for
 [#6](https://github.com/loveoverflowcom/cantos/issues/6). It does not complete that issue's live
@@ -23,7 +23,7 @@ The invariant is that documented provider capabilities cannot become billable el
 publication rights without exact input, provider, voice, rights and cost evidence. The owning
 rules remain in the [production pipeline](../product/production-pipeline.md),
 [business rules](../product/business-rules.md) and
-[production input contract](../../contracts/production-v1.md). This record adds no competing
+[production input contract](../../packages/contracts/production-v1.md). This record adds no competing
 authorization system.
 
 ## Selected local inspection engine

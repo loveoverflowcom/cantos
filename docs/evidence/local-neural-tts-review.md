@@ -83,7 +83,7 @@ The resulting intonation has not been heard. A named Vietnamese-speaking listene
 acceptance must settle this gate, including consistency across each preset's five samples.
 
 **[P2] Production provenance/rights clearance is missing** — class: required evidence gap;
-category: evidence; confidence: high. Required by AGENTS.md's provenance/rights rule, ADR 0009,
+category: evidence; confidence: high. Required by AGENTS.md's provenance/rights rule, ADR 0010,
 #6 and the explicit conditional-integration request. The publisher's commercial grant and
 speaker-consent assertion are present, but the training lineage and applicable rights have not
 been independently resolved for the intended production scope. Details follow. Local research
@@ -93,16 +93,16 @@ authorization or a frozen planning approval cannot supply missing third-party ri
 
 | Claim / owner | Required by | Fresh evidence / level | Disposition |
 | --- | --- | --- | --- |
-| Exact model, preset, language, neutral/default controls and effective text / neural contract, production | ADR 0009; production contract | Field mutations, pronunciation replacement and bounded text examples / example-tested | held within admitted profile |
+| Exact model, preset, language, neutral/default controls and effective text / neural contract, production | ADR 0010; production contract | Field mutations, pronunciation replacement and bounded text examples / example-tested | held within admitted profile |
 | Full document/input/dialogue binding / neural request and receipts | AGENTS.md correctness; TTS receipt contract | Reconstructed scope/revision/provider/digest/checksum mutations; ten actual audio receipt audits / example-tested and provider-live-tested | held; not asset acceptance |
-| Research grants cannot authorize production / neural invocation | ADR 0009; requester | Production-purpose refusal with invalid paths and current planning approval / example-tested | held; production dispatch disabled |
+| Research grants cannot authorize production / neural invocation | ADR 0010; requester | Production-purpose refusal with invalid paths and current planning approval / example-tested | held; production dispatch disabled |
 | Bounded process/file/pipe/resource admission / neural and CLIs | Requester; engineering boundary policy | FIFO/deadline red-to-green tests, model/type/hash, polling/timeout/output/stderr/RSS/reap/concurrency faults / fault-injected with fake processes | held within documented limits |
-| Fixed offline helper and trusted installation / Python infrastructure | ADR 0009 | Guard/recipe regressions (23 helper tests inside Python suite), model/SDK pins and real four-probe synthesis / example-tested and provider-live-tested | held for research; native trust/same-owner race remain |
+| Fixed offline helper and trusted installation / Python infrastructure | ADR 0010 | Guard/recipe regressions (23 helper tests inside Python suite), model/SDK pins and real four-probe synthesis / example-tested and provider-live-tested | held for research; native trust/same-owner race remain |
 | Intent precedes uncertain execution; destinations cannot overwrite / private probe | AGENTS.md duplicate-delivery rules; receipt contract | CLI intent/failure/no-overwrite tests and retained failed/real attempts / example-tested and provider-live-tested | held; no automatic retry/acceptance |
 | Existing eSpeak behavior / local adapter | Compatibility requirement | Existing fake-process/receipt tests plus actual three-voice generation and repeat-destination refusal / example-tested and provider-live-tested | held; listening NOT_RUN |
 | Frozen approval/rights/budget invalidation and persistence / production | Production contract; #5 | Fresh disposable PostgreSQL, HTTP process/database restart, immutable replay and current eligibility checks / integration-tested | held for planning; zero generation/cost attempts |
 | Actual audible tones/names/prosody/naturalness/identity / quality owner | Requester; #6 | No audio perception; actual WAVs and rubric only / NOT_RUN | gap-required |
-| Exact production training/preset rights / rights owner | AGENTS.md; ADR 0009; requester; #6 | Publisher cards/license metadata read; unresolved corpus relation and independent rights / source-inspected | gap-required; NO_GO |
+| Exact production training/preset rights / rights owner | AGENTS.md; ADR 0010; requester; #6 | Publisher cards/license metadata read; unresolved corpus relation and independent rights / source-inspected | gap-required; NO_GO |
 | Steady-state speed or hard physical-memory quota / research measurements | No such new claim | Cold per-fixture observations; sampled RSS only | not-applicable: neither claimed |
 | Worker crash/retry/cancellation/leases/cost reservations and publication acceptance / later pipeline | Later #7–#11 | No worker, billing, asset acceptance or publication added | not-applicable: later scopes, not silently passed |
 
@@ -216,8 +216,8 @@ First complete a named listening review and the applicable rights/provenance rec
 existing pin; keep the research refusal throughout. Only after both gates pass should a
 separately scoped minimal production-dispatch connection be implemented and tested against
 current eligibility, exact snapshot identity and receipts. No worker/billing/mix/publication
-expansion is authorized by this review. PR #26 remains draft/unmerged and #6's commercial/full
-acceptance remains outstanding. GitHub owns execution status; the queue owns this order.
+expansion is authorized by this review. PR #26 was merged into `develop` on 2026-10-11 at the requester's instruction; #6's
+commercial/full acceptance remains outstanding. GitHub owns execution status; the queue owns this order.
 
 Residual risk: no listening or production rights clearance; normalization may erase short
 question/exclamation punctuation; sampled RSS/advisory locking/Python audit hooks are not hard

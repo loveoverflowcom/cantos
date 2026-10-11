@@ -1,7 +1,7 @@
 # Local neural Vietnamese TTS evidence — issue #6
 
 This is part of [#6](https://github.com/loveoverflowcom/cantos/issues/6), within the user's
-authorized local research scope. [ADR 0009](../decisions/0009-local-neural-tts-research.md)
+authorized local research scope. [ADR 0010](../decisions/0010-local-neural-tts-research.md)
 records the bounded selection; [primary-source comparison](local-neural-tts-research.md) separates
 engine/model/preset rights from unresolved training lineage. Production dispatch is disabled.
 Commercial synthesis, durable workers, clip cache, mixing/publication, Studio/player changes,
@@ -238,4 +238,4 @@ production evidence is established.
 
 Next recommend named Vietnamese audition and applicable model/voice/training provenance review,
 then the separate unfinished commercial #6 provider/terms/budget/live-sample decision within its
-authorized scope. Do not advance automatically to #7. This draft PR must not merge or close #6.
+authorized scope. Do not advance automatically to #7. The requester later directed this PR's merge into `develop` (2026-10-11); it does not close #6.

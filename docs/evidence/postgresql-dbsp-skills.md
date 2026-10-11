@@ -9,7 +9,7 @@ dependency, migration, query implementation or production configuration is inclu
 The initial tree was clean on `develop`, tracking `origin/develop`, at
 `ca4c9501b36e11dfbbc508a3394f71ded3211072`. Origin was verified as
 `https://github.com/loveoverflowcom/cantos.git`; a fetch confirmed the starting branch.
-Inspection of tracked files, the [server guide](../../apps/server/README.md),
+Inspection of tracked files, the [server guide](../../services/cantos-api/README.md),
 [architecture](../architecture/overview.md) and
 [ADR 0001](../decisions/0001-modular-monolith.md) found no application manifest/schema or
 DBSP/Feldera dependency, adapter, integration decision or benchmark. DBSP remains a

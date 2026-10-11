@@ -283,16 +283,8 @@ checksum = "bbbad30e4b4c14a39e3cc8aed085a12a327257c316619c93581e017bc52be591"
 name = "cantos-api"
 version = "0.1.0"
 dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "cantos-server"
-version = "0.1.0"
-dependencies = [
  "axum",
- "cantos-api",
+ "cantos-contracts",
  "deadpool-postgres",
  "getrandom 0.3.4",
  "http-body-util",
@@ -312,10 +304,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cantos-contracts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cantos-studio"
 version = "0.1.0"
 dependencies = [
- "cantos-api",
+ "cantos-contracts",
  "gloo-net",
  "js-sys",
  "leptos",
@@ -324,6 +324,13 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "cantos-theatre"
+version = "0.1.0"
+dependencies = [
+ "leptos",
 ]
 
 [[package]]

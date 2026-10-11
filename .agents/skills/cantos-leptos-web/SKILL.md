@@ -55,7 +55,9 @@ the browser renders and drives it, the owner decides what is true.
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.
-- **Product requirements are owned by docs.** [`apps/web/README.md`](../../../apps/web/README.md),
+- **Product requirements are owned by docs.** [`apps/cantos-studio/web/README.md`](../../../apps/cantos-studio/web/README.md),
+  [`apps/cantos/web/README.md`](../../../apps/cantos/web/README.md) (a skeleton),
+  [repository layout](../../../docs/architecture/repository-layout.md),
   the [UI system](../../../docs/design/ui-system.md), and the work items
   [010 (editor)](../../../docs/work-plan/010-import-and-edit-script.md),
   [020 (casting, progress)](../../../docs/work-plan/020-cast-and-generate-dialogue.md),
@@ -102,8 +104,9 @@ Run the [shared UI loop](../cantos-ui-design/SKILL.md#shared-ui-loop); at each o
 these Web specifics:
 
 ```text
-0  discover   apps/web manifests, toolchain config, scripts, CI. If none exist, the work item
-              establishes them through a reviewed decision; never hand-roll a server or runner
+0  discover   the product's package (apps/cantos-studio/web or apps/cantos/web), toolchain config,
+              scripts, CI. If something is missing, the work item establishes it through a reviewed
+              decision; never hand-roll a server or runner
 1  scope      surface + permission context, route, ports, the owning doc's acceptance line,
               the claim and its failure mode
 2  core       a durable decision? → its owner's pure crate with plain #[test] first

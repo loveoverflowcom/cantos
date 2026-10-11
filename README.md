@@ -7,7 +7,7 @@ Cantos produces performances with a cast, narration, atmosphere, music and sound
 ## Repository status
 
 This repository contains product specifications, architecture decisions, directory guides and
-project-management templates, plus an executable Rust [Script IR contract](contracts/README.md)
+project-management templates, plus an executable Rust [Script IR contract](packages/contracts/README.md)
 and validation CLI. A local development Axum/PostgreSQL revision store and minimal live Leptos
 Studio consumer now save and read complete immutable exports with actor permissions,
 optimistic concurrency and idempotent retries. See the [persistence evidence](docs/evidence/script-revision-persistence.md).
@@ -16,7 +16,7 @@ sources, bounded history, owner review records and operator credential tools on 
 Bounded manuscript import preserves TXT, Markdown, DOCX and Script IR originals with a minimal
 Studio comparison flow; see the [import evidence](docs/evidence/manuscript-import.md).
 The bounded adaptation implementation exports immutable source/revision context through
-[authenticated HTTP/CLI tools](contracts/adaptation-v1.md), validates host-created proposals,
+[authenticated HTTP/CLI tools](packages/contracts/adaptation-v1.md), validates host-created proposals,
 and supports explicit Studio review/acceptance. Gemini / ChatGPT / Codex generation belongs to
 the user-controlled host; Cantos performs no model inference for adaptation. [Adaptation evidence](docs/evidence/ai-script-adaptation.md)
 separates actual tool/storage tests from synthetic content and unrun model quality. The [structured Studio editor](docs/evidence/studio-script-editor.md) adds scene/dialogue/character authoring,
@@ -48,15 +48,22 @@ disabled. The pinned ARM64 CPU runtime generated six inspected 24,000 Hz mono 16
 from the Đức Trí and Mỹ Duyên presets; required native, PostgreSQL and browser checks passed.
 This remains part of #6, with commercial execution and listening acceptance unresolved.
 
+The repository is organised by product and kind: `apps/cantos` (Theatre, for listeners) and
+`apps/cantos-studio` (Studio, for creators) each have `web` and `mobile`; one backend lives in
+`services/cantos-api` beside Kanidm deployment notes; shared contracts and design tokens live in
+`packages/`. Only Studio Web and the API are implemented; the Theatre Web crate is a skeleton and
+both mobile directories are guides. See the [repository layout](docs/architecture/repository-layout.md).
+
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 
 ## Product and stack
 
 | Surface | Purpose | Technology |
 | --- | --- | --- |
-| Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web |
-| Cantos Theatre | Discover and listen to published audio drama | Leptos Web; Kotlin Compose Multiplatform on Android/iOS |
-| Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL |
+| Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web (`apps/cantos-studio/web`); a mobile client is reserved |
+| Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
+| Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
+| Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
 
 Start with one modular backend. Worker execution can run separately for resource isolation while sharing the same codebase and PostgreSQL job model.
@@ -64,7 +71,7 @@ Start with one modular backend. Worker execution can run separately for resource
 ## Start here
 
 - [Project brief](docs/product/brief.md) and [business rules](docs/product/business-rules.md).
-- [Architecture](docs/architecture/overview.md), [Script IR](docs/architecture/script-ir.md) and [production pipeline](docs/product/production-pipeline.md).
+- [Architecture](docs/architecture/overview.md), [repository layout](docs/architecture/repository-layout.md), [Script IR](docs/architecture/script-ir.md) and [production pipeline](docs/product/production-pipeline.md).
 - [UI system](docs/design/ui-system.md) and [native mobile requirements](docs/architecture/mobile.md).
 - [Ordered MVP work plan](docs/work-plan/README.md): the next implementation step and its review boundary.
 - [GitHub planning guide](docs/work-plan/project-planning.md), [Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) and [Planning table](https://github.com/users/loveoverflowcom/projects/6/views/2): 17 implementation issues across five milestones.
@@ -74,10 +81,14 @@ Start with one modular backend. Worker execution can run separately for resource
 
 | Path | Responsibility at bootstrap |
 | --- | --- |
-| `apps/server/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
-| `apps/web/` | Structured Leptos Studio CSR editor and casting/input review; Theatre remains planned |
-| `apps/mobile/` | Guide for the native CMP listening app |
-| `contracts/` | Script IR and Studio v1 schemas/fixtures, shared Rust wire DTOs and design tokens |
+| `apps/cantos-studio/web/` | Structured Leptos Studio CSR editor and casting/input review |
+| `apps/cantos-studio/mobile/` | Reserved location for a Studio CMP client; guide only |
+| `apps/cantos/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
+| `apps/cantos/mobile/` | Guide for the native CMP listening app; no Gradle project |
+| `services/cantos-api/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
+| `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
+| `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
+| `packages/design-tokens/` | Versioned semantic token source (Studio set) |
 | `docs/` | Product, architecture, design, decisions and the work queue |
 | `templates/` | Reusable feature, decision, production and publication records |
 | `.agents/skills/` | Canonical agent skills shared by Codex, Claude Code and other agents |
@@ -100,11 +111,11 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 python3 scripts/reference_script_ir.py
-cargo run --locked --bin validate-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
+cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json
 cargo build --locked --bin inspect-wav
 python3 scripts/reference_wav_inspection.py
-cargo test -p cantos-server --test tts_receipt --test tts_attempt --test tts_audio --locked
-cargo run --locked --bin diff-script -- contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json contracts/fixtures/script-ir/0.1.0/accept/provenance.json
+cargo test -p cantos-api --test tts_receipt --test tts_attempt --test tts_audio --locked
+cargo run --locked --bin diff-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json packages/contracts/fixtures/script-ir/0.1.0/accept/provenance.json
 ```
 
 [Contract evidence](docs/evidence/script-ir-contract.md) names the actual verification boundary.
@@ -117,12 +128,12 @@ Verify the persistence slice against a fresh disposable PostgreSQL cluster (neve
 ```sh
 PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" python3 scripts/test_postgres.py
 rustup target add wasm32-unknown-unknown --toolchain 1.87.0
-cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings
-cd apps/web
-NO_COLOR=true trunk build --locked
+cargo clippy -p cantos-studio -p cantos-theatre --target wasm32-unknown-unknown --locked -- -D warnings
+(cd apps/cantos-studio/web && NO_COLOR=true trunk build --locked)
+(cd apps/cantos/web && NO_COLOR=true trunk build --locked)
 ```
 
-[Server](apps/server/README.md) and [Studio](apps/web/README.md) describe migration, test-role
+[API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos/web/README.md) describe migration, test-role
 permissions and local serving. PostgreSQL binaries must be on `PATH`; the Homebrew path above is
 Mac-specific. [.env.example](.env.example) distinguishes implemented development configuration
 from future provider/storage configuration; no dotenv loader or audio QA runtime is provided.

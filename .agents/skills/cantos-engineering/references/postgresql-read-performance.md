@@ -11,8 +11,8 @@
 
 At the documentation bootstrap inspected at `ca4c9501b36e11dfbbc508a3394f71ded3211072`,
 there is no backend, PostgreSQL schema, DBSP/Feldera dependency, adapter, integration ADR or
-benchmark harness. The [server guide](../../../../apps/server/README.md) and
-[contracts guide](../../../../contracts/README.md) describe future work. Reinspect the actual
+benchmark harness. The [server guide](../../../../services/cantos-api/README.md) and
+[contracts guide](../../../../packages/contracts/README.md) describe future work. Reinspect the actual
 checkout before every implementation; these observations do not describe all future branches.
 
 DBSP is a model of incremental computation over streams, with incremental view maintenance
