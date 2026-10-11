@@ -6,6 +6,12 @@ mobile priority is listening in [Cantos Theatre](../../cantos/mobile/README.md);
 needs a mobile client, and for which tasks (for example review and approval), is a later product
 decision.
 
+Optional developer tooling is already available through
+[`cargo xtask compose-preview cantos-studio`](../../../xtask/README.md#compose-preview), once
+this product has an actual Gradle project and preview composables. The
+[CMP preview workflow](../../../.agents/skills/cantos-cmp-mobile/references/compose-preview.md)
+keeps Studio selection and host-only evidence explicit; it does not implement the mobile client.
+
 When it starts, it must:
 
 - consume the Studio v1 contracts in [`packages/contracts`](../../../packages/contracts/README.md)

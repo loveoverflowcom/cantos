@@ -18,6 +18,13 @@ This reference selects among them for CMP. Test technique in general lives in
 
 ## Discover before executing
 
+For a static pixel/semantics check without an emulator, use the implemented
+[`cargo xtask compose-preview` workflow](compose-preview.md). It requires an existing Android
+Gradle target, preview function and a running Android Studio Quail 2+ instance. Both Cantos mobile
+directories are still guides, so real capture is currently `UNSUPPORTED`; capture-tool mocks
+prove the adapter contract, not Compose rendering. Robolectric remains a separately configured
+JVM test candidate, not an automatic fallback.
+
 No Gradle build, test task or device runner exists. Typical Kotlin Multiplatform task shapes to
 **look for** once the build lands — not commands that exist today:
 
@@ -47,6 +54,7 @@ different revision, or a filter that matched nothing is not a pass.
 | names, roles, states, actions | Compose UI test on the production composable | `semantics-tested` (renderer named) | JVM desktop, Android host or device, iOS simulator | pixels, screen readers |
 | a flow works by input | events driven through the production route | `interaction-tested` (renderer named) | same | OS lifecycle |
 | layout, theme, locale, font scale | capture **and open** each image | `screenshot-inspected`, `cross-theme-inspected` | the renderer named | interaction, motion, other renderers |
+| static Compose preview pixels and exported tree | `cargo xtask compose-preview`, open PNG, then assert observed semantics | `screenshot-inspected`; `semantics-tested` only after assertions | Android Studio layout renderer | device, iOS, interaction, motion or app build |
 | background, lock screen, interruptions, routes, process death, OS downloads | scripted run with a recording and logs | `device-tested` | named device, emulator or simulator | other OS versions or hardware |
 | TalkBack or VoiceOver can operate the player | a walkthrough by a named person | `screen-reader-walked` | named device and reader | other readers |
 

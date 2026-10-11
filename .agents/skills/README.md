@@ -79,6 +79,7 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | visual design, Material 3 Expressive, tokens, typography, motion, accessibility, copy | [`cantos-ui-design`](cantos-ui-design/SKILL.md) |
 | Leptos Studio or Theatre Web, CSS/SCSS, browser behavior | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md) |
 | Kotlin Compose Multiplatform, Android/iOS playback, downloads, native lifecycle | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md) |
+| emulator-free Compose @Preview, Android CLI/Quail 2+, PNG and exported semantics | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md), then [Compose preview](cantos-cmp-mobile/references/compose-preview.md); audits compose [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | acquiring a website story through browser capture/extraction/OCR into Drive/local raw folders | [`cantos-story-ingest`](cantos-story-ingest/SKILL.md) |
 | light radio-drama adaptation, proper-name mapping and performance cue authoring | [`cantos-radio-adapt`](cantos-radio-adapt/SKILL.md) |
 | producing final audio artifacts from a reviewed score, including partial regeneration | [`cantos-audio-produce`](cantos-audio-produce/SKILL.md) |

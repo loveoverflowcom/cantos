@@ -6,6 +6,7 @@ mod build;
 mod ci;
 mod cli;
 mod command;
+mod compose_preview;
 mod config;
 mod doctor;
 mod gate;
@@ -50,6 +51,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::Build {
             target,
             surface,

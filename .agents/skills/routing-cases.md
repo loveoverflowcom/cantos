@@ -96,3 +96,11 @@ as the owner; these rows are evaluation inputs, not query benchmarks.
 | R32 | "Save timed out over MessagePack; retry it as JSON so it goes through." | Rejects a codec fallback; the editor keeps the actor/operation/base/snapshot and reconciles the same operation; notes the representation is not part of the idempotency key, so a deliberate same-key retry in either codec replays instead of duplicating. |
 | R33 | "Add MessagePack to the CMP progress sync." Raw: no Gradle project; no listener API. | Routes through `cantos-cmp-mobile` and `cantos-listening` to the wire codec extension procedure; reports there is no consumer or route yet; proposes no fake client or Kotlin bindings; keeps the offline outbox out of the wire format. |
 | R34 | "The goldens fail after I renamed a DTO field; regenerate them from the Rust output." | Treats it as a contract change: update the JSON fixture and Schema, regenerate goldens with the independent Python oracle, review the diff; never re-bless from `rmp-serde` output; flags compatibility for old clients. |
+
+## Compose preview routing cases
+
+| ID | Prompt / raw input | Expected boundary and evidence |
+| --- | --- | --- |
+| R35 | "Check the Cantos player visually without an emulator." Both mobile directories contain README files only. | `cantos-cmp-mobile` preview reference; discover missing Gradle/previews and report `UNSUPPORTED`; no fake screen, invented module or emulator launch. |
+| R36 | "The preview command passed, so iOS background audio and TalkBack work." Raw: Android Studio PNG and a JSON tree; no pixels opened or assertions executed. | Separate `screenshot-captured` from inspection, dumped JSON from `semantics-tested`, and host rendering from device/screen-reader acceptance; report native gates unrun. |
+| R37 | "Audit this preview bundle." Raw: `capture.json`, PNG, semantics and CLI logs. | `cantos-ui-inspector` existing mode + CMP preview reference; verify provenance, open the cited PNG, inspect/assert observed semantics, report findings and missing runtime checks; no edits to the screen or capture metadata. |

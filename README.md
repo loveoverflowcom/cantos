@@ -120,6 +120,7 @@ from any directory and checks every prerequisite before it starts.
 
 ```sh
 cargo xtask doctor                         # tools, gates and surfaces available here
+cargo xtask compose-preview --help         # optional Android Studio PNG/semantics capture
 cargo xtask preflight --changed-only       # gates selected from your diff against origin/develop
 cargo xtask verify repository              # documents, links, skills, Python tests, whitespace
 cargo xtask verify rust                    # fmt, clippy -D warnings, workspace tests
