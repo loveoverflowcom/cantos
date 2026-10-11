@@ -196,10 +196,19 @@ see the listening handoff. No test failure was relabeled a pass.
 
 The ten-sample ZIP is 2,560,714 bytes, SHA-256
 `e81ca874ed998eb46a40bf41e62c6bcb4117699e6817b57d0ff242128cbca839`.
-Library identity `libfile_cd6de815cdfc8191828ecb87dd1bd903` was applied and verified on both
-the source ZIP and downloaded copy. Their bytes match exactly, and every archived WAV matches
-its source/receipt. [Download research listening pack](https://chatgpt.com/api/library/files/libfile_cd6de815cdfc8191828ecb87dd1bd903/download).
-This remote download is delivery evidence, not model audition or public publication.
+Library identity attributes were applied and verified on both the source ZIP and downloaded
+copy. Their bytes match exactly, and every archived WAV matches its source/receipt. Delivery
+details are retained privately under ignored local evidence and supplied to the requester in
+chat; the public evidence record contains no Library file ID or download URL. Delivery does
+not establish model audition or public publication.
+
+Automatic approval review rejected the first PR-body update because it would expose the
+Library download link to the GitHub audience without authorization. The current public
+documents and PR body omit that link and its file ID. The previous documentation commit
+already contains the old reference in Git history; a follow-up commit cannot erase history.
+No force push or file deletion was performed. The requester must decide whether to authorize
+that disclosure or authorize retiring/replacing the Library delivery before claiming the
+historical reference has been resolved.
 
 ## Conditional next action and residual risk
 

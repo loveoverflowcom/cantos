@@ -284,11 +284,11 @@
     }
   ],
   "library_delivery": {
-    "library_file_id": "libfile_cd6de815cdfc8191828ecb87dd1bd903",
     "bytes": 2560714,
     "sha256": "e81ca874ed998eb46a40bf41e62c6bcb4117699e6817b57d0ff242128cbca839",
     "roundtrip_byte_equality": true,
-    "source_and_roundtrip_library_id_xattrs_verified": true
+    "source_and_roundtrip_library_id_xattrs_verified": true,
+    "public_id_or_download_url": "withheld; private delivery record retained outside Git"
   },
   "samples": [
     {
@@ -953,5 +953,11 @@
     "native dependencies and private stable same-owner installation trusted",
     "partial cross-commit/UI coverage",
     "exact-pin training/preset production rights unresolved"
-  ]
+  ],
+  "delivery_disclosure_recovery": {
+    "pr_body_update": "initially rejected by automatic approval review for unauthorized Library-link disclosure",
+    "current_public_files": "Library ID and URL removed",
+    "old_git_history_reference": "remains in previous documentation commit; no force push",
+    "retire_or_disclose_library_delivery": "requires requester authorization"
+  }
 }
