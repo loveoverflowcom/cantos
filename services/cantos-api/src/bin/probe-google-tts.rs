@@ -11,9 +11,10 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
     process::ExitCode,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-use cantos_api::production::MAX_PRODUCTION_DOCUMENT_BYTES;
+use cantos_api::production::{prepare_inputs, MAX_PRODUCTION_DOCUMENT_BYTES};
 use cantos_api::tts::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities,
 };
@@ -25,7 +26,7 @@ use cantos_api::tts::{
     audit_receipt, decode_document, ChargeObservation, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
-use cantos_contracts::{FrozenProductionDocument, ResolvedSynthesisInput};
+use cantos_contracts::{FrozenProductionDocument, ProductionCurrency, ResolvedSynthesisInput};
 use serde_json::{json, Value};
 
 const USAGE: &str = "usage: probe-google-tts <frozen-document.json> <dialogue-id> \
@@ -102,12 +103,12 @@ fn run(request: Request) -> Result<Report, String> {
     let Some(live) = request.live else {
         return Ok((planned(&document, line, &plan), true));
     };
-    if plan.estimate().amount_minor > live.max_estimate_cents {
-        let finding = json!({
-            "code": "estimate_exceeds_cap",
-            "estimate_cents": plan.estimate().amount_minor,
-            "cap_cents": live.max_estimate_cents,
-        });
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|time| i64::try_from(time.as_secs()).ok())
+        .ok_or("the clock cannot establish current rights validity")?;
+    if let Some(finding) = live_blocker(&document, &plan, live.max_estimate_cents, now) {
         return Ok((json!({ "status": "blocked", "findings": [finding] }), false));
     }
     let transport = GoogleHttpTransport::new(credential()?)
@@ -222,7 +223,50 @@ fn planned(
         "request_digest": plan.request_digest(),
         "estimate": plan.estimate(),
         "limitations": google::LIMITATIONS,
+        "authorization": "sample-only; current production approval is not checked",
     })
+}
+
+/// A paid sample cannot bypass the frozen rights/budget policy. These are pinned caller
+/// assertions only: current revocation, editorial review and owner approval need the backend
+/// authority in #7. Passing this check neither authorizes production nor settles a charge.
+fn live_blocker(
+    document: &FrozenProductionDocument,
+    plan: &GooglePlan,
+    cap: u64,
+    now: i64,
+) -> Option<Value> {
+    let budget = &document.settings.settings.budget;
+    if budget.currency != ProductionCurrency::USD {
+        return Some(json!({ "code": "budget_currency_mismatch", "required_currency": "USD" }));
+    }
+    if plan.estimate().amount_minor > cap || plan.estimate().amount_minor > budget.limit_minor {
+        return Some(json!({
+            "code": "estimate_exceeds_cap",
+            "estimate_cents": plan.estimate().amount_minor,
+            "cap_cents": cap,
+            "frozen_budget_cents": budget.limit_minor,
+        }));
+    }
+    match prepare_inputs(
+        &document.owner_id,
+        &document.revision,
+        &document.settings,
+        &document.rights,
+        true,
+        now,
+    ) {
+        Ok(prepared) if prepared.document() == *document => {
+            let preview = prepared.preview();
+            (!preview.inputs_eligible).then(|| {
+                json!({
+                    "code": "frozen_policy_blocked",
+                    "policy_findings": preview.findings,
+                })
+            })
+        }
+        _ => Some(json!({ "code": "frozen_policy_invalid" })),
+    }
 }
 
 fn credential() -> Result<GoogleCredential, String> {
@@ -355,4 +399,231 @@ fn write_new_json(path: &Path, value: &impl serde::Serialize) -> Result<(), Stri
     let bytes =
         serde_json::to_vec_pretty(value).map_err(|_| "private record could not be serialized")?;
     write_new(path, &bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cantos_api::script_ir::read_script;
+    use cantos_contracts::{
+        ProductionRightsClaim, ProductionRightsClaimResponse, ProductionRightsDeclaration,
+        ProductionRightsScope, ProductionRightsStatus, ProductionRightsSubject,
+        ProductionSettingsResponse, RevisionResponse, SaveProductionSettingsRequest,
+    };
+    use sha2::{Digest, Sha256};
+
+    fn document() -> FrozenProductionDocument {
+        let script = read_script(include_bytes!(
+            "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+        ))
+        .unwrap();
+        let script_json = String::from_utf8(script.export_bytes()).unwrap();
+        let mut hash = Sha256::new();
+        hash.update(b"cantos/script-export/e1\n");
+        hash.update(script_json.as_bytes());
+        let revision = RevisionResponse {
+            script_id: "00000000-0000-4000-8000-000000000006".into(),
+            revision: 1,
+            accepted_by: "owner".into(),
+            accepted_at: "fixture".into(),
+            content_digest: script.content_digest().to_string(),
+            export_digest: format!("sir-e1:sha256:{:x}", hash.finalize()),
+            script_json,
+        };
+        let request: SaveProductionSettingsRequest = serde_json::from_slice(include_bytes!(
+            "../../../../packages/contracts/fixtures/production/v1/settings-request.json"
+        ))
+        .unwrap();
+        let mut settings = ProductionSettingsResponse {
+            script_id: revision.script_id.clone(),
+            version: 1,
+            script_revision: 1,
+            operation_id: request.operation_id,
+            recorded_by: "owner".into(),
+            recorded_at: "fixture".into(),
+            settings: request.settings,
+        };
+        settings.settings.budget.currency = ProductionCurrency::USD;
+        settings.settings.budget.limit_minor = 10;
+        for binding in &mut settings.settings.bindings {
+            binding.provider_id = cantos_api::tts::google_contract::PROVIDER_ID.into();
+            binding.model_id = "google-neural2".into();
+            binding.voice_id = "vi-VN-Neural2-A".into();
+            binding.voice_rights_record_id = format!("voice-{}", binding.character_id);
+            binding.performance.emotion = Some("neutral".into());
+            binding.performance.intensity_permille = Some(0);
+        }
+        let mut subjects: Vec<_> = ["rights-demo", "rights-adaptation-demo", "rights-asset-demo"]
+            .into_iter()
+            .map(|id| {
+                (
+                    id.to_owned(),
+                    ProductionRightsSubject::Evidence {
+                        record_id: id.into(),
+                    },
+                )
+            })
+            .collect();
+        subjects.extend(settings.settings.bindings.iter().map(|binding| {
+            (
+                binding.voice_rights_record_id.clone(),
+                ProductionRightsSubject::Voice {
+                    provider_id: binding.provider_id.clone(),
+                    model_id: binding.model_id.clone(),
+                    voice_id: binding.voice_id.clone(),
+                },
+            )
+        }));
+        let rights: Vec<_> = subjects
+            .into_iter()
+            .map(|(id, subject)| ProductionRightsClaimResponse {
+                claim: ProductionRightsClaim {
+                    version: 1,
+                    declaration: ProductionRightsDeclaration {
+                        record_id: id,
+                        subject,
+                        scope: ProductionRightsScope::ProductionSynthesis,
+                        rights_holder: "Synthetic test author".into(),
+                        languages: vec!["vi-VN".into()],
+                        territory: settings.settings.budget.territory.clone(),
+                        permitted_scope: settings.settings.budget.scope.clone(),
+                        attribution: "fixture only".into(),
+                        restrictions: "private-planning-only".into(),
+                        status: ProductionRightsStatus::Granted,
+                        reference: "Synthetic assertion; no real permission".into(),
+                        valid_from_unix: 10,
+                        valid_until_unix: Some(200),
+                    },
+                },
+                operation_id: "fixture-claim".into(),
+                recorded_by: "owner".into(),
+                recorded_at: "fixture".into(),
+            })
+            .collect();
+        prepare_inputs("owner", &revision, &settings, &rights, true, 100)
+            .unwrap()
+            .document()
+    }
+
+    fn refreeze(document: &FrozenProductionDocument) -> FrozenProductionDocument {
+        prepare_inputs(
+            &document.owner_id,
+            &document.revision,
+            &document.settings,
+            &document.rights,
+            true,
+            100,
+        )
+        .unwrap()
+        .document()
+    }
+
+    #[test]
+    fn paid_sample_blocks_missing_expired_wrong_voice_rights_and_budget_before_credentials() {
+        let original = document();
+        let plan = google::plan(&original.resolved[0]).unwrap();
+        assert_eq!(live_blocker(&original, &plan, 1, 100), None);
+        assert_eq!(
+            live_blocker(&original, &plan, 0, 100).unwrap()["code"],
+            "estimate_exceeds_cap"
+        );
+        for now in [9, 200] {
+            assert_eq!(
+                live_blocker(&original, &plan, 1, now).unwrap()["code"],
+                "frozen_policy_blocked"
+            );
+        }
+        type PolicyCase = (fn(&mut FrozenProductionDocument), &'static str);
+        let cases: [PolicyCase; 5] = [
+            (|doc| doc.rights.clear(), "frozen_policy_blocked"),
+            (
+                |doc| doc.rights[0].claim.declaration.status = ProductionRightsStatus::Revoked,
+                "frozen_policy_blocked",
+            ),
+            (
+                |doc| {
+                    let right = doc
+                        .rights
+                        .iter_mut()
+                        .find(|r| {
+                            matches!(
+                                r.claim.declaration.subject,
+                                ProductionRightsSubject::Voice { .. }
+                            )
+                        })
+                        .unwrap();
+                    if let ProductionRightsSubject::Voice { voice_id, .. } =
+                        &mut right.claim.declaration.subject
+                    {
+                        *voice_id = "vi-VN-Neural2-D".into();
+                    }
+                },
+                "frozen_policy_blocked",
+            ),
+            (
+                |doc| doc.settings.settings.budget.currency = ProductionCurrency::VND,
+                "budget_currency_mismatch",
+            ),
+            (
+                |doc| doc.settings.settings.budget.limit_minor = 0,
+                "estimate_exceeds_cap",
+            ),
+        ];
+        let root = env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir(&root).unwrap();
+        for (index, (change, code)) in cases.into_iter().enumerate() {
+            let mut changed = original.clone();
+            change(&mut changed);
+            let changed = refreeze(&changed);
+            let input = root.join(format!("input-{index}.json"));
+            fs::write(&input, serde_json::to_vec(&changed).unwrap()).unwrap();
+            let destination = root.join(format!("output-{index}"));
+            let (report, success) = run(Request {
+                document: input,
+                dialogue_id: "dialogue-01".into(),
+                live: Some(Live {
+                    directory: destination.clone(),
+                    max_estimate_cents: 1,
+                }),
+            })
+            .unwrap();
+            assert!(!success);
+            assert_eq!(report["findings"][0]["code"], code);
+            assert!(
+                !destination.exists(),
+                "blocked sample must write/send nothing"
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn plan_only_is_side_effect_free_and_forged_scope_is_rejected() {
+        let root = env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir(&root).unwrap();
+        let input = root.join("input.json");
+        let mut doc = document();
+        fs::write(&input, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let (report, success) = run(Request {
+            document: input.clone(),
+            dialogue_id: "dialogue-01".into(),
+            live: None,
+        })
+        .unwrap();
+        assert!(success);
+        assert_eq!(report["status"], "planned");
+        assert_eq!(report["sent"], false);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+        doc.input_digest.push('0');
+        fs::write(&input, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let (report, success) = run(Request {
+            document: input,
+            dialogue_id: "dialogue-01".into(),
+            live: None,
+        })
+        .unwrap();
+        assert!(!success);
+        assert_eq!(report["status"], "scope_rejected");
+        fs::remove_dir_all(root).unwrap();
+    }
 }

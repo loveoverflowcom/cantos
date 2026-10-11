@@ -7,7 +7,7 @@ use super::attempt::{
 };
 use super::audio::{inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile};
 use super::{google_contract, local_contract, neural_contract};
-use crate::production::{prepare_inputs, MAX_MONEY_MINOR, MAX_PRODUCTION_DOCUMENT_BYTES};
+use crate::production::{admit_frozen_document, MAX_MONEY_MINOR, MAX_PRODUCTION_DOCUMENT_BYTES};
 
 pub const RECEIPT_VERSION: &str = "cantos-tts-receipt-1";
 pub const MAX_RECEIPT_BYTES: usize = 64 * 1024;
@@ -153,18 +153,13 @@ pub fn audit_receipt(
     {
         return Err(ReceiptError::DocumentTooLarge);
     }
-    let admitted = prepare_inputs(
-        &document.owner_id,
+    admit_frozen_document(
+        document,
         &document.revision,
         &document.settings,
         &document.rights,
-        true,
-        0,
     )
     .map_err(|_| ReceiptError::InvalidDocument)?;
-    if admitted.document() != *document {
-        return Err(ReceiptError::InvalidDocument);
-    }
     if receipt.input_digest != document.input_digest {
         return Err(ReceiptError::InputDigestMismatch);
     }
@@ -198,7 +193,10 @@ pub fn audit_receipt(
                 // dispatch, accepted-artifact or publication conversion path.
                 OutputProfile::Neural24Khz
             } else if line.provider_id == google_contract::PROVIDER_ID
-                && line.adapter_version == google_contract::ADAPTER_VERSION
+                && matches!(
+                    line.adapter_version.as_str(),
+                    google_contract::ADAPTER_VERSION | google_contract::HISTORICAL_ADAPTER_VERSION
+                )
                 && line.output_contract == google_contract::OUTPUT_CONTRACT
             {
                 OutputProfile::Google24Khz

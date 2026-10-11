@@ -415,7 +415,7 @@ fn local_probe_persists_conservative_intent_before_dispatch_and_observed_failure
         // The fake verifies intent exists on its first invocation, before even preflight.
         // It fails if the real CLI moves the durable write after child dispatch.
         let script = format!(
-            "#!/bin/sh\n[ -f '{}/intent.json' ] || exit 97\ncase \"$1\" in\n--version) printf 'eSpeak NG text-to-speech: {version} Data at: fixture\\n'; exit 0;;\n--voices=vi) printf 'Pty Language Age/Gender VoiceName File\\n5 vi --/M Synthetic synthetic/vi\\n'; exit 0;;\nesac\nprintf 'observed' > '{}/synthesis-called'\n/bin/cat > /dev/null\nexit 7\n",
+            "#!/bin/sh\n[ -f '{}/intent.json' ] || exit 97\ncase \"$1\" in\n--version) printf 'eSpeak NG text-to-speech: {version} Data at: fixture\\n'; exit 0;;\n--voices=vi) printf 'Pty Language Age/Gender VoiceName File\\n5 vi --/M Synthetic aav/vi\\n'; exit 0;;\nesac\nprintf 'observed' > '{}/synthesis-called'\n/bin/cat > /dev/null\nexit 7\n",
             output_directory.display(), directory.display()
         );
         fs::write(&runtime, script).unwrap();

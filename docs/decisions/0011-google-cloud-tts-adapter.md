@@ -60,7 +60,7 @@ Implement Google inside the existing `tts` boundary of the `cantos-server` packa
    implicitly. Resolved text must be nonblank NFC without control or line/paragraph separators
    and at most 5,000 UTF-8 bytes (`invalid_google_text`, `google_text_too_large`). Lines are
    never split.
-3. **Frozen lines carry the exact adapter.** Resolution writes `google-cloud-tts-synthesize-2`
+3. **Frozen lines carry the exact adapter.** Resolution writes `google-cloud-tts-synthesize-3`
    and `wav-pcm-s16le-mono-24000-v1`. `tts::google::plan` accepts only that identity and
    re-checks every capability, returning every finding; a line frozen for another adapter or
    adapter version is refused rather than reinterpreted. `vi` scripts are sent as Google's only
@@ -92,12 +92,15 @@ Implement Google inside the existing `tts` boundary of the `cantos-server` packa
    sensitive `Authorization: Bearer` header, plus an optional validated `x-goog-user-project`.
    API keys are not accepted: the TTS documentation does not establish them, and a key would
    never go in a URL. `reqwest 0.12.15` (rustls with ring, webpki roots, HTTP/1.1, no default
-   features) with a 10 s connect timeout, a 60 s total timeout, no redirects and HTTPS only.
+   features) with a 10 s connect timeout, a 60 s total timeout, no redirects, HTTP/1.1 only, no idle connection pool, no decompression and HTTPS only.
    `0.12.15` resolves against the workspace's existing pins; newer 0.12 releases require
    upgrading the pinned `tower-http`.
 9. **Live use is an opt-in operator probe.** `probe-google-tts` consumes a frozen document and
    a dialogue ID, re-admits them through the existing production authority and sends nothing
    unless `--live` names a new private directory and a cents cap the estimate may not exceed.
+   Live samples additionally require USD frozen budget, a line estimate within that budget,
+   and eligible pinned rights/budget declarations at the current clock instant. Offline claims
+   cannot establish current revocation or owner approval; production dispatch remains disabled.
    It writes create-only `intent.json` and `frozen-document.json` before sending, sends exactly
    once, never retries, and records `observation.json`, `receipt.json` and, on success,
    `output.wav` and `audit.json`. It is not the production dispatch path: no reservation,
@@ -145,3 +148,12 @@ as provider-live-tested, and record real envelopes as fixtures with their captur
 Revisit when the live run disagrees with any declared fact; when Google publishes request IDs,
 idempotency, a model revision or a billing rule for errors; when prices or the vi-VN voice list
 change; or when a second commercial provider is added.
+
+## Verification hardening
+
+The [subsequent verification slice](../evidence/tts-provider-verification.md) requires explicit
+resolved neutral/zero controls, bounds response bytes again at core admission, discards unknown
+RPC status strings and counts loopback executions to check no resend. Version `-3` changes
+admission semantics and request identity: old Google candidates must be frozen again and
+reapproved for current execution. Immutable adapter-2 snapshots and receipts remain readable
+under complete historical admission, without rewriting their bytes or digest. This adds no production execution grant.

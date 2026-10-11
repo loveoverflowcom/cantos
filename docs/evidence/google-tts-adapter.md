@@ -1,3 +1,6 @@
+> Historical adapter-2 evidence. The current adapter and fresh local checks are recorded in
+> [provider verification](tts-provider-verification.md); this record is not current live evidence.
+
 # Google Cloud TTS adapter evidence
 
 Review boundary: part of [#6](https://github.com/loveoverflowcom/cantos/issues/6). One commercial

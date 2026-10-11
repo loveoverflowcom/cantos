@@ -1011,6 +1011,57 @@ pub fn prepare_inputs(
     Ok(PreparedProduction { document, findings })
 }
 
+/// Admit immutable history against exact pinned facts, without authorizing its current use.
+/// Google v2 and v3 resolve the same effective inputs and output contract; v3 hardens the
+/// execution boundary. Only the old adapter identity may differ from current reconstruction.
+/// Recomputing and comparing the whole document refuses forged resolved fields and digests.
+/// The caller may supply settled database rows instead of trusting the embedded receipts.
+pub fn admit_frozen_document(
+    document: &FrozenProductionDocument,
+    pinned_revision: &RevisionResponse,
+    pinned_settings: &ProductionSettingsResponse,
+    pinned_rights: &[ProductionRightsClaimResponse],
+) -> Result<(), Vec<FieldIssue>> {
+    if serde_json::to_vec(document)
+        .map_or(true, |bytes| bytes.len() > MAX_PRODUCTION_DOCUMENT_BYTES)
+    {
+        return Err(vec![FieldIssue {
+            path: "document".into(),
+            rule: "production_document_too_large".into(),
+        }]);
+    }
+    let prepared = prepare_inputs(
+        &document.owner_id,
+        pinned_revision,
+        pinned_settings,
+        pinned_rights,
+        true,
+        0,
+    )?;
+    let mut reconstructed = prepared.document;
+    let historical_google = document.resolved.iter().any(|line| {
+        line.provider_id == google_contract::PROVIDER_ID
+            && line.adapter_version == google_contract::HISTORICAL_ADAPTER_VERSION
+    });
+    if historical_google {
+        // A freeze used one adapter version for every Google line. Mixed historical/current
+        // identities fail the complete comparison below instead of being normalized.
+        for line in &mut reconstructed.resolved {
+            if line.provider_id == google_contract::PROVIDER_ID {
+                line.adapter_version = google_contract::HISTORICAL_ADAPTER_VERSION.into();
+            }
+        }
+        reconstructed.input_digest = production_input_digest(&reconstructed)?;
+    }
+    if reconstructed != *document {
+        return Err(vec![FieldIssue {
+            path: "document.input_digest".into(),
+            rule: "frozen_document_identity_mismatch".into(),
+        }]);
+    }
+    Ok(())
+}
+
 /// A dialogue is the independent future send unit. Round each line before summing.
 pub fn estimate_dialogues(
     lines: &[ResolvedSynthesisInput],
@@ -1172,23 +1223,29 @@ pub fn evaluate_snapshot(
             "A required rights claim revision changed; approval must be reevaluated.",
         );
     }
-    let pinned = prepare_inputs(
-        &document.owner_id,
+    let pinned = admit_frozen_document(
+        document,
         &document.revision,
         &document.settings,
         &document.rights,
-        true,
-        now_unix,
     );
-    if pinned
-        .as_ref()
-        .map_or(true, |candidate| candidate.document != *document)
-    {
+    if pinned.is_err() {
         finding(
             &mut findings,
             ProductionFindingCode::ApprovalScopeMismatch,
             "document.input_digest",
             "The frozen document differs from the admitted exact input identity.",
+        );
+    }
+    if document.resolved.iter().any(|line| {
+        line.provider_id == google_contract::PROVIDER_ID
+            && line.adapter_version != google_contract::ADAPTER_VERSION
+    }) {
+        finding(
+            &mut findings,
+            ProductionFindingCode::ApprovalScopeMismatch,
+            "resolved.adapter_version",
+            "The frozen adapter is outdated; create and approve a new candidate for current execution.",
         );
     }
     let inputs_eligible = findings.is_empty();

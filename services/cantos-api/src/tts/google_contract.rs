@@ -7,7 +7,9 @@ use unicode_normalization::UnicodeNormalization;
 
 pub const PROVIDER_ID: &str = "google-cloud-tts";
 /// Bump for any change to the request mapping, controls, output contract or validation.
-pub const ADAPTER_VERSION: &str = "google-cloud-tts-synthesize-2";
+pub const ADAPTER_VERSION: &str = "google-cloud-tts-synthesize-3";
+/// Frozen v2 inputs remain inspectable history; this identity never enables current dispatch.
+pub const HISTORICAL_ADAPTER_VERSION: &str = "google-cloud-tts-synthesize-2";
 pub const OUTPUT_CONTRACT: &str = "wav-pcm-s16le-mono-24000-v1";
 /// Google's "total bytes per request" content limit, which cannot be raised.
 pub const MAX_TEXT_BYTES: usize = 5_000;

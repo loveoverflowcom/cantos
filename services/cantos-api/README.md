@@ -380,7 +380,9 @@ vi-VN voices. Google has no emotion or intensity control, so a binding freezes o
 line's effective delivery is explicitly `neutral` at intensity `0` (set the binding's performance
 override); inherited Script IR emotion is `unsupported_control`. Chirp3-HD has no rate or pitch
 control. Resolved text must be nonblank NFC plain text of at most 5,000 bytes. Frozen lines pin
-`google-cloud-tts-synthesize-2` and `wav-pcm-s16le-mono-24000-v1`.
+`google-cloud-tts-synthesize-3` and `wav-pcm-s16le-mono-24000-v1`. Historical `-2` snapshots
+and receipts remain readable with their original digest; their current eligibility is blocked
+until a new candidate is frozen and approved.
 
 `tts::google::plan` refuses any line frozen for another adapter or version and re-checks every
 capability; a plan holds the exact LINEAR16/24 kHz body, its `google-tts-request-1` digest and a
@@ -399,7 +401,11 @@ cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-01
 ```
 
 A live run is an explicit, operator-paid action on original sample text, never a private
-manuscript. The new private directory must be outside Git:
+manuscript. Before credentials or output creation, the probe requires a USD frozen budget,
+a line estimate within both budget and cap, and eligible pinned rights/budget declarations
+at the current clock instant. This offline check cannot establish current revocation, editorial
+review or owner approval; it grants no production dispatch. The cap bounds the list-price
+estimate, not an account bill or durable reservation. The new private directory must be outside Git:
 
 ```sh
 CANTOS_GOOGLE_TTS_ACCESS_TOKEN="$(gcloud auth print-access-token)" \

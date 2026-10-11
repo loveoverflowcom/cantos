@@ -147,6 +147,7 @@ mod process {
     use std::time::Instant;
 
     use cantos_api::tts::audio::{AudioError, MAX_OUTPUT_BYTES};
+    use cantos_api::wav_inspection::{ChunkId, StructuralError};
     use uuid::Uuid;
 
     use super::*;
@@ -169,9 +170,21 @@ mod process {
         }
 
         fn script(&self, version: &str, voice: &str, synthesis: &str) {
+            let file = match voice {
+                "vi-vn-x-central" => "aav/vi-VN-x-central",
+                "vi-vn-x-south" => "aav/vi-VN-x-south",
+                _ => "aav/vi",
+            };
+            let table = format!(
+                "Pty Language Age/Gender VoiceName File\\n5 {voice} --/M Synthetic {file}\\n"
+            );
+            self.script_table(version, &table, synthesis);
+        }
+
+        fn script_table(&self, version: &str, table: &str, synthesis: &str) {
             let root = self.root.to_str().unwrap();
             let script = format!(
-                "#!/bin/sh\ncase \"$1\" in\n--version) printf 'eSpeak NG text-to-speech: {version} Data at: fixture\\n'; exit 0;;\n--voices=vi) printf 'Pty Language Age/Gender VoiceName File\\n5 {voice} --/M Synthetic synthetic/vi\\n'; exit 0;;\nesac\nprintf '%s\\n' \"$@\" > '{root}/args.txt'\nwhile [ \"$#\" -gt 0 ]; do\nif [ \"$1\" = '-w' ]; then shift; output=$1; fi\nshift\ndone\n/bin/cat > '{root}/stdin.txt'\n{synthesis}\n"
+                "#!/bin/sh\n[ \"$HOME\" = \"$PWD\" ] && [ \"$TMPDIR\" = \"$PWD\" ] && [ \"$LC_ALL\" = 'C' ] && [ \"$PATH\" = '/usr/bin:/bin' ] || exit 95\n[ -z \"${{ESPEAK_DATA_PATH+x}}\" ] || exit 96\ncase \"$1\" in\n--version) printf 'eSpeak NG text-to-speech: {version} Data at: fixture\\n'; exit 0;;\n--voices=vi) printf '{table}'; exit 0;;\nesac\nprintf '%s\\n' \"$@\" > '{root}/args.txt'\nwhile [ \"$#\" -gt 0 ]; do\nif [ \"$1\" = '-w' ]; then shift; output=$1; fi\nshift\ndone\n/bin/cat > '{root}/stdin.txt'\n{synthesis}\n"
             );
             fs::write(&self.runtime, script).unwrap();
             fs::set_permissions(&self.runtime, fs::Permissions::from_mode(0o700)).unwrap();
@@ -233,6 +246,13 @@ mod process {
         assert_eq!(output.bytes(), wav());
         assert_eq!(output.audio().frames(), 2);
         assert_eq!(output.audio().sample_rate_hz(), 22_050);
+        assert_eq!(output.audio().channels(), 1);
+        assert_eq!(output.audio().bits_per_sample(), 16);
+        // Independent Python struct/hashlib construction of this two-frame PCM fixture.
+        assert_eq!(
+            output.audio().file_sha256(),
+            "09be58428331ed9da447d529d3130cc702468da81cd3b361d302d5b92e4f0744"
+        );
         assert_eq!(output.runtime_version(), "1.52.0");
         assert_eq!(output.provider_id(), PROVIDER_ID);
         assert_eq!(output.model_id(), MODEL_ID);
@@ -266,6 +286,43 @@ mod process {
             fixture.script(version, voice, "exit 0");
             assert_eq!(fixture.run().unwrap_err(), expected);
             assert!(!fixture.root.join("args.txt").exists());
+            fixture.assert_clean();
+        }
+    }
+
+    #[test]
+    fn a_voice_row_with_another_data_file_or_duplicate_language_is_rejected() {
+        for table in [
+            "Pty Language Age/Gender VoiceName File\\n5 vi --/M Synthetic custom/vi\\n",
+            "Pty Language Age/Gender VoiceName File\\n5 vi --/M Synthetic\\n",
+            "Pty Language Age/Gender VoiceName File\\n5 vi --/M Synthetic aav/vi\\n5 vi --/M Replacement custom/vi\\n",
+        ] {
+            let fixture = Fixture::new("exit 0");
+            fixture.script_table("1.52.0", table, "exit 0");
+            assert_eq!(
+                fixture.run().unwrap_err(),
+                LocalRunError::RuntimeVoiceUnavailable
+            );
+            assert!(!fixture.root.join("args.txt").exists());
+            fixture.assert_clean();
+        }
+    }
+
+    #[test]
+    fn each_builtin_voice_requires_its_exact_data_file() {
+        for voice in ["vi", "vi-vn-x-central", "vi-vn-x-south"] {
+            let fixture = Fixture::new("/bin/cp ../fixture.wav \"$output\"");
+            fixture.script("1.52.0", voice, "/bin/cp ../fixture.wav \"$output\"");
+            let mut input = resolved();
+            input.voice_id = voice.into();
+            let output = run_local(
+                &LocalSynthesisRequest::from_resolved(&input).unwrap(),
+                &fixture.runtime,
+                &fixture.root,
+                Duration::from_secs(10),
+            )
+            .unwrap();
+            assert_eq!(output.bytes(), wav());
             fixture.assert_clean();
         }
     }
@@ -312,14 +369,19 @@ mod process {
     #[test]
     fn timeout_kills_and_reaps_only_the_owned_child_and_cleans_its_directory() {
         let fixture = Fixture::new("printf '%s\\n' \"$$\" > ../pid.txt\nwhile :; do :; done");
+        // The budget includes two preflight children. Give their startup the same
+        // host-scheduling headroom as the successful fixtures so parallel tests
+        // reach the intentional synthesis hang. The requested total deadline and
+        // the owned-child kill/reap assertions remain the oracle.
+        let timeout = Duration::from_secs(10);
         let start = Instant::now();
         assert_eq!(
-            fixture.run_for(Duration::from_secs(2)).unwrap_err(),
+            fixture.run_for(timeout).unwrap_err(),
             LocalRunError::TimedOut {
                 phase: LocalPhase::Synthesize
             }
         );
-        assert!(start.elapsed() < Duration::from_secs(4));
+        assert!(start.elapsed() < timeout + Duration::from_secs(2));
         let pid: libc::pid_t = fs::read_to_string(fixture.root.join("pid.txt"))
             .unwrap()
             .trim()
@@ -354,9 +416,10 @@ mod process {
     }
 
     #[test]
-    fn symlink_and_fifo_outputs_are_rejected_without_opening_the_target() {
+    fn symlink_hardlink_and_fifo_outputs_are_rejected_without_reading_the_target() {
         for synthesis in [
             "/bin/ln -s ../fixture.wav \"$output\"",
+            "/bin/ln ../fixture.wav \"$output\"",
             "/usr/bin/mkfifo \"$output\"",
         ] {
             let fixture = Fixture::new(synthesis);
@@ -370,13 +433,63 @@ mod process {
     }
 
     #[test]
+    fn empty_truncated_and_wrong_profile_wav_bytes_are_rejected() {
+        let fixture = Fixture::new("/bin/cp ../fixture.wav \"$output\"");
+        let mut empty = wav();
+        empty.truncate(44);
+        empty[4..8].copy_from_slice(&36_u32.to_le_bytes());
+        empty[40..44].copy_from_slice(&0_u32.to_le_bytes());
+        fs::write(fixture.root.join("fixture.wav"), &empty).unwrap();
+        assert_eq!(
+            fixture.run().unwrap_err(),
+            LocalRunError::Audio(AudioError::EmptyFrames)
+        );
+        let mut truncated = wav();
+        truncated.pop();
+        fs::write(fixture.root.join("fixture.wav"), &truncated).unwrap();
+        assert_eq!(
+            fixture.run().unwrap_err(),
+            LocalRunError::Audio(AudioError::InvalidWav {
+                errors: vec![
+                    StructuralError::RiffSizeExceedsFile {
+                        riff_end: 48,
+                        file_bytes: 47
+                    },
+                    StructuralError::ChunkOverrun {
+                        id: ChunkId::DATA,
+                        offset: 36,
+                        declared_size: 4,
+                        available: 3
+                    },
+                ],
+            })
+        );
+        let mut wrong_profile = wav();
+        wrong_profile[24..28].copy_from_slice(&24_000_u32.to_le_bytes());
+        wrong_profile[28..32].copy_from_slice(&48_000_u32.to_le_bytes());
+        fs::write(fixture.root.join("fixture.wav"), &wrong_profile).unwrap();
+        assert_eq!(
+            fixture.run().unwrap_err(),
+            LocalRunError::Audio(AudioError::UnsupportedProfile {
+                format_tag: 1,
+                sample_rate_hz: 24_000,
+                channels: 1,
+                bits_per_sample: 16,
+            })
+        );
+        fixture.assert_clean();
+    }
+
+    #[test]
     fn malformed_bytes_are_rejected_and_oversized_writes_stop_at_the_child_file_limit() {
         let fixture = Fixture::new("/bin/cp ../fixture.wav \"$output\"");
         fs::write(fixture.root.join("fixture.wav"), b"not audio").unwrap();
-        assert!(matches!(
+        assert_eq!(
             fixture.run().unwrap_err(),
-            LocalRunError::Audio(AudioError::InvalidWav { .. })
-        ));
+            LocalRunError::Audio(AudioError::InvalidWav {
+                errors: vec![StructuralError::TruncatedRiffHeader { file_bytes: 9 }],
+            })
+        );
         fs::write(
             fixture.root.join("fixture.wav"),
             vec![0_u8; MAX_OUTPUT_BYTES + 1],

@@ -84,12 +84,14 @@ Final episode mastering/publication, a distributed job platform, automatic provi
    Use the [review fixes and fresh gates](../evidence/local-neural-tts-review.md) and
    [ten-sample listening handoff](../evidence/local-neural-tts-listening.md), including both
    voices' <5-word questions/exclamations whose pinned normalization ends in a period.
-   Resolve listening and exact-pin rights before any minimal production connection or merge;
+   Resolve listening and exact-pin rights before enabling any production connection;
    a planning approval or a valid WAV cannot clear either dependency.
 3. Complete #6's separate commercial provider selection, applicable terms/rights, authentication
    boundary and test budget before an explicitly authorized cloud/paid sample. Keep #6 open
    until its complete criteria are met or the user explicitly approves a scope change.
-4. Implement durable execution, restart recovery, and stable result association after #6.
+4. After the requester-authorized [existing provider verification PR](../evidence/tts-provider-verification.md)
+   merges, implement #7 durable execution, restart recovery and stable result association with
+   local/fake execution. Preserve the open #6 live/rights/listening gates before production use.
 5. Add casting controls, queue progress, clip preview, and partial regeneration to Studio.
 
 ## Acceptance criteria
@@ -134,8 +136,10 @@ Defer provider auto-routing, expanded catalogs and batching for throughput. A pr
 or duplicate-result association is a correctness issue required before mixing. Prioritize actual
 listening assessment and training/voice provenance for the completed local neural samples, then
 continue the unfinished #6 commercial and production criteria after their explicit decisions.
-Preserve the local probes' sample-only boundaries and historical reference snapshots. The current
-requested execution stops at #6 and does not start #7's durable job slice.
+Preserve the local probes' sample-only boundaries and historical reference/Google snapshots.
+The requester-authorized sequence now permits a separate #7 PR after this verification PR
+merges; this PR implements no durable jobs. The [verification handoff](../evidence/tts-provider-verification.md)
+records the remaining commercial, rights and listening requirements.
 
 ## GitHub execution
 
