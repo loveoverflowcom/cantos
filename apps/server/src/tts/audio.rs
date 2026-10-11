@@ -1,10 +1,10 @@
 //! Bounded structural admission of bytes for the offline TTS receipt audit.
 //!
-//! Explicit profiles admit ordinary RIFF/WAVE signed 16-bit mono PCM at either the offline
-//! fixture rate or the eSpeak output rate. They apply no conversion, mastering or delivery
-//! policy. Admission proves only that the inspected bytes fit the selected profile, have
-//! complete non-empty decoded frames and match the
-//! expected file checksum. It does not approve speech fidelity, listening quality, loudness,
+//! Explicit profiles admit ordinary RIFF/WAVE signed 16-bit mono PCM at the offline fixture
+//! rate, the eSpeak output rate or the requested Google rate. They apply no conversion,
+//! mastering or delivery policy. Admission proves only that the inspected bytes fit the
+//! selected profile, have complete non-empty decoded frames and match the expected file
+//! checksum. It does not approve speech fidelity, listening quality, loudness,
 //! true peak or publication.
 
 use serde::Serialize;
@@ -14,6 +14,7 @@ use crate::wav_inspection::{inspect_wav, StructuralError, INSPECTOR_VERSION};
 /// Changing admission rules requires a new version; this is not a mastering/QC profile.
 pub const OUTPUT_PROFILE_VERSION: &str = "cantos-offline-tts-pcm-1";
 pub const ESPEAK_OUTPUT_PROFILE_VERSION: &str = "cantos-espeak-tts-pcm-1";
+pub const GOOGLE_OUTPUT_PROFILE_VERSION: &str = "cantos-google-tts-pcm-1";
 /// Checked against actual bytes before hashing or walking any RIFF chunks.
 pub const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_OUTPUT_SECONDS: u64 = 120;
@@ -30,6 +31,7 @@ const WAVE_FORMAT_PCM: u16 = 1;
 pub enum OutputProfile {
     Offline24Khz,
     Espeak22Khz,
+    Google24Khz,
 }
 
 impl OutputProfile {
@@ -37,6 +39,7 @@ impl OutputProfile {
         match self {
             Self::Offline24Khz => OUTPUT_SAMPLE_RATE_HZ,
             Self::Espeak22Khz => ESPEAK_OUTPUT_SAMPLE_RATE_HZ,
+            Self::Google24Khz => OUTPUT_SAMPLE_RATE_HZ,
         }
     }
 
@@ -44,6 +47,7 @@ impl OutputProfile {
         match self {
             Self::Offline24Khz => OUTPUT_PROFILE_VERSION,
             Self::Espeak22Khz => ESPEAK_OUTPUT_PROFILE_VERSION,
+            Self::Google24Khz => GOOGLE_OUTPUT_PROFILE_VERSION,
         }
     }
 }

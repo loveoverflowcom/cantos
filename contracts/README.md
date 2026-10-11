@@ -29,8 +29,9 @@ catalog. Current eligibility is computed from authoritative facts; freezing is p
 not permission to dispatch. Those reference fixtures establish no real voice availability,
 legal verification, provider price, audio, reservation or actual billing receipt. Historical
 reference snapshots keep their exact identities and output contracts. The catalog now also
-declares the separately implemented local eSpeak inspection entry; its availability evidence
-belongs to the bounded local TTS slice.
+declares the separately implemented local eSpeak inspection entry and the Google Cloud TTS
+vi-VN entries; their availability evidence belongs to the bounded local TTS and Google adapter
+slices.
 
 The [offline TTS receipt inspection contract](tts-receipt-v1.md) is a local server CLI format
 over those exact frozen documents. It checks synthetic and actual local WAV bytes plus

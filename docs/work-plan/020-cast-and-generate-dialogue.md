@@ -26,20 +26,22 @@ implemented eSpeak NG 1.52.0 probe generated and validated actual Vietnamese sam
 The adapter admits explicit neutral/default controls and rejects unsupported intent; it saves
 private frozen-input, intent, receipt and output-hash records. This is sample-only execution,
 with no current production authorization, durable jobs, reservation or asset acceptance.
-Listening quality is **NOT_RUN**. [ADR 0009](../decisions/0008-local-tts-inspection.md) records
+Listening quality is **NOT_RUN**. [ADR 0008](../decisions/0008-local-tts-inspection.md) records
 the resolved local selection; [execution evidence](../evidence/tts-receipt-inspection.md)
 separates actual synthesis from synthetic tests. Commercial selection, terms, applicable rights,
 authentication boundary, spending cap and live sample remain deferred. This is part of #6 and
 does not satisfy its complete acceptance criteria.
 
-For #6 the owner selected Google Cloud TTS and mocked evidence first. The
-[adapter evidence](../evidence/google-tts-adapter.md) and proposed
-[ADR 0009](../decisions/0009-google-cloud-tts-adapter.md) cover its dated vi-VN capability
-declaration, blocking findings, exact request, failure/charge/retry classification, audio
-validation and an opt-in, capped, single-request sample command. Live synthesis is NOT_RUN. #6
-still needs an operator-paid live sample with recorded envelopes, then Google capabilities in the
-casting catalog with an explicit, versioned emotion/intensity mapping, because Google has no
-emotion control and frozen lines carry Script IR delivery.
+For the commercial path the owner selected Google Cloud TTS with mocked evidence first. Following
+the eSpeak pattern, the casting catalog now offers its dated vi-VN voices; a Google binding freezes
+only with an explicit `neutral` delivery at intensity 0, and frozen lines pin the Google adapter
+and 24 kHz output contract. `probe-google-tts` plans or, only with `--live`, a cents cap and an
+operator-held token, sends exactly one request for one frozen line, recording receipt-v1 and
+private observation files. The [adapter evidence](../evidence/google-tts-adapter.md) and proposed
+[ADR 0009](../decisions/0009-google-cloud-tts-adapter.md) separate these mocked checks from live
+synthesis, which is NOT_RUN. #6 still needs an operator-paid live sample with recorded envelopes;
+Studio cannot yet enter the explicit intensity 0 for capabilities without intensity (eSpeak and
+Google alike).
 
 Later slices use PostgreSQL-backed background job states, bounded retries, recovery after
 interruption, cancellation and per-dialogue result caching. Reuse results only when all

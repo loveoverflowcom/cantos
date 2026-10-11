@@ -57,7 +57,9 @@ predicate and receipt/audio/recovery rules inside the server package. Its explic
 `probe-local-tts` CLI invokes one installed eSpeak engine and writes private sample evidence;
 HTTP remains planning-only. This is not a production worker, cache or audio-acceptance path.
 [ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
-and proposed production adoption. Existing PostgreSQL queries/schema and publication/listening
+and proposed production adoption. The Google Cloud TTS slice follows the same pattern with
+`tts::google_contract`, a pure `tts::google` planner/classifier and a one-request HTTPS shell
+behind the explicit `probe-google-tts` CLI ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
 boundaries are unchanged; no new read model or DBSP consumer is justified.
 The Studio WASM consumer imports only `cantos-api`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live

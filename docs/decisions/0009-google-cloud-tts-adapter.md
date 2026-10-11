@@ -4,19 +4,26 @@
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers; provider selection made by the repository owner on 2026-10-11
 - Related issue or PR: [#6](https://github.com/loveoverflowcom/cantos/issues/6)
-- Supersedes / superseded by: N/A; extends [ADR 0007](0007-casting-production-inputs.md)
+- Supersedes / superseded by: N/A; extends [ADR 0007](0007-casting-production-inputs.md) and
+  follows the provider pattern of [ADR 0008](0008-local-tts-inspection.md)
 
 ## Context
 
-[#5](https://github.com/loveoverflowcom/cantos/issues/5) freezes casting, rights and budget inputs
-against a reference-only catalog that can never dispatch. #6 needs one concrete provider path
-with accountable capabilities, failure classes and costs. The work plan supersedes the former
-local/open-source generation requirement; no local inference is installed or run.
+[#5](https://github.com/loveoverflowcom/cantos/issues/5) freezes casting, rights and budget inputs.
+[ADR 0008](0008-local-tts-inspection.md) added the local eSpeak NG path and the shared provider
+pattern: a capability in the casting catalog, provider-specific resolution in `production.rs`,
+an exact adapter/output contract on each frozen line, a probe that consumes the frozen snapshot,
+and the offline `cantos-tts-receipt-1` audit. #6 still needs a commercial path.
 
-The owner selected Google Cloud Text-to-Speech and asked for mocked evidence only in this slice:
-no credential, paid call or generated audio. The following facts were read from Google's
-published documentation on 2026-10-11 and are assertions about that documentation, not about an
-account or a live response:
+The owner selected Google Cloud Text-to-Speech and asked for mocked evidence only: no
+credential, paid call or generated audio. The first slice built the adapter as a standalone
+`synthesis` module with its own vocabulary and a line-file sample command. That duplicated the
+shared receipt vocabulary and could not reach a frozen line, so the second slice moved it onto
+the shared pattern before any consumer existed. No record from the first version
+(`google-cloud-tts-synthesize-1`) can exist in a snapshot: Google was never in the catalog.
+
+The following facts were read from Google's published documentation on 2026-10-11. They are
+assertions about that documentation, not about an account or a live response:
 
 | Fact | Source |
 | --- | --- |
@@ -33,98 +40,108 @@ whether a rejected or failed request is billed.
 
 ## Decision
 
-Add one adapter in the existing `cantos-server` package: a pure core
-(`synthesis::google`) and a one-request HTTPS shell (`synthesis::google_http`). No new service,
-crate, table, migration, route or wire contract.
+Implement Google inside the existing `tts` boundary of the `cantos-server` package:
+`tts::google_contract` (pure identity and capabilities, used by casting and the audit),
+`tts::google` (pure planning, classification and audio admission) and `tts::google_http`
+(the one-request HTTPS shell). No new service, crate, table, migration or route.
 
-1. **Capabilities are a dated declaration.** `VI_VN_VOICES` lists the 40 documented vi-VN voices
-   and their family. Cantos names each family's model (`standard`, `wavenet`, `neural2`,
-   `chirp3-hd`) because Google selects the model by voice name. `plan_line` returns every
-   blocking finding before anything is sent: language other than `vi-VN`, unknown voice, model
-   that does not match the voice, rate outside 250–2,000‰ or pitch outside ±20 semitones
-   (Chirp3-HD: exactly 1,000‰ and 0), empty, non-NFC or over-5,000-byte text, and any emotion or
-   intensity. Google offers no emotion control, so a requested emotion — including `neutral` —
-   is refused rather than silently dropped. Lines are never split.
-2. **Frozen lines are not reinterpreted.** `plan_resolved` refuses a `ResolvedSynthesisInput`
-   whose provider, adapter version or output contract is not this adapter's
-   (`google-cloud-tts`, `google-cloud-tts-synthesize-1`,
-   `audio/wav;codec=pcm_s16le;rate=24000;channels=1`). Every line frozen by #5 today carries the
-   reference catalog and its Script IR delivery emotion, so none can reach Google until casting
-   adds Google capabilities and an explicit, reviewed control mapping.
-3. **The request is exact.** LINEAR16 at 24 kHz; `speakingRate` and `pitch` are sent only for
+1. **Capabilities are a dated declaration in the casting catalog.** One capability per voice
+   family: `google-chirp3-hd` (30 voices), `google-neural2` (2), `google-wavenet` (4) and
+   `google-standard` (4), provider `google-cloud-tts`, languages `vi` and `vi-VN`, emotion
+   `neutral` only, no intensity, documented rate 250–2,000‰ and pitch ±20 semitones (Chirp3-HD:
+   exactly 1,000‰ and 0), respelling pronunciation, `reference_only: false` and
+   `billable_dispatch_available: false`. Google selects the model by voice name, so the
+   family names are Cantos' model IDs. The catalog version is unchanged: the reference and
+   eSpeak entries keep their meaning, so existing snapshots still re-admit.
+2. **Casting requires an explicit neutral delivery.** Like eSpeak, a Google binding resolves
+   only when each line's effective delivery is `neutral` at intensity 0; inherited Script IR
+   emotion fails with `unsupported_control`. The creator records the override in versioned
+   settings, so it is frozen, digested and reviewable. Nothing maps or drops an emotion
+   implicitly. Resolved text must be nonblank NFC without control or line/paragraph separators
+   and at most 5,000 UTF-8 bytes (`invalid_google_text`, `google_text_too_large`). Lines are
+   never split.
+3. **Frozen lines carry the exact adapter.** Resolution writes `google-cloud-tts-synthesize-2`
+   and `wav-pcm-s16le-mono-24000-v1`. `tts::google::plan` accepts only that identity and
+   re-checks every capability, returning every finding; a line frozen for another adapter or
+   adapter version is refused rather than reinterpreted. `vi` scripts are sent as Google's only
+   Vietnamese locale, `vi-VN`.
+4. **The request is exact.** LINEAR16 at 24 kHz; `speakingRate` and `pitch` are sent only for
    families that support them. Keys are ordered, so equal lines give byte-identical bodies.
    `request_digest` is SHA-256 over a domain label, the adapter version and the body. It
    identifies the bytes sent, not a speech-cache fingerprint (#7).
-4. **Send-boundary classification is conservative.** Connect (TCP/TLS) failure is `not_sent`.
-   A timeout or reset after connecting is `ambiguous`. 400 → `invalid_input`; 401/403 →
-   `account_rejected`; 429 → `rate_limited`; 500/502/503/504 → `provider_error`; any other non-2xx
-   → `unexpected_response`; a 2xx whose body is oversized, cut off, not JSON, missing or empty
-   `audioContent`, not base64, not a valid WAV, not mono 16-bit integer PCM at 24 kHz, or has no
-   frames → `malformed_audio`. Only the canonical `error.status` name is kept; the provider
-   message can echo private text and is discarded.
-5. **Charge exposure and retry follow from documentation, not hope.** Without a documented
-   non-execution guarantee, idempotency key or lookup, every class that reached Google has
-   `charge: unknown`, and no class with an unknown charge may repeat automatically:
-   `ambiguous`, `rate_limited`, `provider_error` and `unexpected_response` are
-   `resolve_before_retry`; `invalid_input` and `account_rejected` are `do_not_retry`. `not_sent`
-   (`charge: none`) and `malformed_audio` (`charge: usage_observed`, a known extra charge rather
-   than an unknown duplicate) are `retry_allowed`, still bounded by the caller's attempt limit
-   and budget. Every class names a recovery action.
-6. **Usage and money stay distinct.** Google's response reports no usage. The attempt record
-   carries the counted billable characters (Unicode scalar values of NFC text) and a list-price
-   estimate in US cents, rounded up per request and before any free allowance. `usage_observed`
-   means Google executed the request; no record is a settled charge, which requires billing
-   data.
-7. **Credentials and transport.** An OAuth access token in a redacting newtype, sent as a
+5. **Outcomes use the shared receipt vocabulary.** Connect (TCP/TLS) failure is
+   `timeout`/`not_sent`: receipt v1 has no network class, and its not-sent advice (a bounded
+   retry needing fresh authorization) is the right one. Once a connection opened, Google
+   documents no non-execution guarantee, so every outcome is `may_have_executed`: a lost
+   response after a timeout or 504 is `timeout`, 429 is `rate_limit`, a 2xx whose body is
+   oversized, cut off, not JSON, missing or empty `audioContent`, not base64 or refused by the
+   audio profile is `malformed_audio`, and every other status (including 503) or reset is
+   `permanent`. The adapter keeps the exact HTTP status, canonical `error.status` name,
+   lost-response cause or audio defect in a private observation; provider messages, which can
+   echo text, are discarded. The shared planner then advises manual reconciliation for every
+   `may_have_executed` attempt and never a resend.
+6. **Audio is admitted by the shared inspector.** A new `cantos-google-tts-pcm-1` profile
+   requires mono signed 16-bit PCM (format tag 1) at 24 kHz, nonempty complete frames, at most
+   120 seconds and 16 MiB; the response is bounded at 24 MiB. The receipt audit selects this
+   profile only for the exact Google identity and output contract.
+7. **Usage and money stay distinct.** Google's response reports no usage. A successful receipt
+   reports `effective-unicode-scalars` usage and `charge: unknown`. The list-price estimate in
+   US cents, rounded up per request and before any free allowance, lives in the private
+   observation and is never a reported charge or settlement.
+8. **Credentials and transport.** An OAuth access token in a redacting newtype, sent as a
    sensitive `Authorization: Bearer` header, plus an optional validated `x-goog-user-project`.
-   API keys are not accepted, because the TTS documentation does not establish them, and a key
-   would never go in a URL. `reqwest 0.12.15` (rustls with ring, webpki roots, HTTP/1.1, no
-   default features) with a 10 s connect timeout, a 60 s total timeout, no redirects,
-   HTTPS-only and a 32 MiB response bound. `0.12.15` resolves against the workspace's existing
-   pins; newer 0.12 releases require upgrading the pinned `tower-http`.
-8. **Live use is an opt-in operator command.** `google-tts-sample` plans a line from a file and
-   sends nothing unless `--live` is given together with a new output path and a cents cap that
-   the list-price estimate may not exceed. It sends exactly once, never retries, writes the WAV
-   only after validation and prints the attempt record. It is not the production dispatch path:
-   no PostgreSQL reservation, attempt intent or approval gate exists yet (#7).
+   API keys are not accepted: the TTS documentation does not establish them, and a key would
+   never go in a URL. `reqwest 0.12.15` (rustls with ring, webpki roots, HTTP/1.1, no default
+   features) with a 10 s connect timeout, a 60 s total timeout, no redirects and HTTPS only.
+   `0.12.15` resolves against the workspace's existing pins; newer 0.12 releases require
+   upgrading the pinned `tower-http`.
+9. **Live use is an opt-in operator probe.** `probe-google-tts` consumes a frozen document and
+   a dialogue ID, re-admits them through the existing production authority and sends nothing
+   unless `--live` names a new private directory and a cents cap the estimate may not exceed.
+   It writes create-only `intent.json` and `frozen-document.json` before sending, sends exactly
+   once, never retries, and records `observation.json`, `receipt.json` and, on success,
+   `output.wav` and `audit.json`. It is not the production dispatch path: no reservation,
+   durable attempt, current approval check or accepted artifact exists yet (#7).
 
 ## Alternatives
 
 | Option | Benefits | Costs and limitations | Reason selected or rejected |
 | --- | --- | --- | --- |
-| Google Cloud TTS `text:synthesize` | 40 documented vi-VN voices, synchronous WAV that the existing inspector can probe, per-character pricing | No emotion control, request ID, idempotency or lookup | Selected by the owner |
-| Azure AI Speech, ElevenLabs, OpenAI TTS | Richer prosody or expressive controls | Different credential, billing and language-support models | Not selected for the first adapter; each needs its own ADR |
-| Add Google voices to the #5 casting catalog now | Studio could cast Google voices | Requires an explicit emotion/intensity mapping in versioned settings, contract, schema and Studio changes | Deferred to a follow-up slice |
-| Drop unsupported emotion and send neutral delivery | Every frozen line would plan | Silent performance substitution, forbidden by business rule 8 | Rejected |
+| Google Cloud TTS `text:synthesize` | 40 documented vi-VN voices, synchronous WAV the existing inspector can admit, per-character pricing | No emotion control, request ID, idempotency or lookup | Selected by the owner |
+| Azure AI Speech, ElevenLabs, OpenAI TTS | Richer prosody or expressive controls | Different credential, billing and language-support models | Not selected; each needs its own ADR |
+| Keep the standalone `synthesis` vocabulary and line-file command (first slice) | Finer HTTP failure classes | A second attempt/audio vocabulary beside receipt v1; cannot consume a frozen line | Replaced before any consumer |
+| Map Script IR emotions to Google's default delivery implicitly | Every frozen line would plan | Silent performance substitution, forbidden by business rule 8 | Rejected; the creator chooses `neutral` explicitly |
+| Add a network or `unavailable` class to receipt v1 | Exact receipt classes | A receipt contract version change for a label; advice is unchanged | Deferred; the exact status lives in the observation |
 | Treat 429 and 5xx as safely retryable | Fewer manual resolutions | Google documents no non-execution or non-billing guarantee | Rejected until documentation or billing evidence shows otherwise |
 | `hyper-util` + `hyper-rustls` directly | Fewer transitive crates | More connection, timeout and body code to own and test | Rejected; reqwest maps connect and timeout errors directly |
-| Generic multi-provider `SpeechSynthesizer` trait | Future providers plug in | Speculative without a second provider | Rejected; the port sits at the HTTP transport, with a test fake as its second implementation |
 
 ## Consequences
 
-- Product and user impact: none visible yet. Studio cannot select Google voices and no frozen
-  production line can be dispatched.
-- Compatibility and migrations: no schema, migration or wire change. `Cargo.lock` adds reqwest
-  and its rustls/ring dependency tree for `cantos-server`; existing pins are unchanged.
-- Operations, storage and production cost: the opt-in command is the only path that can spend
-  money. It needs an operator-held access token, sends one request and never retries. No audio
-  is stored by Cantos; the operator chooses an output path outside Git (`*.wav` is ignored).
-- Implementation and recovery requirements: #7 must persist attempt intent and reserve budget
-  in PostgreSQL before any send, and surface every `resolve_before_retry` attempt for an
-  explicit, recorded resolution. Changing the request mapping, controls, output contract or
-  validation requires a new `ADAPTER_VERSION`.
+- Product and user impact: a creator can cast Google vi-VN voices and freeze them through the
+  existing API. Studio lists them, but its intensity field is read-only for capabilities without
+  intensity, so it cannot yet record the required explicit `0`; this affects eSpeak equally.
+- Compatibility and migrations: no migration. The production v1 JSON Schema now lists the
+  eSpeak and Google identities, adapter versions and output contracts that the server already
+  or newly emits; reference and eSpeak snapshots and digests are unchanged. `Cargo.lock` adds
+  reqwest and its rustls/ring tree for `cantos-server`.
+- Operations, storage and production cost: the opt-in probe is the only path that can spend
+  money. It needs an operator-held access token, sends one request and never retries. Records
+  and audio stay in a private directory outside Git.
+- Implementation and recovery requirements: #7 must persist attempt intent and reserve budget in
+  PostgreSQL before any send, require current approval, and surface every reconciliation for an
+  explicit, recorded resolution. Any change to the request mapping, controls, output contract
+  or admission requires a new `ADAPTER_VERSION`.
 - Deferred questions: whether Google bills rejected or rate-limited requests; whether real
-  responses always carry a plain PCM header (format tag 1) that the inspector accepts; voice
-  stability across unannounced model updates; whether API keys are supported; casting
-  integration and the reviewed emotion mapping; a local/open-source path if it is ever required
-  again.
+  responses always carry a plain PCM header the inspector admits; voice stability across
+  unannounced model updates; API-key support; Studio entry of the explicit neutral delivery; a
+  receipt class for network and unavailable failures.
 
 ## Validation and revisit conditions
 
 [Evidence](../evidence/google-tts-adapter.md) records the executed mocked checks. Live synthesis
-is NOT_RUN by owner decision. Run the opt-in command under a cost cap before treating this
-adapter as provider-live-tested, and record real envelopes as fixtures with their capture date.
+is NOT_RUN by owner decision. Run the opt-in probe under a cost cap before treating this adapter
+as provider-live-tested, and record real envelopes as fixtures with their capture date.
 
 Revisit when the live run disagrees with any declared fact; when Google publishes request IDs,
 idempotency, a model revision or a billing rule for errors; when prices or the vi-VN voice list
-change; or when a second provider is added.
+change; or when a second commercial provider is added.

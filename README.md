@@ -37,10 +37,15 @@ Vietnamese voices were generated and validated as native 22,050 Hz mono 16-bit P
 The probe saves private frozen-input, intent, receipt and output-hash records; the inspector
 checks exact scope and conservative recovery facts. Listening quality is **NOT_RUN**.
 This is a sample path, with explicit neutral/default controls and no production dispatch
-authorization, durable jobs or asset acceptance. Commercial provider/terms/budget selection and
-its live sample remain deferred; this completes only part of #6 and does not close the issue.
-See [local selection](docs/decisions/0008-local-tts-inspection.md) and
+authorization, durable jobs or asset acceptance. See
+[local selection](docs/decisions/0008-local-tts-inspection.md) and
 [provider prerequisites](docs/evidence/tts-provider-prerequisites.md).
+The owner-selected commercial provider, Google Cloud TTS, follows the same pattern: its vi-VN
+voices are castable with an explicit neutral delivery, and an opt-in `probe-google-tts` sends
+one capped request for one frozen line. Its evidence is mocked only; the live Google sample is
+**NOT_RUN** ([Google selection](docs/decisions/0009-google-cloud-tts-adapter.md),
+[adapter evidence](docs/evidence/google-tts-adapter.md)). This completes only part of #6 and
+does not close the issue.
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 

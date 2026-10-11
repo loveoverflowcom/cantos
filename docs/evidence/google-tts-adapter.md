@@ -1,35 +1,41 @@
 # Google Cloud TTS adapter evidence
 
 Review boundary: part of [#6](https://github.com/loveoverflowcom/cantos/issues/6). One commercial
-provider adapter, Google Cloud Text-to-Speech `v1/text:synthesize` for vi-VN, with a pure
-capability, mapping, classification and audio-validation core, a one-request HTTPS shell and an
-opt-in operator sample command. Base: `e3d047c` on `develop`. Provider choice and the
-mocked-only scope were decided by the repository owner on 2026-10-11;
-[ADR 0009](../decisions/0009-google-cloud-tts-adapter.md) is proposed.
+provider, Google Cloud Text-to-Speech `v1/text:synthesize` for vi-VN, on the shared provider
+pattern of [ADR 0008](../decisions/0008-local-tts-inspection.md): Google voices in the casting
+catalog, an exact adapter on each frozen line, a pure planning/classification/admission core,
+a one-request HTTPS shell, an opt-in probe that consumes a frozen snapshot, and the existing
+`cantos-tts-receipt-1` audit. Provider choice and the mocked-only scope were decided by the
+repository owner on 2026-10-11; [ADR 0009](../decisions/0009-google-cloud-tts-adapter.md) is
+proposed. Base: `83eab60` on `develop`, with the first adapter slice `ea8d4d0`.
 
-Delivers: dated vi-VN capability declaration, blocking pre-send findings, exact request body and
-digest, list-price estimate, send-boundary classification with charge exposure, retry decision
-and recovery action, returned-audio validation, redacted credentials, an HTTPS-only bounded
-transport and `google-tts-sample`. Does not deliver: a live Google call or audio, recorded
-provider envelopes, Studio or casting-catalog integration, an emotion/intensity mapping,
-PostgreSQL attempts, reservations, settlement, leases, retry loops, speech-cache fingerprints,
-storage, a local/open-source provider or any publication path. Script IR, migrations, routes,
-contracts and the Studio are unchanged.
+Delivers: four Google capabilities in the catalog; casting resolution that pins
+`google-cloud-tts-synthesize-2` / `wav-pcm-s16le-mono-24000-v1` and requires an explicit neutral
+delivery and admissible text; the planner and its exact request; classification into receipt-v1
+classes and delivery states with private exact evidence; the `cantos-google-tts-pcm-1` audio
+profile and its audit selection; the production v1 JSON Schema covering the eSpeak and Google
+identities; and `probe-google-tts`. The first slice's standalone `synthesis` module and
+`google-tts-sample` command were replaced. Does not deliver: a live Google call or audio, recorded
+provider envelopes, a Studio way to enter the explicit intensity 0, PostgreSQL attempts,
+reservations, settlement, leases, retry loops, speech-cache fingerprints, storage or any
+publication path. Script IR, migrations, routes and the Studio code are unchanged.
 
 ## Invariant and ownership
 
-Nothing reaches Google unless every declared capability check passes, and every observation
-after a send is classified so that a possibly billed outcome is never repeated automatically. A
-returned body becomes audio only if it is mono 16-bit integer PCM at 24 kHz with at least one
-frame. No record contains a credential, dialogue text or a provider error message.
+Nothing reaches Google unless the line was frozen for this exact adapter with an explicit
+neutral delivery, re-admitted by the production authority and re-checked against every declared
+capability; and every observation after a connection opened is `may_have_executed`, so the
+shared planner never advises a resend. A body becomes audio only through the shared inspector's
+Google profile. No record contains a credential, dialogue text or a provider error message.
 
-[`synthesis/mod.rs`](../../apps/server/src/synthesis/mod.rs) holds the provider-neutral
-vocabulary. [`synthesis/google.rs`](../../apps/server/src/synthesis/google.rs) is pure: no
-network, clock, credential or file access. [`synthesis/google_http.rs`](../../apps/server/src/synthesis/google_http.rs)
-is the shell and sends exactly once per call. [`google-tts-sample`](../../apps/server/src/bin/google-tts-sample.rs)
-is the only caller. Dependency edges point inward: the shell and the command depend on the
-core; the core depends on `cantos-api` wire types and `wav_inspection`, never on reqwest. The
-transport port has two implementations: the reqwest shell and the test-only `ScriptedTransport`.
+[`tts/google_contract.rs`](../../apps/server/src/tts/google_contract.rs) is pure identity used by
+casting and the audit. [`tts/google.rs`](../../apps/server/src/tts/google.rs) is pure: no
+network, clock, credential or file access. [`tts/google_http.rs`](../../apps/server/src/tts/google_http.rs)
+is the shell and sends exactly once per call. [`probe-google-tts`](../../apps/server/src/bin/probe-google-tts.rs)
+is the only caller. Dependency edges point inward: `production.rs` and the receipt audit depend on
+the contract module only; the core depends on `cantos-api`, `tts::attempt` and `tts::audio`,
+never on reqwest. The transport port has two implementations: the reqwest shell and the
+test-only `ScriptedTransport`.
 
 ## Ledger
 
@@ -39,24 +45,25 @@ server. Nothing touched Google.
 
 | Claim | Source | Failure mode | Oracle | Level held |
 | --- | --- | --- | --- | --- |
-| Declared voices are the documented 40 vi-VN voices, unique, each in the family its name states | Google voice list, 2026-10-11 | casting a nonexistent voice or the wrong model family | name-segment family table; counts 30/2/4/4 | example-tested (declaration reviewed against docs: documented) |
-| Every unsupported control is an exact blocking finding, never dropped or substituted | business rule 8; ADR 0009 | silent neutral delivery, rate/pitch on Chirp3-HD, unknown voice | table over language, voice, model, rate, pitch, emotion (including `neutral`), intensity, text | example-tested |
-| Lines frozen for the #5 reference catalog cannot be dispatched to Google | ADR 0007/0009 | reinterpreting reference inputs as billable | `plan_resolved` exact findings; Google-tagged frozen line blocks on Script IR emotion | example-tested |
-| Request body and digest are exact and deterministic | ADR 0009 | cache/attempt identity drift; unsupported fields sent | golden bytes and digest computed independently with Python `json`/`hashlib`; equal lines plan equal; five single-field mutations change the digest | differentially-tested (body, digest); example-tested (mutations) |
-| 5,000-byte text limit is exact | Google quotas | provider rejection after a send | 5,000 bytes plans, 5,001 bytes blocks | example-tested |
-| Estimate is list price, rounded up per request, never a charge | Google pricing; business rule 17 | estimate shown as settled cost | 41/1,667/2,500/2,501/5,000-character cases across families | example-tested |
-| Each observation maps to one class, charge, retry and recovery | ADR 0009; AIP-193/194 | blind retry, wrong recovery, lost error class | 15-row table incl. not sent, timeout, reset, 400/401/403/404/429/500/502/503/504/302, interrupted error body, 2xx defect | example-tested |
-| No class with an unknown charge permits an automatic repeat | business rule 19; PL5 | duplicate billing | exhaustive loop over all eight classes | example-tested (exhaustive over the finite domain) |
-| A response lost after execution is recorded once and never resent | business-rule invariant "provider response is lost" | second paid call | scripted fake with its own execution ledger: one execution, `ambiguous`, `resolve_before_retry`, `charge: unknown` | fault-injected (fake transport, mocked) |
-| Malformed audio is rejected with an exact defect | PL12; issue #6 criterion 3 | accepting empty, truncated, stereo, wrong-rate, 8-bit, float or frameless audio | code-built WAV headers; exact `AudioDefect` per case | example-tested |
-| Valid audio facts are exact | `wav_inspection` contract | wrong checksum or frame count recorded | SHA-256 of the generated bytes; frames 2,400 | example-tested |
-| Connect failure is `not_sent`; timeout or reset after the request was written is lost, not unsent | provider-adapters § 3 | an ambiguous call treated as free to repeat | real reqwest client against a scripted loopback TCP server: refused port, stall past the deadline, close after request | example-tested (real HTTP client, mocked server) |
-| The transport sends the exact body with the credential and project headers once, and follows no redirect | ADR 0009 | wrong bytes or auth leaked to another host | loopback server captures the request; 302 is reported, not followed | example-tested (mocked server) |
-| Oversized or cut-off bodies are not buffered without bound | PL12 | memory blow-up on hostile responses | declared and chunked oversize; truncated body | example-tested (mocked server) |
-| An HTTPS-only transport opens no connection to a plain-HTTP URL | ADR 0009 | token sent in clear text | loopback listener accepts nothing; observation `not_sent` | example-tested |
-| Credentials and provider messages never reach a record or `Debug` output | business rule 12; PL10 | leaked token or private text | sentinel token and sentinel message absent from `Debug` and serialized records | example-tested |
-| The sample command sends nothing without `--live`, and checks the cap before reading a token | ADR 0009 | accidental paid call | dry run, blocked line, missing token and cap 0 runs; no output file created | example-tested (manual CLI runs, below) |
-| Google returns playable vi-VN audio that this validation accepts | issue #6 criterion 2 | header or format mismatch only visible live | opt-in `google-tts-sample --live` | NOT_RUN by owner decision |
+| Declared voices are the documented 40 vi-VN voices, unique, each in the family its name states | Google voice list, 2026-10-11 | casting a nonexistent voice or wrong family | name-segment family table; counts 30/2/4/4 | example-tested (declaration: documented) |
+| The catalog lists four Google capabilities that never claim reference status or dispatch | ADR 0009 | a planning catalog read as billable | exact provider/model/voice-count tuples; flags | example-tested |
+| Inherited Script IR emotion is refused; only an explicit neutral/0 override freezes | business rule 8 | silent performance substitution | four exact `unsupported_control` issues, then a frozen document whose every line pins the Google adapter | example-tested |
+| Rate, pitch, voice, model and language follow each family's declared range | Google AudioConfig, voice list | Chirp3-HD sent controls it lacks | settings issues at both bounds and per family | example-tested |
+| Google's 5,000-byte limit and text admission are enforced before freezing and planning | Google quotas | rejection after a paid send | `google_text_too_large` on 5,001 bytes; planner `TextTooLong`/`InvalidText` incl. U+2028, control, non-NFC; 5,000 bytes plans | example-tested |
+| Request body and digest are exact and deterministic | ADR 0009 | identity drift; unsupported fields sent | golden bytes and digests computed independently with Python `json`/`hashlib`; five single-field mutations change the digest | differentially-tested (body, digest); example-tested (mutations) |
+| A line frozen for another adapter or adapter version is refused | ADR 0009 | reinterpreting reference or v1 inputs | exact findings for reference identity and `google-cloud-tts-synthesize-1` | example-tested |
+| Estimate is list price, rounded up per request, never a charge | Google pricing; business rule 17 | estimate shown as settled cost | 41/1,667/2,500/2,501/5,000-character cases; receipt `charge: unknown` | example-tested |
+| Each observation maps to one receipt class and delivery state with exact evidence | ADR 0009; receipt v1 | lost error detail or a false not-sent claim | 13-row table: not sent, timeout, reset, 302/400/401/403/429/500/502/503/504, 2xx defect | example-tested |
+| No failure after a connection opened permits a resend; a connection that never opened needs fresh authorization | business rule 19; receipt v1 planner | duplicate billing | scripted fake with its own execution ledger; shared `audit_receipt` recovery for lost, 429, 503, 400, 2xx defect and not-sent | fault-injected (fake transport, mocked) |
+| Malformed audio is rejected with an exact defect | issue #6 criterion 3 | accepting empty, truncated, stereo, wrong-rate, 8-bit, float, frameless or over-120-second audio | code-built WAV headers; exact `AudioDefect`/`AudioError` per case | example-tested |
+| The shared audit admits Google output only for the exact Google identity and profile | receipt v1 | eSpeak-rate or other-voice bytes admitted | `audit_receipt` accepts 24 kHz, rejects 22,050 Hz and a mismatched voice; `inspect-tts-receipt` CLI accepts a Python `wave`-written 24 kHz file and rejects 22,050 Hz | example-tested; differentially-tested (independent WAV writer) |
+| The published schema covers every implemented catalog identity | contracts | clients rejecting valid server responses | real catalog, Google settings request, preview and frozen document validate; the same test fails against the previous schema | example-tested |
+| Connect failure is `NotSent`; timeout or reset after the request was written is lost | provider-adapters § 3 | an ambiguous call treated as free to repeat | real reqwest client against a scripted loopback TCP server | example-tested (real HTTP client, mocked server) |
+| The transport sends the exact body and credential headers, follows no redirect and bounds the body | ADR 0009 | wrong bytes, auth to another host, memory blow-up | loopback capture; 302 reported; declared and chunked oversize; truncated body | example-tested (mocked server) |
+| An HTTPS-only transport opens no connection to a plain-HTTP URL; credentials never appear in `Debug` | business rule 12 | token in clear text or logs | loopback listener accepts nothing; sentinel token absent | example-tested |
+| Observations never contain dialogue text, provider messages or audio payload | business rule 12 | private text leaked into records | sentinel text and message absent from serialized observations | example-tested |
+| The probe sends nothing without `--live`, checks the cap before reading a token, and refuses a tampered snapshot | ADR 0009 | accidental paid call | CLI runs below; no directory created | example-tested (manual CLI runs) |
+| Google returns playable vi-VN audio that this admission accepts | issue #6 criterion 2 | header or format mismatch only visible live | opt-in `probe-google-tts --live` | NOT_RUN by owner decision |
 | Real Google error envelopes classify as declared | provider-adapters § 7 | mapping drift from documentation | recorded envelopes with capture date | NOT_RUN (no live session) |
 
 ## Commands that ran
@@ -67,43 +74,48 @@ Local toolchain `rustc 1.96.1`; the CI-pinned `1.87.0` was used for the workspac
 | --- | --- |
 | `cargo +1.87.0 fmt --all -- --check` | pass |
 | `cargo +1.87.0 clippy --workspace --all-targets --locked -- -D warnings` | pass |
-| `cargo +1.87.0 test --workspace --locked` | pass: 287 passed, 50 PostgreSQL tests ignored as by default (257 before this slice; 12 new transport unit tests and 18 new adapter tests) |
-| `cargo test -p cantos-server --locked --test google_tts` | pass: 18 |
-| `cargo test -p cantos-server --locked --lib synthesis` | pass: 12 |
-| `python3 scripts/check_repository.py` | pass |
-| `python3 -m unittest discover -s scripts -p 'test_*.py'` | pass: 80 |
-| `python3 scripts/reference_script_ir.py` | pass |
-| `git diff --check` | pass |
-| `cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings` (stable 1.96.1; 1.87.0 has no wasm32 target installed here) | pass; the Studio is unchanged, run because `Cargo.lock` changed |
-| `NO_COLOR=true trunk build --locked` from `apps/web` | pass |
-| `google-tts-sample --line <sample>` and the blocked, missing-token, cap-0 and usage-error cases | outputs and exit codes 0, 1, 2, 1, 2 as documented; no output file created |
+| `cargo +1.87.0 test --workspace --locked` | pass: 341 passed, 52 ignored (PostgreSQL and opt-in tests, as by default) |
+| `cargo +1.87.0 test -p cantos-server --locked --test google_tts` | pass: 16 |
+| `cargo +1.87.0 test -p cantos-server --locked --lib tts::google_http` | pass: 12 |
+| `cargo +1.87.0 test -p cantos-server --locked --test production` | pass: 18, including the new Google casting test |
+| `cargo +1.87.0 test -p cantos-server --locked --test production_contract` | pass: 3; the new schema test fails against the previous schema |
+| `cargo +1.87.0 test -p cantos-server --locked --test tts_receipt` / `--test tts_audio` | pass: 8 (1 ignored) / 14, unchanged |
+| `probe-google-tts` on a Google frozen document: dry run, unknown dialogue, cap 0, `--live` without a token, tampered resolved text, two usage errors | exit 0, 2, 1, 2, 1 (`scope_rejected`/`invalid_document`), 2, 2; the dry-run digest equals the golden value; no private directory created |
+| `inspect-tts-receipt` on that document with synthetic receipts and Python-written WAVs | 24 kHz admitted as `cantos-google-tts-pcm-1` (exit 0); 22,050 Hz `unsupported_profile` (exit 1) |
+| `python3 scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `python3 scripts/reference_script_ir.py`; `git diff --check` | pass; 80 Python tests |
+| `cargo clippy -p cantos-studio --target wasm32-unknown-unknown --locked -- -D warnings` (stable 1.96.1; 1.87.0 has no wasm32 target here); `NO_COLOR=true trunk build --locked` from `apps/web` | pass (compile evidence only; Studio code unchanged) |
 
-`cargo clippy --workspace --all-targets` on the local 1.96.1 toolchain reports two
-`cloned_ref_to_slice_refs` lints in the pre-existing `tests/wav_inspection.rs`, unchanged by this
-slice; the pinned 1.87.0 gate passes.
+The frozen document for the CLI runs was produced by a temporary local test that was deleted
+and not committed. `cargo clippy --workspace --all-targets` on the local 1.96.1 toolchain reports
+two `cloned_ref_to_slice_refs` lints in the pre-existing `tests/wav_inspection.rs`; the pinned
+1.87.0 gate passes.
 
 ## Not run
 
 - Any call to Google, live audio, `provider-live-tested` or `audio-listened` evidence. The owner
-  chose mocked-only; the command above is ready for an operator-paid run.
+  chose mocked-only; the probe is ready for an operator-paid run.
 - PostgreSQL suites (`python3 scripts/test_postgres.py`): no PostgreSQL binaries on this host's
   `PATH`, and this slice changes no SQL, migration or route. The ignored database tests did not
-  run.
-- Mutation testing and fuzzing of the new decoder path; `wav_inspection` itself was not changed.
-- Studio, mobile, screen-reader or browser runs: no UI change.
+  run; one of them counts reference capabilities, which are unchanged.
+- Studio runtime: Studio code is unchanged, and no browser walkthrough of the larger catalog
+  ran.
+- Mutation testing and fuzzing of the new decoder path.
 
 ## Residual risk
 
 - The declaration, prices and error mapping are documentation-tested only. Google may answer
-  with a WAV header the inspector rejects (for example an extensible or streaming-size header),
-  bill rejected or rate-limited requests, or change voices or prices without notice.
+  with a WAV header the inspector rejects, bill rejected or rate-limited requests, or change
+  voices or prices without notice.
+- Studio cannot record the explicit intensity `0` for capabilities without intensity, so Google
+  (and eSpeak) casting currently needs the API or Script IR lines that are already neutral/0.
+- Receipt v1 records a refused connection as `timeout` and 503 as `permanent`; the exact cause
+  is only in the private `observation.json`.
 - The 5,000-byte check covers the text only. If Google counts other request bytes against the
-  limit, a line near it is rejected after a send as `invalid_input` with an unknown charge.
+  limit, a line near it is rejected after a send.
 - Billable characters are counted as Unicode scalar values of NFC text; Google does not define
   "character" for Vietnamese combining sequences, so the estimate may differ from the bill.
-- Every 429 and 5xx requires an explicit resolution before a repeat; at volume this needs the
-  Studio resolution flow from #7/#8.
-- No frozen production line can dispatch yet: casting needs Google capabilities and an explicit
-  emotion/intensity mapping, and #7 must persist intent and reserve budget before any send.
-- The local/open-source provider category in #6's original acceptance text is superseded in the
-  work plan, but the issue text still lists it; the owner must reconcile the issue.
+- No frozen line can be dispatched in production: #7 must add durable intent, reservation and a
+  current approval check before any send.
+- Draft [#26](https://github.com/loveoverflowcom/cantos/pull/26) also extends the catalog,
+  resolution, audio profiles and receipt audit, and also uses ADR number 0009; whichever merges
+  second must renumber and rebase.

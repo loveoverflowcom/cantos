@@ -9,9 +9,9 @@ use reqwest::{
     Client,
 };
 
-use super::{
-    google::{self, GooglePlan, ENDPOINT, MAX_RESPONSE_BYTES},
-    AttemptOutcome, LostCause, ResponseBody, TransportObservation,
+use super::google::{
+    self, GoogleOutcome, GooglePlan, LostCause, ResponseBody, TransportObservation, ENDPOINT,
+    MAX_RESPONSE_BYTES,
 };
 
 const MAX_ACCESS_TOKEN_BYTES: usize = 4_096;
@@ -27,7 +27,7 @@ pub trait GoogleTransport {
 pub async fn synthesize_once<T: GoogleTransport>(
     transport: &T,
     plan: &GooglePlan,
-) -> AttemptOutcome {
+) -> GoogleOutcome {
     google::classify(transport.send(plan).await)
 }
 
@@ -216,7 +216,9 @@ fn unanswered(error: &reqwest::Error) -> TransportObservation {
 mod tests {
     //! A scripted loopback server drives the real client; it is not the provider.
     use super::*;
-    use crate::synthesis::google::{plan_line, SpeechLine};
+    use crate::tts::google::plan;
+    use crate::tts::google_contract::{ADAPTER_VERSION, OUTPUT_CONTRACT, PROVIDER_ID};
+    use cantos_api::{ResolvedSynthesisInput, SynthesisPerformance};
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
@@ -231,16 +233,25 @@ mod tests {
         Close,
     }
 
-    fn plan() -> GooglePlan {
-        plan_line(&SpeechLine {
+    fn sample_plan() -> GooglePlan {
+        plan(&ResolvedSynthesisInput {
+            dialogue_id: "dialogue-01".into(),
+            character_id: "narrator".into(),
             text: "Ánh đèn cuối cùng còn sáng trên sân khấu.".into(),
             language: "vi-VN".into(),
-            model_id: "neural2".into(),
+            provider_id: PROVIDER_ID.into(),
+            model_id: "google-neural2".into(),
             voice_id: "vi-VN-Neural2-A".into(),
-            rate_permille: 1_000,
-            pitch_semitones: 0,
-            emotion: None,
-            intensity_permille: None,
+            voice_rights_record_id: "voice-narrator".into(),
+            adapter_version: ADAPTER_VERSION.into(),
+            output_contract: OUTPUT_CONTRACT.into(),
+            performance: SynthesisPerformance {
+                rate_permille: 1_000,
+                pitch_semitones: 0,
+                emotion: Some("neutral".into()),
+                intensity_permille: Some(0),
+            },
+            pronunciation: Vec::new(),
         })
         .unwrap()
     }
@@ -317,7 +328,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(observation, TransportObservation::NotSent);
     }
 
@@ -326,7 +337,7 @@ mod tests {
         let body = br#"{"error":{"code":429,"message":"echo","status":"RESOURCE_EXHAUSTED"}}"#;
         let (port, server) =
             serve_once(Reply::Bytes(response("429 Too Many Requests", body))).await;
-        let plan = plan();
+        let plan = sample_plan();
         let observation = transport(port, fast_limits()).send(&plan).await;
         assert_eq!(
             observation,
@@ -349,7 +360,7 @@ mod tests {
     #[tokio::test]
     async fn timeout_after_the_request_is_written_is_lost_not_unsent() {
         let (port, server) = serve_once(Reply::Stall(Duration::from_secs(2))).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::LostAfterSend(LostCause::Timeout)
@@ -363,7 +374,7 @@ mod tests {
     #[tokio::test]
     async fn connection_closed_after_the_request_is_lost() {
         let (port, server) = serve_once(Reply::Close).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::LostAfterSend(LostCause::ConnectionError)
@@ -375,7 +386,7 @@ mod tests {
     async fn declared_oversized_body_is_refused_before_buffering() {
         let reply = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n", 1_025).into_bytes();
         let (port, _server) = serve_once(Reply::Bytes(reply)).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::Responded {
@@ -395,7 +406,7 @@ mod tests {
         }
         reply.extend_from_slice(b"0\r\n\r\n");
         let (port, _server) = serve_once(Reply::Bytes(reply)).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::Responded {
@@ -409,7 +420,7 @@ mod tests {
     async fn body_cut_off_after_the_status_is_interrupted() {
         let reply = b"HTTP/1.1 200 OK\r\ncontent-length: 100\r\n\r\n{\"audioContent\":".to_vec();
         let (port, _server) = serve_once(Reply::Bytes(reply)).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::Responded {
@@ -425,7 +436,7 @@ mod tests {
             b"HTTP/1.1 302 Found\r\nlocation: http://127.0.0.1:9/elsewhere\r\ncontent-length: 0\r\n\r\n"
                 .to_vec();
         let (port, _server) = serve_once(Reply::Bytes(reply)).await;
-        let observation = transport(port, fast_limits()).send(&plan()).await;
+        let observation = transport(port, fast_limits()).send(&sample_plan()).await;
         assert_eq!(
             observation,
             TransportObservation::Responded {
@@ -446,7 +457,10 @@ mod tests {
         let endpoint = format!("http://127.0.0.1:{port}/v1/text:synthesize");
         let transport =
             GoogleHttpTransport::build(endpoint, credential, fast_limits(), true).unwrap();
-        assert_eq!(transport.send(&plan()).await, TransportObservation::NotSent);
+        assert_eq!(
+            transport.send(&sample_plan()).await,
+            TransportObservation::NotSent
+        );
         let accepted = tokio::time::timeout(Duration::from_millis(200), listener.accept()).await;
         assert!(accepted.is_err(), "no connection may be opened");
     }

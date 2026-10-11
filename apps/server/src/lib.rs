@@ -9,6 +9,5 @@ pub mod postgres;
 pub mod production;
 pub mod revisions;
 pub mod script_ir;
-pub mod synthesis;
 pub mod tts;
 pub mod wav_inspection;

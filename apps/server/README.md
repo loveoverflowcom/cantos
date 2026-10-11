@@ -3,8 +3,9 @@
 The `cantos-server` package now implements the Script IR contract, a local development Axum
 host, PostgreSQL revision persistence and a migration CLI. It remains one modular package.
 Versioned casting and immutable production-input authorization use that same authority.
-One Google Cloud TTS adapter core and opt-in sample command exist; production identity
-deployment, production workers, attempt persistence and provider dispatch are not implemented.
+Casting can bind Google Cloud TTS voices, and an opt-in probe can synthesize one frozen line;
+production identity deployment, workers, attempt persistence and provider dispatch are not
+implemented.
 
 ## Boundaries
 
@@ -36,11 +37,10 @@ deployment, production workers, attempt persistence and provider dispatch are no
   sample intent/input/receipt files. Neither establishes current production permission, durable
   jobs, reservations or artifact acceptance. See the
   [local receipt contract](../../contracts/tts-receipt-v1.md).
-- `synthesis/`: provider-neutral attempt vocabulary (failure classes, charge exposure, retry
-  decision, recovery action). `synthesis/google.rs` is the pure Google Cloud TTS core: dated vi-VN
-  voice declaration, capability findings, exact request body, classification and returned-audio
-  validation through `wav_inspection`. `synthesis/google_http.rs` is its one-request HTTPS shell;
-  `google-tts-sample` is the only caller. No SQL, route or Studio consumer yet.
+- `tts/google_contract.rs`, `tts/google.rs` and `tts/google_http.rs`: the Google Cloud TTS
+  identity and dated vi-VN capabilities used by casting and the receipt audit; the pure planner,
+  receipt-v1 classification and audio admission; and the one-request HTTPS shell.
+  `probe-google-tts` is the only caller. No SQL, route or Studio code change.
 - `migrations/0001_script_revisions.sql`: atomic schema, deferred head FK, operation uniqueness
   and immutable revision/link triggers. Migration replay verifies its SHA-256 checksum.
 - `migrations/0002_editorial_handoff.sql`: preserved sources, immutable editorial reviews and
@@ -347,46 +347,48 @@ code, limit and residual risk.
 ## Google Cloud TTS adapter
 
 [ADR 0009](../../docs/decisions/0009-google-cloud-tts-adapter.md) (proposed) records the provider
-facts, mapping and failure policy. `plan_line` refuses, before anything is sent, a language other
-than `vi-VN`, an undeclared voice, a model that does not match the voice family, rate or pitch
-the family cannot honor, any emotion or intensity (Google has no such control), and empty,
-non-NFC or over-5,000-byte text. `plan_resolved` also refuses lines frozen for another provider,
-adapter version or output contract, so no #5 reference-catalog line can reach Google. A plan holds
-the exact LINEAR16/24 kHz request body, its `google-tts-request-1` digest and a list-price estimate.
+facts, mapping and failure policy. The catalog offers `google-cloud-tts` with models
+`google-chirp3-hd`, `google-neural2`, `google-wavenet` and `google-standard` and their documented
+vi-VN voices. Google has no emotion or intensity control, so a binding freezes only when every
+line's effective delivery is explicitly `neutral` at intensity `0` (set the binding's performance
+override); inherited Script IR emotion is `unsupported_control`. Chirp3-HD has no rate or pitch
+control. Resolved text must be nonblank NFC plain text of at most 5,000 bytes. Frozen lines pin
+`google-cloud-tts-synthesize-2` and `wav-pcm-s16le-mono-24000-v1`.
 
-`classify` maps each observation to a failure class, `charge` (`none`, `usage_observed`,
-`unknown`), `retry` (`retry_allowed`, `resolve_before_retry`, `do_not_retry`) and a recovery
-action. No class with an unknown charge may repeat automatically. Only mono 16-bit integer PCM
-at 24 kHz with at least one frame is accepted as audio. Provider error messages are discarded;
-records carry IDs, digests, counts and the canonical status name, never dialogue text or
-credentials.
+`tts::google::plan` refuses any line frozen for another adapter or version and re-checks every
+capability; a plan holds the exact LINEAR16/24 kHz body, its `google-tts-request-1` digest and a
+list-price estimate. `classify` maps each observation to a receipt-v1 class and delivery state:
+a connection that never opened is `timeout`/`not_sent`; everything after it is
+`may_have_executed`, so the shared recovery planner advises reconciliation, never a resend. The
+exact HTTP status, canonical `error.status` name or audio defect stays in a private observation.
+Audio must pass the `cantos-google-tts-pcm-1` profile. Provider messages are discarded; records
+never carry dialogue text or credentials.
 
-`google-tts-sample` plans one line from a JSON file (`text`, `language`, `model_id`, `voice_id`,
-`rate_permille`, `pitch_semitones`, optional `emotion` and `intensity_permille`). Without `--live`
-it reads no credential and sends nothing:
+`probe-google-tts` re-admits a frozen document through the production authority and plans one
+dialogue. Without `--live` it reads no credential, creates nothing and sends nothing:
 
 ```sh
-cargo run --locked --bin google-tts-sample -- --line path/to/line.json
+cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-01
 ```
 
-A live run is an explicit, operator-paid action. Use original sample text, never a private
-manuscript, and an output path outside Git:
+A live run is an explicit, operator-paid action on original sample text, never a private
+manuscript. The new private directory must be outside Git:
 
 ```sh
 CANTOS_GOOGLE_TTS_ACCESS_TOKEN="$(gcloud auth print-access-token)" \
 CANTOS_GOOGLE_TTS_QUOTA_PROJECT=your-project-id \
-cargo run --locked --bin google-tts-sample -- --line path/to/line.json \
-  --live --output /tmp/cantos-sample.wav --max-estimate-cents 1
+cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-01 \
+  --live /absolute/new-private-directory --max-estimate-cents 1
 ```
 
-It refuses an estimate above the cap before reading the token, creates the output with
-`create_new` before sending, sends exactly one request, never retries, writes the WAV only after
-validation, removes its own empty file on failure and prints the attempt record. Exit `0` means
-audio was written; `1` a blocked plan, exceeded cap or failed attempt (check its `retry` and
-`recovery`); `2` usage, input, credential or output errors. The cap compares the list-price
-estimate, not an actual bill. This command is not the production dispatch path: there is no
-PostgreSQL reservation, attempt intent or approval gate yet. The
-[adapter evidence](../../docs/evidence/google-tts-adapter.md) lists what ran and what did not.
+It refuses an estimate above the cap before reading the token, writes create-only `intent.json`
+and `frozen-document.json` before sending, sends exactly one request and never retries. It then
+writes `observation.json` and `receipt.json`, plus `output.wav` and `audit.json` on success, for
+`inspect-tts-receipt`. Exit `0` means a plan or admitted audio; `1` a blocked plan, rejected
+scope, exceeded cap or failed attempt (the report includes the recovery advice); `2` usage,
+input, credential or file errors. The cap compares the list-price estimate, not a bill. This is
+not production dispatch: no reservation, durable attempt or current approval check exists yet.
+The [adapter evidence](../../docs/evidence/google-tts-adapter.md) lists what ran and what did not.
 
 ## Script IR diff
 

@@ -1,51 +1,113 @@
-//! Google adapter core and its one-attempt shell, against a scripted transport. Every provider
-//! response here is synthetic; none of these tests reaches Google.
+//! Google adapter core against frozen production documents, the shared receipt audit and a
+//! scripted transport. Every provider response here is synthetic; none of these tests reaches
+//! Google.
 use std::{future::Future, sync::Mutex};
 
 use base64::Engine as _;
-use cantos_api::{ResolvedSynthesisInput, SynthesisPerformance};
-use cantos_server::synthesis::{
-    google::{
-        classify, decode_audio, plan_line, plan_resolved, policy, record, GooglePlan, PlanFinding,
-        SpeechLine, VoiceFamily, ADAPTER_VERSION, LIMITATIONS, MAX_REQUEST_TEXT_BYTES,
-        MAX_RESPONSE_BYTES, OUTPUT_CONTRACT, PROVIDER_ID, VI_VN_VOICES,
-    },
-    google_http::{synthesize_once, GoogleTransport},
-    AttemptOutcome, AudioDefect, ChargeExposure, FailureClass, FailureEvidence, FailurePolicy,
-    LostCause, RecoveryAction, ResponseBody, RetryDecision, TransportObservation,
+use cantos_api::{
+    CharacterCasting, FrozenProductionDocument, ProductionBudget, ProductionCurrency,
+    ProductionSettings, ProductionSettingsResponse, ResolvedSynthesisInput, RevisionResponse,
+    SynthesisPerformance,
+};
+use cantos_server::production::prepare_inputs;
+use cantos_server::script_ir::read_script;
+use cantos_server::tts::attempt::{
+    ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities, RecoveryPlan,
+};
+use cantos_server::tts::audio::AudioError;
+use cantos_server::tts::google::{
+    classify, decode_audio, observation, plan, AudioDefect, FailureEvidence, GoogleFailure,
+    GoogleOutcome, GooglePlan, LostCause, PlanFinding, ResponseBody, TransportObservation,
+    LIMITATIONS, MAX_RESPONSE_BYTES,
+};
+use cantos_server::tts::google_contract::{VoiceFamily, MAX_TEXT_BYTES, VI_VN_VOICES};
+use cantos_server::tts::google_http::{synthesize_once, GoogleTransport};
+use cantos_server::tts::{
+    audit_receipt, ChargeObservation, ReceiptError, ReceiptEvidence, ReceiptOutcome,
+    TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
 use cantos_server::wav_inspection::StructuralError;
 use sha2::{Digest, Sha256};
 
-const TEXT: &str = "Ánh đèn cuối cùng còn sáng trên sân khấu.";
+const SCRIPT: &[u8] =
+    include_bytes!("../../../contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
+const NOW: i64 = 100;
+const FIRST_LINE: &str = "Ánh đèn cuối cùng còn sáng trên sân khấu.";
 
-fn line(voice_id: &str, model_id: &str) -> SpeechLine {
-    SpeechLine {
-        text: TEXT.into(),
-        language: "vi-VN".into(),
-        model_id: model_id.into(),
-        voice_id: voice_id.into(),
-        rate_permille: 1_000,
-        pitch_semitones: 0,
-        emotion: None,
-        intensity_permille: None,
+fn revision() -> RevisionResponse {
+    let script = read_script(SCRIPT).unwrap();
+    let bytes = script.export_bytes();
+    let mut hash = Sha256::new();
+    hash.update(b"cantos/script-export/e1\n");
+    hash.update(&bytes);
+    RevisionResponse {
+        script_id: "00000000-0000-4000-8000-000000000006".into(),
+        revision: 1,
+        accepted_by: "editor".into(),
+        accepted_at: "2026-10-11T00:00:00Z".into(),
+        content_digest: script.content_digest().to_string(),
+        export_digest: format!("sir-e1:sha256:{:x}", hash.finalize()),
+        script_json: String::from_utf8(bytes).unwrap(),
     }
 }
 
-fn neural2() -> SpeechLine {
-    line("vi-VN-Neural2-A", "neural2")
+/// Narrator on Neural2 with explicit rate and pitch, An on Chirp 3: HD, Minh on WaveNet; every
+/// binding chooses the neutral delivery explicitly.
+fn settings() -> ProductionSettingsResponse {
+    let casting = [
+        ("narrator", "google-neural2", "vi-VN-Neural2-A", 1_250, -2),
+        ("an", "google-chirp3-hd", "vi-VN-Chirp3-HD-Aoede", 1_000, 0),
+        ("minh", "google-wavenet", "vi-VN-Wavenet-D", 1_000, 0),
+    ];
+    ProductionSettingsResponse {
+        script_id: revision().script_id,
+        version: 1,
+        script_revision: 1,
+        operation_id: "00000000-0000-4000-8000-000000000011".into(),
+        recorded_by: "editor".into(),
+        recorded_at: "2026-10-11T00:01:00Z".into(),
+        settings: ProductionSettings {
+            bindings: casting
+                .into_iter()
+                .map(|(character, model, voice, rate, pitch)| CharacterCasting {
+                    character_id: character.into(),
+                    provider_id: "google-cloud-tts".into(),
+                    model_id: model.into(),
+                    voice_id: voice.into(),
+                    language: "vi-VN".into(),
+                    voice_rights_record_id: format!("rights-voice-{character}"),
+                    performance: SynthesisPerformance {
+                        rate_permille: rate,
+                        pitch_semitones: pitch,
+                        emotion: Some("neutral".into()),
+                        intensity_permille: Some(0),
+                    },
+                    pronunciation: vec![],
+                })
+                .collect(),
+            budget: ProductionBudget {
+                currency: ProductionCurrency::USD,
+                limit_minor: 10,
+                scope: "fixture-private-scene".into(),
+                territory: "private-planning".into(),
+                rate: None,
+            },
+        },
+    }
 }
 
-fn chirp() -> SpeechLine {
-    line("vi-VN-Chirp3-HD-Aoede", "chirp3-hd")
+fn document() -> FrozenProductionDocument {
+    prepare_inputs("owner", &revision(), &settings(), &[], true, NOW)
+        .unwrap()
+        .document()
 }
 
-fn plan() -> GooglePlan {
-    plan_line(&neural2()).unwrap()
+fn line(index: usize) -> ResolvedSynthesisInput {
+    document().resolved[index].clone()
 }
 
-fn findings(line: &SpeechLine) -> Vec<PlanFinding> {
-    plan_line(line).unwrap_err()
+fn narrator_plan() -> GooglePlan {
+    plan(&line(0)).unwrap()
 }
 
 /// Canonical 44-byte RIFF/WAVE PCM header followed by a deterministic ramp.
@@ -81,15 +143,32 @@ fn ok(body: Vec<u8>) -> TransportObservation {
     }
 }
 
-fn failed(outcome: AttemptOutcome) -> (FailureClass, FailureEvidence, FailurePolicy) {
+fn status(code: u16, body: &str) -> TransportObservation {
+    TransportObservation::Responded {
+        status: code,
+        body: ResponseBody::Complete(body.as_bytes().to_vec()),
+    }
+}
+
+fn error_body(code: u16, name: &str) -> String {
+    format!(
+        r#"{{"error":{{"code":{code},"message":"{FIRST_LINE} could not be processed","status":"{name}","details":[]}}}}"#
+    )
+}
+
+fn failed(outcome: GoogleOutcome) -> GoogleFailure {
     match outcome {
-        AttemptOutcome::Failed(failure) => (failure.class, failure.evidence, failure.policy),
-        AttemptOutcome::Succeeded(audio) => panic!("unexpected success: {:?}", audio.facts()),
+        GoogleOutcome::Failure(failure) => failure,
+        GoogleOutcome::Output(audio) => panic!("unexpected output: {:?}", audio.inspected()),
     }
 }
 
 fn defect(body: Vec<u8>) -> AudioDefect {
     decode_audio(ResponseBody::Complete(body)).unwrap_err()
+}
+
+fn findings(input: &ResolvedSynthesisInput) -> Vec<PlanFinding> {
+    plan(input).unwrap_err()
 }
 
 #[test]
@@ -111,80 +190,67 @@ fn declared_vi_vn_voices_are_unique_and_named_for_their_family() {
         assert_eq!(voice.family, expected, "{}", voice.name);
     }
     let count = |family| VI_VN_VOICES.iter().filter(|v| v.family == family).count();
-    assert_eq!(
-        [
-            count(VoiceFamily::Chirp3Hd),
-            count(VoiceFamily::Neural2),
-            count(VoiceFamily::Standard),
-            count(VoiceFamily::Wavenet),
-        ],
-        [30, 2, 4, 4]
-    );
+    assert_eq!(VoiceFamily::ALL.map(count), [30, 2, 4, 4]);
 }
 
 #[test]
-fn neural2_line_maps_to_the_exact_request_body_and_digest() {
-    let mut line = neural2();
-    line.rate_permille = 1_250;
-    line.pitch_semitones = -2;
-    let plan = plan_line(&line).unwrap();
-    // Expected bytes and digest were computed independently with Python's json and hashlib.
+fn frozen_lines_map_to_exact_request_bodies_and_digests() {
+    // Expected bytes and digests were computed independently with Python's json and hashlib.
+    let narrator = narrator_plan();
     assert_eq!(
-        std::str::from_utf8(plan.body()).unwrap(),
+        std::str::from_utf8(narrator.body()).unwrap(),
         r#"{"audioConfig":{"audioEncoding":"LINEAR16","pitch":-2.0,"sampleRateHertz":24000,"speakingRate":1.25},"input":{"text":"Ánh đèn cuối cùng còn sáng trên sân khấu."},"voice":{"languageCode":"vi-VN","name":"vi-VN-Neural2-A"}}"#
     );
     assert_eq!(
-        plan.request_digest(),
-        "google-tts-request-1:sha256:8a83d5b5b76243561f44a37cdea5b2dd49e820d70b6ad63cbb9ee9ace94f29d2"
+        narrator.request_digest(),
+        "google-tts-request-1:sha256:d842d03f8cd49f583ceb54b0630a0ee653157320e925f5d1ff9e94ed4da47b4a"
     );
-    assert_eq!(plan.voice().name, "vi-VN-Neural2-A");
+    // Chirp 3: HD has no rate or pitch parameter, so neither is sent.
+    let an = plan(&line(1)).unwrap();
+    assert_eq!(
+        std::str::from_utf8(an.body()).unwrap(),
+        r#"{"audioConfig":{"audioEncoding":"LINEAR16","sampleRateHertz":24000},"input":{"text":"Ngày mai, mình có diễn tiếp không?"},"voice":{"languageCode":"vi-VN","name":"vi-VN-Chirp3-HD-Aoede"}}"#
+    );
+    assert_eq!(
+        an.request_digest(),
+        "google-tts-request-1:sha256:f565fd193009f1a80ad77370954d5ce91afbbb165967034cb91298f62d090702"
+    );
+    for resolved in &document().resolved {
+        assert!(plan(resolved).is_ok(), "{}", resolved.dialogue_id);
+    }
 }
 
 #[test]
-fn chirp3_hd_line_omits_the_rate_and_pitch_it_does_not_support() {
-    let plan = plan_line(&chirp()).unwrap();
-    assert_eq!(
-        std::str::from_utf8(plan.body()).unwrap(),
-        r#"{"audioConfig":{"audioEncoding":"LINEAR16","sampleRateHertz":24000},"input":{"text":"Ánh đèn cuối cùng còn sáng trên sân khấu."},"voice":{"languageCode":"vi-VN","name":"vi-VN-Chirp3-HD-Aoede"}}"#
-    );
-    assert_eq!(
-        plan.request_digest(),
-        "google-tts-request-1:sha256:d3db384130b8277040cfe0d04e31fcb5325f0b7a5fee5e72e50c140254f276c6"
-    );
+fn a_vi_script_is_sent_with_googles_vi_vn_locale() {
+    let mut input = line(0);
+    input.language = "vi".into();
+    assert_eq!(plan(&input).unwrap().body(), narrator_plan().body());
 }
 
 #[test]
 fn equal_lines_plan_identically_and_any_effective_change_changes_the_digest() {
-    assert_eq!(
-        plan_line(&neural2()).unwrap(),
-        plan_line(&neural2()).unwrap()
-    );
-    let base = plan().request_digest().to_owned();
-    let mut variants = vec![
-        line("vi-VN-Neural2-D", "neural2"),
-        line("vi-VN-Wavenet-A", "wavenet"),
+    assert_eq!(plan(&line(0)).unwrap(), narrator_plan());
+    let base = narrator_plan().request_digest().to_owned();
+    let changes: [fn(&mut ResolvedSynthesisInput); 5] = [
+        |input| input.text.push('!'),
+        |input| input.voice_id = "vi-VN-Neural2-D".into(),
+        |input| {
+            input.voice_id = "vi-VN-Wavenet-A".into();
+            input.model_id = "google-wavenet".into();
+        },
+        |input| input.performance.rate_permille = 1_251,
+        |input| input.performance.pitch_semitones = -1,
     ];
-    let mut text = neural2();
-    text.text.push('!');
-    variants.push(text);
-    let mut rate = neural2();
-    rate.rate_permille = 1_001;
-    variants.push(rate);
-    let mut pitch = neural2();
-    pitch.pitch_semitones = 1;
-    variants.push(pitch);
-    for variant in variants {
-        assert_ne!(
-            plan_line(&variant).unwrap().request_digest(),
-            base,
-            "{variant:?}"
-        );
+    for change in changes {
+        let mut input = line(0);
+        change(&mut input);
+        assert_ne!(plan(&input).unwrap().request_digest(), base, "{input:?}");
     }
 }
 
 #[test]
 fn estimate_is_list_price_rounded_up_per_request_and_never_a_charge() {
-    let estimate = plan().estimate().clone();
+    let estimate = narrator_plan().estimate().clone();
     assert_eq!(estimate.billable_characters, 41);
     assert_eq!(estimate.amount_minor, 1);
     assert_eq!(estimate.currency, "USD");
@@ -194,189 +260,147 @@ fn estimate_is_list_price_rounded_up_per_request_and_never_a_charge() {
         "list_price_before_free_tier_rounded_up_per_request"
     );
     assert_eq!(estimate.price_observed_on, "2026-10-11");
-    let mut long = chirp();
-    long.text = "a".repeat(1_667);
-    assert_eq!(plan_line(&long).unwrap().estimate().amount_minor, 6);
-    long.text = "a".repeat(MAX_REQUEST_TEXT_BYTES);
-    assert_eq!(plan_line(&long).unwrap().estimate().amount_minor, 15);
+    let mut chirp = line(1);
+    chirp.text = "a".repeat(1_667);
+    assert_eq!(plan(&chirp).unwrap().estimate().amount_minor, 6);
+    chirp.text = "a".repeat(MAX_TEXT_BYTES);
+    assert_eq!(plan(&chirp).unwrap().estimate().amount_minor, 15);
     // 2,500 characters at 400 cents per million is exactly one cent; one more rounds up.
-    let mut standard = line("vi-VN-Standard-A", "standard");
-    standard.text = "a".repeat(2_500);
-    assert_eq!(plan_line(&standard).unwrap().estimate().amount_minor, 1);
-    standard.text.push('a');
-    assert_eq!(plan_line(&standard).unwrap().estimate().amount_minor, 2);
+    let mut wavenet = line(2);
+    wavenet.text = "a".repeat(2_500);
+    assert_eq!(plan(&wavenet).unwrap().estimate().amount_minor, 1);
+    wavenet.text.push('a');
+    assert_eq!(plan(&wavenet).unwrap().estimate().amount_minor, 2);
 }
 
 #[test]
-fn every_unsupported_control_is_an_exact_blocking_finding() {
-    let mut cases: Vec<(SpeechLine, Vec<PlanFinding>)> = Vec::new();
-    let mut language = neural2();
-    language.language = "vi".into();
-    cases.push((
-        language,
-        vec![PlanFinding::UnsupportedLanguage { found: "vi".into() }],
-    ));
-    cases.push((
-        line("vi-VN-Neural2-Z", "neural2"),
-        vec![PlanFinding::UnsupportedVoice {
-            voice_id: "vi-VN-Neural2-Z".into(),
-        }],
-    ));
-    cases.push((
-        line("vi-VN-Neural2-A", "wavenet"),
-        vec![PlanFinding::ModelMismatch {
-            voice_id: "vi-VN-Neural2-A".into(),
-            expected: "neural2",
-            found: "wavenet".into(),
-        }],
-    ));
-    for (rate, pitch) in [(249, 0), (2_001, 0), (1_000, 21), (1_000, -21)] {
-        let mut prosody = neural2();
-        prosody.rate_permille = rate;
-        prosody.pitch_semitones = pitch;
-        let mut expected = Vec::new();
-        if rate != 1_000 {
-            expected.push(PlanFinding::RateUnsupported {
-                requested_permille: rate,
+fn every_unsupported_input_is_an_exact_blocking_finding() {
+    type Change = fn(&mut ResolvedSynthesisInput);
+    let cases: Vec<(usize, Change, Vec<PlanFinding>)> = vec![
+        (
+            0,
+            |i| i.language = "en-US".into(),
+            vec![PlanFinding::UnsupportedLanguage {
+                found: "en-US".into(),
+            }],
+        ),
+        (
+            0,
+            |i| i.voice_id = "vi-VN-Neural2-Z".into(),
+            vec![PlanFinding::UnsupportedVoice {
+                voice_id: "vi-VN-Neural2-Z".into(),
+            }],
+        ),
+        (
+            0,
+            |i| i.model_id = "google-wavenet".into(),
+            vec![PlanFinding::ModelMismatch {
+                voice_id: "vi-VN-Neural2-A".into(),
+                expected: "google-neural2",
+                found: "google-wavenet".into(),
+            }],
+        ),
+        (
+            0,
+            |i| i.performance.rate_permille = 249,
+            vec![PlanFinding::RateUnsupported {
+                requested_permille: 249,
                 min_permille: 250,
                 max_permille: 2_000,
-            });
-        }
-        if pitch != 0 {
-            expected.push(PlanFinding::PitchUnsupported {
-                requested_semitones: pitch,
+            }],
+        ),
+        (
+            0,
+            |i| i.performance.pitch_semitones = 21,
+            vec![PlanFinding::PitchUnsupported {
+                requested_semitones: 21,
                 min_semitones: -20,
                 max_semitones: 20,
-            });
-        }
-        cases.push((prosody, expected));
-    }
-    let mut chirp_prosody = chirp();
-    chirp_prosody.rate_permille = 1_100;
-    chirp_prosody.pitch_semitones = -1;
-    cases.push((
-        chirp_prosody,
-        vec![
-            PlanFinding::RateUnsupported {
-                requested_permille: 1_100,
-                min_permille: 1_000,
-                max_permille: 1_000,
-            },
-            PlanFinding::PitchUnsupported {
-                requested_semitones: -1,
-                min_semitones: 0,
-                max_semitones: 0,
-            },
-        ],
-    ));
-    for emotion in ["hopeful", "neutral"] {
-        let mut delivery = neural2();
-        delivery.emotion = Some(emotion.into());
-        cases.push((
-            delivery,
-            vec![PlanFinding::EmotionUnsupported {
-                requested: emotion.into(),
             }],
-        ));
-    }
-    let mut intensity = neural2();
-    intensity.intensity_permille = Some(600);
-    cases.push((
-        intensity,
-        vec![PlanFinding::IntensityUnsupported {
-            requested_permille: 600,
-        }],
-    ));
-    for (text, expected) in [
-        (" \u{3000} ".to_owned(), PlanFinding::EmptyText),
-        ("Chuông\u{7}reo".to_owned(), PlanFinding::TextNotNormalized),
-        ("A\u{301}nh đèn".to_owned(), PlanFinding::TextNotNormalized),
+        ),
         (
-            "ấ".repeat(1_667),
-            PlanFinding::TextTooLong {
+            1,
+            |i| {
+                i.performance.rate_permille = 1_100;
+                i.performance.pitch_semitones = -1;
+            },
+            vec![
+                PlanFinding::RateUnsupported {
+                    requested_permille: 1_100,
+                    min_permille: 1_000,
+                    max_permille: 1_000,
+                },
+                PlanFinding::PitchUnsupported {
+                    requested_semitones: -1,
+                    min_semitones: 0,
+                    max_semitones: 0,
+                },
+            ],
+        ),
+        (
+            0,
+            |i| i.performance.emotion = Some("hopeful".into()),
+            vec![PlanFinding::EmotionUnsupported {
+                requested: "hopeful".into(),
+            }],
+        ),
+        (
+            0,
+            |i| i.performance.intensity_permille = Some(600),
+            vec![PlanFinding::IntensityUnsupported {
+                requested_permille: 600,
+            }],
+        ),
+        (
+            0,
+            |i| i.text = " \u{3000} ".into(),
+            vec![PlanFinding::InvalidText],
+        ),
+        (
+            0,
+            |i| i.text = "Chuông\u{7}reo".into(),
+            vec![PlanFinding::InvalidText],
+        ),
+        (
+            0,
+            |i| i.text = "Chuông\u{2028}reo".into(),
+            vec![PlanFinding::InvalidText],
+        ),
+        (
+            0,
+            |i| i.text = "A\u{301}nh đèn".into(),
+            vec![PlanFinding::InvalidText],
+        ),
+        (
+            0,
+            |i| i.text = "ấ".repeat(1_667),
+            vec![PlanFinding::TextTooLong {
                 bytes: 5_001,
                 limit_bytes: 5_000,
-            },
+            }],
         ),
-    ] {
-        let mut bad = neural2();
-        bad.text = text;
-        cases.push((bad, vec![expected]));
+    ];
+    for (index, change, expected) in cases {
+        let mut input = line(index);
+        change(&mut input);
+        assert_eq!(findings(&input), expected, "{input:?}");
     }
-    for (line, expected) in cases {
-        assert_eq!(findings(&line), expected, "{line:?}");
-    }
-    let mut at_limit = neural2();
+    let mut at_limit = line(0);
     at_limit.text = format!("{}ab", "ấ".repeat(1_666));
-    assert_eq!(at_limit.text.len(), MAX_REQUEST_TEXT_BYTES);
-    assert!(plan_line(&at_limit).is_ok());
+    assert_eq!(at_limit.text.len(), MAX_TEXT_BYTES);
+    assert!(plan(&at_limit).is_ok());
 }
 
 #[test]
-fn all_findings_are_reported_together() {
-    let bad = SpeechLine {
-        text: String::new(),
-        language: "en-US".into(),
-        model_id: "neural2".into(),
-        voice_id: "vi-VN-Chirp3-HD-Kore".into(),
-        rate_permille: 1_000,
-        pitch_semitones: 0,
-        emotion: Some("sad".into()),
-        intensity_permille: Some(900),
-    };
+fn a_line_frozen_for_another_adapter_is_refused_not_reinterpreted() {
+    let mut input = line(0);
+    input.provider_id = "reference-only".into();
+    input.adapter_version = "reference-only-no-dispatch-v1".into();
+    input.output_contract = "reference-only/no-audio".into();
+    input.performance.emotion = Some("calm".into());
+    input.performance.intensity_permille = Some(300);
     assert_eq!(
-        findings(&bad),
-        vec![
-            PlanFinding::UnsupportedLanguage {
-                found: "en-US".into()
-            },
-            PlanFinding::ModelMismatch {
-                voice_id: "vi-VN-Chirp3-HD-Kore".into(),
-                expected: "chirp3-hd",
-                found: "neural2".into(),
-            },
-            PlanFinding::EmotionUnsupported {
-                requested: "sad".into()
-            },
-            PlanFinding::IntensityUnsupported {
-                requested_permille: 900
-            },
-            PlanFinding::EmptyText,
-        ]
-    );
-}
-
-fn resolved(provider: &str, adapter: &str, contract: &str) -> ResolvedSynthesisInput {
-    ResolvedSynthesisInput {
-        dialogue_id: "dialogue-02".into(),
-        character_id: "an".into(),
-        text: TEXT.into(),
-        language: "vi-VN".into(),
-        provider_id: provider.into(),
-        model_id: "neural2".into(),
-        voice_id: "vi-VN-Neural2-A".into(),
-        voice_rights_record_id: "voice-rights-an".into(),
-        adapter_version: adapter.into(),
-        output_contract: contract.into(),
-        performance: SynthesisPerformance {
-            rate_permille: 1_000,
-            pitch_semitones: 0,
-            emotion: Some("hopeful".into()),
-            intensity_permille: Some(600),
-        },
-        pronunciation: Vec::new(),
-    }
-}
-
-#[test]
-fn a_line_frozen_for_the_reference_catalog_is_refused_not_reinterpreted() {
-    let input = resolved(
-        "reference-only",
-        "reference-only-no-dispatch-v1",
-        "reference-only/no-audio",
-    );
-    assert_eq!(
-        plan_resolved(&input).unwrap_err(),
+        findings(&input),
         vec![
             PlanFinding::ProviderMismatch {
                 found: "reference-only".into()
@@ -388,53 +412,27 @@ fn a_line_frozen_for_the_reference_catalog_is_refused_not_reinterpreted() {
                 found: "reference-only/no-audio".into()
             },
             PlanFinding::EmotionUnsupported {
-                requested: "hopeful".into()
+                requested: "calm".into()
             },
             PlanFinding::IntensityUnsupported {
-                requested_permille: 600
+                requested_permille: 300
             },
         ]
     );
-}
-
-#[test]
-fn a_frozen_google_line_blocks_on_script_delivery_until_a_mapping_exists() {
-    let mut input = resolved(PROVIDER_ID, ADAPTER_VERSION, OUTPUT_CONTRACT);
+    let mut previous = line(0);
+    previous.adapter_version = "google-cloud-tts-synthesize-1".into();
     assert_eq!(
-        plan_resolved(&input).unwrap_err(),
-        vec![
-            PlanFinding::EmotionUnsupported {
-                requested: "hopeful".into()
-            },
-            PlanFinding::IntensityUnsupported {
-                requested_permille: 600
-            },
-        ]
+        findings(&previous),
+        vec![PlanFinding::AdapterVersionMismatch {
+            found: "google-cloud-tts-synthesize-1".into()
+        }]
     );
-    input.performance.emotion = None;
-    input.performance.intensity_permille = None;
-    assert_eq!(plan_resolved(&input).unwrap(), plan());
-}
-
-fn status(code: u16, body: &str) -> TransportObservation {
-    TransportObservation::Responded {
-        status: code,
-        body: ResponseBody::Complete(body.as_bytes().to_vec()),
-    }
-}
-
-fn error_body(code: u16, name: &str) -> String {
-    format!(
-        r#"{{"error":{{"code":{code},"message":"{TEXT} could not be processed","status":"{name}","details":[]}}}}"#
-    )
 }
 
 #[test]
-fn every_observation_maps_to_one_class_with_its_recovery_policy() {
-    use ChargeExposure as C;
+fn every_observation_maps_to_the_shared_receipt_vocabulary() {
+    use DeliveryState::{MayHaveExecuted, NotSent};
     use FailureClass as F;
-    use RecoveryAction as A;
-    use RetryDecision as R;
     let with_status = |http_status: u16, name: Option<&str>| FailureEvidence::Status {
         http_status,
         provider_status: name.map(str::to_owned),
@@ -442,171 +440,105 @@ fn every_observation_maps_to_one_class_with_its_recovery_policy() {
     let cases = vec![
         (
             TransportObservation::NotSent,
-            F::NotSent,
+            F::Timeout,
+            NotSent,
             FailureEvidence::NotConnected,
-            (C::None, R::RetryAllowed, A::CheckConnectivity),
         ),
         (
             TransportObservation::LostAfterSend(LostCause::Timeout),
-            F::Ambiguous,
+            F::Timeout,
+            MayHaveExecuted,
             FailureEvidence::Lost {
                 cause: LostCause::Timeout,
             },
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
         ),
         (
             TransportObservation::LostAfterSend(LostCause::ConnectionError),
-            F::Ambiguous,
+            F::Permanent,
+            MayHaveExecuted,
             FailureEvidence::Lost {
                 cause: LostCause::ConnectionError,
             },
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
         ),
         (
             status(400, &error_body(400, "INVALID_ARGUMENT")),
-            F::InvalidInput,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(400, Some("INVALID_ARGUMENT")),
-            (C::Unknown, R::DoNotRetry, A::FixLineOrCasting),
         ),
         (
             status(401, &error_body(401, "UNAUTHENTICATED")),
-            F::AccountRejected,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(401, Some("UNAUTHENTICATED")),
-            (C::Unknown, R::DoNotRetry, A::FixProviderAccount),
         ),
         (
             status(403, &error_body(403, "PERMISSION_DENIED")),
-            F::AccountRejected,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(403, Some("PERMISSION_DENIED")),
-            (C::Unknown, R::DoNotRetry, A::FixProviderAccount),
         ),
         (
             status(429, &error_body(429, "RESOURCE_EXHAUSTED")),
-            F::RateLimited,
+            F::RateLimit,
+            MayHaveExecuted,
             with_status(429, Some("RESOURCE_EXHAUSTED")),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::WaitForQuotaThenResolve,
-            ),
         ),
         (
             status(500, &error_body(500, "INTERNAL")),
-            F::ProviderError,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(500, Some("INTERNAL")),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
-        ),
-        (
-            status(502, "<html>bad gateway</html>"),
-            F::ProviderError,
-            with_status(502, None),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
         ),
         (
             status(503, &error_body(503, "UNAVAILABLE")),
-            F::ProviderError,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(503, Some("UNAVAILABLE")),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
         ),
         (
             status(504, &error_body(504, "DEADLINE_EXCEEDED")),
-            F::ProviderError,
+            F::Timeout,
+            MayHaveExecuted,
             with_status(504, Some("DEADLINE_EXCEEDED")),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
         ),
         (
             status(302, ""),
-            F::UnexpectedResponse,
+            F::Permanent,
+            MayHaveExecuted,
             with_status(302, None),
-            (C::Unknown, R::ResolveBeforeRetry, A::ReportAdapterMismatch),
-        ),
-        (
-            status(404, &error_body(404, "NOT_FOUND")),
-            F::UnexpectedResponse,
-            with_status(404, Some("NOT_FOUND")),
-            (C::Unknown, R::ResolveBeforeRetry, A::ReportAdapterMismatch),
         ),
         (
             TransportObservation::Responded {
-                status: 503,
+                status: 502,
                 body: ResponseBody::Interrupted,
             },
-            F::ProviderError,
-            with_status(503, None),
-            (
-                C::Unknown,
-                R::ResolveBeforeRetry,
-                A::ResolveUncertainAttempt,
-            ),
+            F::Permanent,
+            MayHaveExecuted,
+            with_status(502, None),
         ),
         (
             ok(b"{}".to_vec()),
             F::MalformedAudio,
+            MayHaveExecuted,
             FailureEvidence::Audio {
                 http_status: 200,
                 defect: AudioDefect::MissingAudioContent,
             },
-            (
-                C::UsageObserved,
-                R::RetryAllowed,
-                A::RetryAndReportIfRepeated,
-            ),
         ),
     ];
-    for (observation, class, evidence, (charge, retry, recovery)) in cases {
+    for (observation, class, delivery, evidence) in cases {
         let label = format!("{observation:?}");
         assert_eq!(
             failed(classify(observation)),
-            (
+            GoogleFailure {
                 class,
-                evidence,
-                FailurePolicy {
-                    charge,
-                    retry,
-                    recovery
-                }
-            ),
+                delivery,
+                evidence
+            },
             "{label}"
         );
     }
-}
-
-#[test]
-fn no_class_with_an_unknown_charge_permits_an_automatic_repeat() {
-    for class in FailureClass::ALL {
-        let policy = policy(class);
-        if policy.charge == ChargeExposure::Unknown {
-            assert_ne!(policy.retry, RetryDecision::RetryAllowed, "{class:?}");
-        }
-        if policy.retry == RetryDecision::RetryAllowed {
-            assert_ne!(policy.charge, ChargeExposure::Unknown, "{class:?}");
-        }
-    }
-    assert_eq!(policy(FailureClass::NotSent).charge, ChargeExposure::None);
 }
 
 #[test]
@@ -621,9 +553,8 @@ fn provider_status_keeps_only_canonical_names() {
         (r#"{"error":{"message":"no status"}}"#, None),
         ("not json", None),
     ] {
-        let (_, evidence, _) = failed(classify(status(400, body)));
         assert_eq!(
-            evidence,
+            failed(classify(status(400, body))).evidence,
             FailureEvidence::Status {
                 http_status: 400,
                 provider_status: expected.map(str::to_owned),
@@ -632,9 +563,8 @@ fn provider_status_keeps_only_canonical_names() {
         );
     }
     let long = format!(r#"{{"error":{{"status":"{}"}}}}"#, "A".repeat(65));
-    let (_, evidence, _) = failed(classify(status(400, &long)));
     assert_eq!(
-        evidence,
+        failed(classify(status(400, &long))).evidence,
         FailureEvidence::Status {
             http_status: 400,
             provider_status: None,
@@ -643,25 +573,30 @@ fn provider_status_keeps_only_canonical_names() {
 }
 
 #[test]
-fn valid_mono_24khz_pcm_is_accepted_with_exact_facts() {
+fn valid_mono_24khz_pcm_is_admitted_with_exact_facts() {
     let audio = wav(1, 1, 24_000, 16, 2_400);
-    let outcome = classify(ok(envelope(&audio)));
-    let AttemptOutcome::Succeeded(validated) = outcome else {
-        panic!("expected success: {outcome:?}");
+    let GoogleOutcome::Output(admitted) = classify(ok(envelope(&audio))) else {
+        panic!("expected output");
     };
-    let facts = validated.facts().clone();
-    assert_eq!(facts.bytes, 44 + 4_800);
-    assert_eq!(facts.sha256, format!("{:x}", Sha256::digest(&audio)));
+    let inspected = admitted.inspected();
+    assert_eq!(
+        inspected.file_sha256(),
+        format!("{:x}", Sha256::digest(&audio))
+    );
     assert_eq!(
         (
-            facts.sample_rate_hz,
-            facts.channels,
-            facts.bits_per_sample,
-            facts.frames
+            inspected.sample_rate_hz(),
+            inspected.channels(),
+            inspected.bits_per_sample(),
+            inspected.frames()
         ),
         (24_000, 1, 16, 2_400)
     );
-    assert_eq!(validated.into_bytes(), audio);
+    assert_eq!(
+        inspected.output_profile_version(),
+        "cantos-google-tts-pcm-1"
+    );
+    assert_eq!(admitted.bytes(), audio.as_slice());
 }
 
 #[test]
@@ -684,33 +619,49 @@ fn malformed_or_unexpected_audio_is_rejected_with_its_exact_defect() {
     truncated.truncate(100);
     assert!(matches!(
         defect(envelope(&truncated)),
-        AudioDefect::InvalidWav { errors } if !errors.is_empty()
+        AudioDefect::Rejected { error: AudioError::InvalidWav { errors } } if !errors.is_empty()
     ));
-    assert!(matches!(
-        defect(envelope(b"ID3\x04 not a wave file")),
-        AudioDefect::InvalidWav { .. }
-    ));
-    for (tag, channels, rate, bits) in [(1, 2, 24_000, 16), (1, 1, 48_000, 16), (1, 1, 24_000, 8)] {
+    for (tag, channels, rate, bits) in [
+        (1, 2, 24_000, 16),
+        (1, 1, 48_000, 16),
+        (1, 1, 22_050, 16),
+        (1, 1, 24_000, 8),
+    ] {
         assert_eq!(
             defect(envelope(&wav(tag, channels, rate, bits, 10))),
-            AudioDefect::UnexpectedFormat {
-                format_tag: tag,
-                channels,
-                sample_rate_hz: rate,
-                bits_per_sample: bits,
+            AudioDefect::Rejected {
+                error: AudioError::UnsupportedProfile {
+                    format_tag: tag,
+                    sample_rate_hz: rate,
+                    channels,
+                    bits_per_sample: bits,
+                }
             }
         );
     }
     // The inspector admits integer PCM only, so float audio is structurally refused.
     assert_eq!(
         defect(envelope(&wav(3, 1, 24_000, 32, 10))),
-        AudioDefect::InvalidWav {
-            errors: vec![StructuralError::UnsupportedFormatTag { format_tag: 3 }],
+        AudioDefect::Rejected {
+            error: AudioError::InvalidWav {
+                errors: vec![StructuralError::UnsupportedFormatTag { format_tag: 3 }],
+            }
         }
     );
     assert_eq!(
         defect(envelope(&wav(1, 1, 24_000, 16, 0))),
-        AudioDefect::NoFrames
+        AudioDefect::Rejected {
+            error: AudioError::EmptyFrames
+        }
+    );
+    assert_eq!(
+        defect(envelope(&wav(1, 1, 24_000, 16, 2_880_001))),
+        AudioDefect::Rejected {
+            error: AudioError::DurationExceeded {
+                frames: 2_880_001,
+                maximum_frames: 2_880_000,
+            }
+        }
     );
     assert_eq!(
         decode_audio(ResponseBody::TooLarge).unwrap_err(),
@@ -759,68 +710,144 @@ impl GoogleTransport for ScriptedTransport {
     }
 }
 
+fn receipt(outcome: ReceiptOutcome) -> TtsReceipt {
+    let document = document();
+    let line = &document.resolved[0];
+    TtsReceipt {
+        version: RECEIPT_VERSION.into(),
+        evidence: ReceiptEvidence::CallerReported,
+        attempt_id: "attempt-1".into(),
+        operation_id: "operation-1".into(),
+        provider_request_id: None,
+        idempotency_key: None,
+        input_digest: document.input_digest.clone(),
+        dialogue_id: line.dialogue_id.clone(),
+        provider: TtsProviderIdentity {
+            provider_id: line.provider_id.clone(),
+            model_id: line.model_id.clone(),
+            voice_id: line.voice_id.clone(),
+            adapter_version: line.adapter_version.clone(),
+        },
+        reconciliation: ReconciliationCapabilities::new(
+            ContractCapability::Unavailable,
+            ContractCapability::Unavailable,
+            ContractCapability::Unavailable,
+        ),
+        usage: UsageObservation::Unknown {},
+        charge: ChargeObservation::Unknown {},
+        outcome,
+    }
+}
+
+fn failure_receipt(failure: &GoogleFailure) -> TtsReceipt {
+    receipt(ReceiptOutcome::Failure {
+        class: failure.class,
+        delivery: failure.delivery,
+    })
+}
+
 #[tokio::test]
-async fn a_response_lost_after_execution_is_recorded_once_and_never_resent() {
+async fn a_response_lost_after_execution_is_recorded_once_and_needs_reconciliation() {
     let transport = ScriptedTransport::new(
         true,
         TransportObservation::LostAfterSend(LostCause::Timeout),
     );
-    let plan = plan();
-    let outcome = synthesize_once(&transport, &plan).await;
-    let (class, _, policy) = failed(outcome.clone());
-    assert_eq!(class, FailureClass::Ambiguous);
-    assert_eq!(policy.retry, RetryDecision::ResolveBeforeRetry);
+    let plan = narrator_plan();
+    let failure = failed(synthesize_once(&transport, &plan).await);
     assert_eq!(
         transport.executions(),
         vec![plan.request_digest().to_owned()]
     );
-    let record = record(&plan, &outcome);
-    assert_eq!(record.charge, ChargeExposure::Unknown);
-    assert_eq!(record.provider_request_id, None);
-    assert_eq!(record.limitations, LIMITATIONS);
+    let audit = audit_receipt(&document(), &failure_receipt(&failure), None).unwrap();
+    assert_eq!(audit.recovery(), Some(&RecoveryPlan::ManualReconciliation));
 }
 
 #[tokio::test]
-async fn a_connection_that_never_opened_has_no_charge() {
+async fn every_failure_after_a_connection_opened_needs_reconciliation_not_a_resend() {
+    for observation in [
+        status(429, &error_body(429, "RESOURCE_EXHAUSTED")),
+        status(503, &error_body(503, "UNAVAILABLE")),
+        status(400, &error_body(400, "INVALID_ARGUMENT")),
+        ok(b"{}".to_vec()),
+    ] {
+        let transport = ScriptedTransport::new(true, observation);
+        let failure = failed(synthesize_once(&transport, &narrator_plan()).await);
+        assert_eq!(transport.executions().len(), 1);
+        let audit = audit_receipt(&document(), &failure_receipt(&failure), None).unwrap();
+        assert_eq!(audit.recovery(), Some(&RecoveryPlan::ManualReconciliation));
+    }
+}
+
+#[tokio::test]
+async fn a_connection_that_never_opened_allows_only_a_freshly_authorized_retry() {
     let transport = ScriptedTransport::new(false, TransportObservation::NotSent);
-    let plan = plan();
-    let outcome = synthesize_once(&transport, &plan).await;
+    let failure = failed(synthesize_once(&transport, &narrator_plan()).await);
     assert!(transport.executions().is_empty());
-    assert_eq!(record(&plan, &outcome).charge, ChargeExposure::None);
+    let audit = audit_receipt(&document(), &failure_receipt(&failure), None).unwrap();
+    assert_eq!(
+        audit.recovery(),
+        Some(&RecoveryPlan::BoundedRetryNeedsFreshAuthorization)
+    );
 }
 
 #[tokio::test]
-async fn success_records_usage_without_text_credentials_or_settlement() {
+async fn admitted_google_audio_passes_the_shared_receipt_audit() {
     let audio = wav(1, 1, 24_000, 16, 480);
     let transport = ScriptedTransport::new(true, ok(envelope(&audio)));
-    let plan = plan();
-    let outcome = synthesize_once(&transport, &plan).await;
-    assert_eq!(transport.executions().len(), 1);
-    let record = record(&plan, &outcome);
-    assert_eq!(record.charge, ChargeExposure::UsageObserved);
-    let json = serde_json::to_value(&record).unwrap();
-    assert_eq!(json["provider_id"], "google-cloud-tts");
-    assert_eq!(json["adapter_version"], ADAPTER_VERSION);
-    assert_eq!(json["model_id"], "neural2");
-    assert_eq!(json["voice_id"], "vi-VN-Neural2-A");
-    assert_eq!(json["outcome"]["status"], "succeeded");
-    assert_eq!(json["outcome"]["audio"]["frames"], 480);
-    assert_eq!(json["estimate"]["amount_minor"], 1);
-    assert_eq!(json["charge"], "usage_observed");
-    let rendered = json.to_string();
-    assert!(!rendered.contains("Ánh đèn"), "{rendered}");
-    assert!(!rendered.contains("audioContent"), "{rendered}");
+    let GoogleOutcome::Output(admitted) = synthesize_once(&transport, &narrator_plan()).await
+    else {
+        panic!("expected output");
+    };
+    let mut output = receipt(ReceiptOutcome::Output {
+        audio_sha256: admitted.inspected().file_sha256().into(),
+    });
+    output.usage = UsageObservation::Reported {
+        unit: "effective-unicode-scalars".into(),
+        count: 41,
+    };
+    let audit = audit_receipt(&document(), &output, Some(admitted.bytes())).unwrap();
+    assert_eq!(
+        audit.audio().unwrap().output_profile_version(),
+        "cantos-google-tts-pcm-1"
+    );
+    // The eSpeak rate is not this line's contract, even with a matching checksum.
+    let espeak_rate = wav(1, 1, 22_050, 16, 480);
+    let mut mismatched = output.clone();
+    mismatched.outcome = ReceiptOutcome::Output {
+        audio_sha256: format!("{:x}", Sha256::digest(&espeak_rate)),
+    };
+    assert!(matches!(
+        audit_receipt(&document(), &mismatched, Some(&espeak_rate)).unwrap_err(),
+        ReceiptError::InvalidAudio {
+            error: AudioError::UnsupportedProfile {
+                sample_rate_hz: 22_050,
+                ..
+            }
+        }
+    ));
+    let mut other_voice = output;
+    other_voice.provider.voice_id = "vi-VN-Neural2-D".into();
+    assert_eq!(
+        audit_receipt(&document(), &other_voice, Some(admitted.bytes())).unwrap_err(),
+        ReceiptError::ProviderIdentityMismatch
+    );
 }
 
 #[tokio::test]
-async fn provider_error_messages_never_reach_the_record() {
-    let transport = ScriptedTransport::new(true, status(400, &error_body(400, "INVALID_ARGUMENT")));
-    let plan = plan();
-    let outcome = synthesize_once(&transport, &plan).await;
-    let rendered = serde_json::to_string(&record(&plan, &outcome)).unwrap();
-    assert!(!rendered.contains("could not be processed"), "{rendered}");
-    assert!(!rendered.contains("Ánh đèn"), "{rendered}");
-    assert!(rendered.contains(r#""provider_status":"INVALID_ARGUMENT""#));
-    assert!(rendered.contains(r#""retry":"do_not_retry""#));
-    assert!(rendered.contains(r#""recovery":"fix_line_or_casting""#));
+async fn observations_never_contain_dialogue_text_or_provider_messages() {
+    for reply in [
+        status(400, &error_body(400, "INVALID_ARGUMENT")),
+        ok(envelope(&wav(1, 1, 24_000, 16, 48))),
+    ] {
+        let transport = ScriptedTransport::new(true, reply);
+        let plan = narrator_plan();
+        let outcome = synthesize_once(&transport, &plan).await;
+        let record = observation(&plan, &outcome);
+        assert_eq!(record.limitations, LIMITATIONS);
+        assert_eq!(record.adapter_version, "google-cloud-tts-synthesize-2");
+        let rendered = serde_json::to_string(&record).unwrap();
+        assert!(!rendered.contains("Ánh đèn"), "{rendered}");
+        assert!(!rendered.contains("could not be processed"), "{rendered}");
+        assert!(!rendered.contains("audioContent"), "{rendered}");
+    }
 }

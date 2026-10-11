@@ -206,7 +206,7 @@ pub struct ResolvedSynthesisInput {
     pub voice_id: String,
     pub voice_rights_record_id: String,
     pub adapter_version: String,
-    /// This reference-only slice pins `reference-only/no-audio`, not an audio format.
+    /// The adapter's exact output contract; the reference catalog pins `reference-only/no-audio`.
     pub output_contract: String,
     pub performance: SynthesisPerformance,
     pub pronunciation: Vec<ResolvedPronunciation>,

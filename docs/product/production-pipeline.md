@@ -52,13 +52,14 @@ Claims/rates remain actor assertions rather than legal/provider verification. Se
 former local/open-source inference prerequisite; later adapters need explicit provider/rights/
 spend authorization and cannot treat a planning approval as agent permission to pay.
 
-The first provider adapter, Google Cloud TTS for vi-VN ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md),
-proposed), checks declared capabilities before any send, classifies each observation with its
-charge exposure and recovery action, and validates returned audio. Because Google documents no
-request ID, idempotency key, lookup or billing rule for errors, every possibly billed failure
-requires explicit resolution before a repeat. It is reachable only through an opt-in operator
-command; no frozen production line can dispatch until casting gains Google capabilities with an
-explicit emotion mapping and durable attempts/reservations exist.
+The first commercial adapter, Google Cloud TTS for vi-VN ([ADR 0009](../decisions/0009-google-cloud-tts-adapter.md),
+proposed), is castable like eSpeak: its voices require an explicit neutral delivery, frozen lines
+pin its adapter, and the planner re-checks declared capabilities before any send. Because Google
+documents no request ID, idempotency key, lookup or billing rule for errors, every outcome after
+a connection opened may have executed and needs reconciliation before a repeat; returned audio
+passes the shared inspector. It is reachable only through the opt-in `probe-google-tts` operator
+command; production dispatch still needs durable attempts, reservations and a current approval
+check.
 
 ## Cache and partial regeneration
 

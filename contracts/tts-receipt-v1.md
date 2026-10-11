@@ -40,8 +40,9 @@ The fields are `version` (`cantos-tts-receipt-1`), `evidence`, `attempt_id`, `op
 `voice_id`, `adapter_version`. `evidence` is `synthetic_fixture` or `caller_reported`, both
 declarations. No live-evidence flag exists. Reference-only inputs reject caller-reported output.
 Exact `espeak-ng-local` / `espeak-ng-1.52.0` / `espeak-ng-local-v1` identity and
-`wav-pcm-s16le-mono-22050-v1` contract select local output inspection;
-this does not authenticate a caller or accept a production asset.
+`wav-pcm-s16le-mono-22050-v1` contract select local output inspection; exact `google-cloud-tts` /
+`google-cloud-tts-synthesize-2` identity and `wav-pcm-s16le-mono-24000-v1` contract select
+Google output inspection. Neither authenticates a caller or accepts a production asset.
 
 `usage` is `{ "status": "unknown" }` or `reported` with identifier `unit` and integer `count`.
 `charge` is independently `unknown` or `reported` with USD/VND `currency`, integer `amount_minor`
@@ -71,8 +72,9 @@ retry, counter, backoff, reservation or dispatch.
 `output` requires 64 lowercase hex `audio_sha256` plus the third input; failure rejects an
 unexpected WAV. Metadata and actual reads enforce bounds before inspection. The diagnostic
 profiles admit ordinary RIFF/WAVE PCM tag 1, mono signed 16-bit: historical/synthetic
-`cantos-offline-tts-pcm-1` requires 24,000 Hz, while `cantos-espeak-tts-pcm-1` requires the local
-adapter's native 22,050 Hz. Both require nonempty complete decoded frames, at most 120 seconds
+`cantos-offline-tts-pcm-1` requires 24,000 Hz, `cantos-espeak-tts-pcm-1` requires the local
+adapter's native 22,050 Hz and `cantos-google-tts-pcm-1` requires the 24,000 Hz Google requests.
+All require nonempty complete decoded frames, at most 120 seconds
 and 16 MiB actual bytes. The existing
 WAV inspector validates structure; SHA-256 covers the whole file. Facts include checksum,
 integer frames, actual format, inspector/profile versions. No conversion or provider selection
@@ -115,3 +117,26 @@ The same destination is refused rather than overwritten or rerendered. These rec
 manual inspection after interruption; they are not database jobs, automatic restart recovery,
 an external idempotency guarantee, settled billing or accepted production assets. Reported
 Unicode-scalar usage remains distinct from unknown charge and unmeasured local resource cost.
+
+## Explicit Google sample probe
+
+```sh
+cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-id
+cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-id --live /absolute/new-private-output-directory --max-estimate-cents 1
+```
+
+The probe accepts only the exact Google identity and output contract frozen by casting, re-admits
+the snapshot through the same authority, and re-checks voice, family controls, explicit
+`neutral`/0 delivery and text before planning. Without `--live` it prints the plan, request
+digest and list-price estimate, reads no credential and writes nothing. With `--live`, an OAuth
+access token from `CANTOS_GOOGLE_TTS_ACCESS_TOKEN` (and optional `CANTOS_GOOGLE_TTS_QUOTA_PROJECT`)
+authorizes exactly one HTTPS request after the estimate passes the cents cap. The new private
+directory receives create-only `intent.json` and `frozen-document.json` first, then
+`observation.json` (adapter version, request digest, estimate, limitations and the exact
+failure evidence or audio facts) and `receipt.json`, plus `output.wav` and `audit.json` on
+success. A connection that never opened is `timeout`/`not_sent`; every outcome after it is
+`may_have_executed`, because Google documents no lookup, idempotency key or non-execution
+guarantee. Successful usage is `effective-unicode-scalars`; charge stays `unknown`. There is no
+retry, reservation, current approval check or accepted asset. See
+[ADR 0009](../docs/decisions/0009-google-cloud-tts-adapter.md) and the
+[adapter evidence](../docs/evidence/google-tts-adapter.md).
