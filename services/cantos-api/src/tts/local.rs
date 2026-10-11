@@ -356,7 +356,6 @@ mod unix {
         {
             return Err(LocalRunError::MissingOrUnsafeOutput);
         }
-        let output_text = output.to_str().ok_or(LocalRunError::InvalidWorkspaceRoot)?;
         // eSpeak's bulk --stdin path replaces its last byte with NUL. The newline
         // is framing, not a text transformation, and preserves the final UTF-8 byte.
         let mut framed_text = request.text().as_bytes().to_vec();
@@ -374,7 +373,9 @@ mod unix {
                 "-a",
                 "100",
                 "-w",
-                output_text,
+                // The child owns this private cwd. eSpeak's native filename buffer can
+                // truncate deep absolute paths; a fixed basename preserves that boundary.
+                "output.wav",
             ],
             Some(&framed_text),
             private,

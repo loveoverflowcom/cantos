@@ -5,8 +5,11 @@
 > user-controlled Gemini/ChatGPT/Codex host; Cantos validates and persists submitted proposals.
 > [Casting/input authorization](../evidence/casting-production-inputs.md) implements reference-only
 > settings, script-scoped rights/budget declarations, immutable candidates and exact approvals.
-> Production workers, audio, storage/delivery and publication below remain
-> implementation requirements, not capabilities supplied by this repository.
+> The bounded [durable local/fake worker foundation](../evidence/durable-tts-jobs.md) implements
+> development-only PostgreSQL jobs, attempts/reservations, leases and fenced result selection
+> through a separate process in the same backend package. Google commercial dispatch remains
+> disabled and VieNeu is research-only. Full production generation/cache reuse, mixing,
+> storage/delivery and publication below remain implementation requirements.
 
 ## End-to-end flow
 
@@ -74,6 +77,13 @@ Store raw provider output where allowed, normalized dialogue artifacts, scene mi
 ## Jobs and failure recovery
 
 Use PostgreSQL as the authoritative record of production runs, steps, attempts, usage and publication state. An initial design can use database-backed workers; a separate queue is optional.
+
+The bounded [development job contract](../../packages/contracts/durable-jobs-v1.md) now uses
+that authority for explicit local eSpeak/fake dialogue execution. It reuses production-p1 and
+receipt-v1 admission, persists intent/reservation before invocation, claims with leases/fences
+and preserves ambiguous observations for owner reconciliation. Its private filesystem outputs
+are local development records, not storage/CDN assets. Cross-run reuse, outbox, commercial
+settlement and production adoption remain separate gates; a completed job is no approval.
 
 Suggested run states are `queued`, `running`, `waiting_review`, `paused`, `failed`, `cancelled` and `completed`. Suggested step states are `pending`, `leased`, `succeeded`, `failed` and `cancelled`. Keep editorial/publication status separate from worker execution status.
 

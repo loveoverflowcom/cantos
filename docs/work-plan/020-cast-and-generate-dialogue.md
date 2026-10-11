@@ -60,8 +60,16 @@ Studio casting now follows each selected provider/model profile: for eSpeak and 
 kept values the profile cannot honor are flagged rather than replaced
 ([Studio casting evidence](../evidence/studio-provider-casting.md)).
 
-Later slices use PostgreSQL-backed background job states, bounded retries, recovery after
-interruption, cancellation and per-dialogue result caching. Reuse results only when all
+The subsequent requester-authorized [durable local/fake foundation](../evidence/durable-tts-jobs.md)
+starts from merged PR #38 and implements PostgreSQL jobs/steps/attempts/reservations, a separate
+worker in the same backend package, leases/fences, cancellation/pause and conservative restart
+recovery. It admits only exact approved eSpeak inputs or explicit synthetic execution. Google
+commercial dispatch remains disabled and VieNeu remains research-only NO_GO. The
+[development contract](../../packages/contracts/durable-jobs-v1.md) binds result selection to
+the frozen revision, dialogue, input fingerprint and existing receipt audit; completion grants
+no publication/asset approval. Issue #7 remains open until all its criteria are met.
+
+Later slices add cross-run per-dialogue result caching. Reuse results only when all
 synthesis-affecting inputs match. Account for production cost and make uncertain provider
 outcomes visible. A reference capability fixture is not an available voice or provider.
 
@@ -89,10 +97,13 @@ Final episode mastering/publication, a distributed job platform, automatic provi
 3. Complete #6's separate commercial provider selection, applicable terms/rights, authentication
    boundary and test budget before an explicitly authorized cloud/paid sample. Keep #6 open
    until its complete criteria are met or the user explicitly approves a scope change.
-4. After the requester-authorized [existing provider verification PR](../evidence/tts-provider-verification.md)
-   merges, implement #7 durable execution, restart recovery and stable result association with
-   local/fake execution. Preserve the open #6 live/rights/listening gates before production use.
-5. Add casting controls, queue progress, clip preview, and partial regeneration to Studio.
+4. Use the requester-authorized [#7 local/fake foundation](../evidence/durable-tts-jobs.md),
+   following merged [provider verification PR #38](../evidence/tts-provider-verification.md).
+   Complete its remaining production-adoption/reconciliation/storage criteria only within
+   separately authorized work; preserve open #6 live/rights/listening gates before production use.
+5. Implement #8 scoped cache/reuse and partial regeneration, then add Studio queue progress and
+   clip preview. Keep each boundary separately reviewable; mixing/storage/CDN/publication and
+   UI/mobile are outside the worker foundation.
 
 ## Acceptance criteria
 
@@ -137,9 +148,11 @@ or duplicate-result association is a correctness issue required before mixing. P
 listening assessment and training/voice provenance for the completed local neural samples, then
 continue the unfinished #6 commercial and production criteria after their explicit decisions.
 Preserve the local probes' sample-only boundaries and historical reference/Google snapshots.
-The requester-authorized sequence now permits a separate #7 PR after this verification PR
-merges; this PR implements no durable jobs. The [verification handoff](../evidence/tts-provider-verification.md)
-records the remaining commercial, rights and listening requirements.
+The requester-authorized sequence produced the bounded #7 foundation only after verification
+PR #38 merged. The [verification handoff](../evidence/tts-provider-verification.md) and
+[worker evidence](../evidence/durable-tts-jobs.md) preserve the remaining commercial, rights,
+listening, full reuse and production-adoption requirements. Do not close #7 from its foundation
+alone or continue those follow-ups without the owning authorization.
 
 ## GitHub execution
 

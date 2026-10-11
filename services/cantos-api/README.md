@@ -4,8 +4,10 @@ The `cantos-api` package (the one backend service, formerly `cantos-server`) now
 host, PostgreSQL revision persistence and a migration CLI. It remains one modular package.
 Versioned casting and immutable production-input authorization use that same authority.
 Casting can bind Google Cloud TTS voices, and an opt-in probe can synthesize one frozen line;
-production identity deployment, workers, attempt persistence and provider dispatch are not
-implemented.
+the bounded [durable local/fake job foundation](../../docs/evidence/durable-tts-jobs.md) persists
+attempts and reservations and runs a separate `cantos-worker` process from this same package.
+Production identity deployment and commercial dispatch remain unimplemented/disabled. Google
+live/billing is NOT_RUN; VieNeu remains research-only NO_GO for production.
 The only HTTP surface today is the Studio v1 API; the listener (Theatre) API is planned as a separate
 route group and permission context in this same service. The `cantos-server` binary keeps its name.
 [`services/kanidm`](../kanidm/README.md) holds identity-provider configuration; the service does not use it yet.
@@ -27,6 +29,16 @@ route group and permission context in this same service. The `cantos-server` bin
 - `postgres/production.rs` and `http/production.rs`: script-scoped append-only settings,
   declarations, candidates/approvals and thin authenticated route mapping. Current permissions,
   accepted head and evidence are rechecked inside the same PostgreSQL transactions.
+- `jobs.rs`: pure execution-state transitions, bounded retry decisions, lease configuration,
+  exact local-mode admission and versioned input fingerprinting. It imports neither SQL nor
+  HTTP/provider transport. This fingerprint binds one complete resolved dialogue input; it is
+  not a reusable speech-cache key.
+- `postgres/durable.rs`: local PostgreSQL job shell, current snapshot authority, transactional
+  attempt/reservation/send marker, lease/fencing checks, immutable observations and one selected
+  result per step. Ambiguous outcomes pause for explicit reconciliation.
+- `worker.rs`: separate-process imperative shell over that store and the existing receipt,
+  WAV and eSpeak adapters. Explicit synthetic execution supplies an independent create-only
+  provider ledger for failure tests. No broker, new microservice or generic provider framework.
 - `postgres.rs`: current actor/session/access facts, transactions, locked heads, complete
   immutable bytes, evidence ownership links and integrity checks on every load.
 - `http.rs`: thin Axum mapping over the [Studio v1 contract](../../packages/contracts/studio-v1.md).
@@ -59,6 +71,9 @@ route group and permission context in this same service. The `cantos-server` bin
   receipts; historical input decoding remains compatible.
 - `migrations/0006_production_inputs.sql`: versioned settings/rights assertions and immutable
   candidates/approvals; no reservation, generation attempt or charge table.
+- `migrations/0007_durable_jobs.sql`: immutable local/fake run scope, jobs/steps, attempts,
+  dispatch markers, observations, controls, reservations and settlement/resolution records;
+  constraints and triggers protect scope, transitions and write-once selection.
 
 All validated saves are immutable accepted storage revisions. They are not production approvals.
 Metadata-only edits can retain c1 while changing e1 and revision identity; no digest deduplication
@@ -293,6 +308,65 @@ the current suites. [Casting evidence and affected reads](../../docs/evidence/ca
 names actual outputs, limits and DBSP deferral; [ADR 0007](../../docs/decisions/0007-casting-production-inputs.md)
 remains proposed for production adoption. Real adapter/dispatch and settlement work follows only
 in its explicitly authorized owning slice.
+
+## Durable local/fake jobs
+
+The [development contract](../../packages/contracts/durable-jobs-v1.md) exposes authenticated
+`production-jobs` commands and the same-package `cantos-worker` binary. There are no new HTTP
+routes or Studio controls. Both require `CANTOS_ENV=development` and an explicitly configured
+local `CANTOS_DATABASE_URL`; user commands also require `CANTOS_SESSION_TOKEN`. The worker
+defaults to no dispatch and requires either `--local-espeak` or `--test-fake`. Synthetic mode
+still consumes an exact admitted eSpeak snapshot and labels its output as a fixture.
+
+Enqueue requires one currently approved frozen snapshot containing at most 1,000 dialogues.
+The owner, complete revision/export/input digest, settings and required-rights authority are
+rechecked before intent, at the committed send boundary and before result selection. Draft
+edits never alter the frozen document; an ineligible snapshot blocks further work. Status
+remains readable with current script permission after eligibility expires.
+
+```sh
+cargo xtask build cantos-api
+target/debug/production-jobs enqueue <script-id> <snapshot-id> <operation-id> --local-espeak
+target/debug/production-jobs status <run-id>
+target/debug/production-jobs pause <run-id> <operation-id>
+target/debug/production-jobs resume <run-id> <operation-id>
+target/debug/cantos-worker --output-root /absolute/private/directory --worker-id local-worker --local-espeak /absolute/path/to/espeak-ng
+```
+
+The output root must already be a private regular directory (mode `0700` on Unix). Keep it
+outside Git, or in ignored local evidence storage. Attempt directories and files are create-only;
+recovery reopens only the exact attempt's `output.wav` beneath that root and rechecks WAV/hash
+and receipt linkage. These private local records are development evidence, not an object-storage
+adapter or accepted publication assets. Run these examples from the repository root; repository
+build/orchestration/verification remain [`cargo xtask`](../../xtask/README.md). The binaries
+above are application process commands, not another build/test interface.
+
+One transaction commits the reservation and conservative intent before provider invocation;
+another commits the unique send marker after current-authority and fence checks. A worker never
+holds a transaction during synthesis or filesystem I/O. Heartbeats extend expiring leases;
+reclaims increase their fence. Late workers can preserve exact observations and accounting,
+but cannot select a result with a stale fence. Pause and cancel prevent new authorization and
+fence in-flight selection; an invocation already authorized may still finish.
+
+Invalid current authorization pauses a queued job as `authorization_invalid` so it does not
+starve a later eligible job. Recovery quarantines unavailable or invalid recorded output as
+`recorded_output_unavailable` / `recorded_output_invalid`, preserving observations and avoiding
+another provider invocation. These require explicit authority/file repair, not blind retry.
+
+Missing/ambiguous attempt outcomes pause as `uncertain_attempt` and retain reservations.
+`resolve-not-executed <run-id> <attempt-id> <evidence-reference>` records an explicit owner
+attestation, followed by a separate resume. It is not a provider lookup or automatic proof of
+non-execution. A contradictory late observation is preserved and quarantined. Only definitive
+non-execution with transient timeout/rate-limit failure permits retry within the persisted bound;
+the CLI selects three attempts with bounded exponential/equal-jitter delay capped at 30 seconds,
+seeded by the recorded operation UUID and enforced after observation/resolution.
+
+Local eSpeak reserves zero provider-spend units while keeping charge unknown and local settlement
+provisional. Synthetic amounts exercise integer currency budgets under concurrency and are not
+real bills. Commercial accounting/overruns, external idempotency/lookup, cache/reuse, partial
+regeneration, mixing, storage/CDN, publication and UI/mobile integration remain separate work.
+The [evidence report](../../docs/evidence/durable-tts-jobs.md) names actual gates and fault points;
+ordinary workspace tests do not establish PostgreSQL crash recovery.
 
 ## Local TTS sample probe and receipt inspection
 

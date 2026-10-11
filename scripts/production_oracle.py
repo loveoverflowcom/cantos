@@ -114,9 +114,9 @@ def row_counts(env, app_url, script):
         'revisions',(SELECT count(*) FROM script_revisions WHERE script_id='{script}'),
         'reviews',(SELECT count(*) FROM script_reviews WHERE script_id='{script}'),
         'generation_attempts',(SELECT count(*) FROM adaptation_attempts),
-        'generation_or_cost_tables',(SELECT count(*) FROM pg_tables WHERE schemaname='public'
-            AND tablename IN ('production_attempts','production_reservations','production_charges',
-                              'budget_reservations','provider_usage','cost_settlements')))::text;""")
+        'generation_or_cost_rows',(SELECT count(*) FROM durable_attempts)
+            +(SELECT count(*) FROM durable_reservations)
+            +(SELECT count(*) FROM durable_settlements))::text;""")
 
 
 def assert_delta(before, after, **changes):
@@ -124,7 +124,7 @@ def assert_delta(before, after, **changes):
     for name in before:
         assert after[name] == before[name] + changes.get(name, 0), (name, before, after)
     assert after["generation_attempts"] == 0
-    assert after["generation_or_cost_tables"] == 0
+    assert after["generation_or_cost_rows"] == 0
 
 
 def finding_codes(response):
@@ -515,7 +515,7 @@ def production_before_restart(env, port, token, app_url):
     assert counts["rights"] == len(rights_intents)
     assert counts["snapshots"] == len(snapshots) == 3 and counts["approvals"] == 2
     assert counts["revisions"] == 2 and counts["reviews"] == 2
-    assert counts["generation_attempts"] == counts["generation_or_cost_tables"] == 0
+    assert counts["generation_attempts"] == counts["generation_or_cost_rows"] == 0
     reads = bounded_reads(env, app_url, port, token, base, final_snapshot["id"], script)
     reads["writes"] = {name: summarize_latency(samples) for name, samples in writes.items()}
     return {"script": script, "base": base, "catalog": catalog, "source": source,
