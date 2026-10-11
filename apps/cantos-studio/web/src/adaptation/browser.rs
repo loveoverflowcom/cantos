@@ -146,7 +146,7 @@ pub fn ScriptAdaptation(
                         {move || stored.get().map(|response| view! { <ReviewDetails response=response english=english /> })}
                     </details>
                 </StructuredEditor>
-                <ValidationControls preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
+                <ValidationControls id="adaptation-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
                 <label class="adaptation-confirm" for="adaptation-reviewed">
                     <input id="adaptation-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || state.with(|review| review.reviewed_findings)
                         on:change=move |event| state.update(|review| *review = review.review_findings(event_target_checked(&event))) />

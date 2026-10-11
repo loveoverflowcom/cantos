@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These eight unmodified SVG files come from
+These nine unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included

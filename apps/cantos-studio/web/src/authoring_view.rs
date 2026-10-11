@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use cantos_contracts::FieldIssue;
-use cantos_ui::{FieldError, FieldLabel};
+use cantos_ui::{FieldError, FieldLabel, Icon, IconName};
 use leptos::context::Provider;
 use leptos::prelude::*;
 
@@ -637,11 +637,14 @@ fn ChoiceField(
     view! {
         <div class="authoring-field">
             <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+            <div class="cui-select">
             <select class="cui-field-control" id=id disabled=move || ctx.readonly.get() aria-invalid=invalid aria-describedby=move || invalid().then(|| error_id.get_value()) on:change=move |event| { ctx.change(|document| document.set(&target.get_value(), field, &event_target_value(&event))); }>
                 // A select value written before its dynamic children exist is ignored by the
                 // browser. Set option.selected from the current model on every option rebuild.
                 {move || selected_choices(&current.get(), options.get(), unresolved_copy()).into_iter().map(|(value, label, selected)| view! { <option value=value prop:selected=selected>{label}</option> }).collect_view()}
             </select>
+                <Icon name=IconName::ExpandMore/>
+            </div>
             <Show when=invalid><FieldError id=error_id.get_value()>{move || if unresolved() { unresolved_copy().to_string() } else { findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ") }}</FieldError></Show>
         </div>
     }

@@ -138,6 +138,7 @@ pub fn ActionButton(
     english: RwSignal<bool>,
     children: Children,
     on_press: Callback<MouseEvent>,
+    #[prop(optional)] focus_on_press: bool,
     #[prop(optional)] variant: ButtonVariant,
     #[prop(into, default = false.into())] blocked: Signal<bool>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
@@ -152,7 +153,7 @@ pub fn ActionButton(
     };
     let reasons = StoredValue::new((reason, loading));
     view! {
-        <Button id=id variant=variant described_by=described_by on_press=on_press
+        <Button id=id variant=variant described_by=described_by on_press=on_press focus_on_press=focus_on_press
             state=Signal::derive(move || {
                 let busy = busy.get();
                 let reason = reasons.with_value(|(blocked, loading)| if busy { loading } else { blocked }.get(english.get()));

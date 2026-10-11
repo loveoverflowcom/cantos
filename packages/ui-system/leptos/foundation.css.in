@@ -294,6 +294,7 @@
 /* Native form fields: functional boundaries remain; grouping comes from space. */
 :where(.cantos-ui) .cui-field {
   display: grid;
+  align-content: start;
   gap: var(--cantos-space-xs);
   min-inline-size: 0;
 }
@@ -321,6 +322,28 @@
 :where(.cantos-ui) .cui-field-control::placeholder {
   color: var(--cantos-color-on-surface-variant);
   opacity: 1;
+}
+/* Safari's native menulist ignores min-block-size. Style the native select while
+   keeping its built-in option popup, keyboard handling and form semantics. */
+:where(.cantos-ui) .cui-select {
+  position: relative;
+  align-self: start;
+  min-inline-size: 0;
+}
+:where(.cantos-ui) .cui-select > select {
+  appearance: none;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-inline-end: calc(var(--cantos-space-control-inline) + var(--cantos-size-icon) + var(--cantos-space-xs));
+}
+:where(.cantos-ui) .cui-select > .cui-icon {
+  position: absolute;
+  inset-inline-end: var(--cantos-space-control-inline);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--cantos-color-on-surface-variant);
 }
 :where(.cantos-ui) .cui-textarea {
   resize: vertical;
@@ -492,7 +515,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: calc(var(--cantos-size-focus-width) + var(--cantos-size-focus-offset));
-  margin: calc(-1 * (var(--cantos-size-focus-width) + var(--cantos-size-focus-offset)));
+  /* Keep focus room inside the content box. Negative margins produce horizontal
+     scrollable overflow in Safari's native dialog even when all text fits. */
 }
 :where(.cantos-ui) .cui-dialog-actions {
   display: flex;

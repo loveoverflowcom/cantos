@@ -136,6 +136,10 @@ pub fn Button(
     described_by: Signal<String>,
     #[prop(optional, into)] aria_controls: Option<String>,
     #[prop(optional)] aria_expanded: Option<Signal<bool>>,
+    /// Opt in for a dialog trigger: Safari pointer activation does not focus buttons.
+    /// Focus before dispatch lets the native modal capture a real return target.
+    #[prop(optional)]
+    focus_on_press: bool,
 ) -> impl IntoView {
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
@@ -153,6 +157,15 @@ pub fn Button(
                 on:click=move |event| {
                     // Guard synthetic events as well as the native disabled interaction.
                     if state.get_untracked().can_press() {
+                        #[cfg(target_arch = "wasm32")]
+                        if focus_on_press {
+                            use leptos::wasm_bindgen::JsCast;
+                            if let Some(button) = event.current_target().and_then(|target| target.dyn_into::<leptos::web_sys::HtmlElement>().ok()) {
+                                let _ = button.focus();
+                            }
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        let _ = focus_on_press;
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>

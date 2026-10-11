@@ -148,6 +148,15 @@ fn select_renders_native_options_and_checked_controls_keep_native_grouping() {
         <Switch id="autoplay" label="Tự động chuyển tập" checked=false on_change=Callback::new(|_: bool| {})/>
     }.to_html();
     let select = control(&html, "select", "voice");
+    // Safari's native menulist ignores the token min-height. Keep a styled native
+    // select with its decorative, non-focusable indicator, not a custom listbox.
+    assert!(html.contains("class=\"cui-select\""), "{html}");
+    assert!(
+        html.contains("aria-hidden=\"true\" focusable=\"false\""),
+        "{html}"
+    );
+    assert_eq!(html.matches("<select ").count(), 1, "{html}");
+    assert!(!html.contains("role=\"listbox\""), "{html}");
     assert!(select.contains("disabled"), "{select}");
     assert!(select.contains("aria-busy=\"true\""), "{select}");
     assert!(

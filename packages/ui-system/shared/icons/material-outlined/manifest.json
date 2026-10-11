@@ -3,6 +3,10 @@
   "revision": "49d4db35df873165d6bd6ba09b063c7dafbac2f4",
   "license": "Apache-2.0",
   "icons": {
+    "expand_more": {
+      "path": "src/navigation/expand_more/materialiconsoutlined/24px.svg",
+      "sha256": "5295578525e1a0b07f046e994fe32f108913debeac3053ed37124200bb44924f"
+    },
     "add": {
       "path": "src/content/add/materialiconsoutlined/24px.svg",
       "sha256": "670df546c8e7b8f19fb262ec89156108f87fcbcb57b19a40f37244b980cb7b53"

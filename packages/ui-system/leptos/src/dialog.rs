@@ -33,6 +33,8 @@ pub enum DialogError {
 /// an unavailable, outside or unfocusable target reports an error and keeps the safe fallback.
 /// Put scrolling content in `children` and bounded confirmation controls in `actions`.
 /// No background click dismissal, application decision or focus selector is installed.
+/// The opener must have focus before requesting open. For shared Button triggers use
+/// `focus_on_press=true`, since Safari does not focus a button on pointer activation.
 ///
 /// Native focus containment, Escape and restoration require real-browser verification.
 /// String rendering intentionally leaves the dialog closed, even when open is requested.

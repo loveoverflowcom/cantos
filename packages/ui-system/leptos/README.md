@@ -52,6 +52,14 @@ Composition hooks on TextField/TextArea let apps defer validation/autosave durin
 raw input events still dispatch. Updating the controlled signal acknowledges an edit. A caller that
 rejects an edit should deliberately restore the DOM value; there is no hidden application reducer.
 Select applies its controlled value after native options mount; options must have stable values.
+Its non-focusable outlined indicator decorates the native control. Scoped `appearance: none`
+lets Safari honor the shared minimum control size while native options, keyboard and form
+behavior remain in charge.
+
+Dialog triggers must have focus before setting `open`. Set `Button`'s opt-in
+`focus_on_press=true` for a pointer trigger (as the gallery and Studio discard action do):
+Safari otherwise leaves focus on the body or a previous control, which cannot reliably
+serve as the return target. Other buttons retain native pointer focus behavior.
 For SSR selection or async option insertion without a value change, bind native option `selected`
 to the same caller value (or remount after reconciling the options). Opaque children are not observed
 by a hidden mutation observer.

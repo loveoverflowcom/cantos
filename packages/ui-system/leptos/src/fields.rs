@@ -1,6 +1,6 @@
 //! Native controlled fields. Apps own values, validation, localization and durable decisions.
 
-use crate::DisabledReason;
+use crate::{DisabledReason, Icon, IconName};
 use leptos::{ev::CompositionEvent, prelude::*};
 
 /// Text entry supports native read-only selection/copy without disabling the field.
@@ -418,17 +418,20 @@ pub fn Select(
     view! {
         <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
             <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
-            <select id=id.clone() node_ref=node class="cui-field-control" name=name required=required
-                prop:value=move || value.get() disabled=move || !state.get().accepts_input()
-                aria-busy=move || state.get().is_loading().to_string()
-                aria-invalid=move || has_text(&error.get()).to_string()
-                aria-describedby=move || descriptions.get()
-                aria-errormessage=move || error_reference.get()
-                on:change=move |event| {
-                    if state.get_untracked().accepts_input() {
-                        on_input.run(event_target_value(&event));
-                    }
-                }>{children()}</select>
+            <div class="cui-select">
+                <select id=id.clone() node_ref=node class="cui-field-control" name=name required=required
+                    prop:value=move || value.get() disabled=move || !state.get().accepts_input()
+                    aria-busy=move || state.get().is_loading().to_string()
+                    aria-invalid=move || has_text(&error.get()).to_string()
+                    aria-describedby=move || descriptions.get()
+                    aria-errormessage=move || error_reference.get()
+                    on:change=move |event| {
+                        if state.get_untracked().accepts_input() {
+                            on_input.run(event_target_value(&event));
+                        }
+                    }>{children()}</select>
+                <Icon name=IconName::ExpandMore/>
+            </div>
             <FieldMessages id=id help=help error=error reason=reason/>
         </div>
     }

@@ -356,6 +356,7 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                                             <h3 id="gallery-dialog-heading">"Hộp thoại native điều khiển từ bên ngoài"</h3>
                                             <p>"Mở rồi thử Tab / Shift+Tab, Escape và đóng bằng nút. Quan sát focus có quay về nút mở; văn bản trong hộp thoại phải còn khi mở lại."</p>
                                             <Button id="gallery-dialog-open" variant=ButtonVariant::Tonal
+                                                focus_on_press=true
                                                 aria_controls="gallery-dialog"
                                                 on_press=Callback::new(move |_| {
                                                     dialog_count.update(|count| *count += 1);

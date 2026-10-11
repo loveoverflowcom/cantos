@@ -99,6 +99,7 @@ pub(crate) fn check_script(
 
 #[component]
 pub(crate) fn ValidationControls(
+    #[prop(into)] id: String,
     preview: RwSignal<ValidationPreview>,
     issues: RwSignal<Vec<FieldIssue>>,
     draft: Signal<String>,
@@ -109,7 +110,7 @@ pub(crate) fn ValidationControls(
     let api = expect_context::<StudioContext>().api;
     view! {
         <div class="validation-controls">
-            <ActionButton id="revision-validate" english=english variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || disabled.get() || actor.get().is_empty()) busy=Signal::derive(move || preview.with(|p| p.busy)) on_press=Callback::new(move |_| {
+            <ActionButton id=id english=english variant=ButtonVariant::Tonal reason=BlockReason::ContextReady blocked=Signal::derive(move || disabled.get() || actor.get().is_empty()) busy=Signal::derive(move || preview.with(|p| p.busy)) on_press=Callback::new(move |_| {
                 if !disabled.get_untracked() { check_script(preview, issues, api, actor.get_untracked(), draft.get_untracked(), draft); }
             })>{move || text(Key::Validate, english.get())}</ActionButton>
             <UiStatus announcement=Announcement::Polite>{move || preview.with(|p| {
@@ -313,7 +314,7 @@ pub fn Studio() -> impl IntoView {
                     on_change=Callback::new(move |text| { state.update(|e| *e = e.edit(text)); issues.set(vec![]); reviewed.set(false); })>
                     <RevisionInspector state=state english=english activity=inspector_pending draft_activity=activity />
                 </StructuredEditor>
-                <ValidationControls preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
+                <ValidationControls id="revision-validate" preview=preview issues=issues draft=draft actor=actor english=english disabled=Signal::derive(move || blocked() || activity.get()) />
                 <label class="adaptation-confirm" for="revision-reviewed"><input id="revision-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || reviewed.get()
                     on:change=move |e| reviewed.set(event_target_checked(&e)) /><span>{move || text(Key::ReviewBeforeSave, english.get())}</span></label>
                 <div class="toolbar">
@@ -329,6 +330,7 @@ pub fn Studio() -> impl IntoView {
                         if let Some((saving,intent)) = state.get_untracked().retry() { state.set(saving); dispatch_save(state,issues,api,intent); }
                     })>{move || copy().retry}</ActionButton></Show>
                     <ActionButton id="revision-discard" english=english variant=ButtonVariant::Secondary
+                        focus_on_press=true
                         blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())
                         on_press=Callback::new(move |_| {
                             if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }

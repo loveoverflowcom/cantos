@@ -80,3 +80,17 @@ historical Linux browser evidence to this Mac integration. Prioritize mounted-pa
 native Enter submission, stable casting options/neutral0, dialog Escape/return focus and CSS
 scope at 320/360/600/768/840/1440, both themes and 200% zoom. Source and native HTML-string
 checks do not settle those runtime gates. No later session starts automatically.
+
+## Final review disposition
+
+Session 4's [independent review](../evidence/ui-system-review.md) found and fixed duplicate mounted
+validation IDs, Safari select sizing/reflow, native dialog overflow and pointer-trigger return
+focus. Safari observations now cover a bounded local gallery and Studio fixture flow at measured
+320/360/768/1440 CSS iframe widths, with native page zoom and direct-page dialog checks recorded
+separately. VoiceOver, OS IME, reduced motion/forced colors, other browsers and mobile remain
+explicit evidence gaps. No production or listening acceptance follows from these checks.
+
+Before any publication, finish the authorized local PR30/develop reconciliation and read its
+final command/path compatibility result in that review. Preserve PR29's casting/neutral-zero
+contracts and the deferred CMP boundary. This queue recommends closing the requested UI sequence
+with its evidence, then addressing only those residual gates a subsequent request selects.

@@ -9,6 +9,7 @@ use crate::{
     view::operation_id,
 };
 use cantos_contracts::{Extraction, ImportFormat, ImportOutcome, ImportResponse};
+use cantos_ui::{Icon, IconName};
 use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -111,6 +112,7 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                         }
                     } />
                 <label for="import-format">{move || copy().format}</label>
+                <div class="cui-select">
                 <select class="cui-field-control" id="import-format" disabled=blocked prop:value=move || state.with(|editor| format_value(editor.metadata.format))
                     on:change=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.format = selected_format(&event_target_value(&event))))>
                     <option value="txt">{move || copy().txt}</option>
@@ -118,6 +120,8 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                     <option value="docx">{move || copy().docx}</option>
                     <option value="script_ir">{move || copy().script_ir}</option>
                 </select>
+                    <Icon name=IconName::ExpandMore/>
+                </div>
                 <label for="import-reference">{move || copy().reference}</label>
                 <input class="cui-field-control" id="import-reference" disabled=blocked maxlength="2048" autocomplete="off" required aria-describedby="import-field-findings"
                     prop:value=move || state.with(|editor| editor.metadata.reference.clone())

@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "packages/ui-system/shared/icons/material-outlined"
 OUTPUT = ROOT / "packages/ui-system/leptos/src/icons.rs"
-ALLOWED = {"path": {"d", "fill"}, "rect": {"x", "y", "width", "height", "fill"}, "g": {"fill"}}
+ALLOWED = {"path": {"d", "fill", "opacity"}, "rect": {"x", "y", "width", "height", "fill"}, "g": {"fill"}}
 
 
 def variant(name):

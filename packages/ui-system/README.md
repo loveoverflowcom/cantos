@@ -2,7 +2,8 @@
 
 The implemented Web foundation follows the shared [product UI requirements](../../docs/design/ui-system.md).
 One canonical [token source](shared/tokens.json) serves Cantos Studio and Cantos Theatre.
-Studio consumes its CSS and typed theme; Theatre remains a skeleton until the integration slice.
+Studio consumes its controls, CSS and typed theme; the bounded Theatre skeleton consumes the same
+foundation and navigation. Theatre's catalog and playback remain unavailable.
 This is a small renderer package, not a second application or a domain authority.
 
 | Owner | Contents | State |

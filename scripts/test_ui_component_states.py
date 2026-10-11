@@ -1,4 +1,4 @@
-"""Independent opaque-surface contrast oracle for the actual navigation state layer."""
+"""Independent contrast and mounted-consumer anatomy checks for the UI system."""
 
 import json
 from pathlib import Path
@@ -25,6 +25,25 @@ def ratio(a, b):
 
 
 class ComponentStates(unittest.TestCase):
+    def test_studio_validation_controls_keep_unique_ids_across_mounted_panes(self):
+        # Both panes remain mounted even while hidden. Inspect the real CSR callsites;
+        # native string fixtures of a single action cannot detect this collision.
+        callers = (ROOT / "apps/cantos-studio/web/src/view.rs",
+                   ROOT / "apps/cantos-studio/web/src/adaptation/browser.rs")
+        ids = []
+        for path in callers:
+            calls = re.findall(r"<ValidationControls\s+(.*?)\s*/>", path.read_text(), re.S)
+            self.assertEqual(len(calls), 1, path)
+            control_id = re.search(r'\bid="([^\"]+)"', calls[0])
+            self.assertIsNotNone(control_id, f"{path}: caller must own its validation ID")
+            ids.append(control_id.group(1))
+        self.assertEqual(len(ids), len(set(ids)), "mounted validation controls share an ID")
+        reserved_ids = [value + suffix for value in ids for suffix in ("", "-reason")]
+        self.assertEqual(len(reserved_ids), len(set(reserved_ids)))
+        component = callers[0].read_text().split("fn ValidationControls(", 1)[1].split(
+            "fn dispatch_save(", 1)[0]
+        self.assertRegex(component, r"<ActionButton\s+id=id\b")
+
     def test_oracle_anchors_black_white_and_alpha_composition(self):
         self.assertEqual(ratio(channels("#000000"), channels("#ffffff")), 21)
         self.assertAlmostEqual(ratio(channels("#777777"), channels("#ffffff")),
