@@ -99,3 +99,13 @@ the [publication record](../evidence/ui-system-publication.md) records final rec
 PR31/PR32, the mutation workspace-copy correction and actual combined local verification.
 The UI decision is now ADR 0014, preserving upstream MessagePack ADR 0013. This request does
 not start CMP or advance production/listening acceptance; residual UI gates remain explicit.
+
+## Subsequent two-preview request
+
+The later user request adds a concrete CMP desktop diagnostic app beside the existing Leptos
+gallery, a shared component/state registry, named-token inspection and enforceable before-app
+admission. [Preview evidence](../evidence/ui-system-previews.md) records the exact local checks.
+Keep mobile products/listening and production backend scope unchanged. The next required step for
+an unqualified new component is its missing target runtime/accessibility/design-reference evidence;
+do not promote it to a real app from source parity alone. Platform-specific differences require
+reviewed explicit reasons, not a pretend cross-renderer pass.

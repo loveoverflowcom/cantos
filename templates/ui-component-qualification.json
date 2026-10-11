@@ -1,0 +1,15 @@
+{
+  "component_id": "replace-with-registered-id",
+  "renderer": "replace-with-leptos-or-cmp",
+  "status": "NOT_RUN",
+  "reviewer": "Name of the actual reviewer",
+  "reference": "Verified reference and same-scenario comparison",
+  "tokens_sha256": "replace-with-current-digest",
+  "source_sha256": "replace-with-current-renderer-digest",
+  "checks": {
+    "structural": {"status": "NOT_RUN", "command": "Exact verifier command", "artifact": "artifacts/ui-evidence/structural.log"},
+    "runtime": {"status": "NOT_RUN", "command": "Exact scenario and renderer command", "artifact": "artifacts/ui-evidence/runtime.json"},
+    "accessibility": {"status": "NOT_RUN", "command": "Exact keyboard/focus and semantics scenario", "artifact": "artifacts/ui-evidence/accessibility.json"},
+    "visual": {"status": "NOT_RUN", "command": "Inspected viewport/theme/text-scale comparison", "artifact": "artifacts/ui-evidence/visual.png"}
+  }
+}

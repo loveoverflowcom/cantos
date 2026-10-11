@@ -7,6 +7,13 @@ use std::net::{Ipv4Addr, SocketAddr};
 pub const REQUIRED_RUST: &str = "1.87";
 /// Trunk version the web READMEs document.
 pub const TRUNK_VERSION: &str = "0.21.14";
+/// Reviewed installed Gradle version for the package-local CMP preview (no wrapper download).
+pub const GRADLE_VERSION: &str = "8.14.3";
+pub const UI_LEPTOS_DIR: &str = "packages/ui-system/leptos";
+pub const UI_CMP_DIR: &str = "packages/ui-system/cmp";
+pub const UI_PREVIEW_PORT: u16 = 8083;
+pub const UI_PREVIEW_MARKER: &str = "<title>Cantos UI foundation preview</title>";
+pub const UI_PREVIEW_DIST: &str = "../../../target/ui-foundation-preview";
 pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 /// Default comparison base for `preflight --changed-only`.
 pub const DEFAULT_BASE: &str = "origin/develop";
@@ -107,6 +114,13 @@ mod tests {
             let manifest = read(&format!("{}/Cargo.toml", app.web_dir()));
             assert!(manifest.contains(&format!("name = \"{}\"", app.web_package())));
         }
+    }
+
+    #[test]
+    fn leptos_preview_marker_matches_its_package_local_entrypoint() {
+        assert!(read(&format!("{UI_LEPTOS_DIR}/preview.html")).contains(UI_PREVIEW_MARKER));
+        assert_eq!(UI_PREVIEW_PORT, 8083);
+        assert!(!App::ALL.iter().any(|app| app.web_port() == UI_PREVIEW_PORT));
     }
 
     #[test]

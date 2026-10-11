@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Validate the canonical UI tokens and generate the scoped Leptos mappings.
+"""Validate canonical UI tokens and generate the Leptos and CMP mappings.
 
 Generation is a pure transformation. The command validates every artifact before
 staging per-file atomic replacements; it never writes a partly validated source.
-CMP deliberately has no generated runtime in this slice.
+Native dimensions stay logical dp/sp values; CSS units never cross renderers.
 """
 
 import argparse
@@ -24,6 +24,7 @@ OUTPUTS = {
     "css": ROOT / "packages/ui-system/leptos/tokens.css",
     "rust": ROOT / "packages/ui-system/leptos/src/tokens.rs",
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
+    "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
 VERSION = "0.2.0"
 TYPES = {
@@ -416,11 +417,66 @@ def _foundation(source, template):
     return "/* " + header + " */\n" + rendered.rstrip() + "\n"
 
 
+def kotlin_string(value):
+    """Quote data, including Kotlin's interpolation marker, without executable content."""
+    return json.dumps(str(value), ensure_ascii=False).replace("$", "\\$")
+
+
+def logical_value(token):
+    """Native token inspection preserves logical numbers, never rem or CSS shadows."""
+    value = token["value"]
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return _number(value) if type(value) in (int, float) else str(value)
+
+
+def _kotlin(source):
+    canonical = source["tokens"] | source["themes"]["light"]
+    roles = sorted(set(canonical) | set(source["aliases"]))
+    lines = ["// " + _header(source).replace("\n   ", "\n// "),
+             "package com.cantos.ui.generated", "",
+             "data class TokenValue(", "    val name: String, val kind: String,",
+             "    val light: String, val dark: String,",
+             "    val compact: String?, val comfortable: String?, val aliasOf: String?", ")", "",
+             "object CantosTokens {", f'    const val version: String = "{source["version"]}"',
+             "    val entries: List<TokenValue> = listOf("]
+    for role in roles:
+        target = source["aliases"].get(role, role)
+        light = source["tokens"].get(target, source["themes"]["light"].get(target))
+        dark = source["tokens"].get(target, source["themes"]["dark"].get(target))
+        values = [role, light["type"], logical_value(light), logical_value(dark)]
+        args = [kotlin_string(value) for value in values]
+        for density in ("compact", "comfortable"):
+            value = source["density"][density].get(target)
+            args.append(kotlin_string(_number(value)) if value is not None else "null")
+        args.append(kotlin_string(target) if target != role else "null")
+        lines.append("        TokenValue(" + ", ".join(args) + "),")
+    reduced = ", ".join(kotlin_string(name) for name in sorted(source["reduced_motion"]))
+    lines += ["    )", "    val names: List<String> = entries.map { it.name }",
+              "    private val byName = entries.associateBy { it.name }",
+              f"    private val reducedRoles = setOf({reduced})", "",
+              "    fun raw(name: String, theme: String = \"light\", density: String = \"compact\"): String {",
+              "        require(theme == \"light\" || theme == \"dark\") { \"Unknown theme: $theme\" }",
+              "        require(density == \"compact\" || density == \"comfortable\") { \"Unknown density: $density\" }",
+              "        val token = requireNotNull(byName[name]) { \"Unknown token: $name\" }",
+              "        val override = if (density == \"comfortable\") token.comfortable else token.compact",
+              "        return override ?: if (theme == \"dark\") token.dark else token.light", "    }", "",
+              "    fun color(name: String, theme: String): String {",
+              "        require(byName[name]?.kind == \"color\") { \"Not a color token: $name\" }",
+              "        return raw(name, theme)", "    }", "",
+              "    fun number(name: String, density: String = \"compact\", reducedMotion: Boolean = false): Double {",
+              "        require(byName[name]?.kind in setOf(\"dimension\", \"number\", \"fontWeight\", \"duration\")) {",
+              "            \"Not a numeric token: $name\"", "        }",
+              "        return if (reducedMotion && name in reducedRoles) 0.0 else raw(name, density = density).toDouble()",
+              "    }", "", "    fun text(name: String): String = raw(name)", "}", ""]
+    return "\n".join(lines)
+
+
 def outputs(raw, template, output_root=ROOT):
     """Return every generated path/content after validating the whole source."""
     source = validate(load_source(raw))
     contents = {"css": _css(source), "rust": _rust(source),
-                "foundation": _foundation(source, template)}
+                "foundation": _foundation(source, template), "kotlin": _kotlin(source)}
     return {Path(output_root) / path.relative_to(ROOT): contents[name]
             for name, path in OUTPUTS.items()}
 

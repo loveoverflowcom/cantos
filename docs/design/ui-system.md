@@ -70,6 +70,13 @@ Web and mobile share vocabulary and state meaning, while navigation, safe areas,
 
 ## Components and interaction states
 
+New shared components follow the user-requested
+[two-preview admission contract](../../packages/ui-system/shared/README.md#preview-registration-and-adoption):
+declare actual examples and concrete state scenarios in both package-local Leptos and CMP apps,
+inspect named canonical tokens and the design reference, and pass the required renderer checks
+before first real application use. Registration/compilation alone is insufficient. Unsupported
+or unrun targets remain explicit and unqualified; current import compatibility never grants new approval.
+
 Document anatomy, variants, and states once for buttons, icon buttons, filter chips, navigation, text fields, episode rows, player controls, job status, QC findings, and confirmation dialogs. Cover idle, hover where relevant, focused, pressed, selected, disabled with reason, loading, error, empty, and success. Disabled actions need a discoverable reason when permissions, QC, or missing inputs block progress.
 
 Use native semantic HTML and input behavior on the web before custom ARIA patterns. Actions are buttons; navigation is links. Keyboard focus is visible and unobscured; dialogs contain focus and restore it to the initiating control. Support tab traversal, meaningful headings, editor input methods, undo where available, and a keyboard-accessible alternative to drag-only reordering.

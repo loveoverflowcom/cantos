@@ -101,7 +101,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     #[test]
-    fn ci_jobs_cover_every_full_preflight_gate_except_mutation() {
+    fn ci_jobs_cover_full_preflight_except_mutation_and_the_local_only_cmp_preview() {
         let ci: BTreeSet<GateKind> = CiJob::ALL
             .iter()
             .flat_map(|job| job.gates())
@@ -110,8 +110,8 @@ mod tests {
         let full: BTreeSet<GateKind> = gate::full().iter().map(Gate::kind).collect();
         assert_eq!(
             full.difference(&ci).copied().collect::<Vec<_>>(),
-            [GateKind::Mutation],
-            "mutation stays a preflight/verify gate; everything else must run in CI"
+            [GateKind::CmpUiPreview, GateKind::Mutation],
+            "mutation stays opt-in; the local CMP preview needs its own provisioned Gradle CI lane"
         );
     }
 

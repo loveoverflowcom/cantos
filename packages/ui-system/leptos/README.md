@@ -86,9 +86,34 @@ come from canonical v0.2.0 roles. No per-component dark palette, font download o
 System/local font fallbacks remain explicit. Layout measures (75ch/76rem and dialog maximum) are
 renderer geometry; spacing, colors, type, shape, targets, density and focus use shared tokens.
 
-The [development gallery](preview.html) shows every component with long Vietnamese text. State,
-error, theme and density controls exercise reactive contracts; event counts and values remain visible.
-Its native string-render tests cover anatomy/escaping/ID uniqueness, not browser accessibility.
+The [development gallery](preview.html) shows every component with long Vietnamese text. Its
+discovery catalogue consumes the [shared component registrations](../shared/preview-catalog.json)
+and generated [token metadata](src/preview_catalog.rs), including stable IDs, sample states and
+separate Leptos/CMP status and reasons. Registration is not runtime qualification.
+
+Search matches all whitespace-separated words, case-insensitively, against component API names,
+IDs, family names, sample states and renderer status. Select a family or follow a catalogue link
+to its actual examples. Theme/density settings and native family navigation stay visible; other
+sample regions use `hidden` without remounting their controls. The controlled Dialog remains
+outside these filters, and its trigger keeps `focus_on_press=true`. The reset action reveals all
+samples. A separate read-only token search exposes every semantic name, its generated CSS variable,
+both theme values, density overrides and aliases. Open a token to inspect its specimen: active-theme
+color swatches; Vietnamese font-family/size/weight/line-height samples; actual spacing, shape,
+control/icon dimensions and stroke geometry; static shadow/opacity samples. Every specimen binds
+only its generated CSS role, so theme/density changes update it without copying values. Breakpoints,
+motion and unsupported dimensions remain labelled value-only; no animation or viewport simulation
+is implied. Native disclosure controls keep this detailed inventory compact.
+
+State, error, theme and density controls exercise reactive contracts; event counts and values
+remain visible. [`preview/gallery.css`](preview/gallery.css) scopes discovery layout to this
+diagnostic app and consumes shared token roles; it does not alter production component styles.
+Developer-only catalogue copy stays local to the preview. Add new APIs to the shared registration
+source and provide actual examples/tests in both renderer previews before seeking production
+qualification; do not copy the gallery into an app route.
+
+Its native string-render tests cover anatomy/escaping/ID uniqueness, generated catalogue coverage,
+pure discovery matching, hidden-only filtering, rendered token values and specimen anatomy. They
+do not establish browser focus retention, modal behavior, accessibility or visual fidelity.
 The preview feature is diagnostic CSR, not a production route or service:
 
 ```sh
@@ -99,7 +124,8 @@ This canonical gate lints all three WASM consumers (including the preview featur
 apps and builds the gallery into `target/ui-foundation-preview`. For changed-path checks use
 `cargo xtask preflight --changed-only`; `cargo xtask verify repository` checks generator drift,
 icons and Python examples, while `cargo xtask verify rust` checks native workspace examples.
-No gallery production route or CMP runtime is added.
+No gallery production route or service is added; the separate CMP preview owns its own runtime
+evidence and never inherits browser or native HTML-string test results.
 
 Runtime focus/dialog/keyboard, exact responsive widths, text scaling, forced colors, motion and
 screen-reader observations have separate evidence in the [component record](../../../docs/evidence/ui-system-components.md).
@@ -134,4 +160,5 @@ move from `<id>-unsupported` to `<id>-error` for migrated selects; accessible la
 from the complete retained-value note. Buffered numeric inputs keep their existing unsupported ID.
 No library API, tokens or icon geometry changed during integration. [Evidence](../../../docs/evidence/ui-system-integration.md)
 records app regressions, builds and runtime gaps; component-gallery evidence alone never verifies
-an app, and no CMP runtime consumer is implemented.
+an app. That historical integration record does not qualify the later
+[CMP development preview](../cmp/README.md) or its native runtime.

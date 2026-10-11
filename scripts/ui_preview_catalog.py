@@ -1,0 +1,388 @@
+#!/usr/bin/env python3
+"""Generate both preview registries and guard new application component adoption.
+
+Structural registration is not design approval. Qualification records must name actual
+runtime, accessibility and inspected-reference evidence for both renderers and match
+the current source/token digests. Existing exact import sites are a compatibility baseline.
+"""
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import re
+import sys
+
+from ui_tokens import (
+    ROOT, SOURCE, check_outputs, css_value, kotlin_string, load_source,
+    validate as validate_tokens, variable, write_outputs,
+)
+
+CATALOG = ROOT / "packages/ui-system/shared/preview-catalog.json"
+RUST_OUTPUT = ROOT / "packages/ui-system/leptos/src/preview_catalog.rs"
+KOTLIN_OUTPUT = ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/PreviewCatalog.kt"
+FAMILIES = {"foundation", "actions", "navigation", "fields", "feedback", "layout", "icons", "dialog"}
+RENDERERS = {"leptos", "cmp"}
+STATUSES = {"registered", "implemented-unverified", "unsupported"}
+NAME = re.compile(r"[A-Z][A-Za-z0-9]*")
+ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
+SHA = re.compile(r"[0-9a-f]{64}")
+
+
+def source_text(content, keep_strings=True):
+    """Remove comments (including nested blocks), optionally opaque string literals.
+
+    This bounded lexer supports ordinary, Kotlin triple and Rust raw strings. It is not a
+    compiler; renderer compilation/tests remain an independent requirement.
+    """
+    result, index = [], 0
+    strings = re.compile(r'"""[\s\S]*?"""|r(?P<hashes>\#*)"[\s\S]*?"(?P=hashes)|"(?:\\.|[^"\\])*"')
+    while index < len(content):
+        literal = strings.match(content, index)
+        if literal:
+            result.append(literal.group() if keep_strings else " ")
+            index = literal.end()
+        elif content.startswith("//", index):
+            end = content.find("\n", index)
+            index = len(content) if end < 0 else end
+        elif content.startswith("/*", index):
+            depth = 1
+            index += 2
+            while index < len(content) and depth:
+                if content.startswith("/*", index):
+                    depth += 1
+                    index += 2
+                elif content.startswith("*/", index):
+                    depth -= 1
+                    index += 2
+                else:
+                    if content[index] == "\n":
+                        result.append("\n")
+                    index += 1
+            result.append(" ")
+        else:
+            result.append(content[index])
+            index += 1
+    return "".join(result)
+
+
+def object_keys(value, keys, label):
+    if not isinstance(value, dict) or set(value) != set(keys):
+        raise ValueError(f"{label}: expected keys {', '.join(sorted(keys))}")
+
+
+def text(value, label):
+    if not isinstance(value, str) or not value.strip() or any(ord(c) < 32 for c in value):
+        raise ValueError(f"{label}: nonempty single-line text required")
+    return value
+
+
+def relative_path(value, label):
+    value = text(value, label)
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts or path.as_posix() != value:
+        raise ValueError(f"{label}: repository-relative path required")
+    return path
+
+
+def safe_location(root, value, label):
+    root = Path(root).resolve()
+    path = root / relative_path(value, label)
+    if not path.resolve().is_relative_to(root):
+        raise ValueError(f"{label}: symlink escapes repository")
+    return path
+
+
+def validate(source):
+    object_keys(source, {"version", "components", "baseline_consumers", "qualifications"}, "catalog")
+    if type(source["version"]) is not int or source["version"] != 1:
+        raise ValueError("catalog: supported version is 1")
+    if not isinstance(source["components"], list) or not source["components"]:
+        raise ValueError("catalog: components must be a nonempty list")
+    ids, names = set(), set()
+    for entry in source["components"]:
+        object_keys(entry, {"id", "name", "family", "states", "leptos", "cmp"}, "component")
+        if not isinstance(entry["id"], str) or not ID.fullmatch(entry["id"]) or entry["id"] in ids:
+            raise ValueError("component: invalid or duplicate id")
+        if not isinstance(entry["name"], str) or not NAME.fullmatch(entry["name"]) or entry["name"] in names:
+            raise ValueError("component: invalid or duplicate name")
+        ids.add(entry["id"])
+        names.add(entry["name"])
+        if entry["family"] not in FAMILIES:
+            raise ValueError(f"{entry['id']}: unknown family")
+        states = entry["states"]
+        if not isinstance(states, list) or not states or any(not isinstance(s, str) or not ID.fullmatch(s) for s in states):
+            raise ValueError(f"{entry['id']}: named states required")
+        if len(set(states)) != len(states):
+            raise ValueError(f"{entry['id']}: duplicate states")
+        for renderer in sorted(RENDERERS):
+            registration = entry[renderer]
+            object_keys(registration, {"status", "reason"}, f"{entry['id']}/{renderer}")
+            if registration["status"] not in STATUSES:
+                raise ValueError(f"{entry['id']}/{renderer}: registration is not qualification")
+            text(registration["reason"], f"{entry['id']}/{renderer}/reason")
+    if not isinstance(source["baseline_consumers"], list):
+        raise ValueError("baseline_consumers: list required")
+    seen = set()
+    for site in source["baseline_consumers"]:
+        object_keys(site, {"renderer", "path", "components"}, "baseline consumer")
+        renderer = site["renderer"]
+        path = relative_path(site["path"], "baseline consumer path")
+        if renderer not in RENDERERS or not path.parts or path.parts[0] != "apps":
+            raise ValueError("baseline consumer: application renderer/path required")
+        key = renderer, path.as_posix()
+        if key in seen:
+            raise ValueError("baseline consumer: duplicate site")
+        seen.add(key)
+        entries = site["components"]
+        if not isinstance(entries, list) or not entries or len(set(entries)) != len(entries) or not set(entries) <= names:
+            raise ValueError("baseline consumer: registered unique components required")
+    if not isinstance(source["qualifications"], list):
+        raise ValueError("qualifications: list required")
+    qualified = set()
+    for item in source["qualifications"]:
+        object_keys(item, {"component_id", "evidence"}, "qualification")
+        ident = item["component_id"]
+        if ident not in ids or ident in qualified:
+            raise ValueError("qualification: unknown or duplicate component")
+        qualified.add(ident)
+        object_keys(item["evidence"], RENDERERS, "qualification evidence")
+        for renderer, path in item["evidence"].items():
+            relative_path(path, f"qualification/{renderer}")
+            if not path.startswith("docs/evidence/") or not path.endswith(".json"):
+                raise ValueError("qualification: evidence must be a repository docs/evidence JSON record")
+    return source
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def renderer_digest(renderer, root=ROOT, declarations=None):
+    """Invalidate approval for runtime/source edits and component/state contract changes.
+
+    Exclude evidence and baseline metadata from the declaration digest: evidence contains this
+    hash, so hashing the whole catalogue would make qualification recursively impossible.
+    """
+    directory = Path(root) / "packages/ui-system" / renderer
+    suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
+    excluded = {"preview_catalog.rs", "PreviewCatalog.kt"}
+    records = {}
+    if declarations is None:
+        declarations = load_source((Path(root) / CATALOG.relative_to(ROOT)).read_bytes())["components"]
+    records["shared-component-declarations"] = digest(declarations)
+    build_inputs = ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml") if renderer == "leptos" else ()
+    for relative in build_inputs:
+        path = Path(root) / relative
+        records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
+    for path in sorted(directory.rglob("*")):
+        if path.is_file() and path.suffix in suffixes and path.name not in excluded and not {"build", ".gradle"}.intersection(path.parts):
+            records[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return digest(records)
+
+
+def validate_evidence(entry, renderer, path, tokens_sha256, root=ROOT, declarations=None):
+    """Verify record freshness and honest named evidence; no pixel comparison is fabricated."""
+    location = safe_location(root, path, "evidence path")
+    try:
+        record = load_source(location.read_bytes())
+    except OSError as error:
+        raise ValueError(f"{entry['id']}/{renderer}: missing qualification evidence {path}") from error
+    object_keys(record, {"component_id", "renderer", "status", "reviewer", "reference", "tokens_sha256", "source_sha256", "checks"}, "evidence")
+    if record["component_id"] != entry["id"] or record["renderer"] != renderer or record["status"] != "PASS":
+        raise ValueError(f"{entry['id']}/{renderer}: evidence identity/status mismatch")
+    text(record["reviewer"], "evidence reviewer")
+    text(record["reference"], "evidence inspected reference")
+    if record["tokens_sha256"] != tokens_sha256 or record["source_sha256"] != renderer_digest(renderer, root, declarations):
+        raise ValueError(f"{entry['id']}/{renderer}: stale source or token qualification")
+    object_keys(record["checks"], {"structural", "runtime", "accessibility", "visual"}, "evidence checks")
+    for check, result in record["checks"].items():
+        object_keys(result, {"status", "command", "artifact"}, f"evidence/{check}")
+        if result["status"] != "PASS":
+            raise ValueError(f"{entry['id']}/{renderer}: {check} is not PASS")
+        text(result["command"], f"evidence/{check}/command")
+        artifact = safe_location(root, result["artifact"], f"evidence/{check}/artifact")
+        if not artifact.is_file():
+            raise ValueError(f"{entry['id']}/{renderer}: missing {check} artifact")
+    if entry[renderer]["status"] == "unsupported":
+        raise ValueError(f"{entry['id']}/{renderer}: unsupported cannot be qualified")
+
+
+def imported_components(content, renderer, names):
+    """Inspect explicit shared-library imports, including aliases; reject wildcard bypasses."""
+    content = source_text(content, False)
+    if renderer == "leptos":
+        imports = []
+        for match in re.finditer(r"use\s+cantos_ui::\{([^}]+)\}", content, re.S):
+            imports += [re.split(r"\s+as\s+", part.strip())[0] for part in match.group(1).split(",")]
+        imports += re.findall(r"use\s+cantos_ui::([A-Z]\w*)\s*;", content)
+        imports += re.findall(r"cantos_ui::([A-Z]\w*)", content)
+        opaque_namespace = (
+            r"(?:use|extern\s+crate)\s+(?:::)?cantos_ui\s*(?:as\b|;)"
+            r"|use\s+(?:::)?cantos_ui\s*::\s*\{[^}]*\bself\b"
+            r"|use\s*\{[^}]*\bcantos_ui\b"
+        )
+        if "*" in imports or re.search(r"use\s+cantos_ui::\*|" + opaque_namespace, content, re.S):
+            raise ValueError("explicit cantos_ui component imports required for adoption checks")
+    else:
+        imports = re.findall(r"import\s+com\.cantos\.ui\.([A-Z]\w*)", content)
+        imports += re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", content)
+        if re.search(r"import\s+com\.cantos\.ui\.\*", content):
+            raise ValueError("explicit CMP component imports required for adoption checks")
+    return set(imports).intersection(names)
+
+
+def repository_failures(source, token_source, root=ROOT):
+    """Fail absent declarations/samples, drift and new use without both fresh qualifications."""
+    root = Path(root)
+    failures = []
+    entries = {entry["name"]: entry for entry in source["components"]}
+    names = set(entries)
+    leptos = root / "packages/ui-system/leptos"
+    exported = set()
+    for path in (leptos / "src").rglob("*.rs"):
+        exported.update(re.findall(r"#\[component(?:\([^]]*\))?\]\s*(?:#\[[^]]*\]\s*)*pub\s+fn\s+([A-Za-z_]\w*)", source_text(path.read_text(), False), re.S))
+    if exported != names:
+        failures.append(f"Leptos component inventory mismatch: missing {sorted(exported - names)}, stale {sorted(names - exported)}")
+    gallery = "\n".join(source_text(path.read_text(), False) for path in sorted((leptos / "preview").glob("*.rs")))
+    for name in sorted(names):
+        if not re.search(r"<" + name + r"(?:\s|/|>)", gallery):
+            failures.append(f"Leptos preview omits actual {name} sample")
+    cmp = root / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui"
+    if not (cmp / "Components.kt").is_file():
+        failures.append("CMP reusable Components.kt is missing")
+    else:
+        declared = set()
+        for path in sorted(cmp.rglob("*.kt")):
+            if {"generated", "preview"}.intersection(path.relative_to(cmp).parts):
+                continue
+            declared.update(re.findall(r"@Composable\s+(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:public\s+)?fun\s+([A-Z]\w*)", source_text(path.read_text(), False), re.S))
+        # UiRoot owns the theme adapter; it is not a second standalone component contract.
+        declared.discard("CantosTheme")
+        supported = {name for name in names if entries[name]["cmp"]["status"] != "unsupported"}
+        if declared != supported:
+            failures.append(f"CMP component inventory mismatch: missing {sorted(supported - declared)}, undeclared {sorted(declared - supported)}")
+    cmp_gallery = cmp / "preview/PreviewApp.kt"
+    if not cmp_gallery.is_file():
+        failures.append("CMP preview app is missing")
+    else:
+        content = source_text(cmp_gallery.read_text(), False)
+        model = source_text((cmp / "PreviewModel.kt").read_text()) if (cmp / "PreviewModel.kt").is_file() else ""
+        for entry in source["components"]:
+            branch = re.search(r"PreviewExample\." + entry["name"] + r"\s*->(.*?)(?=\n\s*PreviewExample\.|\Z)", content, re.S)
+            mapping = re.search(r"\b" + entry["name"] + r'\s*\(\s*"' + re.escape(entry["id"]) + r'"\s*\)', model)
+            invoked = branch and re.search(r"\b" + entry["name"] + r"\s*\(", branch.group(1))
+            # Dialog needs a retained-state/focus helper. Its dispatch and real wrapper call
+            # are both mandatory; future indirect sample helpers need explicit gate review.
+            if entry["name"] == "Dialog" and branch:
+                invoked = re.search(r"\bDialogExample\s*\(", branch.group(1)) and re.search(r"fun\s+DialogExample\b[\s\S]*?\bDialog\s*\(", content)
+            if not (mapping and branch and (invoked or entry["cmp"]["status"] == "unsupported")):
+                failures.append(f"CMP preview omits {entry['id']} dispatch")
+    baseline = {(site["renderer"], site["path"]): set(site["components"]) for site in source["baseline_consumers"]}
+    qualifications = {item["component_id"]: item["evidence"] for item in source["qualifications"]}
+    tokens_sha256 = hashlib.sha256(json.dumps(token_source, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    fresh = set()
+    for ident, paths in qualifications.items():
+        entry = next(item for item in source["components"] if item["id"] == ident)
+        try:
+            for renderer, path in paths.items():
+                validate_evidence(entry, renderer, path, tokens_sha256, root, source["components"])
+            fresh.add(entry["name"])
+        except ValueError as error:
+            failures.append(str(error))
+    for path in sorted((root / "apps").rglob("*")):
+        if path.suffix not in {".rs", ".kt"} or not path.is_file():
+            continue
+        renderer = "leptos" if path.suffix == ".rs" else "cmp"
+        relative = path.relative_to(root).as_posix()
+        try:
+            used = imported_components(path.read_text(), renderer, names)
+        except ValueError as error:
+            failures.append(f"{relative}: {error}")
+            continue
+        pending = used - baseline.get((renderer, relative), set()) - fresh
+        if pending:
+            failures.append(f"{relative}: new use requires both preview qualifications: {', '.join(sorted(pending))}")
+    return failures
+
+
+def rust_render(source, tokens):
+    header = f"// Generated by python3 scripts/ui_preview_catalog.py; catalog sha256:{digest(source)}. Do not edit."
+    lines = [header, "", "pub struct RendererRegistration {", "    pub status: &'static str,", "    pub reason: &'static str,", "}", "",
+             "pub struct ComponentRegistration {", "    pub id: &'static str,", "    pub name: &'static str,", "    pub family: &'static str,", "    pub states: &'static [&'static str],", "    pub leptos: RendererRegistration,", "    pub cmp: RendererRegistration,", "}", "",
+             "pub const COMPONENTS: &[ComponentRegistration] = &["]
+    for entry in source["components"]:
+        lines += ["    ComponentRegistration {"]
+        lines += [f'        {key}: {json.dumps(entry[key], ensure_ascii=False)},' for key in ("id", "name", "family")]
+        lines += ["        states: &[" + ", ".join(json.dumps(s) for s in entry["states"]) + "],"]
+        for renderer in sorted(RENDERERS):
+            registration = entry[renderer]
+            lines += [f"        {renderer}: RendererRegistration {{", f'            status: {json.dumps(registration["status"], ensure_ascii=False)},', f'            reason: {json.dumps(registration["reason"], ensure_ascii=False)},', "        },"]
+        lines += ["    },"]
+    lines += ["];", "", "pub struct TokenRegistration {", "    pub name: &'static str,", "    pub css_variable: &'static str,", "    pub kind: &'static str,", "    pub light: &'static str,", "    pub dark: &'static str,", "    pub compact: Option<&'static str>,", "    pub comfortable: Option<&'static str>,", "    pub alias_of: Option<&'static str>,", "}", "", f'pub const TOKEN_VERSION: &str = "{tokens["version"]}";', "pub const TOKENS: &[TokenRegistration] = &["]
+    canonical = tokens["tokens"] | tokens["themes"]["light"]
+    for role in sorted(set(canonical) | set(tokens["aliases"])):
+        target = tokens["aliases"].get(role, role)
+        light = tokens["tokens"].get(target, tokens["themes"]["light"].get(target))
+        dark = tokens["tokens"].get(target, tokens["themes"]["dark"].get(target))
+        lines += ["    TokenRegistration {"]
+        for key, value in (("name", role), ("css_variable", variable(role)), ("kind", light["type"]), ("light", css_value(light)), ("dark", css_value(dark))):
+            lines.append(f"        {key}: {json.dumps(value, ensure_ascii=False)},")
+        for density in ("compact", "comfortable"):
+            value = tokens["density"][density].get(target)
+            rendered = "None" if value is None else "Some(" + json.dumps(css_value({"type": "dimension", "value": value})) + ")"
+            lines.append(f"        {density}: {rendered},")
+        lines += [f'        alias_of: {"Some(" + json.dumps(target) + ")" if target != role else "None"},', "    },"]
+    lines += ["];", ""]
+    return "\n".join(lines)
+
+
+def kotlin_render(source):
+    lines = [f"// Generated by python3 scripts/ui_preview_catalog.py; catalog sha256:{digest(source)}. Do not edit.", "package com.cantos.ui.generated", "", "data class PreviewComponent(", "    val id: String, val name: String, val category: String, val states: List<String>,", "    val cmpStatus: String, val cmpReason: String?,", "    val leptosStatus: String, val leptosReason: String?", ")", "", "object PreviewCatalog {", "    val components: List<PreviewComponent> = listOf("]
+    for entry in source["components"]:
+        values = ", ".join(kotlin_string(entry[key]) for key in ("id", "name", "family"))
+        states = ", ".join(kotlin_string(s) for s in entry["states"])
+        renderer_values = ", ".join(kotlin_string(entry[r][key]) for r in ("cmp", "leptos") for key in ("status", "reason"))
+        lines.append(f"        PreviewComponent({values}, listOf({states}), {renderer_values}),")
+    lines += ["    )", "}", ""]
+    return "\n".join(lines)
+
+
+def outputs(source, tokens, output_root=ROOT):
+    source, tokens = validate(source), validate_tokens(tokens)
+    return {Path(output_root) / RUST_OUTPUT.relative_to(ROOT): rust_render(source, tokens),
+            Path(output_root) / KOTLIN_OUTPUT.relative_to(ROOT): kotlin_render(source)}
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--output-root", type=Path, default=ROOT)
+    parser.add_argument("--digests", action="store_true", help="Print current qualification digests, without approving anything")
+    args = parser.parse_args(argv)
+    try:
+        source = validate(load_source(CATALOG.read_bytes()))
+        tokens = validate_tokens(load_source(SOURCE.read_bytes()))
+        if args.digests:
+            print(json.dumps({"tokens_sha256": digest(tokens),
+                              "source_sha256": {renderer: renderer_digest(renderer, args.output_root, source["components"])
+                                                for renderer in sorted(RENDERERS)}}, indent=2))
+            return 0
+        expected = outputs(source, tokens, args.output_root)
+        if args.check:
+            failures = check_outputs(expected) + repository_failures(source, tokens, args.output_root)
+            if failures:
+                print("FAIL: preview catalog\n" + "\n".join(failures), file=sys.stderr)
+                return 1
+            print("PASS: two preview registries, named tokens and guarded adoption agree")
+        else:
+            write_outputs(expected)
+            print(f"PASS: generated {len(expected)} preview catalog artifacts; qualification unchanged")
+        return 0
+    except (OSError, ValueError) as error:
+        print(f"FAIL: preview catalog: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

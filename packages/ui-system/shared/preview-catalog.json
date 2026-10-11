@@ -1,0 +1,621 @@
+{
+  "version": 1,
+  "components": [
+    {
+      "id": "ui-root",
+      "name": "UiRoot",
+      "family": "foundation",
+      "states": [
+        "light",
+        "dark",
+        "compact",
+        "comfortable"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "button",
+      "name": "Button",
+      "family": "actions",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "icon-button",
+      "name": "IconButton",
+      "family": "actions",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "filter-chip",
+      "name": "FilterChip",
+      "family": "actions",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "focus",
+        "selected"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "link",
+      "name": "Link",
+      "family": "navigation",
+      "states": [
+        "idle",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "nav-item",
+      "name": "NavItem",
+      "family": "navigation",
+      "states": [
+        "idle",
+        "current",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "nav-tabs",
+      "name": "NavTabs",
+      "family": "navigation",
+      "states": [
+        "idle",
+        "current",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "text-field",
+      "name": "TextField",
+      "family": "fields",
+      "states": [
+        "editable",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "readonly"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "text-area",
+      "name": "TextArea",
+      "family": "fields",
+      "states": [
+        "editable",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "readonly"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "number-field",
+      "name": "NumberField",
+      "family": "fields",
+      "states": [
+        "editable",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "readonly"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "select",
+      "name": "Select",
+      "family": "fields",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "error",
+        "focus"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "checkbox",
+      "name": "Checkbox",
+      "family": "fields",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "selected"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "radio",
+      "name": "Radio",
+      "family": "fields",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "selected"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "switch",
+      "name": "Switch",
+      "family": "fields",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "selected"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "range-field",
+      "name": "RangeField",
+      "family": "fields",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "error",
+        "focus",
+        "zero",
+        "minimum",
+        "maximum"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "field-label",
+      "name": "FieldLabel",
+      "family": "fields",
+      "states": [
+        "labelled"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "field-help",
+      "name": "FieldHelp",
+      "family": "fields",
+      "states": [
+        "help",
+        "empty-hidden"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "field-error",
+      "name": "FieldError",
+      "family": "fields",
+      "states": [
+        "error",
+        "empty-hidden"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "badge",
+      "name": "Badge",
+      "family": "feedback",
+      "states": [
+        "neutral",
+        "info",
+        "success",
+        "warning",
+        "error"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "status",
+      "name": "Status",
+      "family": "feedback",
+      "states": [
+        "neutral",
+        "info",
+        "success",
+        "warning",
+        "error",
+        "announcement"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "loading-state",
+      "name": "LoadingState",
+      "family": "feedback",
+      "states": [
+        "loading"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "empty-state",
+      "name": "EmptyState",
+      "family": "feedback",
+      "states": [
+        "empty",
+        "recovery"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "error-state",
+      "name": "ErrorState",
+      "family": "feedback",
+      "states": [
+        "error",
+        "retry"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "surface",
+      "name": "Surface",
+      "family": "layout",
+      "states": [
+        "plain",
+        "container",
+        "high",
+        "reading",
+        "long-text"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "stack",
+      "name": "Stack",
+      "family": "layout",
+      "states": [
+        "vertical",
+        "horizontal",
+        "wrap",
+        "long-text"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "grid",
+      "name": "Grid",
+      "family": "layout",
+      "states": [
+        "one-column",
+        "two-columns",
+        "three-columns",
+        "narrow",
+        "wide"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "container",
+      "name": "Container",
+      "family": "layout",
+      "states": [
+        "reading",
+        "wide",
+        "fluid",
+        "narrow"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "icon",
+      "name": "Icon",
+      "family": "icons",
+      "states": [
+        "decorative"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "dialog",
+      "name": "Dialog",
+      "family": "dialog",
+      "states": [
+        "closed",
+        "open",
+        "dismissed",
+        "focus-restored"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    }
+  ],
+  "baseline_consumers": [
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos/web/src/view.rs",
+      "components": [
+        "Container",
+        "EmptyState",
+        "Select",
+        "Stack",
+        "Surface",
+        "UiRoot"
+      ]
+    },
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos-studio/web/src/authoring_view.rs",
+      "components": [
+        "FieldError",
+        "FieldLabel",
+        "Icon"
+      ]
+    },
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos-studio/web/src/import/browser.rs",
+      "components": [
+        "Icon"
+      ]
+    },
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos-studio/web/src/production/browser.rs",
+      "components": [
+        "FieldLabel",
+        "Status"
+      ]
+    },
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "components": [
+        "Button",
+        "Dialog",
+        "ErrorState",
+        "FilterChip",
+        "Select"
+      ]
+    },
+    {
+      "renderer": "leptos",
+      "path": "apps/cantos-studio/web/src/view.rs",
+      "components": [
+        "Button",
+        "Container",
+        "FieldLabel",
+        "Select",
+        "Status",
+        "TextField",
+        "UiRoot"
+      ]
+    }
+  ],
+  "qualifications": []
+}

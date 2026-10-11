@@ -1,0 +1,516 @@
+package com.cantos.ui.preview
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import com.cantos.ui.AccessibleName
+import com.cantos.ui.Badge
+import com.cantos.ui.Button
+import com.cantos.ui.ButtonState
+import com.cantos.ui.ButtonVariant
+import com.cantos.ui.Checkbox
+import com.cantos.ui.Container
+import com.cantos.ui.ContainerWidth
+import com.cantos.ui.Density
+import com.cantos.ui.Dialog
+import com.cantos.ui.DisabledReason
+import com.cantos.ui.EmptyState
+import com.cantos.ui.ErrorState
+import com.cantos.ui.FieldError
+import com.cantos.ui.FieldHelp
+import com.cantos.ui.FieldLabel
+import com.cantos.ui.FieldState
+import com.cantos.ui.FilterChip
+import com.cantos.ui.Grid
+import com.cantos.ui.Icon
+import com.cantos.ui.IconButton
+import com.cantos.ui.Link
+import com.cantos.ui.LoadingState
+import com.cantos.ui.LocalUiPreferences
+import com.cantos.ui.NavItem
+import com.cantos.ui.NavTabs
+import com.cantos.ui.NumberField
+import com.cantos.ui.PreviewExample
+import com.cantos.ui.Radio
+import com.cantos.ui.RangeField
+import com.cantos.ui.Select
+import com.cantos.ui.Stack
+import com.cantos.ui.StackDirection
+import com.cantos.ui.Status
+import com.cantos.ui.StatusTone
+import com.cantos.ui.Surface
+import com.cantos.ui.SurfaceTone
+import com.cantos.ui.Switch
+import com.cantos.ui.TextArea
+import com.cantos.ui.TextField
+import com.cantos.ui.Theme
+import com.cantos.ui.UiPreferences
+import com.cantos.ui.UiRoot
+import com.cantos.ui.filterComponents
+import com.cantos.ui.generated.CantosIcons
+import com.cantos.ui.generated.CantosTokens
+import com.cantos.ui.generated.PreviewCatalog
+import com.cantos.ui.generated.PreviewComponent
+import com.cantos.ui.generated.TokenValue
+import com.cantos.ui.tokenColor
+import com.cantos.ui.tokenDp
+import com.cantos.ui.typeStyle
+
+/** Development-only sample data: never touches Studio, Theatre, a network or playback engine. */
+@Composable
+fun PreviewApp(
+    initialPreferences: UiPreferences = UiPreferences(),
+    initialSection: Int = 0,
+    onWidthPreset: (String) -> Unit = {},
+) {
+    var preferences by remember { mutableStateOf(initialPreferences) }
+    var query by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf<String?>(null) }
+    var selectedId by remember { mutableStateOf("button") }
+    var section by remember { mutableStateOf(initialSection) }
+    var event by remember { mutableStateOf("Chưa có thao tác. Các ví dụ chỉ thay đổi dữ liệu tại chỗ.") }
+    val components = filterComponents(query, category)
+    val selected = PreviewCatalog.components.firstOrNull { it.id == selectedId }
+    UiRoot(preferences = preferences) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val viewportHeight = maxHeight
+            val scrollWholePage = maxWidth < tokenDp("breakpoint.expanded") || preferences.textScale > 1f
+            val page = if (scrollWholePage) Modifier.verticalScroll(rememberScrollState()) else Modifier.fillMaxSize()
+            Column(page.padding(tokenDp("space.lg")),
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(tokenDp("space.lg")),
+                    verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                    Column {
+                        Text("Cantos UI System", style = MaterialTheme.typography.headlineMedium)
+                        FieldHelp("CMP · Desktop preview · tokens v${CantosTokens.version}")
+                    }
+                    Badge("Implemented · runtime unverified", tone = StatusTone.Warning)
+                }
+                PreviewControls(preferences, { preferences = it }, onWidthPreset)
+                NavTabs(listOf("Components", "Named tokens"), section, { section = it })
+                // Keep nested panes bounded when large text makes the outer page scroll.
+                val region = if (scrollWholePage) Modifier.height(viewportHeight) else Modifier.weight(1f)
+                if (section == 1) {
+                    TokenCatalog(preferences, region)
+                } else {
+                    BoxWithConstraints(region.fillMaxWidth()) {
+                        val expanded = maxWidth >= tokenDp("breakpoint.expanded")
+                        if (expanded) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
+                                // Local master-detail geometry: one third of the medium breakpoint.
+                                ComponentBrowser(query, { query = it }, category, { category = it }, components,
+                                    selectedId, { selectedId = it }, Modifier.width(tokenDp("breakpoint.medium") / 3))
+                                ComponentDetail(selected, { event = it }, Modifier.weight(1f).verticalScroll(rememberScrollState()))
+                            }
+                        } else {
+                            Column(Modifier.verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                                TextField("Find component", query, { query = it })
+                                if (components.isEmpty()) {
+                                    EmptyState("Không có kết quả", "Thử tìm theo tên component hoặc nhóm.")
+                                } else {
+                                    Select("Component", components.map { it.name },
+                                        components.indexOfFirst { it.id == selectedId }.coerceAtLeast(0),
+                                        { selectedId = components[it].id })
+                                }
+                                ComponentDetail(selected, { event = it })
+                            }
+                        }
+                    }
+                }
+                Surface(tone = SurfaceTone.Container) {
+                    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                        FieldLabel("Event log")
+                        FieldHelp(event)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewControls(preferences: UiPreferences, onChange: (UiPreferences) -> Unit, onWidthPreset: (String) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+        verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        FilterChip("Light", preferences.theme == Theme.Light, { onChange(preferences.copy(theme = Theme.Light)) })
+        FilterChip("Dark", preferences.theme == Theme.Dark, { onChange(preferences.copy(theme = Theme.Dark)) })
+        FilterChip("Compact", preferences.density == Density.Compact, { onChange(preferences.copy(density = Density.Compact)) })
+        FilterChip("Comfortable", preferences.density == Density.Comfortable, { onChange(preferences.copy(density = Density.Comfortable)) })
+        FilterChip("Reduced motion", preferences.reducedMotion, { onChange(preferences.copy(reducedMotion = it)) })
+        listOf(1f, 1.3f, 2f).forEach { scale ->
+            FilterChip("Text ${scale}×", preferences.textScale == scale, { onChange(preferences.copy(textScale = scale)) })
+        }
+        Button("Narrow", { onWidthPreset("narrow") }, variant = ButtonVariant.Text)
+        Button("Medium", { onWidthPreset("medium") }, variant = ButtonVariant.Text)
+        Button("Wide", { onWidthPreset("wide") }, variant = ButtonVariant.Text)
+    }
+}
+
+@Composable
+private fun ComponentBrowser(
+    query: String,
+    onQuery: (String) -> Unit,
+    category: String?,
+    onCategory: (String?) -> Unit,
+    components: List<PreviewComponent>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier,
+) {
+    Column(modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        TextField("Find component", query, onQuery)
+        FieldLabel("${components.size} components")
+        FilterChip("All families", category == null, { onCategory(null) })
+        PreviewCatalog.components.map { it.category }.distinct().forEach { family ->
+            FilterChip(family, family == category, { onCategory(if (it) family else null) })
+        }
+        components.forEach { component ->
+            NavItem(component.name, selected == component.id, { onSelect(component.id) })
+        }
+        if (components.isEmpty()) FieldHelp("Không có kết quả")
+    }
+}
+
+@Composable
+private fun ComponentDetail(component: PreviewComponent?, onEvent: (String) -> Unit, modifier: Modifier = Modifier) {
+    if (component == null) {
+        EmptyState("Chọn component", "Chọn một ví dụ để thử các trạng thái.", modifier)
+        return
+    }
+    key(component.id) {
+        var state by remember { mutableStateOf(component.states.first()) }
+        val focusRequester = remember { FocusRequester() }
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+            Text(component.name, style = MaterialTheme.typography.titleLarge)
+            FieldHelp("${component.category} · ${component.id}")
+            Badge(component.cmpStatus, tone = StatusTone.Warning)
+            component.cmpReason?.let { FieldHelp(it) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                component.states.forEach { choice ->
+                    FilterChip(choice, state == choice, { state = choice })
+                }
+            }
+            FieldHelp("Focus is real keyboard focus. Use Tab/Shift+Tab, Enter, Space and Escape; no state is a verified badge.")
+            Surface(Modifier.fillMaxWidth(), tone = SurfaceTone.Surface) {
+                val example = PreviewExample.fromId(component.id)
+                if (example == null || component.cmpStatus == "unsupported") {
+                    ErrorState("Unsupported", component.cmpReason ?: "No native example has been declared.", "Retry", {})
+                } else {
+                    ComponentExample(example, state, onEvent, Modifier.focusRequester(focusRequester))
+                    if (state == "focus") {
+                        LaunchedEffect(component.id, state) { focusRequester.requestFocus() }
+                    }
+                }
+            }
+            if (component.id == "grid" || component.id == "container") {
+                FieldHelp("The available host width wins. Wide/column presets reflow at named breakpoints; use the width controls to inspect the actual viewport.")
+            }
+            if (component.id == "error-state" && state == "retry") {
+                FieldHelp("Activate Thử lại to inspect the real retry callback and event count; choosing this preset does not dispatch an action.")
+            }
+            ParityNotes(component.id)
+        }
+    }
+}
+
+@Composable
+private fun ParityNotes(id: String) {
+    val note = when (id) {
+        "link" -> "Native Link dispatches a URI callback. Browser href, target, download and history are web-only; the preview does not launch a site."
+        "number-field" -> "Native decimal keyboard hint preserves raw text. HTML min/max/step browser validation is platform-specific; the caller owns numeric validation."
+        "field-label" -> "Native labels are composed into each control's semantics. HTML for/id associations do not exist in Compose."
+        "dialog" -> "Native modal and return-focus sample; DOM inertness/showModal and Android/iOS Back require their own renderer evidence."
+        "loading-state" -> "Static labelled pending state. No indeterminate animation is presented as reduced-motion verification."
+        "ui-root" -> "Fonts map shared Noto family intent to platform sans/serif fallback. Embedded Noto assets and mobile safe-area/reduced-motion adapters remain unverified."
+        else -> "Common Compose wrapper and callbacks implemented. Desktop build, native pixels, screen-reader operation and Android/iOS parity are not verified here."
+    }
+    FieldHelp(note)
+}
+
+@Composable
+private fun ComponentExample(example: PreviewExample, state: String, onEvent: (String) -> Unit, modifier: Modifier) {
+    var title by remember(example) { mutableStateOf("Ánh đèn cuối sân khấu") }
+    var dialogue by remember(example) { mutableStateOf("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?\nỖ, Ữ, Nguyễn Thị Minh Phương") }
+    var number by remember(example) { mutableStateOf("1,25") }
+    var checked by remember(example, state) { mutableStateOf(state == "selected" || state == "current") }
+    var choice by remember(example, state) { mutableStateOf(if (state == "current") 1 else 0) }
+    var range by remember(example, state) { mutableStateOf(when (state) {
+        "zero", "minimum" -> 0f; "maximum" -> 100f; else -> 45f
+    }) }
+    var presses by remember(example) { mutableStateOf(0) }
+    val reason = DisabledReason.of("Chưa chọn phiên bản kịch bản. Hãy chọn phiên bản để tiếp tục.")
+    val pendingReason = DisabledReason.of("Đang lưu bản nháp. Nội dung đã nhập vẫn được giữ lại.")
+    val buttonState = when (state) {
+        "disabled" -> ButtonState.Disabled(reason)
+        "loading" -> ButtonState.Loading(pendingReason)
+        else -> ButtonState.Enabled
+    }
+    val fieldState = when (state) {
+        "disabled" -> FieldState.Disabled(reason)
+        "loading" -> FieldState.Loading(pendingReason)
+        "readonly" -> FieldState.ReadOnly
+        else -> FieldState.Editable
+    }
+    val error = if (state == "error") "Tên tác phẩm cần có ít nhất 3 ký tự. Nội dung chưa bị xóa." else null
+    val onPress = { presses += 1; onEvent("${example.id} · callback #$presses · không có yêu cầu mạng") }
+    val tone = when (state) {
+        "error" -> StatusTone.Error
+        "info" -> StatusTone.Info
+        "success" -> StatusTone.Success
+        "loading", "warning" -> StatusTone.Warning
+        else -> StatusTone.Neutral
+    }
+    val feedback = when (state) {
+        "error" -> "Không thể lưu bản nháp"
+        "success" -> "Đã lưu bản nháp"
+        "loading" -> "Đang xử lý bản nháp"
+        "warning" -> "Cần kiểm tra ghi chú phát âm"
+        "info" -> "Thông tin bản nháp"
+        "announcement" -> "Đã đổi cảnh đang chọn"
+        "empty" -> "Chưa có bản nháp"
+        else -> "Bản nháp · chưa xuất bản"
+    }
+    when (example) {
+        PreviewExample.UiRoot -> {
+            val current = LocalUiPreferences.current
+            val nested = when (state) {
+                "light" -> current.copy(theme = Theme.Light)
+                "dark" -> current.copy(theme = Theme.Dark)
+                "compact" -> current.copy(density = Density.Compact)
+                "comfortable" -> current.copy(density = Density.Comfortable)
+                else -> current
+            }
+            UiRoot(modifier.height(tokenDp("breakpoint.medium") / 2).fillMaxWidth(), preferences = nested) {
+                Container {
+                    Stack {
+                        Text("Ánh đèn cuối sân khấu", style = MaterialTheme.typography.headlineSmall)
+                        Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? · Ỗ, Ữ", style = typeStyle("editor", editorial = true))
+                        Button("Lưu bản nháp", onPress)
+                    }
+                }
+            }
+        }
+        PreviewExample.Button -> Stack(modifier) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                ButtonVariant.entries.forEach { variant -> Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant) }
+            }
+            FieldHelp("Callback count: $presses")
+        }
+        PreviewExample.IconButton -> IconButton(AccessibleName.of("Thêm cảnh cho Ánh đèn cuối sân khấu"), "add", onPress, modifier, buttonState)
+        PreviewExample.FilterChip -> FilterChip("Kịch nói · tiếng Việt", checked, { checked = it; onEvent("Selected: $it") }, modifier, buttonState)
+        PreviewExample.Link -> Link("Mở bản nháp Ánh đèn cuối sân khấu", "/draft/example", { onEvent("Link callback: $it") }, modifier)
+        PreviewExample.NavItem -> NavItem("Tác phẩm của tôi", checked, { checked = true; onEvent("NavItem selected") }, modifier)
+        PreviewExample.NavTabs -> NavTabs(listOf("Kịch bản", "Nhân vật", "Lịch sử"), choice, { choice = it; onEvent("Tab: $it") }, modifier)
+        PreviewExample.TextField -> TextField("Tên tác phẩm", title, { title = it; onEvent("TextField: value updated") }, modifier, fieldState,
+            "Tên có dấu được giữ nguyên, không chuẩn hóa khi gõ.", error)
+        PreviewExample.TextArea -> TextArea("Lời thoại", dialogue, { dialogue = it; onEvent("TextArea: value updated") }, modifier, fieldState,
+            "Hãy thử chọn, sao chép và nhập tiếng Việt có dấu.", error)
+        PreviewExample.NumberField -> NumberField("Tốc độ tham khảo", number, { number = it; onEvent("NumberField raw text: $it") }, modifier, fieldState,
+            "Dữ liệu thử: 1,25. Chủ ứng dụng quyết định quy tắc phân tích số.", error)
+        PreviewExample.Select -> Column(modifier) {
+            Select("Nhân vật", listOf("Người dẫn chuyện", "Nguyễn Thị Minh Phương", "Người giữ đèn cuối sân khấu"), choice,
+                { choice = it; onEvent("Select: $it") }, state = buttonState)
+            error?.let { FieldError(it) }
+        }
+        PreviewExample.Checkbox -> Column(modifier) {
+            Checkbox("Giữ nguyên ghi chú phát âm tiếng Việt", checked, { checked = it; onEvent("Checkbox: $it") }, state = buttonState)
+            error?.let { FieldError(it) }
+        }
+        PreviewExample.Radio -> Column(modifier.selectableGroup()) {
+            Radio("Bản nháp của Nguyễn Thị Minh Phương", checked, { checked = true; onEvent("Radio: draft selected") }, state = buttonState)
+            Radio("Bản nháp của người dẫn chuyện", !checked, { checked = false; onEvent("Radio: narration selected") }, state = buttonState)
+            error?.let { FieldError(it) }
+        }
+        PreviewExample.Switch -> Column(modifier) {
+            Switch("Hiện ghi chú người dẫn chuyện", checked, { checked = it; onEvent("Switch: $it") }, state = buttonState)
+            error?.let { FieldError(it) }
+        }
+        PreviewExample.RangeField -> Column(modifier) {
+            RangeField("Mức âm lượng thử", range, { range = it; onEvent("RangeField: ${it.toInt()}") }, state = buttonState)
+            error?.let { FieldError(it) }
+        }
+        PreviewExample.FieldLabel -> Column(modifier) {
+            FieldLabel("Tên tác phẩm · nhãn được lồng trong control")
+            TextField("Tên tác phẩm", title, { title = it }, state = fieldState, error = error)
+        }
+        PreviewExample.FieldHelp -> Column(modifier) {
+            FieldHelp(if (state == "empty-hidden") "" else "Không đổi tên nhân vật hoặc dấu câu khi nhập văn bản.")
+            TextField("Tên tác phẩm", title, { title = it }, state = fieldState, help = "Người dẫn chuyện · Ỗ, Ữ", error = error)
+        }
+        PreviewExample.FieldError -> Column(modifier) {
+            FieldError(if (state == "empty-hidden") "" else "Chưa thể lưu: cần chọn phiên bản kịch bản.")
+            TextField("Tên tác phẩm", title, { title = it }, state = fieldState, error = error)
+        }
+        PreviewExample.Badge -> Badge(feedback, modifier, tone)
+        PreviewExample.Status -> Status(feedback, modifier, tone, announce = state == "announcement")
+        PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier)
+        PreviewExample.EmptyState -> {
+            val recovery: (@Composable () -> Unit)? = if (state == "recovery") ({ Button("Thêm cảnh", onPress) }) else null
+            EmptyState("Chưa có cảnh nào", "Thêm cảnh đầu tiên cho Ánh đèn cuối sân khấu.", modifier, action = recovery)
+        }
+        PreviewExample.ErrorState -> ErrorState("Không thể nạp bản nháp", "Bản nháp đã nhập vẫn còn. Hãy thử lại khi kết nối ổn định.", "Thử lại", onPress, modifier)
+        PreviewExample.Surface -> Surface(modifier, tone = when (state) {
+            "container" -> SurfaceTone.Container
+            "high" -> SurfaceTone.Raised
+            else -> SurfaceTone.Surface
+        }) {
+            val text = "Ánh đèn cuối sân khấu · Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên dấu tiếng Việt trong lời thoại dài."
+            Text(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text,
+                style = if (state == "reading") typeStyle("editor", editorial = true) else MaterialTheme.typography.bodyMedium)
+        }
+        PreviewExample.Stack -> Stack(modifier, when (state) {
+            "horizontal" -> StackDirection.Horizontal
+            "wrap" -> StackDirection.Wrap
+            else -> StackDirection.Vertical
+        }) {
+            if (state == "horizontal") {
+                Badge("Bản nháp")
+                Badge("Cảnh 1")
+            } else {
+                Badge("Người dẫn chuyện")
+                Badge("Nguyễn Thị Minh Phương")
+                Badge("Ánh đèn cuối sân khấu · bản nháp chưa xuất bản")
+                if (state == "long-text") Text("Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên ghi chú phát âm và lời thoại tiếng Việt dài, không thu nhỏ chữ để ép nội dung vào một hàng.")
+            }
+        }
+        PreviewExample.Grid -> Grid(listOf(
+            { Surface { Text("Ánh đèn cuối sân khấu · cảnh một") } },
+            { Surface(tone = SurfaceTone.Container) { Text("Ngày mai, mình có diễn tiếp không? · cảnh hai") } },
+            { Surface { Text("Nguyễn Thị Minh Phương · lời thoại dài có dấu tiếng Việt") } },
+        ), if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier,
+            requestedColumns = when (state) { "one-column", "narrow" -> 1; "three-columns", "wide" -> 3; else -> 2 })
+        PreviewExample.Container -> Container(if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier, width = when (state) {
+            "wide" -> ContainerWidth.Wide; "fluid" -> ContainerWidth.Fluid; else -> ContainerWidth.Reading
+        }) {
+            Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? Ánh đèn cuối sân khấu còn sáng; bản nháp này dùng để thử xuống dòng và tăng cỡ chữ.")
+        }
+        PreviewExample.Dialog -> DialogExample(state, onEvent, modifier)
+        PreviewExample.Icon -> FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+            CantosIcons.icons.forEach { icon -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                Icon(icon.name)
+                FieldHelp(icon.name)
+            } }
+        }
+    }
+}
+
+@Composable
+private fun DialogExample(state: String, onEvent: (String) -> Unit, modifier: Modifier) {
+    var open by remember(state) { mutableStateOf(state == "open") }
+    var hasOpened by remember { mutableStateOf(state == "open") }
+    val triggerFocus = remember { FocusRequester() }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        Button("Mở thông tin bản nháp", { open = true; hasOpened = true; onEvent("Dialog opened") },
+            modifier = Modifier.focusRequester(triggerFocus))
+        FieldHelp("Mở, nhấn Tab/Shift+Tab, rồi Escape hoặc Đóng. Kiểm tra focus quay về nút mở; preset không chứng minh kết quả.")
+        Dialog(open, "Ánh đèn cuối sân khấu · bản nháp", "Đóng", {
+            open = false
+            onEvent("Dialog dismissed; requested trigger focus restoration")
+        }) {
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?")
+                TextField("Ghi chú bản nháp", "Nguyễn Thị Minh Phương", {})
+            }
+        }
+        LaunchedEffect(open) { if (!open && hasOpened) triggerFocus.requestFocus() }
+    }
+}
+
+@Composable
+private fun TokenCatalog(preferences: UiPreferences, modifier: Modifier) {
+    var query by remember { mutableStateOf("") }
+    val entries = CantosTokens.entries.filter { it.name.contains(query.trim(), ignoreCase = true) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+        TextField("Find named token", query, { query = it })
+        FieldHelp("${entries.size} roles · ${preferences.theme.tokenName} · ${preferences.density.tokenName} · one generated source")
+        SelectionContainer {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                entries.forEach { entry ->
+                    Surface(Modifier.fillMaxWidth()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
+                            TokenSample(entry)
+                            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                                FieldLabel(entry.name)
+                                val value = if (entry.kind == "duration" && preferences.reducedMotion)
+                                    CantosTokens.number(entry.name, reducedMotion = true).toInt().toString()
+                                else CantosTokens.raw(entry.name, preferences.theme.tokenName, preferences.density.tokenName)
+                                Text("${entry.kind} · $value", style = MaterialTheme.typography.bodySmall)
+                                entry.aliasOf?.let { FieldHelp("Alias of $it") }
+                            }
+                        }
+                    }
+                }
+                if (entries.isEmpty()) EmptyState("Không có token", "Thử color.primary, space.md hoặc type.body.size.")
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun TokenSample(entry: TokenValue) {
+    val reading = "Người dẫn chuyện · Ỗ, Ữ"
+    when {
+        entry.kind == "color" -> Box(Modifier.size(tokenDp("size.control")).background(tokenColor(entry.name)))
+        entry.name.startsWith("type.") -> {
+            val role = entry.name.split('.').getOrNull(1)
+            val editorial = role == "editor" || entry.name == "type.family.editorial"
+            val mappedRole = if (role in listOf("body", "title", "headline", "label", "metadata", "editor")) role ?: "body" else "body"
+            Column(Modifier.width(tokenDp("breakpoint.medium") / 3)) {
+                Text(reading, style = typeStyle(mappedRole, editorial = editorial))
+                FieldHelp("Platform font fallback · ${if (editorial) "serif" else "sans"}")
+            }
+        }
+        entry.name.startsWith("shape.") -> Box(
+            Modifier.size(width = tokenDp("size.control") * 2, height = tokenDp("size.control"))
+                .background(tokenColor("color.primaryContainer"), RoundedCornerShape(tokenDp(entry.name))),
+        )
+        entry.name.startsWith("space.") || entry.name.startsWith("size.") -> {
+            val amount = tokenDp(entry.name)
+            val bound = tokenDp("space.xl") * 3
+            Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                Box(Modifier.width(minOf(amount, bound)).height(tokenDp("space.sm")).background(tokenColor("color.primary")))
+                if (amount > bound) FieldHelp("Sample clipped; value stays exact")
+            }
+        }
+        entry.name.startsWith("state.") -> Box(
+            Modifier.size(tokenDp("size.control"))
+                .background(tokenColor("color.primary").copy(alpha = CantosTokens.number(entry.name).toFloat())),
+        )
+        entry.kind == "duration" || entry.kind == "cubicBezier" -> FieldHelp("Intent value · motion not demonstrated")
+    }
+}

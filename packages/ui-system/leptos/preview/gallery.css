@@ -1,0 +1,150 @@
+/* Preview-only discovery. Component styles and semantic values stay shared. */
+:where(.cantos-ui) .cui-preview section[id] {
+  scroll-margin-block-start: var(--cantos-space-lg);
+}
+
+:where(.cantos-ui) .cui-preview .cui-gallery-family[hidden],
+:where(.cantos-ui) .cui-preview .cui-catalog-entry[hidden] {
+  display: none;
+}
+
+:where(.cantos-ui) .cui-preview :where(.cui-catalog-entries, .cui-token-entries) {
+  display: grid;
+  gap: var(--cantos-space-md);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  min-inline-size: 0;
+}
+
+:where(.cantos-ui) .cui-preview .cui-catalog-entry {
+  display: grid;
+  gap: var(--cantos-space-xs);
+  min-inline-size: 0;
+}
+
+:where(.cantos-ui) .cui-preview .cui-catalog-meta {
+  display: grid;
+  gap: var(--cantos-space-xs);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+:where(.cantos-ui) .cui-preview .cui-catalog-meta > div {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--cantos-space-sm);
+  row-gap: var(--cantos-space-xs);
+}
+
+:where(.cantos-ui) .cui-preview .cui-catalog-meta dt {
+  font-weight: var(--cantos-type-label-weight);
+}
+
+:where(.cantos-ui) .cui-preview .cui-catalog-meta dd {
+  margin: 0;
+  min-inline-size: 0;
+}
+
+:where(.cantos-ui) .cui-preview :where(.cui-catalog-meta, .cui-token-entries) code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+:where(.cantos-ui) .cui-preview summary {
+  box-sizing: border-box;
+  min-block-size: var(--cantos-size-control);
+  padding-block: var(--cantos-space-sm);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+:where(.cantos-ui) .cui-preview summary:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-entries details[open] {
+  padding-block-end: var(--cantos-space-sm);
+}
+
+/* Specimens resolve the one generated CSS role bound by TokenSample. */
+:where(.cantos-ui) .cui-preview .cui-token-sample {
+  display: grid;
+  gap: var(--cantos-space-sm);
+  margin: 0;
+  padding-block: var(--cantos-space-sm);
+  min-inline-size: 0;
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-specimen {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample:is([data-preview-kind="color"], [data-preview-kind="shape"], [data-preview-kind="shadow"], [data-preview-kind="opacity"]) .cui-token-specimen {
+  inline-size: calc(var(--cantos-size-control) * 2);
+  block-size: var(--cantos-size-control);
+  background: var(--cantos-color-primary-container);
+  border-radius: var(--cantos-shape-reading);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="color"] .cui-token-specimen {
+  background: var(--cui-token-sample-value);
+  box-shadow: inset 0 0 0 var(--cantos-size-border) var(--cantos-color-outline-variant);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="font-family"] .cui-token-specimen {
+  font-family: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="font-size"] .cui-token-specimen {
+  font-size: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="font-weight"] .cui-token-specimen {
+  font-weight: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="line-height"] .cui-token-specimen {
+  line-height: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="spacing"] .cui-token-specimen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-mark {
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  background: var(--cantos-color-primary-container);
+  border-radius: var(--cantos-shape-reading);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="shape"] .cui-token-specimen {
+  border-radius: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="size"] .cui-token-specimen {
+  inline-size: var(--cui-token-sample-value);
+  block-size: var(--cui-token-sample-value);
+  background: var(--cantos-color-primary-container);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="stroke"] .cui-token-specimen {
+  inline-size: calc(var(--cantos-size-control) * 2);
+  block-size: var(--cui-token-sample-value);
+  background: var(--cantos-color-primary);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="shadow"] .cui-token-specimen {
+  box-shadow: var(--cui-token-sample-value);
+}
+
+:where(.cantos-ui) .cui-preview .cui-token-sample[data-preview-kind="opacity"] .cui-token-specimen {
+  background: var(--cantos-color-primary);
+  opacity: var(--cui-token-sample-value);
+}

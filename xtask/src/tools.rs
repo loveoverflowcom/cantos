@@ -8,7 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::config::WASM_TARGET;
+use crate::config::{GRADLE_VERSION, UI_CMP_DIR, WASM_TARGET};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Tool {
@@ -17,6 +17,9 @@ pub enum Tool {
     Clippy,
     Wasm32Target,
     Trunk,
+    Gradle,
+    Java,
+    CmpGradleProject,
     Python3,
     Git,
     Initdb,
@@ -25,12 +28,15 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 10] = [
+    pub const ALL: [Tool; 13] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
         Tool::Wasm32Target,
         Tool::Trunk,
+        Tool::Gradle,
+        Tool::Java,
+        Tool::CmpGradleProject,
         Tool::Python3,
         Tool::Git,
         Tool::Initdb,
@@ -45,6 +51,9 @@ impl Tool {
             Tool::Clippy => "clippy",
             Tool::Wasm32Target => WASM_TARGET,
             Tool::Trunk => "trunk",
+            Tool::Gradle => "gradle",
+            Tool::Java => "java",
+            Tool::CmpGradleProject => "CMP Gradle project",
             Tool::Python3 => "python3",
             Tool::Git => "git",
             Tool::Initdb => "initdb",
@@ -61,6 +70,13 @@ impl Tool {
             Tool::Clippy => "rustup component add clippy",
             Tool::Wasm32Target => "rustup target add wasm32-unknown-unknown",
             Tool::Trunk => "cargo install trunk --version 0.21.14 --locked",
+            Tool::Gradle => "put installed Gradle 8.14.3 on PATH (no wrapper download)",
+            Tool::Java => {
+                "put a compatible JDK 17 or newer on PATH (the CMP project targets Java 17)"
+            }
+            Tool::CmpGradleProject => {
+                "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp"
+            }
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
             Tool::Initdb | Tool::PgCtl | Tool::Psql => {
@@ -76,6 +92,9 @@ impl Tool {
             Tool::Clippy => Some(("cargo", &["clippy", "--version"])),
             Tool::Wasm32Target => None,
             Tool::Trunk => Some(("trunk", &["--version"])),
+            Tool::Gradle => Some(("gradle", &["--no-daemon", "--version"])),
+            Tool::Java => Some(("java", &["-version"])),
+            Tool::CmpGradleProject => None,
             Tool::Python3 => Some(("python3", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
             Tool::Initdb => Some(("initdb", &["--version"])),
@@ -114,8 +133,8 @@ impl SystemTools {
 
     /// First line of the tool's version output, when it can be obtained.
     pub fn version(&self, tool: Tool) -> Option<String> {
-        if tool == Tool::Wasm32Target {
-            return self.available(tool).then(|| "installed".to_owned());
+        if matches!(tool, Tool::Wasm32Target | Tool::CmpGradleProject) {
+            return self.available(tool).then(|| "available".to_owned());
         }
         let (program, args) = tool.version_command()?;
         let output = Command::new(program)
@@ -127,15 +146,7 @@ impl SystemTools {
         if !output.status.success() {
             return None;
         }
-        let text = if output.stdout.is_empty() {
-            output.stderr
-        } else {
-            output.stdout
-        };
-        String::from_utf8_lossy(&text)
-            .lines()
-            .next()
-            .map(|line| line.trim().to_owned())
+        reported_version(tool, &output.stdout, &output.stderr)
     }
 
     /// `rustc --version` as selected for the workspace (rustup overrides included).
@@ -154,6 +165,13 @@ impl SystemTools {
     fn detect(&self, tool: Tool) -> bool {
         match tool {
             Tool::Wasm32Target => self.wasm_target_installed(),
+            Tool::CmpGradleProject => cmp_gradle_project_exists(&self.root.join(UI_CMP_DIR)),
+            Tool::Gradle => self
+                .version(tool)
+                .is_some_and(|version| gradle_version_supported(&version)),
+            Tool::Java => self
+                .version(tool)
+                .is_some_and(|version| java_version_supported(&version)),
             Tool::Rustfmt | Tool::Clippy => self.version(tool).is_some(),
             other => find_on_path(other.label()).is_some(),
         }
@@ -185,6 +203,56 @@ impl ToolProbe for SystemTools {
         self.cache.borrow_mut().insert(tool, found);
         found
     }
+}
+
+/// Select only reportable tool output; Java startup diagnostics can contain environment values.
+fn reported_version(tool: Tool, stdout: &[u8], stderr: &[u8]) -> Option<String> {
+    if tool == Tool::Java {
+        // JAVA_TOOL_OPTIONS and JDK_JAVA_OPTIONS notices precede the actual version. Never
+        // return those diagnostics: doctor must report the version without exposing their values.
+        return [stdout, stderr].into_iter().find_map(|bytes| {
+            String::from_utf8_lossy(bytes)
+                .lines()
+                .map(str::trim)
+                .find(|line| {
+                    line.starts_with("openjdk version \"") || line.starts_with("java version \"")
+                })
+                .map(str::to_owned)
+        });
+    }
+    let text = String::from_utf8_lossy(if stdout.is_empty() { stderr } else { stdout });
+    if tool == Tool::Gradle {
+        return text
+            .lines()
+            .find(|line| line.starts_with("Gradle "))
+            .map(str::to_owned);
+    }
+    text.lines().next().map(|line| line.trim().to_owned())
+}
+
+/// The desktop preview emits Java 17 bytecode, so an older JVM cannot run it.
+fn java_version_supported(version: &str) -> bool {
+    version
+        .split('"')
+        .nth(1)
+        .and_then(|number| number.split('.').next())
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= 17)
+}
+
+/// The package-local desktop preview must be a real Gradle project, not its reserved README.
+pub fn cmp_gradle_project_exists(dir: &Path) -> bool {
+    ["settings.gradle.kts", "settings.gradle"]
+        .iter()
+        .any(|file| dir.join(file).is_file())
+        && ["build.gradle.kts", "build.gradle"]
+            .iter()
+            .any(|file| dir.join(file).is_file())
+}
+
+/// The package pins the reviewed Kotlin 2.2.20 / Compose 1.9 Gradle 8.14.3 version.
+fn gradle_version_supported(version: &str) -> bool {
+    version.strip_prefix("Gradle ") == Some(GRADLE_VERSION)
 }
 
 /// Locates an executable on `PATH` without running it.
@@ -240,6 +308,84 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn java_version_selection_skips_startup_diagnostics_without_reporting_them() {
+        let output = b"Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true\nopenjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment\n";
+        let selected = reported_version(Tool::Java, b"", output).unwrap();
+        assert_eq!(selected, r#"openjdk version "21.0.12.1" 2026-08-18"#);
+        assert!(java_version_supported(&selected));
+    }
+
+    #[test]
+    fn java_version_selection_checks_both_streams_and_rejects_diagnostics_only() {
+        let preamble = b"Picked up JDK_JAVA_OPTIONS: -Djava.awt.headless=true\n";
+        let version = b"java version \"17.0.16\" 2025-07-15\n";
+        assert_eq!(
+            reported_version(Tool::Java, preamble, version).as_deref(),
+            Some(r#"java version "17.0.16" 2025-07-15"#)
+        );
+        assert_eq!(
+            reported_version(Tool::Java, version, preamble).as_deref(),
+            Some(r#"java version "17.0.16" 2025-07-15"#)
+        );
+        assert_eq!(reported_version(Tool::Java, preamble, preamble), None);
+    }
+
+    #[test]
+    fn the_desktop_preview_needs_at_least_java_17_bytecode_support() {
+        for version in [
+            r#"openjdk version "17.0.16" 2025-07-15"#,
+            r#"java version "21.0.1""#,
+        ] {
+            assert!(java_version_supported(version), "{version}");
+        }
+        for version in [
+            r#"openjdk version "11.0.25""#,
+            r#"java version "1.8.0_422""#,
+            "",
+            "java broken",
+        ] {
+            assert!(!java_version_supported(version), "{version}");
+        }
+    }
+
+    #[test]
+    fn gradle_versions_are_bounded_and_preview_versions_are_rejected() {
+        assert!(gradle_version_supported("Gradle 8.14.3"));
+        for version in [
+            "Gradle 8.14.2",
+            "Gradle 8.14.4",
+            "Gradle 8.15",
+            "Gradle 8.20.0",
+            "Gradle 8.14",
+            "Gradle 9.0.0",
+            "Gradle 8.14.3-rc-1",
+            "gradle 8.14.3",
+            "",
+            "Gradle broken",
+        ] {
+            assert!(!gradle_version_supported(version), "{version}");
+        }
+    }
+
+    #[test]
+    fn cmp_project_detection_needs_both_settings_and_build_files() {
+        let dir = std::env::temp_dir().join(format!("xtask-cmp-project-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(!cmp_gradle_project_exists(&dir));
+        std::fs::write(dir.join("README.md"), "guide only").unwrap();
+        assert!(!cmp_gradle_project_exists(&dir));
+        std::fs::write(
+            dir.join("settings.gradle.kts"),
+            "rootProject.name = \"test\"",
+        )
+        .unwrap();
+        assert!(!cmp_gradle_project_exists(&dir));
+        std::fs::write(dir.join("build.gradle.kts"), "plugins {}").unwrap();
+        assert!(cmp_gradle_project_exists(&dir));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn finds_programs_on_path_and_rejects_unknown_ones() {

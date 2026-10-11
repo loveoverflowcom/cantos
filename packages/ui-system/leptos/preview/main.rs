@@ -4,11 +4,19 @@ use cantos_ui::{
     AccessibleName, Announcement, Badge, Button, ButtonState, ButtonVariant, Checkbox, ChoiceState,
     Container, ContainerWidth, Density, Dialog, DisabledReason, EmptyState, ErrorState, FieldError,
     FieldHelp, FieldLabel, FieldState, FilterChip, Grid, GridColumns, Icon, IconButton, IconName,
-    Link, LinkHref, LoadingState, NavItem, NavTabs, NumberField, Radio, RangeField, Select, Space,
-    Stack, StackDirection, Status, StatusTone, Surface, SurfaceTone, Switch, TextArea, TextField,
+    Link, LinkHref, LoadingState, NumberField, Radio, RangeField, Select, Space, Stack,
+    StackDirection, Status, StatusTone, Surface, SurfaceTone, Switch, TextArea, TextField,
     TextFieldKind, Theme, UiRoot,
 };
 use leptos::prelude::*;
+
+pub mod catalog;
+mod discovery;
+#[path = "../src/preview_catalog.rs"]
+pub mod preview_catalog;
+pub mod token_sample;
+
+use discovery::{ComponentCatalog, FamilyNavigation, TokenCatalog};
 
 fn name(text: &str) -> AccessibleName {
     AccessibleName::new(text).expect("gallery fixture names are nonempty")
@@ -24,7 +32,11 @@ fn reason(text: &str) -> DisabledReason {
 
 /// App-owned composition for state, keyboard and responsive checks; not a production screen.
 #[component]
-pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> impl IntoView {
+pub fn Gallery(
+    #[prop(default = "empty")] initial_feedback: &'static str,
+    #[prop(default = "all")] initial_family: &'static str,
+    #[prop(default = "")] initial_query: &'static str,
+) -> impl IntoView {
     let theme = RwSignal::new(Theme::Light);
     let density = RwSignal::new(Density::Compact);
     let action_mode = RwSignal::new("enabled".to_owned());
@@ -53,6 +65,8 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
     let dialog_text = RwSignal::new("Lời hẹn vẫn còn ở đây khi đóng rồi mở lại.".to_owned());
     let dialog_message = RwSignal::new("Hộp thoại chưa mở.".to_owned());
     let current_anchor = RwSignal::new("actions".to_owned());
+    let catalog_family = RwSignal::new(catalog::family_key(initial_family));
+    let catalog_query = RwSignal::new(initial_query.to_owned());
 
     let action_state = Signal::derive(move || match action_mode.get().as_str() {
         "disabled" => ButtonState::Disabled(reason(
@@ -98,8 +112,10 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                             <p>"Một nơi thử trạng thái, nội dung Việt dài và thao tác bàn phím. Mọi thay đổi chỉ nằm trong bản mẫu đang mở."</p>
                         </header>
 
+                        <ComponentCatalog query=catalog_query family=catalog_family current_anchor=current_anchor/>
+
                         <Surface tone=SurfaceTone::Container>
-                            <section aria-labelledby="gallery-settings-heading">
+                            <section id="gallery-settings" data-sample-family="foundation" aria-labelledby="gallery-settings-heading">
                                 <Stack>
                                     <h2 id="gallery-settings-heading">"Thiết lập hiển thị"</h2>
                                     <Grid columns=GridColumns::Three>
@@ -125,24 +141,21 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                             </section>
                         </Surface>
 
-                        <NavTabs label=name("Các nhóm component trong phòng mẫu")>
-                            <NavItem id="gallery-nav-actions" href=href("#gallery-actions") icon=IconName::Add
-                                current=Signal::derive(move || current_anchor.get() == "actions")
-                                on_press=Callback::new(move |_| current_anchor.set("actions".to_owned()))>"Hành động"</NavItem>
-                            <NavItem id="gallery-nav-fields" href=href("#gallery-fields") icon=IconName::Search
-                                current=Signal::derive(move || current_anchor.get() == "fields")
-                                on_press=Callback::new(move |_| current_anchor.set("fields".to_owned()))>"Nhập liệu"</NavItem>
-                            <NavItem id="gallery-nav-feedback" href=href("#gallery-feedback") icon=IconName::WarningAmber
-                                current=Signal::derive(move || current_anchor.get() == "feedback")
-                                on_press=Callback::new(move |_| current_anchor.set("feedback".to_owned()))>"Trạng thái"</NavItem>
-                            <NavItem id="gallery-nav-layout" href=href("#gallery-layout") icon=IconName::MenuBook
-                                current=Signal::derive(move || current_anchor.get() == "layout")
-                                on_press=Callback::new(move |_| current_anchor.set("layout".to_owned()))>"Bố cục & hộp thoại"</NavItem>
-                        </NavTabs>
+                        <section id="gallery-navigation" data-sample-family="navigation"
+                            aria-labelledby="gallery-navigation-heading">
+                            <Stack gap=Space::Sm>
+                                <h2 id="gallery-navigation-heading">"Điều hướng native bằng liên kết"</h2>
+                                <FamilyNavigation current_anchor=current_anchor family=catalog_family query=catalog_query/>
+                                <Link id="gallery-link" href=href("#gallery-fields")
+                                    on_press=Callback::new(move |_| { catalog_family.set("fields"); catalog_query.set(String::new()); current_anchor.set("fields".to_owned()); })>"Đi đến nhóm nhập liệu"</Link>
+                                <p class="cui-gallery-note">"NavTabs là vùng điều hướng bằng link, không phải ARIA tabs. Tab và Enter dùng hành vi trình duyệt; Ctrl/Cmd-click và sao chép link vẫn có hiệu lực. Thiết lập và điều hướng luôn ở lại để đổi nhóm mà không ẩn control đang giữ focus."</p>
+                            </Stack>
+                        </section>
 
-                        <section id="gallery-actions" aria-labelledby="gallery-actions-heading">
+                        <section id="gallery-actions" class="cui-gallery-family" data-sample-family="actions" aria-labelledby="gallery-actions-heading"
+                            hidden=move || !catalog::family_matches("actions", catalog_family.get(), &catalog_query.get())>
                             <Stack>
-                                <h2 id="gallery-actions-heading">"Hành động, liên kết và bộ lọc"</h2>
+                                <h2 id="gallery-actions-heading">"Hành động và bộ lọc"</h2>
                                 <Select id="gallery-action-state" label="Trạng thái các nút và chip"
                                     value=action_mode on_input=Callback::new(move |value| action_mode.set(value))>
                                     <option value="enabled">"Sẵn sàng"</option>
@@ -164,8 +177,6 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                                         on_change=Callback::new(move |value| { selected_chip.set(value); selection_count.update(|count| *count += 1); })>
                                         "Truyện huyền huyễn và lời kể dưới chân Thanh Vân Sơn"
                                     </FilterChip>
-                                    <Link id="gallery-link" href=href("#gallery-fields")
-                                        on_press=Callback::new(move |_| current_anchor.set("fields".to_owned()))>"Đi đến nhóm nhập liệu"</Link>
                                 </Stack>
                                 <Status tone=StatusTone::Info announcement=Announcement::Polite>
                                     <p class="cui-gallery-output" id="gallery-action-output">
@@ -176,8 +187,9 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                             </Stack>
                         </section>
 
-                        <Surface tone=SurfaceTone::Plain>
-                            <section id="gallery-fields" aria-labelledby="gallery-fields-heading">
+                        <section id="gallery-fields" class="cui-gallery-family" data-sample-family="fields" aria-labelledby="gallery-fields-heading"
+                            hidden=move || !catalog::family_matches("fields", catalog_family.get(), &catalog_query.get())>
+                            <Surface tone=SurfaceTone::Plain>
                                 <Stack>
                                     <h2 id="gallery-fields-heading">"Trường nhập và lựa chọn điều khiển"</h2>
                                     <Select id="gallery-field-state" label="Trạng thái các trường mẫu"
@@ -261,10 +273,11 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                                         {move || format!("Sự kiện nhập: {} · Sự kiện chọn: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME đang ghép = {} · Số lần compositionend = {}\nTên hiện tại: {}", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}
                                     </output>
                                 </Stack>
-                            </section>
-                        </Surface>
+                            </Surface>
+                        </section>
 
-                        <section id="gallery-feedback" aria-labelledby="gallery-feedback-heading">
+                        <section id="gallery-feedback" class="cui-gallery-family" data-sample-family="feedback" aria-labelledby="gallery-feedback-heading"
+                            hidden=move || !catalog::family_matches("feedback", catalog_family.get(), &catalog_query.get())>
                             <Stack>
                                 <h2 id="gallery-feedback-heading">"Badge, status, tải, rỗng và lỗi"</h2>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
@@ -307,10 +320,11 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                             </Stack>
                         </section>
 
-                        <section id="gallery-layout" aria-labelledby="gallery-layout-heading">
+                        <section id="gallery-layout" class="cui-gallery-family" data-sample-family="layout" aria-labelledby="gallery-layout-heading"
+                            hidden=move || !catalog::family_matches("layout", catalog_family.get(), &catalog_query.get())>
                             <Stack>
                                 <h2 id="gallery-layout-heading">"Bố cục ghép và vùng đọc"</h2>
-                                    <Grid columns=GridColumns::Three>
+                                <Grid columns=GridColumns::Three>
                                     <Surface tone=SurfaceTone::Plain inset=Space::Sm><p>"Surface · Plain · Sm"</p><p>"Một nhóm yên tĩnh, không mặc định thêm viền."</p></Surface>
                                     <Surface tone=SurfaceTone::Container inset=Space::Md><p>"Surface · Container · Md"</p><p>"Grid tối đa ba cột tự chuyển theo không gian khả dụng."</p></Surface>
                                     <Surface tone=SurfaceTone::High inset=Space::Lg><p>"Surface · High · Lg"</p><p>"Stack ngang có thể xuống dòng; gap dùng token."</p></Surface>
@@ -340,39 +354,52 @@ pub fn Gallery(#[prop(default = "empty")] initial_feedback: &'static str) -> imp
                                         </Stack>
                                     </Surface>
                                 </Container>
+                            </Stack>
+                        </section>
+
+                        <section id="gallery-icons" class="cui-gallery-family" data-sample-family="icons" aria-labelledby="gallery-icons-heading"
+                            hidden=move || !catalog::family_matches("icons", catalog_family.get(), &catalog_query.get())>
+                            <Stack gap=Space::Sm>
+                                <h2 id="gallery-icons-heading">"Biểu tượng outlined chính thức"</h2>
+                                <p class="cui-gallery-note">"Icon là nội dung trang trí và không tự tạo accessible name; ví dụ luôn có văn bản bên cạnh. Tập offline dùng đúng hình học từ nguồn đã ghi nhận."</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Xs class="cui-gallery-icons">
                                     <span><Icon name=IconName::Add/>"Thêm"</span>
                                     <span><Icon name=IconName::Check/>"Chọn"</span>
                                     <span><Icon name=IconName::Close/>"Đóng"</span>
                                     <span><Icon name=IconName::DarkMode/>"Tối"</span>
+                                    <span><Icon name=IconName::ExpandMore/>"Mở thêm"</span>
                                     <span><Icon name=IconName::LightMode/>"Sáng"</span>
                                     <span><Icon name=IconName::MenuBook/>"Đọc"</span>
                                     <span><Icon name=IconName::Search/>"Tìm"</span>
                                     <span><Icon name=IconName::WarningAmber/>"Chú ý"</span>
                                 </Stack>
-                                <Surface tone=SurfaceTone::Container inset=Space::Xs>
-                                    <section aria-labelledby="gallery-dialog-heading">
-                                        <Stack gap=Space::Sm>
-                                            <h3 id="gallery-dialog-heading">"Hộp thoại native điều khiển từ bên ngoài"</h3>
-                                            <p>"Mở rồi thử Tab / Shift+Tab, Escape và đóng bằng nút. Quan sát focus có quay về nút mở; văn bản trong hộp thoại phải còn khi mở lại."</p>
-                                            <Button id="gallery-dialog-open" variant=ButtonVariant::Tonal
-                                                focus_on_press=true
-                                                aria_controls="gallery-dialog"
-                                                on_press=Callback::new(move |_| {
-                                                    dialog_count.update(|count| *count += 1);
-                                                    dialog_message.set("Đã yêu cầu mở hộp thoại mẫu.".to_owned());
-                                                    dialog_open.set(true);
-                                                })>"Mở hộp thoại mẫu"</Button>
-                                            <Status tone=StatusTone::Info announcement=Announcement::Polite>
-                                                <p id="gallery-dialog-output" class="cui-gallery-output">
-                                                    {move || format!("Số lần mở: {} · {}", dialog_count.get(), dialog_message.get())}
-                                                </p>
-                                            </Status>
-                                        </Stack>
-                                    </section>
-                                </Surface>
                             </Stack>
                         </section>
+
+                        <section id="gallery-dialog-samples" class="cui-gallery-family" data-sample-family="dialog" aria-labelledby="gallery-dialog-heading"
+                            hidden=move || !catalog::family_matches("dialog", catalog_family.get(), &catalog_query.get())>
+                            <Surface tone=SurfaceTone::Container inset=Space::Xs>
+                                <Stack gap=Space::Sm>
+                                    <h2 id="gallery-dialog-heading">"Hộp thoại native điều khiển từ bên ngoài"</h2>
+                                    <p>"Mở rồi thử Tab / Shift+Tab, Escape và đóng bằng nút. Quan sát focus có quay về nút mở; văn bản trong hộp thoại phải còn khi mở lại."</p>
+                                    <Button id="gallery-dialog-open" variant=ButtonVariant::Tonal
+                                        focus_on_press=true
+                                        aria_controls="gallery-dialog"
+                                        on_press=Callback::new(move |_| {
+                                            dialog_count.update(|count| *count += 1);
+                                            dialog_message.set("Đã yêu cầu mở hộp thoại mẫu.".to_owned());
+                                            dialog_open.set(true);
+                                        })>"Mở hộp thoại mẫu"</Button>
+                                    <Status tone=StatusTone::Info announcement=Announcement::Polite>
+                                        <p id="gallery-dialog-output" class="cui-gallery-output">
+                                            {move || format!("Số lần mở: {} · {}", dialog_count.get(), dialog_message.get())}
+                                        </p>
+                                    </Status>
+                                </Stack>
+                            </Surface>
+                        </section>
+
+                        <TokenCatalog/>
 
                         <footer class="cui-gallery-note">
                             <p>"Gallery chỉ minh họa component Leptos. Kiểm tra render, bàn phím, focus, screen reader và reduced motion là các bước quan sát riêng."</p>

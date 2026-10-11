@@ -34,8 +34,9 @@ when this skill and a document disagree, the document wins and the conflict is r
 
 - `apps/cantos/mobile/` (Theatre) and `apps/cantos-studio/mobile/` (reserved for a possible Studio
   client) each contain a README only. This skill's playback, download and progress rules are for
-  Theatre; the two apps share no Kotlin module until code is actually common. There is no Gradle build, Xcode project, KMP module,
-  test task, formatter or device runner. Discover `settings.gradle.kts`,
+  Theatre; no production mobile Kotlin consumer exists yet. There is no app Gradle build, Xcode project,
+  app KMP module or device runner. The UI-system desktop preview is the separate concrete consumer
+  described below; its tests do not establish mobile behavior. Discover app `settings.gradle.kts`,
   `gradle/libs.versions.toml`, the Xcode project and CI workflows before citing any command; the
   commands in these references are **proposals** until the repository adds them.
 - Every library named here (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
@@ -51,6 +52,12 @@ when this skill and a document disagree, the document wins and the conflict is r
   not happen. Linux hosts cannot produce iOS runtime evidence.
 
 ## Scope and mode
+
+The separate [`packages/ui-system/cmp`](../../../packages/ui-system/cmp/README.md) Gradle package
+now has a user-requested JVM desktop component preview and shared-token mapping. This concrete
+diagnostic consumer does not implement either mobile app or verify Android/iOS. New shared
+components must be declared/tested in both previews and follow
+[preview admission](../cantos-ui-design/references/preview-catalog.md) before real app adoption.
 
 | The task | Use |
 |---|---|
