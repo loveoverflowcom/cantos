@@ -29,7 +29,7 @@ schema. It rejects missing/ambiguous JSON and retains raw output. A capture reco
 `image_inspected` and `semantics_asserted` stay false; actual inspection belongs in a separate
 report. Host evidence never substitutes for interaction, iOS rendering, native audio or readers.
 
-## Provenance and local verification
+## Historical bootstrap verification
 
 Initial source: `develop` at `8a9e140cb7198f3a53beca23f71490f180fa0c28`; rebased onto
 `209e9e9` (PR #38) before publication. Local host: Linux x86_64.
@@ -62,6 +62,49 @@ Rust tests; `cargo clippy -p xtask --all-targets --locked -- -D warnings` and
 `cargo fmt --all -- --check` passed. The wider failed/incomplete suite attempts below used the
 initial source base; full changed-only preflight was rerun after rebase and remains unsupported.
 
+## Review repairs and macOS checkpoint
+
+The requester-authorized sequential review of [PR #39](https://github.com/loveoverflowcom/cantos/pull/39)
+and [PR #40](https://github.com/loveoverflowcom/cantos/pull/40) pins #39's original head to
+`cb640a5809d7b6d6a90d166674ecd8f2e2a32e37`, based on `209e9e9`. Independent review found
+and the subsequent repair closes process, resource and file-boundary defects in this new tooling.
+
+- The adapter owns a POSIX CLI session/group and cleans descendants on normal exit, error,
+  timeout and SIGINT/SIGTERM/SIGHUP. The Rust command reuses the existing supervisor so a
+  signal aimed only at the xtask parent also stops its capture. Android Studio is never signalled.
+- Cleanup failure is fatal, including during Git provenance collection. Pipes always close,
+  and the direct child is reaped. On macOS a zombie-only group can return EPERM: the adapter
+  reaps its own leader and retries the identical operation once; a persistent permission error
+  still fails. This was diagnosed against an observed zombie group and the matching
+  [Apple XNU source](https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-11417.140.69/bsd/kern/kern_sig.c).
+- Command streams/source reads are capped at 4 MiB and PNG reads at 32 MiB. Hashing is streamed;
+  this is an admission/read bound, not a hard quota on external IDE writes.
+- Symlinked product roots, special/linked PNG files and linked artifact paths are rejected.
+  Fresh bundles use mode 0700; adapter files use 0600 and exclusive creation. Semantics values
+  and existing command/status contracts are preserved.
+
+Current host: macOS arm64, Rust 1.87.0, Python 3.13.5; Python runs use
+`TMPDIR=/private/tmp`. Source pins and attributable logs are retained under ignored
+`target/pr39-review/`. Tests exercise the real Python adapter with an Android CLI executable
+double, and the real Rust execution seam with a temporary capture/CLI fixture. No actual
+Android Studio rendering, Gradle scaffold, emulator or paid provider is involved.
+
+| Command | Current evidence |
+| --- | --- |
+| `cargo xtask verify repository` | PASS: 310 text files, 15 skills, 163 Python tests, including 18 capture tests |
+| Existing Rust gate primitive: `cargo test -p xtask --locked` | PASS: 68 tests, including parent-directed signals and normal exit codes 0/2/3/7 |
+| `cargo xtask verify contracts` | PASS: script-ir-reference, contract-tests and wav-reference |
+| `cargo fmt --all -- --check` | PASS |
+| Existing Rust gate primitive: `cargo clippy -p xtask --all-targets --locked -- -D warnings` | PASS on the repaired source |
+| `cargo xtask verify rust` | rust-format/rust-lint PASS at its attempted snapshot; rust-tests FAIL during workspace compilation: `No space left on device` |
+| Full changed-only preflight, Web, mutation and PostgreSQL | NOT_RUN to completion; all selected by the xtask contribution and blocked on disk |
+
+The aggregate failure is preserved and is not replaced by the focused test PASS. Only compiler
+artifacts created by that failed run were removed to restore small writes: 28 partial `.rcgu.o`
+files and two native compiler-cache files (44,915,774 bytes). Source, audio, models, evidence,
+all database clusters and the separate cleanup thread's paths are preserved. Full gates and
+merge remain pending sufficient disk; remote CI is not polled. GitHub owns PR execution status.
+
 ## Not covered / residual risk
 
 - Android Studio/CLI were not available, so actual PNG rendering and the exact CLI tree/log
@@ -78,15 +121,16 @@ initial source base; full changed-only preflight was rerun after rebase and rema
   TalkBack/VoiceOver walkthroughs are **NOT_RUN**. Native acceptance remains with
   [050](../work-plan/050-cmp-native-listening.md).
 - Routing cases R35–R37 were author-walked only; no independent agent evaluation was run.
-- The existing xtask process-group test fails at its initial `alive(grandchild)` check on this
-  host. A separate shell-child probe reproduced `ps -o stat= -p <pid>` returning no state for
+- On the earlier Linux bootstrap host, the existing xtask process-group test failed at its
+  initial `alive(grandchild)` check. A separate shell-child probe reproduced
+  `ps -o stat= -p <pid>` returning no state for
   a process that `os.kill(pid, 0)` confirms exists. The process test/code was not changed or
-  skipped to conceal this environment limitation; full xtask test acceptance remains incomplete.
-- Full changed-only preflight selects every gate for an xtask change. On this host it reports
+  skipped to conceal that environment limitation; that historical full test run was incomplete.
+- Full changed-only preflight selects every gate for an xtask change. The earlier Linux host reported
   `UNSUPPORTED` for Web/WASM/Trunk and PostgreSQL prerequisites, and other gates `NOT_RUN`.
   Available repository, focused Rust and contract checks are listed independently in the PR;
   there is no claim of full preflight success.
-- `verify contracts` passes its Script IR reference gate, then fails two existing WAV CLI tests
+- The earlier Linux `verify contracts` passed its Script IR reference gate, then failed two existing WAV CLI tests
   while spawning `inspect-wav` (`PermissionDenied`, OS error 13); `wav-reference` is `NOT_RUN`.
   A whole-workspace Rust verification attempt completed formatting/lint but exited 1 during
   test compilation without a final summary. Neither whole-suite result is reported as passing.

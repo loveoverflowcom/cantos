@@ -213,6 +213,13 @@ Each CLI operation has a 1–300 second timeout (default 60). `--label` is prove
 preview annotations/state configure theme, locale, font scale and layout. `--dry-run` prints
 the plan without probing the CLI/IDE or writing artifacts; its result is `NOT_RUN`.
 
+Capture execution currently requires a POSIX host so the adapter can stop only its owned CLI
+process group, including descendants, on return, failure, timeout or interruption. It never
+signals the connected Android Studio process. Each command retains at most 4 MiB per output
+stream; larger output fails. Preview sources are limited to 4 MiB and PNGs to 32 MiB. Special
+files, symlinked product roots and linked output files are rejected. Fresh capture bundles and
+adapter-written artifacts use private permissions; existing output paths are never overwritten.
+
 The Python capture primitive saves a fresh PNG, unchanged semantics JSON, raw logs and source/
 command/output provenance under ignored `artifacts/ui-evidence/compose-preview/`. Missing
 prerequisites are `UNSUPPORTED`; render/invalid output/timeouts are `FAIL`. A successful capture

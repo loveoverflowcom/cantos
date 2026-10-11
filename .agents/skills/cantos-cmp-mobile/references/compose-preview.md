@@ -74,7 +74,12 @@ the **observed schema**, and state which renderer produced it. A dumped tree alo
 write the inspection and assertions in a separate report instead of altering capture provenance.
 
 The adapter rejects ambiguous/missing JSON, missing/invalid PNG headers and a preview source
-changed during capture. Keep failed bundles for diagnosis. `capture: PASS` means the command
+changed during capture. Capture execution requires a POSIX host for cleanup of the CLI process
+group it owns, including descendants, on return, failure, timeout or interruption; it never
+signals Android Studio. Each command stream is capped at 4 MiB, the source at 4 MiB and the PNG
+at 32 MiB. Special files, linked outputs and symlinked product roots are rejected. Capture
+bundles and adapter-written files are private, and existing artifact paths are never overwritten.
+Keep failed bundles for diagnosis. `capture: PASS` means the command
 captured files successfully; unopened images remain `screenshot-captured`. Only an actual visual
 inspection earns `screenshot-inspected` and actual assertions earn `semantics-tested`.
 

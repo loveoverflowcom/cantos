@@ -68,6 +68,9 @@ Android Studio host-capture command and updates CMP/inspection skills. Its CLI b
 tested with a process double; both mobile projects and real Android/iOS acceptance remain
 unimplemented/unrun. This enabling change does not advance 050, change #6/#7 ordering or
 introduce a competing mobile UI implementation.
+The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
+bounded output and private capture paths. The next mobile evidence still comes from an actual
+configured project and renderer; GitHub owns this tooling PR's execution status.
 
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
