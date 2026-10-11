@@ -22,8 +22,9 @@ vocabulary and report; none of them redefines these.
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
 - **Repository reality.** Script IR, the Axum/PostgreSQL backend (revisions, editorial handoff,
   import, caller-hosted adaptation, casting and frozen production inputs, local/Google TTS probe
-  CLIs) and the Leptos Studio exist; Theatre Web is a skeleton; mobile apps and production
-  execution remain planned. Inspect manifests, scripts and workflows before citing a command; see
+  CLIs, and the bounded development-only local/fake durable-worker foundation) and the Leptos
+  Studio exist. Theatre Web is a skeleton; mobile apps, commercial dispatch, full production
+  execution and delivery remain planned. Inspect manifests, scripts and workflows before citing a command; see
   [`local-execution.md`](references/local-execution.md).
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.

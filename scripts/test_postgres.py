@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run revision, import, adaptation and production-input tests in a new disposable cluster.
+"""Run revision, import, adaptation and production tests in a new disposable cluster.
 
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
 test cluster for local Studio inspection; its explicit stop command is printed.
@@ -472,13 +472,20 @@ def main():
     editor_host = None
     try:
         run(["initdb", "-D", str(data), "--username=cantos_test_admin", "--auth=trust", "--no-locale", "--encoding=UTF8"], env=env, output=cluster / "initdb.log")
-        run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", f"-h 127.0.0.1 -p {port} -k /tmp", "-w", "start"], env=env)
+        # Bound retained WAL on low-disk development hosts without relaxing durability.
+        # Every gate still owns a new cluster; PostgreSQL checkpoints/recycles its own WAL.
+        server_options = (f"-h 127.0.0.1 -p {port} -k /tmp "
+                          "-c max_wal_size=64MB -c min_wal_size=32MB "
+                          "-c checkpoint_timeout=30s -c fsync=on "
+                          "-c synchronous_commit=on -c full_page_writes=on")
+        run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", server_options, "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
         run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "durable_postgres", "--locked", "--offline", "--", "--ignored", "--skip", "installed_local_runtime", "--test-threads=1"], env=env, output=EVIDENCE / "durable-postgres-tests.log")
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())

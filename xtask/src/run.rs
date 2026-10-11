@@ -37,9 +37,9 @@ pub enum RunTarget {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum AppTarget {
-    /// Studio frontend against an API already listening on 127.0.0.1:8080.
+    /// Cantos Studio (creator client).
     CantosStudio,
-    /// Theatre frontend; it has no backend.
+    /// Cantos Theatre (listener client).
     Cantos,
 }
 

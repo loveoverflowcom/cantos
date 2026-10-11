@@ -56,7 +56,8 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   decided in [decision 0001](../decisions/0001-modular-monolith.md). Studio v1 is implemented. The
   listener API is planned; when it arrives it is a separate route group and permission context in
   this service, with its own DTO module in `packages/contracts`. A worker may run as a second
-  process of the same package.
+  process of the same package. The bounded `cantos-worker` now does so for explicit local/fake
+  development jobs, on the existing PostgreSQL authority; there is no broker or new service.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API will validate tokens issued by it once identity work starts;
   nothing in this repository reimplements an identity provider.
@@ -70,8 +71,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 Not shared, deliberately:
 
-- **Script IR rules, revisions and production-input rules** remain modules of `cantos-api`
-  (`script_ir`, `revisions`, `production`). They have one consumer; the Studio editor validates
+- **Script IR rules, revisions, production-input and job rules** remain modules of `cantos-api`
+  (`script_ir`, `revisions`, `production`, `jobs`). The HTTP host, application CLIs and local
+  worker share that package; the Studio editor validates
   through the API. Extract a crate under `packages/` when a second consumer such as a worker binary
   in another package needs it and a review accepts the interface. Domain code must stay free of
   HTTP, UI and provider types so that move stays mechanical.
@@ -89,7 +91,7 @@ The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its
 
 | Member | Package | Build target |
 | --- | --- | --- |
-| `services/cantos-api` | `cantos-api` | native; binaries `cantos-server`, `cantos-migrate`, `cantos-operator` and the inspection CLIs |
+| `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, `production-jobs`, `cantos-worker` and inspection/probe CLIs |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |

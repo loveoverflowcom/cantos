@@ -39,10 +39,14 @@ conflict and fix the stale side when in scope.
 ## Repository reality
 
 The backend implements frozen production candidates, scoped approval, bounded WAV/receipt
-inspection and sample-only eSpeak/Google probes. VieNeu Nano remains research-only and refuses
-production dispatch. No durable worker/job table, reservation, cache acceptance, mixer or
-publication pipeline exists. The production spine and illustrative types below remain
-**proposed** unless named implementation evidence says otherwise. Discover the real manifests,
+inspection and sample-only eSpeak/Google probes. The bounded
+[durable worker foundation](../../../docs/evidence/durable-tts-jobs.md) adds same-package
+development-only local/fake execution with PostgreSQL runs/jobs/steps, immutable intent and
+observations, reservations, leases and fenced result selection. Google commercial dispatch
+stays disabled; VieNeu Nano remains research-only and refuses production dispatch. Cache reuse,
+mixing, object-storage acceptance, transactional outbox and publication remain unimplemented.
+The advanced production spine and illustrative types below remain **proposed** unless named
+implementation evidence says otherwise. Discover the real manifests,
 migrations and modules first. A provider, an audio tool, a numeric loudness or
 peak target, a retry schedule and a budget currency each need a recorded decision
 ([ADR](../../../templates/adr.md), after listening tests for audio) and a pinned, verified version

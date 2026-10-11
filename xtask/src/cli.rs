@@ -6,6 +6,7 @@ use clap::{Args, Parser, Subcommand};
 use crate::{
     build::{BuildTarget, Surface},
     ci::CiJob,
+    compose_preview::ComposePreviewArgs,
     config::DEFAULT_BASE,
     gate::GateKind,
     run::{AppTarget, RunTarget},
@@ -48,6 +49,8 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.
+    ComposePreview(ComposePreviewArgs),
     /// Build a target with Cargo (API) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]

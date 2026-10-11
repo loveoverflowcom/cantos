@@ -359,6 +359,42 @@ async fn snapshot(
     })
 }
 
+/// Durable workers reuse the exact historical reconstruction and current authority.
+/// Locks follow the existing script -> actor -> settings/rights order; never across TTS.
+pub(super) async fn current_snapshot(
+    tx: &deadpool_postgres::Transaction<'_>,
+    actor: &str,
+    script: &str,
+    id: &str,
+) -> Result<ProductionSnapshotResponse, StoreError> {
+    let active: Option<bool> = tx
+        .query_one("SELECT production_lock_actor($1)", &[&actor])
+        .await?
+        .get(0);
+    if active != Some(true) {
+        return Err(StoreError::Unauthenticated);
+    }
+    let facts = facts(tx, actor, script, Action::Review, true).await?;
+    let query =
+        format!("SELECT {SNAPSHOT_COLUMNS} FROM production_snapshots WHERE id=$1 AND script_id=$2");
+    let row = tx
+        .query_opt(&query, &[&id, &script])
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    let candidate = snapshot(tx, &row, &facts).await?;
+    if !candidate.eligibility.approval_current {
+        return Err(blocked(&candidate.eligibility.findings));
+    }
+    Ok(candidate)
+}
+
+pub(super) async fn durable_actor(
+    tx: &deadpool_postgres::Transaction<'_>,
+    token: &str,
+) -> Result<String, StoreError> {
+    production_actor(tx, token).await
+}
+
 impl Store {
     pub async fn production_state(
         &self,

@@ -10,11 +10,13 @@
 The requirements are owned by [UI system](../../../../docs/design/ui-system.md) (the
 [validation matrix](../../../../docs/design/ui-system.md#future-validation-matrix) lists the
 conditions per surface) and the rules are `UI-INTENT`, `UI-STATE` and `UI-PIXELS` in
-[`../SKILL.md`](../SKILL.md#rules). **No UI exists and the reference image named in the brief was
-never attached**, so no visual-fidelity claim is possible yet
+[`../SKILL.md`](../SKILL.md#rules). Studio Web and the shared Web foundation exist; Theatre Web
+is a skeleton and CMP remains deferred. Match fidelity only against actual inspected source
+and runtime pixels
 ([UI system § Direction and reference](../../../../docs/design/ui-system.md#direction-and-reference)).
-Every tool and path below is a **candidate** or **proposed**; discover the repository's real
-tooling before citing one.
+Discover the repository's real tooling before citing a command. The optional
+[Compose preview adapter](../../cantos-cmp-mobile/references/compose-preview.md) is implemented;
+its real Cantos render remains blocked until a mobile Gradle project exists.
 
 ## 1. Pin the scenario before the first capture
 
@@ -45,8 +47,10 @@ state; a scenario edited between runs proves nothing.
   flow is generated at test time, and audio extensions are already ignored.
 - **Capture context and detail** for each finding: the whole screen and the region, in the same
   state. Name files `<state>-<viewport>-<theme>-<locale>-<scale>.png` so a recheck lines up.
-- **Capture tooling (candidates, none chosen):** the browser pane or a headless browser driver for
-  Web; Compose screenshot tests or the host preview for fast CMP layout; `adb exec-out screencap`
+- **Capture tooling:** `cargo xtask compose-preview` is the optional Android Studio host capture
+  path; follow its [workflow](../../cantos-cmp-mobile/references/compose-preview.md). Other
+  candidates are the browser pane or a headless browser driver for Web; configured Compose
+  screenshot tests for CMP layout; `adb exec-out screencap`
   on Android and `xcrun simctl io <device> screenshot` on iOS for native captures. Verify each tool
   and version before relying on it and record the choice in an ADR.
 - **Open the image.** An unopened capture is `screenshot-captured`. Open every cited image with an

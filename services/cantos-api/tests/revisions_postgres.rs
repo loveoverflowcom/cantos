@@ -680,7 +680,15 @@ async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_faile
             .await
             .unwrap()
             .get::<_, i64>(0),
-        6
+        7
+    );
+    assert_eq!(
+        admin
+            .query_one("SELECT to_regclass('durable_runs')::text", &[])
+            .await
+            .unwrap()
+            .get::<_, Option<String>>(0),
+        Some("durable_runs".into())
     );
 }
 

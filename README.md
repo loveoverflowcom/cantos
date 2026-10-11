@@ -24,8 +24,13 @@ validation previews, source comparison and revision history on that same authori
 [Casting and production inputs](docs/evidence/casting-production-inputs.md) add versioned
 reference-only voice controls, script-scoped rights/budget declarations, immutable candidates
 and exact owner approval on the same backend. Reference capabilities and rates are planning
-fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. Production execution,
-Theatre and native mobile playback remain planned. No runnable Gradle project or production
+fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. The bounded
+[durable local/fake worker foundation](docs/evidence/durable-tts-jobs.md) now adds PostgreSQL
+runs, jobs, dialogue steps, intent/reservation/observation history, leases and fenced result
+selection. Its separate `cantos-worker` process belongs to the same backend package and requires
+explicit development/local or synthetic execution. Google commercial dispatch stays disabled;
+VieNeu stays research-only. Full production execution, Theatre and native mobile playback remain
+planned. No runnable Gradle project or production
 identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
 reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)
@@ -56,7 +61,9 @@ does not close the issue.
 The [existing provider verification](docs/evidence/tts-provider-verification.md) hardens
 conservative HTTP execution, pinned sample rights/budget checks and private local output safety.
 Fresh eSpeak samples remain structurally verified; Google live and listening remain NOT_RUN.
-The next separately authorized backend PR adds durable jobs using local/fake execution.
+The sequential #7 [worker foundation](docs/evidence/durable-tts-jobs.md) starts from the merged
+[PR #38](https://github.com/loveoverflowcom/cantos/pull/38), preserving those #6 gates. Completed
+worker execution grants neither editorial/publication approval nor accepted delivery assets.
 
 Four Studio revision routes (head, pinned revision, save, validation) can also negotiate
 MessagePack beside JSON with the same DTOs and error semantics; the Studio ships JSON until the
@@ -100,7 +107,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | `apps/cantos-studio/mobile/` | Reserved location for a Studio CMP client; guide only |
 | `apps/cantos/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
 | `apps/cantos/mobile/` | Guide for the native CMP listening app; no Gradle project |
-| `services/cantos-api/` | Pure Script IR/revision/production-input rules, local Axum host, PostgreSQL store and migration CLI |
+| `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
 | `packages/ui-system/` | Canonical semantic tokens and Leptos foundation; CMP mapping deferred |
@@ -120,6 +127,7 @@ from any directory and checks every prerequisite before it starts.
 
 ```sh
 cargo xtask doctor                         # tools, gates and surfaces available here
+cargo xtask compose-preview --help         # optional Android Studio PNG/semantics capture
 cargo xtask preflight --changed-only       # gates selected from your diff against origin/develop
 cargo xtask verify repository              # documents, links, skills, Python tests, whitespace
 cargo xtask verify rust                    # fmt, clippy -D warnings, workspace tests

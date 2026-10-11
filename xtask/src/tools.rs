@@ -25,10 +25,11 @@ pub enum Tool {
     Initdb,
     PgCtl,
     Psql,
+    AndroidCli,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 13] = [
+    pub const ALL: [Tool; 14] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -42,6 +43,7 @@ impl Tool {
         Tool::Initdb,
         Tool::PgCtl,
         Tool::Psql,
+        Tool::AndroidCli,
     ];
 
     pub fn label(self) -> &'static str {
@@ -59,6 +61,7 @@ impl Tool {
             Tool::Initdb => "initdb",
             Tool::PgCtl => "pg_ctl",
             Tool::Psql => "psql",
+            Tool::AndroidCli => "android",
         }
     }
 
@@ -79,6 +82,7 @@ impl Tool {
             }
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
+            Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the mobile project open",
             Tool::Initdb | Tool::PgCtl | Tool::Psql => {
                 "put the PostgreSQL 17 server binaries directory on PATH"
             }
@@ -100,6 +104,7 @@ impl Tool {
             Tool::Initdb => Some(("initdb", &["--version"])),
             Tool::PgCtl => Some(("pg_ctl", &["--version"])),
             Tool::Psql => Some(("psql", &["--version"])),
+            Tool::AndroidCli => Some(("android", &["--version"])),
         }
     }
 }
