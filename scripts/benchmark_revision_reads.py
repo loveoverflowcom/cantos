@@ -80,9 +80,17 @@ def make_document(dialogues):
     return document
 
 
+# Every Rust file that owns a query on the revision read path.
+REVISION_READ_SOURCES = (
+    "services/cantos-api/src/platform/postgres/session.rs",
+    "services/cantos-api/src/platform/postgres/migrations.rs",
+    "services/cantos-api/src/contexts/editorial/postgres.rs",
+)
+
+
 def source_queries():
     """Extract the real SQL, failing closed on code drift instead of benchmarking a stale copy."""
-    source = (ROOT / "services/cantos-api/src/postgres.rs").read_text()
+    source = "\n".join((ROOT / path).read_text() for path in REVISION_READ_SOURCES)
     columns = re.search(r'const REVISION_COLUMNS: &str = ("(?:\\.|[^"\\])*");', source)
     if columns is None:
         raise RuntimeError("revision projection changed; update the read inventory/harness")
@@ -90,7 +98,7 @@ def source_queries():
     queries = {}
     for label, prefix in [("auth", "SELECT a.id FROM sessions"),
                           ("member", "SELECT role FROM script_members"),
-                          ("evidence", "SELECT id FROM script_evidence"),
+                          ("evidence", "SELECT id FROM script_evidence WHERE"),
                           ("migration", "SELECT checksum FROM cantos_migrations"),
                           ("head_lock", "SELECT owner_id,head_revision FROM scripts"),
                           ("revision", "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"),
@@ -546,7 +554,7 @@ def main():
               "hardware": run(["sysctl", "-n", "machdep.cpu.brand_string", "hw.memsize", "hw.logicalcpu"]),
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
-                                ("services/cantos-api/src/postgres.rs", "services/cantos-api/src/http.rs",
+                                (*REVISION_READ_SOURCES, "services/cantos-api/src/interfaces/http/mod.rs",
                                  "services/cantos-api/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:

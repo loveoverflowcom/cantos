@@ -3,15 +3,20 @@
 use std::{path::Path, time::Duration};
 
 use cantos_api::{
-    production::{authorize_inputs, prepare_inputs, production_input_digest},
-    script_ir::read_script,
-    tts::{
-        neural::{run_neural, NeuralPurpose, NeuralRunError, NeuralSynthesisRequest},
-        neural_contract::{
-            valid_text, validate_resolved, NeuralRequestError, ADAPTER_VERSION, MAX_TEXT_BYTES,
-            MODEL_ID, OUTPUT_CONTRACT, PROVIDER_ID, VOICE_IDS,
+    contexts::{
+        production::{
+            authorize_inputs,
+            catalog::neural::{
+                valid_text, validate_resolved, NeuralRequestError, ADAPTER_VERSION, MAX_TEXT_BYTES,
+                MODEL_ID, OUTPUT_CONTRACT, PROVIDER_ID, VOICE_IDS,
+            },
+            prepare_inputs, production_input_digest,
+        },
+        synthesis::providers::neural::{
+            run_neural, NeuralPurpose, NeuralRunError, NeuralSynthesisRequest,
         },
     },
+    script_ir::read_script,
 };
 use cantos_contracts::{
     FrozenProductionDocument, ProductionApprovalResponse, ProductionRightsClaim,
@@ -287,8 +292,8 @@ fn production_is_refused_before_io_even_when_planning_approval_and_claims_are_cu
     assert_eq!(
         NeuralRunError::ProductionForbidden.failure_facts(),
         (
-            cantos_api::tts::attempt::FailureClass::Permanent,
-            cantos_api::tts::attempt::DeliveryState::NotSent
+            cantos_api::contexts::synthesis::attempt::FailureClass::Permanent,
+            cantos_api::contexts::synthesis::attempt::DeliveryState::NotSent
         )
     );
 }

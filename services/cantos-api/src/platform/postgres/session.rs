@@ -1,0 +1,39 @@
+//! Development session tokens: hashing, authentication inside a caller's transaction and
+//! revocation. Identity issuance belongs to the operator tools.
+use sha2::{Digest, Sha256};
+
+use super::{Store, StoreError, Tx};
+
+pub fn token_hash(token: &str) -> Vec<u8> {
+    Sha256::digest(token.as_bytes()).to_vec()
+}
+
+/// Locks the session row for the transaction, so a concurrent revocation waits for it.
+pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
+    if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(StoreError::Unauthenticated);
+    }
+    let row = tx.query_opt("SELECT a.id FROM sessions s JOIN actors a ON a.id=s.actor_id WHERE s.token_hash=$1 AND NOT s.revoked AND s.expires_at>clock_timestamp() AND a.active FOR SHARE OF s", &[&token_hash(token)]).await?;
+    row.map(|row| row.get(0)).ok_or(StoreError::Unauthenticated)
+}
+
+impl Store {
+    pub async fn authenticate(&self, token: &str) -> Result<String, StoreError> {
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let actor = authenticate(&tx, token).await?;
+        tx.commit().await?;
+        Ok(actor)
+    }
+
+    pub async fn revoke(&self, token: &str) -> Result<(), StoreError> {
+        let client = self.connection().await?;
+        client
+            .execute(
+                "UPDATE sessions SET revoked=true WHERE token_hash=$1",
+                &[&token_hash(token)],
+            )
+            .await?;
+        Ok(())
+    }
+}

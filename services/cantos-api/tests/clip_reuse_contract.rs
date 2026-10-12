@@ -3,12 +3,12 @@
 //! Plain tests: no database, no filesystem, no provider.
 use std::collections::BTreeMap;
 
-use cantos_api::{
-    clip_reuse::{ArtifactProbe, AudioDigest, ClipCandidate, RegisteredClip},
+use cantos_api::contexts::synthesis::{
+    fingerprint::{SpeechFingerprint, SpeechInput},
     jobs::ExecutionMode,
-    postgres::durable::{ObjectProbes, PlanReport},
     regeneration::{plan_regeneration, PlanGate, PlanInputs, ProductionShape},
-    speech_fingerprint::{SpeechFingerprint, SpeechInput},
+    reuse::{ArtifactProbe, AudioDigest, ClipCandidate, RegisteredClip},
+    ObjectProbes, PlanReport,
 };
 use cantos_contracts::{
     ProductionBudget, ProductionCurrency, ProductionRate, ResolvedSynthesisInput,
@@ -98,7 +98,7 @@ fn cache_of(candidates: Vec<(ClipCandidate, &ResolvedSynthesisInput)>) -> Cache 
     cache
 }
 
-fn report(plan: cantos_api::regeneration::RegenerationPlan) -> Value {
+fn report(plan: cantos_api::contexts::synthesis::regeneration::RegenerationPlan) -> Value {
     serde_json::to_value(PlanReport {
         script_id: "11111111-1111-4111-8111-111111111111".into(),
         previous_snapshot_id: Some("22222222-2222-4222-8222-222222222222".into()),

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Check bootstrap documents, local links, JSON fixtures, text hygiene and agent skills.
+"""Check documents, links, fixtures, hygiene, skills and API architecture boundaries.
 
 This does not validate application behavior, YAML schemas or audio quality.
 Skill checks cover structure only: portable frontmatter, Codex metadata, the
 README index, reachable references and Claude Code symlinks.
+Architecture checks inspect source dependencies and named SQL tables, not runtime behavior.
 It uses only Python's standard library and Git.
 """
 
@@ -65,6 +66,42 @@ OPENAI_INTERFACE_FIELDS = ("display_name", "short_description", "default_prompt"
 FRONTMATTER_KEY = re.compile(r"^([a-z][a-z0-9_-]*):(.*)$")
 BLOCK_SCALARS = {">", ">-", "|", "|-"}
 YAML_PAIR = re.compile(r'^  ([a-z_]+): "([^"\\]*)"$')
+
+API_SOURCE = Path("services/cantos-api/src")
+CONTEXT_UPSTREAM = {
+    "editorial": set(),
+    "ingestion": {"editorial"},
+    "adaptation": {"editorial", "ingestion"},
+    "production": {"editorial"},
+    "synthesis": {"editorial", "production"},
+}
+DOMAIN_EXTERNAL = {
+    "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
+    "reqwest", "hyper", "tokio", "tower", "tower_http", "leptos", "rand", "getrandom",
+}
+LEGACY_API_MODULES = {
+    "adaptation", "audio", "clip_probe", "clip_reuse", "http", "imports", "incremental", "jobs",
+    "operator", "postgres", "production", "regeneration", "revisions", "speech_fingerprint",
+    "speech_reuse", "tts", "tts_receipt", "wav_inspection", "worker",
+}
+HTTP_PURE_BOUNDARIES = {
+    ("contexts", "editorial", "domain", "diagnostics", "validation_issues"),
+    ("contexts", "production", "production_catalog"),
+    ("script_ir", "read_script"),
+}
+TABLE_OWNER = {
+    "scripts": "editorial", "script_members": "editorial",
+    "script_revisions": "editorial", "script_reviews": "editorial",
+    "script_review_operations": "editorial", "script_evidence": "editorial",
+    "revision_evidence": "editorial", "source_records": "ingestion",
+    "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
+    "speech_clips": "synthesis",
+}
+RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
+USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")
+SQL_TABLE = re.compile(
+    r"\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(?:public\.)?([a-z_][a-z_0-9]*)", re.IGNORECASE,
+)
 
 
 def prose_only(content):
@@ -302,6 +339,244 @@ def check_skills(root=ROOT):
     return errors + check_claude_links(root, [path.name for path in skill_dirs])
 
 
+def rust_code(content):
+    """Mask comments/literals without shifting lines; retain strings for SQL checks.
+
+    Rust block comments nest and raw strings may contain quotes. Character literals are
+    removed, while lifetimes stay intact. This is a lexical check, not a Rust parser.
+    """
+    code, strings, offset = list(content), [], 0
+    while offset < len(content):
+        start = offset
+        raw = re.match(r'(?:br|r)(#*)"', content[offset:])
+        if content.startswith("//", offset):
+            end = content.find("\n", offset)
+            offset = len(content) if end < 0 else end
+        elif content.startswith("/*", offset):
+            offset, depth = offset + 2, 1
+            while offset < len(content) and depth:
+                if content.startswith("/*", offset):
+                    depth, offset = depth + 1, offset + 2
+                elif content.startswith("*/", offset):
+                    depth, offset = depth - 1, offset + 2
+                else:
+                    offset += 1
+        elif raw:
+            body = offset + len(raw.group())
+            close = '"' + raw.group(1)
+            end = content.find(close, body)
+            offset = len(content) if end < 0 else end + len(close)
+            strings.append((start, content[body:end if end >= 0 else len(content)]))
+        elif content[offset] == '"':
+            offset += 1
+            while offset < len(content):
+                if content[offset] == "\\":
+                    offset += 2
+                elif content[offset] == '"':
+                    offset += 1
+                    break
+                else:
+                    offset += 1
+            strings.append((start, content[start + 1:offset - 1]))
+        elif content[offset] == "'" and (char := re.match(r"'(?:\\.|[^'\\\n])'", content[offset:])):
+            offset += len(char.group())
+        else:
+            offset += 1
+            continue
+        for index in range(start, min(offset, len(content))):
+            if code[index] != "\n":
+                code[index] = " "
+    return "".join(code), strings
+
+
+def use_paths(tokens, prefix=()):
+    """Expand grouped `use` trees into paths, including nested groups and aliases."""
+    paths, index = [], 0
+    while index < len(tokens):
+        path = list(prefix)
+        while index < len(tokens) and tokens[index] not in {"{", "}", ",", "as"}:
+            if tokens[index] != "::":
+                path.append(tokens[index])
+            index += 1
+        if index < len(tokens) and tokens[index] == "{":
+            start, depth = index + 1, 1
+            index += 1
+            while index < len(tokens) and depth:
+                depth += (tokens[index] == "{") - (tokens[index] == "}")
+                index += 1
+            paths.extend(use_paths(tokens[start:index - 1], tuple(path)))
+        else:
+            path = tuple(path[:-1] if path[-1:] == ["self"] else path)
+            alias = path[-1] if path else None
+            if index < len(tokens) and tokens[index] == "as":
+                alias = tokens[index + 1]
+                index += 2
+            paths.append((path, alias))
+        if index < len(tokens) and tokens[index] in {",", "}"}:
+            index += 1
+    return paths
+
+
+def source_paths(code, module):
+    """Yield source offsets and dependency paths, resolving crate/self/super prefixes."""
+    uses = list(re.finditer(r"\buse\s+([^;]+);", code))
+    paths = [(match.start(), tuple(re.split(r"::\s*", match.group())))
+             for match in RUST_PATH.finditer(code)
+             if not any(use.start() <= match.start() < use.end() for use in uses)]
+    aliases = {}
+    for match in uses:
+        for path, alias in use_paths(USE_TOKEN.findall(match.group(1))):
+            paths.append((match.start(), path))
+            if alias and alias != "*":
+                aliases[alias] = path
+    modules, braces = [], []
+    for match in re.finditer(r"[{}]", code):
+        if match.group() == "{":
+            declaration = re.search(r"\bmod\s+(\w+)\s*$", code[:match.start()])
+            braces.append((match.start(), declaration.group(1) if declaration else None))
+        elif braces:
+            start, name = braces.pop()
+            if name:
+                modules.append((start, match.start(), name))
+    for offset, path in sorted(set(paths)):
+        if not path:
+            continue
+        for _ in range(len(aliases)):
+            replacement = aliases.get(path[0])
+            if not replacement or replacement == (path[0],) or path[0] in {"crate", "super", "self"}:
+                break
+            path = replacement + path[1:]
+        if path[0] == "crate":
+            path = path[1:]
+            if path and path[0] in LEGACY_API_MODULES:
+                path = ("<legacy>",) + path
+        elif path[0] in {"self", "super"}:
+            base = list(module) + [name for start, end, name in sorted(modules)
+                                   if start < offset < end]
+            while path and path[0] in {"self", "super"}:
+                if path[0] == "super" and base:
+                    base.pop()
+                path = path[1:]
+            path = tuple(base) + path
+        yield offset, path
+
+
+def table_owner(table):
+    for prefix, owner in (("adaptation_", "adaptation"), ("production_", "production"),
+                          ("durable_", "synthesis")):
+        if table.startswith(prefix):
+            return owner
+    return TABLE_OWNER.get(table)
+
+
+def dependency_error(path, owner, domain, http):
+    """Return the boundary violated by one path, or None for an admitted dependency."""
+    if not path:
+        return None
+    if (owner or domain or http) and path[0] == "<legacy>":
+        return "context uses a legacy crate alias; name the owning context explicitly"
+    if owner and path[0] == "interfaces":
+        return "context must not depend on an interface"
+    if domain:
+        if path[0] in DOMAIN_EXTERNAL or path[:2] in {
+            ("std", "fs"), ("std", "net"), ("std", "process"), ("std", "env"),
+            ("std", "thread"), ("std", "time"), ("std", "os"),
+        } or path[-1] in {"new_v4", "new_v7", "now_v7", "thread_rng", "random"}:
+            return "pure domain must not depend on I/O, a runtime, clock or randomness"
+        if path[:2] == ("std", "io") and len(path) > 2 and path[2] in {"stdin", "stdout", "stderr"}:
+            return "pure domain must not depend on console I/O"
+        if path[0] == "platform" and path[:2] != ("platform", "ids"):
+            return "pure domain may use only the pure platform::ids boundary"
+        if path[0] == "interfaces":
+            return "pure domain must not depend on an interface"
+    if path[0] == "contexts" and len(path) >= 2:
+        target = path[1]
+        if owner and target != owner and target not in CONTEXT_UPSTREAM[owner]:
+            return f"{owner} must not depend on {target}; upstream contexts are {sorted(CONTEXT_UPSTREAM[owner])}"
+        if domain and (len(path) < 3 or path[2] != "domain"):
+            return "pure domain must name a context's domain directly, without an adapter or facade"
+        if owner and target != owner and len(path) >= 3 and path[2] in {
+            "postgres", "application", "providers", "media", "worker",
+        }:
+            return "cross-context calls must use the owning context's entrypoint"
+        if http and path not in HTTP_PURE_BOUNDARIES:
+            return "HTTP must delegate business decisions through application use cases"
+    if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
+        return "HTTP must not call a database or external provider directly"
+    if http and path[:2] == ("platform", "postgres") and len(path) >= 3 and path[2] not in {
+        "Store", "StoreError",
+    }:
+        return "HTTP may import only Store and StoreError from PostgreSQL plumbing"
+    if http and path[0] == "script_ir" and path not in HTTP_PURE_BOUNDARIES:
+        return "HTTP may admit Script IR bytes but must delegate business decisions"
+    if domain and not owner and path[0] == "contexts":
+        return "Script IR shared kernel must not depend on a business context"
+    return None
+
+
+def check_api_architecture(root=ROOT):
+    """Check explicit Rust paths, context visibility and statically named SQL tables.
+
+    Compiler visibility completes the check for imported aliases; this deliberately does not
+    claim to resolve macros, dynamic SQL or prove the absence of arbitrary business logic.
+    """
+    errors = set()
+    for file in sorted((root / API_SOURCE).rglob("*.rs")):
+        relative = file.relative_to(root / API_SOURCE)
+        parts = relative.parts
+        owner = parts[1] if parts[0] == "contexts" and len(parts) > 2 else None
+        if owner and owner not in CONTEXT_UPSTREAM:
+            errors.add(f"{API_SOURCE / relative}: new context needs an explicit dependency policy")
+            continue
+        domain = parts[0] in {"script_ir", "script_ir.rs"} or (
+            owner and parts[2] in {"domain", "domain.rs"}
+        )
+        domain = domain or relative == Path("platform/ids.rs")
+        http = parts[:2] == ("interfaces", "http")
+        module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
+        content = file.read_text(encoding="utf-8")
+        code, strings = rust_code(content)
+        for offset, path in source_paths(code, module):
+            error = dependency_error(path, owner, domain, http)
+            if parts[0] == "platform" and path[0] == "contexts" and path != (
+                "contexts", "synthesis", "summary_view", "AttachedView",
+            ):
+                error = "platform may name only the experimental AttachedView context binding"
+            if error:
+                line = code.count("\n", 0, offset) + 1
+                errors.add(f"{API_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")
+        if domain and re.search(r"\b(?:print|println|eprint|eprintln|dbg)\s*!", code):
+            errors.add(f"{API_SOURCE / relative}: pure domain must not write to the console")
+        if owner and relative == Path(f"contexts/{owner}/mod.rs"):
+            for match in re.finditer(r"\bpub(?:\s*\([^)]*\))?\s+mod\s+(postgres|application)\b", code):
+                errors.add(f"{API_SOURCE / relative}: {match.group(1)} must remain private")
+        if http:
+            for match in re.finditer(
+                r"\.\s*(connection|transaction|query|query_one|query_opt|execute|batch_execute)\s*\(", code,
+            ):
+                errors.add(f"{API_SOURCE / relative}: HTTP must not execute SQL or open transactions")
+        for offset, literal in strings:
+            for match in SQL_TABLE.finditer(literal):
+                table = match.group(2).lower()
+                target = table_owner(table)
+                if not target:
+                    continue
+                # This legacy read proves the source link and bytes together under editorial's
+                # already-held script lock. No other cross-context table access is admitted.
+                legacy_link = (relative.as_posix(), match.group(1).upper(), table) in {
+                    ("contexts/ingestion/postgres.rs", "FROM", "revision_evidence"),
+                    ("contexts/editorial/postgres.rs", "JOIN", "actors"),
+                }
+                in_adapter = owner and len(parts) > 2 and parts[2] in {"postgres", "postgres.rs"}
+                if http or domain or (owner and not in_adapter):
+                    line = content.count("\n", 0, offset) + 1
+                    errors.add(f"{API_SOURCE / relative}:{line}: SQL table access belongs in the PostgreSQL adapter")
+                elif owner and target != owner and not legacy_link:
+                    line = content.count("\n", 0, offset) + 1
+                    errors.add(f"{API_SOURCE / relative}:{line}: SQL table {table} belongs to {target}")
+    return sorted(errors)
+
+
 def check():
     errors = []
     for name in REQUIRED:
@@ -350,6 +625,7 @@ def check():
                 errors.append(f"{name}: broken local link: {target}")
 
     errors += check_skills(ROOT)
+    errors += check_api_architecture(ROOT)
 
     # The two diagnostics share one declaration source. Registration never means
     # runtime/design approval; new app imports need fresh evidence on both renderers.
@@ -371,7 +647,7 @@ def check():
     skills = len(skill_directories(ROOT))
     print(
         f"Repository checks passed: {checked} text files and {skills} skills; "
-        "local links, JSON syntax and skill structure valid."
+        "local links, JSON syntax, skill structure and API architecture valid."
     )
     return 0
 

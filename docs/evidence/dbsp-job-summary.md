@@ -41,7 +41,7 @@ job binding (immutable by trigger) only after authorization succeeds.
 
 ## Committed position and freshness contract
 
-The contract is stated once, in [`incremental`](../../services/cantos-api/src/incremental/mod.rs):
+The contract is stated once, in [`incremental`](../../services/cantos-api/src/platform/incremental/mod.rs):
 a view at `{frontier F, bootstrap S0}` reflects every committed row visible in its REPEATABLE READ
 bootstrap snapshot or written by a transaction below `F`. Each poll applies whole transactions in
 `[F, xmin)` of its own snapshot that `S0` did not contain, ordered by `(xid8, seq)`, as one engine

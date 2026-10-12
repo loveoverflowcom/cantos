@@ -1,0 +1,358 @@
+//! Editorial tables: scripts and members, immutable revisions with their evidence links,
+//! evidence records and editorial reviews. Every load re-checks stored integrity.
+use cantos_contracts::{ReviewResponse, RevisionResponse};
+use tokio_postgres::Row;
+use uuid::Uuid;
+
+use super::domain::{export_digest, EvidenceKind};
+use crate::platform::postgres::{LockMode, StoreError, Tx};
+use crate::script_ir::{read_canonical_script, WRITE_VERSION};
+
+const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, canonical_export, content_digest, export_digest, to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at";
+
+fn review_query() -> String {
+    format!("SELECT r.id,r.operation_id,r.reviewed_by,to_char(r.reviewed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS reviewed_at,{REVISION_COLUMNS} FROM script_reviews r JOIN script_revisions USING(script_id,revision)")
+}
+
+/// The stored canonical bytes must still be the admitted Script IR with both recorded digests.
+fn decode_revision(row: &Row) -> Result<RevisionResponse, StoreError> {
+    let bytes: Vec<u8> = row.get("canonical_export");
+    let content = read_canonical_script(&bytes).map_err(|_| StoreError::CorruptRevision)?;
+    let digest: String = row.get("content_digest");
+    let export_hash: String = row.get("export_digest");
+    if content.content_digest().to_string() != digest || export_digest(&bytes) != export_hash {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(RevisionResponse {
+        script_id: row.get("script_id"),
+        revision: u64::try_from(row.get::<_, i64>("revision"))
+            .map_err(|_| StoreError::CorruptRevision)?,
+        accepted_by: row.get("accepted_by"),
+        accepted_at: row.get("accepted_at"),
+        content_digest: digest,
+        export_digest: export_hash,
+        script_json: String::from_utf8(bytes).map_err(|_| StoreError::CorruptRevision)?,
+    })
+}
+
+fn decode_review(row: &Row) -> Result<ReviewResponse, StoreError> {
+    let revision = decode_revision(row)?;
+    Ok(ReviewResponse {
+        id: row.get("id"),
+        script_id: revision.script_id,
+        revision: revision.revision,
+        operation_id: row.get("operation_id"),
+        reviewed_by: row.get("reviewed_by"),
+        reviewed_at: row.get("reviewed_at"),
+        content_digest: revision.content_digest,
+        export_digest: revision.export_digest,
+    })
+}
+
+/// Owner and head of a script, locked in `lock` mode for the rest of the transaction.
+pub(crate) async fn lock_script(
+    tx: &Tx<'_>,
+    script: &str,
+    lock: LockMode,
+) -> Result<Option<(String, i64)>, StoreError> {
+    let query = format!(
+        "SELECT owner_id,head_revision FROM scripts WHERE id=$1 FOR {lock}",
+        lock = lock.sql()
+    );
+    Ok(tx
+        .query_opt(&query, &[&script])
+        .await?
+        .map(|row| (row.get(0), row.get(1))))
+}
+
+pub(crate) async fn member_role(
+    tx: &Tx<'_>,
+    script: &str,
+    actor: &str,
+) -> Result<Option<String>, StoreError> {
+    Ok(tx
+        .query_opt(
+            "SELECT role FROM script_members WHERE script_id=$1 AND actor_id=$2",
+            &[&script, &actor],
+        )
+        .await?
+        .map(|row| row.get(0)))
+}
+
+pub(crate) async fn script_exists(tx: &Tx<'_>, script: &str) -> Result<bool, StoreError> {
+    Ok(tx
+        .query_opt("SELECT id FROM scripts WHERE id=$1", &[&script])
+        .await?
+        .is_some())
+}
+
+/// A first save races on the unique ID; the loser then waits on the winner's head lock.
+pub(super) async fn create_script(
+    tx: &Tx<'_>,
+    script: &str,
+    owner: &str,
+) -> Result<(), StoreError> {
+    tx.execute(
+        "INSERT INTO scripts(id,owner_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+        &[&script, &owner],
+    )
+    .await?;
+    Ok(())
+}
+
+pub(crate) async fn find_revision(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+) -> Result<Option<RevisionResponse>, StoreError> {
+    let query = format!(
+        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
+    );
+    tx.query_opt(&query, &[&script, &revision])
+        .await?
+        .as_ref()
+        .map(decode_revision)
+        .transpose()
+}
+
+/// For a revision the caller already knows exists; a missing row is a database failure.
+pub(crate) async fn load_revision(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+) -> Result<RevisionResponse, StoreError> {
+    let query = format!(
+        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
+    );
+    decode_revision(&tx.query_one(&query, &[&script, &revision]).await?)
+}
+
+pub(super) async fn revisions_after(
+    tx: &Tx<'_>,
+    script: &str,
+    after: i64,
+    limit: i64,
+) -> Result<Vec<RevisionResponse>, StoreError> {
+    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision>$2 ORDER BY revision LIMIT $3");
+    tx.query(&query, &[&script, &after, &limit])
+        .await?
+        .iter()
+        .map(decode_revision)
+        .collect()
+}
+
+/// An operation already accepted for this script and actor, kept undecoded: its bytes identify
+/// a replay, and its integrity is checked only if it is replayed.
+pub(super) struct AcceptedOperation {
+    row: Row,
+}
+
+impl AcceptedOperation {
+    pub(super) fn revision(&self) -> u64 {
+        self.row.get::<_, i64>("revision") as u64
+    }
+
+    pub(super) fn expected_revision(&self) -> u64 {
+        self.row.get::<_, i64>("expected_revision") as u64
+    }
+
+    pub(super) fn export(&self) -> Vec<u8> {
+        self.row.get("canonical_export")
+    }
+
+    pub(super) fn into_revision(self) -> Result<RevisionResponse, StoreError> {
+        decode_revision(&self.row)
+    }
+}
+
+pub(super) async fn accepted_operation(
+    tx: &Tx<'_>,
+    script: &str,
+    actor: &str,
+    operation: &str,
+) -> Result<Option<AcceptedOperation>, StoreError> {
+    let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND accepted_by=$2 AND operation_id=$3");
+    Ok(tx
+        .query_opt(&query, &[&script, &actor, &operation])
+        .await?
+        .map(|row| AcceptedOperation { row }))
+}
+
+pub(super) struct NewRevision<'a> {
+    pub script: &'a str,
+    pub revision: i64,
+    pub expected: i64,
+    pub operation: &'a str,
+    pub actor: &'a str,
+    pub export: &'a [u8],
+    pub content_digest: &'a str,
+    pub export_digest: &'a str,
+}
+
+pub(super) async fn insert_revision(tx: &Tx<'_>, new: NewRevision<'_>) -> Result<(), StoreError> {
+    tx.execute("INSERT INTO script_revisions(script_id,revision,expected_revision,operation_id,accepted_by,schema_version,canonical_export,content_digest,export_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            &[&new.script,&new.revision,&new.expected,&new.operation,&new.actor,&WRITE_VERSION,&new.export,&new.content_digest,&new.export_digest]).await?;
+    Ok(())
+}
+
+pub(super) async fn link_revision_evidence(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+    owner: &str,
+    kind: &str,
+    id: &str,
+) -> Result<(), StoreError> {
+    tx.execute("INSERT INTO revision_evidence(script_id,revision,owner_id,kind,evidence_id) VALUES($1,$2,$3,$4,$5)", &[&script,&revision,&owner,&kind,&id]).await?;
+    Ok(())
+}
+
+/// Moves the head only from the expected revision; returns whether it moved.
+pub(super) async fn advance_head(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+    expected: i64,
+) -> Result<bool, StoreError> {
+    let changed = tx
+        .execute(
+            "UPDATE scripts SET head_revision=$1 WHERE id=$2 AND head_revision=$3",
+            &[&revision, &script, &expected],
+        )
+        .await?;
+    Ok(changed == 1)
+}
+
+pub(crate) async fn evidence_exists(
+    tx: &Tx<'_>,
+    owner: &str,
+    kind: &str,
+    id: &str,
+) -> Result<bool, StoreError> {
+    Ok(tx
+        .query_opt(
+            "SELECT id FROM script_evidence WHERE owner_id=$1 AND kind=$2 AND id=$3",
+            &[&owner, &kind, &id],
+        )
+        .await?
+        .is_some())
+}
+
+/// Whether a rights record of this owner is cited by some accepted revision of `script`.
+pub(crate) async fn rights_cited_by_script(
+    tx: &Tx<'_>,
+    owner: &str,
+    id: &str,
+    script: &str,
+) -> Result<bool, StoreError> {
+    Ok(tx.query_opt("SELECT id FROM script_evidence e WHERE owner_id=$1 AND kind='rights' AND id=$2 AND EXISTS(SELECT 1 FROM revision_evidence r WHERE r.owner_id=e.owner_id AND r.kind=e.kind AND r.evidence_id=e.id AND r.script_id=$3)", &[&owner,&id,&script]).await?.is_some())
+}
+
+/// Registers a new evidence record; an identity collision is a database failure.
+pub(crate) async fn register_evidence(
+    tx: &Tx<'_>,
+    owner: &str,
+    kind: EvidenceKind,
+    id: &str,
+    description: &str,
+) -> Result<(), StoreError> {
+    tx.execute(
+        "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,$2,$3,$4)",
+        &[&owner, &kind.as_str(), &id, &description],
+    )
+    .await?;
+    Ok(())
+}
+
+/// Registers an evidence record unless that identity is already recorded.
+pub(crate) async fn ensure_evidence(
+    tx: &Tx<'_>,
+    owner: &str,
+    kind: EvidenceKind,
+    id: &str,
+    description: &str,
+) -> Result<(), StoreError> {
+    tx.execute(
+        "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        &[&owner, &kind.as_str(), &id, &description],
+    )
+    .await?;
+    Ok(())
+}
+
+/// Whether `owner` recorded an editorial review of exactly this revision while still active.
+pub(crate) async fn reviewed_by_active_owner(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+    owner: &str,
+) -> Result<bool, StoreError> {
+    // Current owner and active reviewer are both required; a historical receipt cannot confer scope.
+    Ok(tx.query_opt("SELECT r.id FROM script_reviews r JOIN actors a ON a.id=r.reviewed_by WHERE r.script_id=$1 AND r.revision=$2 AND r.reviewed_by=$3 AND a.active", &[&script,&revision,&owner]).await?.is_some())
+}
+
+pub(super) async fn reviews_between(
+    tx: &Tx<'_>,
+    script: &str,
+    after: i64,
+    last: i64,
+) -> Result<Vec<ReviewResponse>, StoreError> {
+    let query = format!(
+        "{} WHERE script_id=$1 AND revision>$2 AND revision<=$3 ORDER BY revision",
+        review_query()
+    );
+    tx.query(&query, &[&script, &after, &last])
+        .await?
+        .iter()
+        .map(decode_review)
+        .collect()
+}
+
+pub(super) async fn review_exists(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+) -> Result<bool, StoreError> {
+    let query = format!("{} WHERE script_id=$1 AND revision=$2", review_query());
+    Ok(tx.query_opt(&query, &[&script, &revision]).await?.is_some())
+}
+
+pub(super) async fn load_review(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+) -> Result<ReviewResponse, StoreError> {
+    let query = format!("{} WHERE script_id=$1 AND revision=$2", review_query());
+    decode_review(&tx.query_one(&query, &[&script, &revision]).await?)
+}
+
+pub(super) async fn review_operation(
+    tx: &Tx<'_>,
+    script: &str,
+    actor: &str,
+    operation: &str,
+) -> Result<Option<u64>, StoreError> {
+    Ok(tx.query_opt("SELECT revision FROM script_review_operations WHERE script_id=$1 AND actor_id=$2 AND operation_id=$3", &[&script,&actor,&operation]).await?.map(|row| row.get::<_, i64>(0) as u64))
+}
+
+pub(super) async fn insert_review(
+    tx: &Tx<'_>,
+    script: &str,
+    revision: i64,
+    operation: &str,
+    actor: &str,
+) -> Result<(), StoreError> {
+    tx.execute("INSERT INTO script_reviews(id,script_id,revision,operation_id,reviewed_by) VALUES($1,$2,$3,$4,$5)", &[&Uuid::new_v4().to_string(),&script,&revision,&operation,&actor]).await?;
+    Ok(())
+}
+
+pub(super) async fn insert_review_operation(
+    tx: &Tx<'_>,
+    script: &str,
+    actor: &str,
+    operation: &str,
+    revision: i64,
+) -> Result<(), StoreError> {
+    tx.execute("INSERT INTO script_review_operations(script_id,actor_id,operation_id,revision) VALUES($1,$2,$3,$4)", &[&script,&actor,&operation,&revision]).await?;
+    Ok(())
+}

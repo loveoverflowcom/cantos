@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the skill-structure checks in check_repository.py.
+"""Tests for skill structure and API architecture checks in check_repository.py.
 
 Run from the repository root:
 
@@ -187,6 +187,188 @@ class CheckSkillsTest(unittest.TestCase):
 class RepositorySkillsTest(unittest.TestCase):
     def test_repository_skills_pass(self):
         self.assertEqual(checks.check_skills(checks.ROOT), [])
+
+
+class ApiArchitectureTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def errors(self, path, content):
+        file = self.root / checks.API_SOURCE / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(content, encoding="utf-8")
+        return checks.check_api_architecture(self.root)
+
+    def assertRejected(self, path, content, reason):
+        errors = self.errors(path, content)
+        self.assertTrue(any(reason in error for error in errors), errors)
+
+    def test_domain_accepts_pure_collections_and_in_memory_byte_readers(self):
+        self.assertEqual(self.errors("contexts/ingestion/domain/extraction/docx.rs", """
+use std::{collections::BTreeSet, io::{Cursor, Read}};
+use crate::{script_ir::read_script, contexts::editorial::domain::EvidenceKind};
+"""), [])
+
+    def test_flat_domain_modules_cannot_bypass_purity_guards(self):
+        for path, content, reason in (
+            ("contexts/editorial/domain.rs", "use std::fs::File;",
+             "pure domain must not depend on I/O"),
+            ("script_ir.rs", "use crate::contexts::production::domain::Frozen;",
+             "Script IR shared kernel must not depend"),
+        ):
+            with self.subTest(path=path):
+                errors = self.errors(path, content)
+                prefix = f"{checks.API_SOURCE / path}:"
+                self.assertTrue(any(error.startswith(prefix) and reason in error
+                                    for error in errors), errors)
+
+    def test_flat_domain_modules_accept_pure_dependencies(self):
+        for path in ("contexts/editorial/domain.rs", "script_ir.rs"):
+            with self.subTest(path=path):
+                self.assertEqual(self.errors(path, "use std::collections::BTreeSet;"), [])
+
+    def test_nested_import_cannot_hide_filesystem_dependency(self):
+        self.assertRejected("contexts/editorial/domain/revisions.rs", """
+use std::{collections::BTreeSet, fs::{self as disk, File}};
+""", "pure domain must not depend on I/O")
+
+    def test_module_alias_cannot_hide_filesystem_or_downstream_dependency(self):
+        self.assertRejected("contexts/editorial/domain/revisions.rs", """
+use std as library;
+fn f() { library::fs::read(path); }
+""", "pure domain must not depend on I/O")
+        self.assertRejected("contexts/editorial/application.rs", """
+use crate::contexts as capabilities;
+fn f() { capabilities::production::current_snapshot(); }
+""", "editorial must not depend on production")
+
+    def test_console_macros_and_clock_aliases_are_effects(self):
+        self.assertRejected("contexts/editorial/domain/revisions.rs", """
+use std::time as clock;
+fn f() { println!("side effect"); clock::SystemTime::now(); }
+""", "pure domain must not write to the console")
+
+    def test_fully_qualified_provider_and_runtime_calls_are_rejected(self):
+        self.assertRejected("contexts/production/domain/frozen.rs",
+                            "fn f() { reqwest::get(url); }", "pure domain must not depend on I/O")
+
+    def test_grouped_import_of_adapter_cannot_bypass_pure_domain_boundary(self):
+        self.assertRejected("contexts/production/domain/frozen.rs", """
+use crate::{contexts::production::{domain::Frozen, postgres::Snapshot}, script_ir::read_script};
+""", "without an adapter or facade")
+
+    def test_relative_adapter_import_cannot_bypass_pure_domain_boundary(self):
+        self.assertRejected("contexts/production/domain/frozen.rs",
+                            "use super::super::postgres::Snapshot;", "without an adapter or facade")
+
+    def test_domain_must_use_pure_context_path_instead_of_facade(self):
+        self.assertRejected("contexts/production/domain/frozen.rs",
+                            "use crate::contexts::editorial::authorize;", "without an adapter or facade")
+
+    def test_canonical_identifier_validation_is_pure_but_random_generation_is_not(self):
+        self.assertEqual(self.errors("contexts/ingestion/domain/receipt.rs",
+                                     "use crate::platform::ids::canonical_uuid;"), [])
+        self.assertRejected("platform/ids.rs", "fn id() { uuid::Uuid::new_v4(); }",
+                            "pure domain must not depend on I/O")
+
+    def test_legacy_crate_alias_cannot_hide_context_direction(self):
+        for alias in ("production", "clip_reuse", "tts", "postgres"):
+            with self.subTest(alias=alias):
+                self.assertRejected("contexts/editorial/application.rs",
+                                    "use crate::{" + alias + " as planning};", "legacy crate alias")
+
+    def test_local_postgres_import_is_not_a_legacy_crate_alias(self):
+        self.assertEqual(self.errors("contexts/editorial/application.rs", """
+use super::postgres;
+fn f() { postgres::load_revision(); }
+"""), [])
+
+    def test_context_must_not_import_downstream_context(self):
+        self.assertRejected("contexts/editorial/application.rs", """
+use crate::contexts::{production::current_snapshot};
+""", "editorial must not depend on production")
+
+    def test_application_uses_upstream_entrypoint_without_private_adapter(self):
+        self.assertEqual(self.errors("contexts/production/application/freeze.rs",
+                                     "use crate::contexts::editorial::load_revision;"), [])
+        self.assertRejected("contexts/production/application/freeze.rs",
+                            "use crate::contexts::editorial::postgres::load_revision;",
+                            "owning context's entrypoint")
+
+    def test_new_context_requires_explicit_dependency_policy(self):
+        self.assertRejected("contexts/publishing/mod.rs", "mod domain;",
+                            "new context needs an explicit dependency policy")
+
+    def test_context_adapter_and_use_case_modules_remain_private(self):
+        self.assertRejected("contexts/production/mod.rs", "pub(crate) mod postgres;",
+                            "postgres must remain private")
+
+    def test_shared_kernel_cannot_depend_on_context(self):
+        self.assertRejected("script_ir/validation.rs",
+                            "use crate::contexts::production::domain::Frozen;",
+                            "Script IR shared kernel must not depend")
+
+    def test_http_allows_wire_admission_and_delegates_business_use_case(self):
+        self.assertEqual(self.errors("interfaces/http/studio/mod.rs", """
+use crate::platform::postgres::{Store, StoreError};
+use crate::contexts::editorial::domain::diagnostics::validation_issues;
+fn validate() { crate::script_ir::read_script(bytes); state.store.save(request); }
+"""), [])
+
+    def test_http_cannot_import_business_policy(self):
+        self.assertRejected("interfaces/http/studio/production.rs", """
+use crate::contexts::production::{domain::assess_eligibility as assess};
+""", "HTTP must delegate business decisions")
+
+    def test_http_cannot_reach_transaction_or_sql_client(self):
+        self.assertRejected("interfaces/http/studio/production.rs", """
+use crate::platform::postgres::{Store, Tx};
+fn f() { state.store.connection(); client.transaction(); tx.query_one(sql, args); }
+""", "HTTP must not execute SQL or open transactions")
+
+    def test_context_sql_cannot_read_or_write_another_contexts_table(self):
+        self.assertRejected("contexts/synthesis/postgres/jobs.rs", """
+const QUERY: &str = r#"SELECT document_bytes FROM public.production_snapshots WHERE id=$1"#;
+""", "SQL table production_snapshots belongs to production")
+
+    def test_application_cannot_bypass_sql_adapter_even_for_its_own_table(self):
+        self.assertRejected("contexts/production/application/freeze.rs",
+                            'let sql = "UPDATE production_snapshots SET id=$1";',
+                            "SQL table access belongs in the PostgreSQL adapter")
+
+    def test_platform_has_only_one_explicit_experimental_context_binding(self):
+        self.assertEqual(self.errors("platform/postgres/mod.rs", """
+type View = crate::contexts::synthesis::summary_view::AttachedView;
+"""), [])
+        self.assertRejected("platform/postgres/session.rs", """
+use crate::contexts::production::current_snapshot;
+""", "platform may name only the experimental AttachedView")
+
+    def test_legacy_link_exception_is_read_only_and_path_specific(self):
+        self.assertEqual(self.errors("contexts/ingestion/postgres.rs", """
+const QUERY: &str = "SELECT id FROM source_records WHERE EXISTS(SELECT 1 FROM revision_evidence)";
+"""), [])
+        self.assertRejected("contexts/ingestion/postgres.rs",
+                            'const QUERY: &str = "INSERT INTO revision_evidence VALUES ($1)";',
+                            "SQL table revision_evidence belongs to editorial")
+
+    def test_inline_test_module_super_resolves_to_its_parent_module(self):
+        self.assertEqual(self.errors("platform/ids.rs", """
+#[cfg(test)]
+mod tests { use super::canonical_uuid; }
+"""), [])
+
+    def test_nested_comments_strings_characters_and_lifetimes_do_not_create_dependencies(self):
+        self.assertEqual(self.errors("contexts/production/domain/frozen.rs", """
+// use axum::Router;
+/* std::fs::read(path); /* use tokio::fs; */ */
+const DOC: &str = r##"A \"quote\" and reqwest::get are examples"##;
+fn f<'a>(value: &'a str) { let quote = '\"'; let letter = 'a'; }
+"""), [])
 
 
 if __name__ == "__main__":
