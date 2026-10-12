@@ -57,3 +57,10 @@ Groundwork for #9: [#21](https://github.com/loveoverflowcom/cantos/issues/21) ad
 WAV PCM inspection CLI ([evidence](../evidence/wav-pcm-inspection.md)) that reports structure,
 checksums and sample peak. It chooses no audio profile or target, records no QC result and does
 not satisfy any acceptance criterion above; #9 still decides whether to adopt it.
+
+The [audio drama quality plan](audio-drama-quality.md) adds further groundwork without changing
+#9's blockers: a rights-recorded sound asset library ([#46](https://github.com/loveoverflowcom/cantos/issues/46)),
+sound bible and cue sheet records ([#47](https://github.com/loveoverflowcom/cantos/issues/47)), the
+audio profile decision ([#51](https://github.com/loveoverflowcom/cantos/issues/51)) and clip
+conditioning ([#52](https://github.com/loveoverflowcom/cantos/issues/52)). Scene acoustics and
+placement ([#53](https://github.com/loveoverflowcom/cantos/issues/53)) follow #9's baseline mix.

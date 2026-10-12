@@ -19,6 +19,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
+    clip_probe::ClipProber,
+    clip_reuse::{resolve_reuse, ClipCandidate, ReuseDecision, RightsStanding},
     jobs::{ExecutionMode, LeaseDuration},
     postgres::{
         durable::{AttemptWork, DurableError, JobLease, StepWork},
@@ -52,6 +54,8 @@ impl WorkerProvider {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Failpoint {
     AfterClaim,
+    /// After a clip's object was probed, immediately before the fenced reuse selection.
+    BeforeReuse,
     AfterIntent,
     AfterProvider,
     AfterObservation,
@@ -63,6 +67,7 @@ impl Failpoint {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "after_claim" => Some(Self::AfterClaim),
+            "before_reuse" => Some(Self::BeforeReuse),
             "after_intent" => Some(Self::AfterIntent),
             "after_provider" => Some(Self::AfterProvider),
             "after_observation" => Some(Self::AfterObservation),
@@ -75,6 +80,7 @@ impl Failpoint {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AfterClaim => "after_claim",
+            Self::BeforeReuse => "before_reuse",
             Self::AfterIntent => "after_intent",
             Self::AfterProvider => "after_provider",
             Self::AfterObservation => "after_observation",
@@ -204,6 +210,11 @@ async fn perform_step(
     emit_event("claimed", lease, None)?;
     pause_at(config, Failpoint::AfterClaim, lease, None).await?;
     let heartbeat = Heartbeat::start(store.clone(), lease.clone(), config.lease_duration);
+    // A verified clip, if one exists, satisfies the step with no attempt, reservation or send.
+    // Anything short of a fully verified hit falls through to the ordinary dispatch path.
+    if try_reuse(store, config, root, lease, &heartbeat).await? {
+        return Ok(StepOutcome::Finished);
+    }
     let work = store.prepare_step(lease).await?;
     match work {
         StepWork::Blocked => emit_event("blocked", lease, None).map(|()| StepOutcome::Finished),
@@ -258,6 +269,70 @@ async fn perform_step(
                 .await
                 .map(|()| StepOutcome::Finished)
         }
+    }
+}
+
+/// Oldest-first probe of the registry candidates, stopping at the first object that verifies.
+/// No transaction is open and nothing is written until the fenced selection below.
+async fn try_reuse(
+    store: &Store,
+    config: &WorkerConfig,
+    root: &Path,
+    lease: &JobLease,
+    heartbeat: &Heartbeat,
+) -> Result<bool, WorkerError> {
+    let Some(prepared) = store.reuse_candidates(lease).await? else {
+        return Ok(false);
+    };
+    if prepared.candidates.is_empty() {
+        return Ok(false);
+    }
+    let prober = ClipProber::open(root).map_err(|_| WorkerError::UnsafeOutput)?;
+    let stored = prepared.candidates.clone();
+    // Candidates are already scoped to this request, so the first one whose object verifies is the
+    // oldest valid clip; newer ones cannot win and are not read.
+    let (candidates, witnesses) = tokio::task::spawn_blocking(move || {
+        let mut probed = Vec::with_capacity(stored.len());
+        let mut witnesses = Vec::new();
+        for stored in stored {
+            let (probe, witness) = prober.inspect(&stored).into_parts();
+            probed.push(ClipCandidate {
+                clip: stored.clip,
+                probe,
+            });
+            if let Some(witness) = witness {
+                witnesses.push(witness);
+                break;
+            }
+        }
+        (probed, witnesses)
+    })
+    .await
+    .map_err(|_| WorkerError::OutputIo)?;
+    let ReuseDecision::Reuse { clip_id, .. } =
+        resolve_reuse(&prepared.request, RightsStanding::Current, &candidates)
+    else {
+        return Ok(false);
+    };
+    let Some(verified) = witnesses
+        .into_iter()
+        .find(|witness| witness.clip_id() == clip_id)
+    else {
+        return Ok(false);
+    };
+    pause_at(config, Failpoint::BeforeReuse, lease, None).await?;
+    if heartbeat.lost() {
+        return Err(WorkerError::Durable(DurableError::LeaseLost));
+    }
+    match store.select_reused_clip(lease, &verified).await {
+        Ok(_) => {
+            emit_reuse_event(lease, &clip_id)?;
+            Ok(true)
+        }
+        // Authority, the registry or the step changed since the lookup. The dispatch path
+        // re-reads every fact itself, so falling back is safe and never reuses on a guess.
+        Err(DurableError::Conflict) => Ok(false),
+        Err(error) => Err(error.into()),
     }
 }
 
@@ -664,6 +739,24 @@ fn emit_event(event: &str, lease: &JobLease, attempt_id: Option<&str>) -> Result
     })
 }
 
+fn emit_reuse_event(lease: &JobLease, clip_id: &str) -> Result<(), WorkerError> {
+    #[derive(Serialize)]
+    struct Event<'a> {
+        event: &'static str,
+        job_id: &'a str,
+        step_id: &'a str,
+        attempt_id: Option<&'a str>,
+        clip_id: &'a str,
+    }
+    emit(&Event {
+        event: "reused",
+        job_id: &lease.job_id,
+        step_id: &lease.step_id,
+        attempt_id: None,
+        clip_id,
+    })
+}
+
 fn emit(value: &impl Serialize) -> Result<(), WorkerError> {
     let mut stdout = std::io::stdout().lock();
     serde_json::to_writer(&mut stdout, value).map_err(|_| WorkerError::OutputIo)?;
@@ -673,7 +766,7 @@ fn emit(value: &impl Serialize) -> Result<(), WorkerError> {
         .map_err(|_| WorkerError::OutputIo)
 }
 
-fn prepare_root(path: &Path) -> Result<PathBuf, WorkerError> {
+pub(crate) fn prepare_root(path: &Path) -> Result<PathBuf, WorkerError> {
     let metadata = fs::symlink_metadata(path).map_err(|_| WorkerError::UnsafeOutput)?;
     if !metadata.is_dir() || metadata.file_type().is_symlink() {
         return Err(WorkerError::UnsafeOutput);
@@ -762,7 +855,7 @@ fn sync_directory(path: &Path) -> Result<(), WorkerError> {
         .map_err(|_| WorkerError::OutputIo)
 }
 
-fn read_output(
+pub(crate) fn read_output(
     root: &Path,
     recorded: &str,
     expected_attempt: &str,
@@ -872,6 +965,24 @@ fn valid_identifier(value: &str) -> bool {
 mod tests {
     use super::*;
     use crate::tts::audio::{inspect_output_for_profile, OutputProfile};
+
+    #[test]
+    fn every_failpoint_round_trips_through_its_cli_spelling() {
+        let all = [
+            Failpoint::AfterClaim,
+            Failpoint::BeforeReuse,
+            Failpoint::AfterIntent,
+            Failpoint::AfterProvider,
+            Failpoint::AfterObservation,
+            Failpoint::BeforeAccept,
+            Failpoint::AfterAccept,
+        ];
+        for point in all {
+            assert_eq!(Failpoint::parse(point.as_str()), Some(point));
+        }
+        assert_eq!(Failpoint::parse("before_reuse "), None);
+        assert_eq!(Failpoint::parse("after_reuse"), None);
+    }
 
     #[test]
     fn recurring_worker_isolates_only_expected_job_boundary_errors() {

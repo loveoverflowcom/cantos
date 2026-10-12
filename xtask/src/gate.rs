@@ -79,7 +79,7 @@ pub enum Gate {
 
 /// Integration test targets of `cantos-api` that pin wire (JSON and MessagePack), Script IR,
 /// WAV and TTS receipt contracts. The PostgreSQL tests are excluded; they belong to [`Gate::Postgres`].
-pub const API_CONTRACT_TESTS: [&str; 12] = [
+pub const API_CONTRACT_TESTS: [&str; 15] = [
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -92,6 +92,9 @@ pub const API_CONTRACT_TESTS: [&str; 12] = [
     "tts_attempt",
     "tts_audio",
     "tts_neural_receipt",
+    "speech_fingerprint_contract",
+    "clip_reuse_contract",
+    "regeneration_plan",
 ];
 
 impl Gate {

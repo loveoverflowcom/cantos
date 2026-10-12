@@ -30,11 +30,13 @@ production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak
 production-jobs status <run-id>
 production-jobs (pause|resume|cancel|retry) <run-id> <operation-id>
 production-jobs resolve-not-executed <run-id> <attempt-id> <evidence-reference>
+production-jobs plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake)
+  [--previous <snapshot-id>] [--output-root <absolute-private-directory>]   # read-only, see clip-reuse-v1
 
 cantos-worker --output-root <absolute-private-directory> --worker-id <id>
   [--once] [--lease-seconds <1..300>]
   (--local-espeak <absolute-runtime> | --test-fake
-    [--failpoint <after_claim|after_intent|after_provider|after_observation|before_accept|after_accept>])
+    [--failpoint <after_claim|before_reuse|after_intent|after_provider|after_observation|before_accept|after_accept>])
 ```
 
 The worker has no implicit provider. Failpoints are admitted only with the explicit fake.
@@ -43,7 +45,8 @@ local process. The output root already exists as a private directory, with no gr
 permissions on Unix. Store it outside Git or in ignored local evidence storage.
 
 Commands print a JSON summary containing `run_id`, `job_id`, `status`, `reason`,
-`completed_steps` and `total_steps`. UUID inputs are normalized; unknown command/provider
+`completed_steps`, `reused_steps` and `total_steps`; `reused_steps` counts the completed steps
+satisfied by a verified clip with no provider attempt ([clip reuse v1](clip-reuse-v1.md)). UUID inputs are normalized; unknown command/provider
 flags are rejected. A nonzero exit is not an automatic retry instruction. The CLI's initial
 retry policy is three attempts, base delay one second and cap 30 seconds. Store callers use a
 validated policy with one to eight attempts; persisted delay bounds are at most 86,400 seconds.
@@ -82,7 +85,8 @@ durable-input-v1:sha256:
 The fixed resolved-input serialization includes dialogue/character identity, effective text,
 language, provider/model/voice/adapter/output contract, performance, pronunciation and voice
 rights reference. This is a versioned **run linkage identity**, deliberately including scope
-fields. It is not a position-free speech cache fingerprint and authorizes no cross-run reuse.
+fields. It is not a position-free speech cache fingerprint and authorizes no cross-run reuse;
+[clip reuse v1](clip-reuse-v1.md) defines the separate `speech-v1` identity for that.
 A future encoding/field change requires a new scheme and compatibility handling; old steps
 must not be silently rehashed.
 
@@ -191,7 +195,9 @@ nonregular files and paths outside the exact configured attempt. Filesystem/host
 durability, distributed/shared storage and asset retention are not established by process
 kill tests. No object-storage asset, CDN output, mix, QC approval or release manifest is created.
 
-Full cache/reuse, partial regeneration, Studio progress/preview controls, mixing, object
+Cross-run clip reuse and the regeneration plan are the separate, later
+[clip reuse v1](clip-reuse-v1.md) slice (migration `0008`), which keeps this contract's fence,
+authority and ambiguity rules. Studio progress/preview controls, mixing, object
 storage/CDN, publication, Theatre and native mobile are outside this slice. Issue #6's live,
 rights and listening gaps remain open. Issue #7 stays open until its full acceptance criteria
 are satisfied; the [work queue](../../docs/work-plan/README.md) records recommended follow-ups.

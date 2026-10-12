@@ -1,4 +1,8 @@
 //! PostgreSQL durable local/synthetic worker shell. No commercial dispatch or media storage.
+mod clips;
+
+pub use clips::{ObjectProbes, PlanFacts, PlanReport, ReusePrepared, ReuseSelected};
+
 use super::production::{current_snapshot, durable_actor};
 use super::{normalized_uuid, Store, StoreError};
 use crate::jobs::{
@@ -6,6 +10,7 @@ use crate::jobs::{
     ExecutionMode, LeaseDuration, RetryPolicy, RunEvent, RunStatus, StepDecision,
 };
 use crate::production::estimate_cost;
+use crate::speech_fingerprint::SpeechInput;
 use crate::tts::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities,
 };
@@ -77,7 +82,12 @@ pub struct JobSummary {
     pub job_id: String,
     pub status: RunStatus,
     pub reason: Option<String>,
+    /// Steps that succeeded, however they were satisfied (generated or reused).
     pub completed_steps: u64,
+    /// Of the completed steps, those satisfied by a verified clip with no provider attempt.
+    /// Absent in reports written before the clip registry; it then reads as zero.
+    #[serde(default)]
+    pub reused_steps: u64,
     pub total_steps: u64,
 }
 
@@ -104,6 +114,19 @@ fn valid_worker(worker: &str) -> bool {
         && worker
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_.:".contains(&b))
+}
+/// Authority refusals that pause a job rather than fail a command. One definition serves the
+/// dispatch preparation and the reuse lookup so they can never disagree about when to stop.
+fn is_authority_boundary(error: &StoreError) -> bool {
+    matches!(
+        error,
+        StoreError::ProductionBlocked(_)
+            | StoreError::Unauthenticated
+            | StoreError::Forbidden
+            | StoreError::NotFound
+            | StoreError::StaleProductionInputs
+            | StoreError::StaleRevision(_)
+    )
 }
 fn currency(value: ProductionCurrency) -> &'static str {
     match value {
@@ -145,7 +168,7 @@ async fn summary(
     tx: &deadpool_postgres::Transaction<'_>,
     run: &str,
 ) -> Result<JobSummary, DurableError> {
-    let row=tx.query_opt("SELECT j.id,j.status,j.reason,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id) AS total,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id AND s.status='succeeded') AS done FROM durable_jobs j WHERE j.run_id=$1", &[&run]).await?.ok_or(DurableError::Store(StoreError::NotFound))?;
+    let row=tx.query_opt("SELECT j.id,j.status,j.reason,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id) AS total,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id AND s.status='succeeded') AS done,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id AND s.reused_clip_id IS NOT NULL) AS reused FROM durable_jobs j WHERE j.run_id=$1", &[&run]).await?.ok_or(DurableError::Store(StoreError::NotFound))?;
     Ok(JobSummary {
         run_id: run.into(),
         job_id: row.get("id"),
@@ -153,6 +176,7 @@ async fn summary(
         reason: row.get("reason"),
         total_steps: row.get::<_, i64>("total") as u64,
         completed_steps: row.get::<_, i64>("done") as u64,
+        reused_steps: row.get::<_, i64>("reused") as u64,
     })
 }
 async fn run(tx: &deadpool_postgres::Transaction<'_>, id: &str) -> Result<Row, DurableError> {
@@ -316,7 +340,11 @@ impl Store {
         for line in &doc.resolved {
             let id = Uuid::new_v4().to_string();
             let fingerprint = input_fingerprint(line).map_err(|_| DurableError::Corrupt)?;
-            tx.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,$4,'pending')", &[&id,&job,&line.dialogue_id,&fingerprint]).await?;
+            // A line without a position-free identity (an unpinned model) simply never reuses.
+            let speech = SpeechInput::from_resolved(line)
+                .ok()
+                .map(|input| input.fingerprint().to_string());
+            tx.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,speech_fingerprint,status) VALUES($1,$2,$3,$4,$5,'pending')", &[&id,&job,&line.dialogue_id,&fingerprint,&speech]).await?;
         }
         // Recheck time-sensitive eligibility immediately before commit under authority locks.
         current_snapshot(&tx, &actor, &script, &snapshot).await?;
@@ -412,14 +440,7 @@ impl Store {
         let r = run(&tx, &lease.run_id).await?;
         let doc = match authority(&tx, &r).await {
             Ok(document) => document,
-            Err(DurableError::Store(
-                StoreError::ProductionBlocked(_)
-                | StoreError::Unauthenticated
-                | StoreError::Forbidden
-                | StoreError::NotFound
-                | StoreError::StaleProductionInputs
-                | StoreError::StaleRevision(_),
-            )) => {
+            Err(DurableError::Store(error)) if is_authority_boundary(&error) => {
                 check_lease(&tx, lease).await?;
                 stop_job(&tx, &lease.job_id, "paused", "authorization_invalid").await?;
                 tx.commit().await?;
@@ -851,7 +872,7 @@ impl Store {
         if resolved {
             return Err(DurableError::ReconciliationRequired);
         }
-        let row=tx.query_opt("SELECT a.intent_bytes,o.receipt_bytes FROM durable_attempts a JOIN durable_observations o ON o.attempt_id=a.id WHERE a.id=$1 AND a.step_id=$2", &[&attempt,&lease.step_id]).await?.ok_or(DurableError::Conflict)?;
+        let row=tx.query_opt("SELECT a.intent_bytes,o.receipt_bytes,o.output_path FROM durable_attempts a JOIN durable_observations o ON o.attempt_id=a.id WHERE a.id=$1 AND a.step_id=$2", &[&attempt,&lease.step_id]).await?.ok_or(DurableError::Conflict)?;
         let intent =
             decode_receipt(&row.get::<_, Vec<u8>>(0)).map_err(|_| DurableError::Corrupt)?;
         let receipt =
@@ -875,6 +896,22 @@ impl Store {
         }
         audit_receipt(&doc, &receipt, Some(audio)).map_err(|_| DurableError::Corrupt)?;
         tx.execute("UPDATE durable_steps SET status='succeeded',accepted_attempt_id=$2,lease_owner=NULL,lease_expires_at=NULL WHERE id=$1", &[&lease.step_id,&attempt]).await?;
+        // The audited, accepted bytes become a registry entry in the same transaction, so a
+        // crash cannot leave an accepted step whose clip was lost. Registration is a fact about
+        // these bytes; whether any later run may reuse them is decided at lookup time.
+        clips::register_accepted_clip(
+            &tx,
+            &r,
+            step.get::<_, Option<String>>("speech_fingerprint")
+                .as_deref(),
+            &doc.owner_id,
+            line,
+            &receipt,
+            audio,
+            row.get::<_, Option<String>>("output_path").as_deref(),
+            attempt,
+        )
+        .await?;
         let pending:bool=tx.query_one("SELECT EXISTS(SELECT 1 FROM durable_steps WHERE job_id=$1 AND status<>'succeeded')", &[&lease.job_id]).await?.get(0);
         if !pending {
             tx.execute(

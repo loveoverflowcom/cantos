@@ -43,7 +43,10 @@ inspection and sample-only eSpeak/Google probes. The bounded
 [durable worker foundation](../../../docs/evidence/durable-tts-jobs.md) adds same-package
 development-only local/fake execution with PostgreSQL runs/jobs/steps, immutable intent and
 observations, reservations, leases and fenced result selection. Google commercial dispatch
-stays disabled; VieNeu Nano remains research-only and refuses production dispatch. Cache reuse,
+stays disabled; VieNeu Nano remains research-only and refuses production dispatch. A bounded
+[clip reuse slice](../../../packages/contracts/clip-reuse-v1.md) adds the position-free `speech-v1`
+fingerprint, a verified local clip registry, attempt-less reuse under the existing fence and a
+read-only regeneration plan. Cross-run in-flight de-duplication, unpinned-model refresh epochs,
 mixing, object-storage acceptance, transactional outbox and publication remain unimplemented.
 The advanced production spine and illustrative types below remain **proposed** unless named
 implementation evidence says otherwise. Discover the real manifests,

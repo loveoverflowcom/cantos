@@ -101,8 +101,10 @@ Final episode mastering/publication, a distributed job platform, automatic provi
    following merged [provider verification PR #38](../evidence/tts-provider-verification.md).
    Complete its remaining production-adoption/reconciliation/storage criteria only within
    separately authorized work; preserve open #6 live/rights/listening gates before production use.
-5. Implement #8 scoped cache/reuse and partial regeneration, then add Studio queue progress and
-   clip preview. Keep each boundary separately reviewable; mixing/storage/CDN/publication and
+5. Implement #8 scoped cache/reuse and partial regeneration (the bounded backend half is the
+   [clip reuse v1](../../packages/contracts/clip-reuse-v1.md) slice: fingerprint, verified local registry,
+   attempt-less reuse and a read-only plan, with object storage and persisted stale marks still open),
+   then add Studio queue progress and clip preview. Keep each boundary separately reviewable; mixing/storage/CDN/publication and
    UI/mobile are outside the worker foundation.
 
 ## Acceptance criteria
@@ -157,3 +159,8 @@ alone or continue those follow-ups without the owning authorization.
 ## GitHub execution
 
 [#5](https://github.com/loveoverflowcom/cantos/issues/5), [#6](https://github.com/loveoverflowcom/cantos/issues/6), [#7](https://github.com/loveoverflowcom/cantos/issues/7), [#8](https://github.com/loveoverflowcom/cantos/issues/8). See the [issue/dependency map](project-planning.md) and [Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) for the recommended sequence and live execution state.
+
+The [audio drama quality plan](audio-drama-quality.md) adds voice auditions, a distinctness
+matrix and a pronunciation lexicon ([#50](https://github.com/loveoverflowcom/cantos/issues/50)) and
+a shared listening-review protocol ([#45](https://github.com/loveoverflowcom/cantos/issues/45)). They
+supply evidence for #6's named-listener assessment but cannot close #6 or authorize production.

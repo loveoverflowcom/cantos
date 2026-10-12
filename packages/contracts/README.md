@@ -53,6 +53,14 @@ fingerprint, not the future reusable speech-cache key. Google commercial dispatc
 and VieNeu remains research-only. Full #7 acceptance, clip reuse and delivery assets are not
 claimed by this bounded foundation.
 
+The [clip reuse v1 contract](clip-reuse-v1.md) defines the position-free `speech-v1` fingerprint, the
+verified-clip registry, the attempt-less reuse selection and the read-only regeneration plan that
+extend the durable foundation. Its independent Python oracle writes
+[`speech-vectors.json`](fixtures/clip-reuse/v1/speech-vectors.json), Rust must reproduce them, and the
+plan report has a [JSON Schema](schema/clip-reuse/v1.schema.json) and a literal
+[fixture](fixtures/clip-reuse/v1/plan-edit-one-line.json). It adds no shared HTTP DTO, Studio route,
+object storage, live provider or publication path.
+
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its
 `0.1.0-draft` version is illustrative and explicitly unsupported by the reader. The new fixtures
 reuse that original sample and add synthetic content. Their external record IDs are placeholders;
