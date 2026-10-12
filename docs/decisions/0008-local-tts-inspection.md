@@ -1,5 +1,8 @@
 # ADR 0008: Bounded local TTS inspection with eSpeak NG
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior.
+
+
 - Status: local inspection selection accepted; production adoption proposed
 - Date: 2026-10-10
 - Decision owner: Cantos maintainers; implementation choice within user-authorized local scope

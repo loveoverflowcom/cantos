@@ -1,5 +1,10 @@
 # Audio drama quality plan
 
+> **External-producer scope (ADR 0018):** The optional craft workflow described here is
+> performed by an AI plugin/human producer outside Cantos. Cantos provides editorial guidance
+> and reviews uploaded renditions; no server synth/conditioning/mixing workers.
+> See [handoff pipeline](../product/production-pipeline.md) and updated issues #50–#53.
+
 Status: planning, recorded 2026-10-12. The project-original
 [reference episode and review notes](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
 provide Step 1's text artifact, with [local structural evidence](../production/examples/vietnamese-reference/verification.md).

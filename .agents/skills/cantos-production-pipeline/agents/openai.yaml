@@ -1,4 +1,4 @@
 interface:
-  display_name: "Cantos Production Pipeline"
-  short_description: "Durable production runs, providers, cost, fingerprints, mixing and QC"
-  default_prompt: "Use $cantos-production-pipeline to read frozen inputs only, claim work with fenced leases, reconcile ambiguous provider attempts before any repeat, keep fingerprints and budgets exact, prove crash and retry behavior at named fault points, and report the evidence level, fake versus live provider and residual risk."
+  display_name: "Cantos External Audio Intake"
+  short_description: "Design server-side producer instructions, verified audio upload and QC/release gates."
+  default_prompt: "Use $cantos-production-pipeline to design a versioned external producer brief, authenticated scoped upload, immutable audio receipt, rights/QC and publication gates. Never integrate TTS engines, inference models or audio mixing into the Cantos API."

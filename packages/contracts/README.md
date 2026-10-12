@@ -1,5 +1,10 @@
 # Contracts
 
+> Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
+> [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
+> API contract. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
+> they are **not live server capabilities** after the 2026-10-12 refactor.
+
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
 [Rust reader and semantic validator](../../services/cantos-api/src/script_ir/mod.rs), and
