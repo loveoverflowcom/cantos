@@ -75,6 +75,16 @@ presented as an established runtime check before schema, tests and a decision.
 - Treating producer-generated usage/cost/quality claims as independently attested facts.
 - Mutating a released audio object or silently repointing a release at a new upload.
 
+
+## Supporting reference documents
+
+- [External provider adapters](references/provider-adapters.md) — producer-side only.
+- [Submission durability](references/durable-jobs.md) — private upload replay.
+- [Producer cache and fingerprints](references/fingerprints-and-invalidation.md) — historical TTS methods.
+- [External model cost guidance](references/cost-and-budget.md) — no Cantos billing.
+- [Mixing and QC](references/audio-mix-and-qc.md) — mixing belongs to producer.
+- [Fault injection](references/fault-injection-testing.md) — upload/release focus.
+
 ## Verification and handoff
 
 Use repository `cargo xtask` gates and local/mocked integration tests. If unavailable, report
