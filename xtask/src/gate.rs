@@ -70,7 +70,7 @@ pub enum Gate {
     ScriptIrReference,
     RustLint(Scope),
     RustTests(Scope),
-    /// The API built with its experimental DBSP read model: lint and every non-ignored test,
+    /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
     /// so the feature's added dependency features cannot silently change existing behavior.
     Dbsp,
     ContractTests,
@@ -86,9 +86,9 @@ pub enum Gate {
     },
 }
 
-/// Integration test targets of `cantos-api` that pin wire (JSON and MessagePack), Script IR,
-/// WAV and TTS receipt contracts. The PostgreSQL tests are excluded; they belong to [`Gate::Postgres`].
-pub const API_CONTRACT_TESTS: [&str; 15] = [
+/// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only WAV
+/// inspection. Database tests belong to `Gate::Postgres`.
+pub const API_CONTRACT_TESTS: [&str; 8] = [
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -97,13 +97,6 @@ pub const API_CONTRACT_TESTS: [&str; 15] = [
     "script_diff",
     "cli_file_admission",
     "wav_inspection",
-    "tts_receipt",
-    "tts_attempt",
-    "tts_audio",
-    "tts_neural_receipt",
-    "speech_fingerprint_contract",
-    "clip_reuse_contract",
-    "regeneration_plan",
 ];
 
 impl Gate {

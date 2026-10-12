@@ -1,139 +1,81 @@
-# Studio Production Pipeline
+# External Audio Production Handoff
 
-> Status: target design. Bounded source import and caller-owned adaptation tools/review have
-> [implementation evidence](../evidence/ai-script-adaptation.md). Generation belongs to the
-> user-controlled Gemini/ChatGPT/Codex host; Cantos validates and persists submitted proposals.
-> [Casting/input authorization](../evidence/casting-production-inputs.md) implements reference-only
-> settings, script-scoped rights/budget declarations, immutable candidates and exact approvals.
-> The bounded [durable local/fake worker foundation](../evidence/durable-tts-jobs.md) implements
-> development-only PostgreSQL jobs, attempts/reservations, leases and fenced result selection
-> through a separate process in the same backend package. Google commercial dispatch remains
-> disabled and VieNeu is research-only. A bounded [clip reuse slice](../../packages/contracts/clip-reuse-v1.md)
-> adds a position-free speech fingerprint, a verified local clip registry, attempt-less reuse and a
-> read-only regeneration plan. Full production generation, mixing, object-storage delivery and
-> publication below remain implementation requirements.
+> Direction adopted 2026-10-12; the [handoff v1 design](../../packages/contracts/external-audio-handoff-v1.md)
+> is **PROPOSED, NOT IMPLEMENTED**. Cantos is the content and asset authority; it is not an
+> audio generator, mixer, model router, or provider worker.
 
 ## End-to-end flow
 
-**Draft Import → AI Script Adaptation → Scene Segmentation → Character Casting → AI TTS → Audio Mixing → Quality Control → Object Storage → CDN → Publication**
+```text
+Cantos Studio
+  Work → Chapter/Episode → Text/Script (optional) → Versioned brief + rights
+                      ↓ GET production instructions and skill references
+External AI plugin / human producer
+  Choose tools → TTS/recording → voice edits + music/effects → mix → encode → QC
+                      ↓ POST upload intent → object-store PUT → POST finalize
+Cantos API + Studio
+  Verify private asset + checksum + metadata → editorial/QC review → approve
+                      ↓ atomic release
+Cantos Theatre
+  Discover → stream/download → listen/resume
+```
 
-Object storage may also hold source imports and intermediate artifacts earlier in the flow. The final storage/CDN stages concern verified deliverables. Upload does not grant publication approval or public access.
+The producer, not Cantos, handles provider credentials, rendering hardware, timeout retries,
+call ambiguity, inference budgets, local caches, mixing and audio encoding.
 
-| Stage | Input and durable output | Gate or recovery behavior |
-| --- | --- | --- |
-| Import | TXT, Markdown, DOCX or structured script → preserved source, import metadata and parsed draft | Validate size/type, safely parse files, record provenance and report parsing failures |
-| Adapt | Draft → proposed versioned Script IR with dialogue, speakers, emotions and cues | Preserve source references; require script review and applicable source rights |
-| Segment | Script IR → episodes, acts, scenes, ordered lines and sound-cue placement | Validate stable IDs, ordering, missing speakers and timing assumptions |
-| Cast | Characters → resolved voice/model/profile and pronunciation versions | Review voice samples; validate provider capability and voice permissions |
-| Synthesize | Approved revision + casting → per-dialogue immutable audio and usage records | Check budget; reuse valid cache; reconcile uncertain calls; retry eligible failures |
-| Mix | Dialogue, cues and licensed sound assets → scene mixes and episode master | Align cues; apply configured levels, fades, loudness and format profile |
-| QC | Master and script → technical results, editorial findings and approval records | Blocking findings prevent publication; corrections invalidate dependent output |
-| Store | Approved deliverables → verified objects, checksums, durations and release manifest | Retry interrupted uploads; verify all referenced objects before marking ready |
-| Deliver | Ready objects → configured CDN-accessible release assets | Keep previews/intermediates private; verify the actual delivery path |
-| Publish | Ready manifest + valid rights/QC/approvals → active release | Commit publication metadata atomically; dispatch downstream updates durably |
+## Production instructions
 
-## Freeze production inputs
+A read-only, versioned brief should contain: work/content identity; work type; required
+language and target audience; text/script revision or source pointer; scene/speaker/pronunciation
+and music/ambience guidance **if relevant**; declared permissions and allowed uses;
+audio profile/version; accessibility/text availability; QC checklist; and export/upload rules.
+Briefs can link to repository `.agents/skills` or export self-contained instructions.
+The digest/version must be pinned and included in the producer submission receipt.
 
-Before synthesis, create a production run that references an immutable snapshot of:
+A novel's chapter can request plain voice narration and no mix. A podcast episode can be a
+human recording. Nothing requires a Script IR transformation where one is not needed.
 
-- Script IR schema and script revision.
-- Dialogue order, effective text and character identities.
-- Provider, model/voice identifiers, synthesis parameters and adapter version.
-- Resolved pronunciation and performance settings.
-- Sound-asset versions, cue placement and mix/output profile.
-- Required rights evidence, approval policy and production budget.
+## External upload
 
-Editing the draft while a run is active must not change that run's inputs. A creator may start a replacement run against the revised script. Preserve the relationship between revisions, runs, attempts, artifacts and releases.
+Implement only after publishing a versioned schema and authenticated routes:
 
-The bounded [#5 contract](../../packages/contracts/production-v1.md) freezes a planning candidate before
-any run exists. It pins one complete accepted export/c1/e1, resolved reference-only controls,
-required claim versions and budget/rate policy under a separate production-input digest. A
-blocked candidate may be preserved for inspection; a separate owner approval requires current
-editorial review, rights and budget eligibility. Current head/settings/required-rights or
-permission changes and term expiry make eligibility stale without mutating the document.
-The catalog cannot dispatch or produce audio; no reservation or charge exists in this slice.
-Claims/rates remain actor assertions rather than legal/provider verification. See
-[ADR 0007](../decisions/0007-casting-production-inputs.md). The host-owned policy supersedes the
-former local/open-source inference prerequisite; later adapters need explicit provider/rights/
-spend authorization and cannot treat a planning approval as agent permission to pay.
+1. **Prepare** an upload intent for one content unit, brief version, rendition type and operation
+   ID. Authorize a producer without leaking the Studio cookie or provider credentials.
+2. **Transfer** bytes to a private object-store key with an expiring, constrained upload grant.
+   Do not proxy unbounded audio bytes through Axum or save to a public bucket.
+3. **Finalize** by submitting the intent ID, object identity, expected SHA-256, size, actual
+   format/profile/duration, externally declared tools/usage and QC evidence. The server verifies
+   actual object facts and marks the immutable rendition as pending review, not published.
+4. **Review** provenance, rights, playback/QC and stale-brief policy, with separate editorial
+   approval bound to the exact object checksum.
+5. **Publish** a complete immutable release manifest atomically after readiness checks; use CDN
+   only for approved artifacts.
 
-The first commercial adapter, Google Cloud TTS for vi-VN ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md),
-proposed), is castable like eSpeak: its voices require an explicit neutral delivery, frozen lines
-pin its adapter, and the planner re-checks declared capabilities before any send. Because Google
-documents no request ID, idempotency key, lookup or billing rule for errors, every outcome after
-a connection opened may have executed and needs reconciliation before a repeat; returned audio
-passes the shared inspector. It is reachable only through the opt-in `probe-google-tts` operator
-command; production dispatch still needs durable attempts, reservations and a current approval
-check.
+Duplicates and out-of-order transfers must be idempotent; an expired grant may be renewed
+without assigning an asset to another work/episode. Unsuccessful or orphaned uploads need a
+bounded private cleanup/reconciliation policy. Avoid a database transaction that assumes it
+is atomic with an object-store upload.
 
-## Cache and partial regeneration
+## Audio quality
 
-Build a canonical input fingerprint for each dialogue synthesis request. It must include every effective setting that could alter the output, including provider/model changes and pronunciation rules. For providers whose model version cannot be pinned, record that limitation and provide an explicit refresh/invalidation mechanism.
+External tools do compression, loudness normalization, music mixing and conversion. Cantos
+defines the profile and QC evidence shape, may inspect received bytes under limits, and enforces
+review/publication gates. The pure WAV inspector is a useful primitive; it is **not** a mixer,
+codec encoder, or a loudness/true-peak approval. Proposed low-bandwidth Opus and AAC settings
+remain a separate decision tracked by [#64](https://github.com/loveoverflowcom/cantos/issues/64)
+and [#51](https://github.com/loveoverflowcom/cantos/issues/51).
 
-An accepted artifact can be reused after validating its fingerprint, rights/access scope, checksum and availability. Provider attempts and accepted artifacts are different records: several attempts may exist, but a step selects only one accepted result.
+## Migration from the former worker design
 
-The bounded [clip reuse contract](../../packages/contracts/clip-reuse-v1.md) implements this for the local worker's private
-output root: a clip is reused only after a fresh probe of its object, in the same creator and voice-rights scope, for the
-same kind of producer and under current authority; a reused step has no provider attempt and spends nothing. Object
-storage, the CDN, mix/QC records and publication still need their own gates, so a reused clip is not publishable audio.
+Earlier `synthesis`, `cantos-worker`, `production-jobs`, provider probes, TTS receipts and
+DBSP job-summary adapters belonged to server-side generation. They have been retired from the
+active backend, not repurposed into a hidden provider executor. Historical migrations 0007–0009
+are retained to preserve migration checksums and existing databases; they do not authorize
+writing new generation jobs. Prior experiments/ADRs are retained as historical evidence.
 
-Maintain dependency edges from dialogue to scene mix, scene mix to episode master, and master to release outputs. Changing one line invalidates that line and dependent output. Changing a shared voice/profile invalidates its dependent lines. Changing only a scene sound cue can reuse synthesized dialogue while rerunning the relevant mix. Never invalidate unrelated dialogue just because a new episode render is needed.
+## Not yet implemented
 
-Store raw provider output where allowed, normalized dialogue artifacts, scene mixes and final deliverables separately. Cache policy and retention must honor provider restrictions and the creator's rights.
-
-## Jobs and failure recovery
-
-Use PostgreSQL as the authoritative record of production runs, steps, attempts, usage and publication state. An initial design can use database-backed workers; a separate queue is optional.
-
-The bounded [development job contract](../../packages/contracts/durable-jobs-v1.md) now uses
-that authority for explicit local eSpeak/fake dialogue execution. It reuses production-p1 and
-receipt-v1 admission, persists intent/reservation before invocation, claims with leases/fences
-and preserves ambiguous observations for owner reconciliation. Its private filesystem outputs
-are local development records, not storage/CDN assets. Cross-run reuse, outbox, commercial
-settlement and production adoption remain separate gates; a completed job is no approval.
-
-Suggested run states are `queued`, `running`, `waiting_review`, `paused`, `failed`, `cancelled` and `completed`. Suggested step states are `pending`, `leased`, `succeeded`, `failed` and `cancelled`. Keep editorial/publication status separate from worker execution status.
-
-- Claim eligible work transactionally with an expiring lease and owner/generation token. Use heartbeats and fencing checks so an expired worker cannot overwrite a newer worker's accepted result.
-- Persist each stage's inputs and outputs. On restart, continue unfinished work and revalidate accepted artifacts rather than rerun the whole pipeline.
-- Make dispatch and accepted-result writes idempotent. Use stable operation IDs and provider idempotency keys when supported.
-- Classify failures. Use bounded exponential backoff with jitter for transient failures; stop on invalid input, missing rights, unsupported voices or exhausted budgets. Record a clear recovery action.
-- A timeout may mean the provider already generated and charged for audio. Persist the provider job/request ID and attempt reconciliation before repeating paid work. Without provider idempotency or lookup, expose the uncertain outcome for explicit resolution.
-- Cancellation prevents new work and final publication; already issued provider calls may still complete or incur cost. Record those outcomes and discard/select output according to policy.
-- Use a transactional outbox when a committed database change must trigger queue dispatch, publication indexing or other external work. Consumers must tolerate repeat delivery.
-
-Lease expiry, network retries and outbox delivery provide at-least-once execution. Correctness comes from idempotent acceptance and reconciliation; do not claim exactly-once third-party synthesis or billing.
-
-## Audio processing and QC
-
-Use a versioned audio profile covering sample rate, channels, master/delivery formats, loudness target, true-peak limit and timing policy. Select the actual numerical targets after testing representative drama content and intended platforms.
-
-Mix in a format suitable for processing, then encode delivery formats. Keep speech intelligible over music and effects; apply explicit gain/ducking/fades and preserve deliberate pauses. Do not silently change dialogue text to fix audio processing problems.
-
-Automated QC should detect missing/empty assets, corrupt output, unexpected durations, clipping/peak violations, profile mismatches and incomplete dialogue coverage. Editorial review should check speaker identity, pronunciation, performance, dialogue order, sound cues and the final listening experience. Any automated speech-alignment check must surface uncertainty rather than certify text fidelity without evidence.
-
-QC results identify the exact artifact checksum and input revision they evaluated. A creator can preview lines, scenes and the final episode, correct inputs, and regenerate the affected graph. Approvals become stale when their evaluated inputs or outputs change.
-
-## Upload and publication boundary
-
-1. Upload immutable objects to a private staging namespace with checksums and required metadata.
-2. Verify every final object and its availability through the intended delivery path. Assemble a release manifest containing asset references, checksums, codec/duration information and production provenance.
-3. Recheck source/voice/sound rights, blocking QC findings and approvals against this exact release. Pending or stale approval blocks publication.
-4. Commit the ready release and active-release pointer in a database transaction; include outbox events for discovery/index/cache updates.
-5. Grant listener access through the configured publication mechanism. Keep delivery activation idempotent and recoverable if external updates fail. A release becomes listener-visible only when its complete assets are ready.
-
-Database and object storage/CDN changes do not share a transaction. The implementation must choose and test a staged publication protocol with retries and reconciliation; toggling a database flag alone is insufficient if assets are not yet deliverable. CDN behavior, signed access and cache invalidation rules remain deployment decisions.
-
-Republishing creates a replacement release and switches the active pointer after readiness checks. Retraction updates access and discovery, with a documented policy for CDN caches, existing links and offline downloads.
-
-## Cost and operational visibility
-
-Record estimates, reserved budget, provider-reported usage, actual/reconciled costs, cache hits, attempts, stage durations and failure reasons. Use these records to explain why a run paused or cost more than estimated. Redact credentials and sensitive source content from operational logs.
-
-Useful operational checks include stalled leases, unresolved paid calls, outbox backlog, missing artifacts, budget overruns and releases whose metadata disagrees with delivery readiness. Set concrete alert thresholds after measuring the initial system.
-
-## MVP proof points
-
-Verify the pipeline using a small multi-character drama with narration, ambience and effects. The acceptance exercise must include a changed line, an interrupted worker, a provider failure/unknown outcome, an upload failure, stale QC approval and a replacement release. Confirm that Theatre can play the approved release and that repeated playback creates no production jobs.
-
-Related: [product brief](brief.md) and [business rules](business-rules.md).
+Work/podcast catalog CRUD, versioned brief export, scoped producer credentials, upload
+prepare/finalize, object-store verification, audio QC approvals and release publication.
+Existing Studio `production` endpoints manage older planning metadata; they **do not**
+provide an external audio upload API.

@@ -1,5 +1,8 @@
 # Durable local/fake TTS job foundation
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior.
+
+
 Status: bounded implementation for [issue #7](https://github.com/loveoverflowcom/cantos/issues/7),
 2026-10-11. Branch `feat/durable-tts-jobs`, originally based on merged
 [PR #38](https://github.com/loveoverflowcom/cantos/pull/38)

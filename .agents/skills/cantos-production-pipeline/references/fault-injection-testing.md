@@ -1,5 +1,8 @@
 # Fault-injection testing
 
+> **Current scope (ADR 0018):** TTS worker crash/fencing scenarios below are historical guidance for external producers. Cantos backend tests now focus on upload-intent replay, private object verification, rights/QC and atomic publication; no provider dispatcher may be implemented here.
+
+
 > **Scope.** Prove Cantos crash, retry, duplicate-delivery, timeout, stale-worker, cancellation
 > and budget behavior instead of asserting it in prose: named fault points, a data-driven fault
 > plan, a clock the test owns, a scripted provider with its own execution ledger, a simulated

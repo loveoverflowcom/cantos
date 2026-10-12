@@ -1,5 +1,7 @@
 # Local neural listening handoff
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 Recorded 2026-10-11 for [draft PR #26](https://github.com/loveoverflowcom/cantos/pull/26).
 Production remains disabled. This handoff supplies actual research WAVs and a proposed human
 rubric; it does not supply listening scores or creator acceptance.
@@ -16,8 +18,8 @@ Use the shared [listening-review protocol](../production/listening-review-protoc
 and procedure only and does not complete this #6 named-listener task.
 
 The six original fixtures are unchanged in
-[neural-vietnamese.json](../../scripts/fixtures/neural-vietnamese.json). Four additional
-[short probes](../../scripts/fixtures/neural-vietnamese-short.json) cover each admitted voice
+[neural-vietnamese.json](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/fixtures/neural-vietnamese.json). Four additional
+[short probes](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/fixtures/neural-vietnamese-short.json) cover each admitted voice
 with `Em về chưa?` (three words) and `An ơi!` (two words). All ten WAVs are native 24 kHz,
 mono signed 16-bit PCM, with frozen-input identity and scoped receipt checks. Actual synthesis
 and structural validation establish playable bytes, not speech quality.

@@ -1,5 +1,7 @@
 # Durable jobs v1 — development foundation
 
+> **Historical / not implemented (2026-10-12).** [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removed the code this contract described (server-side TTS jobs, receipts and speech reuse). Nothing below is a live Cantos capability; links to removed files point at commit `2de8c69`. The proposed replacement is [external-audio-handoff-v1](external-audio-handoff-v1.md).
+
 Status: implemented bounded backend contract for [issue #7](https://github.com/loveoverflowcom/cantos/issues/7).
 The [evidence report](../../docs/evidence/durable-tts-jobs.md) records actual verification separately.
 This is an internal development CLI/store contract, not a new Studio HTTP API or a production

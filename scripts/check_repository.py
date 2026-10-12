@@ -73,7 +73,7 @@ CONTEXT_UPSTREAM = {
     "ingestion": {"editorial"},
     "adaptation": {"editorial", "ingestion"},
     "production": {"editorial"},
-    "synthesis": {"editorial", "production"},
+    "media": set(),
 }
 DOMAIN_EXTERNAL = {
     "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
@@ -538,10 +538,8 @@ def check_api_architecture(root=ROOT):
         code, strings = rust_code(content)
         for offset, path in source_paths(code, module):
             error = dependency_error(path, owner, domain, http)
-            if parts[0] == "platform" and path[0] == "contexts" and path != (
-                "contexts", "synthesis", "summary_view", "AttachedView",
-            ):
-                error = "platform may name only the experimental AttachedView context binding"
+            if parts[0] == "platform" and path[0] == "contexts":
+                error = "platform must not depend on a business context"
             if error:
                 line = code.count("\n", 0, offset) + 1
                 errors.add(f"{API_SOURCE / relative}:{line}: {'::'.join(path)}: {error}")

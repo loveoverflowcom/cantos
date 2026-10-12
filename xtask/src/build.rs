@@ -164,7 +164,7 @@ pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> 
     }
 }
 
-/// `dbsp` compiles the API's opt-in experimental DBSP read model; only `cantos-api` takes it.
+/// `dbsp` compiles the API's opt-in experimental DBSP incremental core; only `cantos-api` takes it.
 pub fn plan(
     workspace: &Workspace,
     target: BuildTarget,

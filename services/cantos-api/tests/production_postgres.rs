@@ -557,8 +557,6 @@ async fn mixed_espeak_and_google_casting_freezes_and_approves_only_explicit_neut
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
 async fn historical_google_snapshot_reads_and_replays_without_becoming_current_authorization() {
-    use cantos_api::contexts::synthesis::providers::google::{plan, PlanFinding};
-
     const HISTORICAL_ADAPTER: &str = "google-cloud-tts-synthesize-2";
     let h = Harness::new(true).await;
     h.ready().await;
@@ -683,15 +681,6 @@ async fn historical_google_snapshot_reads_and_replays_without_becoming_current_a
     assert!(response["issues"].as_array().unwrap().iter().any(|issue| {
         issue["rule"] == "approval_scope_mismatch" && issue["path"] == "resolved.adapter_version"
     }));
-    for line in &historical.resolved {
-        assert_eq!(
-            plan(line),
-            Err(vec![PlanFinding::AdapterVersionMismatch {
-                found: HISTORICAL_ADAPTER.into(),
-            }])
-        );
-    }
-
     let error = h
         .admin
         .execute(

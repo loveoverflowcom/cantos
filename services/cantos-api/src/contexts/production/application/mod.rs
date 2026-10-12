@@ -5,7 +5,7 @@ use cantos_contracts::{
     ProductionRightsClaimResponse, ProductionSettingsResponse, ProductionSnapshotResponse,
 };
 
-use super::domain::{evaluate_for_owner, require_current_approval, CommandRejection};
+use super::domain::{evaluate_for_owner, CommandRejection};
 use super::postgres::{self, SnapshotRow};
 use crate::contexts::editorial::{
     authorize, find_revision, permits, reviewed_by_active_owner, Access, Action,
@@ -150,24 +150,4 @@ pub(super) async fn snapshot(
         approval,
         eligibility,
     })
-}
-
-/// The approved snapshot a durable job runs under, with current authority re-established:
-/// the actor is active, the script is still reviewable by them and the approval is current.
-pub(crate) async fn current_snapshot(
-    tx: &Tx<'_>,
-    actor: &str,
-    script: &str,
-    id: &str,
-) -> Result<ProductionSnapshotResponse, StoreError> {
-    if !postgres::lock_actor_active(tx, actor).await? {
-        return Err(StoreError::Unauthenticated);
-    }
-    let facts = facts(tx, actor, script, Action::Review, LockMode::Update).await?;
-    let row = postgres::find_snapshot(tx, id, script)
-        .await?
-        .ok_or(StoreError::NotFound)?;
-    let candidate = snapshot(tx, &row, &facts).await?;
-    require_current_approval(&candidate.eligibility)?;
-    Ok(candidate)
 }
