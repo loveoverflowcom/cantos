@@ -1,5 +1,9 @@
 # Prompt-4 conditional DBSP decision
 
+> Later update (#58): an experimental, feature-gated DBSP adapter now exists for the durable job
+> summary ([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)). This record's DEFER
+> for script-revision reads is unchanged, and the observations below describe its own checkout.
+
 - Date: 2026-10-10
 - Decision: **DEFER**; admission to an engine experiment is not met.
 - Implementation status: DBSP adapter proposed / not integrated; runtime experiment **NOT_RUN**.

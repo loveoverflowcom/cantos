@@ -63,6 +63,11 @@ and proposed production adoption. The Google Cloud TTS slice follows the same pa
 `tts::google_contract`, a pure `tts::google` planner/classifier and a one-request HTTPS shell
 behind the explicit `probe-google-tts` CLI ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
 boundaries are unchanged; no new read model or DBSP consumer is justified.
+The durable job summary later gained an opt-in experimental DBSP read model behind the
+`dbsp-experimental` Cargo feature: an engine-independent `incremental` core, a trigger-written
+outbox with an exact `xid8` committed position, and a fenced consumer that never answers before
+PostgreSQL authorization ([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)).
+PostgreSQL remains the authority and the default path.
 The optional neural research slice adds one concrete `tts::neural` process adapter and pure
 `neural_contract`, with a fixed local Python helper and its own PCM inspection profile. It
 reuses complete frozen-document/receipt admission and refuses production before any model or

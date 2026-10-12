@@ -28,6 +28,7 @@ are **NOT_RUN**. VieNeu remains research-only **NO_GO** and is not reachable fro
 ```text
 production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak|--test-fake)
 production-jobs status <run-id>
+production-jobs watch <run-id> [--samples <1..10000>] [--interval-ms <10..60000>]
 production-jobs (pause|resume|cancel|retry) <run-id> <operation-id>
 production-jobs resolve-not-executed <run-id> <attempt-id> <evidence-reference>
 production-jobs plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake)
@@ -44,6 +45,10 @@ The worker has no implicit provider. Failpoints are admitted only with the expli
 local process. The output root already exists as a private directory, with no group/other
 permissions on Unix. Store it outside Git or in ignored local evidence storage.
 
+`watch` re-reads one run's summary `--samples` times (default 10) at `--interval-ms` (default
+500), printing one JSON summary per line and stopping at the first rejection; each sample is a
+complete, separately authorized `status`.
+
 Commands print a JSON summary containing `run_id`, `job_id`, `status`, `reason`,
 `completed_steps`, `reused_steps` and `total_steps`; `reused_steps` counts the completed steps
 satisfied by a verified clip with no provider attempt ([clip reuse v1](clip-reuse-v1.md)). UUID inputs are normalized; unknown command/provider
@@ -59,6 +64,21 @@ replay. They do not rewind completed work or reset append-only attempt counts.
 Enqueue, control and owner non-execution resolution recheck the current session immediately
 before committing, including exact replays. Expiry during a script/job lock wait rejects the
 command as unauthenticated and rolls back all of its writes.
+
+## Experimental job-summary read model
+
+`status` and `watch` answer from PostgreSQL unless `CANTOS_JOB_SUMMARY_READ_MODEL` selects
+`dbsp-shadow` or `dbsp-serve` in a build with the `dbsp-experimental` Cargo feature; a build
+without it refuses those values. Either way the summary, its fields and every authentication,
+authorization and error result are unchanged: the view only replaces the three step counts,
+and only when a fence in the request's own snapshot proves them exact. Otherwise the request
+uses the PostgreSQL query, or fails closed as unavailable when the bounded fallback is busy.
+Enqueue, control and resolution summaries always come from their own write transactions.
+`dbsp-shadow` always prints the PostgreSQL result and compares it. The CLI prints the view's
+counters (never identifiers or counts) to standard error as `job-summary-view: {...}`.
+[ADR 0017](../../docs/decisions/0017-experimental-dbsp-job-summary.md) records the decision and
+[its evidence](../../docs/evidence/dbsp-job-summary.md) the verification; production use is not
+admitted.
 
 ## Frozen authority and identity
 
@@ -107,6 +127,11 @@ Migration `0007_durable_jobs.sql` adds:
 | `durable_settlements` | One immutable release/provisional/synthetic settlement per reservation |
 | `durable_resolutions` | Immutable owner non-execution attestation with evidence reference |
 | `durable_controls` | Immutable actor/action/operation receipt |
+
+Migration `0009_durable_step_changes.sql` adds `durable_step_changes`, an append-only feed that
+a trigger on `durable_steps` writes in the writing transaction: one signed row per change of a
+step's projected job/succeeded/reused facts, stamped with the writer's `xid8`. The runtime role
+may only read it. It feeds the experimental read model below and changes no existing result.
 
 Foreign keys and insert-time scope checks prevent snapshot/script/digest, reservation/run/step
 and selected-attempt/step mismatches. Triggers preserve settled records, job/step identity,

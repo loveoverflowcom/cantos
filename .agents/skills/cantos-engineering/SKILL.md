@@ -66,8 +66,8 @@ before adding or changing a database-backed read, its query, or a write that fee
 It owns the mandatory inventory, PostgreSQL baseline, simpler optimization comparison, DBSP
 fit decision, differential/failure checks, benchmark record and acceptance checklist. Prioritize
 hot read paths; adopt incremental views only when measured benefit and semantics justify them.
-Mutations require a separate, workload-specific overhead and consistency decision. This is a
-manual working requirement; no DBSP integration or performance gate is implemented here.
+Mutations need a separate overhead/consistency decision. One experimental, feature-gated DBSP read
+model exists ([ADR 0017](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)); production adoption does not.
 
 ## 1. Name the invariant before writing code
 

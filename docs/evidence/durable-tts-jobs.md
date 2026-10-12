@@ -383,6 +383,11 @@ engine lag/fallback/rebuild checks are inapplicable to this slice. Feeding mutat
 atomic PostgreSQL visibility. Reopen only when a concrete measured consumer meets the existing
 [read assessment admission conditions](../../.agents/skills/cantos-engineering/references/postgresql-read-performance.md).
 
+Later update (#58): this summary now has an opt-in, feature-gated experimental DBSP read model
+([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md),
+[evidence](dbsp-job-summary.md)). This section's measurements and its conclusion for the default
+path are unchanged; production adoption remains unadmitted.
+
 ## Completion report and residual risk
 
 - **Invariant:** exact frozen dialogue result selection, conservative possible-execution
