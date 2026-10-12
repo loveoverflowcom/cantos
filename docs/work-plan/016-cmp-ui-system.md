@@ -107,6 +107,16 @@ against merge-base `7f416a1e1bac5bbf338d461463770bffd983b5c1`; it is not rebased
 Before any later authorized publication, reconcile paths/catalogue baseline/generators and
 refresh integrated pinned-toolchain evidence. The external merge does not authorize publishing.
 
+## PR43 integrated acceptance
+
+The requester separately authorized review, local execution, fixes and merge of
+[PR43](https://github.com/loveoverflowcom/cantos/pull/43) on 2026-10-12. The
+[integrated acceptance record](../evidence/cmp-pr43-acceptance.md) reconciles PR42 paths and generated
+catalogues, closes equivalent-option Select menu interruption with a failing-first JVM regression,
+and records fresh pinned local evidence. The three original commits remain intact. This accepts
+the desktop preview implementation; 0/29 components remain qualified for new app use, and native,
+reference and accessibility qualification remains the next prerequisite before adoption.
+
 ## Commands and risks
 
 Use pinned toolchains and `cargo xtask verify repository`, applicable Rust/contracts/Web checks,

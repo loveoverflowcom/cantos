@@ -15,7 +15,10 @@ The subsequent three-session [CMP UI-system sequence](016-cmp-ui-system.md) has 
 [interaction](../evidence/cmp-ui-system-session2.md) and
 [final review/readiness](../evidence/cmp-ui-system-session3.md) local handoffs. The final inventory
 records 29 APIs and 152 scenarios in both previews. All candidates remain unqualified for new app
-use; the remaining native/reference/accessibility acceptance is explicit. Parent owns publication.
+use; the remaining native/reference/accessibility acceptance is explicit. The separately authorized
+[PR43 integration acceptance](../evidence/cmp-pr43-acceptance.md) preserves that boundary after
+reconciling develop and fixing Select menu state. GitHub owns merge status; the next component
+adoption task must first close its two-renderer runtime/accessibility/reference qualification.
 
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
