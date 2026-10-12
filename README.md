@@ -22,8 +22,10 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 
 **Status, as of this pivot:** The existing code implements Script IR, revision persistence,
 manuscript intake, host-created adaptation proposal submission/review, reference casting/rights
-planning and a read-only WAV inspector. It does **not** yet implement a general work/podcast catalog,
-external audio-upload/finalize APIs, object-storage acceptance or published listener releases.
+planning and a read-only WAV inspector. The catalog foundation implements internal work/content-unit
+domain rules, authorized application use cases and PostgreSQL revision persistence. Studio catalog
+HTTP contracts and routes remain pending. External audio-upload/finalize APIs, object-storage
+acceptance and published listener releases are not implemented.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
 still planned. Theatre Web is a session-only
 [UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
@@ -51,7 +53,7 @@ No live routes should be inferred from [the proposed contract](packages/contract
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
-- `services/cantos-api`: metadata/rights/revision/production-planning APIs and pure media inspection.
+- `services/cantos-api`: metadata/rights/revision/production-planning APIs, internal catalog foundation and pure media inspection.
 - `services/kanidm`: proposed identity configuration, not yet integrated.
 - `packages/contracts`: versioned Script IR and existing wire contracts; future external-audio handoff.
 - `.agents/skills`: portable external-producer and editorial instruction skills.

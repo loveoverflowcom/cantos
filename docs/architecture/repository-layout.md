@@ -103,8 +103,8 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   (reserved: empty routers answering `404 not_found`, no fake data; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
   Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
-  Adaptation, reference-only Production and pure Media inspection; work catalog, external audio
-  intake and publication contexts are planned ([API contexts](api-contexts.md)).
+  Adaptation, reference-only Production, pure Media inspection and the internal Catalog
+  foundation; catalog HTTP/contracts, external audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API will validate tokens issued by it once identity work starts;

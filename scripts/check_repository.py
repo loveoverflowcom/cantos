@@ -73,6 +73,7 @@ CONTEXT_UPSTREAM = {
     "ingestion": {"editorial"},
     "adaptation": {"editorial", "ingestion"},
     "production": {"editorial"},
+    "catalog": {"editorial", "ingestion"},
     "media": set(),
 }
 DOMAIN_EXTERNAL = {
@@ -463,6 +464,7 @@ def source_paths(code, module):
 
 def table_owner(table):
     for prefix, owner in (("adaptation_", "adaptation"), ("production_", "production"),
+                          ("catalog_", "catalog"),
                           ("durable_", "synthesis")):
         if table.startswith(prefix):
             return owner

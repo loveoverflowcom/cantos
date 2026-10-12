@@ -162,3 +162,29 @@ pub(super) async fn linked_source(
         recorded_at: row.get("recorded_at"),
     }))
 }
+
+/// Catalog references preserve the existing source instead of copying manuscript storage.
+/// Both imported receipts and legacy text-only sources are rechecked at admission.
+pub(crate) async fn source_checksum(
+    tx: &Tx<'_>,
+    owner: &str,
+    id: &str,
+) -> Result<Option<String>, StoreError> {
+    let query = format!("SELECT {IMPORT_COLUMNS} FROM source_records WHERE owner_id=$1 AND id=$2");
+    let Some(row) = tx.query_opt(&query, &[&owner, &id]).await? else {
+        return Ok(None);
+    };
+    let import_digest: Option<String> = row.get("import_digest");
+    if import_digest.is_some() {
+        return decode_import(&row).map(|(source, _)| Some(source.sha256));
+    }
+    let text: Option<String> = row.get("original_text");
+    let bytes: Option<Vec<u8>> = row.get("original_bytes");
+    let checksum: String = row.get("sha256");
+    if !text.as_deref().is_some_and(|text| {
+        super::domain::receipt::legacy_source_intact(text, bytes.as_deref(), &checksum)
+    }) {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(Some(checksum))
+}

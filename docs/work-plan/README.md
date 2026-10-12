@@ -19,6 +19,12 @@
 5. **Theatre Web/CMP:** discovery, streaming, background controls, offline downloads and
    synchronized playback progress based only on released media.
 
+The next concrete catalog step is [the Studio Catalog API continuation](011-studio-catalog-api.md):
+complete HTTP/DTO/contracts on the foundation branch and draft PR, then its separate Studio Web
+acceptance. Internal domain/application/PostgreSQL evidence lives in
+[the session 1 record](../evidence/studio-catalog-foundation.md). Keep #66 open until its owning
+acceptance criteria are complete; neither this queue nor the foundation is a complete API.
+
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation

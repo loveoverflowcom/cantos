@@ -303,6 +303,51 @@ use crate::contexts::{production::current_snapshot};
         self.assertRejected("contexts/publishing/mod.rs", "mod domain;",
                             "new context needs an explicit dependency policy")
 
+    def test_catalog_application_uses_editorial_and_ingestion_entrypoints(self):
+        self.assertEqual(self.errors("contexts/catalog/application.rs", """
+use crate::contexts::{editorial::find_revision, ingestion::imported_source};
+"""), [])
+
+    def test_catalog_cannot_import_private_upstream_adapter(self):
+        self.assertRejected("contexts/catalog/application.rs",
+                            "use crate::contexts::ingestion::postgres::imported_source;",
+                            "owning context's entrypoint")
+
+    def test_catalog_is_downstream_of_editorial_and_separate_from_production(self):
+        self.assertRejected("contexts/editorial/application.rs",
+                            "use crate::contexts::catalog::domain::Work;",
+                            "editorial must not depend on catalog")
+        self.assertRejected("contexts/catalog/application.rs",
+                            "use crate::contexts::production::production_catalog;",
+                            "catalog must not depend on production")
+
+    def test_catalog_domain_rejects_database_and_provider_dependencies(self):
+        for dependency in ("tokio_postgres::Row", "reqwest::Client"):
+            with self.subTest(dependency=dependency):
+                self.assertRejected("contexts/catalog/domain/mod.rs",
+                                    f"use {dependency};",
+                                    "pure domain must not depend on I/O")
+
+    def test_catalog_tables_belong_only_to_catalog_adapter(self):
+        self.assertEqual(self.errors("contexts/catalog/postgres.rs", """
+const QUERY: &str = "SELECT id FROM catalog_works";
+"""), [])
+        self.assertRejected("contexts/editorial/postgres.rs",
+                            'const QUERY: &str = "SELECT id FROM catalog_works";',
+                            "SQL table catalog_works belongs to catalog")
+
+    def test_catalog_adapter_must_use_legacy_context_entrypoints(self):
+        self.assertRejected("contexts/catalog/postgres.rs",
+                            'const QUERY: &str = "SELECT id FROM source_records";',
+                            "SQL table source_records belongs to ingestion")
+
+    def test_catalog_application_and_http_cannot_execute_catalog_sql(self):
+        for path in ("contexts/catalog/application.rs", "interfaces/http/studio/catalog.rs"):
+            with self.subTest(path=path):
+                self.assertRejected(path,
+                                    'const QUERY: &str = "UPDATE catalog_works SET head_revision=$1";',
+                                    "SQL table access belongs in the PostgreSQL adapter")
+
     def test_context_adapter_and_use_case_modules_remain_private(self):
         self.assertRejected("contexts/production/mod.rs", "pub(crate) mod postgres;",
                             "postgres must remain private")

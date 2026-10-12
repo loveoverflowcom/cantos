@@ -356,3 +356,19 @@ pub(super) async fn insert_review_operation(
     tx.execute("INSERT INTO script_review_operations(script_id,actor_id,operation_id,revision) VALUES($1,$2,$3,$4)", &[&script,&actor,&operation,&revision]).await?;
     Ok(())
 }
+
+/// Owner-scoped catalog link admission. A script membership cannot transfer ownership.
+pub(crate) async fn owned_revision(
+    tx: &Tx<'_>,
+    owner: &str,
+    script: &str,
+    revision: i64,
+) -> Result<Option<RevisionResponse>, StoreError> {
+    let Some((actual_owner, _)) = lock_script(tx, script, LockMode::Share).await? else {
+        return Ok(None);
+    };
+    if actual_owner != owner {
+        return Ok(None);
+    }
+    find_revision(tx, script, revision).await
+}

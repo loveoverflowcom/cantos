@@ -485,6 +485,7 @@ def main():
         run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
@@ -527,6 +528,8 @@ def main():
             editor_host.wait(timeout=5)
             editor_host = None
             run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-m", "fast", "-w", "restart"], env=env)
+            run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
+            print("PASS: Catalog PostgreSQL restart + exact work/unit snapshots + migration replay + original-operation replay + independent row counts")
             migration_env = dict(env, DATABASE_URL=f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}")
             run([str(ROOT / "target/debug/cantos-migrate")], env=migration_env)
             editor_migration_env = dict(env, DATABASE_URL=f"postgresql://cantos_test_admin@127.0.0.1:{port}/{editor['database']}")
