@@ -14,7 +14,7 @@ existing code without changing behavior, migrations or wire contracts; the
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
 Support here defines product scope, not implementation evidence. Theatre Web is a skeleton and
-Theatre Mobile has no Gradle app yet. Studio Mobile is only a scope notice: never a workspace
+Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or API. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
@@ -26,7 +26,7 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
     web/                   Leptos CSR skeleton              (package cantos-theatre)      SKELETON
-    mobile/                Kotlin Compose Multiplatform     (guide only, no Gradle)       RESERVED
+    mobile/                Kotlin Compose Multiplatform     (isolated mock, no audio/API) DEMO
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
@@ -47,8 +47,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **IMPLEMENTED** has code that existed before the restructure and kept its tests.
 - **SKELETON** builds and renders a statement that nothing exists yet. It has no catalog, account,
   player or fake data, and it is not evidence for any Theatre work item.
-- **RESERVED** is a README that fixes the location and the rules from the mobile architecture. It
-  has no Gradle project, so nothing about Android or iOS is built or claimed.
+- **DEMO** is the isolated Theatre CMP mock: shared Kotlin screens and Android/iOS host wiring,
+  with target evidence in its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md).
+  It implements no native audio, listener API, background playback, downloads or durable sync.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   authenticate through Kanidm: the API still uses operator-issued development tokens.
@@ -150,7 +151,9 @@ Trunk and refuses reserved surfaces instead of simulating them.
 cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web skeleton through Trunk
-cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: no Gradle project
+cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
+cargo xtask theatre-demo build                 # shared mock + JVM diagnostic host
+cargo xtask theatre-demo android-build         # mock debug APK; existing Android SDK required
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```

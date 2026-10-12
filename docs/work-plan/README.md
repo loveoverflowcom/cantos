@@ -286,3 +286,14 @@ then added an **implemented experimental** DBSP read model for that `JobSummary`
 exact committed position, an opt-in shadow/serve consumer in the development CLI and real-PostgreSQL
 differential tests. The default path stays PostgreSQL and the recommended order is unchanged;
 production adoption is a [backlog](backlog/deferred-expansion.md) item with named prerequisites.
+
+## Theatre CMP mock
+
+The requested [Theatre CMP mock](../../apps/cantos-theatre/mobile/README.md) adds shared
+memory-only discovery/work/library/player/settings screens and Android/iOS hosts, plus JVM
+interaction/semantics/capture checks. Its [evidence](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md)
+separates Android build, JVM observations and blocked native gates. It completes neither 050
+nor #14–#17 and changes no queue order, publication prerequisites or component qualification.
+Next, resolve native tool/runtime/preview gaps on the same mock and qualify shared components
+in both previews before adoption; then continue 050's listener contracts/native playback,
+rights-aware verified downloads and durable progress in the established sequence.

@@ -30,8 +30,8 @@ runs, jobs, dialogue steps, intent/reservation/observation history, leases and f
 selection. Its separate `cantos-worker` process belongs to the same backend package and requires
 explicit development/local or synthetic execution. Google commercial dispatch stays disabled;
 VieNeu stays research-only. Full production execution, Theatre and native mobile playback remain
-planned. No runnable Gradle project or production
-identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
+planned. A [CMP mock](apps/cantos-theatre/mobile/README.md) now has a Gradle skeleton;
+no production identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
 reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)
 compares two versions of one episode by stable ID and reports edited, moved, added and removed
@@ -74,7 +74,7 @@ The repository is organised by product and kind: `apps/cantos-theatre` (Theatre,
 targets Web and native Mobile; `apps/cantos-studio` (Studio, for creators) targets Web only. One
 backend lives in `services/cantos-api` beside Kanidm deployment notes; shared contracts and design
 tokens live in `packages/`. Studio Web and the API are implemented; Theatre Web is a skeleton and
-Theatre Mobile remains a guide without a Gradle app. Supported product scope does not imply an
+Theatre Mobile has an isolated CMP mock; native playback remains unimplemented. Supported product scope does not imply an
 implemented client. See the [repository layout](docs/architecture/repository-layout.md#platform-scope).
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
@@ -84,7 +84,7 @@ implemented client. See the [repository layout](docs/architecture/repository-lay
 | Surface | Purpose | Technology |
 | --- | --- | --- |
 | Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web only (`apps/cantos-studio/web`) |
-| Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
+| Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform Android/iOS mock (native playback planned) |
 | Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
 | Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
@@ -98,7 +98,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | `apps/cantos-studio/web` | Supported | Implemented |
 | `apps/cantos-studio/mobile` | Out of scope | Not implemented; scope notice only |
 | `apps/cantos-theatre/web` | Supported | Skeleton |
-| `apps/cantos-theatre/mobile` | Supported | Planned; no Gradle app yet |
+| `apps/cantos-theatre/mobile` | Supported | Isolated CMP mock; no native audio or API |
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 Shared libraries may serve Theatre Mobile and Studio Web.
@@ -119,7 +119,7 @@ Shared libraries may serve Theatre Mobile and Studio Web.
 | `apps/cantos-studio/web/` | Structured Leptos Studio CSR editor and casting/input review |
 | `apps/cantos-studio/mobile/` | Out of scope / not implemented; scope notice only |
 | `apps/cantos-theatre/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
-| `apps/cantos-theatre/mobile/` | Guide for the native CMP listening app; no Gradle project |
+| `apps/cantos-theatre/mobile/` | Shared CMP mock screens, Android/iOS hosts and JVM diagnostics; no native audio/API |
 | `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
@@ -156,8 +156,8 @@ cargo xtask ci                             # the four CI jobs, as GitHub Actions
 Use Rust 1.87 (CI sets `RUSTUP_TOOLCHAIN=1.87.0`), the `wasm32-unknown-unknown` target, Trunk
 0.21.14 and, for the database gate, PostgreSQL 17 binaries on `PATH` (on a Mac, for example
 `PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"`). Summaries report `PASS`, `FAIL`, `NOT_RUN`
-or `UNSUPPORTED`; only explicit `--skip` leaves a gate out, and it is shown as `NOT_RUN`. Theatre Mobile
-commands are `UNSUPPORTED` until a Gradle project exists; Studio Mobile is out of scope and rejected. [Contract evidence](docs/evidence/script-ir-contract.md)
+or `UNSUPPORTED`; only explicit `--skip` leaves a gate out, and it is shown as `NOT_RUN`. Production Theatre Mobile
+commands are `UNSUPPORTED`; the isolated CMP mock uses `cargo xtask theatre-demo`. Studio Mobile is out of scope and rejected. [Contract evidence](docs/evidence/script-ir-contract.md)
 names the actual verification boundary. On macOS where temporary symlink tests encounter `/var`
 versus `/private/var`, use `TMPDIR=/private/tmp` for the Python unit/mutation runs.
 

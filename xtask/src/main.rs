@@ -16,6 +16,7 @@ mod probe;
 mod process;
 mod report;
 mod run;
+mod theatre_demo;
 mod tools;
 mod ui_preview;
 mod workspace;
@@ -73,7 +74,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             };
             let mut report = pipeline::execute("build", &steps, &tools, &mut runner);
             if target == build::BuildTarget::All {
-                report.note("not built: mobile clients (no Gradle project) and services/kanidm (configuration only)");
+                report.note("not built: production mobile listening (theatre-demo builds only the isolated mock UI) and services/kanidm (configuration only)");
             }
             report.print();
             Ok(report.exit_code())
@@ -117,6 +118,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         }
         Task::UiPreview { renderer, action } => {
             ui_preview::execute(&workspace, renderer, action, &tools, &mut runner)
+        }
+        Task::TheatreDemo { action } => {
+            theatre_demo::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
             let steps = gate::steps(&gate::verify_suite(&suite), &workspace);

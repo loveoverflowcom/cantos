@@ -144,15 +144,12 @@ mod tests {
     }
 
     #[test]
-    fn theatre_mobile_is_still_a_guide_without_a_gradle_project() {
+    fn theatre_mobile_is_an_isolated_mock_gradle_project() {
         let workspace = Workspace::discover().unwrap();
         let dir = workspace.path(THEATRE_MOBILE_DIR);
         assert!(dir.join("README.md").is_file());
-        for gradle in ["settings.gradle.kts", "settings.gradle", "build.gradle.kts"] {
-            assert!(
-                !dir.join(gradle).exists(),
-                "{THEATRE_MOBILE_DIR} now has a Gradle project: replace the UNSUPPORTED mobile surface with a real plan"
-            );
-        }
+        assert!(crate::theatre_demo::project_exists(&dir));
+        let settings = read(&format!("{THEATRE_MOBILE_DIR}/settings.gradle.kts"));
+        assert!(!settings.contains("cantos-studio"), "Studio is web-only");
     }
 }

@@ -60,7 +60,8 @@ cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composabl
 `cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
-Theatre Mobile remains an extension point without a Gradle app and is refused as `UNSUPPORTED`.
+Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
+`UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
 out-of-scope directory. `build all` covers the API and both Web clients and notes that Theatre
 Mobile and `services/kanidm` (configuration only) are not built. See the
@@ -160,6 +161,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
+| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest` in the isolated Theatre mock | compatible gradle, java, real Theatre mock project |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL), including the DBSP view's PostgreSQL differential tests built with `dbsp-experimental` | initdb, pg_ctl, psql |
 
@@ -209,18 +211,18 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - An affected Web package selects `web-lint`/`web-build` for that client. Shared
   `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
   both Web consumers and `ui-preview`; shared semantic inputs and generators also select
-  `cmp-ui-preview`. Package-local CMP source, Gradle and resource changes select the CMP gate
-  directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
+  `cmp-ui-preview` and `theatre-cmp-demo`. Package-local CMP source, Gradle and resource changes
+  select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
   are `cantos-api` inputs.
 - Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
-  and the Theatre Mobile guide are noted as having no executable gate. The Studio Mobile scope
-  notice is documentation only.
+  are noted as having no executable gate. The Studio Mobile scope notice is documentation only.
+  Theatre mock Kotlin/Gradle/native host inputs select `theatre-cmp-demo`; its docs are documents.
 - Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
-  verification tooling (`xtask/`, `.github/workflows/`), a non-document mobile file, an
+  verification tooling (`xtask/`, `.github/workflows/`), an
   unclassified path or an empty change set select every gate.
 
 `--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
@@ -238,7 +240,7 @@ state it in the pull request.
 
 `cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
 runs one per GitHub job with `RUSTUP_TOOLCHAIN=1.87.0`. CI has no `--skip`. Every full-preflight gate
-runs in CI except `mutation` and `cmp-ui-preview`. Mutation stays opt-in through
+runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-demo`. Mutation stays opt-in through
 `verify mutation` and is selected by preflight when Script IR sources change. The CMP desktop preview is
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
 added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
@@ -247,7 +249,7 @@ protection and required checks are configured outside this repository.
 ### doctor
 
 Reports the selected `rustc` against the pinned 1.87, each tool and its version, which gates can
-run here, the unsupported Theatre Mobile surface and Kanidm's configuration-only status. It exits with
+run here, the unsupported production Theatre Mobile surface and the separate mock and Kanidm's configuration-only status. It exits with
 failure only when Cargo, Git or Python 3 is missing.
 
 ### compose-preview
@@ -257,8 +259,10 @@ Capture an existing `@Preview` through the official Android CLI's
 It requires Android Studio Quail 2+ running with the selected Android Gradle project open and ready;
 it does not require an emulator or phone. `ui-system-cmp` selects the isolated shared-component
 library in `packages/ui-system/cmp/android-preview`; compile it with `ui-preview cmp android-build`
-before rendering its thin `@Preview` wrappers around shared source. Theatre Mobile still lacks
-a Gradle app, so its capture remains **UNSUPPORTED**. Studio Mobile has no capture target. Tool/IDE setup is manual and never performed by
+before rendering its thin `@Preview` wrappers around shared source. Theatre Mobile now selects
+the isolated mock Gradle root and its shared Android `TheatrePreviews.kt`; compile it with
+`theatre-demo android-build` and sync the root with `-Pcantos.android=true`. Missing CLI or
+Quail 2+ readiness still makes capture **UNSUPPORTED**. Studio Mobile has no capture target. Tool/IDE setup is manual and never performed by
 xtask. This optional operation is outside `preflight`/CI; its deterministic adapter tests run
 in the existing repository gate.
 
@@ -311,8 +315,34 @@ process tests start and stop real `sh` and `python3` children. Run them with
 
 ## Adding a capability
 
-Add a command only for an implemented, reviewed capability. The Theatre Mobile surface becomes
-a plan when its Gradle app exists (a `config.rs` test fails when one appears). Studio is web-only;
+Add a command only for an implemented, reviewed capability. The isolated Theatre mock is
+planned through `theatre-demo`; production native listening remains `UNSUPPORTED`. Studio is web-only;
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure.
+
+### theatre-demo
+
+An explicitly isolated mock command surface; starts no API, database, identity or audio adapter.
+
+```sh
+cargo xtask theatre-demo build          # :shared:compileKotlinDesktop
+cargo xtask theatre-demo verify         # :shared:desktopTest; common + JVM Compose tests/captures
+cargo xtask theatre-demo run            # same app, supervised diagnostic desktop window
+cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:assembleDebug
+cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
+```
+
+Build/verify/run require installed Gradle 8.14.3 and a full JDK 17+. Android checks an existing
+absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
+iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
+then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.
+Missing prerequisites are `UNSUPPORTED`, failed executed steps are `FAIL`.
+
+The local `theatre-cmp-demo` preflight gate runs mock common/JVM tests when its source/build
+inputs or consumed CMP/shared tokens change. It does not stand for native acceptance or
+component qualification. It is outside CI until a Gradle lane is separately provisioned.
+`run` aligns JVM args, passes its owned launcher PID, rejects detached run JVMs, and uses
+only stored owned process groups for cleanup. The supervisor keeps exited leaders unreaped
+until their group has been signalled, preventing descendant leaks without stale-PGID lookup.
+Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/README.md).
