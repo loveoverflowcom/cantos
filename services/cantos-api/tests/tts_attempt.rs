@@ -1,4 +1,4 @@
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::synthesis::attempt::{
     plan_recovery, AttemptFacts, AttemptFactsError, ContractCapability, ContractEvidence,
     DeliveryState, FailureClass, LookupReference, ProviderReferenceFacts,
     ReconciliationCapabilities, RecoveryPlan, MAX_CONTRACT_EVIDENCE_BYTES,

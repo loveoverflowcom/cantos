@@ -14,15 +14,15 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use cantos_api::production::{prepare_inputs, MAX_PRODUCTION_DOCUMENT_BYTES};
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::production::{prepare_inputs, MAX_PRODUCTION_DOCUMENT_BYTES};
+use cantos_api::contexts::synthesis::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities,
 };
-use cantos_api::tts::google::{self, GoogleOutcome, GooglePlan};
-use cantos_api::tts::google_http::{
+use cantos_api::contexts::synthesis::providers::google::http::{
     synthesize_once, AccessToken, GoogleCredential, GoogleHttpTransport, QuotaProject,
 };
-use cantos_api::tts::{
+use cantos_api::contexts::synthesis::providers::google::{self, GoogleOutcome, GooglePlan};
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, decode_document, ChargeObservation, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
@@ -446,7 +446,8 @@ mod tests {
         settings.settings.budget.currency = ProductionCurrency::USD;
         settings.settings.budget.limit_minor = 10;
         for binding in &mut settings.settings.bindings {
-            binding.provider_id = cantos_api::tts::google_contract::PROVIDER_ID.into();
+            binding.provider_id =
+                cantos_api::contexts::production::catalog::google::PROVIDER_ID.into();
             binding.model_id = "google-neural2".into();
             binding.voice_id = "vi-VN-Neural2-A".into();
             binding.voice_rights_record_id = format!("voice-{}", binding.character_id);

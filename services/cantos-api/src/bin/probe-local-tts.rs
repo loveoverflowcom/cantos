@@ -8,12 +8,14 @@ use std::{
     time::Duration,
 };
 
-use cantos_api::production::MAX_PRODUCTION_DOCUMENT_BYTES;
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::production::MAX_PRODUCTION_DOCUMENT_BYTES;
+use cantos_api::contexts::synthesis::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities,
 };
-use cantos_api::tts::local::{run_local, LocalPhase, LocalRunError, LocalSynthesisRequest};
-use cantos_api::tts::{
+use cantos_api::contexts::synthesis::providers::local::{
+    run_local, LocalPhase, LocalRunError, LocalSynthesisRequest,
+};
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, decode_document, ChargeObservation, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };

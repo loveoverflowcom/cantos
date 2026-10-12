@@ -118,6 +118,13 @@ MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.
 [evidence](../evidence/messagepack-wire.md)). The Studio still ships JSON; this changes no order,
 prerequisite or issue status above.
 
+The requested single-PR [API context refactor](../architecture/api-contexts.md) finishes the
+in-progress internal module/application/worker split and adds source dependency guards while
+preserving existing wire, stored identities and transaction authority. Its
+[handoff evidence](../evidence/api-bounded-contexts.md) records local results and remaining
+limits. This maintenance changes no capability acceptance, execution order or issue status;
+resume the bounded follow-ups above after its handoff. GitHub owns the PR's live status.
+
 The [audio drama quality plan](audio-drama-quality.md) reconciles external research on adapting
 novels for audio drama with these contracts and orders ten issues, [#44](https://github.com/loveoverflowcom/cantos/issues/44)–[#53](https://github.com/loveoverflowcom/cantos/issues/53),
 that improve the adaptation process and the audio output. Its editorial phase can proceed now

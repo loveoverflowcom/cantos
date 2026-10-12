@@ -15,6 +15,8 @@
 | [PostgreSQL/DBSP skill evidence](evidence/postgresql-dbsp-skills.md) | Read-performance workflow validation, routing walkthrough and explicitly unrun database/engine gates |
 | [DBSP job-summary evidence](evidence/dbsp-job-summary.md) | Implemented experimental DBSP read model: differential/failure/authorization tests, mutants, full-suite feature run and bounded benchmark with limits |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
+| [API context architecture](architecture/api-contexts.md) | Implemented business-context ownership, dependency direction, transaction/worker boundaries and compatibility aliases |
+| [API refactor evidence](evidence/api-bounded-contexts.md) | Architecture guard, compatibility and invariant regressions, final local gates and residual limits |
 | [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
 | [Restructure evidence](evidence/monorepo-restructure.md) | Checks run for the monorepo reorganization and what remains unverified |
 | [xtask evidence](evidence/unified-xtask.md) | Commands run for the `cargo xtask` surface, with PASS, NOT_RUN and UNSUPPORTED results |

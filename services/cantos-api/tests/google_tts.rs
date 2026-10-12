@@ -4,24 +4,26 @@
 use std::{future::Future, sync::Mutex};
 
 use base64::Engine as _;
-use cantos_api::production::{prepare_inputs, production_input_digest};
-use cantos_api::script_ir::read_script;
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::production::catalog::google::{
+    VoiceFamily, MAX_TEXT_BYTES, VI_VN_VOICES,
+};
+use cantos_api::contexts::production::{prepare_inputs, production_input_digest};
+use cantos_api::contexts::synthesis::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities, RecoveryPlan,
 };
-use cantos_api::tts::audio::{AudioError, MAX_OUTPUT_BYTES};
-use cantos_api::tts::google::{
+use cantos_api::contexts::synthesis::media::audio::{AudioError, MAX_OUTPUT_BYTES};
+use cantos_api::contexts::synthesis::media::wav_inspection::{ChunkId, StructuralError};
+use cantos_api::contexts::synthesis::providers::google::http::{synthesize_once, GoogleTransport};
+use cantos_api::contexts::synthesis::providers::google::{
     classify, decode_audio, observation, plan, AudioDefect, FailureEvidence, GoogleFailure,
     GoogleOutcome, GooglePlan, LostCause, PlanFinding, ResponseBody, TransportObservation,
     LIMITATIONS, MAX_RESPONSE_BYTES,
 };
-use cantos_api::tts::google_contract::{VoiceFamily, MAX_TEXT_BYTES, VI_VN_VOICES};
-use cantos_api::tts::google_http::{synthesize_once, GoogleTransport};
-use cantos_api::tts::{
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, ChargeObservation, ReceiptError, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
-use cantos_api::wav_inspection::{ChunkId, StructuralError};
+use cantos_api::script_ir::read_script;
 use cantos_contracts::{
     CharacterCasting, FrozenProductionDocument, ProductionBudget, ProductionCurrency,
     ProductionSettings, ProductionSettingsResponse, ResolvedSynthesisInput, RevisionResponse,

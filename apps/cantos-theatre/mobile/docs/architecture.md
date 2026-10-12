@@ -6,6 +6,13 @@ on [draft PR63](https://github.com/loveoverflowcom/cantos/pull/63). The
 [phase1 checkpoint](mock-skeleton.md) is commit `2a425a87ab20aba4061d2910bf02df62c32652e9`.
 There is one KMP shared module, no extra service/crate, no FFI and no generic MVI framework.
 
+The reviewed refactor commit `a74c084e97f7c175c9d90fd65c189490241fb7b1` was preserved before
+integrating concurrent remote head `b0869291078ec9100f49a5dd24d1eb60a9393a01`. The latter retains
+the other owner's `b97b6610a097f9edcdb916f3e511924086f8486b` card-shape/endonym fixes and
+`develop` after PR62 (`2de8c694ec695f36fd80a34f4b8305580d5edace`). Both card-shape hunks are
+transferred into the moved stateless presentation; no remote work is overwritten. Its external
+Linux diagnostic record remains attributed in the historical checkpoint, separate from Mac evidence.
+
 ## Ownership and execution
 
 `AppContainer` creates one playback controller and one engine for the app owner. Android retains
@@ -118,14 +125,15 @@ SDK35/build-tools35.0.0, macOS15.6 arm64. No toolchain, TLS, credentials or perm
 
 | Command / evidence | Result | Supporting output / limit |
 | --- | --- | --- |
-| `cargo xtask theatre-demo verify` | **PASS** | 109 tests, zero failure/error/skip; XML13:22:15–17Z; `/tmp/cantos-cmp-phase2-verify-handoff.log` |
+| `cargo xtask theatre-demo verify` | **PASS** | integrated109 tests, zero failure/error/skip; XML13:32:05–07Z; `/tmp/cantos-cmp-phase2-verify-integrated.log` |
 | Canonical common tests on JVM | **PASS** | all7 vectors/51steps, full state/effects; 15 reducer/factory tests plus16 strict corpus/parser tests |
 | Fake-port/application integration | **PASS** | 18 catalog/listening/navigation/preferences tests, six playback-controller tests, nine app-scope/reset/bookmark tests |
 | UI projections/resources | **PASS** | 11 immutable projection/catalog tests and nine locale/resource tests |
 | Actual app JVM rendering | **PASS** | ten root interaction tests, eight direct presentation tests and seven capture tests/eight PNGs |
-| `cargo xtask theatre-demo android-build` | **PASS** | final precision/owner build:55tasks,14seconds;8 executed/47up-to-date; `/tmp/cantos-cmp-phase2-android-handoff.log` |
-| Phase1 full preflight / verify rust / verify contracts | **PASS**, retained baseline | all15 preflight gates, including disposable PostgreSQL and9/9mutation; Rust/xtask/backend sources are unchanged in phase2 |
-| Phase2 changed-only preflight | **PASS**, with7 explicit **NOT_RUN** gates | repository, rust-format and theatre-cmp-demo PASS; `/tmp/cantos-cmp-phase2-preflight.log`; skip rationale and command below |
+| `cargo xtask theatre-demo android-build` | **PASS** | final integrated build:55tasks,13seconds;7 executed/48up-to-date; `/tmp/cantos-cmp-phase2-android-integrated.log` |
+| Phase1 full preflight / verify rust / verify contracts | **PASS**, retained baseline | all15 preflight gates, including disposable PostgreSQL and9/9mutation; predates inherited PR62; no fresh verification claim for that backend |
+| Phase2 pre-integration changed-only preflight | **PASS**, with7 explicit **NOT_RUN** gates | repository, rust-format and theatre-cmp-demo PASS; `/tmp/cantos-cmp-phase2-preflight.log`; integrated repeat uses the baseline below |
+| Integrated uncommitted-merge preflight | **PASS**, with8 explicit **NOT_RUN** gates | inherited staged PR62 paths broadened selection; repository, rust-format, script-ir-reference, ui-preview, cmp-ui-preview, theatre-cmp-demo and9/9mutation PASS; `/tmp/cantos-cmp-phase2-preflight-integrated.log` |
 | `cargo xtask theatre-demo run` | **PASS**, bounded process observation | refactored root reached `:shared:run`; launcher/guard PID18235 and MainKt PID18251 shared PGID18235; Ctrl-C exit0, no recorded PID/group descendants remained |
 | iOS framework / generated header / Swift compilation | **UNSUPPORTED** | exact installed Kotlin/Native2.2.20 unavailable; current2.2.0 rejected before provisioning |
 | Android Studio/official CLI render | **UNSUPPORTED** | required current-host renderer unavailable; historicalPR43 images are separate |
@@ -133,17 +141,18 @@ SDK35/build-tools35.0.0, macOS15.6 arm64. No toolchain, TLS, credentials or perm
 | Live desktop OS-window interaction, motion and real audio | **NOT_RUN** | Mac locked; JVM composition input/captures are distinct evidence; no audio implementation |
 
 Final ignored debug APK SHA-256:
-`930e3f7bb3989a4b6e83d825da35a06c29f714380e92b5e11033a6d6b5af342f`.
+`a50b35a7b25858502262f375c3a86f4412a30af9f5565e3d64c86b558c65c47d`.
 This is build evidence, not an installation/run result.
 
-Final phase2 preflight compares against the phase1 checkpoint. Its conservative shared-contract
-selection also includes inherited backend/Studio checks, whose source inputs are unchanged in
-this phase. The requester explicitly asked to avoid repeating unrelated DBSP/backend checks.
+The integrated phase2 preflight compares against concurrent remote head `b0869291078ec9100f49a5dd24d1eb60a9393a01`.
+Its conservative shared-contract selection also includes backend/Studio checks. The CMP refactor
+changes none of their inputs against that baseline; the requester explicitly asked to avoid
+repeating unrelated DBSP/backend checks. PR62 remains its owner's verification responsibility.
 The following prints `NOT_RUN (skipped by --skip)` for rust-lint, rust-tests, dbsp, wav-reference,
 web-lint, web-build and postgres; their all15-gate phase1 baseline remains separate evidence.
 
 ```sh
-cargo xtask preflight --changed-only --base 2a425a87ab20aba4061d2910bf02df62c32652e9 \
+cargo xtask preflight --changed-only --base b0869291078ec9100f49a5dd24d1eb60a9393a01 \
   --skip rust-lint --skip rust-tests --skip dbsp --skip wav-reference \
   --skip web-lint --skip web-build --skip postgres
 ```
@@ -162,24 +171,41 @@ Fresh reports establish `example-tested`, `mock-integration-tested` with named m
 JVM `interaction-tested`/`semantics-tested`; scoped source reviews now have no actionable findings.
 The final independent precision review fingerprint covers nine files:
 `a320e84f82d870cc03e0fb58346f0ad5582ad3ecd694ac58f1cf5f9f7d42c0a1`.
+The integrated three-file shape/endonym/root review has no actionable findings, fingerprint
+`a6b063ae0d029e081453a64e272c6bc959453c2ce00ac02ab6795b5287f2e5e0`;
+it read the fresh109 XML and opened all eight regenerated images.
 Remote CI is not checked, polled or used as handoff evidence.
 
 ## Opened visual evidence and limits
 
-All eight regenerated PNGs and accompanying semantics were opened after the 105-test pass;
-the final 109-test regeneration has identical image hashes.
+All eight PNGs and accompanying semantics were opened after the 105-test pass. The integrated
+109-test regeneration is inspected independently after retaining the remote card-shape/endonym
+fixes; the earlier shape images do not certify changed pixels.
 They remain ignored in `shared/build/reports/theatre-demo/`; capture metadata's inspection-pending
 flag is unchanged, and this record supplies the subsequent inspection. Shared qualified
 components remain **0/29**; app evidence grants no two-renderer admission.
 
 | Scenario | Pixels / observation | Limit |
 | --- | --- | --- |
-| light discovery | 390×844 and840×840; warm paper, purple tonal work groups, Vietnamese serif hierarchy; two columns at wide size | lower narrow content scrolls; no native tablet/inset claim |
+| light discovery | 390×844 and840×840; warm paper, purple tonal work groups, Vietnamese serif hierarchy; two columns at wide size; continue uses large card shape | lower narrow content scrolls; no native tablet/inset claim |
 | dark full player | 390×844; complete episode title,12:48/28:42, transport/seek/bookmark/queue and explicit no-audio status | artwork placeholder and platform-font fallback; no playback clock/motion |
 | dark catalog error | 390×844; readable explanation/retry and preserved mini-player point | retry behavior comes from the executed JVM test |
 | saved library | 390×844; two saved works, selected tab and nav fit | memory-only; bookmarks/empty variants have test evidence |
-| settings | 390×844; vi/en/theme, canonical five speed choices and wrapping timer/demo-state controls | lower reset control scrolls; timer schedules nothing |
-| work detail at2× | 320×800, initial and scrolled episode3; title/description wrap and episode action remains reachable | header/footer reduce body; mini title ellipsizes; scroll viewport can partially clip adjacent/current-marker content |
+| settings | 390×844; Tiếng Việt/English endonyms, theme, canonical five speed choices and wrapping timer/demo-state controls | lower reset control scrolls; timer schedules nothing |
+| work detail at2× | 320×800, initial and scrolled episode3; title/description wrap and episode action remains reachable with large card shape | header/footer reduce body; mini title ellipsizes; scroll viewport can partially clip adjacent/current-marker content |
+
+Final integrated capture SHA-256 (same ignored report directory):
+
+| PNG | SHA-256 |
+| --- | --- |
+| `jvm-light-discovery-390x844.png` | `0ad5e061193323c2a9a89c74da7224a4fb7d66055e122fcdcc1f3206513fbd6f` |
+| `jvm-light-discovery-840x840.png` | `39c904443357378484ece99ad62bdcfd3befa97a28be9265ddf923020a526b4c` |
+| `jvm-dark-error-390x844.png` | `2159d066873ce4b83580cb43b3a4db034806878fc34ed8be23474e23d831c4bc` |
+| `jvm-dark-player-390x844.png` | `f2854f6bd7f3a99b140da72ff9b17bbdf87a93809b496996aa2d109d3f3b8cf3` |
+| `jvm-light-library-390x844.png` | `c2d59ec40f509ec8c190edfbf81684a3f7c098c99c98ff719fa663d6feda6188` |
+| `jvm-light-settings-390x844.png` | `23334626dafa05993a01bff732c1593a4cab1ba025a16b6f6ac364c15d522781` |
+| `jvm-light-work-text2-320x800.png` | `a6ee9726b7285321716d67319d1f2ee2d65fc3304e7837d0b1d7e8b9ee31caf1` |
+| `jvm-light-work-text2-episodes-320x800.png` | `7bb98b568a7fa5ccc4f87dbb0fedfdb967fbfb12684ebd0a714b37202e981aac` |
 
 Exact reference art/font fidelity, full contrast/focus-order audit, native text scaling,
 screen-reader traversal and Android/iOS rendering are not established by these images.

@@ -8,7 +8,7 @@ behavior are separated below; results are filled from the local run recorded at 
 - `apps/cantos` → `apps/cantos-theatre` (`git mv`); package `cantos-theatre` unchanged. Cargo
   workspace, xtask (`cantos-theatre` target, `cantos` accepted as alias), scripts, skills and docs
   updated. Historical evidence and accepted decisions keep their original paths on purpose.
-- `services/cantos-api/src/http.rs` keeps only shared state, middleware and error mapping. Studio
+- `services/cantos-api/src/interfaces/http/mod.rs` keeps only shared state, middleware and error mapping. Studio
   handlers moved verbatim to `http/studio.rs` (+ `http/studio/{adaptations,imports,production}.rs`).
   `http/theatre.rs` and `http/admin.rs` are empty routers answering `404 not_found`.
 - Routes: `/api/v1/studio/*` is canonical; the unprefixed `/api/v1/*` paths are mounted from the same

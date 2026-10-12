@@ -1,4 +1,4 @@
-use cantos_api::imports::extract;
+use cantos_api::contexts::ingestion::extract;
 use cantos_contracts::{ImportCueKind, ImportFormat, ImportOutcome, ImportRequest, ImportResponse};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};

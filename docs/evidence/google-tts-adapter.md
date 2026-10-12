@@ -31,9 +31,9 @@ capability; and every observation after a connection opened is `may_have_execute
 shared planner never advises a resend. A body becomes audio only through the shared inspector's
 Google profile. No record contains a credential, dialogue text or a provider error message.
 
-[`tts/google_contract.rs`](../../services/cantos-api/src/tts/google_contract.rs) is pure identity used by
-casting and the audit. [`tts/google.rs`](../../services/cantos-api/src/tts/google.rs) is pure: no
-network, clock, credential or file access. [`tts/google_http.rs`](../../services/cantos-api/src/tts/google_http.rs)
+[`tts/google_contract.rs`](../../services/cantos-api/src/contexts/production/domain/catalog/google.rs) is pure identity used by
+casting and the audit. [`tts/google.rs`](../../services/cantos-api/src/contexts/synthesis/providers/google/mod.rs) is pure: no
+network, clock, credential or file access. [`tts/google_http.rs`](../../services/cantos-api/src/contexts/synthesis/providers/google/http.rs)
 is the shell and sends exactly once per call. [`probe-google-tts`](../../services/cantos-api/src/bin/probe-google-tts.rs)
 is the only caller. Dependency edges point inward: `production.rs` and the receipt audit depend on
 the contract module only; the core depends on `cantos-api`, `tts::attempt` and `tts::audio`,

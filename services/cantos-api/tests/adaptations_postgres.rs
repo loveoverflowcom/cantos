@@ -7,9 +7,9 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    adaptation::{admit_output, TrustedBinding},
-    http::{router, AppState},
-    postgres::{local_config, migrate, token_hash, Store, StoreError},
+    contexts::adaptation::{admit_output, TrustedBinding},
+    interfaces::http::{router, AppState},
+    platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };
 use cantos_contracts::{

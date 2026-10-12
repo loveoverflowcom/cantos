@@ -1,7 +1,7 @@
 //! Only synthetic in-memory WAV fixtures; no provider output or committed audio.
 
-use cantos_api::{
-    tts::audio::{
+use cantos_api::contexts::synthesis::media::{
+    audio::{
         inspect_output, inspect_output_for_profile, AudioError, OutputProfile,
         ESPEAK_OUTPUT_PROFILE_VERSION, ESPEAK_OUTPUT_SAMPLE_RATE_HZ, MAX_OUTPUT_BYTES,
         MAX_OUTPUT_SECONDS, OUTPUT_BITS_PER_SAMPLE, OUTPUT_CHANNELS, OUTPUT_PROFILE_VERSION,

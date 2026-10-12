@@ -1,6 +1,6 @@
 use std::io::{Cursor, Write};
 
-use cantos_api::imports::{
+use cantos_api::contexts::ingestion::{
     extract, MAX_BLOCKS, MAX_SOURCE_BYTES, MAX_XML_DEPTH, MAX_XML_EVENTS, MAX_ZIP_ENTRIES,
 };
 use cantos_api::script_ir::read_canonical_script;

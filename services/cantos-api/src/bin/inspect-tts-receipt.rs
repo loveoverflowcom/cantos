@@ -7,9 +7,11 @@ use std::{
     process::ExitCode,
 };
 
-use cantos_api::production::MAX_PRODUCTION_DOCUMENT_BYTES;
-use cantos_api::tts::audio::MAX_OUTPUT_BYTES;
-use cantos_api::tts::{audit_receipt, decode_document, decode_receipt, MAX_RECEIPT_BYTES};
+use cantos_api::contexts::production::MAX_PRODUCTION_DOCUMENT_BYTES;
+use cantos_api::contexts::synthesis::media::audio::MAX_OUTPUT_BYTES;
+use cantos_api::contexts::synthesis::receipt::{
+    audit_receipt, decode_document, decode_receipt, MAX_RECEIPT_BYTES,
+};
 
 const USAGE: &str = "usage: inspect-tts-receipt <frozen-document.json> <receipt.json> [output.wav]";
 

@@ -2,9 +2,14 @@
 use std::{env, path::PathBuf, process::ExitCode, time::Duration};
 
 use cantos_api::{
-    incremental::ReadModel,
-    jobs::{ExecutionMode, RetryPolicy, RunEvent},
-    postgres::{durable::DurableError, local_config, Store},
+    contexts::synthesis::{
+        jobs::{ExecutionMode, RetryPolicy, RunEvent},
+        DurableError,
+    },
+    platform::{
+        incremental::ReadModel,
+        postgres::{local_config, Store},
+    },
 };
 use serde::Serialize;
 
@@ -173,7 +178,7 @@ async fn execute(args: &[String]) -> Result<(), String> {
 }
 
 #[cfg(feature = "dbsp-experimental")]
-type View = std::sync::Arc<cantos_api::postgres::durable::summary_view::SummaryView>;
+type View = std::sync::Arc<cantos_api::contexts::synthesis::summary_view::SummaryView>;
 #[cfg(not(feature = "dbsp-experimental"))]
 type View = std::convert::Infallible;
 
@@ -185,7 +190,7 @@ async fn attach_read_model(
     config: tokio_postgres::Config,
     model: ReadModel,
 ) -> Result<(Store, Option<View>), String> {
-    use cantos_api::postgres::durable::summary_view::{AttachedView, SummaryView, ViewConfig};
+    use cantos_api::contexts::synthesis::summary_view::{AttachedView, SummaryView, ViewConfig};
     if !model.uses_view() {
         return Ok((store, None));
     }

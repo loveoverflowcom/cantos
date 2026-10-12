@@ -3,16 +3,14 @@
 use std::{env, path::PathBuf, sync::Arc};
 
 use cantos_api::{
-    jobs::{ExecutionMode, LeaseDuration, RetryPolicy, RunEvent, RunStatus},
-    postgres::{
-        durable::{AttemptWork, DurableError, JobLease, JobSummary, StepWork},
-        local_config, migrate, token_hash, Store, StoreError,
-    },
-    script_ir::read_script,
-    tts::{
+    contexts::synthesis::{
         attempt::{DeliveryState, FailureClass},
-        ChargeObservation, ReceiptOutcome, TtsReceipt,
+        jobs::{ExecutionMode, LeaseDuration, RetryPolicy, RunEvent, RunStatus},
+        receipt::{ChargeObservation, ReceiptOutcome, TtsReceipt},
+        AttemptWork, DurableError, JobLease, JobSummary, StepWork,
     },
+    platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
+    script_ir::read_script,
 };
 use cantos_contracts::{
     ApproveProductionRequest, CharacterCasting, FreezeProductionRequest, ProductionBudget,
@@ -321,10 +319,10 @@ impl Harness {
 
     /// The same worker loop the `cantos-worker` binary runs, one claim per call.
     async fn run_worker_once(&self, worker: &str) {
-        cantos_api::worker::run_worker(
+        cantos_api::contexts::synthesis::worker::run_worker(
             self.store.clone(),
-            cantos_api::worker::WorkerConfig {
-                provider: cantos_api::worker::WorkerProvider::SyntheticFake,
+            cantos_api::contexts::synthesis::worker::WorkerConfig {
+                provider: cantos_api::contexts::synthesis::worker::WorkerProvider::SyntheticFake,
                 output_root: self.canonical_root(),
                 worker_id: worker.into(),
                 lease_duration: ttl(),
@@ -673,9 +671,10 @@ async fn assert_invariants(h: &Harness) {
         if reused.is_some() {
             // A reused clip carries exactly this line's position-free identity, creator and
             // producer, recomputed here from the frozen document rather than read back.
-            let expected = cantos_api::speech_fingerprint::SpeechInput::from_resolved(line)
-                .unwrap()
-                .fingerprint();
+            let expected =
+                cantos_api::contexts::synthesis::fingerprint::SpeechInput::from_resolved(line)
+                    .unwrap()
+                    .fingerprint();
             assert_eq!(row.get::<_, String>(9), expected.as_str());
             assert_eq!(row.get::<_, String>(10), expected.as_str());
             assert_eq!(row.get::<_, String>(11), row.get::<_, String>(12));
@@ -1198,7 +1197,7 @@ async fn receipt_linkage_and_current_frozen_scope_block_wrong_and_stale_results(
     assert!(matches!(
         h.store.job_status(BOB, &job.run_id).await,
         Err(DurableError::Store(
-            cantos_api::postgres::StoreError::NotFound
+            cantos_api::platform::postgres::StoreError::NotFound
         ))
     ));
     let lease = h.lease("frozen").await;
@@ -1255,7 +1254,7 @@ async fn receipt_linkage_and_current_frozen_scope_block_wrong_and_stale_results(
         .unwrap();
     assert!(
         matches!(h.store.accept_step(&lease, &receipt.attempt_id, &audio).await,
-        Err(DurableError::Store(cantos_api::postgres::StoreError::ProductionBlocked(issues)))
+        Err(DurableError::Store(cantos_api::platform::postgres::StoreError::ProductionBlocked(issues)))
             if issues.iter().any(|issue| issue.rule == "revision_changed"))
     );
     assert_eq!(work.document, h.snapshot.document);
@@ -1792,7 +1791,7 @@ async fn revoked_current_authority_blocks_final_dispatch_and_retains_not_sent_ob
             assert!(matches!(
                 h.store.authorize_dispatch(&work).await,
                 Err(DurableError::Store(
-                    cantos_api::postgres::StoreError::Unauthenticated
+                    cantos_api::platform::postgres::StoreError::Unauthenticated
                 ))
             ));
         } else {
@@ -1818,7 +1817,7 @@ async fn revoked_current_authority_blocks_final_dispatch_and_retains_not_sent_ob
                 .await
                 .unwrap();
             assert!(matches!(h.store.authorize_dispatch(&work).await,
-                Err(DurableError::Store(cantos_api::postgres::StoreError::ProductionBlocked(issues)))
+                Err(DurableError::Store(cantos_api::platform::postgres::StoreError::ProductionBlocked(issues)))
                     if issues.iter().any(|issue| issue.rule == "rights_changed")));
         }
         let mut receipt = work.intent.clone();
@@ -2272,9 +2271,12 @@ mod process_crashes {
             assert_eq!(receipt.charge, ChargeObservation::Unknown {});
             let path: String = row.get(1);
             let audio = fs::read(&path).unwrap();
-            let audit =
-                cantos_api::tts::audit_receipt(&h.snapshot.document, &receipt, Some(&audio))
-                    .unwrap();
+            let audit = cantos_api::contexts::synthesis::receipt::audit_receipt(
+                &h.snapshot.document,
+                &receipt,
+                Some(&audio),
+            )
+            .unwrap();
             assert_eq!(audit.audio().unwrap().sample_rate_hz(), 22_050);
             let inspected = audit.audio().unwrap();
             facts.push(serde_json::json!({
@@ -2453,12 +2455,11 @@ mod process_crashes {
 mod clip_reuse {
     use std::{collections::BTreeSet, fs};
 
-    use cantos_api::{
-        clip_probe::ClipProber,
-        clip_probe::VerifiedObject,
-        clip_reuse::{RegisteredClip, StoredClip},
+    use cantos_api::contexts::synthesis::{
+        fingerprint::SpeechInput,
+        media::clip_probe::{ClipProber, VerifiedObject},
         regeneration::{CacheMiss, EpisodeReason, LineAction, PlanGate, StaleReason, Staleness},
-        speech_fingerprint::SpeechInput,
+        reuse::{RegisteredClip, StoredClip},
     };
 
     use super::*;
@@ -2825,10 +2826,11 @@ mod clip_reuse {
             fs::set_permissions(&other_root, fs::Permissions::from_mode(0o700)).unwrap();
         }
         for round in 0..4 {
-            cantos_api::worker::run_worker(
+            cantos_api::contexts::synthesis::worker::run_worker(
                 h.store.clone(),
-                cantos_api::worker::WorkerConfig {
-                    provider: cantos_api::worker::WorkerProvider::SyntheticFake,
+                cantos_api::contexts::synthesis::worker::WorkerConfig {
+                    provider:
+                        cantos_api::contexts::synthesis::worker::WorkerProvider::SyntheticFake,
                     output_root: fs::canonicalize(&other_root).unwrap(),
                     worker_id: format!("elsewhere-{round}"),
                     lease_duration: ttl(),
@@ -2935,10 +2937,10 @@ mod clip_reuse {
                     ) {
                         break;
                     }
-                    cantos_api::worker::run_worker(
+                    cantos_api::contexts::synthesis::worker::run_worker(
                         store.clone(),
-                        cantos_api::worker::WorkerConfig {
-                            provider: cantos_api::worker::WorkerProvider::SyntheticFake,
+                        cantos_api::contexts::synthesis::worker::WorkerConfig {
+                            provider: cantos_api::contexts::synthesis::worker::WorkerProvider::SyntheticFake,
                             output_root: root.clone(),
                             worker_id: format!("racer-{worker}-{round}"),
                             lease_duration: ttl(),
@@ -3440,7 +3442,7 @@ mod clip_reuse {
             .unwrap();
         assert_eq!(
             report.object_probes,
-            cantos_api::postgres::durable::ObjectProbes::NotPerformed
+            cantos_api::contexts::synthesis::ObjectProbes::NotPerformed
         );
         assert_eq!(
             (report.plan.cost.cache_hits, report.plan.cost.cache_misses),
@@ -3449,7 +3451,7 @@ mod clip_reuse {
         assert!(report.plan.lines.iter().all(|line| matches!(
             &line.action,
             LineAction::Produce { cache: CacheMiss::Refused { refusals } }
-                if refusals.len() == 1 && refusals[0].reason == cantos_api::clip_reuse::Refusal::Unverified
+                if refusals.len() == 1 && refusals[0].reason == cantos_api::contexts::synthesis::reuse::Refusal::Unverified
         )));
         let root = h.canonical_root();
         let probed = h
@@ -3696,7 +3698,7 @@ mod clip_reuse {
         assert_eq!(relocated.scene_id, "scene-02");
         assert!(matches!(
             relocated.change,
-            cantos_api::regeneration::LineChange::Unchanged {
+            cantos_api::contexts::synthesis::regeneration::LineChange::Unchanged {
                 placement_changed: true
             }
         ));
@@ -4027,7 +4029,7 @@ mod clip_reuse {
             .unwrap();
         h.admin.execute("INSERT INTO durable_budgets(run_id,currency,limit_minor,reserved_minor,settled_minor) VALUES($1,'VND',4,0,0)", &[&run]).await.unwrap();
         for line in &h.snapshot.document.resolved {
-            h.admin.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,$4,'pending')", &[&Uuid::new_v4().to_string(), &job, &line.dialogue_id, &cantos_api::jobs::input_fingerprint(line).unwrap()]).await.unwrap();
+            h.admin.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,$4,'pending')", &[&Uuid::new_v4().to_string(), &job, &line.dialogue_id, &cantos_api::contexts::synthesis::jobs::input_fingerprint(line).unwrap()]).await.unwrap();
         }
         let mut admin_config = h.app_config.clone();
         admin_config.user("cantos_test_admin");
@@ -4080,10 +4082,10 @@ mod dbsp_summary_view {
     use std::{collections::BTreeMap, time::Duration};
 
     use cantos_api::{
-        incremental::{GroupCounts, ReadModel},
-        postgres::durable::summary_view::{
+        contexts::synthesis::summary_view::{
             AttachedView, FailPoint, SummaryView, ViewConfig, ViewStatus,
         },
+        platform::incremental::{GroupCounts, ReadModel},
     };
     use serde_json::json;
 
@@ -4725,8 +4727,8 @@ mod dbsp_summary_benchmark {
     };
 
     use cantos_api::{
-        incremental::ReadModel,
-        postgres::durable::summary_view::{AttachedView, SummaryView, ViewConfig},
+        contexts::synthesis::summary_view::{AttachedView, SummaryView, ViewConfig},
+        platform::incremental::ReadModel,
     };
     use serde_json::json;
 

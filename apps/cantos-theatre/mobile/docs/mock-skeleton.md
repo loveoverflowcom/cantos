@@ -194,3 +194,14 @@ owners; these phase1 images cannot certify changed inputs by themselves.
 Qualify shared components in both renderers before adoption. Contract/native-media adapters, rights-aware downloads and
 durable progress follow 050 prerequisites. Native insets/back, TalkBack/VoiceOver, OS text
 scaling, background/lock-screen controls, interruptions, motion and audio quality remain gaps.
+
+## Pre-merge acceptance run (2026-10-12)
+
+Linux host without Gradle 8.14.3, so `cargo xtask theatre-demo verify` is **UNSUPPORTED** here.
+As a diagnostic only, installed Gradle 9.7.0 with JDK 17 ran `:shared:desktopTest`:
+48 tests, 0 failures/errors/skips, and all eight captures were opened. Two UI defects were fixed
+and recaptured: multi-line episode rows and the continue card used the default pill button
+shape, which became an oval at 2× text; they now use the theme's large card shape. Language
+choices now use endonyms (Tiếng Việt / English), matching Theatre Web. `cargo xtask preflight
+--changed-only` passed every gate except the explicitly skipped postgres, cmp-ui-preview and
+theatre-cmp-demo. Native Android/iOS runtime evidence is unchanged from the record above.

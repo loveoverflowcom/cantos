@@ -1,15 +1,15 @@
 use std::{fs, process::Command};
 
-use cantos_api::production::prepare_inputs;
-use cantos_api::script_ir::read_script;
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::production::prepare_inputs;
+use cantos_api::contexts::synthesis::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities, RecoveryPlan,
 };
-use cantos_api::tts::{
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, decode_document, decode_receipt, ChargeObservation, ReceiptError,
     ReceiptEvidence, ReceiptOutcome, TtsProviderIdentity, TtsReceipt, UsageObservation,
     MAX_RECEIPT_BYTES, RECEIPT_VERSION,
 };
+use cantos_api::script_ir::read_script;
 use cantos_contracts::{
     FrozenProductionDocument, ProductionSettingsResponse, RevisionResponse,
     SaveProductionSettingsRequest,

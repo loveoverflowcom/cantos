@@ -4,17 +4,17 @@
 //! the minimal-invalidation laws.
 use std::collections::{BTreeMap, BTreeSet};
 
-use cantos_api::{
-    clip_reuse::{
-        ArtifactProbe, AudioDigest, ClipCandidate, ClipRefusal, ClipRequest, Refusal,
-        RegisteredClip, ReuseDecision, RightsStanding,
-    },
+use cantos_api::contexts::synthesis::{
+    fingerprint::{SpeechField, SpeechFingerprint, SpeechInput},
     jobs::ExecutionMode,
     regeneration::{
         plan_regeneration, CacheMiss, EpisodeReason, LineAction, LineChange, PlanGate, PlanInputs,
         ProductionShape, RegenerationPlan, StaleReason, Staleness, COST_BASIS,
     },
-    speech_fingerprint::{SpeechField, SpeechFingerprint, SpeechInput},
+    reuse::{
+        ArtifactProbe, AudioDigest, ClipCandidate, ClipRefusal, ClipRequest, Refusal,
+        RegisteredClip, ReuseDecision, RightsStanding,
+    },
 };
 use cantos_contracts::{
     ProductionBudget, ProductionCurrency, ProductionEstimate, ProductionRate,
@@ -180,7 +180,10 @@ fn stale_scenes(plan: &RegenerationPlan) -> Vec<&str> {
         .collect()
 }
 
-fn scene<'a>(plan: &'a RegenerationPlan, id: &str) -> &'a cantos_api::regeneration::SceneImpact {
+fn scene<'a>(
+    plan: &'a RegenerationPlan,
+    id: &str,
+) -> &'a cantos_api::contexts::synthesis::regeneration::SceneImpact {
     plan.scenes
         .iter()
         .find(|scene| scene.scene_id == id)
@@ -704,7 +707,7 @@ fn plans_are_deterministic_and_serialize_to_the_documented_shape() {
 
 #[test]
 fn duplicate_scene_or_dialogue_identifiers_cannot_form_a_shape() {
-    use cantos_api::regeneration::ShapeError;
+    use cantos_api::contexts::synthesis::regeneration::ShapeError;
     let mut duplicate_scene = episode();
     duplicate_scene[1].0 = "scene-01".into();
     assert_eq!(
@@ -908,7 +911,7 @@ fn resolve_reuse_is_the_single_source_of_hit_semantics_for_the_plan() {
             .find(|l| l.dialogue_id == planned.dialogue_id)
             .unwrap();
         let fingerprint = fingerprint(input);
-        let decision = cantos_api::clip_reuse::resolve_reuse(
+        let decision = cantos_api::contexts::synthesis::reuse::resolve_reuse(
             &ClipRequest {
                 fingerprint: fingerprint.clone(),
                 owner_id: OWNER.into(),

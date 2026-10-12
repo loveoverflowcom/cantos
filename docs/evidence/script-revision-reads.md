@@ -10,8 +10,8 @@ kept separately from the prompt-2 historical NOT_RUN record below.
 
 ## Actual serving reads
 
-All query owners are [postgres.rs](../../services/cantos-api/src/postgres.rs); the
-[HTTP routes](../../services/cantos-api/src/http.rs), [migration](../../services/cantos-api/migrations/0001_script_revisions.sql),
+All query owners are [postgres.rs](../../services/cantos-api/src/contexts/editorial/postgres.rs); the
+[HTTP routes](../../services/cantos-api/src/interfaces/http/mod.rs), [migration](../../services/cantos-api/migrations/0001_script_revisions.sql),
 [wire contract](../../packages/contracts/studio-v1.md) and
 [real PostgreSQL suite](../../services/cantos-api/tests/revisions_postgres.rs) are immediate consumers.
 
