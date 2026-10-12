@@ -113,8 +113,8 @@ flags `image_inspected` and `semantics_asserted` stay false; this report records
 | Four `cargo xtask compose-preview ui-system-cmp` invocations | PASS; fresh real PNG and text tree per scenario |
 | Open four PNGs; assert hashes/source/bounds/text/node classes | PASS; screenshot-inspected and bounded static semantics-tested |
 | Adapter and catalogue regression suites | PASS 25 and 31 tests respectively, including failing-first cases |
-| `cargo xtask verify repository` | PASS; 204 Python tests, links/JSON/skills and diff checks |
-| `cargo xtask preflight --changed-only --base origin/develop` | PASS; all 13 selected gates, no skips; `android-preflight-retry.log` |
+| `cargo xtask verify repository` | PASS; 214 Python tests on the PR54-integrated tree, links/JSON/skills and diff checks |
+| `cargo xtask preflight --changed-only --base 7478236c1a23b045dc93fa690b65a9edc9215fb5` | PASS; all 13 selected gates, no skips; `android-preflight-integrated-pr54.log` |
 
 The complete preflight passed repository, rust-format, script-ir-reference, rust-lint
 (workspace), rust-tests (workspace), wav-reference, web-lint (Studio/Theatre), web-build (Studio),
@@ -131,9 +131,32 @@ expected result was weakened to address the host resource failure.
 
 The prior desktop record supplies the fresh 75-test CMP execution, 26 opened JVM PNGs and bounded
 Chrome input/dialog observations for unchanged common UI code. The retry's desktop task was
-UP-TO-DATE, not another 75-test execution. Source/configuration inputs stayed unchanged between
-the retry and this results-only documentation update. Final documentation hygiene is checked
-again through the repository gate before push. Remote CI is NOT_RUN under the local handoff policy.
+UP-TO-DATE, not another 75-test execution. CMP source/configuration inputs stayed unchanged
+between the captures and both passing preflight runs. The latest-base integration below changed
+backend inputs. Final documentation hygiene is checked again through the repository gate before push. Remote CI is NOT_RUN under the local handoff policy.
+
+## Latest develop integration
+
+Before push, direct remote ref discovery found that develop had advanced to
+`7478236c1a23b045dc93fa690b65a9edc9215fb5`: audio-quality documentation `260f203` and PR54 speech
+clip reuse. Merge commit `ac090f7fd124bd1ae28f5d777acbdda34e44c34d` has parents Android handoff
+`81df467ed400e01833a60fa884f555a96cbe2a4b` and that develop SHA. The merge was clean; independent
+review confirmed both work-queue updates survived and all CMP/Android/parser/catalogue inputs
+were unchanged. The final PR delta remains the bounded preview work.
+
+The new base adds backend contracts, tests and migration 0008, so the full preflight was repeated
+against that pinned base on the integrated tree: **13/13 PASS**, no skips. Repository discovery
+now executes **214** Python tests, including ten new upstream oracle tests. Workspace tests cover
+the new speech fingerprint, clip-reuse and regeneration contract targets; PostgreSQL exercises
+the new migration and backend tests in a fresh disposable cluster. Its shutdown was observed.
+
+Canonical tokens and CMP fingerprints remain the capture values above. The **integrated Leptos
+digest** is `72cb9022a63a2a55a87f9368b9435156cc88e2f7d177be3cbed9dadc6a8e8338`, because its
+fingerprint includes the changed `Cargo.lock`. The earlier Leptos digest and browser observations
+remain historical evidence for their recorded inputs. No Android recapture was needed: wrapper,
+shared Kotlin, host configuration and all four PNG/semantics hashes were asserted unchanged.
+Only results documentation changes after this full run; the repository gate checks that final
+documentation again before publication.
 
 Android/iOS product builds remain **UNSUPPORTED**. Device interaction, active Vietnamese IME,
 TalkBack/VoiceOver, native audio/lifecycle, motion/reduced-motion, Noto metrics and the complete
