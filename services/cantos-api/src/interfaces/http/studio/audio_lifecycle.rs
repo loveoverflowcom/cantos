@@ -5,7 +5,6 @@ use super::{
 };
 use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::{Store, StoreError};
-use axum::extract::FromRequestParts;
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
