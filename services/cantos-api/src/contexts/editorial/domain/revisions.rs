@@ -1,29 +1,13 @@
-//! Pure permission and retry/concurrency decisions. No HTTP, SQL, UI or clock.
+//! Pure revision identity, retry and concurrency decisions. No HTTP, SQL, UI or clock.
+use sha2::{Digest, Sha256};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Access {
-    Owner,
-    Editor,
-    Reader,
-    None,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Action {
-    Read,
-    Write,
-    Review,
-}
-
-pub fn permits(access: Access, action: Action) -> bool {
-    match (access, action) {
-        (Access::Owner, _)
-        | (Access::Editor, Action::Read | Action::Write)
-        | (Access::Reader, Action::Read) => true,
-        (Access::Editor | Access::Reader, Action::Review)
-        | (Access::Reader, Action::Write)
-        | (Access::None, _) => false,
-    }
+/// Identity of one canonical Script IR export: what an accepted revision stores and every
+/// frozen copy of it must still match.
+pub fn export_digest(bytes: &[u8]) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"cantos/script-export/e1\n");
+    digest.update(bytes);
+    format!("sir-e1:sha256:{:x}", digest.finalize())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -105,22 +89,17 @@ pub fn decide_save(
 #[cfg(test)]
 mod tests {
     use super::{
-        decide_review, decide_save, permits, Access, Action, PriorOperation, ReviewDecision,
-        SaveDecision,
+        decide_review, decide_save, export_digest, PriorOperation, ReviewDecision, SaveDecision,
     };
 
     #[test]
-    fn permission_table_is_closed_and_fail_closed() {
-        for (access, read, write) in [
-            (Access::Owner, true, true),
-            (Access::Editor, true, true),
-            (Access::Reader, true, false),
-            (Access::None, false, false),
-        ] {
-            assert_eq!(permits(access, Action::Read), read);
-            assert_eq!(permits(access, Action::Write), write);
-            assert_eq!(permits(access, Action::Review), access == Access::Owner);
-        }
+    fn export_digest_is_the_tagged_sha256_of_the_exact_bytes() {
+        // Independent oracle: sha256(b"cantos/script-export/e1\n{}") computed outside Rust.
+        assert_eq!(
+            export_digest(b"{}"),
+            "sir-e1:sha256:ebb9aa27f8c9f1abc82e6547d051d8c3ab5954151fee8852d3c17312e206ea2c"
+        );
+        assert_ne!(export_digest(b"{}"), export_digest(b"{} "));
     }
 
     #[test]

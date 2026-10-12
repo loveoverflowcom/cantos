@@ -8,7 +8,7 @@ a session cookie from the alias is scoped to `/api/v1`, one from `/api/v1/studio
 separate groups (`/api/v1/theatre`, `/api/v1/admin`), reserved and empty.
 
 Implemented development boundary: [Axum](../../services/cantos-api/src/interfaces/http/studio/mod.rs) →
-[PostgreSQL](../../services/cantos-api/src/platform/postgres/mod.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
+[PostgreSQL](../../services/cantos-api/src/contexts/editorial/postgres.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
 The [Schema](schema/studio/v1.schema.json), [raw Rust DTOs](api/src/lib.rs) and
 [fixtures](fixtures/studio/v1) are hand-authored. Both consumers test the same fixture source;
 backend tests validate live responses with that Schema. No generated OpenAPI/Kotlin API exists.

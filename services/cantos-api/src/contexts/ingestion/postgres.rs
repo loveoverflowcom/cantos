@@ -1,11 +1,14 @@
 //! Immutable local manuscript intake on the existing source registry.
-use cantos_contracts::{FieldIssue, ImportMetadata, ImportOutcome, ImportRequest, ImportResponse};
+use cantos_contracts::{
+    FieldIssue, ImportMetadata, ImportOutcome, ImportRequest, ImportResponse, SourceResponse,
+};
 use sha2::{Digest, Sha256};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
+use crate::contexts::editorial::{authorize, register_evidence, Action, EvidenceKind};
 use crate::contexts::ingestion::{extract, MAX_SOURCE_BYTES};
-use crate::platform::postgres::{authenticate, normalized_uuid, Store, StoreError};
+use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError};
 
 pub(crate) const IMPORT_COLUMNS: &str = "id,reference,imported_by,import_operation_id,import_digest,original_bytes,original_text,sha256,import_metadata::text AS import_metadata,import_outcome::text AS import_outcome,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at";
 
@@ -174,9 +177,12 @@ impl Store {
             return Ok(prior);
         }
         let id = format!("src_{}", Uuid::new_v4().simple());
-        tx.execute(
-            "INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,'source',$2,'Imported manuscript; rights recorded as supplied, never publication clearance')",
-            &[&actor, &id],
+        register_evidence(
+            &tx,
+            &actor,
+            EvidenceKind::Source,
+            &id,
+            "Imported manuscript; rights recorded as supplied, never publication clearance",
         )
         .await?;
         tx.execute(
@@ -221,6 +227,48 @@ impl Store {
         let result = decode_import(&row)?;
         tx.commit().await?;
         Ok(result)
+    }
+}
+
+impl Store {
+    /// Private source bytes are reachable only through a currently authorized script link.
+    pub async fn source(
+        &self,
+        token: &str,
+        script: &str,
+        id: &str,
+    ) -> Result<SourceResponse, StoreError> {
+        let script = normalized_uuid(script)?;
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let actor = authenticate(&tx, token).await?;
+        let (owner, _) = authorize(&tx, &actor, &script, Action::Read, LockMode::Share).await?;
+        let row = tx.query_opt("SELECT id,reference,original_text,original_bytes,sha256,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at FROM source_records s WHERE owner_id=$1 AND id=$2 AND EXISTS(SELECT 1 FROM revision_evidence e WHERE e.script_id=$3 AND e.owner_id=s.owner_id AND e.kind='source' AND e.evidence_id=s.id)", &[&owner,&id,&script]).await?.ok_or(StoreError::NotFound)?;
+        // The legacy source contract is text-only; binary intake uses /imports/{id}/original.
+        let original_text: String = row
+            .get::<_, Option<String>>("original_text")
+            .ok_or(StoreError::InvalidRequest)?;
+        let bytes: Option<Vec<u8>> = row.get("original_bytes");
+        let sha256: String = row.get("sha256");
+        if bytes
+            .as_ref()
+            .is_some_and(|bytes| bytes.as_slice() != original_text.as_bytes())
+            || format!(
+                "{:x}",
+                Sha256::digest(bytes.as_deref().unwrap_or(original_text.as_bytes()))
+            ) != sha256
+        {
+            return Err(StoreError::CorruptRevision);
+        }
+        let response = SourceResponse {
+            id: row.get("id"),
+            reference: row.get("reference"),
+            original_text,
+            sha256,
+            recorded_at: row.get("recorded_at"),
+        };
+        tx.commit().await?;
+        Ok(response)
     }
 }
 

@@ -12,9 +12,12 @@ use sha2::{Digest, Sha256};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
+use crate::contexts::editorial::{
+    append_revision, authorize, export_digest, load_revision, register_evidence, script_exists,
+    EvidenceKind,
+};
 use crate::platform::postgres::{
-    authenticate, authorize, checked_number, decode_revision, export_digest, normalized_uuid,
-    save_in_transaction, Store, StoreError, REVISION_COLUMNS,
+    authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError,
 };
 use crate::{
     contexts::{
@@ -228,16 +231,7 @@ async fn run_in_transaction(
         )
         .await?;
     let accepted_revision = if let Some(accepted) = accepted {
-        let query = format!(
-            "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
-        );
-        Some(decode_revision(
-            &tx.query_one(
-                &query,
-                &[&accepted.get::<_, String>(0), &accepted.get::<_, i64>(1)],
-            )
-            .await?,
-        )?)
+        Some(load_revision(tx, &accepted.get::<_, String>(0), accepted.get::<_, i64>(1)).await?)
     } else {
         None
     };
@@ -425,7 +419,7 @@ impl Store {
         }
         let content = admit_edited_proposal(&request.script_json, &source, &binding)
             .map_err(|value| StoreError::InvalidRequestFields(value.issues))?;
-        let saved = save_in_transaction(
+        let saved = append_revision(
             &tx,
             &actor,
             &script_id,
@@ -641,16 +635,7 @@ async fn context_in_transaction(
         )
         .await?;
     let accepted_revision = if let Some(accepted) = accepted {
-        let query = format!(
-            "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
-        );
-        Some(decode_revision(
-            &tx.query_one(
-                &query,
-                &[&accepted.get::<_, String>(0), &accepted.get::<_, i64>(1)],
-            )
-            .await?,
-        )?)
+        Some(load_revision(tx, &accepted.get::<_, String>(0), accepted.get::<_, i64>(1)).await?)
     } else {
         None
     };
@@ -688,31 +673,23 @@ async fn current_base(
     script: &str,
     expected: u64,
 ) -> Result<Option<RevisionResponse>, StoreError> {
-    if tx
-        .query_opt("SELECT id FROM scripts WHERE id=$1", &[&script])
-        .await?
-        .is_none()
-    {
+    if !script_exists(tx, script).await? {
         return if expected == 0 {
             Ok(None)
         } else {
             Err(StoreError::NotFound)
         };
     }
-    let (owner, head) = authorize(tx, actor, script, Action::Review, true).await?;
+    let (owner, head) = authorize(tx, actor, script, Action::Review, LockMode::Update).await?;
     if owner != actor {
         return Err(StoreError::Forbidden);
     }
     if head != expected {
         return Err(StoreError::StaleRevision(head));
     }
-    let query = format!(
-        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
-    );
-    Ok(Some(decode_revision(
-        &tx.query_one(&query, &[&script, &checked_number(expected)?])
-            .await?,
-    )?))
+    Ok(Some(
+        load_revision(tx, script, checked_number(expected)?).await?,
+    ))
 }
 
 impl Store {
@@ -799,8 +776,19 @@ impl Store {
             generation_record_id: format!("gen_{}", id.simple()),
             rights_record_id: format!("rights_{}", id.simple()),
         };
-        for (kind,evidence,description) in [("generation",&context.generation_record_id,"Caller adaptation submission binding; generation provenance is declared and unverified"),("rights",&context.rights_record_id,"Creator source/export/adaptation-use assertion pinned to source checksum; legal and publication eligibility remain unknown")] {
-            tx.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,$2,$3,$4)",&[&actor,&kind,&evidence,&description]).await?;
+        for (kind, evidence, description) in [
+            (
+                EvidenceKind::Generation,
+                &context.generation_record_id,
+                "Caller adaptation submission binding; generation provenance is declared and unverified",
+            ),
+            (
+                EvidenceKind::Rights,
+                &context.rights_record_id,
+                "Creator source/export/adaptation-use assertion pinned to source checksum; legal and publication eligibility remain unknown",
+            ),
+        ] {
+            register_evidence(&tx, &actor, kind, evidence, description).await?;
         }
         let digest = typed_digest(b"cantos/adaptation-input/c1\n", &context)?;
         let json = serde_json::to_string(&context).map_err(|_| StoreError::Unavailable)?;

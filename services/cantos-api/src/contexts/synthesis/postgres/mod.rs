@@ -364,12 +364,12 @@ impl Store {
         let actor = durable_actor(&tx, token).await?;
         let r = run(&tx, &id).await?;
         // Status is readable after approval expires; ownership still checked on every read.
-        crate::platform::postgres::authorize(
+        crate::contexts::editorial::authorize(
             &tx,
             &actor,
             &r.get::<_, String>("script_id"),
             crate::contexts::editorial::Action::Review,
-            false,
+            crate::platform::postgres::LockMode::Share,
         )
         .await?;
         // An attached view answers only after the checks above, for this authorized run.
@@ -956,12 +956,12 @@ impl Store {
         let tx = client.transaction().await?;
         let actor = durable_actor(&tx, token).await?;
         let r = run(&tx, &id).await?;
-        crate::platform::postgres::authorize(
+        crate::contexts::editorial::authorize(
             &tx,
             &actor,
             &r.get::<_, String>("script_id"),
             crate::contexts::editorial::Action::Review,
-            true,
+            crate::platform::postgres::LockMode::Update,
         )
         .await?;
         let job = tx

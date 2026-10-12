@@ -11,14 +11,17 @@ use serde::{de::DeserializeOwned, Serialize};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
+use crate::contexts::editorial::{
+    authorize, ensure_evidence, export_digest, find_revision, load_revision,
+    reviewed_by_active_owner, rights_cited_by_script, EvidenceKind,
+};
 use crate::contexts::editorial::{permits, Access, Action};
 use crate::contexts::production::{
     admit_frozen_document, evaluate_snapshot, prepare_inputs, validate_rights_declaration,
     validate_settings,
 };
 use crate::platform::postgres::{
-    authenticate, authorize, checked_number, decode_revision, export_digest, normalized_uuid,
-    Store, StoreError, REVISION_COLUMNS,
+    authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError,
 };
 use crate::script_ir::read_canonical_script;
 
@@ -155,8 +158,7 @@ async fn reviewed(
     revision: u64,
     owner: &str,
 ) -> Result<bool, StoreError> {
-    // Current owner and active reviewer are both required; a historical receipt cannot confer scope.
-    Ok(tx.query_opt("SELECT r.id FROM script_reviews r JOIN actors a ON a.id=r.reviewed_by WHERE r.script_id=$1 AND r.revision=$2 AND r.reviewed_by=$3 AND a.active", &[&script,&checked_number(revision)?,&owner]).await?.is_some())
+    reviewed_by_active_owner(tx, script, checked_number(revision)?, owner).await
 }
 
 async fn revision(
@@ -164,13 +166,7 @@ async fn revision(
     script: &str,
     head: u64,
 ) -> Result<cantos_contracts::RevisionResponse, StoreError> {
-    let query = format!(
-        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
-    );
-    decode_revision(
-        &tx.query_one(&query, &[&script, &checked_number(head)?])
-            .await?,
-    )
+    load_revision(tx, script, checked_number(head)?).await
 }
 
 struct Facts {
@@ -189,7 +185,12 @@ async fn facts(
     write: bool,
 ) -> Result<Facts, StoreError> {
     // All production writes lock this row before rights/settings rows. Reads share the same order.
-    let (owner, head) = authorize(tx, actor, script, action, write).await?;
+    let lock = if write {
+        LockMode::Update
+    } else {
+        LockMode::Share
+    };
+    let (owner, head) = authorize(tx, actor, script, action, lock).await?;
     if actor != owner {
         let role: Option<String> = tx
             .query_one("SELECT production_lock_member($1,$2)", &[&script, &actor])
@@ -272,14 +273,9 @@ async fn snapshot(
     }
     // Numbers and self-consistent hashes do not establish which settled receipts were pinned.
     // Rebuild from the actual historical rows, including rights actor/time/version metadata.
-    let query = format!(
-        "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"
-    );
-    let pinned_revision = decode_revision(
-        &tx.query_opt(&query, &[&script, &checked_number(doc.revision.revision)?])
-            .await?
-            .ok_or(StoreError::CorruptRevision)?,
-    )?;
+    let pinned_revision = find_revision(tx, &script, checked_number(doc.revision.revision)?)
+        .await?
+        .ok_or(StoreError::CorruptRevision)?;
     let query = format!(
         "SELECT {SETTINGS_COLUMNS} FROM production_settings WHERE script_id=$1 AND version=$2"
     );
@@ -515,12 +511,19 @@ impl Store {
         }
         match &request.claim.subject {
             ProductionRightsSubject::Evidence { record_id } => {
-                if tx.query_opt("SELECT id FROM script_evidence e WHERE owner_id=$1 AND kind='rights' AND id=$2 AND EXISTS(SELECT 1 FROM revision_evidence r WHERE r.owner_id=e.owner_id AND r.kind=e.kind AND r.evidence_id=e.id AND r.script_id=$3)", &[&facts.owner,&record_id,&script]).await?.is_none() {
+                if !rights_cited_by_script(&tx, &facts.owner, record_id, &script).await? {
                     return Err(StoreError::EvidenceUnavailable);
                 }
             }
             ProductionRightsSubject::Voice { .. } => {
-                tx.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES($1,'rights',$2,'Script-scoped recorded voice permission assertion; not legal verification or provider consent') ON CONFLICT DO NOTHING", &[&facts.owner,&request.claim.record_id]).await?;
+                ensure_evidence(
+                    &tx,
+                    &facts.owner,
+                    EvidenceKind::Rights,
+                    &request.claim.record_id,
+                    "Script-scoped recorded voice permission assertion; not legal verification or provider consent",
+                )
+                .await?;
             }
         }
         let version = request
