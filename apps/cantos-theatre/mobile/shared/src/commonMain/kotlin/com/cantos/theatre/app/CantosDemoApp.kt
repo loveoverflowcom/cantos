@@ -201,7 +201,9 @@ private fun DiscoveryScreen(state: DemoState, copy: DemoCopy, dispatch: (DemoEve
         Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif),
             modifier = Modifier.semantics { heading() })
         val episode = DemoFixtures.episode(state.selectedEpisode)
-        FilledTonalButton(onClick = { dispatch(DemoEvent.OpenEpisode(episode.id)) }, modifier = Modifier.fillMaxWidth().testTag("continue")) {
+        // Multi-line content buttons use the card shape; a pill turns oval under large text.
+        FilledTonalButton(onClick = { dispatch(DemoEvent.OpenEpisode(episode.id)) }, modifier = Modifier.fillMaxWidth().testTag("continue"),
+            shape = MaterialTheme.shapes.large) {
             Icon(Icons.Outlined.PlayArrow, null)
             Column(Modifier.weight(1f).padding(tokenDp("space.sm"))) {
                 Text(copy.text(CopyKey.Continue), style = MaterialTheme.typography.labelLarge)
@@ -338,6 +340,7 @@ private fun EpisodeSelection(episode: DemoEpisode, state: DemoState, copy: DemoC
         onClick = { dispatch(DemoEvent.OpenEpisode(episode.id)) },
         modifier = Modifier.fillMaxWidth().testTag("episode-${episode.id}")
             .semantics { contentDescription = copy.text(CopyKey.PlayEpisode, "title" to episode.title) },
+        shape = MaterialTheme.shapes.large,
         colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
             containerColor = if (episode.id == state.selectedEpisode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
         ),

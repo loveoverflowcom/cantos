@@ -82,8 +82,9 @@ internal enum class CopyKey(val vi: String, val en: String) {
     Light("Giấy ngà · Sáng", "Warm paper · Light"),
     Dark("Mực tím · Tối", "Purple ink · Dark"),
     Language("Ngôn ngữ giao diện", "Interface language"),
-    Vietnamese("Tiếng Việt", "Vietnamese"),
-    English("Tiếng Anh", "English"),
+    // Language choices use endonyms so either locale can find its own name.
+    Vietnamese("Tiếng Việt", "Tiếng Việt"),
+    English("English", "English"),
     Speed("Tốc độ minh họa", "Demo speed"),
     Timer("Hẹn giờ minh họa", "Demo timer"),
     TimerOff("Tắt", "Off"),
