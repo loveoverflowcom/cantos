@@ -39,6 +39,10 @@ canonical source, with generated CSS/Rust, contrast checks and a separate deferr
 Studio and Theatre vary density/layout, not palettes. The [foundation evidence](../evidence/ui-system-foundation.md)
 separates source/compile checks from pending runtime appearance, motion and interaction review.
 
+Platform scope follows the [repository matrix](../architecture/repository-layout.md#platform-scope):
+Studio is Web only; Theatre supports Web and native Mobile. Shared Leptos/CMP component diagnostics
+do not authorize a Studio mobile app, mock screen or scaffold.
+
 ## Studio: text-first production
 
 The primary journey is import → inspect adaptation → correct script → cast voices → preview → produce → inspect QC → approve and publish. Preserve script position, selections, and unsaved edits across pane changes and recoverable errors.

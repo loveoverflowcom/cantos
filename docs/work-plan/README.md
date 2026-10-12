@@ -1,5 +1,11 @@
 # MVP work queue
 
+Platform scope follows the [repository matrix](../architecture/repository-layout.md#platform-scope):
+Studio deploys only to Web; Theatre supports Web and native Android/iOS. Studio Mobile is out of
+scope / not implemented and must not be scaffolded as a dependency of any work item. Shared
+libraries may serve Theatre Mobile and Studio Web; reopen Studio Mobile only on an explicit
+future roadmap request. This scope clarification changes no capability acceptance or issue status.
+
 The requested UI-only [Leptos UI system sequence](015-leptos-ui-system.md) delivers a small
 canonical foundation before components, responsive app integration and independent review.
 The [independent session 4 review](../evidence/ui-system-review.md) records scoped Safari fixes,
@@ -135,8 +141,8 @@ GitHub retains execution status, including #44/#45.
 
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
-tested with a process double; both mobile projects and real Android/iOS acceptance remain
-unimplemented/unrun. This enabling change does not advance 050, change #6/#7 ordering or
+tested with a process double; the Theatre Mobile app and real Android/iOS acceptance remain
+unimplemented/unrun. Studio Mobile is excluded from the command surface. This enabling change does not advance 050, change #6/#7 ordering or
 introduce a competing mobile UI implementation.
 The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
 bounded output and private capture paths. The next mobile evidence still comes from an actual

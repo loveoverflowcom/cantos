@@ -12,6 +12,7 @@ pub const GRADLE_VERSION: &str = "8.14.3";
 pub const UI_LEPTOS_DIR: &str = "packages/ui-system/leptos";
 pub const UI_CMP_DIR: &str = "packages/ui-system/cmp";
 pub const UI_CMP_ANDROID_DIR: &str = "packages/ui-system/cmp/android-preview";
+pub const THEATRE_MOBILE_DIR: &str = "apps/cantos-theatre/mobile";
 pub const UI_PREVIEW_PORT: u16 = 8083;
 pub const UI_PREVIEW_MARKER: &str = "<title>Cantos UI foundation preview</title>";
 pub const UI_PREVIEW_DIST: &str = "../../../target/ui-foundation-preview";
@@ -32,7 +33,7 @@ pub fn loopback(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))
 }
 
-/// A Cantos product with a Web client and a reserved mobile client.
+/// A Cantos product with a Web client. Only Theatre also targets mobile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum App {
     Studio,
@@ -61,13 +62,6 @@ impl App {
         match self {
             App::Studio => "apps/cantos-studio/web",
             App::Theatre => "apps/cantos-theatre/web",
-        }
-    }
-
-    pub fn mobile_dir(self) -> &'static str {
-        match self {
-            App::Studio => "apps/cantos-studio/mobile",
-            App::Theatre => "apps/cantos-theatre/mobile",
         }
     }
 
@@ -150,18 +144,15 @@ mod tests {
     }
 
     #[test]
-    fn mobile_directories_are_still_guides_without_a_gradle_project() {
+    fn theatre_mobile_is_still_a_guide_without_a_gradle_project() {
         let workspace = Workspace::discover().unwrap();
-        for app in App::ALL {
-            let dir = workspace.path(app.mobile_dir());
-            assert!(dir.join("README.md").is_file());
-            for gradle in ["settings.gradle.kts", "settings.gradle", "build.gradle.kts"] {
-                assert!(
-                    !dir.join(gradle).exists(),
-                    "{} now has a Gradle project: replace the UNSUPPORTED mobile surface with a real plan",
-                    app.mobile_dir()
-                );
-            }
+        let dir = workspace.path(THEATRE_MOBILE_DIR);
+        assert!(dir.join("README.md").is_file());
+        for gradle in ["settings.gradle.kts", "settings.gradle", "build.gradle.kts"] {
+            assert!(
+                !dir.join(gradle).exists(),
+                "{THEATRE_MOBILE_DIR} now has a Gradle project: replace the UNSUPPORTED mobile surface with a real plan"
+            );
         }
     }
 }

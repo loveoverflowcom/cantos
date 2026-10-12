@@ -49,7 +49,7 @@ cargo xtask verify postgres [--keep]
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
-cargo xtask compose-preview cantos-theatre|cantos-studio|ui-system-cmp --file PATH --composable NAME \
+cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 ```
 
@@ -57,11 +57,14 @@ cargo xtask compose-preview cantos-theatre|cantos-studio|ui-system-cmp --file PA
 
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) and `cantos` (Theatre,
-listeners) are products with a `--web` and a `--mobile` surface; one must be named. `--mobile` is
-an extension point: both mobile directories are guides without a Gradle project, so it is
-refused as `UNSUPPORTED` rather than simulated. `build all` covers the API and both Web clients
-and notes that mobile and `services/kanidm` (configuration only) are not built.
+`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) is web-only: pass
+`--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
+`cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
+Theatre Mobile remains an extension point without a Gradle app and is refused as `UNSUPPORTED`.
+Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
+out-of-scope directory. `build all` covers the API and both Web clients and notes that Theatre
+Mobile and `services/kanidm` (configuration only) are not built. See the
+[platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
 `dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
 produces an optimized local artifact. It is not a production image, a signed bundle or a
@@ -128,7 +131,8 @@ Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations
 available. Gradle resolves declared project dependencies normally. xtask never invokes a
 downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
 is `UNSUPPORTED` before any build or launch; an actual Gradle compilation/test failure is `FAIL`.
-Existing product `--mobile` surfaces remain reserved and are separate from this desktop preview.
+The Theatre `--mobile` surface remains reserved and is separate from this desktop preview.
+Shared CMP previews do not create a Studio mobile client.
 
 `ui-preview cmp android-build` compiles `compileDebugKotlinAndroid` in the isolated
 `packages/ui-system/cmp/android-preview` library with the same installed Gradle 8.14.3/JDK
@@ -213,7 +217,8 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
   are `cantos-api` inputs.
 - Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
-  and mobile guides are noted as having no executable gate.
+  and the Theatre Mobile guide are noted as having no executable gate. The Studio Mobile scope
+  notice is documentation only.
 - Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
   verification tooling (`xtask/`, `.github/workflows/`), a non-document mobile file, an
   unclassified path or an empty change set select every gate.
@@ -242,7 +247,7 @@ protection and required checks are configured outside this repository.
 ### doctor
 
 Reports the selected `rustc` against the pinned 1.87, each tool and its version, which gates can
-run here, the unsupported mobile surfaces and Kanidm's configuration-only status. It exits with
+run here, the unsupported Theatre Mobile surface and Kanidm's configuration-only status. It exits with
 failure only when Cargo, Git or Python 3 is missing.
 
 ### compose-preview
@@ -252,8 +257,8 @@ Capture an existing `@Preview` through the official Android CLI's
 It requires Android Studio Quail 2+ running with the selected Android Gradle project open and ready;
 it does not require an emulator or phone. `ui-system-cmp` selects the isolated shared-component
 library in `packages/ui-system/cmp/android-preview`; compile it with `ui-preview cmp android-build`
-before rendering its thin `@Preview` wrappers around shared source. Both product mobile
-directories still lack a Gradle project, so their capture remains **UNSUPPORTED**. Tool/IDE setup is manual and never performed by
+before rendering its thin `@Preview` wrappers around shared source. Theatre Mobile still lacks
+a Gradle app, so its capture remains **UNSUPPORTED**. Studio Mobile has no capture target. Tool/IDE setup is manual and never performed by
 xtask. This optional operation is outside `preflight`/CI; its deterministic adapter tests run
 in the existing repository gate.
 
@@ -306,7 +311,8 @@ process tests start and stop real `sh` and `python3` children. Run them with
 
 ## Adding a capability
 
-Add a command only for an implemented, reviewed capability. A mobile surface becomes a plan when
-a Gradle project exists (a `config.rs` test fails when one appears). A new script becomes a gate
+Add a command only for an implemented, reviewed capability. The Theatre Mobile surface becomes
+a plan when its Gradle app exists (a `config.rs` test fails when one appears). Studio is web-only;
+do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure.

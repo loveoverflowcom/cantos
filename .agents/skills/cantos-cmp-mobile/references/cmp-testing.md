@@ -20,12 +20,13 @@ This reference selects among them for CMP. Test technique in general lives in
 
 For a static pixel/semantics check without an emulator, use the implemented
 [`cargo xtask compose-preview` workflow](compose-preview.md). It requires an existing Android
-Gradle target, preview function and a running Android Studio Quail 2+ instance. Both Cantos mobile
-directories are still guides, so real capture is currently `UNSUPPORTED`; capture-tool mocks
+Gradle target, preview function and a running Android Studio Quail 2+ instance. Theatre Mobile
+is still a guide, so its capture is `UNSUPPORTED`; Studio Mobile has no target. The shared
+`ui-system-cmp` Android library is a separate supported preview host. Capture-tool mocks
 prove the adapter contract, not Compose rendering. Robolectric remains a separately configured
 JVM test candidate, not an automatic fallback.
 
-No Gradle build, test task or device runner exists. Typical Kotlin Multiplatform task shapes to
+No Theatre app Gradle build, test task or device runner exists. Typical Kotlin Multiplatform task shapes to
 **look for** once the build lands — not commands that exist today:
 
 ```text

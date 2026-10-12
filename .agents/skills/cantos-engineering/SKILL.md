@@ -20,12 +20,12 @@ vocabulary and report; none of them redefines these.
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
   document, the work-plan item and the code you will touch. Product rules live in
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
-- **Repository reality.** Script IR, the Axum/PostgreSQL backend (revisions, editorial handoff,
-  import, caller-hosted adaptation, casting and frozen production inputs, local/Google TTS probe
-  CLIs, and the bounded development-only local/fake durable-worker foundation) and the Leptos
-  Studio exist. Theatre Web is a skeleton; mobile apps, commercial dispatch, full production
-  execution and delivery remain planned. Inspect manifests, scripts and workflows before citing a command; see
-  [`local-execution.md`](references/local-execution.md).
+- **Repository reality.** Script IR, Axum/PostgreSQL revisions/editorial/import/adaptation,
+  casting/frozen inputs, local/Google TTS probes, bounded development-only local/fake workers and
+  Leptos Studio exist. Theatre Web is a skeleton; Theatre Mobile, commercial dispatch, full production
+  and delivery remain planned. Inspect commands; see [local execution](references/local-execution.md).
+- **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
+  Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with

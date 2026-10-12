@@ -6,6 +6,10 @@
 - Related issue or PR: `refactor: reorganize Cantos apps and backend services` (targets `develop`)
 - Supersedes / superseded by: refines the source layout in [decision 0001](0001-modular-monolith.md); N/A
 
+> Current scope: the [platform matrix](../architecture/repository-layout.md#platform-scope)
+> supersedes this decision's Studio Mobile reservation. Studio is web-only; the historical layout
+> and verification record below are retained.
+
 ## Context
 
 The repository grew as `apps/server`, `apps/web` and `apps/mobile`, with `contracts/` at the root.

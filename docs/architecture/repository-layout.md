@@ -4,6 +4,22 @@ Status: implemented by [decision 0009](../decisions/0009-monorepo-layout.md). Th
 existing code without changing behavior, migrations or wire contracts; the
 [restructure evidence](../evidence/monorepo-restructure.md) records what was run and what was not.
 
+## Platform scope
+
+| Product | Web | Mobile |
+| --- | --- | --- |
+| Cantos Studio | Supported; sole deployment target | Out of scope / not implemented |
+| Cantos Theatre (listeners see **Cantos**) | Supported | Supported; Android/iOS with native playback |
+
+Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
+
+Support here defines product scope, not implementation evidence. Theatre Web is a skeleton and
+Theatre Mobile has no Gradle app yet. Studio Mobile is only a scope notice: never a workspace
+member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
+contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
+and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
+in [decision 0009](../decisions/0009-monorepo-layout.md).
+
 ## Map
 
 ```text
@@ -13,7 +29,7 @@ apps/
     mobile/                Kotlin Compose Multiplatform     (guide only, no Gradle)       RESERVED
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
-    mobile/                Kotlin Compose Multiplatform     (guide only, no Gradle)       RESERVED
+    mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
   kanidm/                  Identity provider deployment/config only; no code              CONFIG ONLY
@@ -33,6 +49,7 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   player or fake data, and it is not evidence for any Theatre work item.
 - **RESERVED** is a README that fixes the location and the rules from the mobile architecture. It
   has no Gradle project, so nothing about Android or iOS is built or claimed.
+- **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   authenticate through Kanidm: the API still uses operator-issued development tokens.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
@@ -103,8 +120,10 @@ Not shared, deliberately:
   [UI system](../design/ui-system.md) owns the per-surface intensity: Theatre calm and media-first,
   Studio denser and task-first. Both products use one canonical palette/semantic contract;
   density and layout vary by task. No separate app token copy or Kotlin runtime is introduced.
-- **Kotlin code.** No shared Kotlin module exists. Theatre and Studio mobile start as separate
-  Gradle builds; introduce `packages/` Kotlin modules only for code both apps really use.
+- **Kotlin code.** Theatre is the only mobile product. The shared `packages/ui-system/cmp`
+  Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
+  Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
+  libraries only for concrete consumers.
 
 ## Cargo workspace
 
