@@ -20,6 +20,8 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 pub const DEFAULT_BASE: &str = "origin/develop";
 
 pub const API_PACKAGE: &str = "cantos-api";
+/// The opt-in experimental DBSP read model of the API; off in every other gate and build.
+pub const DBSP_FEATURE: &str = "dbsp-experimental";
 pub const UI_PACKAGE: &str = "cantos-ui";
 pub const API_SERVER_BIN: &str = "cantos-server";
 pub const API_PORT: u16 = 8080;

@@ -19,7 +19,8 @@ use crate::{
 pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
-    /// Formatting, clippy and tests for the whole Cargo workspace plus the WAV oracle.
+    /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
+    /// DBSP feature, and the WAV oracle.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
@@ -37,6 +38,7 @@ impl CiJob {
                 Gate::RustFormat,
                 Gate::RustLint(Scope::Workspace),
                 Gate::RustTests(Scope::Workspace),
+                Gate::Dbsp,
                 Gate::WavReference,
             ],
             CiJob::Web => vec![

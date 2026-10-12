@@ -60,6 +60,9 @@ pub enum Task {
         /// Optimized local artifact (cargo/trunk --release); not a production image.
         #[arg(long)]
         release: bool,
+        /// cantos-api only: compile the opt-in experimental DBSP job-summary read model.
+        #[arg(long)]
+        dbsp_experimental: bool,
     },
     /// Build what the target needs, start its local processes and supervise them until Ctrl-C.
     Run {
@@ -143,6 +146,8 @@ pub enum VerifySuite {
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,
+    /// clippy and every cantos-api test with the experimental DBSP read model compiled in.
+    Dbsp,
     /// PostgreSQL integration and restart tests in a new disposable cluster.
     Postgres {
         /// Retain the cluster for `run cantos-api --test-cluster`; the stop command is printed.
@@ -181,7 +186,16 @@ mod tests {
             Task::Build {
                 target: BuildTarget::CantosStudio,
                 surface: SurfaceArgs { web: true, .. },
-                release: true
+                release: true,
+                dbsp_experimental: false,
+            }
+        ));
+        assert!(matches!(
+            parse("build cantos-api --dbsp-experimental").unwrap(),
+            Task::Build {
+                target: BuildTarget::CantosApi,
+                dbsp_experimental: true,
+                ..
             }
         ));
         assert!(matches!(
@@ -234,6 +248,7 @@ mod tests {
             ("verify web", VerifySuite::Web),
             ("verify contracts", VerifySuite::Contracts),
             ("verify mutation", VerifySuite::Mutation),
+            ("verify dbsp", VerifySuite::Dbsp),
             (
                 "verify postgres --keep",
                 VerifySuite::Postgres { keep: true },

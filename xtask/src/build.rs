@@ -8,7 +8,7 @@ use clap::ValueEnum;
 
 use crate::{
     command::CommandSpec,
-    config::{App, API_PACKAGE},
+    config::{App, API_PACKAGE, DBSP_FEATURE},
     pipeline::Step,
     tools::Tool,
     workspace::Workspace,
@@ -146,12 +146,16 @@ pub fn api_binaries(workspace: &Workspace, profile: Profile, bin: Option<&str>) 
     command.arg_if(profile == Profile::Release, "--release")
 }
 
-pub fn step(workspace: &Workspace, unit: Unit, profile: Profile) -> Step {
+pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> Step {
     match unit {
         Unit::Api => Step::new(
             format!("build {API_PACKAGE} ({})", profile.label()),
             &[Tool::Cargo],
-            vec![api_binaries(workspace, profile, None)],
+            vec![api_binaries(workspace, profile, None).args(
+                dbsp.then_some(["--features", DBSP_FEATURE])
+                    .into_iter()
+                    .flatten(),
+            )],
         ),
         Unit::Web(app) => Step::new(
             format!("build {} --web ({})", app.cli_name(), profile.label()),
@@ -161,15 +165,22 @@ pub fn step(workspace: &Workspace, unit: Unit, profile: Profile) -> Step {
     }
 }
 
+/// `dbsp` compiles the API's opt-in experimental DBSP read model; only `cantos-api` takes it.
 pub fn plan(
     workspace: &Workspace,
     target: BuildTarget,
     surface: Option<Surface>,
     profile: Profile,
+    dbsp: bool,
 ) -> Result<Vec<Step>, Refusal> {
+    if dbsp && target != BuildTarget::CantosApi {
+        return Err(Refusal::Usage(
+            "--dbsp-experimental applies only to cantos-api".into(),
+        ));
+    }
     Ok(resolve(target, surface)?
         .into_iter()
-        .map(|unit| step(workspace, unit, profile))
+        .map(|unit| step(workspace, unit, profile, dbsp))
         .collect())
 }
 
@@ -179,7 +190,7 @@ mod tests {
 
     fn lines(target: BuildTarget, surface: Option<Surface>, profile: Profile) -> Vec<String> {
         let workspace = Workspace::discover().unwrap();
-        plan(&workspace, target, surface, profile)
+        plan(&workspace, target, surface, profile, false)
             .unwrap()
             .iter()
             .flat_map(|step| step.commands.iter())
@@ -197,6 +208,30 @@ mod tests {
             lines(BuildTarget::CantosApi, None, Profile::Release),
             ["cargo build --locked -p cantos-api --bins --release"]
         );
+    }
+
+    #[test]
+    fn only_the_api_opts_into_the_experimental_dbsp_feature() {
+        let workspace = Workspace::discover().unwrap();
+        let commands: Vec<_> = plan(&workspace, BuildTarget::CantosApi, None, Profile::Dev, true)
+            .unwrap()
+            .iter()
+            .flat_map(|step| step.commands.iter())
+            .map(|command| command.display(workspace.root()))
+            .collect();
+        assert_eq!(
+            commands,
+            ["cargo build --locked -p cantos-api --bins --features dbsp-experimental"]
+        );
+        for (target, surface) in [
+            (BuildTarget::All, None),
+            (BuildTarget::CantosStudio, Some(Surface::Web)),
+        ] {
+            assert!(matches!(
+                plan(&workspace, target, surface, Profile::Dev, true),
+                Err(Refusal::Usage(message)) if message.contains("cantos-api")
+            ));
+        }
     }
 
     #[test]

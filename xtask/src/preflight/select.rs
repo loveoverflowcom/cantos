@@ -91,7 +91,9 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         gates.insert(Gate::WebLint(apps));
     }
     if affected.contains(API_PACKAGE) {
-        // The API's binaries, migrations and HTTP host are all exercised by these two.
+        // The API's binaries, migrations and HTTP host are all exercised by these, and its
+        // experimental DBSP feature must keep compiling and passing the same tests.
+        gates.insert(Gate::Dbsp);
         gates.insert(Gate::WavReference);
         gates.insert(Gate::Postgres { keep: false });
     }
@@ -205,6 +207,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
+        | "benchmark_job_summary_dbsp.py"
         | "serve_studio.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
@@ -271,6 +274,7 @@ mod tests {
                 "rust-format",
                 "rust-lint (cantos-api, cantos-contracts, cantos-studio)",
                 "rust-tests (cantos-api, cantos-contracts, cantos-studio)",
+                "dbsp",
                 "wav-reference",
                 "web-lint (cantos-studio)",
                 "web-build (cantos-studio)",
@@ -313,6 +317,7 @@ mod tests {
                 "rust-format",
                 "rust-lint (cantos-api)",
                 "rust-tests (cantos-api)",
+                "dbsp",
                 "wav-reference",
                 "postgres",
             ]

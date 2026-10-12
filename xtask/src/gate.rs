@@ -10,7 +10,7 @@ use crate::{
     build::{self, Profile},
     cli::VerifySuite,
     command::CommandSpec,
-    config::{App, API_PACKAGE, UI_PACKAGE, WASM_TARGET},
+    config::{App, API_PACKAGE, DBSP_FEATURE, UI_PACKAGE, WASM_TARGET},
     pipeline::Step,
     tools::Tool,
     ui_preview,
@@ -25,6 +25,7 @@ pub enum GateKind {
     ScriptIrReference,
     RustLint,
     RustTests,
+    Dbsp,
     ContractTests,
     WavReference,
     WebLint,
@@ -67,6 +68,9 @@ pub enum Gate {
     ScriptIrReference,
     RustLint(Scope),
     RustTests(Scope),
+    /// The API built with its experimental DBSP read model: lint and every non-ignored test,
+    /// so the feature's added dependency features cannot silently change existing behavior.
+    Dbsp,
     ContractTests,
     WavReference,
     WebLint(BTreeSet<App>),
@@ -74,7 +78,9 @@ pub enum Gate {
     UiPreview,
     CmpUiPreview,
     Mutation,
-    Postgres { keep: bool },
+    Postgres {
+        keep: bool,
+    },
 }
 
 /// Integration test targets of `cantos-api` that pin wire (JSON and MessagePack), Script IR,
@@ -105,6 +111,7 @@ impl Gate {
             Gate::ScriptIrReference => GateKind::ScriptIrReference,
             Gate::RustLint(_) => GateKind::RustLint,
             Gate::RustTests(_) => GateKind::RustTests,
+            Gate::Dbsp => GateKind::Dbsp,
             Gate::ContractTests => GateKind::ContractTests,
             Gate::WavReference => GateKind::WavReference,
             Gate::WebLint(_) => GateKind::WebLint,
@@ -140,7 +147,7 @@ impl Gate {
             Gate::Repository => vec![Tool::Python3, Tool::Git],
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::ScriptIrReference => vec![Tool::Python3],
-            Gate::RustLint(_) => vec![Tool::Cargo, Tool::Clippy],
+            Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
             Gate::WebLint(_) => vec![Tool::Cargo, Tool::Clippy, Tool::Wasm32Target],
@@ -189,6 +196,23 @@ impl Gate {
             Gate::RustTests(scope) => {
                 vec![cargo(&["test"]).args(scope.cargo_args()).args(["--locked"])]
             }
+            Gate::Dbsp => vec![
+                cargo(&["clippy", "-p", API_PACKAGE, "--features", DBSP_FEATURE]).args([
+                    "--all-targets",
+                    "--locked",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+                cargo(&[
+                    "test",
+                    "-p",
+                    API_PACKAGE,
+                    "--features",
+                    DBSP_FEATURE,
+                    "--locked",
+                ]),
+            ],
             Gate::ContractTests => vec![
                 cargo(&["test", "--locked", "-p", "cantos-contracts"]),
                 cargo(&["test", "--locked", "-p", API_PACKAGE])
@@ -242,6 +266,7 @@ pub fn full() -> Vec<Gate> {
         Gate::ScriptIrReference,
         Gate::RustLint(Scope::Workspace),
         Gate::RustTests(Scope::Workspace),
+        Gate::Dbsp,
         Gate::WavReference,
         Gate::WebLint(App::ALL.into_iter().collect()),
         Gate::WebBuild(App::Studio),
@@ -274,6 +299,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             Gate::WavReference,
         ],
         VerifySuite::Mutation => vec![Gate::Mutation],
+        VerifySuite::Dbsp => vec![Gate::Dbsp],
         VerifySuite::Postgres { keep } => vec![Gate::Postgres { keep: *keep }],
     }
 }
@@ -330,6 +356,14 @@ mod tests {
             lines(&Gate::Postgres { keep: true }),
             ["python3 scripts/test_postgres.py --keep"]
         );
+        assert_eq!(
+            lines(&Gate::Dbsp),
+            [
+                "cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings",
+                "cargo test -p cantos-api --features dbsp-experimental --locked",
+            ]
+        );
+        assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
     }
 
     #[test]
