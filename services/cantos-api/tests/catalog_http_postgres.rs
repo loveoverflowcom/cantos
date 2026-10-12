@@ -1904,5 +1904,5 @@ async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgre
     fs::write(format!("{EVIDENCE}/content-read-baseline.json"),serde_json::to_vec_pretty(&json!({"postgres":server,"revision_count":100,"samples":30,"head_ms":head_ms,"history_ms":history_ms,"write_total_ms":write_ms,"head_sql":head_sql,"history_sql":history_sql,"head_plan":head_plan,"history_plan":history_plan,"scope":"Warm synthetic local Router/application/app-role PostgreSQL; not production latency or cold-cache evidence"})).unwrap()).unwrap();
 }
 
-#[path = "brief_http_postgres.rs"]
+#[path = "support/brief_http_postgres.rs"]
 mod brief_http;

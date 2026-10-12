@@ -46,6 +46,14 @@ pub(super) fn producer_routes() -> Router<AppState> {
             "/producer/content-units/{unit}/production-briefs/{version}",
             get(export),
         )
+        .method_not_allowed_fallback(|| async {
+            super::catalog::failure(
+                StatusCode::METHOD_NOT_ALLOWED,
+                cantos_contracts::ErrorCode::InvalidRequest,
+                None,
+                vec![],
+            )
+        })
         .layer(middleware::from_fn(super::catalog::json_only))
 }
 async fn create(

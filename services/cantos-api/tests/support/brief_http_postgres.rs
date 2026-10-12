@@ -3,9 +3,9 @@ use super::*;
 
 pub(super) fn brief_request(content: &Value, version: u64, recording: bool) -> Value {
     let mut value: Value = serde_json::from_str(if recording {
-        include_str!("../../../packages/contracts/fixtures/briefs/v1/create-recording.json")
+        include_str!("../../../../packages/contracts/fixtures/briefs/v1/create-recording.json")
     } else {
-        include_str!("../../../packages/contracts/fixtures/briefs/v1/create-narration.json")
+        include_str!("../../../../packages/contracts/fixtures/briefs/v1/create-narration.json")
     })
     .unwrap();
     value["operation_id"] = json!(operation());
@@ -476,6 +476,103 @@ async fn brief_source_and_script_export_pin_owning_contexts_and_preserve_origina
         h.store.load(ALICE, &script_id, Some(1)).await.unwrap(),
         saved
     );
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn source_brief_refuses_legacy_failed_and_oversized_receipts_without_advancing_head() {
+    let h = Harness::new().await;
+    cantos_api::platform::operator::record_source(
+        &h.config,
+        "alice",
+        "legacy-brief",
+        "Synthetic preserved legacy source",
+        ORIGINAL,
+    )
+    .await
+    .unwrap();
+    let mut sources = vec![(
+        "legacy-brief".to_owned(),
+        format!("{:x}", Sha256::digest(ORIGINAL.as_bytes())),
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "evidence_unavailable",
+    )];
+    for (name, format, bytes) in [
+        (
+            "failed.docx",
+            cantos_contracts::ImportFormat::Docx,
+            b"invalid docx".to_vec(),
+        ),
+        (
+            "large.txt",
+            cantos_contracts::ImportFormat::Txt,
+            "Đoạn thử nghiệm. ".repeat(12000).into_bytes(),
+        ),
+    ] {
+        let receipt = h
+            .store
+            .import_manuscript(
+                ALICE,
+                cantos_contracts::ImportRequest {
+                    metadata: cantos_contracts::ImportMetadata {
+                        operation_id: operation(),
+                        file_name: name.into(),
+                        format,
+                        reference: "Synthetic negative export fixture".into(),
+                        rights_holder: None,
+                        permission_evidence: None,
+                        usage_scope: None,
+                    },
+                    original_bytes: bytes,
+                },
+            )
+            .await
+            .unwrap();
+        sources.push((
+            receipt.id,
+            receipt.sha256,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid_request",
+        ));
+    }
+    for (id, sha256, status, code) in sources {
+        let w = h.create(ALICE, "story").await;
+        let cu = h.unit(&w, "Nguồn chưa thể bàn giao").await;
+        let unit = cu["units"][0]["id"].as_str().unwrap();
+        let c = h
+            .json(
+                "POST",
+                &format!("/content-units/{unit}/content/revisions"),
+                Some(ALICE),
+                Some(content_request(
+                    0,
+                    2,
+                    json!({"kind":"source","source":{"id":id,"sha256":sha256}}),
+                )),
+            )
+            .await
+            .success(StatusCode::CREATED)["content"]
+            .clone();
+        h.json(
+            "POST",
+            &format!("/content-units/{unit}/production-briefs"),
+            Some(ALICE),
+            Some(brief_request(&c, 0, false)),
+        )
+        .await
+        .error(status, code);
+        assert_eq!(
+            h.admin
+                .query_one(
+                    "SELECT count(*) FROM production_briefs WHERE unit_id=$1",
+                    &[&unit]
+                )
+                .await
+                .unwrap()
+                .get::<_, i64>(0),
+            0
+        );
+    }
 }
 
 #[tokio::test]

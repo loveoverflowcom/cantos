@@ -208,6 +208,14 @@ fn required_controls_fail_explicitly_instead_of_silent_fallback() {
         ]),
         Ok(())
     );
+    assert_eq!(
+        g.check_capabilities(&[
+            dto::ProducerCapability::Narration,
+            dto::ProducerCapability::Narration,
+            dto::ProducerCapability::OggOpusMono
+        ]),
+        Err(BriefError::InvalidGuidance)
+    );
     let mut raw = guidance(false);
     raw.voice = Some(dto::VoiceGuidance {
         revision: 1,
