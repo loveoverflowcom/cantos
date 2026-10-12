@@ -152,7 +152,11 @@ pub mod testing {
                 ),
                 package("cantos-contracts", "packages/contracts/api", &[]),
                 package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
-                package("cantos-theatre", "apps/cantos-theatre/web", &["cantos-ui"]),
+                package(
+                    "cantos-theatre",
+                    "apps/cantos-theatre/web",
+                    &["cantos-contracts", "cantos-ui"],
+                ),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
                 package("xtask", "xtask", &[]),
             ],
@@ -192,7 +196,12 @@ mod tests {
         let affected = graph.dependents_closure(&["cantos-contracts".to_owned()].into());
         assert_eq!(
             affected.into_iter().collect::<Vec<_>>(),
-            ["cantos-api", "cantos-contracts", "cantos-studio"]
+            [
+                "cantos-api",
+                "cantos-contracts",
+                "cantos-studio",
+                "cantos-theatre"
+            ]
         );
     }
 

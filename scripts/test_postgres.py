@@ -9,6 +9,8 @@ import hashlib
 import io
 import json
 import os
+import re
+from urllib.parse import urlsplit
 from pathlib import Path
 import shutil
 import socket
@@ -89,6 +91,38 @@ def free_port():
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
+
+
+def reap_completed_databases(env, cluster_url, retained):
+    """After a suite exits, discard only its completed DBs in this runner's fresh cluster.
+
+    Main constructs cluster_url after initdb; no inherited URL is used. Keep the exact
+    restart fixtures until socket/restart assertions finish. Never force-close connections.
+    """
+    parsed = urlsplit(cluster_url)
+    if (parsed.scheme != "postgresql" or parsed.hostname != "127.0.0.1"
+            or parsed.username != "cantos_test_admin" or parsed.password is not None
+            or parsed.path != "/postgres" or parsed.port is None or parsed.query or parsed.fragment):
+        raise ValueError("completed cleanup requires this disposable cluster's admin URL")
+    command = ["psql", "-X", cluster_url, "-v", "ON_ERROR_STOP=1", "-At", "-c"]
+    result = subprocess.run(command + ["SELECT datname FROM pg_database"], env=env,
+                            text=True, capture_output=True, check=True, timeout=10)
+    candidates = [name for name in result.stdout.splitlines()
+                  if name.startswith("cantos_test_") and name not in retained]
+    if any(not re.fullmatch(r"cantos_test_[a-z0-9_]+", name) for name in candidates):
+        raise ValueError("unsafe disposable database name")
+    for name in candidates:
+        subprocess.run(command + [f'DROP DATABASE "{name}"'], env=env, text=True,
+                       capture_output=True, check=True, timeout=10)
+    print(f"Released {len(candidates)} completed disposable test databases", flush=True)
+
+
+def retained_restart_databases():
+    """Names only: credentials and source bodies never enter cleanup output."""
+    paths = (EVIDENCE / "restart.json", EDITOR_EVIDENCE / "editor-api-journey.json",
+             CATALOG_EVIDENCE / "restart.json", CATALOG_EVIDENCE / "http-restart.json",
+             CATALOG_EVIDENCE / "audio-restart.json")
+    return {json.loads(path.read_text())["database"] for path in paths if path.exists()}
 
 
 def isolated_environment():
@@ -571,12 +605,19 @@ def main():
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
         run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "audio_intake_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "audio-intake-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
@@ -688,7 +729,8 @@ def main():
             print("PASS: original TXT/DOCX/failed-input bytes and SHA-256 + HTTP kill + PostgreSQL restart + immutable receipt replay")
             print("PASS: HTTP process kill + PostgreSQL restart + migration replay + exact export/actor/time + same-operation replay")
             print("PASS: MessagePack head/replay decoded by the independent oracle equal the JSON revision; 406 stays a JSON error")
-        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "script": fixture["script"]}, indent=2) + "\n")
+        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "catalog_app_url": catalog_app_url,
+            "audio_app_url": audio_env["DATABASE_URL"], "audio_root": audio["root"], "script": fixture["script"]}, indent=2) + "\n")
         (EDITOR_EVIDENCE / "run.json").write_text(json.dumps({
             "cluster": str(cluster), "data": str(data), "port": port,
             "app_url": editor_app_url, "script": editor["script"],

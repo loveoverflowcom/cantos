@@ -19,8 +19,8 @@ existing code without changing behavior, migrations or wire contracts; the
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
 Support here defines product scope, not implementation evidence. Theatre Web is a session-only
-UI mock with no API/audio integration and
-Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or API. Studio Mobile is only a scope notice: never a workspace
+UI mock selectable explicitly beside a real unsupported API probe and
+Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or live listener resources; a common/JVM HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation

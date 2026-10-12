@@ -17,14 +17,16 @@ pub enum WorkspacePane {
     Proposal,
     Revisions,
     Production,
+    Content,
 }
 
 impl WorkspacePane {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Import,
         Self::Proposal,
         Self::Revisions,
         Self::Production,
+        Self::Content,
     ];
 
     pub const fn id(self) -> &'static str {
@@ -33,11 +35,13 @@ impl WorkspacePane {
             Self::Proposal => "workspace-proposal",
             Self::Revisions => "workspace-revisions",
             Self::Production => "workspace-production",
+            Self::Content => "workspace-content",
         }
     }
 
     pub fn label(self, english: bool) -> &'static str {
         match self {
+            Self::Content => crate::live::copy::text(crate::live::copy::Key::Pane, english),
             Self::Import => text(Key::Import, english),
             Self::Proposal => text(Key::Proposal, english),
             Self::Revisions => text(Key::Revisions, english),
@@ -291,7 +295,7 @@ mod tests {
             let english = RwSignal::new(false);
             let html = view! { <WorkspaceNavigation panel=panel english=english/> }.to_html();
             assert_eq!(html.matches("aria-pressed=\"true\"").count(), 1);
-            assert_eq!(html.matches("type=\"button\"").count(), 4);
+            assert_eq!(html.matches("type=\"button\"").count(), 5);
             assert!(!html.contains("role=\"tab"));
             for pane in WorkspacePane::ALL {
                 assert!(html.contains(pane.id()));

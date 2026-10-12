@@ -87,6 +87,21 @@ val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
     }
 }
 
+
+val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVectors") {
+    val fixture = rootProject.file("../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json")
+    val outputDirectory = layout.buildDirectory.dir("generated/client-boundary/commonTest")
+    inputs.file(fixture)
+    outputs.dir(outputDirectory)
+    doLast {
+        val raw = fixture.readText(Charsets.UTF_8)
+        val escaped = raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$").replace("\n", "\\n").replace("\r", "\\r")
+        val output = outputDirectory.get().asFile.resolve("com/cantos/theatre/adapters/http/CanonicalClientBoundary.kt")
+        output.parentFile.mkdirs()
+        output.writeText("package com.cantos.theatre.adapters.http\ninternal object CanonicalClientBoundary { val json: String = \"$escaped\" }\n", Charsets.UTF_8)
+    }
+}
+
 if (androidEnabled) {
     // AGP enters the root classpath only for the Android opt-in, keeping desktop configuration
     // independent of AGP and the SDK. This is configuration of its actual extension, not a stub.
@@ -175,6 +190,7 @@ kotlin {
             dependencies {
                 implementation(compose.runtime)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
                 implementation(compose.foundation)
                 implementation(compose.ui)
                 implementation("org.jetbrains.compose.material3:material3:1.8.2")
@@ -185,6 +201,7 @@ kotlin {
         }
         commonTest {
             kotlin.srcDir(generatePlaybackVectors)
+            kotlin.srcDir(generateClientBoundaryVectors)
             dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
@@ -192,6 +209,7 @@ kotlin {
             }
         }
         val desktopMain by getting {
+            kotlin.srcDir("src/jvmHttpMain/kotlin")
             dependencies {
                 implementation(compose.desktop.currentOs)
             }
@@ -204,6 +222,7 @@ kotlin {
         }
         if (androidEnabled) {
             val androidMain by getting {
+                kotlin.srcDir("src/jvmHttpMain/kotlin")
                 dependencies {
                     implementation("androidx.compose.ui:ui-tooling-preview:1.9.0")
                 }

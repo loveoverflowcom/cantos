@@ -847,7 +847,9 @@ dependencies = [
 name = "cantos-theatre"
 version = "0.1.0"
 dependencies = [
+ "cantos-contracts",
  "cantos-ui",
+ "gloo-net",
  "leptos",
  "serde_json",
  "web-sys",

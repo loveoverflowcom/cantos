@@ -1,0 +1,19 @@
+//! Typed live Catalog/Content/Brief/private-audio client boundary.
+mod command;
+mod state;
+pub use command::*;
+pub use state::*;
+#[cfg(target_arch = "wasm32")]
+pub mod browser;
+#[cfg(test)]
+mod tests;
+#[cfg(target_arch = "wasm32")]
+pub mod workspace;
+
+pub mod copy;
+
+mod consent;
+pub use consent::ReviewConsent;
+
+mod facts;
+pub use facts::Facts;

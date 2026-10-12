@@ -195,3 +195,35 @@ app panes retain compact spacing. See the [consumer map and evidence](../../../d
 Native consumer anatomy tests run with `cargo test -p cantos-studio -p cantos-theatre -p cantos-ui --locked`.
 They serialize real presentation adapters to HTML; they do not exercise browser events or IME.
 SSR is a native test feature only. Browser builds remain CSR.
+
+## Catalog, immutable content and private audio workspace
+
+The **Content & audio** pane calls the actual JSON Studio owner APIs with same-origin cookies
+and normal browser Origin enforcement. It lists bounded work/unit pages, creates work/chapter/
+episode metadata, edits the selected unit, reads current/exact/history content and appends
+text or recording revisions. It creates/reads exact narration/recording briefs with an explicit
+Opus mono20/24/32/40 profile, then prepares a private submission, reads bounded file bytes and
+SHA-256 in-browser and PUTs octet-stream using the separate upload bearer with
+`credentials: omit`. The token stays in browser memory and is never put in result JSON or
+storage. The current prepared file must match the expected size/hash; server byte inspection
+remains authoritative. No encoding or playback preview runs here.
+
+Owner status, upload revocation, exact QC/rights/editorial review and private candidate
+creation/read show real lifecycle facts/blockers. Review consent is bound to immutable
+rendition/checksum plus the submitted decision/notes/evidence. A successful candidate is never
+publication; `public_delivery_not_implemented` remains visible. Review records do not prove
+listening or rights quality by themselves.
+
+Every write keeps one immutable request/operation snapshot. Network/body loss or cancellation
+is ambiguous; exact retry retains its identity, including across authentication refusal and
+same-actor reauthentication. A different actor cannot retry it. Pending exchanges block new
+commands; late or wrong-actor acknowledgements cannot update the workspace. Failed saves retain
+browser inputs. Actor switches clear private forms after the shell's dirty-input confirmation.
+Selecting another unit clears file/credential/review subject state. Reloading the browser loses
+in-memory credentials/intents; reconcile known immutable IDs before preparing a new upload.
+
+The typed adapter also covers Catalog PATCH/archive/reorder; the first UI exposes the narrower
+flow above. Source/Script IR content bindings retain their existing typed contracts and editorial
+UI, but new Catalog binding controls, work archive/reorder controls and Brief read-grant
+management/export are separate UI follow-ups. This slice completes no broader #51/#64/#66
+acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.md).

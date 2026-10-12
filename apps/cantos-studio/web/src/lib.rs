@@ -14,3 +14,5 @@ pub mod api;
 pub mod authoring_view;
 #[cfg(target_arch = "wasm32")]
 pub mod view;
+
+pub mod live;

@@ -160,6 +160,9 @@ pub fn Studio() -> impl IntoView {
     let issues = RwSignal::new(Vec::<FieldIssue>::new());
     let preview = RwSignal::new(ValidationPreview::default());
     let token = RwSignal::new(String::new());
+    let session_epoch = RwSignal::new(0u64);
+    let content_activity = RwSignal::new(false);
+    let content_dirty = RwSignal::new(false);
     let selection = RwSignal::new(String::new());
     let english = RwSignal::new(false);
     let theme = RwSignal::new(Theme::System);
@@ -223,6 +226,8 @@ pub fn Studio() -> impl IntoView {
                 || proposal_dirty.get_untracked()
                 || inspector_pending.get_untracked()
                 || production_dirty.get_untracked()
+                || content_dirty.get_untracked()
+                || content_activity.get_untracked()
                 || production_activity.get_untracked()
             {
                 event.prevent_default();
@@ -261,8 +266,10 @@ pub fn Studio() -> impl IntoView {
                 <summary>{move || text(Key::Session, english.get())}" · "{move || state.with(|e| if e.actor.is_empty() { copy().unknown.to_owned() } else { e.actor.clone() })}</summary>
                 <p class="mode">{move || copy().mode}</p>
                 <form on:submit=move |event| {
-                    event.prevent_default(); if state.with_untracked(|e| e.busy) || activity.get_untracked() || proposal_activity.get_untracked() { return; }
+                    event.prevent_default(); if state.with_untracked(|e| e.busy) || activity.get_untracked() || proposal_activity.get_untracked() || content_activity.get_untracked() { return; }
+                    if content_dirty.get_untracked() && !confirm_discard(english.get_untracked()) {return;}
                     let submitted = token.get_untracked();
+                    let Some(epoch)=session_epoch.get_untracked().checked_add(1) else {return;};session_epoch.set(epoch);
                     state.update(|e| { e.busy = true; e.status = Status::Loading; });
                     spawn_local(async move {
                         match api.login(submitted).await {
@@ -274,11 +281,12 @@ pub fn Studio() -> impl IntoView {
                     <div class="toolbar session-controls">
                         <TextField id="session-token" kind=TextFieldKind::Password autocomplete="off" label=Signal::derive(move || copy().token.to_owned())
                             value=token on_input=Callback::new(move |value| token.set(value)) />
-                        <FormSubmit id="session-submit" english=english blocked=Signal::derive(move || state.with(|e| e.busy) || activity.get() || proposal_activity.get())>{move || copy().login}</FormSubmit>
+                        <FormSubmit id="session-submit" english=english blocked=Signal::derive(move || state.with(|e| e.busy) || activity.get() || proposal_activity.get() || content_activity.get())>{move || copy().login}</FormSubmit>
                     </div>
                 </form>
             </details>
             <WorkspaceNavigation panel=panel english=english/>
+            <div hidden=move || panel.get() != WorkspacePane::Content><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||panel.get()==WorkspacePane::Content) session_epoch=Signal::derive(move ||session_epoch.get()) session_pending=Signal::derive(move ||state.with(|s|s.busy)) activity=content_activity dirty=content_dirty/></div>
             <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english /></div>
             <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor english=english dirty=proposal_dirty activity=proposal_activity /></div>
             <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state english=english script_activity=activity dirty=production_dirty activity=production_activity /></div>
@@ -288,7 +296,7 @@ pub fn Studio() -> impl IntoView {
                     event.prevent_default(); if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
                     let target = selection.get_untracked();
                     if state.with_untracked(|e| e.script != target) {
-                        if (state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked()) && !confirm_discard(english.get_untracked()) { return; }
+                        if (state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked() || content_dirty.get_untracked() || content_activity.get_untracked()) && !confirm_discard(english.get_untracked()) { return; }
                         state.update(|e| *e = e.discard_and_select(target)); issues.set(vec![]); reviewed.set(false); preview.set(ValidationPreview::default());
                     }
                     let Some(reading) = state.get_untracked().start_read() else { return; };
