@@ -26,7 +26,10 @@ ContentRevision UUID and `cc-r1`, plus exact guidance/profile/lexicon/casting re
 applicable. The body variant chooses ordinary text, preserved source, exact Script IR or a
 recording brief. No cast/scene hierarchy is required for prose or an already-recorded podcast.
 Copy the reviewed inputs into the immutable brief, or pin immutable owning-context records
-with digest revalidation. Never resolve content/latest or legacy Catalog links during delivery.
+with digest revalidation. Source briefs also pin the immutable extraction receipt/extractor
+version used to derive instructions. Script IR retains its own effective line languages; wrapper
+language must never silently override them. Never resolve content/latest or legacy Catalog links
+during delivery.
 
 Producer authorization remains a separate scope from Studio cookies. A Work reader does not
 automatically gain underlying editorial/ingestion endpoint access; decide the brief's authorized

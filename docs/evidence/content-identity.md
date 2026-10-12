@@ -29,12 +29,22 @@ audio, browser/device, rights clearance or publication acceptance was exercised.
 - Focused Catalog/domain tests and the Content Identity literal contract test: passed locally.
 - `TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 cargo xtask verify postgres`: **PASS**.
   Real disposable PostgreSQL, app role and actual Router/server code; no mocked SQL authority.
-- Remaining Rust/contracts/repository/preflight checks and review are pending at the remote
-  checkpoint; final summaries will replace this statement before handoff.
+- `TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 RUST_TEST_THREADS=1 cargo xtask verify rust`:
+  **PASS** rust-format, rust-lint (workspace), rust-tests (workspace).
+- `TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 cargo xtask verify contracts`: **PASS**
+  script-ir-reference, contract-tests, wav-reference. Script IR versions/digests unchanged.
+- `TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 RUST_TEST_THREADS=1 CARGO_BUILD_JOBS=2 cargo xtask preflight --changed-only`:
+  **PASS** repository, rust-format, affected rust-lint/tests, dbsp, wav-reference,
+  Studio web-lint/web-build and postgres. No selected gate skipped.
+- Separate read-only [review pass](content-identity-review.md): final code has no actionable
+  finding. This session did not spawn a second reviewer. GitHub CI was not checked.
 
 The first DB start was sandbox-blocked at loopback bind; authorized runs use only fresh disposable
 clusters. Test-oracle errors in TRUNCATE SQLSTATE and EXPLAIN decoding were corrected before the
-passing gate. The literal rejection fixture also caught Serde's empty recording-variant field
+passing gate. The full Rust runner needed loopback permission; an existing parallel ephemeral-port
+test race passed when the full suite ran serially, without changing its assertions. The optional
+DBSP build exposed an ambiguous Option comparison; explicit `as_str()` fixed it before preflight.
+The literal rejection fixture also caught Serde's empty recording-variant field
 bypass; the production DTO now refuses the field and the same fixture passes.
 
 Raw logs are outside Git at `/tmp/content-identity-*.log`. Existing artifacts under
@@ -53,7 +63,9 @@ warm Router/API timings. No story/audio is committed.
 | Existing Catalog Work/pages | same schema/DTO; content append advances Work/epoch | new content mutations share global clock |
 
 Local workload target: 100 synthetic revisions under one unit, 30 warm head/history requests,
-history limit20; p95 below 100 ms as a development diagnostic, not production acceptance.
+history limit20; no production SLO or throughput target is assigned because scale/frequency is
+unknown. Observed head p50/p95: 4.551/4.636 ms; history p50/p95: 6.663/6.759 ms; 100 appends took
+593.921 ms in the preflight sample. These are warm local observations, not production acceptance.
 API timings include auth/row locks/materialization. EXPLAIN uses the actual safe SELECT under
 the application role, and is not API latency. Cold-cache, multi-owner skew, production frequency,
 p99/throughput and contended write latency remain unmeasured. The unique `(unit_id,revision)`
