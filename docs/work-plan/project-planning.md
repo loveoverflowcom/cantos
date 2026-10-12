@@ -1,100 +1,71 @@
-# GitHub planning and execution
+# GitHub planning and execution — Cantos
 
-[Cantos Project](https://github.com/users/loveoverflowcom/projects/6) · [Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) · [Planning table](https://github.com/users/loveoverflowcom/projects/6/views/2) · [Repository issues](https://github.com/loveoverflowcom/cantos/issues) · [Milestones](https://github.com/loveoverflowcom/cantos/milestones)
+> Updated on **2026-10-12** for [ADR 0018](../decisions/0018-external-audio-production.md).
+> Cantos Studio is a Web-only novel/story/podcast CMS and external audio review authority;
+> AI providers and human producers make audio **outside** Cantos. Theatre plays releases.
 
-The repository currently contains specifications and templates. These issues plan implementation; creating the board does not establish application, audio or mobile runtime behavior. The Project is private and requires the owner or an authorized collaborator to sign in. Repository documents and issues remain available under their own repository access policy.
+[Cantos Project](https://github.com/users/loveoverflowcom/projects/6) ·
+[Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) ·
+[Planning table](https://github.com/users/loveoverflowcom/projects/6/views/2) ·
+[GitHub Issues](https://github.com/loveoverflowcom/cantos/issues)
 
-## Find the documents
+GitHub issues and the Project own live execution status; this Markdown owns only the
+**recommended dependency order**. Do not mark a feature ready, closed or implemented
+because a proposal or AI prompt exists.
 
-- [Documentation map](../README.md): product, business rules, pipeline, architecture, Script IR, mobile and design.
-- [MVP work queue](README.md): capability scope, prerequisites and phase review boundaries.
-- [Reusable templates](../../templates/README.md): feature briefs, ADRs, production runs and publication checklists.
-- The `Spec` field on each Project item links to its owning Markdown specification. Each issue links additional relevant documents.
+## Recommended delivery chain
 
-Keep specifications in Git, linked to executable issues rather than copied into draft Project cards. Update the owning document when a decision or implemented behavior changes.
-
-## Use the two views
-
-| View | Purpose | Saved organization |
-| --- | --- | --- |
-| [Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) | Track execution and the next ready task | Columns by Status; Order ascending |
-| [Planning](https://github.com/users/loveoverflowcom/projects/6/views/2) | Review scope, phase, dependencies and source documents | Group by Phase; Order ascending |
-
-`Order` is the recommended reading/scheduling sequence, not a permanent identifier or a substitute for dependency acceptance. Issue numbers identify execution tasks; numeric specification prefixes can still be reorganized. Filter by Phase or Milestone to focus on one capability.
-
-## Status policy
-
-| Status | Meaning |
-| --- | --- |
-| Backlog | Planned work whose prerequisites or readiness decisions are pending |
-| Ready | Immediate dependencies are accepted and the bounded task can start |
-| In progress | Implementation has actually started |
-| In review | Focused PR and relevant verification evidence are available |
-| Done | Acceptance criteria and applicable capability review gate passed |
-
-At planning setup, only [#1](https://github.com/loveoverflowcom/cantos/issues/1) is Ready; later work waits in Backlog. The live Project owns current Status, issues own acceptance checklists/evidence and native `blocked by` links, and Markdown owns intended scope, rationale and recommended order. This document is not a second live status board.
-
-If an active task becomes blocked, record the reason and native blocking relationship on the issue. Move it back to Backlog when it cannot proceed, preserving its progress and explaining the next action. Move a dependent task to Ready only after its prerequisites are accepted. No deadline, estimate or assignee is implied by this ordering.
-
-## Ordered implementation issues
-
-| Order | Phase / specification | Issue and outcome | Immediate blockers |
+| Order | Issue | Deliverable | Prerequisite |
 | --- | --- | --- | --- |
-| 01 | [010](010-import-and-edit-script.md) | [010.1 — Establish authenticated script persistence and contracts](https://github.com/loveoverflowcom/cantos/issues/1) | None; start here |
-| 02 | [010](010-import-and-edit-script.md) | [010.2 — Import manuscripts with preserved source and rights](https://github.com/loveoverflowcom/cantos/issues/2) | [#1](https://github.com/loveoverflowcom/cantos/issues/1) |
-| 03 | [010](010-import-and-edit-script.md) | [010.3 — Generate reviewable AI script adaptations](https://github.com/loveoverflowcom/cantos/issues/3) | [#2](https://github.com/loveoverflowcom/cantos/issues/2) |
-| 04 | [010](010-import-and-edit-script.md) | [010.4 — Deliver the accessible Studio script editor](https://github.com/loveoverflowcom/cantos/issues/4) | [#3](https://github.com/loveoverflowcom/cantos/issues/3) |
-| 05 | [020](020-cast-and-generate-dialogue.md) | [020.1 — Freeze casting and authorize production inputs](https://github.com/loveoverflowcom/cantos/issues/5) | [#4](https://github.com/loveoverflowcom/cantos/issues/4) |
-| 06 | [020](020-cast-and-generate-dialogue.md) | [020.2 — Integrate verified local and commercial TTS](https://github.com/loveoverflowcom/cantos/issues/6) | [#5](https://github.com/loveoverflowcom/cantos/issues/5) |
-| 07 | [020](020-cast-and-generate-dialogue.md) | [020.3 — Recover durable TTS jobs and reuse valid clips](https://github.com/loveoverflowcom/cantos/issues/7) | [#6](https://github.com/loveoverflowcom/cantos/issues/6) |
-| 08 | [020](020-cast-and-generate-dialogue.md) | [020.4 — Expose casting, production progress and partial regeneration](https://github.com/loveoverflowcom/cantos/issues/8) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
-| 09 | [030](030-mix-review-and-publish.md) | [030.1 — Mix episodes and review versioned QC findings](https://github.com/loveoverflowcom/cantos/issues/9) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
-| 10 | [030](030-mix-review-and-publish.md) | [030.2 — Stage private assets and verify media delivery](https://github.com/loveoverflowcom/cantos/issues/10) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
-| 11 | [030](030-mix-review-and-publish.md) | [030.3 — Publish approved immutable releases atomically](https://github.com/loveoverflowcom/cantos/issues/11) | [#8](https://github.com/loveoverflowcom/cantos/issues/8), [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#10](https://github.com/loveoverflowcom/cantos/issues/10) |
-| 12 | [040](040-theatre-web-listening.md) | [040.1 — Implement listener APIs and conflict-safe progress](https://github.com/loveoverflowcom/cantos/issues/12) | [#11](https://github.com/loveoverflowcom/cantos/issues/11) |
-| 13 | [040](040-theatre-web-listening.md) | [040.2 — Deliver Theatre Web discovery, streaming and resume](https://github.com/loveoverflowcom/cantos/issues/13) | [#12](https://github.com/loveoverflowcom/cantos/issues/12) |
-| 14 | [050](050-cmp-native-listening.md) | [050.1 — Bootstrap CMP Theatre and native foreground streaming](https://github.com/loveoverflowcom/cantos/issues/14) | [#12](https://github.com/loveoverflowcom/cantos/issues/12) |
-| 15 | [050](050-cmp-native-listening.md) | [050.2 — Add background playback, OS controls and interruption recovery](https://github.com/loveoverflowcom/cantos/issues/15) | [#14](https://github.com/loveoverflowcom/cantos/issues/14) |
-| 16 | [050](050-cmp-native-listening.md) | [050.3 — Deliver verified and resumable offline downloads](https://github.com/loveoverflowcom/cantos/issues/16) | [#14](https://github.com/loveoverflowcom/cantos/issues/14) |
-| 17 | [050](050-cmp-native-listening.md) | [050.4 — Synchronize mobile progress and verify the complete MVP journey](https://github.com/loveoverflowcom/cantos/issues/17) | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#15](https://github.com/loveoverflowcom/cantos/issues/15), [#16](https://github.com/loveoverflowcom/cantos/issues/16) |
+| 1 | [#66 — Work catalog](https://github.com/loveoverflowcom/cantos/issues/66) | `novel|story|podcast` works, chapter/episode IDs, metadata, ownership; Script IR optional | Existing editorial/source contracts (#1–#5) |
+| 2 | [#6 — External producer instructions](https://github.com/loveoverflowcom/cantos/issues/6) | Immutable brief, skills, versioned rights/profile and read-only scoped producer API | #66 |
+| 3 | [#7 — External audio intake](https://github.com/loveoverflowcom/cantos/issues/7) | Scoped producer credentials, private upload/finalize, verified bytes and immutable receipt | #6, #66 |
+| 4 | [#8 — Studio audio UI](https://github.com/loveoverflowcom/cantos/issues/8) | Upload state, private preview, correction, stale-brief status | #6, #7 |
+| 5 | [#9 — QC review](https://github.com/loveoverflowcom/cantos/issues/9) | Measured-vs-declared QC and named editorial review of externally produced audio | #7, #51 |
+| 6 | [#10 — Storage and delivery](https://github.com/loveoverflowcom/cantos/issues/10) | Verified private object lifecycle and ready-for-release delivery | #7; coordinate #9 |
+| 7 | [#11 — Publication](https://github.com/loveoverflowcom/cantos/issues/11) | Atomic manifest/approval gate, immutable published rendition, safe replacement | #8, #9, #10 |
+| 8 | [#12 — Listener APIs](https://github.com/loveoverflowcom/cantos/issues/12) | Discovery/progress/entitlement across published releases | #11 |
+| 9 | [#13 — Theatre Web](https://github.com/loveoverflowcom/cantos/issues/13) | Streaming, seek, progress/resume | #12 |
+| 10 | [#14 — Theatre Mobile](https://github.com/loveoverflowcom/cantos/issues/14) | Native foreground playback on CMP Android/iOS | #12 |
+| 11 | [#15 — Background playback](https://github.com/loveoverflowcom/cantos/issues/15) | OS media controls/interrupt recovery | #14 |
+| 12 | [#16 — Offline](https://github.com/loveoverflowcom/cantos/issues/16) | Integrity-checked, authorized offline downloads | #14 |
+| 13 | [#17 — Cross-device](https://github.com/loveoverflowcom/cantos/issues/17) | Native/Web progress, offline/resume E2E | #13, #15, #16 |
 
-## Supplementary audio-quality issues
+**#67 — Follow-up refactor** removes remaining provider-shaped planning/UI/dead dependencies
+**safely**, preserving existing editorial APIs and the historical SQL migration checksums.
+It can progress independently but must not add runtime TTS back to Cantos.
 
-The [audio drama quality plan](audio-drama-quality.md) adds these bounded issues outside the
-17-issue MVP order above. They are not Project items unless the owner adds them; their native
-`blocked by` links record the dependencies. None closes or unblocks an MVP issue by itself.
+The previous 010 editorial/import/Script IR work (#1–#5) is retained as a source/review
+foundation. Planning-only casting is optional guidance, **not a prerequisite for plain narration
+or human-recorded podcast media**.
 
-| Step | Issue and outcome | Immediate blockers |
-| --- | --- | --- |
-| 1 | [Author an original Vietnamese reference scene for audio evaluation](https://github.com/loveoverflowcom/cantos/issues/44) | None |
-| 2 | [Define the listening-review protocol for audio-listened evidence](https://github.com/loveoverflowcom/cantos/issues/45) | None |
-| 3 | [Build a rights-recorded sound asset library](https://github.com/loveoverflowcom/cantos/issues/46) | None |
-| 4 | [Add story sound bible and per-episode cue sheet records](https://github.com/loveoverflowcom/cantos/issues/47) | None |
-| 5 | [Apply ear-first craft checks in radio adaptation and story audit](https://github.com/loveoverflowcom/cantos/issues/48) | None |
-| 6 | [Decide Script IR controls for pauses, voice mode, overlap and cue extent](https://github.com/loveoverflowcom/cantos/issues/49) | None |
-| 7 | [Run voice auditions and build a pronunciation lexicon](https://github.com/loveoverflowcom/cantos/issues/50) | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45) |
-| 8 | [Decide the versioned audio profile (groundwork for #9)](https://github.com/loveoverflowcom/cantos/issues/51) | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45), [#46](https://github.com/loveoverflowcom/cantos/issues/46) |
-| 9 | [Condition TTS clips before mixing (groundwork for #9)](https://github.com/loveoverflowcom/cantos/issues/52) | [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
-| 10 | [Add scene acoustics and stereo placement to the mix plan](https://github.com/loveoverflowcom/cantos/issues/53) | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#47](https://github.com/loveoverflowcom/cantos/issues/47), [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+## External producer craft and audio profile
 
-## Sequence and parallel work
+| Issue | Current ownership |
+| --- | --- |
+| [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45) | Reference material and named listening review |
+| [#46](https://github.com/loveoverflowcom/cantos/issues/46), [#47](https://github.com/loveoverflowcom/cantos/issues/47), [#48](https://github.com/loveoverflowcom/cantos/issues/48), [#49](https://github.com/loveoverflowcom/cantos/issues/49) | External producer assets/rights, cue bible, script adaptation and optional controls |
+| [#50](https://github.com/loveoverflowcom/cantos/issues/50) | External voice auditions and producer-ready pronunciation lexicon |
+| [#51](https://github.com/loveoverflowcom/cantos/issues/51), [#64](https://github.com/loveoverflowcom/cantos/issues/64) | Versioned codec/QC profile, low-bandwidth Opus and AAC options |
+| [#52](https://github.com/loveoverflowcom/cantos/issues/52), [#53](https://github.com/loveoverflowcom/cantos/issues/53) | **External AI producer** audio conditioning/mixing guidance |
 
-Start with [#1](https://github.com/loveoverflowcom/cantos/issues/1), then complete the import/adaptation/editor journey before casting. Casting and real provider integration establish the inputs needed by durable generation.
+The earlier TTS provider implementations, worker leases, budgets, speech-clip cache and
+DBSP generation-job summary are **historical**, not active roadmap milestones.
+[ADR 0018](../decisions/0018-external-audio-production.md) supersedes those assumptions;
+the [proposed external handoff contract](../../packages/contracts/external-audio-handoff-v1.md)
+states only proposed routes, not a feature implementation.
 
-After [#7](https://github.com/loveoverflowcom/cantos/issues/7), the Studio production controls ([#8](https://github.com/loveoverflowcom/cantos/issues/8)), mixing/QC ([#9](https://github.com/loveoverflowcom/cantos/issues/9)) and private storage/delivery ([#10](https://github.com/loveoverflowcom/cantos/issues/10)) can proceed in parallel against concrete clip/artifact contracts. Publication ([#11](https://github.com/loveoverflowcom/cantos/issues/11)) waits for all three acceptance results.
+## Exit criteria and evidence
 
-Listener contracts ([#12](https://github.com/loveoverflowcom/cantos/issues/12)) require a complete publication/delivery gate. Theatre Web ([#13](https://github.com/loveoverflowcom/cantos/issues/13)) and native CMP streaming ([#14](https://github.com/loveoverflowcom/cantos/issues/14)) can then proceed in parallel. Native background controls ([#15](https://github.com/loveoverflowcom/cantos/issues/15)) and downloads ([#16](https://github.com/loveoverflowcom/cantos/issues/16)) can run in parallel after native foreground playback. The final cross-device journey ([#17](https://github.com/loveoverflowcom/cantos/issues/17)) waits for Web, background and download acceptance. Contract-fixture experiments before those gates must be labeled as prototypes.
+- **Catalog:** create a plain novel chapter and an unscripted podcast episode without casting.
+- **Instructions:** independently authorized plugin can read exact pinned brief/version/digest.
+- **Intake:** real external file, private upload, server-observed integrity, idempotent finalize,
+  cross-owner/expired-token/wrong-digest/restart failure tests.
+- **Review:** independent listening vs measured metadata, rights, provenance, stale revision gate.
+- **Publication:** exact immutable release pointer; failed replacement leaves older release playable.
+- **Theatre:** seek, download, offline resume, background and Web/native sync from release only.
 
-## Phase exit and review evidence
-
-A milestone is complete only when its issues pass acceptance and the owning phase's end-to-end review boundary is demonstrated. Completing a backend task alone does not finish its creator/listener capability.
-
-- **010:** import → adaptation review → edit → save → restart/reopen, with preserved provenance, rights and immutable versions.
-- **020:** casting → real local/commercial TTS → clip preview → partial regeneration, including crash recovery, bounded retries and budget/ambiguous-charge handling.
-- **030:** real multi-voice mixing → measured and editorial QC → verified upload → exact-revision approval → atomic publication/replacement, preserving a playable prior release on failure.
-- **040:** real discovery/CDN playback → bookmark → reload/resume → two-session synchronization, including deliberate rewind and release-version changes.
-- **050:** Android and iOS native play → background/lock-screen → verified offline play → restart/resume → Web/mobile sync, with platform lifecycle and accessibility observations.
-
-Branch from `develop`, keep PRs focused and target `develop`. Attach demonstrated journeys, relevant contract/migration changes, targeted failure checks and known limitations. Distinguish live evidence from mocks. A document check cannot establish a successful app build, real audio quality or native runtime behavior.
-
-Keep [deferred expansion](backlog/deferred-expansion.md) outside the MVP board until evidence or an explicit product decision justifies promotion. Add a new issue with its own acceptance and dependency review instead of silently expanding an active task.
+Every focused PR branches from `develop`, targets `develop`, carries implemented contract
+and migration evidence, and explicitly labels `PASS`, `FAIL`, `NOT_RUN` or `UNSUPPORTED`.
+Local tests/mock integration are preferred before handoff; remote CI is not required to finish.
+Never claim provider-live production or successful media playback from docs/mock tests.

@@ -70,19 +70,24 @@ Inspected on `develop` at `342d65f`:
 | QA checklist: script sign-off, loudness, noise | Adopt | Ear-first checklist, listening protocol and technical QC | Craft guide, [#45](https://github.com/loveoverflowcom/cantos/issues/45), [#9](https://github.com/loveoverflowcom/cantos/issues/9) |
 | Folder layout `script/`, `audio/` (raw, edited, mix, final), `sfx/`, `music/` | Adapt | The existing [story workspace](../production/story-workspace.md) `raw/`, `score/`, `audio/`; intermediates stay out of `audio/`; assets come from the library | Story workspace |
 | Git LFS for audio files | Reject | Generated audio and story data never enter Git; use the Drive workspace and object storage | [AGENTS.md](../../AGENTS.md) |
-| GitHub Actions to encode, publish or update RSS | Reject | `cargo xtask` is the single repository command surface; rendering and publication are durable backend jobs behind gates | [ADR 0012](../decisions/0012-xtask-command-surface.md) |
+| GitHub Actions to encode or produce audio | Reject | Audio generation/encoding is external AI/human producer work; `cargo xtask` only orchestrates repository checks and builds | [ADR 0018](../decisions/0018-external-audio-production.md) |
 | RSS/podcast feed | Defer | Theatre is the distribution surface; syndication needs a product decision | [Deferred expansion](backlog/deferred-expansion.md) |
 | Gantt timeline and per-role effort shares | Not adopted | Planning records order and dependencies, not deadlines or estimates | [GitHub planning](project-planning.md) |
 
 ## Target flow
 
-The improved flow inserts ear-first review, spotting, auditions, conditioning and listening review
-into the existing pipeline. It does not change publication gates.
+The optional drama workflow prepares a pinned **Cantos brief** for an outside producer and
+reviews the uploaded final audio. Neither TTS nor mix/encode stages execute inside Cantos.
 
 ```text
-pinned score ─▶ ear-first review ─▶ sound bible + cue sheet ─▶ voice audition + lexicon
-     ─▶ synthesis (#6/#7) ─▶ clip conditioning ─▶ mix plan + render (#9) ─▶ technical QC
-     ─▶ listening review ─▶ story audit ─▶ approval and publication gates (#11)
+Studio: pinned content/brief (#6) ─▶ rights, sound bible, cues, voice and lexicon guidance
+         │
+         ▼
+External producer: voice audition ─▶ record/TTS ─▶ condition/mix/encode (#52/#53)
+         │
+         ▼
+Studio API: private upload & verified receipt (#7) ─▶ technical/editorial QC (#9)
+         ─▶ final approval + immutable publication (#11) ─▶ Theatre
 ```
 
 Use the shared protocol/template for listening evidence from lines through full episodes; the
@@ -124,9 +129,9 @@ overlap and cue-extent intentions feed #49's decision.
 
 | Step | Issue | Outcome | Blocked by |
 | --- | --- | --- | --- |
-| 9 | [#52](https://github.com/loveoverflowcom/cantos/issues/52) | Pure clip-conditioning planner: padding trim, level alignment, resampling, boundary fades | [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
-| 10 | [#9](https://github.com/loveoverflowcom/cantos/issues/9) | Existing baseline mix and versioned QC | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
-| 11 | [#53](https://github.com/loveoverflowcom/cantos/issues/53) | Scene acoustics, narrator treatment and mono-compatible placement | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#47](https://github.com/loveoverflowcom/cantos/issues/47), [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+| 9 | [#52](https://github.com/loveoverflowcom/cantos/issues/52) | External producer skill: padding trim, level alignment, resampling, boundary fades | [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+| 10 | [#9](https://github.com/loveoverflowcom/cantos/issues/9) | Versioned QC review of externally produced final audio | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
+| 11 | [#53](https://github.com/loveoverflowcom/cantos/issues/53) | External producer instructions: scene acoustics, narrator treatment, mono placement | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#47](https://github.com/loveoverflowcom/cantos/issues/47), [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
 
 Steps 8 and 9 are groundwork for #9 in the same way as [#21](https://github.com/loveoverflowcom/cantos/issues/21):
 they do not complete #9 and do not change its blockers.
