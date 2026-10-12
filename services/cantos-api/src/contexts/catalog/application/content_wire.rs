@@ -35,7 +35,7 @@ fn source(value: dto::CatalogSourceRef) -> Result<SourceRef, CatalogStoreError> 
         .map_err(|_| invalid("details.body.source", "invalid_source"))
 }
 fn script(value: dto::CatalogScriptRef) -> Result<ScriptRef, CatalogStoreError> {
-    if crate::platform::ids::canonical_uuid(&value.id).as_deref() != Some(&value.id) {
+    if crate::platform::ids::canonical_uuid(&value.id).as_deref() != Some(value.id.as_str()) {
         return Err(invalid("details.body.script.id", "invalid_uuid"));
     }
     ScriptRef::new(value.id, value.revision, value.export_digest).map_err(|error| {
