@@ -1,6 +1,10 @@
 # Audio drama quality plan
 
-Status: planning, recorded 2026-10-12. Nothing in this plan is implemented. It reconciles an
+Status: planning, recorded 2026-10-12. The project-original
+[reference episode and review notes](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
+provide Step 1's text artifact, with [local structural evidence](../production/examples/vietnamese-reference/verification.md).
+No audio or listening result is supplied by it; the other outcomes below remain planned.
+This plan reconciles an
 externally supplied research report on adapting novels into audio drama (Vietnamese, not
 committed) with the actual Cantos contracts and pipeline, and orders the resulting work into
 bounded GitHub issues. GitHub issues own execution status; this document owns the rationale and
@@ -88,6 +92,10 @@ agent-operated [story workspace](../production/story-workspace.md).
 | 3 | [#46](https://github.com/loveoverflowcom/cantos/issues/46) | Rights-recorded sound asset library and intake procedure | — |
 | 4 | [#47](https://github.com/loveoverflowcom/cantos/issues/47) | Story sound bible and per-episode cue sheet records | — |
 | 5 | [#48](https://github.com/loveoverflowcom/cantos/issues/48) | Ear-first checks in `cantos-radio-adapt` and `cantos-story-audit` | — |
+
+For the next editorial handoff, define #45's protocol before conducting auditions or declaring
+listening results. Reuse the exact #44 reference JSON/hash rather than independently editable
+copies; its unresolved pause, interior-mode, overlap and cue-extent intentions feed #49's decision.
 
 ### Phase 2 — decisions
 

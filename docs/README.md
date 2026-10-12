@@ -8,6 +8,7 @@
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
 | [Audio drama craft](production/audio-drama-craft.md) | Ear-first adaptation, narration purpose, silence, voices, motifs and mix intent |
+| [Original Vietnamese reference episode](production/examples/vietnamese-reference/episode_0001.r0001.review.md) | Shared two-scene audition text, exact craft/cue coverage, unresolved 0.1.0 controls and structural validation evidence; no audio |
 | [Story workspace evidence](evidence/story-workspace-skills.md) | Skill/initializer checks, editorial rehearsal, verified Drive setup and residual limits |
 | [PostgreSQL/DBSP skill evidence](evidence/postgresql-dbsp-skills.md) | Read-performance workflow validation, routing walkthrough and explicitly unrun database/engine gates |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
