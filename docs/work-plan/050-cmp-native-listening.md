@@ -62,3 +62,8 @@ is the source for actual build/test/visual evidence; it supplies no native playb
 publication, downloads, sync or production acceptance. Resolve native build/runtime/accessibility
 and two-renderer component admission before adopting the UI foundation in a real listener app.
 Keep the suggested production sequence and issue ownership above.
+
+The [bounded architecture refactor](../../apps/cantos-theatre/mobile/docs/architecture.md) keeps
+one mock player, pure Kotlin transitions and independent catalog/listening owners. Its shared
+mock vectors and fake-port evidence establish neither backend publication authority nor native
+audio, durable progress, download or production acceptance. Continue the same prerequisites.

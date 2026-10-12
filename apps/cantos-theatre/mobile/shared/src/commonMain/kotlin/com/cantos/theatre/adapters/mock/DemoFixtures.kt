@@ -1,30 +1,16 @@
-package com.cantos.theatre.demo
+package com.cantos.theatre.adapters.mock
 
-enum class DemoWorkId { SonHa, DenKhua, CanhBuom }
-
-enum class DemoEpisodeId { SonHa01, SonHa02, SonHa03, DenKhua01, DenKhua02, CanhBuom01 }
-
-data class DemoEpisode(
-    val id: DemoEpisodeId,
-    val workId: DemoWorkId,
-    val index: Int,
-    val title: String,
-    val durationSeconds: Int,
-)
-
-data class DemoWork(
-    val id: DemoWorkId,
-    val title: String,
-    val category: String,
-    val description: String,
-    val episodes: List<DemoEpisode>,
-)
+import com.cantos.theatre.demo.DemoEpisode
+import com.cantos.theatre.demo.DemoEpisodeId
+import com.cantos.theatre.demo.DemoWork
+import com.cantos.theatre.demo.DemoWorkId
+import com.cantos.theatre.demo.SupportedUiSpeedPercents
 
 /** Synthetic presentation fixtures, with reference titles only; no manuscript or media. */
 object DemoFixtures {
     val initialEpisodeId = DemoEpisodeId.SonHa03
     const val initialPositionSeconds = 768
-    val speedPercents = listOf(75, 100, 125, 150, 175, 200)
+    val speedPercents: List<Int> = SupportedUiSpeedPercents
 
     val works: List<DemoWork> = listOf(
         DemoWork(

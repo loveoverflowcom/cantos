@@ -7,6 +7,7 @@ sealed interface DemoRoute {
     data object Settings : DemoRoute
     data object Queue : DemoRoute
     data object Player : DemoRoute
+    data object Unavailable : DemoRoute
     data class Work(val id: DemoWorkId) : DemoRoute
 }
 
@@ -20,24 +21,33 @@ enum class DemoLocale { Vietnamese, English }
 
 enum class DemoTimer { Off, Fifteen, Thirty, EndOfEpisode }
 
+enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Buffering, Ended }
+
 /** A pinned demo position. It carries no account, publication, or synchronization claim. */
 data class DemoBookmark(
     val episodeId: DemoEpisodeId,
     val positionSeconds: Int,
+    val positionMs: Long = positionSeconds.toLong() * 1000L,
 ) {
     init {
-        require(positionSeconds in 0..DemoFixtures.episode(episodeId).durationSeconds) {
-            "Demo bookmark position must be within its episode"
+        require(positionSeconds >= 0) {
+            "Demo bookmark position must be nonnegative"
+        }
+        require(positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
+            "Demo bookmark display must match its exact position"
         }
     }
 }
 
-/** Memory-only presentation state, separate from future listener contracts and audio adapters. */
+/** Immutable diagnostic seed and read-only projection; application owners decide transitions.
+ * The simulating constructor argument preserves diagnostic seeds only. Runtime projections
+ * supply playbackStatus and transportRequested independently of engine observation.
+ */
 class DemoState(
     stack: List<DemoRoute> = listOf(DemoRoute.Discovery),
-    val selectedEpisode: DemoEpisodeId = DemoFixtures.initialEpisodeId,
-    val positionSeconds: Int = DemoFixtures.initialPositionSeconds,
-    val simulating: Boolean = false,
+    val selectedEpisode: DemoEpisodeId = DemoEpisodeId.SonHa03,
+    val positionSeconds: Int = 768,
+    simulating: Boolean = false,
     savedWorks: Set<DemoWorkId> = setOf(DemoWorkId.SonHa),
     bookmarks: List<DemoBookmark> = emptyList(),
     val libraryTab: DemoLibraryTab = DemoLibraryTab.Continuing,
@@ -47,26 +57,37 @@ class DemoState(
     val locale: DemoLocale = DemoLocale.Vietnamese,
     val speedPercent: Int = 100,
     val timer: DemoTimer = DemoTimer.Off,
+    val playbackStatus: PlaybackUiStatus = if (simulating) PlaybackUiStatus.Simulating else PlaybackUiStatus.Paused,
+    val transportRequested: Boolean = simulating,
+    val positionMs: Long = positionSeconds.toLong() * 1000L,
 ) {
-    val stack: List<DemoRoute> = stack.toList()
-    val savedWorks: Set<DemoWorkId> = savedWorks.toSet()
-    val bookmarks: List<DemoBookmark> = bookmarks.toList()
+    private val stackSnapshot: List<DemoRoute> = stack.toList()
+    private val savedWorksSnapshot: Set<DemoWorkId> = savedWorks.toSet()
+    private val bookmarksSnapshot: List<DemoBookmark> = bookmarks.toList()
+
+    val stack: List<DemoRoute> get() = stackSnapshot.toList()
+    val savedWorks: Set<DemoWorkId> get() = savedWorksSnapshot.toSet()
+    val bookmarks: List<DemoBookmark> get() = bookmarksSnapshot.toList()
 
     init {
-        require(this.stack.isNotEmpty()) { "Demo navigation must have a root" }
-        require(positionSeconds in 0..DemoFixtures.episode(selectedEpisode).durationSeconds) {
-            "Demo position must be within the selected episode"
+        require(stackSnapshot.isNotEmpty()) { "Demo navigation must have a root" }
+        require(positionSeconds >= 0) {
+            "Demo projection position must be nonnegative"
         }
-        require(speedPercent in DemoFixtures.speedPercents) { "Unsupported demo speed" }
+        require(positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
+            "Demo projection display must match its exact position"
+        }
+        require(speedPercent in SupportedUiSpeedPercents) { "Unsupported demo speed" }
     }
 
-    val route: DemoRoute get() = stack.last()
+    val route: DemoRoute get() = stackSnapshot.last()
+
+    val simulating: Boolean get() = playbackStatus == PlaybackUiStatus.Simulating
 
     fun copy(
         stack: List<DemoRoute> = this.stack,
         selectedEpisode: DemoEpisodeId = this.selectedEpisode,
         positionSeconds: Int = this.positionSeconds,
-        simulating: Boolean = this.simulating,
         savedWorks: Set<DemoWorkId> = this.savedWorks,
         bookmarks: List<DemoBookmark> = this.bookmarks,
         libraryTab: DemoLibraryTab = this.libraryTab,
@@ -76,11 +97,13 @@ class DemoState(
         locale: DemoLocale = this.locale,
         speedPercent: Int = this.speedPercent,
         timer: DemoTimer = this.timer,
+        playbackStatus: PlaybackUiStatus = this.playbackStatus,
+        transportRequested: Boolean = this.transportRequested,
+        positionMs: Long = if (positionSeconds == this.positionSeconds) this.positionMs else positionSeconds.toLong() * 1000L,
     ): DemoState = DemoState(
         stack = stack,
         selectedEpisode = selectedEpisode,
         positionSeconds = positionSeconds,
-        simulating = simulating,
         savedWorks = savedWorks,
         bookmarks = bookmarks,
         libraryTab = libraryTab,
@@ -90,30 +113,35 @@ class DemoState(
         locale = locale,
         speedPercent = speedPercent,
         timer = timer,
+        playbackStatus = playbackStatus,
+        transportRequested = transportRequested,
+        positionMs = positionMs,
     )
 
     override fun equals(other: Any?): Boolean = other is DemoState &&
-        stack == other.stack &&
+        stackSnapshot == other.stackSnapshot &&
         selectedEpisode == other.selectedEpisode &&
         positionSeconds == other.positionSeconds &&
-        simulating == other.simulating &&
-        savedWorks == other.savedWorks &&
-        bookmarks == other.bookmarks &&
+        positionMs == other.positionMs &&
+        savedWorksSnapshot == other.savedWorksSnapshot &&
+        bookmarksSnapshot == other.bookmarksSnapshot &&
         libraryTab == other.libraryTab &&
         query == other.query &&
         catalogMode == other.catalogMode &&
         theme == other.theme &&
         locale == other.locale &&
         speedPercent == other.speedPercent &&
-        timer == other.timer
+        timer == other.timer &&
+        playbackStatus == other.playbackStatus &&
+        transportRequested == other.transportRequested
 
     override fun hashCode(): Int {
-        var result = stack.hashCode()
+        var result = stackSnapshot.hashCode()
         result = 31 * result + selectedEpisode.hashCode()
         result = 31 * result + positionSeconds
-        result = 31 * result + simulating.hashCode()
-        result = 31 * result + savedWorks.hashCode()
-        result = 31 * result + bookmarks.hashCode()
+        result = 31 * result + positionMs.hashCode()
+        result = 31 * result + savedWorksSnapshot.hashCode()
+        result = 31 * result + bookmarksSnapshot.hashCode()
         result = 31 * result + libraryTab.hashCode()
         result = 31 * result + query.hashCode()
         result = 31 * result + catalogMode.hashCode()
@@ -121,14 +149,17 @@ class DemoState(
         result = 31 * result + locale.hashCode()
         result = 31 * result + speedPercent
         result = 31 * result + timer.hashCode()
+        result = 31 * result + playbackStatus.hashCode()
+        result = 31 * result + transportRequested.hashCode()
         return result
     }
 
     override fun toString(): String = "DemoState(" +
-        "stack=$stack, selectedEpisode=$selectedEpisode, positionSeconds=$positionSeconds, " +
-        "simulating=$simulating, savedWorks=$savedWorks, bookmarks=$bookmarks, " +
+        "stack=$stack, selectedEpisode=$selectedEpisode, positionSeconds=$positionSeconds, positionMs=$positionMs, " +
+        "savedWorks=$savedWorks, bookmarks=$bookmarks, " +
         "libraryTab=$libraryTab, query=$query, catalogMode=$catalogMode, theme=$theme, " +
-        "locale=$locale, speedPercent=$speedPercent, timer=$timer)"
+        "locale=$locale, speedPercent=$speedPercent, timer=$timer, " +
+        "playbackStatus=$playbackStatus, transportRequested=$transportRequested)"
 }
 
 sealed interface DemoEvent {
@@ -136,6 +167,7 @@ sealed interface DemoEvent {
     data object Back : DemoEvent
     data object Reset : DemoEvent
     data class OpenEpisode(val id: DemoEpisodeId) : DemoEvent
+    data class OpenBookmark(val bookmark: DemoBookmark) : DemoEvent
     data object ToggleSimulation : DemoEvent
     data class Seek(val deltaSeconds: Int) : DemoEvent
     data class SeekTo(val seconds: Int) : DemoEvent
@@ -153,92 +185,14 @@ sealed interface DemoEvent {
 
 fun canGoBack(state: DemoState): Boolean = state.stack.size > 1
 
-fun filteredWorks(state: DemoState): List<DemoWork> {
+fun filteredWorks(state: DemoState, catalog: DemoCatalogView): List<DemoWork> {
     if (state.catalogMode != DemoCatalogMode.Ready) return emptyList()
     val query = state.query.trim().lowercase()
-    if (query.isEmpty()) return DemoFixtures.works
-    return DemoFixtures.works.filter { work ->
+    if (query.isEmpty()) return catalog.works
+    return catalog.works.filter { work ->
         work.title.lowercase().contains(query) ||
             work.category.lowercase().contains(query) ||
             work.description.lowercase().contains(query) ||
             work.episodes.any { it.title.lowercase().contains(query) }
-    }
-}
-
-/** A deterministic reducer: no clock, network, storage, timer scheduling, or media effects. */
-fun reduceDemo(state: DemoState, event: DemoEvent): DemoState {
-    return when (event) {
-        is DemoEvent.Navigate -> navigate(state, event.route)
-        DemoEvent.Back -> if (canGoBack(state)) state.copy(stack = state.stack.dropLast(1)) else state
-        DemoEvent.Reset -> DemoState()
-        is DemoEvent.OpenEpisode -> openEpisode(state, event.id)
-        DemoEvent.ToggleSimulation -> state.copy(simulating = !state.simulating)
-        is DemoEvent.Seek -> seekTo(state, state.positionSeconds.toLong() + event.deltaSeconds.toLong())
-        is DemoEvent.SeekTo -> seekTo(state, event.seconds.toLong())
-        is DemoEvent.SaveWork -> state.copy(
-            savedWorks = if (event.id in state.savedWorks) {
-                state.savedWorks - event.id
-            } else {
-                state.savedWorks + event.id
-            },
-        )
-        DemoEvent.Bookmark -> addBookmark(state)
-        is DemoEvent.SelectLibrary -> state.copy(libraryTab = event.tab)
-        is DemoEvent.Search -> state.copy(query = event.query)
-        is DemoEvent.CatalogMode -> state.copy(catalogMode = event.mode)
-        DemoEvent.Retry -> state.copy(catalogMode = DemoCatalogMode.Ready)
-        is DemoEvent.SetTheme -> state.copy(theme = event.theme)
-        is DemoEvent.SetLocale -> state.copy(locale = event.locale)
-        is DemoEvent.SetSpeed -> if (event.percent in DemoFixtures.speedPercents) {
-            state.copy(speedPercent = event.percent)
-        } else {
-            state
-        }
-        is DemoEvent.SetTimer -> state.copy(timer = event.timer)
-    }
-}
-
-private fun navigate(state: DemoState, route: DemoRoute): DemoState = when (route) {
-    DemoRoute.Discovery, DemoRoute.Search, DemoRoute.Library -> state.copy(
-        stack = listOf(route),
-    )
-    DemoRoute.Settings, DemoRoute.Queue, DemoRoute.Player, is DemoRoute.Work -> {
-        val existingIndex = state.stack.indexOf(route)
-        val nextStack = if (existingIndex >= 0) {
-            state.stack.take(existingIndex + 1)
-        } else {
-            state.stack + route
-        }
-        state.copy(stack = nextStack)
-    }
-}
-
-private fun openEpisode(state: DemoState, id: DemoEpisodeId): DemoState {
-    val position = if (id == state.selectedEpisode) state.positionSeconds else 0
-    val stack = if (state.route == DemoRoute.Queue && canGoBack(state)) {
-        state.stack.dropLast(1)
-    } else {
-        state.stack
-    }
-    val selected = state.copy(
-        stack = stack,
-        selectedEpisode = id,
-        positionSeconds = position,
-        simulating = true,
-    )
-    return navigate(selected, DemoRoute.Player)
-}
-
-private fun seekTo(state: DemoState, seconds: Long): DemoState {
-    val duration = DemoFixtures.episode(state.selectedEpisode).durationSeconds.toLong()
-    return state.copy(positionSeconds = seconds.coerceIn(0L, duration).toInt())
-}
-
-private fun addBookmark(state: DemoState): DemoState {
-    val bookmark = DemoBookmark(state.selectedEpisode, state.positionSeconds)
-    return if (bookmark in state.bookmarks) {
-        state
-    } else {
-        state.copy(bookmarks = state.bookmarks + bookmark)
     }
 }

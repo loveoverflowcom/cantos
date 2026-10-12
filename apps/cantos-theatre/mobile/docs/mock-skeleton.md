@@ -1,6 +1,9 @@
 # Theatre CMP mock: decisions and evidence
 
-Status: implemented mock scaffolding, with execution recorded below. This scoped record follows
+Status: historical phase1 checkpoint at `2a425a87ab20aba4061d2910bf02df62c32652e9`.
+The subsequent [architecture/evidence record](architecture.md) owns current implementation and
+results; relative source links below describe the checkpoint and may now contain refactored code.
+This scoped record follows
 the [ADR template](../../../../templates/adr.md) and engineering/UI/CMP evidence vocabulary;
 it selects no production media, storage, credentials or API library.
 
@@ -119,8 +122,8 @@ The latest APK SHA-256 is
 `1cfcea16b1ba37086feb1a79a8ee95feab200ddcc01bcd7d5ce44e05d8c6b5bb`;
 its repeat build log is `/tmp/cantos-cmp-android-phase1-final.log`. Process observations remain
 under ignored `target/theatre-cmp-evidence/phase1-process.md`. Successful process start and
-cleanup do not prove window readiness, input or native runtime behavior. The final repository
-check after this documentation edit remains to be recorded before the phase 1 checkpoint closes.
+cleanup do not prove window readiness, input or native runtime behavior. The final phase1
+repository gate passed in the full preflight recorded above.
 
 ### Opened app captures
 
@@ -185,9 +188,9 @@ build and current Studio render remain **UNSUPPORTED** for the recorded prerequi
 Historical PR43 Rabbit/CLI captures are separate evidence.
 No toolchain, TLS, credential, truststore or system-permission setting was changed.
 
-Next: finish the phase 1 documentation check, then obtain missing native build/runtime/preview
-evidence on the same inputs. Any phase 2 ownership/playback refactor requires the same scenarios
-to be rerun and recaptured against its new inputs; these phase 1 images cannot certify it.
+Next: obtain missing native build/runtime/preview evidence on the current inputs. The
+[phase2 architecture record](architecture.md) records its rerun/recapture against the refactored
+owners; these phase1 images cannot certify changed inputs by themselves.
 Qualify shared components in both renderers before adoption. Contract/native-media adapters, rights-aware downloads and
 durable progress follow 050 prerequisites. Native insets/back, TalkBack/VoiceOver, OS text
 scaling, background/lock-screen controls, interruptions, motion and audio quality remain gaps.

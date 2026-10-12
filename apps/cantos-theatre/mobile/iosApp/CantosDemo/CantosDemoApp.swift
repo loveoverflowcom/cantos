@@ -4,20 +4,30 @@ import CantosTheatreDemo
 
 @main
 struct CantosDemoApp: App {
+    @StateObject private var owner = DemoOwner()
+
     var body: some Scene {
         WindowGroup {
-            CantosComposeView()
+            CantosComposeView(owner: owner.bridge)
                 .ignoresSafeArea()
         }
     }
 }
 
+private final class DemoOwner: ObservableObject {
+    let bridge = IosDemoOwner()
+
+    deinit { bridge.close() }
+}
+
 private struct CantosComposeView: UIViewControllerRepresentable {
+    let owner: IosDemoOwner
+
     func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
+        owner.viewController()
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        // The shared composable owns deterministic, in-memory demo state.
+        // The application owner survives route/view remounts; all state stays in memory.
     }
 }

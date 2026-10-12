@@ -2,8 +2,9 @@
 
 This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens, an Android
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
-in [050](../../../docs/work-plan/050-cmp-native-listening.md). No API, authentication, media
-engine, audio, downloads, sync, billing, provider or persistence is connected. Studio is web-only.
+in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
+commands; no API, authentication, native media engine, audio, downloads, sync, billing, provider
+or durable persistence is connected. Studio is web-only.
 
 ## Screens and behavior
 
@@ -15,26 +16,35 @@ engine, audio, downloads, sync, billing, provider or persistence is connected. S
 
 Transport explicitly **simulates** state. Time never advances on its own; timer and speed
 schedule nothing. State disappears on restart. Android system Back, visible Back/close and
-JVM Escape use the same reducer. Native back/insets and screen readers still need target evidence.
+JVM Escape use the same pure navigation transitions. Play expresses intent; only a matching
+fake-engine acknowledgement confirms simulated running. Native back/insets and screen readers
+still need target evidence.
 
 ## Structure
 
 ```text
 shared/src/commonMain/kotlin/com/cantos/theatre/
-  demo/              synthetic fixtures and pure immutable reducer
-  app/               app-screen compositions and keyed vi/en copy
-shared/src/commonTest/      reducer/resource regressions
+  app/               AppContainer, navigation, read-only projection and keyed vi/en copy
+  domain/            pure publication/playback/listening models and transitions
+  application/       independent catalog/listening/preferences owners and one playback loop
+  ports/             CatalogPort, ProgressPort and observation-only MediaEngine
+  adapters/mock/     synthetic fixtures, catalog/memory adapters and fake acknowledgements
+  features/          stateless app-screen presentation
+  demo/              immutable diagnostic seeds and presentation metadata
+shared/src/commonTest/      canonical vectors, reducers, fake-port/lifetime/reset regressions
 shared/src/desktopMain/     diagnostic host around the same app
 shared/src/desktopTest/     JVM interaction/semantics and fixed-size app captures
 shared/src/androidMain/     thin @Preview wrappers around the same app
 shared/src/iosMain/         ComposeUIViewController composition root
-androidApp/                Activity, native Back and system-bar appearance
-iosApp/                    SwiftUI host and Xcode scheme; consumes built framework
+androidApp/                process owner, Activity, native Back and system-bar appearance
+iosApp/                    SwiftUI application owner and Xcode scheme; consumes built framework
 ```
 
 The mobile Gradle project directly compiles the canonical `packages/ui-system/cmp` source
 as the isolated Android preview does. Only its theme/tokens are used. No package source,
-palette, schema, registry or qualification is copied/changed. App compositions use stable
+palette, registry or qualification is copied/changed. The explicitly approved shared
+[mock playback corpus](../../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+is imported unchanged for tests; it is not a listener API DTO. App compositions use stable
 native Material controls and official outlined icons; no reusable Cantos primitive is introduced.
 Registered Cantos wrappers remain unused and **0/29 qualified**. Their future adoption still
 requires fresh [two-renderer admission](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
@@ -101,7 +111,8 @@ fonts, manuscripts and audio are not redistributed in Git. The player shows an a
 placeholder; canonical theme typography retains its documented platform fallback. Exact art/font
 fidelity is not claimed. Work titles and `Người giữ tiếng chuông` are reference labels; other
 fixture text/durations are synthetic. UI copy is keyed in vi/en; content titles stay Vietnamese.
-See [decisions and evidence](docs/mock-skeleton.md) for actual commands and gaps.
+See the [phase1 checkpoint](docs/mock-skeleton.md) and [architecture/evidence record](docs/architecture.md)
+for actual commands, vector provenance, reset fences and gaps.
 
 Production retains the [mobile architecture](../../../docs/architecture/mobile.md) and 050 gates:
 listener adapters, one native media owner, background controls, verified rights-aware downloads,

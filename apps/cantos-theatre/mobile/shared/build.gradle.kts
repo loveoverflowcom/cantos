@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
 import java.util.zip.ZipFile
 import org.gradle.kotlin.dsl.withGroovyBuilder
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -12,6 +14,78 @@ val androidEnabled = providers.gradleProperty("cantos.android").orNull == "true"
     providers.gradleProperty("cantos.native").orNull == "true"
 val iosEnabled = providers.gradleProperty("cantos.ios").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
+
+// Tests consume the one reviewed corpus, including Native test sources when that target is
+// available. These generated strings preserve input bytes; they never generate expectations.
+val playbackCorpus = rootProject.file("../../../packages/contracts/fixtures/theatre/playback/v1")
+val generatedPlaybackDirectory = layout.buildDirectory.dir("generated/playbackVectors/commonTest/kotlin")
+val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
+    inputs.files(fileTree(playbackCorpus) { include("*.json") })
+    outputs.dir(generatedPlaybackDirectory)
+    doLast {
+        val indexFile = playbackCorpus.resolve("index.json")
+        val indexText = indexFile.readText(Charsets.UTF_8)
+        val index = JsonSlurper().parseText(indexText) as? Map<*, *>
+            ?: error("Playback index must be an object")
+        check(index.keys == setOf("vector_format", "contract", "vectors")) { "Unknown playback index field" }
+        check(index["vector_format"] == 1 && index["contract"] == "theatre-mock-playback@1") {
+            "Unsupported playback corpus version"
+        }
+        val entries = index["vectors"] as? List<*> ?: error("Playback vectors must be an array")
+        check(entries.isNotEmpty()) { "Playback corpus cannot be empty" }
+        val jsonByFile = linkedMapOf<String, String>()
+        entries.forEach { value ->
+            val entry = value as? Map<*, *> ?: error("Playback index entry must be an object")
+            check(entry.keys == setOf("file", "sha256")) { "Unknown playback index entry field" }
+            val name = entry["file"] as? String ?: error("Playback file name must be a string")
+            check(name.matches(Regex("[a-z][a-z-]+\\.json")) && name != "index.json") {
+                "Invalid playback corpus file name"
+            }
+            check(name !in jsonByFile) { "Duplicate playback corpus file" }
+            val hash = entry["sha256"] as? String ?: error("Playback hash must be a string")
+            check(hash.matches(Regex("[0-9a-f]{64}"))) { "Invalid playback hash" }
+            val bytes = playbackCorpus.resolve(name).readBytes()
+            val actualHash = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            check(actualHash == hash) { "Playback corpus hash mismatch: $name" }
+            val json = bytes.toString(Charsets.UTF_8)
+            check(json.toByteArray(Charsets.UTF_8).contentEquals(bytes)) { "Invalid UTF-8 playback vector" }
+            jsonByFile[name] = json
+        }
+        val actualFiles = playbackCorpus.listFiles()?.filter { it.extension == "json" }
+            ?.map { it.name }?.toSet() ?: error("Playback corpus is missing")
+        check(actualFiles == jsonByFile.keys + "index.json") { "Unknown/unlisted playback vector" }
+        fun quoted(value: String): String = buildString {
+            append('"')
+            value.forEach { char ->
+                append(when (char) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '$' -> "\\$"
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> char.toString()
+                })
+            }
+            append('"')
+        }
+        val output = generatedPlaybackDirectory.get().asFile.resolve(
+            "com/cantos/theatre/domain/playback/CanonicalPlaybackVectors.kt",
+        )
+        output.parentFile.mkdirs()
+        output.writeText(buildString {
+            appendLine("// Generated from the canonical, SHA-256 checked corpus. Do not edit.")
+            appendLine("package com.cantos.theatre.domain.playback")
+            appendLine("internal object CanonicalPlaybackVectors {")
+            appendLine("    val indexJson: String = ${quoted(indexText)}")
+            appendLine("    val jsonByFile: Map<String, String> = mapOf(")
+            jsonByFile.forEach { (name, json) -> appendLine("        ${quoted(name)} to ${quoted(json)},") }
+            appendLine("    )")
+            appendLine("}")
+        }, Charsets.UTF_8)
+    }
+}
 
 if (androidEnabled) {
     // AGP enters the root classpath only for the Android opt-in, keeping desktop configuration
@@ -100,6 +174,7 @@ kotlin {
             kotlin.exclude("com/cantos/ui/preview/**")
             dependencies {
                 implementation(compose.runtime)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
                 implementation(compose.foundation)
                 implementation(compose.ui)
                 implementation("org.jetbrains.compose.material3:material3:1.8.2")
@@ -108,8 +183,13 @@ kotlin {
                 implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             }
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
+        commonTest {
+            kotlin.srcDir(generatePlaybackVectors)
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+            }
         }
         val desktopMain by getting {
             dependencies {

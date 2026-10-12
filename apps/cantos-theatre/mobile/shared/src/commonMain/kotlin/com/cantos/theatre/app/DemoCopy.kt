@@ -59,6 +59,12 @@ internal enum class CopyKey(val vi: String, val en: String) {
     SpeedCaption("Tốc độ minh họa · {speed}", "Demo speed · {speed}"),
     MockPlaying("Đang mô phỏng · Không phát âm thanh", "Simulating · No audio output"),
     MockPaused("Mô phỏng đang dừng", "Simulation stopped"),
+    MockIdle("Chưa mở mô phỏng · Không có âm thanh thật", "Simulation not opened · No real audio"),
+    MockLoading("Đang mở mô phỏng · Không có âm thanh thật", "Opening simulation · No real audio"),
+    MockBuffering("Mô phỏng đang chờ · Không có âm thanh thật", "Simulation waiting · No real audio"),
+    MockEnded("Mô phỏng đã kết thúc · Không có âm thanh thật", "Simulation ended · No real audio"),
+    SelectionUnavailable("Chưa có nội dung minh họa cho lựa chọn này", "No sample content for this selection"),
+    SelectionUnavailableNote("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.", "The current metadata is insufficient to open this selection. Return to discovery to choose again."),
     Play("Mô phỏng phát", "Simulate play"),
     Pause("Dừng mô phỏng", "Stop simulation"),
     Position("Điểm nghe minh họa", "Demo position"),
@@ -101,7 +107,10 @@ internal enum class CopyKey(val vi: String, val en: String) {
 internal class DemoCopy(private val locale: DemoLocale) {
     fun text(key: CopyKey, vararg parameters: Pair<String, String>): String {
         val template = if (locale == DemoLocale.Vietnamese) key.vi else key.en
-        return parameters.fold(template) { value, (name, replacement) -> value.replace("{$name}", replacement) }
+        // Match the original resource once so a supplied title containing braces stays literal.
+        return parameterPattern.replace(template) { match ->
+            parameters.firstOrNull { (name, _) -> name == match.groupValues[1] }?.second ?: match.value
+        }
     }
 
     fun speed(percent: Int): String {
@@ -121,5 +130,7 @@ internal class DemoCopy(private val locale: DemoLocale) {
         )
     }
 }
+
+private val parameterPattern = Regex("\\{([^{}]+)\\}")
 
 internal fun clockTime(seconds: Int): String = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"

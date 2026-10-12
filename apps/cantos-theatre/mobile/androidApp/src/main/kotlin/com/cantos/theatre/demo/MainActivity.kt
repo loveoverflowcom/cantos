@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
         updateSystemBars(dark = false)
         setContent {
             CantosDemoApp(
+                appContainer = (application as CantosDemoApplication).container,
                 onThemeChanged = ::updateSystemBars,
                 backHandler = { enabled, onBack ->
                     BackHandler(enabled = enabled, onBack = onBack)

@@ -52,6 +52,19 @@ class DemoCopyTest {
     }
 
     @Test
+    fun supplied_titles_containing_placeholder_syntax_are_preserved_literally() {
+        val title = "Lời hẹn {time}"
+        assertEquals(
+            "Mở dấu trang Lời hẹn {time}, 12:48",
+            DemoCopy(DemoLocale.Vietnamese).text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+        )
+        assertEquals(
+            "Open bookmark for Lời hẹn {time}, 12:48",
+            DemoCopy(DemoLocale.English).text(CopyKey.OpenBookmark, "title" to title, "time" to "12:48"),
+        )
+    }
+
+    @Test
     fun locale_changes_labels_without_translating_the_vietnamese_episode_title() {
         val title = "Người giữ tiếng chuông"
         val vietnamese = DemoCopy(DemoLocale.Vietnamese)
@@ -100,7 +113,6 @@ class DemoCopyTest {
             Triple(100, "1×", "1×"),
             Triple(125, "1,25×", "1.25×"),
             Triple(150, "1,5×", "1.5×"),
-            Triple(175, "1,75×", "1.75×"),
             Triple(200, "2×", "2×"),
         )
         val vietnamese = DemoCopy(DemoLocale.Vietnamese)
