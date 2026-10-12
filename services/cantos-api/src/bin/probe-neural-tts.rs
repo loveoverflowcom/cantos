@@ -17,14 +17,14 @@ use std::{
     os::{fd::AsRawFd, fd::FromRawFd, unix::ffi::OsStrExt, unix::fs::MetadataExt},
 };
 
-use cantos_api::production::MAX_PRODUCTION_DOCUMENT_BYTES;
-use cantos_api::tts::attempt::{
+use cantos_api::contexts::production::MAX_PRODUCTION_DOCUMENT_BYTES;
+use cantos_api::contexts::synthesis::attempt::{
     ContractCapability, DeliveryState, FailureClass, ReconciliationCapabilities,
 };
-use cantos_api::tts::neural::{
+use cantos_api::contexts::synthesis::providers::neural::{
     run_neural, NeuralPurpose, NeuralRunError, NeuralSynthesisRequest, MAX_RUNTIME_SECONDS,
 };
-use cantos_api::tts::{
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, decode_document, ChargeObservation, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };

@@ -1,4 +1,4 @@
-use cantos_api::postgres::{local_config, migrate};
+use cantos_api::platform::postgres::{local_config, migrate};
 use std::env;
 
 #[tokio::main]

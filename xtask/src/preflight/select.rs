@@ -302,7 +302,7 @@ mod tests {
         ] {
             assert!(pick(&[path]).gates.contains(&Gate::Mutation), "{path}");
         }
-        assert!(!pick(&["services/cantos-api/src/http.rs"])
+        assert!(!pick(&["services/cantos-api/src/interfaces/http/mod.rs"])
             .gates
             .contains(&Gate::Mutation));
     }

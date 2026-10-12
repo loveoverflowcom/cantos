@@ -1,4 +1,4 @@
-use cantos_api::production::{
+use cantos_api::contexts::production::{
     admit_frozen_document, prepare_inputs, production_catalog, production_input_digest,
     validate_rights_declaration, validate_settings,
 };

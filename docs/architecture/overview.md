@@ -3,8 +3,9 @@
 Status: target runtime design. The [Script IR domain/CLI](../../services/cantos-api/README.md) is
 implemented and locally tested. Local Axum/PostgreSQL revision persistence and a minimal Leptos
 Studio consumer have [bounded evidence](../evidence/script-revision-persistence.md).
-[Casting/input planning](../evidence/casting-production-inputs.md) reuses that authority;
-workers, Theatre and native clients remain planned. The
+[Casting/input planning](../evidence/casting-production-inputs.md) and the
+[local/fake durable worker](../evidence/durable-tts-jobs.md) reuse that authority; production
+adoption, Theatre listening and native clients remain planned. The
 user-selected stack and modular starting point are recorded in
 [decision 0001](../decisions/0001-modular-monolith.md).
 
@@ -44,39 +45,34 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 - Keep a provider-neutral TTS request and capability model. Record which emotional/pronunciation controls the chosen provider actually supports; unsupported controls require an explicit fallback or correction.
 - Separate audio render settings from script content. A mixing-profile revision can invalidate mixes without regenerating unchanged speech.
 
-## Initial source layout
+<a id="initial-source-layout"></a>
+
+## Implemented source layout
 
 The [repository layout](repository-layout.md) names every app, service and package. The root Cargo
-workspace contains `services/cantos-api/`, `apps/cantos-studio/web/`, the `apps/cantos-theatre/web/` Theatre
-skeleton and `packages/contracts/api/`. Server
-`script_ir`, `revisions` and the adaptation admission kernel are pure rules; `postgres` owns
-transactions and `http` maps the shared wire contract to Axum. Adaptation tools export frozen context and admit caller-created proposals over the same HTTP
-service and a thin CLI. Generation belongs to the user-controlled AI host; the domain and
-store perform no inference. Proposals never move a revision head until explicit acceptance.
-The pure `production` module resolves reference-only casting/pronunciation/performance, computes
-integer planning estimates and exact frozen input identity, then reevaluates current claims and
-approval. PostgreSQL production adapters append settings/claims/candidates/approvals on the same
-identity/evidence/revision authority; the HTTP layer and Studio share raw DTOs. No generation,
-accounting engine, provider transport, service or DBSP read model is introduced by #5.
-The focused #6 local inspection slice adds the pure `tts::local_contract` descriptor/text
-predicate and receipt/audio/recovery rules inside the server package. Its explicit
-`probe-local-tts` CLI invokes one installed eSpeak engine and writes private sample evidence;
-HTTP remains planning-only. This is not a production worker, cache or audio-acceptance path.
-[ADR 0008](../decisions/0008-local-tts-inspection.md) records the accepted local inspection choice
-and proposed production adoption. The Google Cloud TTS slice follows the same pattern with
-`tts::google_contract`, a pure `tts::google` planner/classifier and a one-request HTTPS shell
-behind the explicit `probe-google-tts` CLI ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Existing PostgreSQL queries/schema and publication/listening
-boundaries are unchanged; no new read model or DBSP consumer is justified.
+workspace contains `services/cantos-api/`, `apps/cantos-studio/web/`, the `apps/cantos-theatre/web/`
+Theatre skeleton, `packages/contracts/api/` and `packages/ui-system/leptos/`. The API has five
+[implemented business contexts](api-contexts.md): Editorial, Ingestion, Adaptation, Production
+and Synthesis. Each separates pure domain decisions from private application use cases and
+PostgreSQL persistence; Script IR is the versioned shared kernel. HTTP surfaces live under
+`interfaces/http/`, and connection/session/migration/operator plumbing under `platform/`.
+Temporary crate-root re-exports preserve existing CLI/library paths.
+
+Adaptation exports frozen caller context and admits proposals without inference or a revision
+change before explicit acceptance. Production resolves casting/pronunciation/performance,
+estimates cost and binds frozen input identity/current rights/approval. Its immutable catalog
+contracts are pure data; Synthesis owns provider execution, attempts/receipts, clip reuse,
+regeneration and the local/fake worker. Transaction extraction preserves locked current facts,
+idempotency, session expiry and dispatch fences. The explicit local, Google and research-only
+neural probes retain their existing permission and rights boundaries
+([ADR 0008](../decisions/0008-local-tts-inspection.md),
+[ADR 0011](../decisions/0011-google-cloud-tts-adapter.md),
+[ADR 0010](../decisions/0010-local-neural-tts-research.md)).
 The durable job summary later gained an opt-in experimental DBSP read model behind the
 `dbsp-experimental` Cargo feature: an engine-independent `incremental` core, a trigger-written
 outbox with an exact `xid8` committed position, and a fenced consumer that never answers before
 PostgreSQL authorization ([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)).
 PostgreSQL remains the authority and the default path.
-The optional neural research slice adds one concrete `tts::neural` process adapter and pure
-`neural_contract`, with a fixed local Python helper and its own PCM inspection profile. It
-reuses complete frozen-document/receipt admission and refuses production before any model or
-runtime I/O. The eSpeak adapter/probe, Script IR, production-p1, PostgreSQL authority and listener
-boundaries remain intact. See [ADR 0010](../decisions/0010-local-neural-tts-research.md).
 The Studio WASM consumer imports only `cantos-contracts`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
 in the same `cantos-api` package. `apps/cantos-theatre/mobile/` remains a guide; its Gradle app

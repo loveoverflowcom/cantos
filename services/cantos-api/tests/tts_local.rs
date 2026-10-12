@@ -1,6 +1,6 @@
 //! Synthetic process fixtures only. Live installed-engine evidence is separate.
 
-use cantos_api::tts::local::{
+use cantos_api::contexts::synthesis::providers::local::{
     run_local, LocalPhase, LocalRequestError, LocalRunError, LocalSynthesisRequest,
     ADAPTER_VERSION, MAX_RUNTIME_SECONDS, MAX_TEXT_BYTES, MODEL_ID, OUTPUT_CONTRACT, PROVIDER_ID,
 };
@@ -146,8 +146,8 @@ mod process {
     use std::path::{Path, PathBuf};
     use std::time::Instant;
 
-    use cantos_api::tts::audio::{AudioError, MAX_OUTPUT_BYTES};
-    use cantos_api::wav_inspection::{ChunkId, StructuralError};
+    use cantos_api::contexts::synthesis::media::audio::{AudioError, MAX_OUTPUT_BYTES};
+    use cantos_api::contexts::synthesis::media::wav_inspection::{ChunkId, StructuralError};
     use uuid::Uuid;
 
     use super::*;
@@ -190,7 +190,12 @@ mod process {
             fs::set_permissions(&self.runtime, fs::Permissions::from_mode(0o700)).unwrap();
         }
 
-        fn run(&self) -> Result<cantos_api::tts::local::LocalSynthesisOutput, LocalRunError> {
+        fn run(
+            &self,
+        ) -> Result<
+            cantos_api::contexts::synthesis::providers::local::LocalSynthesisOutput,
+            LocalRunError,
+        > {
             // Successful fixture startup is not a two-second host scheduling benchmark.
             // The separate timeout fixture uses its own short deadline and verifies reaping.
             self.run_for(Duration::from_secs(10))
@@ -199,7 +204,10 @@ mod process {
         fn run_for(
             &self,
             timeout: Duration,
-        ) -> Result<cantos_api::tts::local::LocalSynthesisOutput, LocalRunError> {
+        ) -> Result<
+            cantos_api::contexts::synthesis::providers::local::LocalSynthesisOutput,
+            LocalRunError,
+        > {
             run_local(
                 &LocalSynthesisRequest::from_resolved(&resolved()).unwrap(),
                 &self.runtime,

@@ -18,51 +18,44 @@ middleware, error mapping, the domain modules and the PostgreSQL store. See
 
 ## Boundaries
 
-- `script_ir/`: private validated values, version admission, canonical export/content/speech.
-  No HTTP, SQL, UI or provider dependency.
-- `revisions.rs`: pure access table and append/replay/stale/key-reuse decisions.
-- `imports.rs`: bounded deterministic TXT, Markdown, DOCX and Script IR extraction.
-  Unknown speakers remain unresolved; prose labels and scene cues require review.
-- `adaptation.rs`: closed proposal admission, bounded source context, trusted evidence bindings,
-  source coverage findings and complete Script IR semantic validation. Domain decisions do
-  not import provider transport; the development host has no enabled generation provider.
-- `production.rs`: pure supported-control validation, per-dialogue pronunciation/performance
-  resolution, integer planning estimates, tagged input digest and current rights/approval gate.
-  Its catalog preserves historical reference entries and adds the explicit eSpeak local
-  inspection capability plus the explicitly research-only VieNeu Nano profile; no billable dispatch exists.
-- `postgres/production.rs` and `http/studio/production.rs`: script-scoped append-only settings,
-  declarations, candidates/approvals and thin authenticated route mapping. Current permissions,
-  accepted head and evidence are rechecked inside the same PostgreSQL transactions.
-- `jobs.rs`: pure execution-state transitions, bounded retry decisions, lease configuration,
-  exact local-mode admission and versioned input fingerprinting. It imports neither SQL nor
-  HTTP/provider transport. This fingerprint binds one complete resolved dialogue input; it is
-  not a reusable speech-cache key.
-- `postgres/durable.rs`: local PostgreSQL job shell, current snapshot authority, transactional
-  attempt/reservation/send marker, lease/fencing checks, immutable observations and one selected
-  result per step. Ambiguous outcomes pause for explicit reconciliation.
-- `worker.rs`: separate-process imperative shell over that store and the existing receipt,
-  WAV and eSpeak adapters. Explicit synthetic execution supplies an independent create-only
-  provider ledger for failure tests. No broker, new microservice or generic provider framework.
-- `postgres.rs`: current actor/session/access facts, transactions, locked heads, complete
-  immutable bytes, evidence ownership links and integrity checks on every load.
-- `http.rs`: thin Axum mapping over the [Studio v1 contract](../../packages/contracts/studio-v1.md).
-- `http/wire.rs`: JSON/MessagePack negotiation for the head, pinned revision, save and validation
-  routes; extractors settle the representation before the store is called and errors stay JSON
+The [context architecture](../../docs/architecture/api-contexts.md) owns dependency direction,
+transaction boundaries, compatibility aliases and the repository architecture guard.
+
+- `script_ir/`: the pure versioned shared kernel, private validated values, canonical
+  export/content/speech identity and stable-ID diff; no HTTP, SQL, UI or provider dependency.
+- `contexts/editorial/`: access, evidence, accepted revisions and review. Pure append/replay/
+  stale/key-reuse decisions remain separate from application transactions and SQL.
+- `contexts/ingestion/`: bounded TXT/Markdown/DOCX/Script IR extraction, immutable source bytes
+  and import receipts. Unknown speakers remain unresolved; prose labels and scene cues need review.
+- `contexts/adaptation/`: frozen caller context, closed proposal admission, trusted evidence,
+  acceptance and cancellation. Domain performs no inference; the host enables no generation provider.
+- `contexts/production/`: casting/settings/rights/estimate/frozen/eligibility decisions and the
+  transaction use cases that append settings, declarations, candidates and approvals. Pure
+  `domain/catalog/` preserves historical capabilities, local eSpeak and research-only VieNeu;
+  transport and runtime adapters live in Synthesis.
+- `contexts/synthesis/domain/`: execution/retry/lease decisions, durable input identity, provider
+  attempts/receipts, pure WAV/audio admission, position-free speech fingerprints, reuse and regeneration.
+- `contexts/synthesis/application/` and private `postgres/`: enqueue/status/control/preparation/
+  dispatch/settlement/acceptance/reconciliation use cases plus jobs/leases/attempts/observations/
+  acceptance/clips persistence. Current snapshot
+  authority, reservations, dispatch intents, fencing and one selected result remain transactional;
+  ambiguous outcomes require explicit reconciliation.
+- `contexts/synthesis/worker/`: separate-process development runtime/heartbeat, dispatch,
+  recovery/reuse and private output journal. Only explicit local eSpeak or synthetic fake execution.
+- `contexts/synthesis/providers/` and `media/`: concrete local/Google/neural adapters and
+  filesystem clip probing. Existing opt-in probe binaries retain their sample-only permission and
+  provider-rights boundaries; the [receipt contract](../../packages/contracts/tts-receipt-v1.md) is unchanged.
+- `platform/`: IDs, connection/session/migration plumbing, trusted operator tools and the
+  optional incremental engine support. Business tables/queries stay with their context owner.
+- `interfaces/http/`: thin Axum Studio mapping plus separate reserved Theatre/Admin routers.
+  `wire.rs` owns JSON/MessagePack negotiation; errors stay JSON
   ([wire codec](../../docs/architecture/wire-codec.md)).
-- `script_ir/diff/`: pure stable-ID comparison of two admitted scripts of one episode; `diff-script`
-  is its only shell. No HTTP, SQL, UI, provider or file-system dependency.
-- `wav_inspection/`: pure, bounded RIFF/WAVE integer PCM inspection over bytes. No HTTP, SQL,
-  Script IR, provider or file-system dependency; consumed by `inspect-wav` and `tts/audio`.
-- `tts/`: receipt inspection over existing frozen documents, conservative recovery advice,
-  bounded WAV bytes and concrete eSpeak NG 1.52.0 and research-only VieNeu Nano local adapters. `inspect-tts-receipt` is
-  read-only; `probe-local-tts` explicitly invokes the installed local runtime and retains private
-  sample intent/input/receipt files. Neither establishes current production permission, durable
-  jobs, reservations or artifact acceptance. See the
-  [local receipt contract](../../packages/contracts/tts-receipt-v1.md).
-- `tts/google_contract.rs`, `tts/google.rs` and `tts/google_http.rs`: the Google Cloud TTS
-  identity and dated vi-VN capabilities used by casting and the receipt audit; the pure planner,
-  receipt-v1 classification and audio admission; and the one-request HTTPS shell.
-  `probe-google-tts` is the only caller. No SQL, route or Studio code change.
+
+Legacy library paths such as `production`, `postgres::durable`, `tts` and `worker` remain
+temporary hidden re-exports. CLI names, wire DTOs, error codes and historical digests are unchanged.
+
+The existing migrations remain the persistent compatibility boundary:
+
 - `migrations/0001_script_revisions.sql`: atomic schema, deferred head FK, operation uniqueness
   and immutable revision/link triggers. Migration replay verifies its SHA-256 checksum.
 - `migrations/0002_editorial_handoff.sql`: preserved sources, immutable editorial reviews and

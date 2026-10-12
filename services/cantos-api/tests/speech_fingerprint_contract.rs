@@ -2,7 +2,7 @@
 //! vectors written by the independent Python oracle, and laws over generated requests.
 use std::collections::BTreeMap;
 
-use cantos_api::speech_fingerprint::{SpeechFingerprint, SpeechInput};
+use cantos_api::contexts::synthesis::fingerprint::{SpeechFingerprint, SpeechInput};
 use cantos_contracts::{ResolvedPronunciation, ResolvedSynthesisInput, SynthesisPerformance};
 use proptest::prelude::*;
 use serde::Deserialize;
