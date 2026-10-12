@@ -1,0 +1,167 @@
+package com.cantos.ui
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density as DisplayDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.cantos.ui.generated.CantosTokens
+import org.junit.Rule
+import org.junit.Test
+import kotlin.test.assertEquals
+
+/** Production-theme values sampled from an actual JVM Compose composition, not a copied theme. */
+@OptIn(ExperimentalMaterial3Api::class)
+class ThemeFoundationTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    private val snapshots = mutableMapOf<String, ThemeSnapshot>()
+
+    @Test
+    fun nested_theme_applies_an_absolute_preview_scale_and_preserves_platform_density() {
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides DisplayDensity(2f, 1.5f)) {
+                CantosTheme(UiPreferences(textScale = 1.3f)) {
+                    Column {
+                        Probe("Ngoài")
+                        CantosTheme(UiPreferences(textScale = 1.3f)) { Probe("Cùng mức") }
+                        CantosTheme(UiPreferences(textScale = 2f)) {
+                            Column {
+                                Probe("Hai lần")
+                                CantosTheme(UiPreferences(textScale = 1f)) { Probe("Mức nền") }
+                            }
+                        }
+                        Probe("Trở về")
+                    }
+                }
+            }
+        }
+        compose.runOnIdle {
+            assertDensity("Ngoài", 2f, 1.95f)
+            assertDensity("Cùng mức", 2f, 1.95f)
+            assertDensity("Hai lần", 2f, 3f)
+            assertDensity("Mức nền", 2f, 1.5f)
+            assertDensity("Trở về", 2f, 1.95f)
+        }
+    }
+
+    @Test
+    fun nested_colors_preferences_and_token_density_restore_for_siblings_and_outer_host() {
+        val hostPreferences = UiPreferences(textScale = 0.75f)
+        val outerPreferences = UiPreferences(
+            theme = Theme.Dark,
+            density = Density.Comfortable,
+            reducedMotion = true,
+            textScale = 1.3f,
+        )
+        val innerPreferences = UiPreferences(textScale = 2f)
+        val hostPrimary = parseTokenColor(CantosTokens.color("color.accent", "light"))
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides DisplayDensity(2f, 1.5f),
+                LocalUiPreferences provides hostPreferences,
+                LocalMinimumInteractiveComponentSize provides 56.dp,
+            ) {
+                MaterialTheme(colorScheme = lightColorScheme(primary = hostPrimary)) {
+                    Column {
+                        CantosTheme(outerPreferences) {
+                            Column {
+                                Probe("Trước")
+                                CantosTheme(innerPreferences) { Probe("Bên trong") }
+                                Probe("Sau")
+                            }
+                        }
+                        Probe("Host")
+                    }
+                }
+            }
+        }
+        compose.runOnIdle {
+            listOf("Trước", "Sau").forEach { name ->
+                val snapshot = snapshots.getValue(name)
+                assertEquals(outerPreferences, snapshot.preferences)
+                assertEquals(parseTokenColor(CantosTokens.color("color.primary", "dark")), snapshot.primary)
+                assertEquals(48f, snapshot.controlSize.value)
+                assertEquals(48.dp, snapshot.minimumControlSize)
+                assertDensity(name, 2f, 1.95f)
+            }
+            val inner = snapshots.getValue("Bên trong")
+            assertEquals(innerPreferences, inner.preferences)
+            assertEquals(parseTokenColor(CantosTokens.color("color.primary", "light")), inner.primary)
+            assertEquals(44f, inner.controlSize.value)
+            assertEquals(44.dp, inner.minimumControlSize)
+            assertDensity("Bên trong", 2f, 3f)
+            val host = snapshots.getValue("Host")
+            assertEquals(hostPreferences, host.preferences)
+            assertEquals(hostPrimary, host.primary)
+            assertEquals(56.dp, host.minimumControlSize)
+            assertDensity("Host", 2f, 1.5f)
+        }
+    }
+
+    @Test
+    fun host_font_scale_and_nested_preferences_recompute_without_compounding() {
+        var hostFontScale by mutableStateOf(1.5f)
+        var innerPreferences by mutableStateOf(UiPreferences(textScale = 1.3f))
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides DisplayDensity(2f, hostFontScale)) {
+                CantosTheme(UiPreferences(textScale = 2f)) {
+                    CantosTheme(innerPreferences) { Probe("Thay đổi") }
+                }
+            }
+        }
+        compose.runOnIdle {
+            assertDensity("Thay đổi", 2f, 1.95f)
+            hostFontScale = 2f
+        }
+        compose.runOnIdle {
+            assertDensity("Thay đổi", 2f, 2.6f)
+            innerPreferences = innerPreferences.copy(textScale = 1f)
+        }
+        compose.runOnIdle { assertDensity("Thay đổi", 2f, 2f) }
+    }
+
+    @Composable
+    private fun Probe(name: String) {
+        val density = LocalDensity.current
+        val snapshot = ThemeSnapshot(
+            density = density.density,
+            fontScale = density.fontScale,
+            preferences = LocalUiPreferences.current,
+            primary = MaterialTheme.colorScheme.primary,
+            controlSize = tokenDp("size.control"),
+            minimumControlSize = LocalMinimumInteractiveComponentSize.current,
+        )
+        SideEffect { snapshots[name] = snapshot }
+        Text(name)
+    }
+
+    private fun assertDensity(name: String, expectedDensity: Float, expectedFontScale: Float) {
+        val snapshot = snapshots.getValue(name)
+        assertEquals(expectedDensity, snapshot.density)
+        assertEquals(expectedFontScale, snapshot.fontScale, absoluteTolerance = 0.0001f)
+    }
+
+    private data class ThemeSnapshot(
+        val density: Float,
+        val fontScale: Float,
+        val preferences: UiPreferences,
+        val primary: Color,
+        val controlSize: Dp,
+        val minimumControlSize: Dp,
+    )
+}

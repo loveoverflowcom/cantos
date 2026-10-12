@@ -10,6 +10,16 @@ implementation sessions are complete. The subsequent requester-authorized public
 needs a new request; GitHub owns publication execution status.
 This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
 
+The subsequent three-session [CMP UI-system sequence](016-cmp-ui-system.md) has its bounded
+[foundation](../evidence/cmp-ui-system-session1.md),
+[interaction](../evidence/cmp-ui-system-session2.md) and
+[final review/readiness](../evidence/cmp-ui-system-session3.md) local handoffs. The final inventory
+records 29 APIs and 152 scenarios in both previews. All candidates remain unqualified for new app
+use; the remaining native/reference/accessibility acceptance is explicit. The separately authorized
+[PR43 integration acceptance](../evidence/cmp-pr43-acceptance.md) preserves that boundary after
+reconciling develop and fixing Select menu state. GitHub owns merge status; the next component
+adoption task must first close its two-renderer runtime/accessibility/reference qualification.
+
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,
@@ -112,7 +122,10 @@ unimplemented/unrun. This enabling change does not advance 050, change #6/#7 ord
 introduce a competing mobile UI implementation.
 The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
 bounded output and private capture paths. The next mobile evidence still comes from an actual
-configured project and renderer; GitHub owns this tooling PR's execution status.
+configured project and renderer; GitHub owns this tooling PR's execution status. The
+[PR43 Android host follow-up](../evidence/cmp-pr43-android-preview.md) now records that configured
+shared-component library and four actual Android Studio captures. Product app, device, IME and
+screen-reader acceptance remains the next prerequisite before mobile adoption.
 
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
