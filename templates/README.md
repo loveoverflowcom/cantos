@@ -7,6 +7,7 @@ Copy a template into the relevant project documentation location and replace eve
 | [Architecture decision](adr.md) | Record a consequential technical or product decision, its alternatives, and consequences. |
 | [Feature brief](feature-brief.md) | Define a bounded creator/listener outcome, scope, dependencies, and acceptance criteria. |
 | [Production run](production-run.md) | Record the exact script, casting, provider, render, cost, and QC evidence for an episode production. |
+| [Listening review](listening-review.md) | Record two-pass human listening on headphones and a phone speaker, exact render/input identity, dimension results and editorial findings under the shared protocol. |
 | [Publication checklist](publication-checklist.md) | Verify permissions, QC, approval, delivery, and recovery before making an episode revision public. |
 | [Story index](story-index.md) | Record artifact hashes, stage handoffs, name-map revisions and Drive synchronization outside Git. |
 | [Story name map](story-name-map.yml) | Map original proper names and aliases to consistent new names before score authoring. |

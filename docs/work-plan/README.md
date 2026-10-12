@@ -105,6 +105,15 @@ that improve the adaptation process and the audio output. Its editorial phase ca
 through the story workspace; the audio profile and clip conditioning are groundwork for #9, and
 scene acoustics follow #9. It changes no order, prerequisite, authorization or gate above.
 
+The shared [listening-review protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md) supply the #45 manual evidence format for lines,
+scenes and episodes. Use them for #6's pending named-listener assessment; its quality remains
+**NOT_RUN**. The next editorial preparation is #46 rights-recorded asset intake, then #47 cue
+records and #48 adaptation checks. Voice auditions and profile decisions require the reviewed
+[#44 reference](https://github.com/loveoverflowcom/cantos/issues/44) when available, actual
+render/listening evidence and recorded owner decisions. This protocol sets no approved threshold
+and advances no backend, provider, rights or publication gate; GitHub owns execution status.
+
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
 tested with a process double; both mobile projects and real Android/iOS acceptance remain

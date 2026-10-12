@@ -206,6 +206,15 @@ experience. Those belong to an `Editorial` result recorded by a named reviewer.
   and profile); a person listening is `audio-listened` (name the reviewer, the render checksum,
   the playback setup and the date). One never implies the other.
 
+Use the shared [listening-review protocol](../../../../docs/production/listening-review-protocol.md)
+and [template](../../../../templates/listening-review.md) for line, scene and episode evidence:
+headphones **and** phone speaker, transcript-free orientation before transcript comparison,
+dimension results and timestamped checksum-bound findings. `blocking` findings prevent editorial
+acceptance; `advisory` findings remain recorded. No average hides a blocker, and unheard checks
+stay `NOT_RUN`, never `N/A`. Thresholds stay proposed until an actual owner decision is recorded.
+The manual record maps to the proposed `QcKind::Editorial` facts above; it does not implement
+backend QC, measure loudness or grant rights/publication approval. Record absent profiles honestly.
+
 ## 7. Test signals are generated in code
 
 Real drama audio cannot be committed (`.gitignore` excludes common audio formats) and a recording

@@ -1,6 +1,9 @@
 # Audio drama quality plan
 
-Status: planning, recorded 2026-10-12. Nothing in this plan is implemented. It reconciles an
+Status: planning, recorded 2026-10-12, with a documented manual
+[listening protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md). Audio rendering, listening acceptance and backend
+QC are not established by those documents. This plan reconciles an
 externally supplied research report on adapting novels into audio drama (Vietnamese, not
 committed) with the actual Cantos contracts and pipeline, and orders the resulting work into
 bounded GitHub issues. GitHub issues own execution status; this document owns the rationale and
@@ -73,6 +76,14 @@ pinned score ─▶ ear-first review ─▶ sound bible + cue sheet ─▶ voice
      ─▶ synthesis (#6/#7) ─▶ clip conditioning ─▶ mix plan + render (#9) ─▶ technical QC
      ─▶ listening review ─▶ story audit ─▶ approval and publication gates (#11)
 ```
+
+Use the shared protocol/template for listening evidence from lines through full episodes; the
+historical baseline above describes the inspected revision, not the current documentation set.
+Keep the six original TTS dimensions in that canonical rubric. The next editorial preparation
+is rights-recorded asset intake (#46), then sound-bible/cue-sheet records (#47) and adaptation
+checks (#48). Real voice auditions (#50) need the reviewed #44 reference and this protocol;
+profile decisions (#51) additionally need #46. An unmerged reference is not an available render,
+and no document/checker pass completes #6's named-listener assessment or those owner decisions.
 
 ## Steps
 
