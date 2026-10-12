@@ -1,5 +1,6 @@
 //! Synthesis: durable speech jobs over frozen production inputs, provider attempts and their
 //! receipts, verified clip reuse and partial regeneration planning.
+mod application;
 pub mod domain;
 pub mod media;
 mod postgres;

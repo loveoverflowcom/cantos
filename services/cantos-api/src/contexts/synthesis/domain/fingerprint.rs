@@ -13,7 +13,7 @@ use cantos_contracts::{ResolvedPronunciation, ResolvedSynthesisInput, SynthesisP
 use serde::{Serialize, Serializer};
 use sha2::{Digest, Sha256};
 
-use crate::contexts::production::catalog::local as local_contract;
+use crate::contexts::production::domain::catalog::local as local_contract;
 
 pub const SPEECH_FINGERPRINT_SCHEME: &str = "speech-v1";
 const DOMAIN_TAG: &[u8] = b"cantos/speech-fingerprint/v1\n";
@@ -574,7 +574,8 @@ mod tests {
     fn identifier_parses_only_the_exact_scheme_and_is_distinct_from_the_durable_identity() {
         let fingerprint = fingerprint(&input());
         assert_eq!(fingerprint.as_str().parse(), Ok(fingerprint.clone()));
-        let durable = crate::contexts::synthesis::jobs::input_fingerprint(&input()).unwrap();
+        let durable =
+            crate::contexts::synthesis::domain::jobs::input_fingerprint(&input()).unwrap();
         assert_ne!(fingerprint.as_str(), durable);
         assert!(durable.parse::<SpeechFingerprint>().is_err());
         let digest = fingerprint.as_str().trim_start_matches("speech-v1:sha256:");

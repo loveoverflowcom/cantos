@@ -14,7 +14,7 @@ use std::{error::Error, fmt, str::FromStr};
 use serde::{Serialize, Serializer};
 use sha2::{Digest, Sha256};
 
-use crate::contexts::synthesis::{fingerprint::SpeechFingerprint, jobs::ExecutionMode};
+use crate::contexts::synthesis::domain::{fingerprint::SpeechFingerprint, jobs::ExecutionMode};
 
 /// Lowercase 64-character hexadecimal SHA-256 of an audio file's bytes.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -224,8 +224,8 @@ mod tests {
     use cantos_contracts::{ResolvedSynthesisInput, SynthesisPerformance};
 
     use super::*;
-    use crate::contexts::production::catalog::local as local_contract;
-    use crate::contexts::synthesis::fingerprint::SpeechInput;
+    use crate::contexts::production::domain::catalog::local as local_contract;
+    use crate::contexts::synthesis::domain::fingerprint::SpeechInput;
 
     type Spoil = fn(&mut RegisteredClip);
 

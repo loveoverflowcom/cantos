@@ -19,8 +19,8 @@ use serde::Serialize;
 
 use crate::{
     contexts::{
-        production::estimate_dialogues,
-        synthesis::{
+        production::domain::estimate_dialogues,
+        synthesis::domain::{
             fingerprint::{FingerprintError, SpeechField, SpeechFingerprint, SpeechInput},
             jobs::ExecutionMode,
             reuse::{

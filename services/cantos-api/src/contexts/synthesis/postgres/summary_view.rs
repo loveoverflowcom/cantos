@@ -625,7 +625,7 @@ impl AttachedView {
     }
 
     /// The summary of an already authorized run, inside the caller's transaction.
-    pub(super) async fn summary(
+    pub(in crate::contexts::synthesis) async fn summary(
         &self,
         tx: &deadpool_postgres::Transaction<'_>,
         run: &str,

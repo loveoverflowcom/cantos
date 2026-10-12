@@ -18,7 +18,7 @@ a stable code, declared sizes are compared with the bytes present and never driv
 and frame count, duration and sample peak exist only when the structure is valid. A damaged file
 therefore never yields a number that reads like a measurement of the whole file.
 
-[`wav_inspection/`](../../services/cantos-api/src/contexts/synthesis/media/wav_inspection/mod.rs) has no HTTP, SQL, Script IR,
+[`wav_inspection/`](../../services/cantos-api/src/contexts/synthesis/domain/wav_inspection/mod.rs) has no HTTP, SQL, Script IR,
 adaptation, provider, clock or file-system dependency. [`inspect-wav`](../../services/cantos-api/src/bin/inspect-wav.rs)
 is the imperative shell: argument parsing, a bounded read, JSON output and exit codes. The module
 lives in the existing `cantos-server` package beside `validate-script` and reuses its `sha2`,

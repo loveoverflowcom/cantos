@@ -1,7 +1,7 @@
 use cantos_api::contexts::production::{
-    admit_frozen_document, authorize_inputs, estimate_cost, evaluate_snapshot, prepare_inputs,
-    production_catalog, production_input_digest, validate_rights_declaration, validate_settings,
-    MAX_MONEY_MINOR,
+    admit_frozen_document, authorize_inputs, estimate_cost, evaluate_for_owner, evaluate_snapshot,
+    prepare_inputs, production_catalog, production_input_digest, validate_rights_declaration,
+    validate_settings, MAX_MONEY_MINOR,
 };
 use cantos_api::script_ir::read_script;
 use cantos_contracts::{
@@ -926,6 +926,60 @@ fn approval_missing_is_separate_from_input_eligibility_and_foreign_owner_fails()
         ProductionFindingCode::ApprovalScopeMismatch
     );
     assert!(!eligibility.approval_current);
+}
+
+#[test]
+fn frozen_approval_cannot_follow_a_transfer_to_a_new_owner() {
+    use ProductionFindingCode::{ApprovalMissing, ApprovalScopeMismatch};
+
+    let document = document();
+    let original = document.clone();
+    for (owner, approver, expected) in [
+        ("owner", "owner", vec![]),
+        (
+            "owner",
+            "other-owner",
+            vec![ApprovalMissing, ApprovalScopeMismatch],
+        ),
+        (
+            "other-owner",
+            "owner",
+            vec![ApprovalMissing, ApprovalScopeMismatch],
+        ),
+        (
+            "other-owner",
+            "other-owner",
+            vec![ApprovalScopeMismatch, ApprovalScopeMismatch],
+        ),
+    ] {
+        let mut approval = approval(&document);
+        approval.approved_by = approver.into();
+        let eligibility = evaluate_for_owner(
+            &document,
+            owner,
+            1,
+            1,
+            &rights(),
+            true,
+            Some(&approval),
+            NOW,
+        );
+        assert_eq!(eligibility.inputs_eligible, expected.is_empty());
+        assert_eq!(eligibility.approval_current, expected.is_empty());
+        assert_eq!(
+            eligibility
+                .findings
+                .iter()
+                .map(|finding| finding.code)
+                .collect::<Vec<_>>(),
+            expected,
+            "current owner {owner}, recorded approver {approver}",
+        );
+        if !expected.is_empty() {
+            assert_eq!(eligibility.findings.last().unwrap().path, "/approval");
+        }
+        assert_eq!(document, original);
+    }
 }
 
 #[test]

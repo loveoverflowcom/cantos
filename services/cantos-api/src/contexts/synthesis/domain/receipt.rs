@@ -5,13 +5,13 @@ use super::attempt::{
     plan_recovery, AttemptFacts, DeliveryState, FailureClass, ProviderReferenceFacts,
     ReconciliationCapabilities, RecoveryPlan,
 };
-use crate::contexts::production::catalog::{
+use crate::contexts::production::domain::catalog::{
     google as google_contract, local as local_contract, neural as neural_contract,
 };
-use crate::contexts::production::{
+use crate::contexts::production::domain::{
     admit_frozen_document, MAX_MONEY_MINOR, MAX_PRODUCTION_DOCUMENT_BYTES,
 };
-use crate::contexts::synthesis::media::audio::{
+use crate::contexts::synthesis::domain::audio::{
     inspect_output_for_profile, AudioError, InspectedTtsAudio, OutputProfile,
 };
 
