@@ -743,7 +743,16 @@ async fn brief_read_baseline_uses_actual_authorized_export_and_indexed_pins() {
         );
         samples.push(start.elapsed().as_secs_f64() * 1000.);
     }
-    let plan:Vec<String>=h.admin.query("EXPLAIN (ANALYZE,BUFFERS) SELECT * FROM production_briefs WHERE unit_id=$1 AND version=$2",&[&unit,&30_i64]).await.unwrap().iter().map(|row|row.get(0)).collect();
+    let mut app_config = h.config.clone();
+    app_config.user("cantos_app");
+    let app = connect(&app_config).await;
+    let role: String = app
+        .query_one("SELECT current_user", &[])
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(role, "cantos_app");
+    let plan:Vec<String>=app.query("EXPLAIN (ANALYZE,BUFFERS) SELECT * FROM production_briefs WHERE unit_id=$1 AND version=$2",&[&unit,&30_i64]).await.unwrap().iter().map(|row|row.get(0)).collect();
     fs::create_dir_all(EVIDENCE).unwrap();
-    fs::write(format!("{EVIDENCE}/brief-read-baseline.json"),serde_json::to_vec_pretty(&json!({"versions":30,"samples":20,"warm_export_ms":samples,"write_total_ms":write_ms,"pinned_plan":plan,"scope":"Synthetic warm local Router/application/app-role PostgreSQL; no production SLO or DBSP gain claimed"})).unwrap()).unwrap();
+    fs::write(format!("{EVIDENCE}/brief-read-baseline.json"),serde_json::to_vec_pretty(&json!({"role":role,"versions":30,"samples":20,"warm_export_ms":samples,"write_total_ms":write_ms,"pinned_plan":plan,"scope":"Synthetic warm local Router/application/app-role PostgreSQL; no production SLO or DBSP gain claimed"})).unwrap()).unwrap();
 }

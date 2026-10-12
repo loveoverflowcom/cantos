@@ -242,6 +242,18 @@ fn required_controls_fail_explicitly_instead_of_silent_fallback() {
 }
 #[test]
 fn every_instruction_input_changes_the_digest_and_nfc_is_stable() {
+    let mut windows = guidance(false);
+    windows.editorial.notes = "Người kể\r\nKhẽ thôi.\rĐọc chậm.".into();
+    assert_eq!(
+        Guidance::admit(windows).unwrap().as_raw().editorial.notes,
+        "Người kể\nKhẽ thôi.\nĐọc chậm."
+    );
+    let mut hostile = guidance(false);
+    hostile.editorial.notes = "Không đọc\u{0007}".into();
+    assert_eq!(
+        Guidance::admit(hostile).unwrap_err(),
+        BriefError::InvalidGuidance
+    );
     let base = brief();
     let mut nfd = document(false);
     nfd.guidance.editorial.notes = "Đọc rõ, giữ hơi thở tự nhiên.".into();
