@@ -1,4 +1,5 @@
 //! Studio owner management and separately authenticated one-submission upload capabilities.
+use super::StudioPath as AudioPath;
 use super::{
     audio_intake::limit_upload,
     catalog::{json_only, CatalogBody},
@@ -7,7 +8,7 @@ use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::{Store, StoreError};
 use axum::{
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, State},
     http::{header, HeaderMap, StatusCode},
     middleware,
     response::{IntoResponse, Response},
@@ -15,21 +16,6 @@ use axum::{
     Json, Router,
 };
 use cantos_contracts as dto;
-struct AudioPath<T>(T);
-impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send> axum::extract::FromRequestParts<S>
-    for AudioPath<T>
-{
-    type Rejection = Response;
-    async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
-        state: &S,
-    ) -> Result<Self, Response> {
-        Path::<T>::from_request_parts(parts, state)
-            .await
-            .map(|Path(value)| Self(value))
-            .map_err(|_| error_response(StoreError::InvalidRequest))
-    }
-}
 async fn method_rejected() -> Response {
     failure(
         dto::ErrorCode::InvalidRequest,

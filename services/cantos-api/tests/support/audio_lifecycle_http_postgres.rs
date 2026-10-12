@@ -310,6 +310,14 @@ async fn audio_wrong_owner_scope_digest_unknown_profile_and_stale_brief_make_no_
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(error["code"], "invalid_request");
     schema("ApiError", &error);
+    a.h.json(
+        "GET",
+        &format!("/scripts/%FF/audio-intents/{}", operation()),
+        Some(ALICE),
+        None,
+    )
+    .await
+    .error(StatusCode::BAD_REQUEST, "invalid_request");
     a.prepare(req.clone()).await;
     let before = a.counts().await;
     upload(a.h.app.clone(), id, ALICE, bytes.clone())

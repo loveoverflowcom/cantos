@@ -304,3 +304,20 @@ async fn source(
         Err(error) => error_response(error),
     }
 }
+
+/// Shared Studio transport boundary: malformed route parameters use ApiError JSON.
+pub(super) struct StudioPath<T>(pub(super) T);
+impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send> axum::extract::FromRequestParts<S>
+    for StudioPath<T>
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Response> {
+        Path::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Path(value)| Self(value))
+            .map_err(|_| error_response(StoreError::InvalidRequest))
+    }
+}

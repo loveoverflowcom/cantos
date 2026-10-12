@@ -1,7 +1,8 @@
 //! Current Studio owner-session intake only. External producers never receive or reuse cookies.
+use super::StudioPath as AudioPath;
 use axum::{
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, Request, State},
+    extract::{DefaultBodyLimit, Request, State},
     http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -44,7 +45,7 @@ pub(super) async fn limit_upload(request: Request, next: Next) -> Response {
 
 async fn prepare(
     State(state): State<AppState>,
-    Path(script): Path<String>,
+    AudioPath(script): AudioPath<String>,
     headers: HeaderMap,
     body: Result<Json<CreateAudioIntentRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
@@ -71,7 +72,7 @@ async fn prepare(
 
 async fn status(
     State(state): State<AppState>,
-    Path((script, intent)): Path<(String, String)>,
+    AudioPath((script, intent)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
     let token = match cookie_token(&headers) {
@@ -90,7 +91,7 @@ async fn status(
 
 async fn upload(
     State(state): State<AppState>,
-    Path((script, intent)): Path<(String, String)>,
+    AudioPath((script, intent)): AudioPath<(String, String)>,
     headers: HeaderMap,
     body: Result<Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {
