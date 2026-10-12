@@ -70,19 +70,28 @@ pub fn cmp_command(workspace: &Workspace, task: &str) -> CommandSpec {
         task,
     ];
     if task == "run" {
+        // Gradle 8.14.3's launcher supplies -Xms64m, which is an immutable matching input.
+        // The project specifies no minimum heap, so set the same run-local options on both
+        // the launcher and the requested build JVM instead of accepting a detached fallback.
+        const RUN_JVM_ARGS: &str = "-Xms64m -Xmx2g -Dfile.encoding=UTF-8";
+        let launch_script = format!(
+            "export JAVA_OPTS=\"{RUN_JVM_ARGS} -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\""
+        );
         // A fixed POSIX shell program supplies its own PID, then execs Gradle. Task options
         // remain distinct argv values; no user string is interpolated into shell source.
         CommandSpec::new("/bin/sh", workspace.root())
-            .args([
-                "-c",
-                "export JAVA_OPTS=\"-Xmx2g -Dfile.encoding=UTF-8 -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\"",
-                "cantos-cmp-preview",
-            ])
+            .args(["-c", &launch_script, "cantos-cmp-preview"])
             .args(args)
+            .args([format!("-Dorg.gradle.jvmargs={RUN_JVM_ARGS}")])
             // The pinned distribution's launcher already loads this agent. Match its status;
             // disabling the requested agent would itself require a separate build JVM.
-            .env("GRADLE_OPTS", "-Dorg.gradle.internal.instrumentation.agent=true")
+            .env(
+                "GRADLE_OPTS",
+                "-Dorg.gradle.internal.instrumentation.agent=true",
+            )
             .args([
+                "--max-workers",
+                "2",
                 "-Pkotlin.compiler.execution.strategy=in-process",
                 // A cached configuration must not skip the current-launcher guard.
                 "--no-configuration-cache",
@@ -333,13 +342,16 @@ mod tests {
             run.args,
             [
                 "-c",
-                "export JAVA_OPTS=\"-Xmx2g -Dfile.encoding=UTF-8 -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\"",
+                "export JAVA_OPTS=\"-Xms64m -Xmx2g -Dfile.encoding=UTF-8 -Dcantos.ui.preview.launcherPid=$$\"; exec gradle \"$@\"",
                 "cantos-cmp-preview",
                 "--project-dir",
                 UI_CMP_DIR,
                 "--no-daemon",
                 "-Dorg.gradle.java.installations.auto-download=false",
                 "run",
+                "-Dorg.gradle.jvmargs=-Xms64m -Xmx2g -Dfile.encoding=UTF-8",
+                "--max-workers",
+                "2",
                 "-Pkotlin.compiler.execution.strategy=in-process",
                 "--no-configuration-cache",
             ]
