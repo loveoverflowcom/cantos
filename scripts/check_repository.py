@@ -74,7 +74,7 @@ CONTEXT_UPSTREAM = {
     "adaptation": {"editorial", "ingestion"},
     "production": {"editorial", "catalog", "ingestion"},
     "catalog": {"editorial", "ingestion"},
-    "media": set(),
+    "media": {"editorial"},
 }
 DOMAIN_EXTERNAL = {
     "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
@@ -97,6 +97,7 @@ TABLE_OWNER = {
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
     "speech_clips": "synthesis",
+    "audio_upload_intents": "media", "audio_intake_receipts": "media",
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")

@@ -4,6 +4,15 @@
 > The former `020 — Cast and generate dialogue durably` design was superseded. Cantos
 > does not run TTS, retry provider calls or bill synthesis.
 
+## Current narrow implementation
+
+[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
+script-revision-bound private development intake with four explicit Opus profiles, verified
+bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
+is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or
+QC/release/storage-delivery acceptance criteria below. Production S3, scoped producer grants,
+rights/listening review, publication and reference-aware orphan retention remain separate work.
+
 ## Why
 
 Novels, stories and podcasts should be published from externally generated **or recorded**

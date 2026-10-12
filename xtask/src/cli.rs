@@ -148,7 +148,7 @@ pub enum VerifySuite {
     Rust,
     /// WASM clippy and Trunk builds for Studio and Theatre Web.
     Web,
-    /// Script IR goldens, wire/Script IR/WAV contract tests and the WAV oracle.
+    /// Script IR goldens, wire/media contract tests, WAV oracle and actual Opus intake inspection.
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,

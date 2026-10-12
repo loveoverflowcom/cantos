@@ -25,6 +25,12 @@ or in-backend mixing should remain.
   instructions, exact source/Script exports, explicit Opus profiles, current stale comparison
   and independently scoped expiring/revocable read grants. [Evidence](../../docs/evidence/production-brief.md).
 - Read-only, bounded RIFF/WAV PCM inspection under `contexts/media/domain/wav_inspection`.
+- Development-only, script-owner Studio audio intent/byte/status endpoints: exact revision,
+  content digest and explicit Opus profile; actual bounded inspection; private immutable
+  filesystem objects; immutable PostgreSQL receipts and exact replay/conflict behavior.
+  [Scope and contract](../../packages/contracts/studio-audio-intake-v1.md),
+  [ADR 0020](../../docs/decisions/0020-studio-private-audio-intake.md). Required Rust and
+  disposable-PostgreSQL execution is **NOT_RUN** in this implementation environment.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
@@ -47,7 +53,8 @@ src/
     ingestion/              # import and source preservation
     adaptation/             # external proposal acceptance
     production/             # planning-only guidance and rights
-    media/domain/wav_inspection/ # pure byte inspection
+    media/                  # private development intake/application/storage/inspection
+      domain/               # pure profile/binding rules and WAV inspection
   interfaces/http/          # Studio, reserved Theatre/Admin surfaces
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
@@ -71,6 +78,24 @@ in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 and UPDATE(revision_id,revision) on heads. Brief grants add SELECT/INSERT on `production_briefs`, `production_brief_heads`,
 `production_producer_grants`, `production_producer_revocations` and UPDATE(brief_id,version)
 on Brief heads only. Deployment role provisioning remains separate.
+
+## Development audio storage
+
+Intake writes require an explicit absolute `CANTOS_AUDIO_ROOT`. The Unix adapter creates only
+its final root directory and `objects` child; existing directories must be owned by the process
+user and mode 0700. An intake-enabled API host disables all same-process static serving,
+including nested public symlinks; `CANTOS_WEB_DIST` is unused for delivery in that mode.
+Serve Studio separately through its existing Trunk proxy and set the matching
+`CANTOS_WEB_ORIGIN` (normally `http://127.0.0.1:8081`). Keep that public host's tree and links
+away from private objects. Unconfigured hosts retain existing editorial/static behavior but
+fail audio writes closed.
+
+Stored keys are SHA-256-derived, immutable and absent from wire responses. Files remain private
+and read-only; every accepted receipt read checks stored integrity. Objects are synchronized
+before metadata acceptance, but filesystem/SQL are not one transaction. Crash/rollback may
+leave private orphans; no request deletes a shared object. Reference-aware cleanup, retention,
+production isolation and S3/CDN integration are deferred. No producer should receive a Studio
+cookie and no uploaded object becomes a release.
 
 ## Local verification
 

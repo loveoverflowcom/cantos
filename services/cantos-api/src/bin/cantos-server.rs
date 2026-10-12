@@ -18,12 +18,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config =
         local_config(&env::var("DATABASE_URL")?).map_err(|_| "invalid local PostgreSQL config")?;
     // Caller-owned generation enters through authenticated context/submission tools.
-    let store = Store::new(config).map_err(|_| "database pool unavailable")?;
+    let mut store = Store::new(config).map_err(|_| "database pool unavailable")?;
+    if let Some(root) = env::var_os("CANTOS_AUDIO_ROOT") {
+        store = store
+            .with_audio_storage(std::path::Path::new(&root))
+            .map_err(|_| "invalid private development audio storage root")?;
+    }
+    let dist = env::var("CANTOS_WEB_DIST").unwrap_or_else(|_| "apps/cantos-studio/web/dist".into());
+    if store.audio_storage_is_enabled() {
+        eprintln!("Private audio intake enabled: API-only host; serve Studio separately through its Trunk proxy");
+    }
     let state = AppState {
         store,
         web_origin: env::var("CANTOS_WEB_ORIGIN").unwrap_or_else(|_| format!("http://{address}")),
     };
-    let dist = env::var("CANTOS_WEB_DIST").unwrap_or_else(|_| "apps/cantos-studio/web/dist".into());
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");
     axum::serve(listener, router(state, &dist))

@@ -20,7 +20,7 @@ pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
     /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
-    /// DBSP feature, and the WAV oracle.
+    /// DBSP feature, the WAV oracle and actual read-only Opus intake inspection.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
@@ -40,6 +40,7 @@ impl CiJob {
                 Gate::RustTests(Scope::Workspace),
                 Gate::Dbsp,
                 Gate::WavReference,
+                Gate::AudioInspection,
             ],
             CiJob::Web => vec![
                 Gate::WebLint(App::ALL.into_iter().collect()),
@@ -138,6 +139,14 @@ mod tests {
             names(&[CiJob::Repository]),
             ["repository", "script-ir-reference"]
         );
+    }
+
+    #[test]
+    fn the_rust_job_runs_actual_media_inspection_separately_from_ordinary_ignored_tests() {
+        assert!(CiJob::Rust.gates().contains(&Gate::AudioInspection));
+        assert!(!CiJob::Repository.gates().contains(&Gate::AudioInspection));
+        assert!(!CiJob::Web.gates().contains(&Gate::AudioInspection));
+        assert!(!CiJob::Postgres.gates().contains(&Gate::AudioInspection));
     }
 
     #[test]

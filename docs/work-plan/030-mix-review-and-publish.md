@@ -4,6 +4,15 @@
 > Cantos stores and verifies completed audio. Mix, resampling, mastering and encoding
 > happen **outside Cantos** in AI plugins, producer tools or human production software.
 
+## Current narrow implementation
+
+[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
+script-revision-bound private development intake with four explicit Opus profiles, verified
+bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
+is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or
+QC/release/storage-delivery acceptance criteria below. Production S3, scoped producer grants,
+rights/listening review, publication and reference-aware orphan retention remain separate work.
+
 ## Why
 
 Theatre needs an immutable playable release. Studio must let a creator inspect a submitted
