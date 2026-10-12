@@ -6,6 +6,9 @@ under [ADR0018](../decisions/0018-external-audio-production.md). Source base is 
 [PR71](https://github.com/loveoverflowcom/cantos/pull/71). This record separates implementation
 handoff from production identity, rights, audio quality and publication acceptance.
 
+The [independent assurance review](production-brief-review.md) records resolved findings,
+coverage and the final no-actionable-findings assessment by a separate read-only agent.
+
 ## Invariants and evidence
 
 | Claim / boundary | Cheapest oracle and evidence level |
@@ -28,7 +31,9 @@ is claimed. The producer capability list and rights remain caller declarations.
 ## Read inventory and fit decision
 
 New owner read and producer export fetch one immutable Brief by `(unit_id,version)` through
-`production_briefs_unit_id_version_key`, with current Catalog owner/head/lifecycle checks.
+the unique `(unit_id,version)` constraint, with current Catalog owner/head/lifecycle checks.
+The artifact records the actual planner choice among eligible indexes, rather than asserting
+a fixed index name.
 Creation writes Brief+head; grant issuance/revocation writes immutable rows under the same
 clock fence. There is no paginated aggregate or independent derived projection to maintain.
 Indexed PostgreSQL is the smaller correct implementation; DBSP is rejected for this read shape.
@@ -42,9 +47,34 @@ Current grants/revocation and owner changes remain authoritative; no cache bypas
 
 ## Verification provenance
 
-Rust1.87.0, PostgreSQL17, disposable xtask-created cluster, synthetic Vietnamese inputs.
-Initial focused domain run:8 tests PASS. Real HTTP target:22 tests PASS before adding the
-restart fixture; the final gate reruns the complete stable snapshot. Final suite summaries, review scope and SHA will be recorded before merge. GitHub CI is not inspected or awaited.
+Rust1.87.0 (`17067e9ac`), PostgreSQL17.4 (Homebrew), disposable xtask-created cluster,
+synthetic Vietnamese inputs. Final implementation/review-fix HEAD
+`0ec39a12496f1178c0a4e9606585d73012ee6047`, tree
+`d7a6ef27fb8b23dd00862ffdfee043529b0c9ac2`. Later evidence-only edits do not change executable
+inputs. All commands ran from the isolated `/tmp/cantos-production-brief` worktree with
+`RUSTUP_TOOLCHAIN=1.87.0 TMPDIR=/private/tmp RUST_TEST_THREADS=1`.
+
+| Command | Printed gate outcome / evidence |
+| --- | --- |
+| `cargo xtask verify repository` | PASS repository;218 Python tests plus boundaries/links/whitespace |
+| `cargo xtask verify rust` | PASS rust-format, workspace rust-lint and workspace rust-tests; final source/test deltas also covered by preflights |
+| `cargo xtask verify contracts` | PASS script-ir-reference, contract-tests, wav-reference |
+| `cargo xtask verify postgres` | PASS postgres; subsequent final preflight reran the complete real cluster gate |
+| `cargo xtask preflight --changed-only` | PASS repository, rust-format, rust-lint/tests (API/contracts/Studio), dbsp, wav-reference, Studio web-lint/build, postgres; no skips |
+| `cargo xtask preflight --changed-only --base accba5ee5345edd91b7f4fa91d0ccdf804b6cbf5` | PASS repository, rust-format, API rust-lint/tests, dbsp, wav-reference, postgres for the final two test-only review fixes; unchanged executable/Web inputs retain the first preflight evidence |
+
+Final domain target:8 tests PASS, including independent Python literal digest, forged embedded
+Content, exact scope errors, CRLF/lone-CR normalization and control rejection. Final real HTTP
+PostgreSQL target:23 tests PASS plus its separate restart test. Its source negative cases reject
+legacy, failed and oversized receipts without a Brief/head. App-role baseline explicitly asserts
+and records `current_user=cantos_app`;20 warm exports across30 versions measured a13.1ms
+median in the captured run. This is a local synthetic observation, not a latency guarantee.
+
+Session logs: `/tmp/cantos-brief-{repository,rust,contracts,postgres,preflight,review-fixes}.log`.
+Ignored runtime artifacts: `target/revision-evidence/`, `target/catalog-evidence/`, including
+`brief-read-baseline.json`, `http-restart.json` and `http-crash-recovery.json`.
+GitHub CI is not inspected, polled, dispatched or awaited. Runtime UI/mobile, provider, object
+storage, audio measurement/listening and publication are NOT_RUN and outside this boundary.
 
 Early failed runs exposed and corrected: missing PostgreSQL parameter after composite FK,
 partial Content constructor comparison, old registry count11, semantic400/422 mapping,
