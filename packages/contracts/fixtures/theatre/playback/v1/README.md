@@ -54,12 +54,16 @@ is a UI suggestion only. `rejected` contains one closed reason: `no_session`, `i
 1. Selecting a different valid demo source allocates a new generation, paused user intent and
    preparing engine; effect `prepare_engine`. Selecting the same source again is a no-op that
    preserves position. Unknown/unavailable catalog keys must be refused at the catalog boundary.
-2. Play expresses intent and allocates a new generation with preparing engine; it emits
-   `start_engine`. A repeated Play while already requested/running/buffering emits nothing. A
-   matching `engine_started` confirms running; UI cannot infer it merely from the button press.
+2. An accepted Play expresses intent and allocates a new generation with preparing engine;
+   it emits `start_engine`. When intent is already `play` and the engine is not `ended`, repeated
+   Play is an equal-state, zero-effect no-op, even if a manual seek put position at duration.
+   A matching `engine_started` confirms running; UI cannot infer it merely from the button press.
 3. Pause allocates a new generation, user-paused intent/engine and a `pause_engine` effect. A
    repeated already-user-paused engine action is a no-op. Late started/ready callbacks cannot
-   undo pause. An explicit Play at the exact end restarts from zero; no other event restarts.
+   undo pause. An accepted new Play from pause intent or an observed ended engine resets position
+   to zero only when position is exactly duration. Seek alone preserves intent/engine and never
+   turns an already-play-intent request into a restart; Pause then Play, or a matching engine end
+   then Play, establishes a new start. Play during an active interruption still rejects.
 4. Seek rejects an absolute position beyond duration. Relative skip clamps to the bounds. Both
    preserve intent, allocate a generation and invalidate stale callbacks. During preparing they
    renew `prepare_engine` for pause intent or `start_engine` for play intent; on a confirmed engine
