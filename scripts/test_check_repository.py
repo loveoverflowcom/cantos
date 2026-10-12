@@ -364,6 +364,21 @@ use crate::contexts::editorial::domain::diagnostics::validation_issues;
 fn validate() { crate::script_ir::read_script(bytes); state.store.save(request); }
 """), [])
 
+    def test_catalog_http_allows_pure_wire_admission_and_typed_error_mapping(self):
+        self.assertEqual(self.errors("interfaces/http/studio/catalog.rs", """
+use crate::contexts::catalog::{wire as input, CatalogCommand, CatalogCursor, CatalogStoreError};
+use crate::contexts::catalog::domain::CatalogError;
+fn f() { input::create_work(request); CatalogCursor::decode(cursor); }
+fn error(e: CatalogStoreError) { match e { CatalogStoreError::Domain(CatalogError::WorkArchived) => {}, _ => {} } }
+"""), [])
+
+    def test_catalog_http_cannot_call_domain_transition_or_command_constructor(self):
+        for symbol in ("domain::Work::new", "domain::Work::archive", "CatalogCommand::ArchiveWork"):
+            with self.subTest(symbol=symbol):
+                self.assertRejected("interfaces/http/studio/catalog.rs",
+                    f"fn f() {{ crate::contexts::catalog::{symbol}(input); }}",
+                    "HTTP must delegate business decisions")
+
     def test_http_cannot_import_business_policy(self):
         self.assertRejected("interfaces/http/studio/production.rs", """
 use crate::contexts::production::{domain::assess_eligibility as assess};

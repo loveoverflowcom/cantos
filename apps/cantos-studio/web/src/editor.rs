@@ -453,10 +453,12 @@ pub fn error_status(code: &ErrorCode) -> Status {
         ErrorCode::Unauthenticated => Status::Unauthenticated,
         ErrorCode::NotFound => Status::NotFound,
         ErrorCode::Forbidden => Status::Forbidden,
-        ErrorCode::InvalidRequest => Status::InvalidRequest,
+        ErrorCode::InvalidRequest | ErrorCode::InvalidCatalog => Status::InvalidRequest,
         ErrorCode::InvalidScript => Status::InvalidScript,
         ErrorCode::EvidenceUnavailable => Status::EvidenceUnavailable,
-        ErrorCode::StaleRevision => Status::StaleRevision,
+        ErrorCode::StaleRevision | ErrorCode::CatalogConflict | ErrorCode::StaleCursor => {
+            Status::StaleRevision
+        }
         ErrorCode::OperationReused => Status::OperationReused,
         ErrorCode::ProposalAlreadySubmitted => Status::ProposalAlreadySubmitted,
         ErrorCode::Unavailable => Status::Unavailable,

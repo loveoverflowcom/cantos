@@ -1,0 +1,143 @@
+[
+  {
+    "fixture": "create-novel.json",
+    "type": "CreateWorkRequest",
+    "valid": true
+  },
+  {
+    "fixture": "create-story.json",
+    "type": "CreateWorkRequest",
+    "valid": true
+  },
+  {
+    "fixture": "create-podcast.json",
+    "type": "CreateWorkRequest",
+    "valid": true
+  },
+  {
+    "fixture": "patch-work.json",
+    "type": "PatchWorkRequest",
+    "valid": true
+  },
+  {
+    "fixture": "archive-work.json",
+    "type": "ArchiveWorkRequest",
+    "valid": true
+  },
+  {
+    "fixture": "create-chapter.json",
+    "type": "CreateContentUnitRequest",
+    "valid": true
+  },
+  {
+    "fixture": "create-episode.json",
+    "type": "CreateContentUnitRequest",
+    "valid": true
+  },
+  {
+    "fixture": "create-linked-chapter.json",
+    "type": "CreateContentUnitRequest",
+    "valid": true
+  },
+  {
+    "fixture": "patch-unit.json",
+    "type": "PatchContentUnitRequest",
+    "valid": true
+  },
+  {
+    "fixture": "archive-unit.json",
+    "type": "ArchiveContentUnitRequest",
+    "valid": true
+  },
+  {
+    "fixture": "reorder.json",
+    "type": "ReorderContentUnitsRequest",
+    "valid": true
+  },
+  {
+    "fixture": "work.json",
+    "type": "CatalogWork",
+    "valid": true
+  },
+  {
+    "fixture": "unit.json",
+    "type": "CatalogContentUnit",
+    "valid": true
+  },
+  {
+    "fixture": "mutation.json",
+    "type": "CatalogMutationResponse",
+    "valid": true
+  },
+  {
+    "fixture": "work-page.json",
+    "type": "CatalogWorkPage",
+    "valid": true
+  },
+  {
+    "fixture": "unit-page.json",
+    "type": "CatalogContentUnitPage",
+    "valid": true
+  },
+  {
+    "fixture": "history-page.json",
+    "type": "CatalogWorkPage",
+    "valid": true
+  },
+  {
+    "fixture": "invalid-catalog.json",
+    "type": "ApiError",
+    "valid": true
+  },
+  {
+    "fixture": "catalog-conflict.json",
+    "type": "ApiError",
+    "valid": true
+  },
+  {
+    "fixture": "stale-cursor.json",
+    "type": "ApiError",
+    "valid": true
+  },
+  {
+    "fixture": "reject-owner.json",
+    "type": "CreateWorkRequest",
+    "valid": false,
+    "rejection_layer": "shape"
+  },
+  {
+    "fixture": "reject-work-patch-null.json",
+    "type": "PatchWorkRequest",
+    "valid": false,
+    "rejection_layer": "semantic"
+  },
+  {
+    "fixture": "reject-work-patch-empty.json",
+    "type": "PatchWorkRequest",
+    "valid": false,
+    "rejection_layer": "semantic"
+  },
+  {
+    "fixture": "reject-unit-patch-null.json",
+    "type": "PatchContentUnitRequest",
+    "valid": false,
+    "rejection_layer": "semantic"
+  },
+  {
+    "fixture": "reject-kind.json",
+    "type": "CreateWorkRequest",
+    "valid": false,
+    "rejection_layer": "semantic"
+  },
+  {
+    "fixture": "reject-reorder-duplicate.json",
+    "type": "ReorderContentUnitsRequest",
+    "valid": false,
+    "rejection_layer": "semantic"
+  },
+  {
+    "fixture": "work-page-with-cursor.json",
+    "type": "CatalogWorkPage",
+    "valid": true
+  }
+]

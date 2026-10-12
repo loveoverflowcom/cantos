@@ -82,3 +82,30 @@ fn draft_validation_request_schema_refuses_extra_authority_fields_and_invalid_ty
         assert!(!validator.is_valid(&invalid), "{invalid}");
     }
 }
+
+#[test]
+fn catalog_literal_acceptance_and_rejection_fixtures_match_the_schema() {
+    let document: Value = serde_json::from_str(include_str!(
+        "../../../packages/contracts/schema/catalog/v1.schema.json"
+    ))
+    .unwrap();
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../packages/contracts/fixtures/catalog/v1/cases.json"
+    ))
+    .unwrap();
+    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packages/contracts/fixtures/catalog/v1");
+    for case in cases {
+        let name = case["type"].as_str().unwrap();
+        let schema = json!({"$ref":format!("#/$defs/{name}"),"$defs":document["$defs"]});
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        let bytes = std::fs::read(directory.join(case["fixture"].as_str().unwrap())).unwrap();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            validator.is_valid(&value),
+            case["valid"].as_bool().unwrap(),
+            "{}",
+            case["fixture"]
+        );
+    }
+}

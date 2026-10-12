@@ -117,6 +117,16 @@ impl Work {
     /// appends this snapshot atomically with child snapshots, giving list cursors one guard.
     pub fn touch(&self, expected: u64, at: i64) -> Result<Self, CatalogError> {
         self.require_draft()?;
+        self.advance_revision(expected, at)
+    }
+
+    /// Archival retains private history, so owners must still be able to revoke access.
+    /// The application owns authorization; this transition changes only the guard/time.
+    pub fn with_permission_change(&self, expected: u64, at: i64) -> Result<Self, CatalogError> {
+        self.advance_revision(expected, at)
+    }
+
+    fn advance_revision(&self, expected: u64, at: i64) -> Result<Self, CatalogError> {
         let revision = next_revision(self.revision, expected, self.updated_at, at)?;
         Ok(Self {
             revision,

@@ -1,8 +1,8 @@
 use super::{
     plan_reorder, CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, IdKind, Lifecycle,
-    NewContentUnit, NewWork, OwnerId, ScriptRef, SourceRef, StoredContentUnit, StoredWork,
-    UnitDetails, Visibility, Work, WorkDetails, WorkId, WorkKind, DESCRIPTION_MAX_BYTES,
-    MAX_RIGHTS_REFS, TITLE_MAX_BYTES,
+    LinkPatch, NewContentUnit, NewWork, OwnerId, ScriptRef, SourceRef, StoredContentUnit,
+    StoredWork, UnitDetails, UnitPatch, Visibility, Work, WorkDetails, WorkId, WorkKind, WorkPatch,
+    DESCRIPTION_MAX_BYTES, MAX_RIGHTS_REFS, TITLE_MAX_BYTES,
 };
 
 const WORK_ID: &str = "10000000-0000-4000-8000-000000000001";
@@ -349,6 +349,124 @@ fn work_edits_return_new_snapshots_with_stable_identity_and_exact_old_metadata()
     assert_eq!(edited.revision(), 2);
     assert_eq!(edited.details(), &details);
     assert_eq!(serde_json::to_vec(&original).unwrap(), original_bytes);
+}
+
+#[test]
+fn work_patch_retains_omitted_fields_and_validates_the_resulting_snapshot() {
+    let original = work(WorkKind::Story);
+    let before = original.clone();
+    let patch = WorkPatch {
+        title: Some("Những ngày còn nhớ".into()),
+        rights_refs: Some(Vec::new()),
+        ..WorkPatch::default()
+    };
+    let edited = original
+        .edit(1, patch.apply(original.details()), 2_000)
+        .unwrap();
+    assert_eq!(edited.details().title, "Những ngày còn nhớ");
+    assert_eq!(edited.details().synopsis, original.details().synopsis);
+    assert_eq!(edited.details().language, original.details().language);
+    assert_eq!(edited.details().visibility, original.details().visibility);
+    assert!(edited.details().rights_refs.is_empty());
+    assert_eq!(original, before);
+    let invalid = WorkPatch {
+        title: Some(" ".into()),
+        ..WorkPatch::default()
+    };
+    assert_eq!(
+        original.edit(1, invalid.apply(original.details()), 2_000),
+        Err(CatalogError::BlankField { field: "title" })
+    );
+}
+
+#[test]
+fn unit_patch_keeps_pinned_links_until_an_explicit_set_or_clear() {
+    let source = SourceRef::new("source-vi".into(), SHA256.into()).unwrap();
+    let script = ScriptRef::new(SCRIPT_ID.into(), 9, format!("sir-e1:sha256:{SHA256}")).unwrap();
+    let original = UnitDetails {
+        source: Some(source.clone()),
+        script: Some(script.clone()),
+        content_digest: Some(format!("sir-c1:sha256:{SHA256}")),
+        ..unit_details()
+    };
+    let before = original.clone();
+    let kept = UnitPatch {
+        title: Some("Chương hai".into()),
+        ..UnitPatch::default()
+    }
+    .apply(&original);
+    assert_eq!(kept.title, "Chương hai");
+    assert_eq!(kept.description, original.description);
+    assert_eq!(kept.source, Some(source.clone()));
+    assert_eq!(kept.script, Some(script.clone()));
+    assert_eq!(kept.content_digest, original.content_digest);
+    let cleared = UnitPatch {
+        source: LinkPatch::Clear,
+        script: LinkPatch::Clear,
+        content_digest: LinkPatch::Clear,
+        ..UnitPatch::default()
+    }
+    .apply(&kept);
+    assert_eq!(cleared.source, None);
+    assert_eq!(cleared.script, None);
+    assert_eq!(cleared.content_digest, None);
+    let set = UnitPatch {
+        source: LinkPatch::Set(source),
+        script: LinkPatch::Set(script),
+        content_digest: LinkPatch::Set(format!("sir-c1:sha256:{SHA256}")),
+        ..UnitPatch::default()
+    }
+    .apply(&cleared);
+    assert_eq!(set.source, original.source);
+    assert_eq!(set.script, original.script);
+    assert_eq!(set.content_digest, original.content_digest);
+    assert_eq!(original, before);
+}
+
+#[test]
+fn optional_link_patch_serialization_distinguishes_keep_set_and_clear() {
+    let states = [
+        LinkPatch::Keep,
+        LinkPatch::Set(SHA256.to_owned()),
+        LinkPatch::Clear,
+    ];
+    let bytes: Vec<_> = states
+        .iter()
+        .map(|state| serde_json::to_vec(state).unwrap())
+        .collect();
+    assert_eq!(
+        bytes,
+        vec![
+            br#"{"action":"keep"}"#.to_vec(),
+            format!(r#"{{"action":"set","value":"{SHA256}"}}"#).into_bytes(),
+            br#"{"action":"clear"}"#.to_vec(),
+        ]
+    );
+}
+
+#[test]
+fn archived_work_permission_revision_retains_its_lifecycle_and_metadata() {
+    let archived = work(WorkKind::Story).archive(1, 2_000).unwrap();
+    let original = archived.clone();
+    let changed = archived.with_permission_change(2, 3_000).unwrap();
+    assert_eq!(changed.revision(), 3);
+    assert_eq!(changed.lifecycle(), Lifecycle::Archived);
+    assert_eq!(changed.details(), archived.details());
+    assert_eq!(changed.id(), archived.id());
+    assert_eq!(changed.owner_id(), archived.owner_id());
+    assert_eq!(changed.created_at(), archived.created_at());
+    assert_eq!(archived, original);
+    assert_eq!(
+        archived.with_permission_change(1, 3_000),
+        Err(CatalogError::RevisionConflict {
+            current_revision: 2,
+            expected_revision: 1,
+        })
+    );
+    assert_eq!(
+        archived.edit(2, archived.details().clone(), 3_000),
+        Err(CatalogError::WorkArchived)
+    );
 }
 
 #[test]

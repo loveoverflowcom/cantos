@@ -1,0 +1,13 @@
+{
+  "operation_id": "30000000-0000-4000-8000-000000000001",
+  "id": "20000000-0000-4000-8000-000000000001",
+  "kind": "chapter",
+  "expected_work_revision": 1,
+  "details": {
+    "title": "Chương một — Bến cũ",
+    "description": "Mưa khẽ rơi trên bến sông.",
+    "source": null,
+    "script": null,
+    "content_digest": null
+  }
+}

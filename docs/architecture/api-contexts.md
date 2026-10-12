@@ -32,13 +32,14 @@ enforces the allowed context edges.
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web editorial/import/adaptation/production planning | Partially implemented |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/production planning | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Proposed Studio audio handoff | Scoped external producer plugin | **Not implemented** |
 
-The catalog foundation has internal domain, application and PostgreSQL modules. Its Studio HTTP
-contracts and routes are pending; it exposes no catalog routes on any API surface yet.
+Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
+adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
+defines work/content-unit mutations, deterministic pages and immutable Work history.
 
 The legacy alias `/api/v1/*` points to the same Studio handlers; avoid adding a new route
 to both spaces by duplicating code. New handler contracts belong in `packages/contracts/api`
@@ -50,7 +51,7 @@ only when implemented. Do not invent implemented route claims from proposal docu
 - `ingestion`: original manuscript bytes and extraction receipts.
 - `adaptation`: caller-owned proposal/acceptance, no model inference.
 - `catalog`: work/content-unit identities, metadata, authorization and immutable revisions through
-  internal application use cases and PostgreSQL persistence; Studio HTTP delivery is pending.
+  application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
 - `production`: purely declarative settings/rights/casting, immutable snapshots and approvals.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
 - `media`: structural WAV byte inspection, soon to own admission rules for externally
@@ -58,7 +59,7 @@ only when implemented. Do not invent implemented route claims from proposal docu
 
 ## Next contexts
 
-Complete Studio catalog HTTP delivery separately from the internal foundation. Implement `media`
+Implement Studio catalog Web acceptance against the real API separately. Implement `media`
 admission (upload intent, digest/metadata check, private object reference, review), `publication`
 (approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,

@@ -19,18 +19,18 @@
 5. **Theatre Web/CMP:** discovery, streaming, background controls, offline downloads and
    synchronized playback progress based only on released media.
 
-The next concrete catalog step is [the Studio Catalog API continuation](011-studio-catalog-api.md):
-complete HTTP/DTO/contracts on the foundation branch and draft PR, then its separate Studio Web
-acceptance. Internal domain/application/PostgreSQL evidence lives in
-[the session 1 record](../evidence/studio-catalog-foundation.md). Keep #66 open until its owning
-acceptance criteria are complete; neither this queue nor the foundation is a complete API.
+The next Catalog acceptance is the [Studio Web slice](011-studio-catalog-api.md) using the
+implemented [Catalog JSON API](../../packages/contracts/catalog-v1.md). The internal foundation
+and HTTP evidence are recorded separately in [session 1](../evidence/studio-catalog-foundation.md)
+and [session 2](../evidence/studio-catalog-api.md). Keep #66 open for responsive and keyboard
+Studio Web acceptance; GitHub owns execution status.
 
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
-MessagePack-capable editorial routes, tests and `cargo xtask`. These are *not* work catalog
-or audio ingestion APIs. Prior worker/Google/eSpeak/VieNeu samples and DBSP job views are
+MessagePack-capable editorial routes, tests and `cargo xtask`. The earlier editorial endpoints
+are separate from the implemented Catalog API and proposed audio ingestion APIs. Prior worker/Google/eSpeak/VieNeu samples and DBSP job views are
 historical experiments, not prerequisites for the new roadmap.
 
 ## Canonical work plans

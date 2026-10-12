@@ -1,17 +1,17 @@
-# Studio Catalog API continuation — #66
+# Studio Catalog API and remaining Web acceptance — #66
 
 ## Outcome and review boundary
 
 Deliver the complete authenticated Studio catalog HTTP API on the same
 `feat/studio-catalog-api` branch and draft PR as the internal foundation. The internal
 Catalog domain, transactional application commands/queries and additive migration are
-implemented in session 1. HTTP routes, shared DTOs, schemas/fixtures and HTTP evidence
-remain the session 2 boundary. GitHub [#66](https://github.com/loveoverflowcom/cantos/issues/66)
+implemented in session 1. Session 2 implements [JSON routes and shared contracts](../../packages/contracts/catalog-v1.md),
+with [separate HTTP evidence](../evidence/studio-catalog-api.md). GitHub [#66](https://github.com/loveoverflowcom/cantos/issues/66)
 owns execution and acceptance status; its Studio Web criteria remain outside this backend PR.
 
 ## Why and decisions from inspected code
 
-The current Studio stores immutable Script IR revisions and original sources but has no
+The current Studio stores immutable Script IR revisions and original sources but now also has a
 Work/ContentUnit hierarchy. Use the existing `Store`, development Studio session and
 owner-scoped editorial/ingestion entrypoints; create no authentication framework, provider,
 repository trait or replacement source store. Preserve ADR 0018 and surface boundaries.
@@ -24,7 +24,7 @@ single-story episode mapping needs a deliberate compatibility decision rather th
 listener route, publication or release. Lifecycle is `draft | archived`; archive retains all
 snapshots and unit positions. Restoring exists in the pure domain but has no application command.
 
-## Concrete internal API for session 2
+## Implemented application boundary
 
 Public exports are `cantos_api::contexts::catalog::{CatalogCommand, CatalogOutcome,
 CatalogStoreError, MemberRole, CatalogCursor, CatalogPage}` and `catalog::domain::*`.
@@ -36,7 +36,7 @@ Application and PostgreSQL modules stay private. Existing `Store` methods are:
 - `catalog_units(token, &WorkId, limit, include_archived, cursor)`.
 - `catalog_work_history(token, &WorkId, limit, cursor)`.
 
-Commands: `CreateWork`, `EditWork`, `ArchiveWork`, `CreateUnit`, `EditUnit`, `ArchiveUnit`,
+Commands: `CreateWork`, `EditWork`, `PatchWork`, `ArchiveWork`, `CreateUnit`, `EditUnit`, `PatchUnit`, `ArchiveUnit`,
 `Reorder`, `SetMember`. Owner always comes from authentication. Work edits carry expected
 Work revision; child edits/archive carry both expected Work and unit revisions. Every child
 or membership mutation appends a Work revision. Reorder returns the new Work with empty
@@ -60,8 +60,9 @@ outcome; changed payload conflicts. Transactions serialize on the initial catalo
 current actor/member facts, append snapshots and receipt, bump epoch and commit together.
 Cursor text is a bounded hex-encoded internal JSON value scoped to actor/query/filter and the
 catalog epoch. Any catalog mutation invalidates outstanding cursors with `StaleCursor`.
-Session 2 must validate raw DTOs, collect independent field errors and freeze its wire contract;
-the current internal encoding is not yet a shared API contract or MessagePack promise.
+The application wire facade validates raw DTOs and collects independent field errors. PATCH intent is
+fingerprinted before applying omitted fields under transaction locks; explicit null clears only
+optional unit links. The wire contract is JSON-only and treats cursor encoding as opaque.
 
 ## Dependencies and migration coordination
 
@@ -74,22 +75,23 @@ The upgrade regression seeds the actual 0001–0009 schema and proves exact hist
 bytes/checksums survive 0011 and replay. Do not copy unmerged intake code. When #64 merges,
 reconcile the migration array/count and grants without rewriting either SQL checksum.
 
-## Next actions and pending acceptance
+## Implementation record and next acceptance
 
-1. Implement only new `/api/v1/studio/*` routes; keep the deprecated alias, Theatre and Admin
+1. Implemented only new `/api/v1/studio/*` routes; keep the deprecated alias, Theatre and Admin
    free of new catalog handlers. Follow existing origin/CSRF/session and JSON error conventions.
-2. Add raw request/response DTOs, route constants, JSON schemas, acceptance/rejection fixtures,
+2. Added raw request/response DTOs, route constants, JSON schemas, acceptance/rejection fixtures,
    stable typed error mapping and pagination/idempotency/concurrency documentation under
    `packages/contracts`. PATCH semantics must preserve omitted fields explicitly and validate
    expected revisions; do not silently reinterpret an omitted optional link as deletion.
-3. Exercise real HTTP adapters/application/PG together, denied origins/anonymous/cross-owner
+3. HTTP tests exercise real HTTP adapters/application/PG together, denied origins/anonymous/cross-owner
    actors, editor owner-only refusal, exact and conflicting replay, stale cursors/revisions,
    concurrent reorder, bounded body/field sizes, archive/history and server/PG restart.
    Advertise only representations actually implemented and tested.
-4. Rerun the applicable Rust/contracts/repository/PostgreSQL gates and changed-only preflight,
+4. Implementation handoff runs the applicable Rust/contracts/repository/PostgreSQL gates and changed-only preflight,
    independent review, fix confirmed findings, then update the same draft PR and verify remote
    SHA/tree. Do not open a second PR, merge, force-push or wait for remote CI.
-5. Keep #66 open: Studio Web responsive/keyboard UX is a separate requested slice. Instructions,
+5. Next Catalog acceptance keeps #66 open: Studio Web responsive/keyboard UX is a separate
+   requested slice. Instructions,
    audio handoff, object storage, QC/publication, Theatre API, native playback and Studio Mobile
    are outside this PR.
 
@@ -99,4 +101,6 @@ See [foundation evidence](../evidence/studio-catalog-foundation.md). The single 
 prioritizes simple stable pages/current permissions at initial scale; all tenants contend and
 unrelated mutations invalidate pages. No production throughput/latency acceptance is claimed.
 Reassess the clock granularity and per-page membership lookups only against a measured workload.
-The foundation has no HTTP route, UI consumer or public delivery behavior.
+The API has HTTP routes but no Catalog UI consumer or public delivery behavior.
+Membership changes may advance archived Work revisions without changing content, allowing
+current access revocation after archive; content edits remain draft-only.

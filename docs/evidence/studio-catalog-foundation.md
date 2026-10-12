@@ -5,7 +5,8 @@
 The internal Work/ContentUnit domain, PostgreSQL persistence and authenticated application
 commands/queries are implemented. Studio catalog HTTP routes, raw/shared wire DTOs,
 JSON schemas/fixtures, status/error contracts and HTTP interaction are **NOT_RUN / pending**
-until session 2 on the same branch/draft PR. Studio Web remains outside this backend PR;
+at this historical checkpoint. [Session 2](studio-catalog-api.md) records the HTTP implementation
+and later verification on the same branch/draft PR. Studio Web remains outside this backend PR;
 [#66](https://github.com/loveoverflowcom/cantos/issues/66) stays open.
 
 Base: `23b25a55cbb3b8d03526721835cf0318716b605a`, freshly fetched `origin/develop` before

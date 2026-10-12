@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::domain::{
-    CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, OwnerId, UnitDetails, Work,
-    WorkDetails, WorkId, WorkKind,
+    CatalogError, ContentUnit, ContentUnitId, ContentUnitKind, OwnerId, UnitDetails, UnitPatch,
+    Work, WorkDetails, WorkId, WorkKind, WorkPatch,
 };
 use super::postgres;
 use crate::contexts::editorial::{self, permits, Access, Action};
@@ -64,6 +64,11 @@ pub enum CatalogCommand {
         expected_revision: u64,
         details: WorkDetails,
     },
+    PatchWork {
+        id: WorkId,
+        expected_revision: u64,
+        patch: WorkPatch,
+    },
     ArchiveWork {
         id: WorkId,
         expected_revision: u64,
@@ -80,6 +85,12 @@ pub enum CatalogCommand {
         expected_revision: u64,
         expected_work_revision: u64,
         details: UnitDetails,
+    },
+    PatchUnit {
+        id: ContentUnitId,
+        expected_revision: u64,
+        expected_work_revision: u64,
+        patch: UnitPatch,
     },
     ArchiveUnit {
         id: ContentUnitId,
@@ -267,6 +278,7 @@ pub(super) fn decode_outcome(bytes: &[u8]) -> Result<CatalogOutcome, CatalogStor
 
 mod commands;
 mod queries;
+pub mod wire;
 
 pub(super) fn page_limit(limit: u64) -> Result<i64, CatalogStoreError> {
     if !(1..=50).contains(&limit) {

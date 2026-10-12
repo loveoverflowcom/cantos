@@ -46,6 +46,19 @@ pub(super) fn request_format(
 /// chosen only when its quality is strictly higher than JSON's (RFC 9110 § 12.5.1: the most
 /// specific matching range sets each quality).
 pub(super) fn response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
+    select_response_format(accept, true)
+}
+
+/// Catalog currently offers only JSON; a higher MessagePack preference does not exclude
+/// JSON when the client still allows it. Keep the existing header parser and quality rules.
+pub(super) fn json_response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
+    select_response_format(accept, false)
+}
+
+fn select_response_format(
+    accept: Option<&str>,
+    message_pack: bool,
+) -> Result<WireFormat, NotAcceptable> {
     let ranges: Vec<MediaRange> = accept
         .into_iter()
         .flat_map(|value| value.split(','))
@@ -55,7 +68,11 @@ pub(super) fn response_format(accept: Option<&str>) -> Result<WireFormat, NotAcc
         return Ok(WireFormat::Json);
     }
     let json = quality(&ranges, "json");
-    let msgpack = quality(&ranges, "msgpack");
+    let msgpack = if message_pack {
+        quality(&ranges, "msgpack")
+    } else {
+        0
+    };
     if json == 0 && msgpack == 0 {
         Err(NotAcceptable)
     } else if msgpack > json {
@@ -171,7 +188,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Accepts {
 }
 
 /// Repeated `Accept` fields form one comma-separated list; a non-ASCII field is ignored.
-fn accept_header(headers: &HeaderMap) -> Option<String> {
+pub(super) fn accept_header(headers: &HeaderMap) -> Option<String> {
     let values: Vec<&str> = headers
         .get_all(header::ACCEPT)
         .iter()
@@ -258,6 +275,20 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
+
+    #[test]
+    fn json_only_routes_respect_json_quality_even_when_msgpack_is_preferred() {
+        for (accept, allowed) in [
+            (None, true),
+            (Some("*/*"), true),
+            (Some("application/msgpack,application/json;q=0.1"), true),
+            (Some("application/json;q=0,*/*"), false),
+            (Some("application/msgpack"), false),
+            (Some("application/json;q=0"), false),
+        ] {
+            assert_eq!(json_response_format(accept).is_ok(), allowed, "{accept:?}");
+        }
+    }
 
     #[test]
     fn content_type_selects_the_decoder_and_refuses_only_positive_mismatches() {

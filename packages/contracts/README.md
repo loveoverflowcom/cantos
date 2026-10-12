@@ -16,6 +16,14 @@ JSON Schema and serialized fixtures. API surfaces are separate URL spaces
 the crate root holds the Studio DTOs plus shared error types and `theatre`/`admin` hold future
 surface DTOs. No generated Kotlin bindings are claimed.
 
+The [Studio Catalog v1 contract](catalog-v1.md) defines the new JSON-only Work and ContentUnit
+hierarchy, revisioned metadata, explicit PATCH omission/null semantics, soft archive, bounded
+pages, atomic reorder and retry receipts. Its [schema](schema/catalog/v1.schema.json) and
+[synthetic Vietnamese fixtures](fixtures/catalog/v1/README.md) are shared with the HTTP tests.
+Catalog visibility grants no public delivery; optional immutable source/Script IR links grant
+neither rights clearance nor publication. The deprecated alias and reserved surface groups gain
+no Catalog routes, and Studio Web Catalog UX remains a separate acceptance slice.
+
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,
 separates exact original bytes from normalized extraction, and never saves a script revision or

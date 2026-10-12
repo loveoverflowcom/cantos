@@ -139,28 +139,39 @@ pub struct WorkDetails {
 
 impl WorkDetails {
     pub(super) fn validate(&self) -> Result<(), CatalogError> {
-        validate_text(&self.title, "title", TITLE_MAX_BYTES, true, false)?;
-        validate_text(
+        self.validation_errors()
+            .into_iter()
+            .next()
+            .map_or(Ok(()), Err)
+    }
+
+    /// Creator-facing boundaries need every independent problem; admission still
+    /// returns the first exact error without accepting any invalid field.
+    pub fn validation_errors(&self) -> Vec<CatalogError> {
+        let mut errors = text_errors(&self.title, "title", TITLE_MAX_BYTES, true, false);
+        errors.extend(text_errors(
             &self.synopsis,
             "synopsis",
             DESCRIPTION_MAX_BYTES,
             false,
             true,
-        )?;
-        validate_language(&self.language)?;
+        ));
+        if let Err(error) = validate_language(&self.language) {
+            errors.push(error);
+        }
         if self.rights_refs.len() > MAX_RIGHTS_REFS {
-            return Err(CatalogError::TooManyRightsRefs);
+            errors.push(CatalogError::TooManyRightsRefs);
         }
         let mut refs = BTreeSet::new();
         for id in &self.rights_refs {
             if !token_id_valid(id) {
-                return Err(CatalogError::InvalidRightsRef);
+                errors.push(CatalogError::InvalidRightsRef);
             }
             if !refs.insert(id) {
-                return Err(CatalogError::DuplicateRightsRef);
+                errors.push(CatalogError::DuplicateRightsRef);
             }
         }
-        Ok(())
+        errors
     }
 }
 
@@ -173,13 +184,21 @@ pub struct SourceRef {
 
 impl SourceRef {
     pub fn new(id: String, sha256: String) -> Result<Self, CatalogError> {
-        if !token_id_valid(&id) {
-            return Err(CatalogError::InvalidSourceId);
-        }
-        if !sha256_valid(&sha256) {
-            return Err(CatalogError::InvalidSourceDigest);
+        if let Some(error) = Self::validation_errors(&id, &sha256).into_iter().next() {
+            return Err(error);
         }
         Ok(Self { id, sha256 })
+    }
+
+    pub fn validation_errors(id: &str, sha256: &str) -> Vec<CatalogError> {
+        let mut errors = Vec::new();
+        if !token_id_valid(id) {
+            errors.push(CatalogError::InvalidSourceId);
+        }
+        if !sha256_valid(sha256) {
+            errors.push(CatalogError::InvalidSourceDigest);
+        }
+        errors
     }
 
     pub fn id(&self) -> &str {
@@ -201,21 +220,34 @@ pub struct ScriptRef {
 
 impl ScriptRef {
     pub fn new(id: String, revision: u64, export_digest: String) -> Result<Self, CatalogError> {
-        if canonical_uuid(&id).is_none() {
-            return Err(CatalogError::InvalidScriptId);
-        }
-        validate_revision(revision)?;
-        if !export_digest
-            .strip_prefix("sir-e1:sha256:")
-            .is_some_and(sha256_valid)
+        if let Some(error) = Self::validation_errors(&id, revision, &export_digest)
+            .into_iter()
+            .next()
         {
-            return Err(CatalogError::InvalidScriptDigest);
+            return Err(error);
         }
         Ok(Self {
             id,
             revision,
             export_digest,
         })
+    }
+
+    pub fn validation_errors(id: &str, revision: u64, export_digest: &str) -> Vec<CatalogError> {
+        let mut errors = Vec::new();
+        if canonical_uuid(id).is_none() {
+            errors.push(CatalogError::InvalidScriptId);
+        }
+        if let Err(error) = validate_revision(revision) {
+            errors.push(error);
+        }
+        if !export_digest
+            .strip_prefix("sir-e1:sha256:")
+            .is_some_and(sha256_valid)
+        {
+            errors.push(CatalogError::InvalidScriptDigest);
+        }
+        errors
     }
 
     pub fn id(&self) -> &str {
@@ -245,44 +277,52 @@ pub struct UnitDetails {
 
 impl UnitDetails {
     pub(super) fn validate(&self) -> Result<(), CatalogError> {
-        validate_text(&self.title, "title", TITLE_MAX_BYTES, true, false)?;
-        validate_text(
+        self.validation_errors()
+            .into_iter()
+            .next()
+            .map_or(Ok(()), Err)
+    }
+
+    pub fn validation_errors(&self) -> Vec<CatalogError> {
+        let mut errors = text_errors(&self.title, "title", TITLE_MAX_BYTES, true, false);
+        errors.extend(text_errors(
             &self.description,
             "description",
             DESCRIPTION_MAX_BYTES,
             false,
             true,
-        )?;
+        ));
         if let Some(digest) = &self.content_digest {
             let value = digest.strip_prefix("sir-c1:sha256:").unwrap_or(digest);
             if !sha256_valid(value) {
-                return Err(CatalogError::InvalidContentDigest);
+                errors.push(CatalogError::InvalidContentDigest);
             }
         }
-        Ok(())
+        errors
     }
 }
 
-fn validate_text(
+fn text_errors(
     value: &str,
     field: &'static str,
     max_bytes: usize,
     required: bool,
     multiline: bool,
-) -> Result<(), CatalogError> {
+) -> Vec<CatalogError> {
+    let mut errors = Vec::new();
     if required && value.trim().is_empty() {
-        return Err(CatalogError::BlankField { field });
+        errors.push(CatalogError::BlankField { field });
     }
     if value.len() > max_bytes {
-        return Err(CatalogError::FieldTooLong { field, max_bytes });
+        errors.push(CatalogError::FieldTooLong { field, max_bytes });
     }
     if value
         .chars()
         .any(|ch| ch.is_control() && !(multiline && matches!(ch, '\n' | '\r' | '\t')))
     {
-        return Err(CatalogError::ControlCharacter { field });
+        errors.push(CatalogError::ControlCharacter { field });
     }
-    Ok(())
+    errors
 }
 
 fn validate_language(value: &str) -> Result<(), CatalogError> {

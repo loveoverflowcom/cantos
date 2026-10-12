@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "work_id": "10000000-0000-4000-8000-000000000001",
+      "kind": "chapter",
+      "details": {
+        "title": "Chương một — Bến cũ",
+        "description": "Mưa khẽ rơi trên bến sông.",
+        "source": null,
+        "script": null,
+        "content_digest": null
+      },
+      "position": 0,
+      "lifecycle": "draft",
+      "revision": 1,
+      "created_at": 1791800000001,
+      "updated_at": 1791800000001
+    }
+  ],
+  "next_cursor": null
+}

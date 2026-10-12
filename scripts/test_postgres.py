@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "target" / "revision-evidence"
 ADAPTATION_EVIDENCE = ROOT / "target" / "adaptation-evidence"
 EDITOR_EVIDENCE = ROOT / "target" / "studio-editor-evidence"
+CATALOG_EVIDENCE = ROOT / "target" / "catalog-evidence"
 ADAPTATION_TOOL = ROOT / "scripts" / "cantos_adaptation_tool.py"
 
 
@@ -427,7 +428,44 @@ def editor_recovery(env, port, app_url, fixture):
     return snapshot
 
 
-def start_host(env, port, log, fixture):
+def catalog_http(port, path, method="GET", payload=None, expected_status=200):
+    """Actual socket requests against the catalog's own synthetic app-role database."""
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/v1/studio{path}", method=method,
+        data=None if payload is None else json.dumps(payload, ensure_ascii=False).encode(),
+        headers={"Cookie": "cantos_session=" + "a" * 64,
+                 "Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json",
+                 "Accept": "application/json"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=5) as response:
+        assert response.status == expected_status
+        assert response.headers["Cache-Control"] == "no-store"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        assert response.headers["Content-Type"] == "application/json"
+        return json.load(response)
+
+
+def catalog_probe(port, fixture):
+    assert catalog_http(port, f"/works/{fixture['work_id']}") == fixture["current"]["work"]
+
+
+def catalog_recovery(port, fixture):
+    """A committed intent's original result survives HTTP process death and real PG restart."""
+    result = {
+        "work": catalog_http(port, f"/works/{fixture['work_id']}"),
+        "unit": catalog_http(port, f"/content-units/{fixture['unit_id']}"),
+        "create_replay": catalog_http(port, "/works", "POST", fixture["create_body"], 201),
+        "unit_replay": catalog_http(port, f"/works/{fixture['work_id']}/content-units",
+                                    "POST", fixture["unit_body"], 201),
+    }
+    assert result["work"] == fixture["current"]["work"]
+    assert result["unit"] == fixture["current"]["units"][0]
+    assert result["create_replay"] == fixture["original"]
+    assert result["unit_replay"] == fixture["current"]
+    return result
+
+
+def start_host(env, port, log, fixture, readiness=None):
     host_env = dict(env, CANTOS_ENV="development", CANTOS_BIND_ADDRESS=f"127.0.0.1:{port}",
                     CANTOS_WEB_ORIGIN=f"http://127.0.0.1:{port}",
                     CANTOS_WEB_DIST=str(EVIDENCE / "no-static-assets"))
@@ -438,7 +476,10 @@ def start_host(env, port, log, fixture):
             if host.poll() is not None:
                 raise RuntimeError("host exited before readiness; inspect host.log")
             try:
-                assert http(port, fixture) == fixture["response"]
+                if readiness is None:
+                    assert http(port, fixture) == fixture["response"]
+                else:
+                    readiness(port, fixture)
                 return host
             except (OSError, urllib.error.URLError):
                 time.sleep(0.05)
@@ -470,6 +511,7 @@ def main():
     started = False
     host = None
     editor_host = None
+    catalog_host = None
     try:
         run(["initdb", "-D", str(data), "--username=cantos_test_admin", "--auth=trust", "--no-locale", "--encoding=UTF8"], env=env, output=cluster / "initdb.log")
         # Bound retained WAL on low-disk development hosts without relaxing durability.
@@ -486,9 +528,11 @@ def main():
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
+        catalog = json.loads((CATALOG_EVIDENCE / "http-restart.json").read_text())
         migration_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}"
         run(["psql", "-X", migration_url, "-v", "ON_ERROR_STOP=1", "-c",
              "GRANT INSERT ON source_records,script_evidence TO cantos_app; "
@@ -501,11 +545,16 @@ def main():
         env["DATABASE_URL"] = app_url
         editor_app_url = f"postgresql://cantos_app@127.0.0.1:{port}/{editor['database']}"
         editor_env = dict(env, DATABASE_URL=editor_app_url)
-        with (EVIDENCE / "host.log").open("w") as log, (EDITOR_EVIDENCE / "host.log").open("w") as editor_log:
+        catalog_app_url = f"postgresql://cantos_app@127.0.0.1:{port}/{catalog['database']}"
+        catalog_env = dict(env, DATABASE_URL=catalog_app_url)
+        with (EVIDENCE / "host.log").open("w") as log, (EDITOR_EVIDENCE / "host.log").open("w") as editor_log, (CATALOG_EVIDENCE / "http-host.log").open("w") as catalog_log:
             http_port = free_port()
             host = start_host(env, http_port, log, fixture)
             editor_http_port = free_port()
             editor_host = start_host(editor_env, editor_http_port, editor_log, editor_probe(editor))
+            catalog_http_port = free_port()
+            catalog_host = start_host(catalog_env, catalog_http_port, catalog_log, catalog, readiness=catalog_probe)
+            catalog_before = catalog_recovery(catalog_http_port, catalog)
             editor_before = editor_recovery(editor_env, editor_http_port, editor_app_url, editor)
             assert http(http_port, fixture, "POST") == fixture["response"]
             imports = import_restart_fixtures()
@@ -527,15 +576,30 @@ def main():
             editor_host.kill()
             editor_host.wait(timeout=5)
             editor_host = None
+            catalog_host.kill()
+            catalog_host.wait(timeout=5)
+            catalog_host = None
             run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-m", "fast", "-w", "restart"], env=env)
             run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
             print("PASS: Catalog PostgreSQL restart + exact work/unit snapshots + migration replay + original-operation replay + independent row counts")
+            run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "catalog_http_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-http-restart-tests.log")
+            print("PASS: Studio Catalog real HTTP adapter + PostgreSQL restart + exact work/unit snapshots + original-operation replay + independent row counts")
             migration_env = dict(env, DATABASE_URL=f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}")
             run([str(ROOT / "target/debug/cantos-migrate")], env=migration_env)
             editor_migration_env = dict(env, DATABASE_URL=f"postgresql://cantos_test_admin@127.0.0.1:{port}/{editor['database']}")
             run([str(ROOT / "target/debug/cantos-migrate")], env=editor_migration_env)
             host = start_host(env, http_port, log, fixture)
             editor_host = start_host(editor_env, editor_http_port, editor_log, editor_probe(editor))
+            catalog_host = start_host(catalog_env, catalog_http_port, catalog_log, catalog, readiness=catalog_probe)
+            catalog_after = catalog_recovery(catalog_http_port, catalog)
+            assert catalog_after == catalog_before
+            (CATALOG_EVIDENCE / "http-server-restart.json").write_text(json.dumps({
+                "provenance": catalog["provenance"],
+                "checks": "actual loopback HTTP; process kill; PostgreSQL restart; exact original-operation replay",
+                "before": catalog_before, "after": catalog_after,
+                "work_id": catalog["work_id"], "unit_id": catalog["unit_id"]},
+                ensure_ascii=False, indent=2) + "\n")
+            print("PASS: Studio Catalog actual socket HTTP + server kill + PostgreSQL restart + exact work/unit snapshots + original-operation replay")
             assert http(http_port, fixture) == fixture["response"]
             assert http(http_port, fixture, "POST") == fixture["response"]
             # The lost-response replay again, in MessagePack, after process death and restart.
@@ -575,6 +639,9 @@ def main():
         if editor_host is not None:
             editor_host.kill()
             editor_host.wait(timeout=5)
+        if catalog_host is not None:
+            catalog_host.kill()
+            catalog_host.wait(timeout=5)
         if started and not args.keep:
             run(["pg_ctl", "-D", str(data), "-m", "fast", "-w", "stop"], env=env)
         if args.keep and started:

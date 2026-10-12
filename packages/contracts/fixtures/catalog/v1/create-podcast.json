@@ -1,0 +1,12 @@
+{
+  "operation_id": "30000000-0000-4000-8000-000000000003",
+  "id": "10000000-0000-4000-8000-000000000003",
+  "kind": "podcast",
+  "details": {
+    "title": "Những tiếng nói quanh ta",
+    "synopsis": "Một chuyến trở về, qua những tiếng gọi thân quen.",
+    "language": "vi-VN",
+    "visibility": "private",
+    "rights_refs": []
+  }
+}

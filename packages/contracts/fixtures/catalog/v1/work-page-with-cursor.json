@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "kind": "novel",
+      "owner_id": "creator",
+      "details": {
+        "title": "Dòng sông ký ức",
+        "synopsis": "Một chuyến trở về, qua những tiếng gọi thân quen.",
+        "language": "vi-VN",
+        "visibility": "private",
+        "rights_refs": []
+      },
+      "lifecycle": "draft",
+      "revision": 2,
+      "created_at": 1791800000000,
+      "updated_at": 1791800000001
+    }
+  ],
+  "next_cursor": "7b2273636f7065223a22776f726b733a63726561746f723a66616c7365222c2265706f6368223a332c226166746572223a2231303030303030302d303030302d343030302d383030302d303030303030303030303031227d"
+}

@@ -7,8 +7,9 @@ use std::{
 use cantos_api::{
     contexts::catalog::{
         domain::{
-            CatalogError, ContentUnitId, ContentUnitKind, Lifecycle, OwnerId, ScriptRef, SourceRef,
-            UnitDetails, Visibility, Work, WorkDetails, WorkId, WorkKind,
+            CatalogError, ContentUnitId, ContentUnitKind, Lifecycle, LinkPatch, OwnerId, ScriptRef,
+            SourceRef, UnitDetails, UnitPatch, Visibility, Work, WorkDetails, WorkId, WorkKind,
+            WorkPatch,
         },
         CatalogCommand, CatalogOutcome, CatalogStoreError, MemberRole,
     },
@@ -322,6 +323,398 @@ async fn rejected_kind_invalid_metadata_stale_revisions_and_duplicate_ids_leave_
         }))
     ));
     assert_eq!(h.counts().await, before);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn work_patch_fingerprints_intent_and_replays_without_resolving_again() {
+    let h = Harness::new().await;
+    let work = h.create(ALICE, WorkKind::Story).await;
+    let op = operation();
+    let intent = CatalogCommand::PatchWork {
+        id: work.id().clone(),
+        expected_revision: 1,
+        patch: WorkPatch {
+            title: Some("Tên mới vẫn giữ lời giới thiệu".into()),
+            ..WorkPatch::default()
+        },
+    };
+    let first = h
+        .store
+        .catalog_execute(ALICE, &op, intent.clone())
+        .await
+        .unwrap();
+    assert_eq!(first.work.details().synopsis, work.details().synopsis);
+    assert_eq!(first.work.details().language, work.details().language);
+    assert_eq!(first.work.details().visibility, work.details().visibility);
+    assert_eq!(first.work.details().rights_refs, work.details().rights_refs);
+    let later = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::PatchWork {
+                id: work.id().clone(),
+                expected_revision: 2,
+                patch: WorkPatch {
+                    synopsis: Some("Lời giới thiệu ở revision tiếp theo".into()),
+                    ..WorkPatch::default()
+                },
+            },
+        )
+        .await
+        .unwrap();
+    let before = h.counts().await;
+    assert_eq!(
+        h.store.catalog_execute(ALICE, &op, intent).await.unwrap(),
+        first
+    );
+    assert_eq!(
+        h.store.catalog_work(ALICE, work.id()).await.unwrap(),
+        later.work
+    );
+    assert!(matches!(
+        h.store
+            .catalog_execute(
+                ALICE,
+                &op,
+                CatalogCommand::PatchWork {
+                    id: work.id().clone(),
+                    expected_revision: 1,
+                    patch: WorkPatch {
+                        title: Some("Tên mới vẫn giữ lời giới thiệu".into()),
+                        synopsis: Some(work.details().synopsis.clone()),
+                        ..WorkPatch::default()
+                    },
+                }
+            )
+            .await,
+        Err(CatalogStoreError::OperationReused)
+    ));
+    assert!(matches!(
+        h.store
+            .catalog_execute(
+                ALICE,
+                &operation(),
+                CatalogCommand::PatchWork {
+                    id: work.id().clone(),
+                    expected_revision: 2,
+                    patch: WorkPatch {
+                        title: Some("Không ghi revision cũ".into()),
+                        ..WorkPatch::default()
+                    },
+                }
+            )
+            .await,
+        Err(CatalogStoreError::Domain(CatalogError::RevisionConflict {
+            current_revision: 3,
+            expected_revision: 2,
+        }))
+    ));
+    assert_eq!(h.counts().await, before);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn unit_patch_preserves_or_clears_links_and_replays_original_snapshot() {
+    let h = Harness::new().await;
+    let work = h.create(ALICE, WorkKind::Podcast).await;
+    let source = h.source("alice", "pinned-patch-source").await;
+    let created = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::CreateUnit {
+                work_id: work.id().clone(),
+                expected_work_revision: 1,
+                id: unit_id(),
+                kind: ContentUnitKind::Episode,
+                details: UnitDetails {
+                    source: Some(source.clone()),
+                    content_digest: Some(source.sha256().into()),
+                    ..unit_details("Tập chưa biên tập")
+                },
+            },
+        )
+        .await
+        .unwrap();
+    let id = created.units[0].id().clone();
+    let op = operation();
+    let intent = CatalogCommand::PatchUnit {
+        id: id.clone(),
+        expected_revision: 1,
+        expected_work_revision: 2,
+        patch: UnitPatch {
+            title: Some("Tập đã đổi tên".into()),
+            ..UnitPatch::default()
+        },
+    };
+    let first = h
+        .store
+        .catalog_execute(ALICE, &op, intent.clone())
+        .await
+        .unwrap();
+    assert_eq!(first.units[0].details().source, Some(source.clone()));
+    assert_eq!(
+        first.units[0].details().content_digest.as_deref(),
+        Some(source.sha256())
+    );
+    let later = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::PatchUnit {
+                id: id.clone(),
+                expected_revision: 2,
+                expected_work_revision: 3,
+                patch: UnitPatch {
+                    source: LinkPatch::Clear,
+                    content_digest: LinkPatch::Clear,
+                    ..UnitPatch::default()
+                },
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(later.units[0].details().source, None);
+    assert_eq!(later.units[0].details().content_digest, None);
+    let before = h.counts().await;
+    assert_eq!(
+        h.store.catalog_execute(ALICE, &op, intent).await.unwrap(),
+        first
+    );
+    assert_eq!(
+        h.store.catalog_unit(ALICE, &id).await.unwrap(),
+        later.units[0]
+    );
+    assert!(matches!(
+        h.store
+            .catalog_execute(
+                ALICE,
+                &op,
+                CatalogCommand::PatchUnit {
+                    id: id.clone(),
+                    expected_revision: 1,
+                    expected_work_revision: 2,
+                    patch: UnitPatch {
+                        title: Some("Tập đã đổi tên".into()),
+                        source: LinkPatch::Clear,
+                        ..UnitPatch::default()
+                    },
+                }
+            )
+            .await,
+        Err(CatalogStoreError::OperationReused)
+    ));
+    let foreign = h.source("bob", "foreign-patch-source").await;
+    assert!(matches!(
+        h.store
+            .catalog_execute(
+                ALICE,
+                &operation(),
+                CatalogCommand::PatchUnit {
+                    id,
+                    expected_revision: 3,
+                    expected_work_revision: 4,
+                    patch: UnitPatch {
+                        source: LinkPatch::Set(foreign),
+                        ..UnitPatch::default()
+                    },
+                }
+            )
+            .await,
+        Err(CatalogStoreError::Storage(StoreError::EvidenceUnavailable))
+    ));
+    assert_eq!(h.counts().await, before);
+    assert_eq!(h.admin.query_one("SELECT sha256 FROM source_records WHERE owner_id='alice' AND id='pinned-patch-source'", &[]).await.unwrap().get::<_, String>(0), source.sha256());
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn editor_work_patch_only_requires_owner_for_effective_protected_changes() {
+    let h = Harness::new().await;
+    let work = h.create(ALICE, WorkKind::Story).await;
+    let member = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::SetMember {
+                work_id: work.id().clone(),
+                expected_revision: 1,
+                actor_id: OwnerId::parse("bob").unwrap(),
+                role: Some(MemberRole::Editor),
+            },
+        )
+        .await
+        .unwrap()
+        .work;
+    let edited = h
+        .store
+        .catalog_execute(
+            BOB,
+            &operation(),
+            CatalogCommand::PatchWork {
+                id: work.id().clone(),
+                expected_revision: 2,
+                patch: WorkPatch {
+                    title: Some("Biên tập viên chỉ sửa tên".into()),
+                    visibility: Some(member.details().visibility),
+                    rights_refs: Some(member.details().rights_refs.clone()),
+                    ..WorkPatch::default()
+                },
+            },
+        )
+        .await
+        .unwrap()
+        .work;
+    let before = h.counts().await;
+    for patch in [
+        WorkPatch {
+            visibility: Some(Visibility::Public),
+            ..WorkPatch::default()
+        },
+        WorkPatch {
+            rights_refs: Some(vec!["catalog-rights".into()]),
+            ..WorkPatch::default()
+        },
+    ] {
+        assert!(matches!(
+            h.store
+                .catalog_execute(
+                    BOB,
+                    &operation(),
+                    CatalogCommand::PatchWork {
+                        id: work.id().clone(),
+                        expected_revision: edited.revision(),
+                        patch,
+                    }
+                )
+                .await,
+            Err(CatalogStoreError::Storage(StoreError::Forbidden))
+        ));
+    }
+    assert_eq!(h.counts().await, before);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn archived_work_owner_can_revoke_membership_and_block_history_and_replay() {
+    let h = Harness::new().await;
+    let work = h.create(ALICE, WorkKind::Story).await;
+    let unit = h.unit(ALICE, &work, "Chương riêng tư").await;
+    let member = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::SetMember {
+                work_id: work.id().clone(),
+                expected_revision: 2,
+                actor_id: OwnerId::parse("bob").unwrap(),
+                role: Some(MemberRole::Editor),
+            },
+        )
+        .await
+        .unwrap()
+        .work;
+    let op = operation();
+    let intent = CatalogCommand::PatchUnit {
+        id: unit.units[0].id().clone(),
+        expected_revision: 1,
+        expected_work_revision: member.revision(),
+        patch: UnitPatch {
+            title: Some("Chương đã biên tập".into()),
+            ..UnitPatch::default()
+        },
+    };
+    let edited = h
+        .store
+        .catalog_execute(BOB, &op, intent.clone())
+        .await
+        .unwrap();
+    let archived = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::ArchiveWork {
+                id: work.id().clone(),
+                expected_revision: edited.work.revision(),
+            },
+        )
+        .await
+        .unwrap()
+        .work;
+    assert_eq!(
+        h.store.catalog_work(BOB, work.id()).await.unwrap(),
+        archived
+    );
+    let original_bytes: Vec<u8> = h
+        .admin
+        .query_one(
+            "SELECT snapshot FROM catalog_work_revisions WHERE work_id=$1 AND revision=$2",
+            &[&work.id().as_str(), &(archived.revision() as i64)],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    let revoked = h
+        .store
+        .catalog_execute(
+            ALICE,
+            &operation(),
+            CatalogCommand::SetMember {
+                work_id: work.id().clone(),
+                expected_revision: archived.revision(),
+                actor_id: OwnerId::parse("bob").unwrap(),
+                role: None,
+            },
+        )
+        .await
+        .unwrap()
+        .work;
+    assert_eq!(revoked.lifecycle(), Lifecycle::Archived);
+    assert_eq!(revoked.revision(), archived.revision() + 1);
+    assert_eq!(revoked.details(), archived.details());
+    assert!(matches!(
+        h.store.catalog_work(BOB, work.id()).await,
+        Err(CatalogStoreError::Storage(StoreError::NotFound))
+    ));
+    assert!(matches!(
+        h.store.catalog_unit(BOB, unit.units[0].id()).await,
+        Err(CatalogStoreError::Storage(StoreError::NotFound))
+    ));
+    assert!(matches!(
+        h.store.catalog_work_history(BOB, work.id(), 10, None).await,
+        Err(CatalogStoreError::Storage(StoreError::NotFound))
+    ));
+    assert!(matches!(
+        h.store.catalog_execute(BOB, &op, intent).await,
+        Err(CatalogStoreError::Storage(StoreError::NotFound))
+    ));
+    let history = h
+        .store
+        .catalog_work_history(ALICE, work.id(), 10, None)
+        .await
+        .unwrap();
+    assert_eq!(history.items.len(), 6);
+    assert_eq!(history.items.last(), Some(&revoked));
+    assert_eq!(
+        h.admin
+            .query_one(
+                "SELECT snapshot FROM catalog_work_revisions WHERE work_id=$1 AND revision=$2",
+                &[&work.id().as_str(), &(archived.revision() as i64)]
+            )
+            .await
+            .unwrap()
+            .get::<_, Vec<u8>>(0),
+        original_bytes
+    );
+    assert_eq!(h.counts().await["members"], 0);
+    assert_eq!(h.counts().await["unit_revisions"], 2);
 }
 
 #[tokio::test]

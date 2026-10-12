@@ -39,7 +39,9 @@ impl Store {
                 };
                 (existing, access)
             }
-            CatalogCommand::EditWork { id, .. } | CatalogCommand::ArchiveWork { id, .. } => {
+            CatalogCommand::EditWork { id, .. }
+            | CatalogCommand::PatchWork { id, .. }
+            | CatalogCommand::ArchiveWork { id, .. } => {
                 let work = work(&tx, id, LockMode::Update).await?;
                 let action = if matches!(command, CatalogCommand::ArchiveWork { .. }) {
                     Action::Review
@@ -61,7 +63,9 @@ impl Store {
                 let access = authorize(&tx, &actor, &work, action).await?;
                 (Some(work), access)
             }
-            CatalogCommand::EditUnit { id, .. } | CatalogCommand::ArchiveUnit { id, .. } => {
+            CatalogCommand::EditUnit { id, .. }
+            | CatalogCommand::PatchUnit { id, .. }
+            | CatalogCommand::ArchiveUnit { id, .. } => {
                 let unit = unit(&tx, id).await?;
                 let work = work(&tx, unit.work_id(), LockMode::Update).await?;
                 let action = if matches!(command, CatalogCommand::ArchiveUnit { .. }) {
@@ -142,6 +146,21 @@ async fn execute(
             rights(tx, updated.owner_id(), updated.details()).await?;
             updated
         }
+        CatalogCommand::PatchWork {
+            expected_revision,
+            patch,
+            ..
+        } => {
+            let details = patch.apply(work.details());
+            if work.details().rights_refs != details.rights_refs
+                || work.details().visibility != details.visibility
+            {
+                require(access, Action::Review)?;
+            }
+            let updated = work.edit(expected_revision, details, at)?;
+            rights(tx, updated.owner_id(), updated.details()).await?;
+            updated
+        }
         CatalogCommand::ArchiveWork {
             expected_revision, ..
         } => work.archive(expected_revision, at)?,
@@ -201,6 +220,22 @@ async fn execute(
             changed_units.push(changed);
             updated
         }
+        CatalogCommand::PatchUnit {
+            id,
+            expected_revision,
+            expected_work_revision,
+            patch,
+        } => {
+            let updated = work.touch(expected_work_revision, at)?;
+            let unit = unit(tx, &id).await?;
+            let details = patch.apply(unit.details());
+            let changed =
+                unit.edit(&work, expected_revision, details, at.max(unit.updated_at()))?;
+            links(tx, work.owner_id(), changed.details()).await?;
+            postgres::save_unit(tx, &changed, actor, false).await?;
+            changed_units.push(changed);
+            updated
+        }
         CatalogCommand::ArchiveUnit {
             id,
             expected_revision,
@@ -247,7 +282,7 @@ async fn execute(
             role,
             ..
         } => {
-            let updated = work.touch(expected_revision, at)?;
+            let updated = work.with_permission_change(expected_revision, at)?;
             if &actor_id == work.owner_id() {
                 return Err(StoreError::InvalidRequest.into());
             }
