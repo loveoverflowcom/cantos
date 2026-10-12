@@ -1,0 +1,767 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cantos:theatre:mock-playback:vector:1",
+  "title": "Theatre mock playback vector v1",
+  "type": "object",
+  "properties": {
+    "vector_format": {
+      "const": 1
+    },
+    "contract": {
+      "const": "theatre-mock-playback@1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "initial_state": {
+      "$ref": "#/$defs/state"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "$ref": "#/$defs/event"
+          },
+          "expected": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "$ref": "#/$defs/state"
+              },
+              "effects": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/effect"
+                }
+              }
+            },
+            "required": [
+              "state",
+              "effects"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "event",
+          "expected"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "vector_format",
+    "contract",
+    "id",
+    "initial_state",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "source": {
+      "type": "object",
+      "properties": {
+        "work_id": {
+          "enum": [
+            "son-ha-ky",
+            "den-khuya",
+            "mong-ho-diep"
+          ]
+        },
+        "episode_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "work_id",
+        "episode_index",
+        "duration_ms"
+      ],
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "work_id": {
+          "enum": [
+            "son-ha-ky",
+            "den-khuya",
+            "mong-ho-diep"
+          ]
+        },
+        "episode_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "work_id",
+        "episode_index",
+        "generation"
+      ],
+      "additionalProperties": false
+    },
+    "intent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "play"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "pause"
+            },
+            "cause": {
+              "enum": [
+                "user",
+                "interruption",
+                "cold_restore"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "cause"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "position_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "speed_permille": {
+          "enum": [
+            750,
+            1000,
+            1250,
+            1500,
+            2000
+          ]
+        },
+        "intent": {
+          "$ref": "#/$defs/intent"
+        },
+        "engine": {
+          "enum": [
+            "preparing",
+            "ready",
+            "running",
+            "paused",
+            "buffering",
+            "ended"
+          ]
+        },
+        "interruption": {
+          "enum": [
+            "none",
+            "active"
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "position_ms",
+        "speed_permille",
+        "intent",
+        "engine",
+        "interruption"
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "session": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/session"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "idle",
+            "loading",
+            "paused",
+            "simulating",
+            "buffering",
+            "ended"
+          ]
+        },
+        "pause_cause": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "user",
+                "interruption",
+                "cold_restore"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "generation",
+        "session",
+        "status",
+        "pause_cause"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "position_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "speed_permille": {
+          "enum": [
+            750,
+            1000,
+            1250,
+            1500,
+            2000
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "position_ms",
+        "speed_permille"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "play_requested"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "pause_requested"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "interruption_began"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "interruption_ended"
+            },
+            "resume_allowed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "resume_allowed"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "source_selected"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "type",
+            "source",
+            "position_ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "restore_requested"
+            },
+            "snapshot": {
+              "$ref": "#/$defs/snapshot"
+            }
+          },
+          "required": [
+            "type",
+            "snapshot"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "seek_requested"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "type",
+            "position_ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "skip_requested"
+            },
+            "delta_ms": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "type",
+            "delta_ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "speed_requested"
+            },
+            "speed_permille": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "required": [
+            "type",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_ready"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "type",
+            "identity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_started"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "type",
+            "identity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_paused"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "type",
+            "identity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_buffering"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "type",
+            "identity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_ended"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            }
+          },
+          "required": [
+            "type",
+            "identity"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "engine_position"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "position_ms"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "prepare_engine"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "speed_permille": {
+              "enum": [
+                750,
+                1000,
+                1250,
+                1500,
+                2000
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "source",
+            "position_ms",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "start_engine"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "speed_permille": {
+              "enum": [
+                750,
+                1000,
+                1250,
+                1500,
+                2000
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "source",
+            "position_ms",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "pause_engine"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "speed_permille": {
+              "enum": [
+                750,
+                1000,
+                1250,
+                1500,
+                2000
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "source",
+            "position_ms",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "seek_engine"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "speed_permille": {
+              "enum": [
+                750,
+                1000,
+                1250,
+                1500,
+                2000
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "source",
+            "position_ms",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "set_speed"
+            },
+            "identity": {
+              "$ref": "#/$defs/identity"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "speed_permille": {
+              "enum": [
+                750,
+                1000,
+                1250,
+                1500,
+                2000
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "identity",
+            "source",
+            "position_ms",
+            "speed_permille"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "offer_resume"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "position_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "type",
+            "source",
+            "position_ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "rejected"
+            },
+            "reason": {
+              "enum": [
+                "no_session",
+                "interrupted",
+                "out_of_bounds",
+                "unsupported_speed",
+                "generation_exhausted",
+                "invalid_source"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,239 @@
+{
+  "vector_format": 1,
+  "contract": "theatre-mock-playback@1",
+  "id": "play-pause",
+  "initial_state": {
+    "generation": 1,
+    "session": {
+      "source": {
+        "work_id": "son-ha-ky",
+        "episode_index": 2,
+        "duration_ms": 1722000
+      },
+      "position_ms": 768000,
+      "speed_permille": 1000,
+      "intent": {
+        "type": "pause",
+        "cause": "user"
+      },
+      "engine": "ready",
+      "interruption": "none"
+    },
+    "status": "paused",
+    "pause_cause": "user"
+  },
+  "steps": [
+    {
+      "event": {
+        "type": "play_requested"
+      },
+      "expected": {
+        "state": {
+          "generation": 2,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "play"
+            },
+            "engine": "preparing",
+            "interruption": "none"
+          },
+          "status": "loading",
+          "pause_cause": null
+        },
+        "effects": [
+          {
+            "type": "start_engine",
+            "identity": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "generation": 2
+            },
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000
+          }
+        ]
+      }
+    },
+    {
+      "event": {
+        "type": "play_requested"
+      },
+      "expected": {
+        "state": {
+          "generation": 2,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "play"
+            },
+            "engine": "preparing",
+            "interruption": "none"
+          },
+          "status": "loading",
+          "pause_cause": null
+        },
+        "effects": []
+      }
+    },
+    {
+      "event": {
+        "type": "engine_started",
+        "identity": {
+          "work_id": "son-ha-ky",
+          "episode_index": 2,
+          "generation": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 2,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "play"
+            },
+            "engine": "running",
+            "interruption": "none"
+          },
+          "status": "simulating",
+          "pause_cause": null
+        },
+        "effects": []
+      }
+    },
+    {
+      "event": {
+        "type": "pause_requested"
+      },
+      "expected": {
+        "state": {
+          "generation": 3,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "pause",
+              "cause": "user"
+            },
+            "engine": "paused",
+            "interruption": "none"
+          },
+          "status": "paused",
+          "pause_cause": "user"
+        },
+        "effects": [
+          {
+            "type": "pause_engine",
+            "identity": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "generation": 3
+            },
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000
+          }
+        ]
+      }
+    },
+    {
+      "event": {
+        "type": "engine_started",
+        "identity": {
+          "work_id": "son-ha-ky",
+          "episode_index": 2,
+          "generation": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 3,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "pause",
+              "cause": "user"
+            },
+            "engine": "paused",
+            "interruption": "none"
+          },
+          "status": "paused",
+          "pause_cause": "user"
+        },
+        "effects": []
+      }
+    },
+    {
+      "event": {
+        "type": "engine_paused",
+        "identity": {
+          "work_id": "son-ha-ky",
+          "episode_index": 2,
+          "generation": 3
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 3,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1000,
+            "intent": {
+              "type": "pause",
+              "cause": "user"
+            },
+            "engine": "paused",
+            "interruption": "none"
+          },
+          "status": "paused",
+          "pause_cause": "user"
+        },
+        "effects": []
+      }
+    }
+  ]
+}
