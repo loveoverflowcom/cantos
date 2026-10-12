@@ -1,5 +1,10 @@
 # DBSP job-summary read model — implementation evidence
 
+> **Archive only:** [ADR 0018](../decisions/0018-external-audio-production.md)
+> retires the TTS job-summary runtime and its integration tests. These are historical
+> measurements and original commit permalinks, not present-day executable claims.
+
+
 - Date: 2026-10-12
 - Issue: [#58](https://github.com/loveoverflowcom/cantos/issues/58); decision:
   [ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)
@@ -69,7 +74,7 @@ holds `xmin`, and so the frontier, back: that costs fallbacks, never stale answe
 
 ## Differential and recovery checklist
 
-Tests are in [`tests/durable_postgres.rs`](../../services/cantos-api/tests/durable_postgres.rs)
+Tests are in [`tests/durable_postgres.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/tests/durable_postgres.rs)
 module `dbsp_summary_view` (12 tests on real PostgreSQL with the real DBSP runtime, including
 `the_cli_prints_the_same_summary_under_every_read_model`, which spawns the real binary) and in
 `incremental`/`incremental::dbsp` (15 unit and property tests).
