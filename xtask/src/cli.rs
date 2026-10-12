@@ -185,9 +185,9 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("build cantos --web").unwrap(),
+            parse("build cantos-theatre --web").unwrap(),
             Task::Build {
-                target: BuildTarget::Cantos,
+                target: BuildTarget::CantosTheatre,
                 ..
             }
         ));
@@ -215,9 +215,9 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("run cantos --web").unwrap(),
+            parse("run cantos-theatre --web").unwrap(),
             Task::Run {
-                target: RunTarget::Cantos,
+                target: RunTarget::CantosTheatre,
                 ..
             }
         ));

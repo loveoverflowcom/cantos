@@ -26,7 +26,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MOBILE_DIRS = {
-    "cantos": "apps/cantos/mobile",
+    "cantos-theatre": "apps/cantos-theatre/mobile",
     "cantos-studio": "apps/cantos-studio/mobile",
 }
 UNSUPPORTED = 3

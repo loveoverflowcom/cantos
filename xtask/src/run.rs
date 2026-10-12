@@ -25,6 +25,7 @@ const API_READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// Trunk compiles the WASM bundle before it serves the first page.
 const TRUNK_READY_TIMEOUT: Duration = Duration::from_secs(900);
 
+#[allow(clippy::enum_variant_names)] // CLI names mirror the package names
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum RunTarget {
     /// The Axum API host (`cantos-server`) in the foreground.
@@ -32,7 +33,8 @@ pub enum RunTarget {
     /// Cantos Studio: with --web, the API plus a `trunk serve` frontend.
     CantosStudio,
     /// Cantos Theatre: with --web, the `trunk serve` skeleton (no backend exists).
-    Cantos,
+    #[value(alias = "cantos")]
+    CantosTheatre,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -40,7 +42,8 @@ pub enum AppTarget {
     /// Cantos Studio (creator client).
     CantosStudio,
     /// Cantos Theatre (listener client).
-    Cantos,
+    #[value(alias = "cantos")]
+    CantosTheatre,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -253,7 +256,7 @@ pub fn plan_run(
                 open: options.open.then_some(origin),
             })
         }
-        RunTarget::Cantos => theatre(workspace, options),
+        RunTarget::CantosTheatre => theatre(workspace, options),
     }
 }
 
@@ -281,7 +284,7 @@ pub fn plan_app(
                 open: options.open.then_some(origin),
             })
         }
-        AppTarget::Cantos => theatre(workspace, options),
+        AppTarget::CantosTheatre => theatre(workspace, options),
     }
 }
 
@@ -548,8 +551,18 @@ mod tests {
     fn theatre_has_only_its_trunk_server() {
         let workspace = workspace();
         for plan in [
-            plan_run(&workspace, RunTarget::Cantos, &web(Default::default())).unwrap(),
-            plan_app(&workspace, AppTarget::Cantos, &web(Default::default())).unwrap(),
+            plan_run(
+                &workspace,
+                RunTarget::CantosTheatre,
+                &web(Default::default()),
+            )
+            .unwrap(),
+            plan_app(
+                &workspace,
+                AppTarget::CantosTheatre,
+                &web(Default::default()),
+            )
+            .unwrap(),
         ] {
             assert!(plan.requirements.is_empty());
             assert_eq!(plan.services.len(), 1);
@@ -569,11 +582,15 @@ mod tests {
             Err(Refusal::Unsupported { .. })
         ));
         assert!(matches!(
-            plan_app(&workspace, AppTarget::Cantos, &mobile),
+            plan_app(&workspace, AppTarget::CantosTheatre, &mobile),
             Err(Refusal::Unsupported { .. })
         ));
         assert!(matches!(
-            plan_run(&workspace, RunTarget::Cantos, &LaunchOptions::default()),
+            plan_run(
+                &workspace,
+                RunTarget::CantosTheatre,
+                &LaunchOptions::default()
+            ),
             Err(Refusal::Usage(_))
         ));
         let cluster_for_theatre = web(LaunchOptions {
@@ -581,7 +598,7 @@ mod tests {
             ..Default::default()
         });
         assert!(matches!(
-            plan_run(&workspace, RunTarget::Cantos, &cluster_for_theatre),
+            plan_run(&workspace, RunTarget::CantosTheatre, &cluster_for_theatre),
             Err(Refusal::Usage(_))
         ));
         let open_api = LaunchOptions {
@@ -613,7 +630,12 @@ mod tests {
     fn a_taken_port_or_missing_tool_fails_before_anything_runs() {
         let workspace = workspace();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let mut plan = plan_run(&workspace, RunTarget::Cantos, &web(Default::default())).unwrap();
+        let mut plan = plan_run(
+            &workspace,
+            RunTarget::CantosTheatre,
+            &web(Default::default()),
+        )
+        .unwrap();
         plan.services[0].addr = listener.local_addr().unwrap();
         let mut runner = RecordingRunner::default();
         let error = launch(

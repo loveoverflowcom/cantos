@@ -28,14 +28,14 @@ providers, download models, create cloud resources, publish or deploy.
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
-cargo xtask build cantos --web [--release]         # trunk build --locked in apps/cantos/web
+cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
 cargo xtask build all [--release]                  # the API and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
 cargo xtask run cantos-studio --web [--test-cluster] [--open]
-cargo xtask run cantos --web [--open]
+cargo xtask run cantos-theatre --web [--open]
 cargo xtask app cantos-studio --web [--open]
-cargo xtask app cantos --web [--open]
+cargo xtask app cantos-theatre --web [--open]
 
 cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
@@ -47,7 +47,7 @@ cargo xtask verify postgres [--keep]
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
-cargo xtask compose-preview cantos|cantos-studio --file PATH --composable NAME \
+cargo xtask compose-preview cantos-theatre|cantos-studio --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 ```
 
@@ -74,7 +74,7 @@ inherited `NO_COLOR=1`).
 | --- | --- | --- |
 | `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
 | `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
-| `run cantos --web`, `app cantos --web` | `trunk serve` for the Theatre skeleton on 8082 | nothing; no listener API exists |
+| `run cantos-theatre --web`, `app cantos-theatre --web` | `trunk serve` for the Theatre skeleton on 8082 | nothing; no listener API exists |
 | `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
 
 `--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster

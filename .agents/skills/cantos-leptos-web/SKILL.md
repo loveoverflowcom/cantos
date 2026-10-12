@@ -58,8 +58,11 @@ the browser renders and drives it, the owner decides what is true.
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.
+- **One API group per client.** The Studio client calls only `/api/v1/studio/*` (base from
+  `cantos_contracts::routes::STUDIO_BASE`); the Theatre client will call only `/api/v1/theatre/*`.
+  Neither calls the legacy unprefixed `/api/v1/*` paths or the other group.
 - **Product requirements are owned by docs.** [`apps/cantos-studio/web/README.md`](../../../apps/cantos-studio/web/README.md),
-  [`apps/cantos/web/README.md`](../../../apps/cantos/web/README.md) (a skeleton),
+  [`apps/cantos-theatre/web/README.md`](../../../apps/cantos-theatre/web/README.md) (a skeleton),
   [repository layout](../../../docs/architecture/repository-layout.md),
   the [UI system](../../../docs/design/ui-system.md), and the work items
   [010 (editor)](../../../docs/work-plan/010-import-and-edit-script.md),
@@ -112,7 +115,7 @@ Run the [shared UI loop](../cantos-ui-design/SKILL.md#shared-ui-loop); at each o
 these Web specifics:
 
 ```text
-0  discover   the product's package (apps/cantos-studio/web or apps/cantos/web), toolchain config,
+0  discover   the product's package (apps/cantos-studio/web or apps/cantos-theatre/web), toolchain config,
               scripts, CI. If something is missing, the work item establishes it through a reviewed
               decision; never hand-roll a server or runner
 1  scope      surface + permission context, route, ports, the owning doc's acceptance line,

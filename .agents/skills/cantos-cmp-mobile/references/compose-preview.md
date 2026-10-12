@@ -7,7 +7,7 @@ preview composables yet**, so a real Cantos capture is currently `UNSUPPORTED`.
 ## Prerequisites and discovery
 
 1. Inspect the selected app's actual Gradle files, Kotlin/CMP versions, Android target and preview
-   annotation dependencies. Use `apps/cantos/mobile` for Theatre or
+   annotation dependencies. Use `apps/cantos-theatre/mobile` for Theatre or
    `apps/cantos-studio/mobile` for Studio; never substitute a Web screen or the other product.
 2. Install the **official Android CLI** following [Google's overview](https://developer.android.com/tools/agents/android-cli).
    The legacy Android SDK `android` executable is a different tool. `cargo xtask doctor` lists
@@ -31,8 +31,8 @@ The example below is a **future invocation**: replace the file and function with
 in the app. Neither `PlayerPreview.kt` nor `PlayerDarkVietnameseLargePreview` exists today.
 
 ```sh
-cargo xtask compose-preview cantos \
-  --file apps/cantos/mobile/<source-set>/PlayerPreview.kt \
+cargo xtask compose-preview cantos-theatre \
+  --file apps/cantos-theatre/mobile/<source-set>/PlayerPreview.kt \
   --composable PlayerDarkVietnameseLargePreview \
   --label dark-vi-VN-large-text
 ```

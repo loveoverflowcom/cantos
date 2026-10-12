@@ -7,5 +7,5 @@ over HTTP; they never import each other. See the
 
 | Product | Audience | Web (Leptos) | Mobile (Kotlin Compose Multiplatform) |
 | --- | --- | --- | --- |
-| Cantos Theatre, `cantos/` | Listeners | [`cantos/web`](cantos/web/README.md): skeleton | [`cantos/mobile`](cantos/mobile/README.md): guide only |
+| Cantos Theatre, `cantos-theatre/` (users see **Cantos**) | Listeners | [`cantos-theatre/web`](cantos-theatre/web/README.md): skeleton | [`cantos-theatre/mobile`](cantos-theatre/mobile/README.md): guide only |
 | Cantos Studio, `cantos-studio/` | Creators | [`cantos-studio/web`](cantos-studio/web/README.md): implemented editor | [`cantos-studio/mobile`](cantos-studio/mobile/README.md): reserved |

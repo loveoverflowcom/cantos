@@ -8,7 +8,7 @@
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
 manuscript import, adaptation and production-input contracts in
-[`services/cantos-api/src/http`](../../../../services/cantos-api/src/http.rs), each with a
+[`services/cantos-api/src/http`](../../../../services/cantos-api/src/http.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
 no generated client and no listener API yet. Whether a route also carries MessagePack is owned by
@@ -17,6 +17,17 @@ no generated client and no listener API yet. Whether a route also carries Messag
 For database-backed GET/read/fetch, load the foundation's mandatory
 [read-performance workflow](postgresql-read-performance.md). Include internal reads behind
 non-GET handlers; the HTTP verb alone does not decide DBSP suitability or freshness.
+
+## One route group per surface
+
+The host serves three groups under `/api/v1`: `studio` (implemented), `theatre` and `admin`
+(reserved, empty, `404 not_found`). Each has its own router module in `src/http/`, its DTO module
+in `cantos-contracts`, its own authentication and authorization, and its own `Store` methods or
+adapter; shared code is middleware, error mapping, domain modules and the PostgreSQL authority.
+Rules: a handler never calls another group's handler; a session for one surface grants nothing on
+another (cookies are scoped by `Path`); a reserved group gets routes only with real behavior, never
+mock data; the unprefixed `/api/v1/*` Studio paths are a deprecated alias that shares Studio
+handlers and gets no new routes. Oracle: `services/cantos-api/tests/surface_routes.rs`.
 
 ## A handler is a shell
 

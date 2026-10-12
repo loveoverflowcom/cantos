@@ -152,7 +152,7 @@ pub mod testing {
                 ),
                 package("cantos-contracts", "packages/contracts/api", &[]),
                 package("cantos-api", "services/cantos-api", &["cantos-contracts"]),
-                package("cantos-theatre", "apps/cantos/web", &["cantos-ui"]),
+                package("cantos-theatre", "apps/cantos-theatre/web", &["cantos-ui"]),
                 package("cantos-ui", "packages/ui-system/leptos", &[]),
                 package("xtask", "xtask", &[]),
             ],

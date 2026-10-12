@@ -20,8 +20,9 @@ pub enum BuildTarget {
     CantosApi,
     /// Cantos Studio, the creator product (`apps/cantos-studio`).
     CantosStudio,
-    /// Cantos Theatre, the listener product (`apps/cantos`).
-    Cantos,
+    /// Cantos Theatre, the listener product (`apps/cantos-theatre`).
+    #[value(alias = "cantos")]
+    CantosTheatre,
     /// The API plus every implemented Web client.
     All,
 }
@@ -80,7 +81,7 @@ pub enum Refusal {
 pub fn app_of(target: BuildTarget) -> Option<App> {
     match target {
         BuildTarget::CantosStudio => Some(App::Studio),
-        BuildTarget::Cantos => Some(App::Theatre),
+        BuildTarget::CantosTheatre => Some(App::Theatre),
         BuildTarget::CantosApi | BuildTarget::All => None,
     }
 }
@@ -209,8 +210,8 @@ mod tests {
             ["(in apps/cantos-studio/web) NO_COLOR=true trunk build --locked --release"]
         );
         assert_eq!(
-            lines(BuildTarget::Cantos, Some(Surface::Web), Profile::Dev),
-            ["(in apps/cantos/web) NO_COLOR=true trunk build --locked"]
+            lines(BuildTarget::CantosTheatre, Some(Surface::Web), Profile::Dev),
+            ["(in apps/cantos-theatre/web) NO_COLOR=true trunk build --locked"]
         );
     }
 
@@ -229,7 +230,7 @@ mod tests {
             Err(Refusal::Unsupported { subject, .. }) if subject == "cantos-studio --mobile"
         ));
         assert!(matches!(
-            resolve(BuildTarget::Cantos, None),
+            resolve(BuildTarget::CantosTheatre, None),
             Err(Refusal::Usage(message)) if message.contains("--web")
         ));
         assert!(matches!(

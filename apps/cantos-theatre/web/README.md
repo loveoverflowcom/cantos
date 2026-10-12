@@ -8,17 +8,24 @@ empty state; [integration evidence](../../../docs/evidence/ui-system-integration
 compile/native-string checks from unrun browser observations. Both themes use canonical roles
 and the comfortable density (48px control target); measured browser bounds remain pending.
 
+## Naming
+
+`cantos-theatre` (path, package, binary) is the technical name. The listener-facing product name is
+**Cantos**: the page `<title>`, heading and any future navigation, splash, manifest or localization
+string must not say "Cantos Theatre". A test in `src/view.rs` guards the title and heading. Its
+future API is `/api/v1/theatre` and never `/api/v1/studio`.
+
 ## Build
 
 Requires Rust 1.87 with `wasm32-unknown-unknown` and Trunk 0.21.14, as for [Studio](../../cantos-studio/web/README.md).
 
 ```sh
-cargo xtask build cantos --web   # NO_COLOR=true trunk build --locked in this directory
+cargo xtask build cantos-theatre --web   # NO_COLOR=true trunk build --locked in this directory
 cargo xtask verify web           # WASM clippy plus Trunk builds of Studio and Theatre
 ```
 
-`cargo xtask run cantos --web` serves it with `trunk serve` on 127.0.0.1:8082; there is no backend
-proxy because no listener API exists. `--mobile` is `UNSUPPORTED` until `apps/cantos/mobile` has
+`cargo xtask run cantos-theatre --web` serves it with `trunk serve` on 127.0.0.1:8082; there is no backend
+proxy because no listener API exists. `--mobile` is `UNSUPPORTED` until `apps/cantos-theatre/mobile` has
 a Gradle project.
 
 ## Before building the listener experience

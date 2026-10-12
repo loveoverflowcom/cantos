@@ -31,7 +31,7 @@ see the same DTO values they always did and never import it.
 
 ## Scope
 
-| Route under `/api/v1` | Request body | Response body |
+| Route under `/api/v1/studio` (also the deprecated `/api/v1` alias) | Request body | Response body |
 | --- | --- | --- |
 | `GET /scripts/{id}/head` | — | negotiated |
 | `GET /scripts/{id}/revisions/{revision}` | — | negotiated |

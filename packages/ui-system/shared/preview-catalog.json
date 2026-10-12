@@ -558,7 +558,7 @@
   "baseline_consumers": [
     {
       "renderer": "leptos",
-      "path": "apps/cantos/web/src/view.rs",
+      "path": "apps/cantos-theatre/web/src/view.rs",
       "components": [
         "Container",
         "EmptyState",

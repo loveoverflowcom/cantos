@@ -58,7 +58,7 @@ def adaptation_http(port, token, path, payload, expected_status=200):
     """Authenticated review acceptance and raw malformed-body probes on this test host."""
     body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
     request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/api/v1/adaptations{path}", data=body, method="POST",
+        f"http://127.0.0.1:{port}/api/v1/studio/adaptations{path}", data=body, method="POST",
         headers={"Cookie": f"cantos_session={token}",
                  "Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json"})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -100,7 +100,7 @@ def isolated_environment():
 def http(port, fixture, method="GET"):
     path = "head" if method == "GET" else "revisions"
     request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/api/v1/scripts/{fixture['script']}/{path}",
+        f"http://127.0.0.1:{port}/api/v1/studio/scripts/{fixture['script']}/{path}",
         data=None if method == "GET" else json.dumps(fixture["request"]).encode(),
         method=method,
         headers={"Cookie": f"cantos_session={fixture['token']}",
@@ -121,7 +121,7 @@ def msgpack_http(port, fixture, method="GET", accept="application/msgpack"):
         body = reference_msgpack.encode(fixture["request"])
         headers["Content-Type"] = "application/msgpack"
     request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/api/v1/scripts/{fixture['script']}/{path}",
+        f"http://127.0.0.1:{port}/api/v1/studio/scripts/{fixture['script']}/{path}",
         data=body, method=method, headers=headers)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
@@ -145,7 +145,7 @@ def import_http(port, token, source=None, request=None, original=False):
         path += "/original"
     headers = {"Cookie": f"cantos_session={token}", "Origin": f"http://127.0.0.1:{port}",
                "Content-Type": "application/json"}
-    call = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1{path}",
+    call = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/studio{path}",
                                   data=None if request is None else json.dumps(request).encode(),
                                   headers=headers, method="GET" if request is None else "POST")
     with urllib.request.urlopen(call, timeout=5) as response:
@@ -357,7 +357,7 @@ def adaptation_after_restart(env, port, token, app_url, fixture):
 def studio_http(port, token, path, method="GET", payload=None):
     """Exact private Studio responses through the actual loopback socket, without proxies."""
     call = urllib.request.Request(
-        f"http://127.0.0.1:{port}/api/v1{path}",
+        f"http://127.0.0.1:{port}/api/v1/studio{path}",
         data=None if payload is None else json.dumps(payload).encode(), method=method,
         headers={"Cookie": f"cantos_session={token}", "Origin": f"http://127.0.0.1:{port}",
                  "Content-Type": "application/json"})

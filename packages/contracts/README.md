@@ -6,7 +6,10 @@ This directory owns versioned interchange descriptions and representative fixtur
 [Vietnamese fixtures](fixtures/script-ir/0.1.0). This implements the contract part of
 [#1](https://github.com/loveoverflowcom/cantos/issues/1). The [Studio v1 contract](studio-v1.md)
 now serves the Axum/PostgreSQL store and Leptos consumer through shared raw Rust DTOs,
-JSON Schema and serialized fixtures. No generated Kotlin bindings are claimed.
+JSON Schema and serialized fixtures. API surfaces are separate URL spaces
+(`/api/v1/studio`, reserved `/api/v1/theatre` and `/api/v1/admin`, named in `api/src/routes.rs`);
+the crate root holds the Studio DTOs plus shared error types and `theatre`/`admin` hold future
+surface DTOs. No generated Kotlin bindings are claimed.
 
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,

@@ -108,7 +108,7 @@ impl Harness {
     ) -> (StatusCode, Vec<u8>) {
         let mut request = Request::builder()
             .method(method)
-            .uri(format!("/api/v1{path}"))
+            .uri(format!("/api/v1/studio{path}"))
             .header("origin", ORIGIN)
             .header("content-type", "application/json")
             .header("x-actor-id", "alice");

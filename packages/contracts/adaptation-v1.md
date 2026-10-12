@@ -14,10 +14,10 @@ Axum service; it does not implement another store or run shell commands from its
 
 | CLI command | Authenticated HTTP operation | Purpose |
 | --- | --- | --- |
-| `context` | `POST /api/v1/adaptations/contexts` | Freeze a source/revision context; return 201 |
-| `context-read` | `GET /api/v1/adaptations/{run}/context` | Reopen the same frozen caller context |
-| `submit` | `POST /api/v1/adaptations/{run}/proposals` | Validate caller output and persist a valid/invalid receipt; return 200 |
-| `review` | `GET /api/v1/adaptations/{run}/review` | Read caller context or historical run for editorial comparison |
+| `context` | `POST /api/v1/studio/adaptations/contexts` | Freeze a source/revision context; return 201 |
+| `context-read` | `GET /api/v1/studio/adaptations/{run}/context` | Reopen the same frozen caller context |
+| `submit` | `POST /api/v1/studio/adaptations/{run}/proposals` | Validate caller output and persist a valid/invalid receipt; return 200 |
+| `review` | `GET /api/v1/studio/adaptations/{run}/review` | Read caller context or historical run for editorial comparison |
 
 Run `python3 scripts/cantos_adaptation_tool.py schemas` to discover the four names/arguments.
 All other commands require an explicit `--base-url http://127.0.0.1:<port>` (numeric loopback,

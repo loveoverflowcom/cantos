@@ -1,6 +1,13 @@
 # Studio revision API v1
 
-Implemented development boundary: [Axum](../../services/cantos-api/src/http.rs) →
+**Mount and compatibility.** The routes below are served under `/api/v1/studio` (base path in
+`cantos_contracts::routes::STUDIO_BASE`). The pre-split `/api/v1/<route>` paths remain a deprecated
+alias served by the same handlers, with identical bodies and a `Deprecation: true` response header;
+a session cookie from the alias is scoped to `/api/v1`, one from `/api/v1/studio/session` to
+`/api/v1/studio`. Wire DTOs and error codes did not change. Listener and administration APIs are
+separate groups (`/api/v1/theatre`, `/api/v1/admin`), reserved and empty.
+
+Implemented development boundary: [Axum](../../services/cantos-api/src/http/studio.rs) →
 [PostgreSQL](../../services/cantos-api/src/postgres.rs), consumed by [Leptos](../../apps/cantos-studio/web/src/api.rs).
 The [Schema](schema/studio/v1.schema.json), [raw Rust DTOs](api/src/lib.rs) and
 [fixtures](fixtures/studio/v1) are hand-authored. Both consumers test the same fixture source;
@@ -8,7 +15,7 @@ backend tests validate live responses with that Schema. No generated OpenAPI/Kot
 
 ## Routes
 
-| Method/path under /api/v1 | Request / result |
+| Method/path under /api/v1/studio | Request / result |
 | --- | --- |
 | POST /session | SessionRequest token → SessionResponse actor_id and HttpOnly/SameSite=Strict cookie |
 | DELETE /session | Revoke token in PostgreSQL, expire cookie → 204 |
@@ -93,7 +100,7 @@ These additive v1 routes use the same cookie, Origin guard, no-store responses a
 Existing save/read DTOs and Script IR c1/e1 remain unchanged. New raw DTOs, Schema definitions
 and fixtures live alongside the original contract.
 
-| Route under /api/v1 | Request / result |
+| Route under /api/v1/studio | Request / result |
 | --- | --- |
 | GET /scripts/{UUID}/history | Optional `after_revision` (default 0) and `limit` (default 20, range 1–50) → History |
 | POST /scripts/{UUID}/reviews | ReviewRequest `{operation_id, revision}` → Review; owner only |
@@ -127,7 +134,7 @@ and downstream eligibility gates.
 
 ## Nonpersistent validation preview
 
-`POST /api/v1/validation` accepts the closed `ValidateScriptRequest {script_json}` and returns
+`POST /api/v1/studio/validation` accepts the closed `ValidateScriptRequest {script_json}` and returns
 `ScriptValidationResponse {issues: []}` for valid Script IR. Invalid IR returns the existing
 `422 invalid_script` error with the actual reader's ordered paths/rule codes. Authentication,
 exact Origin, no-store/nosniff, the 8 MiB request envelope, 2 MiB Script IR bound and HTTP
