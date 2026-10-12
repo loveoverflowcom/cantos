@@ -272,6 +272,44 @@ async fn audio_wrong_owner_scope_digest_unknown_profile_and_stale_brief_make_no_
             .error(StatusCode::BAD_REQUEST, "invalid_request");
         assert_eq!(a.counts().await, empty);
     }
+    a.h.json(
+        "GET",
+        "/content-units/%FF/audio-submissions/not-id",
+        Some(ALICE),
+        None,
+    )
+    .await
+    .error(StatusCode::BAD_REQUEST, "invalid_request");
+    a.h.json("PATCH", &a.path(), Some(ALICE), Some(json!({})))
+        .await
+        .error(StatusCode::METHOD_NOT_ALLOWED, "invalid_request");
+    a.h.json(
+        "PATCH",
+        &format!("/scripts/{}/audio-intents", operation()),
+        Some(ALICE),
+        Some(json!({})),
+    )
+    .await
+    .error(StatusCode::METHOD_NOT_ALLOWED, "invalid_request");
+    let response =
+        a.h.app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/studio/producer/audio-submissions/{id}"))
+                    .header("origin", ORIGIN)
+                    .header("authorization", format!("Bearer {UPLOAD}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    let error: Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(error["code"], "invalid_request");
+    schema("ApiError", &error);
     a.prepare(req.clone()).await;
     let before = a.counts().await;
     upload(a.h.app.clone(), id, ALICE, bytes.clone())

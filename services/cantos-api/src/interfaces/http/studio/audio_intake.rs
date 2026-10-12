@@ -27,6 +27,9 @@ pub(super) fn routes() -> Router<AppState> {
             "/scripts/{script}/audio-intents/{intent}/bytes",
             put(upload).layer(middleware::from_fn(limit_upload)),
         )
+        .method_not_allowed_fallback(|| async {
+            failure(ErrorCode::InvalidRequest, StatusCode::METHOD_NOT_ALLOWED)
+        })
         .layer(DefaultBodyLimit::max(Store::audio_upload_body_limit()))
 }
 

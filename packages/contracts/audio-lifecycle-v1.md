@@ -106,7 +106,7 @@ Theatre handler. No existing release can be altered by these operations.
 
 401 invalid/expired/revoked producer access;404 owner/scope mismatch;400 invalid bindings,
 provenance or new byte digest/size;409 stale production inputs or operation conflict;413 body
-limit;415 unsupported transport;422 actual media rejection/evidence unavailable;503 inspection,
+limit;405 unsupported method;406 unacceptable response format;415 unsupported transport;422 actual media rejection/evidence unavailable;503 inspection,
 storage or database unavailable;500 corrupt persisted bytes/snapshot. Error codes/field rules
 are stable raw contracts; UI owns localized copy.
 

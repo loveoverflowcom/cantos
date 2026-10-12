@@ -5,6 +5,7 @@ use super::{
 };
 use crate::interfaces::http::{cookie_token, error_response, failure, AppState};
 use crate::platform::postgres::{Store, StoreError};
+use axum::extract::FromRequestParts;
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
@@ -15,6 +16,27 @@ use axum::{
     Json, Router,
 };
 use cantos_contracts as dto;
+struct AudioPath<T>(T);
+impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send> axum::extract::FromRequestParts<S>
+    for AudioPath<T>
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Response> {
+        Path::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Path(value)| Self(value))
+            .map_err(|_| error_response(StoreError::InvalidRequest))
+    }
+}
+async fn method_rejected() -> Response {
+    failure(
+        dto::ErrorCode::InvalidRequest,
+        StatusCode::METHOD_NOT_ALLOWED,
+    )
+}
 
 pub(super) fn owner_routes() -> Router<AppState> {
     Router::new()
@@ -36,6 +58,7 @@ pub(super) fn owner_routes() -> Router<AppState> {
             "/content-units/{unit}/audio-submissions/{id}/release-candidates/{candidate}",
             get(candidate_read),
         )
+        .method_not_allowed_fallback(method_rejected)
         .layer(DefaultBodyLimit::max(32 * 1024))
         .layer(middleware::from_fn(json_only))
 }
@@ -49,6 +72,7 @@ pub(super) fn producer_routes() -> Router<AppState> {
             "/producer/audio-submissions/{id}/bytes",
             put(upload).layer(middleware::from_fn(limit_upload)),
         )
+        .method_not_allowed_fallback(method_rejected)
         .layer(DefaultBodyLimit::max(Store::audio_upload_body_limit()))
 }
 fn bearer(headers: &HeaderMap) -> Result<String, StoreError> {
@@ -72,7 +96,7 @@ fn result<T: serde::Serialize>(value: Result<T, StoreError>, status: StatusCode)
 }
 async fn create(
     State(state): State<AppState>,
-    Path(unit): Path<String>,
+    AudioPath(unit): AudioPath<String>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateAudioSubmissionRequest>,
 ) -> Response {
@@ -90,7 +114,7 @@ async fn create(
 }
 async fn read(
     State(state): State<AppState>,
-    Path((unit, id)): Path<(String, String)>,
+    AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
     let token = match cookie_token(&headers) {
@@ -104,7 +128,7 @@ async fn read(
 }
 async fn revoke(
     State(state): State<AppState>,
-    Path((unit, id)): Path<(String, String)>,
+    AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
     let token = match cookie_token(&headers) {
@@ -122,7 +146,7 @@ async fn revoke(
 }
 async fn review(
     State(state): State<AppState>,
-    Path((unit, id)): Path<(String, String)>,
+    AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateAudioReviewRequest>,
 ) -> Response {
@@ -140,7 +164,7 @@ async fn review(
 }
 async fn candidate(
     State(state): State<AppState>,
-    Path((unit, id)): Path<(String, String)>,
+    AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateReleaseCandidateRequest>,
 ) -> Response {
@@ -158,7 +182,7 @@ async fn candidate(
 }
 async fn candidate_read(
     State(state): State<AppState>,
-    Path((unit, id, candidate)): Path<(String, String, String)>,
+    AudioPath((unit, id, candidate)): AudioPath<(String, String, String)>,
     headers: HeaderMap,
 ) -> Response {
     let token = match cookie_token(&headers) {
@@ -175,7 +199,7 @@ async fn candidate_read(
 }
 async fn producer_read(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    AudioPath(id): AudioPath<String>,
     headers: HeaderMap,
 ) -> Response {
     let token = match bearer(&headers) {
@@ -189,7 +213,7 @@ async fn producer_read(
 }
 async fn upload(
     State(state): State<AppState>,
-    Path(id): Path<String>,
+    AudioPath(id): AudioPath<String>,
     headers: HeaderMap,
     bytes: Result<Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {

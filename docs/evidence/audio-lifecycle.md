@@ -74,10 +74,9 @@ CARGO_TARGET_DIR=/private/tmp/cantos-production-brief/target cargo xtask preflig
 
 Existing process/socket tests and disposable PostgreSQL require local-host sandbox escalation;
 no production/inherited URL, remote CI request, paid vendor or cloud storage is used.
-Initial failures were corrected before final verification: Mac variadic mode cast, old Clippy
+Initial failures were corrected before final verification: additive0014 revocation-column CHECK, Mac variadic mode cast, old Clippy
 violations, unsupported Darwin AS reduction, ffprobe6 packet side-data empty separators, test
-borrow/token-length/schema selection. Reviewer fixes: reverse credential reuse and review
-operation-ID split. Earlier FAIL outputs are diagnostic history, not passing evidence.
+borrow/token-length/schema selection. Reviewer fixes: reverse credential reuse, review operation-ID split and shared JSON405 method fallback. Earlier FAIL outputs are diagnostic history, not passing evidence.
 
 ## Publication and residual risk
 

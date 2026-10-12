@@ -14,7 +14,7 @@ CREATE TABLE audio_submissions (
     UNIQUE(owner_id,operation_id), UNIQUE(id,owner_id)
 );
 CREATE TABLE audio_submission_revocations (
-    submission_id text PRIMARY KEY CHECK(id ~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'),
+    submission_id text PRIMARY KEY CHECK(submission_id ~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'),
     owner_id text NOT NULL,
     FOREIGN KEY(submission_id,owner_id) REFERENCES audio_submissions(id,owner_id),
     revoked_at bigint NOT NULL CHECK(revoked_at>=0)

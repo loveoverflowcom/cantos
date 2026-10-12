@@ -503,7 +503,8 @@ def audio_recovery(port, fixture):
     assert len(actual) == rendition["verified_media"]["byte_length"]
     assert hashlib.sha256(actual).hexdigest() == rendition["verified_media"]["sha256"]
     request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/studio/producer/audio-submissions/{submission}/bytes", data=actual, method="PUT", headers={"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/octet-stream", "Accept": "application/json", "Authorization": "Bearer " + fixture["upload_token"]})
-    with urllib.request.urlopen(request, timeout=15) as response:
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=15) as response:
         assert response.status == 200
         result["upload_replay"] = json.load(response)
     assert result["upload_replay"] == rendition
