@@ -98,7 +98,7 @@ def local_origin(value):
 
 def route(command, value):
     if command == "context":
-        return "POST", "/api/v1/adaptations/contexts", value
+        return "POST", "/api/v1/studio/adaptations/contexts", value
     expected_keys = {"run_id", "submission"} if command == "submit" else {"run_id"}
     if set(value) != expected_keys:
         raise ToolInputError("closed_tool_arguments_required")
@@ -108,11 +108,11 @@ def route(command, value):
     if command == "submit":
         if not isinstance(value["submission"], dict):
             raise ToolInputError("submission_object_required")
-        return "POST", f"/api/v1/adaptations/{run_id}/proposals", value["submission"]
+        return "POST", f"/api/v1/studio/adaptations/{run_id}/proposals", value["submission"]
     suffix = {"context-read": "context", "review": "review"}.get(command)
     if suffix is None:
         raise ToolInputError("unknown_tool")
-    return "GET", f"/api/v1/adaptations/{run_id}/{suffix}", None
+    return "GET", f"/api/v1/studio/adaptations/{run_id}/{suffix}", None
 
 
 def response_json(response):

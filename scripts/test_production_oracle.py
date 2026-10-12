@@ -22,13 +22,13 @@ class ProductionOracleTests(unittest.TestCase):
         opener.open.return_value = response
         with patch.object(oracle.urllib.request, "build_opener", return_value=opener), \
                 patch.object(oracle.urllib.request, "ProxyHandler") as proxy:
-            self.assertEqual(oracle.http(12345, "", "/api/v1/production/catalog", expected_status=401), receipt)
+            self.assertEqual(oracle.http(12345, "", "/api/v1/studio/production/catalog", expected_status=401), receipt)
             proxy.assert_called_once_with({})
         response.status = 200
         response.read.return_value = b'{"code":"synthetic-session-must-be-suppressed"}'
         with patch.object(oracle.urllib.request, "build_opener", return_value=opener), \
                 self.assertRaisesRegex(RuntimeError, "output suppressed") as failure:
-            oracle.http(12345, "synthetic-session-must-be-suppressed", "/api/v1/production/catalog")
+            oracle.http(12345, "synthetic-session-must-be-suppressed", "/api/v1/studio/production/catalog")
         self.assertNotIn("synthetic-session-must-be-suppressed", str(failure.exception))
 
     def test_small_latency_sample_reports_the_outlier_without_a_tail_or_throughput_claim(self):
@@ -173,10 +173,10 @@ class ProductionOracleTests(unittest.TestCase):
             oracle.assert_delta(counts, dict(counts, generation_or_cost_rows=1))
 
     def test_http_fails_before_network_for_an_invalid_port_or_non_api_path(self):
-        for port, path in ((0, "/api/v1/production/catalog"),
-                           (65536, "/api/v1/production/catalog"),
+        for port, path in ((0, "/api/v1/studio/production/catalog"),
+                           (65536, "/api/v1/studio/production/catalog"),
                            (12345, "https://example.invalid"),
-                           (12345, "/api/v1/production/catalog\r\nInjected: yes")):
+                           (12345, "/api/v1/studio/production/catalog\r\nInjected: yes")):
             with self.subTest(port=port, path=path), self.assertRaises(ValueError), \
                     patch.object(oracle.urllib.request, "build_opener") as opener:
                 oracle.http(port, "synthetic", path)

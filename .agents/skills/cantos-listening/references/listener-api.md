@@ -20,17 +20,22 @@ and needs a measured listener payload first. Progress and bookmark semantics are
 
 ## Resource map (proposed)
 
+Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`), is
+routed by `http/theatre.rs`, has DTOs in `cantos_contracts::theatre`, and has its own listener
+authentication. It never reuses a Studio route, session or editor `Store` method, and a Studio
+session grants nothing here. The router is reserved and empty until 040.1.
+
 Nothing below exists. Names are placeholders for the first listener PR (040.1) to confirm in the
 schema review; the shape — which resources exist and how each one may change — is the point.
 
 | Resource | Illustrative operation | Mutability | Caching |
 |---|---|---|---|
-| Catalog | `GET /v1/theatre/works?cursor=…&limit=…` | changes when a release activates or is retracted | short TTL; keyset cursor |
-| Work and episodes | `GET /v1/theatre/works/{work_id}` | changes on (re)publish | short TTL |
-| Publication manifest | `GET /v1/theatre/publications/{publication_id}` | immutable | cacheable indefinitely; `ETag` = manifest digest |
-| Playback authorization | `POST /v1/theatre/publications/{publication_id}/playback-authorizations` | none durable; mints a short-lived URL | `Cache-Control: no-store` |
-| Progress | `GET`, `PUT /v1/theatre/progress/{publication_id}` | revisioned | `no-store`; conditional writes |
-| Bookmarks | `GET /v1/theatre/bookmarks?since=…`, `PUT`, `DELETE /v1/theatre/bookmarks/{bookmark_id}` | revisioned; tombstoned | `no-store` |
+| Catalog | `GET /api/v1/theatre/works?cursor=…&limit=…` | changes when a release activates or is retracted | short TTL; keyset cursor |
+| Work and episodes | `GET /api/v1/theatre/works/{work_id}` | changes on (re)publish | short TTL |
+| Publication manifest | `GET /api/v1/theatre/publications/{publication_id}` | immutable | cacheable indefinitely; `ETag` = manifest digest |
+| Playback authorization | `POST /api/v1/theatre/publications/{publication_id}/playback-authorizations` | none durable; mints a short-lived URL | `Cache-Control: no-store` |
+| Progress | `GET`, `PUT /api/v1/theatre/progress/{publication_id}` | revisioned | `no-store`; conditional writes |
+| Bookmarks | `GET /api/v1/theatre/bookmarks?since=…`, `PUT`, `DELETE /api/v1/theatre/bookmarks/{bookmark_id}` | revisioned; tombstoned | `no-store` |
 | Download manifest, grants, authorizations | see [`downloads-contract.md`](downloads-contract.md) | manifest immutable; grant revisioned; URL disposable | `no-store` except the manifest |
 
 Playback authorization is a `POST` because each call makes an access decision and mints a new

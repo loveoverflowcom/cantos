@@ -317,7 +317,7 @@ mod tests {
         );
         assert_eq!(
             lines(&Gate::WebBuild(App::Theatre)),
-            ["(in apps/cantos/web) NO_COLOR=true trunk build --locked"]
+            ["(in apps/cantos-theatre/web) NO_COLOR=true trunk build --locked"]
         );
         assert_eq!(
             lines(&Gate::UiPreview),

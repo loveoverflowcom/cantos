@@ -5,7 +5,7 @@ description: >-
   feature-first CMP packages, one process-wide media session behind platform-native playback
   adapters, pure Kotlin reducers over immutable state, staged and verified offline downloads, a
   durable progress outbox, Material 3 Expressive theming from shared tokens and per-platform
-  device evidence. Use for CMP, Compose, Kotlin, apps/cantos/mobile, mini or full player, background
+  device evidence. Use for CMP, Compose, Kotlin, apps/cantos-theatre/mobile, mini or full player, background
   audio, lock-screen or notification controls, audio focus, interruptions, sleep timer,
   downloads, offline listening, TalkBack/VoiceOver, Android/iOS lifecycle work, emulator-free
   Compose preview capture, Android CLI render-compose-preview or PNG/semantics inspection.
@@ -25,7 +25,7 @@ and redefines none of them:
 | [`cantos-listening`](../cantos-listening/SKILL.md) | meaning of playback states, progress reconciliation, download entitlement, listener API | what a state means, which progress wins, when a download is allowed |
 
 Product truth lives in [`docs/architecture/mobile.md`](../../../docs/architecture/mobile.md)
-(the owner for mobile behavior), [`apps/cantos/mobile/README.md`](../../../apps/cantos/mobile/README.md),
+(the owner for mobile behavior), [`apps/cantos-theatre/mobile/README.md`](../../../apps/cantos-theatre/mobile/README.md),
 [work item 050](../../../docs/work-plan/050-cmp-native-listening.md), the
 [UI system](../../../docs/design/ui-system.md) and
 [business rules 25–29](../../../docs/product/business-rules.md#listening-and-mobile). Link them;
@@ -33,7 +33,7 @@ when this skill and a document disagree, the document wins and the conflict is r
 
 ## Repository reality
 
-- `apps/cantos/mobile/` (Theatre) and `apps/cantos-studio/mobile/` (reserved for a possible Studio
+- `apps/cantos-theatre/mobile/` (Theatre) and `apps/cantos-studio/mobile/` (reserved for a possible Studio
   client) each contain a README only. This skill's playback, download and progress rules are for
   Theatre; the two apps share no Kotlin module until code is actually common. No production
   mobile Kotlin consumer exists yet. There is no app Gradle build, Xcode project, app KMP module

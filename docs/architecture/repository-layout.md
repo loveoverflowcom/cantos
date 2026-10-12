@@ -8,7 +8,7 @@ existing code without changing behavior, migrations or wire contracts; the
 
 ```text
 apps/
-  cantos/                  Cantos Theatre: the listener product
+  cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
     web/                   Leptos CSR skeleton              (package cantos-theatre)      SKELETON
     mobile/                Kotlin Compose Multiplatform     (guide only, no Gradle)       RESERVED
   cantos-studio/           Cantos Studio: the creator product
@@ -38,6 +38,25 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 
+## Naming: technical identifiers and user-facing names
+
+| Context | Name |
+| --- | --- |
+| Listener app path, package and Trunk binary | `cantos-theatre` (`apps/cantos-theatre/{web,mobile}`) |
+| Listener API module, route group and DTOs | `theatre` (`/api/v1/theatre`, `cantos_contracts::theatre`) |
+| Creator app path, package, API route group | `cantos-studio`, `studio` (`/api/v1/studio`) |
+| Operations API module and route group | `admin` (`/api/v1/admin`) |
+| Shared backend | `cantos-api` |
+| Listener-facing title, navigation, splash, manifest, metadata, localization | **Cantos** |
+| Creator-facing product title | **Cantos Studio** |
+
+`cantos-theatre` and "Cantos Theatre" are technical and documentation names. A listener never sees
+"Cantos Theatre": the Web `<title>`, headings and any PWA/mobile label say **Cantos**. Shared
+domain nouns (Work, Episode, Script IR, Publication) keep their names and belong to no surface.
+The listener app moved from `apps/cantos` to `apps/cantos-theatre` by
+[decision 0015](../decisions/0015-api-surface-boundaries.md); `cargo xtask` still accepts `cantos`
+as an alias of `cantos-theatre`.
+
 ## Dependency direction
 
 ```text
@@ -54,8 +73,10 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   remain unavailable to public delivery whichever client asks.
 - **One backend.** `services/cantos-api` is the single deployable service for both products, as
   decided in [decision 0001](../decisions/0001-modular-monolith.md). Studio v1 is implemented. The
-  listener API is planned; when it arrives it is a separate route group and permission context in
-  this service, with its own DTO module in `packages/contracts`. A worker may run as a second
+  API is split by surface into three route groups with separate routers, DTO modules, authentication
+  and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` and `/api/v1/admin/*`
+  (reserved: empty routers answering `404 not_found`, no fake data; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
+  Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's handler. A worker may run as a second
   process of the same package. The bounded `cantos-worker` now does so for explicit local/fake
   development jobs, on the existing PostgreSQL authority; there is no broker or new service.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
@@ -93,7 +114,7 @@ The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its
 | --- | --- | --- |
 | `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, `production-jobs`, `cantos-worker` and inspection/probe CLIs |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
-| `apps/cantos/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
+| `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |
 | `packages/ui-system/leptos` | `cantos-ui` | native string-render checks and WASM CSR |
 | `xtask` | `xtask` | native developer tool; never a dependency of another member |
@@ -109,8 +130,8 @@ Trunk and refuses reserved surfaces instead of simulating them.
 ```sh
 cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
-cargo xtask build cantos --web         # Theatre Web skeleton through Trunk
-cargo xtask build cantos --mobile      # UNSUPPORTED: no Gradle project
+cargo xtask build cantos-theatre --web         # Theatre Web skeleton through Trunk
+cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: no Gradle project
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
@@ -130,7 +151,7 @@ they describe what was run at the time. Their links point to the current files.
 | --- | --- |
 | `apps/server/` | `services/cantos-api/` |
 | `apps/web/` | `apps/cantos-studio/web/` |
-| `apps/mobile/` | `apps/cantos/mobile/` |
+| `apps/mobile/` | `apps/cantos-theatre/mobile/` |
 | `contracts/` | `packages/contracts/` |
 | `contracts/design/studio-tokens-0.1.0.json` | `packages/ui-system/shared/legacy/studio-tokens-0.1.0.json` (via `packages/design-tokens`) |
 | package `cantos-server` | package `cantos-api` (binary `cantos-server` unchanged) |

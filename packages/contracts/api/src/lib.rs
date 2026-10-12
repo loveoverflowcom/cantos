@@ -1,4 +1,6 @@
-//! Studio v1 wire contract shared by the Axum host and the WASM consumer.
+//! Wire contracts shared by the Axum host and WASM/native clients. The crate root holds the
+//! Studio v1 DTOs and the types every surface shares; `theatre` and `admin` are reserved for
+//! their own DTOs and `routes` names the URL spaces.
 //! These are raw DTOs, not permission or validation witnesses.
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +10,9 @@ mod adaptations;
 pub use adaptations::*;
 mod production;
 pub use production::*;
+pub mod admin;
+pub mod routes;
+pub mod theatre;
 pub mod wire;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

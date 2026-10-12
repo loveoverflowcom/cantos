@@ -49,7 +49,7 @@ pub struct ComposePreviewArgs {
 
 pub fn command(workspace: &Workspace, args: &ComposePreviewArgs) -> CommandSpec {
     let app = match args.target {
-        AppTarget::Cantos => App::Theatre,
+        AppTarget::CantosTheatre => App::Theatre,
         AppTarget::CantosStudio => App::Studio,
     };
     let mut command = CommandSpec::new("python3", workspace.root()).args([
@@ -184,10 +184,10 @@ mod tests {
     #[test]
     fn rejects_missing_preview_identity_and_unbounded_timeouts() {
         for tail in [
-            vec!["cantos"],
-            vec!["cantos", "--file", "Screen.kt"],
+            vec!["cantos-theatre"],
+            vec!["cantos-theatre", "--file", "Screen.kt"],
             vec![
-                "cantos",
+                "cantos-theatre",
                 "--file",
                 "Screen.kt",
                 "--composable",
@@ -196,7 +196,7 @@ mod tests {
                 "0",
             ],
             vec![
-                "cantos",
+                "cantos-theatre",
                 "--file",
                 "Screen.kt",
                 "--composable",
@@ -205,7 +205,7 @@ mod tests {
                 "301",
             ],
             vec![
-                "cantos",
+                "cantos-theatre",
                 "--file",
                 "Screen.kt",
                 "--composable",

@@ -11,7 +11,7 @@ The product owner is [`apps/cantos-studio/web/README.md`](../../../../apps/canto
 dependency rule itself is the foundation's [`decoupling.md`](../../cantos-engineering/references/decoupling.md);
 this reference applies it to the browser. Two Leptos packages exist, one per product:
 [`apps/cantos-studio/web`](../../../../apps/cantos-studio/web/README.md) (implemented) and
-[`apps/cantos/web`](../../../../apps/cantos/web/README.md) (a skeleton with no listener behavior).
+[`apps/cantos-theatre/web`](../../../../apps/cantos-theatre/web/README.md) (a skeleton with no listener behavior).
 Every path, crate and type below that the repository does not contain is a **proposal** until a Web
 work item creates it.
 
@@ -174,7 +174,7 @@ apps/cantos-studio/web/           implemented as flat modules (adaptation, autho
     casting/                      character ↔ voice profile, sample preview
     production/                   run status, job progress, regeneration scope, QC findings
     publication/                  approval and publish controls (render server gates)
-apps/cantos/web/                  skeleton today (lib, main, one placeholder view); proposed for the first item
+apps/cantos-theatre/web/                  skeleton today (lib, main, one placeholder view); proposed for the first item
   src/
     app.rs                        router, surface root, context providers, theme/lang attributes
     discovery/  work/  episode/  library/

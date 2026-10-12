@@ -81,7 +81,7 @@ It never assigns voices or silently submits an imported source as an accepted sc
 Adaptation tools prepare a context pinned to the imported source ID/checksum, extraction version,
 target script and input revision, with a recorded source export permission claim. The host generates
 under the user's control and submits a bounded structured result through the tools. Studio opens
-the context or proposal ID through `GET /api/v1/adaptations/{id}/review`; it never requests AI
+the context or proposal ID through `GET /api/v1/studio/adaptations/{id}/review`; it never requests AI
 generation. Historical proposals remain readable through the same tagged response.
 
 The review shows preserved source text, paged extraction and warnings, the pinned input revision,
@@ -119,7 +119,7 @@ remain unverified; no complete accessibility or full Studio acceptance claim is 
 
 ## Validation, history and review
 
-`POST /api/v1/validation` previews structural and semantic Script IR findings without writing
+`POST /api/v1/studio/validation` previews structural and semantic Script IR findings without writing
 records or proving source ownership. The preview and review acknowledgement bind the exact
 actor/text snapshot and become unavailable after edits; save/acceptance revalidate current access,
 evidence and base inside the existing transaction. Field findings retain server paths/rule codes.

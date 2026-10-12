@@ -341,7 +341,7 @@ class Benchmark:
                                     for kind, ref in EVIDENCE_REFS)
 
     def request(self, connection, number, actor, revision=None, body=None):
-        path = f"/api/v1/scripts/{script_id(number)}/"
+        path = f"/api/v1/studio/scripts/{script_id(number)}/"
         path += "revisions" if body is not None else ("head" if revision is None else f"revisions/{revision}")
         headers = {"Origin": f"http://127.0.0.1:{self.http_port}", "Content-Type": "application/json"}
         if actor is not None:

@@ -159,14 +159,14 @@ mod tests {
     #[test]
     fn display_shows_directory_environment_and_quotes() {
         let root = Path::new("/repo");
-        let spec = CommandSpec::new("trunk", "/repo/apps/cantos/web")
+        let spec = CommandSpec::new("trunk", "/repo/apps/cantos-theatre/web")
             .env("NO_COLOR", "true")
             .args(["build", "--locked"])
             .arg_if(true, "--release")
             .arg_if(false, "--never");
         assert_eq!(
             spec.display(root),
-            "(in apps/cantos/web) NO_COLOR=true trunk build --locked --release"
+            "(in apps/cantos-theatre/web) NO_COLOR=true trunk build --locked --release"
         );
         let python = CommandSpec::new("python3", "/repo").args(["-p", "test_*.py", "it's"]);
         assert_eq!(python.display(root), r"python3 -p 'test_*.py' 'it'\''s'");

@@ -8,7 +8,7 @@ The current user's instructions take priority. Preserve Cantos Studio and Cantos
 
 ## Repository layout
 
-`apps/cantos/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/{web,mobile}` is Cantos Studio (creators), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, `packages/` holds shared contracts and design tokens, and `xtask/` is the `cargo xtask` developer command surface. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
+`apps/cantos-theatre/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/{web,mobile}` is Cantos Studio (creators), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, `packages/` holds shared contracts and design tokens, and `xtask/` is the `cargo xtask` developer command surface. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. Naming is strict: `cantos-theatre`/`theatre` is the technical name (path, package, API group, DTOs), while listeners only ever see **Cantos** (never "Cantos Theatre") and creators see **Cantos Studio**. The API has three route groups with separate routers, DTOs, authentication and data access: `/api/v1/studio/*` (implemented; the pre-split `/api/v1/*` paths are a deprecated alias), and reserved `/api/v1/theatre/*` and `/api/v1/admin/*`. Never serve a Theatre or Admin feature from a Studio handler, reuse a Studio session for them, or add fake data to a reserved group ([decision 0015](docs/decisions/0015-api-surface-boundaries.md)). [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
 
 ## Architecture boundaries
 
@@ -69,7 +69,7 @@ gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not re
 interaction/accessibility evidence is separate from the WASM build; no mobile runtime gate exists.
 On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python unit/mutation runs.
 
-Static Compose UI capture goes through `cargo xtask compose-preview <cantos|cantos-studio>`;
+Static Compose UI capture goes through `cargo xtask compose-preview <cantos-theatre|cantos-studio>`;
 read the [CMP preview workflow](.agents/skills/cantos-cmp-mobile/references/compose-preview.md).
 It needs a real mobile Gradle project and Android Studio Quail 2+ with that project open, but no
 emulator or phone. Both mobile directories remain guides, so real capture is currently

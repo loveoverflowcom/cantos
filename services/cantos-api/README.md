@@ -8,8 +8,12 @@ the bounded [durable local/fake job foundation](../../docs/evidence/durable-tts-
 attempts and reservations and runs a separate `cantos-worker` process from this same package.
 Production identity deployment and commercial dispatch remain unimplemented/disabled. Google
 live/billing is NOT_RUN; VieNeu remains research-only NO_GO for production.
-The only HTTP surface today is the Studio v1 API; the listener (Theatre) API is planned as a separate
-route group and permission context in this same service. The `cantos-server` binary keeps its name.
+The HTTP host is one modular monolith with three surfaces, each with its own router module
+(`src/http/{studio,theatre,admin}.rs`): `/api/v1/studio/*` is implemented (the pre-split `/api/v1/*`
+paths remain a deprecated alias of the same handlers); `/api/v1/theatre/*` and `/api/v1/admin/*`
+are reserved empty routers that answer `404 not_found` and serve no data. Shared code is limited to
+middleware, error mapping, the domain modules and the PostgreSQL store. See
+[decision 0015](../../docs/decisions/0015-api-surface-boundaries.md). The `cantos-server` binary keeps its name.
 [`services/kanidm`](../kanidm/README.md) holds identity-provider configuration; the service does not use it yet.
 
 ## Boundaries
@@ -26,7 +30,7 @@ route group and permission context in this same service. The `cantos-server` bin
   resolution, integer planning estimates, tagged input digest and current rights/approval gate.
   Its catalog preserves historical reference entries and adds the explicit eSpeak local
   inspection capability plus the explicitly research-only VieNeu Nano profile; no billable dispatch exists.
-- `postgres/production.rs` and `http/production.rs`: script-scoped append-only settings,
+- `postgres/production.rs` and `http/studio/production.rs`: script-scoped append-only settings,
   declarations, candidates/approvals and thin authenticated route mapping. Current permissions,
   accepted head and evidence are rechecked inside the same PostgreSQL transactions.
 - `jobs.rs`: pure execution-state transitions, bounded retry decisions, lease configuration,

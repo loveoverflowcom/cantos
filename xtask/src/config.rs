@@ -43,7 +43,7 @@ impl App {
     pub fn cli_name(self) -> &'static str {
         match self {
             App::Studio => "cantos-studio",
-            App::Theatre => "cantos",
+            App::Theatre => "cantos-theatre",
         }
     }
 
@@ -57,14 +57,14 @@ impl App {
     pub fn web_dir(self) -> &'static str {
         match self {
             App::Studio => "apps/cantos-studio/web",
-            App::Theatre => "apps/cantos/web",
+            App::Theatre => "apps/cantos-theatre/web",
         }
     }
 
     pub fn mobile_dir(self) -> &'static str {
         match self {
             App::Studio => "apps/cantos-studio/mobile",
-            App::Theatre => "apps/cantos/mobile",
+            App::Theatre => "apps/cantos-theatre/mobile",
         }
     }
 
@@ -80,7 +80,7 @@ impl App {
     pub fn web_marker(self) -> &'static str {
         match self {
             App::Studio => "<title>Cantos Studio</title>",
-            App::Theatre => "<title>Cantos Theatre</title>",
+            App::Theatre => "<title>Cantos</title>",
         }
     }
 
@@ -134,7 +134,7 @@ mod tests {
         for manifest in [
             "services/cantos-api/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
-            "apps/cantos/web/Cargo.toml",
+            "apps/cantos-theatre/web/Cargo.toml",
             "packages/contracts/api/Cargo.toml",
             "packages/ui-system/leptos/Cargo.toml",
             "xtask/Cargo.toml",

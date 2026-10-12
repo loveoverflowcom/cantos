@@ -18,8 +18,8 @@ Use one Rust backend with Axum API handlers, domain/application modules and infr
 | Application | Permission checks, revision transitions, production planning, cost limits and publication gates | Provider-specific request shapes |
 | Production | Durable step execution, TTS/mixing/QC adapters and asset manifests | Listener navigation or public permissions bypasses |
 | Infrastructure | PostgreSQL transactions, object storage, AI providers, media tools and delivery adapters | Product state-transition policy |
-| Web | Studio editor (`apps/cantos-studio/web`) and Theatre player (`apps/cantos/web`), as separate applications | Credentials for AI/object storage or authoritative approvals |
-| Mobile | CMP screens/state plus native playback/download adapters for Theatre (`apps/cantos/mobile`); a Studio client is reserved (`apps/cantos-studio/mobile`) | Server orchestration or in-app TTS for published episodes |
+| Web | Studio editor (`apps/cantos-studio/web`) and Theatre player (`apps/cantos-theatre/web`), as separate applications | Credentials for AI/object storage or authoritative approvals |
+| Mobile | CMP screens/state plus native playback/download adapters for Theatre (`apps/cantos-theatre/mobile`); a Studio client is reserved (`apps/cantos-studio/mobile`) | Server orchestration or in-app TTS for published episodes |
 
 These are module responsibilities, not requirements to create one crate per row. Create packages only when a real build target or independent consumer justifies them.
 
@@ -43,7 +43,7 @@ Publication is an atomic metadata transition to a complete immutable manifest af
 ## Initial source layout
 
 The [repository layout](repository-layout.md) names every app, service and package. The root Cargo
-workspace contains `services/cantos-api/`, `apps/cantos-studio/web/`, the `apps/cantos/web/` Theatre
+workspace contains `services/cantos-api/`, `apps/cantos-studio/web/`, the `apps/cantos-theatre/web/` Theatre
 skeleton and `packages/contracts/api/`. Server
 `script_ir`, `revisions` and the adaptation admission kernel are pure rules; `postgres` owns
 transactions and `http` maps the shared wire contract to Axum. Adaptation tools export frozen context and admit caller-created proposals over the same HTTP
@@ -70,7 +70,7 @@ runtime I/O. The eSpeak adapter/probe, Script IR, production-p1, PostgreSQL auth
 boundaries remain intact. See [ADR 0010](../decisions/0010-local-neural-tts-research.md).
 The Studio WASM consumer imports only `cantos-contracts`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
-in the same `cantos-api` package. `apps/cantos/mobile/` and `apps/cantos-studio/mobile/` remain guides;
+in the same `cantos-api` package. `apps/cantos-theatre/mobile/` and `apps/cantos-studio/mobile/` remain guides;
 Gradle belongs to the native listening slice. [ADR 0003](../decisions/0003-script-revision-persistence.md) is proposed for
 production adoption, not an accepted deployment decision.
 

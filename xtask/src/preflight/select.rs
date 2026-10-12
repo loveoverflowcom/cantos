@@ -252,7 +252,7 @@ mod tests {
             &[".cargo/config.toml"],
             &["scripts/new_tool.py"],
             &["Makefile"],
-            &["apps/cantos/mobile/settings.gradle.kts"],
+            &["apps/cantos-theatre/mobile/settings.gradle.kts"],
             &["docs/README.md", "rust-toolchain.toml"],
         ] {
             let selection = pick(paths);
@@ -322,14 +322,14 @@ mod tests {
     #[test]
     fn theatre_changes_select_their_web_client() {
         assert_eq!(
-            names(&pick(&["apps/cantos/web/index.html"])),
+            names(&pick(&["apps/cantos-theatre/web/index.html"])),
             [
                 "repository",
                 "rust-format",
                 "rust-lint (cantos-theatre)",
                 "rust-tests (cantos-theatre)",
-                "web-lint (cantos)",
-                "web-build (cantos)",
+                "web-lint (cantos-theatre)",
+                "web-build (cantos-theatre)",
             ]
         );
     }
@@ -393,9 +393,12 @@ mod tests {
 
     #[test]
     fn within_matches_whole_path_components() {
-        assert!(within("apps/cantos/web/src/lib.rs", "apps/cantos/web"));
+        assert!(within(
+            "apps/cantos-theatre/web/src/lib.rs",
+            "apps/cantos-theatre/web"
+        ));
         assert!(within("xtask", "xtask"));
-        assert!(!within("apps/cantos-studio/web/x", "apps/cantos"));
+        assert!(!within("apps/cantos-studio/web/x", "apps/cantos-theatre"));
         assert!(!within("xtaskish/a", "xtask"));
     }
 
@@ -419,9 +422,9 @@ mod tests {
                 "rust-format",
                 "rust-lint (cantos-studio, cantos-theatre, cantos-ui)",
                 "rust-tests (cantos-studio, cantos-theatre, cantos-ui)",
-                "web-lint (cantos-studio, cantos)",
+                "web-lint (cantos-studio, cantos-theatre)",
                 "web-build (cantos-studio)",
-                "web-build (cantos)",
+                "web-build (cantos-theatre)",
                 "ui-preview",
             ];
             if !path.starts_with("packages/ui-system/leptos/") {
