@@ -25,6 +25,12 @@ and HTTP evidence are recorded separately in [session 1](../evidence/studio-cata
 and [session 2](../evidence/studio-catalog-api.md). Keep #66 open for responsive and keyboard
 Studio Web acceptance; GitHub owns execution status.
 
+The [Content Identity slice](../decisions/0019-content-identity.md) adds immutable content beneath
+Catalog metadata. Its [handoff to Production Brief](content-identity-production-brief-handoff.md)
+keeps the next backend boundary narrow: exact content/guidance revision pinning and independent
+producer access, before linking intake/publication. Catalog Web acceptance remains separately
+scoped; this sequence does not close #66 or #64.
+
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation

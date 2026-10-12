@@ -325,7 +325,7 @@ fn text_errors(
     errors
 }
 
-fn validate_language(value: &str) -> Result<(), CatalogError> {
+pub(super) fn validate_language(value: &str) -> Result<(), CatalogError> {
     // Accept a bounded common BCP-47 form without silently changing its spelling. This is
     // a language tag, not an assertion that a specific narrator or asset supports it.
     if value.len() > LANGUAGE_MAX_BYTES {

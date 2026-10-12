@@ -8,6 +8,7 @@
 | Document | Owns |
 | --- | --- |
 | [Product brief](product/brief.md) | Audience, surfaces, scope and MVP outcome |
+| [Content Identity](decisions/0019-content-identity.md) | Work/unit/content/script authority split and immutable content; [evidence](evidence/content-identity.md), [Production Brief handoff](work-plan/content-identity-production-brief-handoff.md) |
 | [Business rules](product/business-rules.md) | Domain invariants, rights, revisions and approvals |
 | [External audio handoff pipeline](product/production-pipeline.md) | Versioned producer briefs, private upload/finalize, QC and immutable publication; no in-backend synthesis |
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |

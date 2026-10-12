@@ -109,3 +109,76 @@ fn catalog_literal_acceptance_and_rejection_fixtures_match_the_schema() {
         );
     }
 }
+#[test]
+fn content_identity_literal_contracts_and_independent_digests_match_admission() {
+    use cantos_api::contexts::catalog::content::wire;
+    use cantos_contracts::{AppendContentRequest, ContentRevisionResponse};
+    let root: Value = serde_json::from_str(include_str!(
+        "../../../packages/contracts/schema/content/v1.schema.json"
+    ))
+    .unwrap();
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../../packages/contracts/fixtures/content/v1/cases.json"
+    ))
+    .unwrap();
+    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../packages/contracts/fixtures/content/v1");
+    for case in cases {
+        let value: Value = serde_json::from_slice(
+            &std::fs::read(directory.join(case["file"].as_str().unwrap())).unwrap(),
+        )
+        .unwrap();
+        let validator = jsonschema::validator_for(&json!({"$defs":root["$defs"],"$ref":format!("#/$defs/{}",case["type"].as_str().unwrap())})).unwrap();
+        assert_eq!(
+            validator.is_valid(&value),
+            case["valid"].as_bool().unwrap(),
+            "{case}"
+        );
+        if case["valid"] == false {
+            if case["file"] == "reject-latest-script.json" {
+                let request: AppendContentRequest = serde_json::from_value(value).unwrap();
+                assert!(matches!(
+                    wire::admit_details(request.details),
+                    Err(cantos_api::contexts::catalog::CatalogStoreError::Domain(
+                        cantos_api::contexts::catalog::domain::CatalogError::InvalidRevision
+                    ))
+                ));
+            } else {
+                assert!(
+                    serde_json::from_value::<AppendContentRequest>(value).is_err(),
+                    "{case}"
+                );
+            }
+        } else if case["type"] == "AppendContentRequest" {
+            wire::admit_details(
+                serde_json::from_value::<AppendContentRequest>(value)
+                    .unwrap()
+                    .details,
+            )
+            .unwrap();
+        } else {
+            let raw: ContentRevisionResponse = serde_json::from_value(value.clone()).unwrap();
+            let mut effective = Sha256::new();
+            effective.update(b"cantos/cc-c1\n");
+            effective.update(
+                serde_json::to_vec(
+                    &json!({"body":raw.details.body,"language":raw.details.language}),
+                )
+                .unwrap(),
+            );
+            assert_eq!(
+                raw.content_digest,
+                format!("cc-c1:sha256:{:x}", effective.finalize())
+            );
+            let mut full = value;
+            full.as_object_mut().unwrap().remove("revision_digest");
+            let mut revision = Sha256::new();
+            revision.update(b"cantos/cc-r1\n");
+            revision.update(serde_json::to_vec(&full).unwrap());
+            assert_eq!(
+                raw.revision_digest,
+                format!("cc-r1:sha256:{:x}", revision.finalize())
+            );
+        }
+    }
+}

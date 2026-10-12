@@ -4,6 +4,7 @@ pub mod domain;
 mod application;
 mod postgres;
 
+pub use application::content;
 pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,

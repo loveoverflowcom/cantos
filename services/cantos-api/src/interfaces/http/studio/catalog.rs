@@ -39,6 +39,7 @@ pub(super) fn routes() -> Router<AppState> {
             "/content-units/{unit_id}",
             get(get_unit).patch(patch_unit).delete(archive_unit),
         )
+        .merge(super::content::routes())
         .method_not_allowed_fallback(|| async {
             failure(
                 StatusCode::METHOD_NOT_ALLOWED,
@@ -89,7 +90,7 @@ impl<S: Send + Sync> FromRequestParts<S> for CatalogId {
 }
 
 /// Map decoder/body-limit failures to the shared JSON error envelope before mutation.
-struct CatalogBody<T>(T);
+pub(super) struct CatalogBody<T>(pub(super) T);
 impl<S: Send + Sync, T: DeserializeOwned> FromRequest<S> for CatalogBody<T> {
     type Rejection = Response;
     async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
@@ -467,7 +468,7 @@ fn issue(path: &str, rule: &str) -> FieldIssue {
         rule: rule.into(),
     }
 }
-fn failure(
+pub(super) fn failure(
     status: StatusCode,
     code: ErrorCode,
     current_revision: Option<u64>,
@@ -483,7 +484,7 @@ fn failure(
     )
         .into_response()
 }
-fn catalog_error(error: CatalogStoreError) -> Response {
+pub(super) fn catalog_error(error: CatalogStoreError) -> Response {
     match error {
         CatalogStoreError::Storage(error) => error_response(error),
         CatalogStoreError::OperationReused => failure(

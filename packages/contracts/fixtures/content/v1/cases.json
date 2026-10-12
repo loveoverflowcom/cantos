@@ -1,0 +1,32 @@
+[
+  {
+    "file": "recording-request.json",
+    "type": "AppendContentRequest",
+    "valid": true
+  },
+  {
+    "file": "text-request.json",
+    "type": "AppendContentRequest",
+    "valid": true
+  },
+  {
+    "file": "text-revision.json",
+    "type": "ContentRevisionResponse",
+    "valid": true
+  },
+  {
+    "file": "reject-authority.json",
+    "type": "AppendContentRequest",
+    "valid": false
+  },
+  {
+    "file": "reject-recording-script.json",
+    "type": "AppendContentRequest",
+    "valid": false
+  },
+  {
+    "file": "reject-latest-script.json",
+    "type": "AppendContentRequest",
+    "valid": false
+  }
+]

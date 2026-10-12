@@ -98,6 +98,11 @@ shape is `invalid_request` and stops semantic validation.
 
 ## Immutable links and authorization
 
+These optional links are compatibility/navigation metadata. The separate
+[Content Identity API](content-v1.md) owns managed immutable content revisions; editing or
+clearing Catalog links never moves its content head. Production briefs must pin that exact
+ContentRevision rather than these fields. Existing units acquire no content by migration.
+
 Optional source is `{id, sha256}` pointing at an existing preserved manuscript source. Optional
 Script IR is `{id, revision, export_digest}` pointing at an exact accepted revision, using
 `sir-e1:sha256:<64 lowercase hex>`; a latest pointer is never accepted. The transaction resolves

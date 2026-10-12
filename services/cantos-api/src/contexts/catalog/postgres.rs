@@ -8,6 +8,8 @@ use crate::platform::postgres::{checked_number, LockMode, StoreError, Tx};
 #[path = "storage.rs"]
 mod storage;
 pub(super) use storage::{decode_unit, decode_work, digest};
+#[path = "postgres_content.rs"]
+pub(super) mod content;
 
 const WORK_COLUMNS: &str =
     "w.id,w.owner_id,w.kind,w.lifecycle,w.head_revision,r.revision,r.snapshot,r.snapshot_digest";

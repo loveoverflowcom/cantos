@@ -17,6 +17,10 @@ or in-backend mixing should remain.
   permissions, immutable revisions, archival, guarded reorder, idempotency and bounded queries.
   [API contract](../../packages/contracts/catalog-v1.md), [evidence](../../docs/evidence/studio-catalog-api.md)
   and [remaining Catalog acceptance](../../docs/work-plan/011-studio-catalog-api.md).
+- [Content Identity](../../packages/contracts/content-v1.md): immutable unit content, independent
+  content sequence, text/source/script/recording bodies, full revision digest and exact retries.
+  [Authority split](../../docs/decisions/0019-content-identity.md);
+  [local evidence](../../docs/evidence/content-identity.md).
 - Read-only, bounded RIFF/WAV PCM inspection under `contexts/media/domain/wav_inspection`.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
@@ -56,9 +60,12 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds catalog tables independently of the separately reserved audio-intake
-0010. The migration registry currently has versions 1–9 and 11; upgrade/replay tests preserve
+0010. Content Identity migration0012 is additive after Catalog0011. The migration registry has
+versions 1–9, 11 and 12; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
-in `tests/catalog_postgres.rs::grant_and_seed`; deployment role provisioning remains separate.
+in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
+`tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
+and UPDATE(revision_id,revision) on heads. Deployment role provisioning remains separate.
 
 ## Local verification
 

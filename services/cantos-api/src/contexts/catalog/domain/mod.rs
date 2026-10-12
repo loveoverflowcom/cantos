@@ -19,5 +19,6 @@ pub use reorder::{plan_reorder, OrderAssignment, ReorderPlan};
 pub use unit::{ContentUnit, NewContentUnit, StoredContentUnit};
 pub use work::{NewWork, StoredWork, Work};
 
+pub mod content;
 #[cfg(test)]
 mod tests;

@@ -1,0 +1,20 @@
+{
+  "operation_id": "00000000-0000-0000-0000-000000000004",
+  "id": "00000000-0000-0000-0000-000000000001",
+  "expected_revision": 0,
+  "expected_work_revision": 2,
+  "details": {
+    "language": "vi-VN",
+    "body": {
+      "kind": "script",
+      "script": {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "revision": 0,
+        "export_digest": "sir-e1:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "source": null
+    },
+    "rights_refs": [],
+    "provenance_note": "Authored synthetic fixture; no rights clearance"
+  }
+}

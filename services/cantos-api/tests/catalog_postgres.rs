@@ -1717,7 +1717,7 @@ async fn migration_0011_upgrades_0009_without_0010_and_preserves_existing_bytes_
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 11]);
+    assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12]);
     let retained_text = h.admin.query_one("SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations WHERE version<=9),'source',(SELECT json_build_array(encode(coalesce(original_bytes,convert_to(original_text,'UTF8')),'hex'),sha256) FROM source_records WHERE id='old-manuscript'),'script',(SELECT json_build_array(encode(canonical_export,'hex'),content_digest,export_digest) FROM script_revisions WHERE script_id=$1 AND revision=1))::text", &[&script.id()]).await.unwrap().get::<_,String>(0);
     let retained: Value = serde_json::from_str(&retained_text).unwrap();
     assert_eq!(historical, retained);

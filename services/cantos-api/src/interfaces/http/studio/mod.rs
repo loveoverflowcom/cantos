@@ -22,6 +22,7 @@ use crate::platform::postgres::StoreError;
 
 mod adaptations;
 mod catalog;
+mod content;
 mod imports;
 mod production;
 

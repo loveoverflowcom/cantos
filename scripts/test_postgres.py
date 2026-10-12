@@ -462,6 +462,15 @@ def catalog_recovery(port, fixture):
     assert result["unit"] == fixture["current"]["units"][0]
     assert result["create_replay"] == fixture["original"]
     assert result["unit_replay"] == fixture["current"]
+    content = fixture["content_target"]
+    unit = content["unit_id"]
+    path = f"/content-units/{unit}/content/revisions"
+    result["content_head"] = catalog_http(port, f"/content-units/{unit}/content/head")
+    result["content_pinned"] = catalog_http(port, f"{path}/{content['first']['content']['id']}")
+    result["content_replay"] = catalog_http(port, path, "POST", content["request"], 201)
+    assert result["content_head"] == content["second"]["content"]
+    assert result["content_pinned"] == content["first"]["content"]
+    assert result["content_replay"] == content["first"]
     return result
 
 

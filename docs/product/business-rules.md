@@ -12,6 +12,12 @@
 4. A podcast episode can be submitted as one already-recorded file. Never require a scripted
    dialogue hierarchy for a simple story or podcast.
 
+Content authority and the implemented Work → ContentUnit → ContentRevision → optional
+ScriptRevision reference are defined in [ADR 0019](../decisions/0019-content-identity.md).
+Metadata and content sequences are independent; legacy Catalog navigation links never change
+a managed content revision. Production instructions pin the full revision digest, including
+declared rights/provenance, rather than just effective body equality.
+
 ## Casting and performance
 
 5. Script IR, narrator/cast, pronunciation maps, emotions, scene cues and audio mix instructions
