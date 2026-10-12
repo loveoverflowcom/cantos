@@ -358,3 +358,11 @@ component qualification. It is outside CI until a Gradle lane is separately prov
 only stored owned process groups for cleanup. The supervisor keeps exited leaders unreaped
 until their group has been signalled, preventing descendant leaks without stale-PGID lookup.
 Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/README.md).
+
+The retained local fixture can now select its existing test context with
+`CANTOS_TEST_CONTEXT=editorial|catalog|audio` on `run cantos-studio --web --test-cluster`.
+Editorial is the default. Audio selects the fresh runner's exact AudioLifecycle database and
+private root; it does not provision identity/storage or use an inherited database URL.
+PostgreSQL verification now discards completed suite databases only after their tests pass,
+retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
+disk consumption without removing any test or weakening PostgreSQL durability settings.
