@@ -8,7 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::config::{GRADLE_VERSION, UI_CMP_DIR, WASM_TARGET};
+use crate::config::{GRADLE_VERSION, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Tool {
@@ -20,6 +20,7 @@ pub enum Tool {
     Gradle,
     Java,
     CmpGradleProject,
+    CmpAndroidGradleProject,
     Python3,
     Git,
     Initdb,
@@ -29,7 +30,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 14] = [
+    pub const ALL: [Tool; 15] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -38,6 +39,7 @@ impl Tool {
         Tool::Gradle,
         Tool::Java,
         Tool::CmpGradleProject,
+        Tool::CmpAndroidGradleProject,
         Tool::Python3,
         Tool::Git,
         Tool::Initdb,
@@ -56,6 +58,7 @@ impl Tool {
             Tool::Gradle => "gradle",
             Tool::Java => "java",
             Tool::CmpGradleProject => "CMP Gradle project",
+            Tool::CmpAndroidGradleProject => "CMP Android preview Gradle project",
             Tool::Python3 => "python3",
             Tool::Git => "git",
             Tool::Initdb => "initdb",
@@ -80,9 +83,12 @@ impl Tool {
             Tool::CmpGradleProject => {
                 "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp"
             }
+            Tool::CmpAndroidGradleProject => {
+                "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp/android-preview"
+            }
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
-            Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the mobile project open",
+            Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the selected Android project open",
             Tool::Initdb | Tool::PgCtl | Tool::Psql => {
                 "put the PostgreSQL 17 server binaries directory on PATH"
             }
@@ -99,6 +105,7 @@ impl Tool {
             Tool::Gradle => Some(("gradle", &["--no-daemon", "--version"])),
             Tool::Java => Some(("java", &["-version"])),
             Tool::CmpGradleProject => None,
+            Tool::CmpAndroidGradleProject => None,
             Tool::Python3 => Some(("python3", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
             Tool::Initdb => Some(("initdb", &["--version"])),
@@ -138,7 +145,10 @@ impl SystemTools {
 
     /// First line of the tool's version output, when it can be obtained.
     pub fn version(&self, tool: Tool) -> Option<String> {
-        if matches!(tool, Tool::Wasm32Target | Tool::CmpGradleProject) {
+        if matches!(
+            tool,
+            Tool::Wasm32Target | Tool::CmpGradleProject | Tool::CmpAndroidGradleProject
+        ) {
             return self.available(tool).then(|| "available".to_owned());
         }
         let (program, args) = tool.version_command()?;
@@ -171,6 +181,9 @@ impl SystemTools {
         match tool {
             Tool::Wasm32Target => self.wasm_target_installed(),
             Tool::CmpGradleProject => cmp_gradle_project_exists(&self.root.join(UI_CMP_DIR)),
+            Tool::CmpAndroidGradleProject => {
+                cmp_gradle_project_exists(&self.root.join(UI_CMP_ANDROID_DIR))
+            }
             Tool::Gradle => self
                 .version(tool)
                 .is_some_and(|version| gradle_version_supported(&version)),
@@ -245,7 +258,7 @@ fn java_version_supported(version: &str) -> bool {
         .is_some_and(|major| major >= 17)
 }
 
-/// The package-local desktop preview must be a real Gradle project, not its reserved README.
+/// A package-local preview must be a real Gradle project, not a reserved README.
 pub fn cmp_gradle_project_exists(dir: &Path) -> bool {
     ["settings.gradle.kts", "settings.gradle"]
         .iter()

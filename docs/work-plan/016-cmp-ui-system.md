@@ -116,6 +116,10 @@ catalogues, closes equivalent-option Select menu interruption with a failing-fir
 and records fresh pinned local evidence. The three original commits remain intact. This accepts
 the desktop preview implementation; 0/29 components remain qualified for new app use, and native,
 reference and accessibility qualification remains the next prerequisite before adoption.
+The requester then selected Android Studio host preview instead of a connected-device run. The
+[Android host follow-up](../evidence/cmp-pr43-android-preview.md) records a real isolated library
+consumer, four static PNG/semantics captures and adapter/freshness fixes. This does not implement
+either product mobile app or change the 0/29 qualification boundary.
 
 ## Commands and risks
 

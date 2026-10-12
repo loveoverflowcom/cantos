@@ -169,6 +169,9 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
     directory = Path(root) / "packages/ui-system" / renderer
     suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".toml", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
     excluded = {RUST_OUTPUT.relative_to(ROOT), KOTLIN_OUTPUT.relative_to(ROOT)}
+    if renderer == "cmp":
+        # The SDK location is machine-local configuration, not a rendering input.
+        excluded.add(Path("packages/ui-system/cmp/android-preview/local.properties"))
     records = {}
     if declarations is None:
         declarations = load_source((Path(root) / CATALOG.relative_to(ROOT)).read_bytes())["components"]
@@ -179,7 +182,15 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
         records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
-        if path.is_file() and path.suffix in suffixes and path.relative_to(root) not in excluded and relative.parts[0] not in {"build", ".gradle"}:
+        generated_output = relative.parts[0] in {"build", ".gradle"}
+        if renderer == "cmp":
+            # Only this isolated project's build/IDE output roots are excluded; source
+            # directories with those names elsewhere still affect qualification.
+            generated_output |= relative.parts[:2] in {
+                ("android-preview", "build"), ("android-preview", ".gradle"),
+                ("android-preview", ".idea"), ("android-preview", ".kotlin"),
+            }
+        if path.is_file() and path.suffix in suffixes and path.relative_to(root) not in excluded and not generated_output:
             records[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return digest(records)
 

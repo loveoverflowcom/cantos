@@ -193,6 +193,13 @@ class PreviewCatalog(unittest.TestCase):
             ("cmp", "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/build/Control.kt"),
             ("cmp", "packages/ui-system/cmp/src/desktopMain/kotlin/com/cantos/ui/PreviewCatalog.kt"),
             ("cmp", "packages/ui-system/cmp/gradle/libs.versions.toml"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.gradle/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.idea/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.kotlin/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/nested/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/other-project/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/local.properties"),
         ):
             with self.subTest(renderer=renderer, path=path):
                 self.qualify()
@@ -225,6 +232,42 @@ class PreviewCatalog(unittest.TestCase):
                 for path in paths:
                     self.write(path, "excluded output\n")
                 self.assertEqual(before, catalog.renderer_digest(renderer, self.root, self.source["components"]))
+
+    def test_android_preview_generated_outputs_do_not_invalidate_cmp_qualification(self):
+        self.qualify()
+        before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+        for generated_directory in ("build", ".gradle", ".idea", ".kotlin"):
+            for relative in ("intermediates/AndroidManifest.xml", "metadata/dependencies.json",
+                             "generated/Synthetic.kt", "reports/preview.png"):
+                with self.subTest(generated_directory=generated_directory, relative=relative):
+                    path = self.write(f"packages/ui-system/cmp/android-preview/{generated_directory}/{relative}",
+                                      "generated output\n")
+                    self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                    path.write_text("regenerated output\n")
+                    self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                    self.assertEqual(self.failures(), [])
+
+    def test_android_preview_build_and_preview_sources_invalidate_cmp_qualification(self):
+        for relative in ("build.gradle.kts", "settings.gradle.kts", "gradle.properties",
+                         "gradle/wrapper/gradle-wrapper.properties",
+                         "src/androidMain/AndroidManifest.xml",
+                         "src/androidMain/kotlin/com/cantos/ui/androidpreview/AndroidPreviews.kt"):
+            with self.subTest(relative=relative):
+                path = self.write(f"packages/ui-system/cmp/android-preview/{relative}", "original source\n")
+                self.qualify()
+                before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+                path.write_text("changed source\n")
+                self.assertNotEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                self.assertIn("button/cmp: stale source or token qualification", self.failures())
+
+    def test_android_preview_local_sdk_path_does_not_invalidate_cmp_qualification(self):
+        self.qualify()
+        before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+        path = self.write("packages/ui-system/cmp/android-preview/local.properties", "sdk.dir=/tmp/first-sdk\n")
+        self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+        path.write_text("sdk.dir=/tmp/second-sdk\n")
+        self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+        self.assertEqual(self.failures(), [])
 
     def test_unsupported_is_declared_but_never_silently_approved(self):
         self.source["components"][0]["cmp"]["status"] = "unsupported"

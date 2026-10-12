@@ -1,7 +1,8 @@
 # Cantos CMP UI-system preview
 
 This package is a **development-only preview consumer** of the shared UI system. It now has
-Kotlin Multiplatform `commonMain` component wrappers and a Compose Desktop JVM host. It is
+Kotlin Multiplatform `commonMain` component wrappers, a Compose Desktop JVM host and an isolated
+Android library for Android Studio host previews. It is
 neither Cantos Theatre nor Cantos Studio mobile, and implements no API, authentication,
 navigation shell, downloads, audio session or playback adapter.
 
@@ -26,7 +27,7 @@ validated preferences and native minimum interactive size. Nested themes replace
 text multiplier against the inherited platform font scale; they do not multiply it again.
 `Actions.kt` and `Fields.kt` own their native wrappers, sharing focus/state decoration through
 `ComponentModifiers.kt`. `Choices.kt`, `Navigation.kt`, `Layout.kt` and `Feedback.kt` now own their native contracts;
-`Components.kt` retains the root, field messages and decorative icons. No new module or runtime dependency is added.
+`Components.kt` retains the root, field messages and decorative icons. The isolated Android diagnostic host shares these sources directly and adds tooling only.
 
 String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
 caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
@@ -122,7 +123,7 @@ Pinned versions are Kotlin Multiplatform **2.2.20**, Compose compiler **2.2.20**
 Multiplatform Gradle plugin **1.9.0**, and explicitly stable Material3 **1.8.2**. No experimental
 M3 Expressive alpha widgets are adopted. Material3's minimum interactive-size composition local
 is the one scoped experimental opt-in in `CantosTheme`; it follows the selected desktop density.
-No Android Gradle plugin or Xcode target is introduced.
+The isolated Android preview uses Android Gradle plugin 8.11.1; no Xcode target is introduced.
 
 This is a conservative, reproducible desktop foundation rather than a latest-version upgrade.
 The official [Compose 1.9.0 release](https://github.com/JetBrains/compose-multiplatform/releases/tag/v1.9.0)
@@ -132,14 +133,44 @@ permits Gradle 7.6.3–8.14 for Kotlin 2.2.20; the intended Gradle distribution 
 that release family. The [Compose compiler guide](https://kotlinlang.org/docs/multiplatform/compose-compiler.html)
 requires the compiler plugin to use the same Kotlin version. The [desktop compatibility guide](https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html)
 requires JDK 11+ for desktop runtime and JDK 17+ for native packaging; this preview emits JVM 17
-bytecode and does not package an installer. The available host Java is 21. No auto-downloading
-JDK toolchain, unverified wrapper binary, formatter or external plugin is added. A full local
+bytecode and does not package an installer. The integrated acceptance used a full JDK 17.
+The desktop project adds no Android plugin or SDK requirement; the isolated Android host below
+pins its own tooling. No auto-downloading JDK or wrapper executable/JAR is added. A full local
 JDK with `javac` is required for the desktop test lifecycle, even though the source is Kotlin.
 
 Repository operations go through [`cargo xtask`](../../../xtask/README.md), including the
 renderer-specific UI-system build/run/verification routes. Under that surface the Gradle
 primitives are `compileKotlinDesktop`, `desktopTest`, and `run`; use the repository routes rather
 than a second root-level script. `MainKt` opens only the local preview window.
+
+## Android Studio host previews
+
+[`android-preview`](android-preview/build.gradle.kts) is a real Android library diagnostic consumer,
+not a Theatre/Studio app. It compiles the existing `commonMain` source directly, keeping the desktop
+project independent of Android SDK setup. Kotlin/Compose/Material3 pins remain the same; AGP
+**8.11.1**, Android tooling **1.9.0**, Gradle **8.14.3**, JDK 17 and compile SDK 35 define this host.
+The diagnostic min SDK 23 does not select a production mobile support floor. See the official
+[AGP compatibility](https://developer.android.com/build/releases/agp-8-11-0-release-notes) and
+[Kotlin compatibility](https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html).
+
+```sh
+cargo xtask ui-preview cmp android-build
+cargo xtask compose-preview ui-system-cmp \
+  --file packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/preview/AndroidPreviews.kt \
+  --composable AndroidFieldsLightPreview --label fields-light-narrow-vi
+```
+
+Open `android-preview` in Android Studio Quail 2+ and complete Gradle sync first. The IDE distribution
+properties pin Gradle 8.14.3 with its published SHA256; repository builds use the installed pinned
+Gradle through xtask. No wrapper executable/JAR, device, emulator or app install is provided.
+Other specimens are `AndroidChoicesDarkLargePreview`, `AndroidNavigationLightWidePreview` and
+`AndroidNestedThemeDarkLargePreview`. Each wraps actual shared components and registered fixtures
+with explicit Vietnamese locale, width, theme and platform font scale. Open captured PNGs and
+assert the observed semantics separately; neither capture nor compilation proves interaction,
+IME, TalkBack, Android/iOS runtime or production qualification. The two product mobile directories
+remain guides and all 29 component qualifications remain unapproved. The
+[PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records the actual
+build, four inspected PNGs, static semantics assertions and remaining native gates.
 
 ## Tests and evidence boundary
 

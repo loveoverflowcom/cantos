@@ -14,7 +14,8 @@ Original three-dot review: merge-base `7f416a1e1bac5bbf338d461463770bffd983b5c1`
 generated catalogues were regenerated from the merged JSON source; the existing Theatre import
 baseline follows its already-reviewed move to `apps/cantos-theatre` without admitting a new API.
 The regression fix is `532a07dee1b0d6dd632405cf81462fde9259f9c1`, tree
-`eb55da365b15e838baa4c6c645bb59b9738067bb`. Later changes in this acceptance handoff are docs only.
+`eb55da365b15e838baa4c6c645bb59b9738067bb`. The `d425dad553ecfa11a5e9ece7d5795f416a81811f` handoff added documentation only; the
+Android host follow-up linked below is a subsequent source change with separate evidence.
 
 The [session-3 inventory](cmp-ui-system-readiness.json) remains historical evidence for the
 original PR head. Its source hashes are not attributed to this integrated execution. Current
@@ -35,7 +36,10 @@ and SSR tests; the admission generator/checker; generated outputs and their sour
 evidence and work-plan claims. Backend/worker/persistence/contracts implementation and mobile
 product code are unchanged relative to current develop. Durability, publication and listening
 passes are not applicable to this preview-only diff. No new dependency or canonical token value
-was introduced. The unrelated dirty speech-clip-reuse checkout was preserved in place.
+was introduced in this desktop snapshot. The unrelated dirty speech-clip-reuse checkout was
+preserved in place. The later user-requested
+[Android Studio host follow-up](cmp-pr43-android-preview.md) adds isolated Android tooling and
+records its separate source fingerprints, captures and broader verification plan.
 
 ## Defect and final disposition
 

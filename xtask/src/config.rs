@@ -11,6 +11,7 @@ pub const TRUNK_VERSION: &str = "0.21.14";
 pub const GRADLE_VERSION: &str = "8.14.3";
 pub const UI_LEPTOS_DIR: &str = "packages/ui-system/leptos";
 pub const UI_CMP_DIR: &str = "packages/ui-system/cmp";
+pub const UI_CMP_ANDROID_DIR: &str = "packages/ui-system/cmp/android-preview";
 pub const UI_PREVIEW_PORT: u16 = 8083;
 pub const UI_PREVIEW_MARKER: &str = "<title>Cantos UI foundation preview</title>";
 pub const UI_PREVIEW_DIST: &str = "../../../target/ui-foundation-preview";

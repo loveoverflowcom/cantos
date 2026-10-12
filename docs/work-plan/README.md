@@ -114,7 +114,10 @@ unimplemented/unrun. This enabling change does not advance 050, change #6/#7 ord
 introduce a competing mobile UI implementation.
 The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
 bounded output and private capture paths. The next mobile evidence still comes from an actual
-configured project and renderer; GitHub owns this tooling PR's execution status.
+configured project and renderer; GitHub owns this tooling PR's execution status. The
+[PR43 Android host follow-up](../evidence/cmp-pr43-android-preview.md) now records that configured
+shared-component library and four actual Android Studio captures. Product app, device, IME and
+screen-reader acceptance remains the next prerequisite before mobile adoption.
 
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision
