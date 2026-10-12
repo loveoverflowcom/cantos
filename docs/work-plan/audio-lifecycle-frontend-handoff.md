@@ -19,7 +19,7 @@ Prepare creates the upload capability; a read grant does not authorize upload. J
 Catalog/Brief/lifecycle; binary PUT is octet-stream with JSON response. Origin is required for
 writes, matching configured development Web origin; no-store responses are private. An
 intake-enabled host serves API only; serve Studio through its separate existing Trunk proxy.
-Do not give Studio cookies to a third-party plugin or put bearer tokens into logs/UI artifacts.
+Do not give Studio cookies to a third-party plugin or put bearer tokens into logs/UI artifacts. Browser calls to producer status/PUT must explicitly omit credentials/cookies (`fetch` with `credentials: "omit"` or equivalent), sending only the upload Authorization bearer; owner prepare/review/candidate calls retain the Studio cookie.
 
 The reusable Rust DTO crate `cantos-contracts` and JSON schemas are available. There is no
 schema-generated Kotlin/TypeScript lifecycle client and no live Leptos lifecycle view or CMP API

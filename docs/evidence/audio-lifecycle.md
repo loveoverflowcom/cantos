@@ -54,7 +54,7 @@ this session was reclaimed to keep disk available; raw logs were retained.
 Target chosen for the tiny local warm workload: p95≤500ms, concurrency1,20status+20candidate
 Router samples over1submission/rendition/review/candidate and a real synthetic2second private
 file. The real `cantos_app` role, exact SELECTs and `EXPLAIN(ANALYZE,BUFFERS)` plans are captured
-in ignored `target/catalog-evidence/audio-read-baseline.json`. This establishes neither large
+in ignored `target/catalog-evidence/audio-read-baseline.json`. Measured local status p50/p95/max:14.203/15.985/16.196ms; candidate:10.867/11.204/11.667ms,6377object bytes, PostgreSQL17.4. This establishes neither large
 review histories, full32MiB file cost, throughput, cold cache nor production SLO. Frequencies
 and production cardinality are unknown. Constraint indexes already serve these bounded point
 lookups; no measured optimization/speedup is claimed. DBSP fit: **reject for this slice**—no hot
@@ -63,12 +63,53 @@ The inherited optional engine gate is verification only, with no new DBSP-backed
 
 ## Local verification
 
-Final gate ledger is filled from the final attributable xtask summaries before handoff.
+Executable/test HEAD `a91cb70eeda6770756cc1ea4209572b3e63f6a19`, tree
+`aafb0c3fb5a77033fd656c5c9e0e622559496454`. Final explicit suites ran after the last source
+edit. Completion records after this pin change documentation only.
+
+| Exact xtask operation | Result | Attributable output |
+| --- | --- | --- |
+| `preflight --changed-only` | PASS, all16gates; no skips | `/tmp/cantos-audio-preflight-final.log` |
+| `verify rust` | PASS format/lint/workspace tests | `/tmp/cantos-audio-rust-final.log` |
+| `verify contracts` | PASS reference/contract/WAV/real-audio | `/tmp/cantos-audio-contracts-final.log` |
+
+Full preflight summary:
+
+```text
+PASS repository
+PASS rust-format
+PASS script-ir-reference
+PASS rust-lint (workspace)
+PASS rust-tests (workspace)
+PASS dbsp
+PASS wav-reference
+PASS audio-inspection
+PASS web-lint (cantos-studio, cantos-theatre)
+PASS web-build (cantos-studio)
+PASS web-build (cantos-theatre)
+PASS ui-preview
+PASS cmp-ui-preview
+PASS theatre-cmp-demo
+PASS mutation
+PASS postgres
+```
+
+Repository gate ran221Python tests. Real disposable PostgreSQL ran17revision,9import,
+21adaptation,11planning,20Catalog,33Catalog HTTP (including10AudioLifecycle) and19legacy intake
+tests, plus2exact restart tests. The new real socket recovery artifact is
+`target/catalog-evidence/audio-server-restart.json`; before/after facts are equal. Both real media
+inspection tests pass;9Script IR mutants are killed (no AudioLifecycle mutation claim). CMP/mock
+checks are existing Gradle test targets with cache/up-to-date reuse; no native playback, visual
+inspection or device evidence is claimed.
+
+Rust test cases use `RUST_TEST_THREADS=1` after an existing ephemeral-port test raced another
+listener. Explicit concurrency inside admission/review/issuance tests remains exercised. This
+serialization does not suppress a gate or a failing assertion.
 Command prefix in worktree `/private/tmp/cantos-audio-asset-admission`:
 
 ```sh
 PATH="/Users/manhblue/.local/share/gradle/gradle-8.14.3/bin:/private/tmp/cantos-audio-tools:/opt/homebrew/opt/postgresql@17/bin:$PATH" \
-TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 \
+TMPDIR=/private/tmp RUSTUP_TOOLCHAIN=1.87.0 RUST_TEST_THREADS=1 \
 CARGO_TARGET_DIR=/private/tmp/cantos-production-brief/target cargo xtask preflight --changed-only
 ```
 

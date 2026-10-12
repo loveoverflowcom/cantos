@@ -58,7 +58,7 @@ No live routes should be inferred from [the proposed contract](packages/contract
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/kanidm`: proposed identity configuration, not yet integrated.
-- `packages/contracts`: versioned Script IR and existing wire contracts; future external-audio handoff.
+- `packages/contracts`: versioned Script IR, Catalog/Content/Brief and private Audio Lifecycle contracts; public release remains proposed.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.
 - `xtask`: canonical repository verification and local development commands.

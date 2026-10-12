@@ -67,8 +67,7 @@ flag. Deleted provider/worker compatibility reexports are not maintained.
 Previously applied SQL migrations 0001–0009 are immutable and replay checks their original
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
-additive migration 0011 adds catalog tables independently of the separately reserved audio-intake
-0010. Content Identity migration0012 is additive after Catalog0011. The migration registry has
+additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
 versions1–14/count14; Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
