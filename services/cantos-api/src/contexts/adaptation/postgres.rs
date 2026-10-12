@@ -139,15 +139,9 @@ async fn source_in_transaction(
     actor: &str,
     id: &str,
 ) -> Result<ImportResponse, StoreError> {
-    let query = format!(
-        "SELECT {} FROM source_records WHERE owner_id=$1 AND imported_by=$1 AND id=$2",
-        crate::contexts::ingestion::IMPORT_COLUMNS
-    );
-    let row = tx
-        .query_opt(&query, &[&actor, &id])
+    crate::contexts::ingestion::imported_source(tx, actor, id)
         .await?
-        .ok_or(StoreError::NotFound)?;
-    crate::contexts::ingestion::decode_import(&row).map(|(source, _)| source)
+        .ok_or(StoreError::NotFound)
 }
 
 async fn expire_dispatch(

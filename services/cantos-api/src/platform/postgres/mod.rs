@@ -8,8 +8,8 @@ use std::time::Duration;
 use cantos_contracts::FieldIssue;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::{Config, NoTls};
-use uuid::Uuid;
 
+use crate::platform::ids::canonical_uuid;
 use crate::script_ir::ReadError;
 
 mod migrations;
@@ -147,10 +147,5 @@ pub(crate) fn checked_number(number: u64) -> Result<i64, StoreError> {
 }
 
 pub(crate) fn normalized_uuid(id: &str) -> Result<String, StoreError> {
-    let parsed = Uuid::parse_str(id).map_err(|_| StoreError::InvalidRequest)?;
-    let canonical = parsed.to_string();
-    if id != canonical {
-        return Err(StoreError::InvalidRequest);
-    }
-    Ok(canonical)
+    canonical_uuid(id).ok_or(StoreError::InvalidRequest)
 }
