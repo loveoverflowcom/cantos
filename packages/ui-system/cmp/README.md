@@ -25,8 +25,8 @@ an application. An `implemented-unverified` label is not evidence that a state p
 validated preferences and native minimum interactive size. Nested themes replace the preview
 text multiplier against the inherited platform font scale; they do not multiply it again.
 `Actions.kt` and `Fields.kt` own their native wrappers, sharing focus/state decoration through
-`ComponentModifiers.kt`. Remaining navigation/choice/layout/feedback wrappers stay in
-`Components.kt` for the next bounded session. No new module or runtime dependency is added.
+`ComponentModifiers.kt`. `Choices.kt`, `Navigation.kt`, `Layout.kt` and `Feedback.kt` now own their native contracts;
+`Components.kt` retains the root, field messages and decorative icons. No new module or runtime dependency is added.
 
 String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
 caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
@@ -50,7 +50,36 @@ The [session 1 evidence](../../../docs/evidence/cmp-ui-system-session1.md) recor
 tests and inspected captures. Both previews declare nested-theme, composed-content, selection,
 ime-action and blank-error examples: 29 APIs, 129 scenarios, unchanged 73 tokens. OS Java-window
 input is still blocked, native/mobile/screen-reader/full reference evidence is incomplete and all
-qualifications remain unapproved. Continue with [session 2](../../../docs/work-plan/016-cmp-ui-system.md).
+qualifications remain unapproved. Its continuation is recorded below; [session 3](../../../docs/work-plan/016-cmp-ui-system.md#exact-next-task-for-session-3) owns final review/acceptance.
+
+### Controlled choice, navigation, layout and feedback APIs
+
+Choice labels are one full-row native target with guarded callbacks, a control modifier and
+associated help/error/reason. Material's visual checkbox/radio/switch has no second handler.
+Stable-value SelectOption lists support null/missing/empty selection and unavailable options;
+localized placeholder/empty/menu descriptions are required, and external input changes close
+open menus. The fixed-list index overload remains compatible.
+
+RangeField accepts finite in-range values, 0–1000 interior ticks, localized valueText, completion
+and keyboard alternatives. Stepped configurations need finite distinct native Float ticks;
+controlled values match a tick within one ULP. The bounded core uses the actual pinned native
+Float interpolation and rejects collapsed precision before dispatch. Continuous arrow keys move
+one percent of the range, Page keys ten percent; a completed key interaction dispatches completion.
+NumberField still preserves raw text and leaves numeric validation to its caller.
+
+NavTabs is named native in-place selection with keyboard focus and adaptive full-label reflow,
+while Leptos NavTabs retains anchor navigation. Dialog accepts initial/return FocusRequesters
+and native properties; keep it mounted across close, keep targets valid and retain input in the
+caller. Default outside-click dismissal is off. Link/NavItem expose native availability.
+Space controls semantic gap/insets; Reading Surface maps reading shape/type intent; horizontal
+Stack wraps. Loading/Error announcements default Off and support explicit urgency. ErrorState
+has a composable recovery slot and retains its retry overload. Callers own announcement policy.
+
+The [session 2 evidence](../../../docs/evidence/cmp-ui-system-session2.md) records 64 executed JVM
+tests, 13 new opened state captures, bounded Safari counterpart observations and independent
+review. Both catalogues now declare 151 states for the same 29 APIs and unchanged 73 tokens.
+CMP OS-window binding remains BLOCKED; native/mobile/IME/screen-reader/motion/reference acceptance
+remains incomplete. All qualifications stay unapproved before app adoption.
 
 ## Preview contents
 
@@ -152,7 +181,7 @@ under its normal trusted configuration and the renderer executes them.
 No passing Android/iOS or production runtime claim follows from this package.
 
 The initial [Mac PR41 review](../../../docs/evidence/ui-system-previews.md#mac-reconciliation-and-review-2026-10-11)
-preserves that historical cloud result separately from changed source. The current suite declares
+preserves that historical cloud result separately from changed source. That initial suite declared
 23 tests (10 common, 9 desktop semantics and 4 captures), including filtered selection, named
 Select state and interruption behavior. Select callers provide localized expanded/collapsed
 descriptions; losing availability clears its open menu. Final Mac compilation/tests/window

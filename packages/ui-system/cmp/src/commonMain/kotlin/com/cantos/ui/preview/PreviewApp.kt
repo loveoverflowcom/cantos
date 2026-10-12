@@ -37,6 +37,9 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import com.cantos.ui.Announcement
+import com.cantos.ui.SelectOption
+import com.cantos.ui.Space
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
@@ -122,7 +125,8 @@ fun PreviewApp(
                     Badge("Implemented · runtime unverified", tone = StatusTone.Warning)
                 }
                 PreviewControls(preferences, { preferences = it }, onWidthPreset)
-                NavTabs(listOf("Components", "Named tokens"), section, { section = it })
+                NavTabs(listOf("Components", "Named tokens"), section, { section = it },
+                    groupName = AccessibleName.of("Khu vực phòng mẫu"))
                 // Keep nested panes bounded when large text makes the outer page scroll.
                 val region = if (scrollWholePage) Modifier.height(viewportHeight) else Modifier.weight(1f)
                 if (section == 1) {
@@ -259,6 +263,8 @@ private fun ParityNotes(id: String) {
         "link" -> "Native Link dispatches a URI callback. Browser href, target, download and history are web-only; the preview does not launch a site."
         "number-field" -> "Native decimal keyboard hint preserves raw text. HTML min/max/step browser validation is platform-specific; the caller owns numeric validation."
         "field-label" -> "Native labels are composed into each control's semantics. HTML for/id associations do not exist in Compose."
+        "nav-tabs" -> "Native in-place tabs expose selection and a named group; Arrow/Home/End move focus and request selection. Leptos uses navigation links, not ARIA tabs."
+        "select" -> "Stable values survive reordered labels. Empty/missing selection never emits a callback. Unsupported options retain their reason. External input changes close the menu."
         "dialog" -> "Native modal and return-focus sample; DOM inertness/showModal and Android/iOS Back require their own renderer evidence."
         "loading-state" -> "Static labelled pending state. No indeterminate animation is presented as reduced-motion verification."
         "ui-root" -> "Fonts map shared Noto family intent to platform sans/serif fallback. Embedded Noto assets and mobile safe-area/reduced-motion adapters remain unverified."
@@ -284,8 +290,11 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
     }
     var checked by remember(example, state) { mutableStateOf(state == "selected" || state == "current") }
     var choice by remember(example, state) { mutableStateOf(if (state == "current") 1 else 0) }
+    var stableChoice by remember(example, state) { mutableStateOf<String?>(if (state == "missing-value") "removed" else "narrator") }
+    var reverseOptions by remember(example, state) { mutableStateOf(false) }
+    var interrupted by remember(example, state) { mutableStateOf(false) }
     var range by remember(example, state) { mutableStateOf(when (state) {
-        "zero", "minimum" -> 0f; "maximum" -> 100f; else -> 45f
+        "zero", "minimum" -> 0f; "maximum" -> 100f; "stepped" -> 50f; else -> 45f
     }) }
     var presses by remember(example) { mutableStateOf(0) }
     val reason = DisabledReason.of("Chưa chọn phiên bản kịch bản. Hãy chọn phiên bản để tiếp tục.")
@@ -302,7 +311,11 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
         else -> FieldState.Editable
     }
     val error = when (state) {
-        "error" -> "Tên tác phẩm cần có ít nhất 3 ký tự. Nội dung chưa bị xóa."
+        "error" -> if (example in listOf(PreviewExample.Checkbox, PreviewExample.Radio, PreviewExample.Switch, PreviewExample.Select)) {
+            "Cần duyệt lựa chọn trước khi tiếp tục. Giá trị vẫn được giữ lại."
+        } else if (example == PreviewExample.RangeField) {
+            "Giá trị tham khảo cần được kiểm tra trước khi tiếp tục."
+        } else "Tên tác phẩm cần có ít nhất 3 ký tự. Nội dung chưa bị xóa."
         "blank-error" -> " \n\t"
         else -> null
     }
@@ -389,9 +402,13 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             state = buttonState, controlModifier = modifier)
         PreviewExample.FilterChip -> FilterChip("Kịch nói · tiếng Việt", checked, { checked = it; onEvent("Selected: $it") },
             state = buttonState, controlModifier = modifier)
-        PreviewExample.Link -> Link("Mở bản nháp Ánh đèn cuối sân khấu", "/draft/example", { onEvent("Link callback: $it") }, modifier)
-        PreviewExample.NavItem -> NavItem("Tác phẩm của tôi", checked, { checked = true; onEvent("NavItem selected") }, modifier)
-        PreviewExample.NavTabs -> NavTabs(listOf("Kịch bản", "Nhân vật", "Lịch sử"), choice, { choice = it; onEvent("Tab: $it") }, modifier)
+        PreviewExample.Link -> Link("Mở bản nháp Ánh đèn cuối sân khấu", "/draft/example", { onEvent("Link callback: $it") }, state = buttonState, controlModifier = modifier)
+        PreviewExample.NavItem -> NavItem("Tác phẩm của tôi", checked, { checked = true; onEvent("NavItem selected") }, state = buttonState, controlModifier = modifier)
+        PreviewExample.NavTabs -> NavTabs(
+            if (state == "overflow") listOf("Kịch bản Ánh đèn cuối sân khấu", "Nguyễn Thị Minh Phương", "Lịch sử chỉnh sửa và ghi chú phát âm", "Bản nháp chưa xuất bản")
+            else listOf("Kịch bản", "Nhân vật", "Lịch sử"),
+            choice, { choice = it; onEvent("Tab: $it") }, modifier,
+            groupName = AccessibleName.of("Các phần bản nháp"), state = buttonState)
         PreviewExample.TextField -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             if (state == "selection" || state == "ime-action") {
                 TextField("Tên tác phẩm", richText, { richText = it }, modifier,
@@ -426,30 +443,41 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
                     "Dữ liệu thử: 1,25. Chủ ứng dụng quyết định quy tắc phân tích số.", error)
             }
         }
-        PreviewExample.Select -> Column(modifier) {
-            Select("Nhân vật", listOf("Người dẫn chuyện", "Nguyễn Thị Minh Phương", "Người giữ đèn cuối sân khấu"), choice,
-                { choice = it; onEvent("Select: $it") }, state = buttonState,
+        PreviewExample.Select -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            val options = if (state == "empty-options") emptyList() else listOf(
+                SelectOption("narrator", "Người dẫn chuyện"),
+                SelectOption("minh-phuong", "Nguyễn Thị Minh Phương"),
+                SelectOption("unavailable", "Người giữ đèn cuối sân khấu", ButtonState.Disabled(DisabledReason.of("Chưa có quyền dùng giọng này"))),
+            ).let { if (reverseOptions) it.reversed() else it }
+            val availability = if (interrupted) ButtonState.Loading(pendingReason) else buttonState
+            Select("Nhân vật", options, stableChoice,
+                { stableChoice = it; onEvent("Select stable value: $it") }, state = availability,
                 expandedDescription = "Danh sách nhân vật đang mở",
-                collapsedDescription = "Danh sách nhân vật đang đóng")
-            error?.let { FieldError(it) }
+                collapsedDescription = "Danh sách nhân vật đang đóng",
+                placeholder = "Chọn nhân vật", emptyDescription = "Chưa có nhân vật. Hãy thêm nhân vật để tiếp tục.",
+                controlModifier = modifier, error = error)
+            if (state == "reordered-options") Button("Đảo thứ tự nhân vật", { reverseOptions = !reverseOptions })
+            if (state == "interrupted") Switch("Tạm ngừng lựa chọn", interrupted, { interrupted = it })
+            FieldHelp("Stable value: $stableChoice")
         }
-        PreviewExample.Checkbox -> Column(modifier) {
-            Checkbox("Giữ nguyên ghi chú phát âm tiếng Việt", checked, { checked = it; onEvent("Checkbox: $it") }, state = buttonState)
-            error?.let { FieldError(it) }
+        PreviewExample.Checkbox -> Checkbox("Giữ nguyên ghi chú phát âm tiếng Việt", checked,
+            { checked = it; onEvent("Checkbox: $it") }, state = buttonState, controlModifier = modifier,
+            help = if (state == "label-activation") "Nhấn cả nhãn hoặc Space để đổi lựa chọn." else null, error = error)
+        PreviewExample.Radio -> Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Radio("Bản nháp của Nguyễn Thị Minh Phương", checked,
+                { checked = true; onEvent("Radio: draft selected") }, state = buttonState,
+                controlModifier = modifier, error = error)
+            Radio("Bản nháp của người dẫn chuyện", !checked,
+                { checked = false; onEvent("Radio: narration selected") }, state = buttonState)
         }
-        PreviewExample.Radio -> Column(modifier.selectableGroup()) {
-            Radio("Bản nháp của Nguyễn Thị Minh Phương", checked, { checked = true; onEvent("Radio: draft selected") }, state = buttonState)
-            Radio("Bản nháp của người dẫn chuyện", !checked, { checked = false; onEvent("Radio: narration selected") }, state = buttonState)
-            error?.let { FieldError(it) }
-        }
-        PreviewExample.Switch -> Column(modifier) {
-            Switch("Hiện ghi chú người dẫn chuyện", checked, { checked = it; onEvent("Switch: $it") }, state = buttonState)
-            error?.let { FieldError(it) }
-        }
-        PreviewExample.RangeField -> Column(modifier) {
-            RangeField("Mức âm lượng thử", range, { range = it; onEvent("RangeField: ${it.toInt()}") }, state = buttonState)
-            error?.let { FieldError(it) }
-        }
+        PreviewExample.Switch -> Switch("Hiện ghi chú người dẫn chuyện", checked,
+            { checked = it; onEvent("Switch: $it") }, state = buttonState, controlModifier = modifier, error = error)
+        PreviewExample.RangeField -> RangeField("Mức âm lượng thử", range,
+            { range = it; onEvent("RangeField: $it") }, state = buttonState,
+            steps = if (state == "stepped") 3 else 0,
+            valueText = "${range.toInt()} trên 100", controlModifier = modifier, error = error,
+            onValueChangeFinished = { onEvent("RangeField completed: $range") },
+            help = "Dùng phím mũi tên, Home/End hoặc kéo. Đây là dữ liệu thử.")
         PreviewExample.FieldLabel -> Column(modifier) {
             FieldLabel("Tên tác phẩm · nhãn được lồng trong control")
             TextField("Tên tác phẩm", title, { title = it }, state = fieldState, error = error)
@@ -464,17 +492,25 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
         }
         PreviewExample.Badge -> Badge(feedback, modifier, tone)
         PreviewExample.Status -> Status(feedback, modifier, tone, announce = state == "announcement")
-        PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier)
+        PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier,
+            announcement = if (state == "announcement") Announcement.Polite else Announcement.Off)
         PreviewExample.EmptyState -> {
             val recovery: (@Composable () -> Unit)? = if (state == "recovery") ({ Button("Thêm cảnh", onPress) }) else null
             EmptyState("Chưa có cảnh nào", "Thêm cảnh đầu tiên cho Ánh đèn cuối sân khấu.", modifier, action = recovery)
         }
-        PreviewExample.ErrorState -> ErrorState("Không thể nạp bản nháp", "Bản nháp đã nhập vẫn còn. Hãy thử lại khi kết nối ổn định.", "Thử lại", onPress, modifier)
+        PreviewExample.ErrorState -> ErrorState("Không thể nạp bản nháp", "Bản nháp đã nhập vẫn còn. Hãy thử lại khi kết nối ổn định.", modifier,
+            announcement = if (state == "announcement") Announcement.Assertive else Announcement.Off) {
+            Stack(direction = StackDirection.Horizontal, gap = Space.Sm) {
+                Button("Thử lại", onPress, variant = ButtonVariant.Secondary)
+                if (state == "recovery-slot") Button("Xem ghi chú bản nháp", onPress, variant = ButtonVariant.Text)
+            }
+        }
         PreviewExample.Surface -> Surface(modifier, tone = when (state) {
             "container" -> SurfaceTone.Container
             "high" -> SurfaceTone.Raised
+            "reading" -> SurfaceTone.Reading
             else -> SurfaceTone.Surface
-        }) {
+        }, inset = if (state == "inset-none") Space.None else Space.Md) {
             val text = "Ánh đèn cuối sân khấu · Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên dấu tiếng Việt trong lời thoại dài."
             Text(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text,
                 style = if (state == "reading") typeStyle("editor", editorial = true) else MaterialTheme.typography.bodyMedium)
@@ -483,7 +519,7 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             "horizontal" -> StackDirection.Horizontal
             "wrap" -> StackDirection.Wrap
             else -> StackDirection.Vertical
-        }) {
+        }, gap = if (state == "gap-lg") Space.Lg else Space.Sm) {
             if (state == "horizontal") {
                 Badge("Bản nháp")
                 Badge("Cảnh 1")
@@ -499,10 +535,11 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             { Surface(tone = SurfaceTone.Container) { Text("Ngày mai, mình có diễn tiếp không? · cảnh hai") } },
             { Surface { Text("Nguyễn Thị Minh Phương · lời thoại dài có dấu tiếng Việt") } },
         ), if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier,
-            requestedColumns = when (state) { "one-column", "narrow" -> 1; "three-columns", "wide" -> 3; else -> 2 })
+            requestedColumns = when (state) { "one-column", "narrow" -> 1; "three-columns", "wide" -> 3; else -> 2 },
+            gap = if (state == "gap-lg") Space.Lg else Space.Md)
         PreviewExample.Container -> Container(if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier, width = when (state) {
             "wide" -> ContainerWidth.Wide; "fluid" -> ContainerWidth.Fluid; else -> ContainerWidth.Reading
-        }) {
+        }, inset = if (state == "inset-none") Space.None else Space.Md) {
             Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? Ánh đèn cuối sân khấu còn sáng; bản nháp này dùng để thử xuống dòng và tăng cỡ chữ.")
         }
         PreviewExample.Dialog -> DialogExample(state, onEvent, modifier)
@@ -519,22 +556,22 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
 @Composable
 private fun DialogExample(state: String, onEvent: (String) -> Unit, modifier: Modifier) {
     var open by remember(state) { mutableStateOf(state == "open") }
-    var hasOpened by remember { mutableStateOf(state == "open") }
+    var note by remember { mutableStateOf("Nguyễn Thị Minh Phương") }
     val triggerFocus = remember { FocusRequester() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Button("Mở thông tin bản nháp", { open = true; hasOpened = true; onEvent("Dialog opened") },
-            modifier = Modifier.focusRequester(triggerFocus))
+        Button("Mở thông tin bản nháp", { open = true; onEvent("Dialog opened") },
+            controlModifier = Modifier.focusRequester(triggerFocus))
         FieldHelp("Mở, nhấn Tab/Shift+Tab, rồi Escape hoặc Đóng. Kiểm tra focus quay về nút mở; preset không chứng minh kết quả.")
         Dialog(open, "Ánh đèn cuối sân khấu · bản nháp", "Đóng", {
             open = false
             onEvent("Dialog dismissed; requested trigger focus restoration")
-        }) {
+        }, returnFocus = triggerFocus) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                 Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?")
-                TextField("Ghi chú bản nháp", "Nguyễn Thị Minh Phương", {})
+                TextField("Ghi chú bản nháp", note, { note = it })
             }
         }
-        LaunchedEffect(open) { if (!open && hasOpened) triggerFocus.requestFocus() }
+        FieldHelp("Ghi chú được giữ: $note")
     }
 }
 

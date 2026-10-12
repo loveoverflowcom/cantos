@@ -13,12 +13,14 @@ use leptos::prelude::*;
 pub mod catalog;
 mod discovery;
 pub mod foundation_samples;
+pub mod interaction_samples;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
 pub mod token_sample;
 
 use discovery::{ComponentCatalog, FamilyNavigation, TokenCatalog};
 use foundation_samples::{ComposedButtonSample, FieldFoundationSamples, NestedThemeSample};
+use interaction_samples::{LayoutFeedbackContractSamples, SelectionContractSamples};
 
 fn name(text: &str) -> AccessibleName {
     AccessibleName::new(text).expect("gallery fixture names are nonempty")
@@ -144,14 +146,14 @@ pub fn Gallery(
                             </section>
                         </Surface>
 
-                        <section id="gallery-navigation" data-sample-family="navigation"
+                        <section id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
                             aria-labelledby="gallery-navigation-heading">
                             <Stack gap=Space::Sm>
                                 <h2 id="gallery-navigation-heading">"Điều hướng native bằng liên kết"</h2>
                                 <FamilyNavigation current_anchor=current_anchor family=catalog_family query=catalog_query/>
                                 <Link id="gallery-link" href=href("#gallery-fields")
                                     on_press=Callback::new(move |_| { catalog_family.set("fields"); catalog_query.set(String::new()); current_anchor.set("fields".to_owned()); })>"Đi đến nhóm nhập liệu"</Link>
-                                <p class="cui-gallery-note">"NavTabs là vùng điều hướng bằng link, không phải ARIA tabs. Tab và Enter dùng hành vi trình duyệt; Ctrl/Cmd-click và sao chép link vẫn có hiệu lực. Thiết lập và điều hướng luôn ở lại để đổi nhóm mà không ẩn control đang giữ focus."</p>
+                                <p class="cui-gallery-note">"CMP có disabled native tabs và callback tại chỗ; HTML anchors vẫn điều hướng khi action bị khóa. NavTabs là vùng điều hướng bằng link, không phải ARIA tabs. Tab và Enter dùng hành vi trình duyệt; Ctrl/Cmd-click và sao chép link vẫn có hiệu lực. Thiết lập và điều hướng luôn ở lại để đổi nhóm mà không ẩn control đang giữ focus."</p>
                             </Stack>
                         </section>
 
@@ -191,7 +193,7 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-fields" class="cui-gallery-family" data-sample-family="fields" aria-labelledby="gallery-fields-heading"
+                        <section id="gallery-fields" data-preview-scenario="label-activation" class="cui-gallery-family" data-sample-family="fields" aria-labelledby="gallery-fields-heading"
                             hidden=move || !catalog::family_matches("fields", catalog_family.get(), &catalog_query.get())>
                             <Surface tone=SurfaceTone::Plain>
                                 <Stack>
@@ -277,6 +279,7 @@ pub fn Gallery(
                                         {move || format!("Sự kiện nhập: {} · Sự kiện chọn: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME đang ghép = {} · Số lần compositionend = {}\nTên hiện tại: {}", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}
                                     </output>
                                     <FieldFoundationSamples state=field_state/>
+                                    <SelectionContractSamples/>
                                 </Stack>
                             </Surface>
                         </section>
@@ -325,10 +328,11 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-layout" class="cui-gallery-family" data-sample-family="layout" aria-labelledby="gallery-layout-heading"
+                        <section id="gallery-layout" data-preview-scenario="gap-lg inset-none" class="cui-gallery-family" data-sample-family="layout" aria-labelledby="gallery-layout-heading"
                             hidden=move || !catalog::family_matches("layout", catalog_family.get(), &catalog_query.get())>
                             <Stack>
-                                <h2 id="gallery-layout-heading">"Bố cục ghép và vùng đọc"</h2>
+                                <LayoutFeedbackContractSamples/>
+                                    <h2 id="gallery-layout-heading">"Bố cục ghép và vùng đọc"</h2>
                                 <Grid columns=GridColumns::Three>
                                     <Surface tone=SurfaceTone::Plain inset=Space::Sm><p>"Surface · Plain · Sm"</p><p>"Một nhóm yên tĩnh, không mặc định thêm viền."</p></Surface>
                                     <Surface tone=SurfaceTone::Container inset=Space::Md><p>"Surface · Container · Md"</p><p>"Grid tối đa ba cột tự chuyển theo không gian khả dụng."</p></Surface>
@@ -381,7 +385,7 @@ pub fn Gallery(
                             </Stack>
                         </section>
 
-                        <section id="gallery-dialog-samples" class="cui-gallery-family" data-sample-family="dialog" aria-labelledby="gallery-dialog-heading"
+                        <section id="gallery-dialog-samples" data-preview-scenario="retained-input" class="cui-gallery-family" data-sample-family="dialog" aria-labelledby="gallery-dialog-heading"
                             hidden=move || !catalog::family_matches("dialog", catalog_family.get(), &catalog_query.get())>
                             <Surface tone=SurfaceTone::Container inset=Space::Xs>
                                 <Stack gap=Space::Sm>

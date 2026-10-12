@@ -55,5 +55,17 @@ enum class StatusTone { Neutral, Info, Success, Warning, Error }
 enum class Theme(val tokenName: String) { Light("light"), Dark("dark") }
 enum class Density(val tokenName: String) { Compact("compact"), Comfortable("comfortable") }
 enum class StackDirection { Vertical, Horizontal, Wrap }
-enum class SurfaceTone { Surface, Container, Raised }
+enum class SurfaceTone { Surface, Container, Raised, Reading }
 enum class ContainerWidth { Reading, Wide, Fluid }
+
+/** Shared semantic spacing names; values stay in the generated token source. */
+enum class Space { None, Xs, Sm, Md, Lg }
+enum class Announcement { Off, Polite, Assertive }
+
+/** Stable option identity is distinct from localized display text and caller-owned selection. */
+data class SelectOption(val value: String, val label: String, val state: ButtonState = ButtonState.Enabled) {
+    init {
+        require(value.isNotBlank()) { "Option values must be nonblank" }
+        require(label.isNotBlank()) { "Option labels must be nonblank" }
+    }
+}

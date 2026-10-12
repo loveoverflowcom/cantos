@@ -457,3 +457,60 @@ fn native_editing_samples_connect_labels_readonly_selection_and_visible_block_re
         assert!(opening_tag(&html, &format!("{id}-select-all")).contains("disabled"));
     }
 }
+
+#[test]
+fn stable_selection_samples_render_empty_missing_reordered_and_unsupported_options() {
+    use preview::interaction_samples::SelectionContractSamples;
+    for mode in ["stable", "reordered", "empty", "missing", "interrupted"] {
+        let html =
+            Owner::new().with(|| view! { <SelectionContractSamples initial_mode=mode/> }.to_html());
+        let select = opening_tag(&html, "gallery-stable-select");
+        assert!(html.contains("callback: 0"));
+        assert!(html.contains("for=\"gallery-stable-select\""));
+        if mode == "empty" || mode == "interrupted" {
+            assert!(
+                select.contains("disabled"),
+                "blocked {mode} remains interactive"
+            );
+        }
+        if mode == "missing" {
+            assert!(html.contains("requested: removed"));
+        }
+        if mode != "empty" {
+            assert!(html.contains("value=\"unavailable\" disabled"));
+            assert!(html.contains("thiếu quyền dùng giọng"));
+        }
+        if mode == "reordered" {
+            assert!(
+                html.find("value=\"minh-phuong\"").unwrap()
+                    < html.find("value=\"narrator\"").unwrap()
+            );
+        }
+        let range = opening_tag(&html, "gallery-stepped-range");
+        for attribute in [
+            "value=\"0\"",
+            "min=\"0\"",
+            "max=\"100\"",
+            "step=\"25\"",
+            "aria-valuetext=\"0 trên 100\"",
+        ] {
+            assert!(range.contains(attribute), "range omits {attribute}");
+        }
+    }
+}
+
+#[test]
+fn layout_recovery_samples_keep_reading_insets_wrapping_and_explicit_announcement_policy() {
+    let html = Owner::new().with(|| {
+        view! { <preview::interaction_samples::LayoutFeedbackContractSamples/> }.to_html()
+    });
+    assert!(html.contains("data-tone=\"reading\""));
+    assert!(html.contains("data-inset=\"none\""));
+    assert!(html.contains("data-direction=\"horizontal\""));
+    assert!(html.contains("data-gap=\"lg\""));
+    assert!(html.contains("Hành động khôi phục: 0"));
+    assert!(html.contains("role=\"status\""));
+    assert!(!html.contains("role=\"alert\""));
+    assert!(opening_tag(&html, "gallery-recovery-retry").contains("type=\"button\""));
+    assert!(opening_tag(&html, "gallery-recovery-notes").contains("type=\"button\""));
+}

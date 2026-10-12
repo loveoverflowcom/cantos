@@ -28,7 +28,7 @@ slot, inherited icon foreground, normalized blank messages and rich editing/keyb
 retaining String overloads. Its scenarios bring the registry from 118 to 129; derive later matrix
 counts from the current source. There are still 29 candidates and zero production qualifications.
 
-## Exact next task for session 2
+## Session 2 contract slice
 
 Continue local `feat/cmp-foundation-parity` from the session-1 commit. Inspect status and freshly
 fetched develop; read its evidence before edits. Keep public package `com.cantos.ui` and add no
@@ -47,6 +47,30 @@ module/dependency without a concrete consumer.
    Keep quiet tonal grouping and spacing.
 5. Improve state/status discovery after component contracts. Defer product navigation, native
    adapters, font-resource delivery and speculative widgets; keep the session reviewable.
+
+The [session 2 evidence](../evidence/cmp-ui-system-session2.md) records full-label targets,
+stable-value options and interruption, bounded native range ticks/keys/completion, named adaptive
+native tabs, controlled Dialog focus/dismissal, semantic layout spacing and explicit announcements/
+recovery slots. Both previews now declare 151 scenarios across the same 29 APIs; qualification
+remains zero. Its ignored handoff/matrix under `target/cmp-session2-evidence/` distinguishes
+component tests, opened captures and bounded Safari observations from missing acceptance.
+
+## Exact next task for session 3
+
+Continue the same local branch from the session-2 handoff commit. Verify status and retained
+session-1 ancestry before editing; no reset, push, PR, merge or automatic next workchat is authorized.
+Read both session evidence records and `target/cmp-session2-evidence/handoff.json` plus
+`remaining-matrix.json`; refresh source/token digests before using a record. Prioritize:
+
+1. Independent review of current public contracts/callers, especially bounded Float steps and
+   native callbacks, dynamic option changes, blocked interaction and Dialog focus lifetime.
+2. Finish per-component/state evidence inventory for both previews, then named tokens/aliases/
+   theme/density and actual reference comparison. Registration is not an acceptance result.
+3. Resume supported native OS-window evidence if binding works; retain `Invalid app` as a blocker
+   otherwise. Audit real IME, assistive technology, motion, Noto metrics and responsive text without
+   altering OS/security settings or inventing a mobile target.
+4. Repair actionable defects at their owner, rerun the same scenarios and applicable full gates,
+   update honest records, and return a clean local commit. Keep unqualified APIs outside apps.
 
 ## Session 3 matrix
 

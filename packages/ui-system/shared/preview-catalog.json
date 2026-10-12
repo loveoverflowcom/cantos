@@ -86,7 +86,8 @@
       "family": "navigation",
       "states": [
         "idle",
-        "focus"
+        "focus",
+        "disabled"
       ],
       "leptos": {
         "status": "registered",
@@ -104,7 +105,8 @@
       "states": [
         "idle",
         "current",
-        "focus"
+        "focus",
+        "disabled"
       ],
       "leptos": {
         "status": "registered",
@@ -122,7 +124,10 @@
       "states": [
         "idle",
         "current",
-        "focus"
+        "focus",
+        "overflow",
+        "keyboard",
+        "disabled"
       ],
       "leptos": {
         "status": "registered",
@@ -214,7 +219,12 @@
         "disabled",
         "loading",
         "error",
-        "focus"
+        "focus",
+        "empty-options",
+        "missing-value",
+        "reordered-options",
+        "unsupported-option",
+        "interrupted"
       ],
       "leptos": {
         "status": "registered",
@@ -235,7 +245,8 @@
         "loading",
         "error",
         "focus",
-        "selected"
+        "selected",
+        "label-activation"
       ],
       "leptos": {
         "status": "registered",
@@ -256,7 +267,8 @@
         "loading",
         "error",
         "focus",
-        "selected"
+        "selected",
+        "label-activation"
       ],
       "leptos": {
         "status": "registered",
@@ -277,7 +289,8 @@
         "loading",
         "error",
         "focus",
-        "selected"
+        "selected",
+        "label-activation"
       ],
       "leptos": {
         "status": "registered",
@@ -300,7 +313,9 @@
         "focus",
         "zero",
         "minimum",
-        "maximum"
+        "maximum",
+        "stepped",
+        "completion"
       ],
       "leptos": {
         "status": "registered",
@@ -441,7 +456,9 @@
       "family": "feedback",
       "states": [
         "error",
-        "retry"
+        "retry",
+        "recovery-slot",
+        "announcement"
       ],
       "leptos": {
         "status": "registered",
@@ -461,7 +478,8 @@
         "container",
         "high",
         "reading",
-        "long-text"
+        "long-text",
+        "inset-none"
       ],
       "leptos": {
         "status": "registered",
@@ -480,7 +498,8 @@
         "vertical",
         "horizontal",
         "wrap",
-        "long-text"
+        "long-text",
+        "gap-lg"
       ],
       "leptos": {
         "status": "registered",
@@ -500,7 +519,8 @@
         "two-columns",
         "three-columns",
         "narrow",
-        "wide"
+        "wide",
+        "gap-lg"
       ],
       "leptos": {
         "status": "registered",
@@ -519,7 +539,8 @@
         "reading",
         "wide",
         "fluid",
-        "narrow"
+        "narrow",
+        "inset-none"
       ],
       "leptos": {
         "status": "registered",
@@ -554,7 +575,8 @@
         "closed",
         "open",
         "dismissed",
-        "focus-restored"
+        "focus-restored",
+        "retained-input"
       ],
       "leptos": {
         "status": "registered",

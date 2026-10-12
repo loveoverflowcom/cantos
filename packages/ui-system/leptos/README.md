@@ -169,3 +169,13 @@ No library API, tokens or icon geometry changed during integration. [Evidence](.
 records app regressions, builds and runtime gaps; component-gallery evidence alone never verifies
 an app. That historical integration record does not qualify the later
 [CMP development preview](../cmp/README.md) or its native runtime.
+
+## Session 2 interaction counterparts
+
+The development gallery adds stable-value native Select fixtures for reordered, empty, missing
+and unsupported options plus interruption; a stepped native range records input/change; layout
+and recovery slots exercise semantic gap/insets and explicit announcements. Choice label and
+retained Dialog input specimens remain native HTML. CMP in-place Tab selection/native disabled
+navigation and HTML anchors are explicitly different. No existing Web library API or app import
+changes. See [session 2 evidence](../../../docs/evidence/cmp-ui-system-session2.md) for the 48
+executed package tests, real Safari observations and incomplete acceptance matrix.
