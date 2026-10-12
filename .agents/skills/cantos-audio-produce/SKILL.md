@@ -1,65 +1,70 @@
 ---
 name: cantos-audio-produce
 description: >-
-  Produce a Cantos radio-drama episode from a reviewed score folder: resolve casting and sound
-  cues, synthesize supported dialogue, mix final audio, record QC and synchronize the Drive
-  workspace. Use for an artifact production run or partial regeneration; use the production
-  pipeline owner for implementing worker/backend code. Never implies publication.
+  External producer workflow: read a pinned Cantos content brief and agent instructions,
+  independently create/record/mix/encode audio, check the resulting file and submit it
+  back via the authenticated external-audio handoff when implemented. Never run TTS
+  in Cantos backend or treat an upload as publication.
 ---
 
-# Cantos audio production
+# Cantos external audio producer
 
-An artifact workflow entrypoint composing [engineering](../cantos-engineering/SKILL.md),
-[production pipeline](../cantos-production-pipeline/SKILL.md),
-[publication](../cantos-publication/SKILL.md) and [Script IR](../cantos-script-ir/SKILL.md).
-Read [story workspace](../../../docs/production/story-workspace.md) for all folder, index,
-sync and offline handoff rules, and [radio score](../../../docs/production/radio-score.md).
+**Run this skill in the AI host/plugin or producer's workstation, never inside
+`services/cantos-api`.** Cantos is a CMS, instruction source and publication authority.
+[ADR 0018](../../../docs/decisions/0018-external-audio-production.md) and the
+[handoff contract](../../../packages/contracts/external-audio-handoff-v1.md) are authoritative.
+The API contract is **proposed**, not yet implemented: do not fabricate endpoints, pretend a
+file has been uploaded or silently bypass missing credentials.
 
-## Run from a pinned score
+## Pin the brief before producing
 
-1. Resolve the story by its existing identity/index and read pending operations. Pin the exact
-   reviewed `score/*.script-ir.json` revision, its pinned `name_map.rNNNN.yml` checksum,
-   byte/content digests, casting, pronunciation,
-   voice/model revisions, cue assets/rights and output/mix profile. Raw source is never fed straight
-   to TTS when an adaptation is required. An unreviewed/unresolved score is a blocker.
-2. Inspect actual executables/provider adapters before selecting commands. Production workers are
-   still planned; a manual local run must be labeled as such and must not claim durable backend
-   jobs, automatic acceptance or a production API exists. Use the
-   [production-run template](../../../templates/production-run.md) for the run evidence.
-3. Reuse installed TTS/audio tools or install a necessary maintained package in an isolated
-   environment under the runtime's permission rules. Confirm voice/model licensing, Vietnamese
-   support, available emotion/pronunciation controls and actual cost. A tool described as free
-   does not prove every hosted endpoint or voice is free. For a paid call, use the user's actual
-   budget and approved destination; ask only for missing consequential cost/scope.
-4. Apply the owner's [provider protocol](../cantos-production-pipeline/references/provider-adapters.md):
-   persist intent/request ID and frozen inputs before a call; record response or ambiguity before
-   retrying; reconcile uncertain attempts. Send only spoken `text` and mapped supported controls.
-   Music, effects, panting and ambience are cue/mix events, not text for a voice to read aloud.
-   Unsupported required performance controls stay blocked or receive an explicitly recorded fallback.
-5. Reuse eligible speech by the owner's
-   [fingerprint rules](../cantos-production-pipeline/references/fingerprints-and-invalidation.md).
-   A changed line regenerates its speech and dependent mixes; moving a line alone does not force
-   new speech. Store intermediate speech/caches outside the final `audio/` handoff and outside Git.
-6. Render the mix, then run the agreed
-   [audio/QC checks](../cantos-production-pipeline/references/audio-mix-and-qc.md). Record tool
-   version, profile, duration, codec/sample rate, clipping/loudness/peak where measured and cue
-   timing. Mark listening review absent unless someone actually listened to the named render.
-   Hand off the shared [listening protocol](../../../docs/production/listening-review-protocol.md)
-   and [template](../../../templates/listening-review.md) for both headphones and a phone speaker,
-   transcript-free orientation then transcript comparison, named reviewer/date, exact file/SHA-256,
-   input/profile identity and timestamped editorial findings. Keep unperformed checks `NOT_RUN`
-   and proposed thresholds unresolved until an actual owner decision. Listening does not imply
-   measured quality, rights clearance or publication approval.
-7. Place only completed master/delivery mixes and their run/QC records in `audio/` with immutable
-   revision names. Update indexes and synchronize artifacts before pointers. Hand off checksums
-   and remaining editorial/technical questions to `cantos-story-audit`.
+1. Identify the Cantos work (`novel`, `story` or `podcast`) and target chapter/episode.
+   Confirm authorized access, content revision, rights, language and accepted output profile.
+2. Fetch the **immutable version/digest** of the production brief through a supported Cantos API,
+   once implemented. Until then read an explicitly exported creator-approved brief. Never read
+   another creator's private text or transmit a paid provider request without permission.
+3. Match the content form: plain narration for a chapter, recorded human speech for a podcast,
+   or Script IR with multiple speakers, cues, effects and music for audio drama.
+   Do not require Script IR for a non-dramatized recording.
+4. Preserve optional voice maps, pronunciation lexicon, pauses, scene/cue timing and rights
+   restrictions. If the selected provider cannot fulfill a required control, report a blocker
+   or a human-approved fallback instead of silently substituting.
 
-A folder named `audio` or a completed upload is not a published release. Publication uses the
-existing rights/approval rules and the separate application release mechanism when implemented.
+## Produce outside Cantos
+
+5. Select local/commercial speech, recording, editing and mastering tools **in the host**.
+   Record actual selected tool/model/voice versions and permissions where known; verify
+   current licenses, supported Vietnamese voices and costs. Obtain explicit approval for
+   spending or use of protected voice/audio assets.
+6. Create or reuse private intermediate audio with a host-owned input fingerprint/cache.
+   Cantos has no provider-attempt ledger or speech-clip worker. A timeout/ambiguous invoice
+   is the producer's responsibility to reconcile before reissuing a paid call.
+7. Mix/condition/encode in producer tools using the approved profile. Proposed Opus mono
+   20/24/32/40 kbps or AAC fallback are **candidates**, not mandatory until a versioned
+   profile is approved ([#64](https://github.com/loveoverflowcom/cantos/issues/64)).
+8. Measure technical metadata with suitable local tools (codec, channel count, sample rate,
+   duration, loudness, peaks, clipping) and record tool/version + actual outcomes.
+   Keep `NOT_RUN` for unavailable checks. Use
+   [audio mix & QC](../cantos-production-pipeline/references/audio-mix-and-qc.md);
+   named listening review is separate from automated measurement.
+
+## Submit and hand off
+
+9. When the external upload API exists, acquire a **scoped producer grant** rather than
+   sending Studio session cookies; prepare an upload for one exact episode/brief revision.
+10. Transfer bytes privately to the authorized object-store grant; finalize with the
+    expected SHA-256, size, media profile, immutable operation ID, producer provenance and
+    any QC artifacts. Verify the returned server-validated receipt and immutable rendition ID.
+    Never treat a success from the storage PUT alone as an accepted publication.
+11. If the API is not available, deliver a local handoff bundle with audio file, hash,
+    brief digest, actual media metadata, provenance and QC results; mark `UPLOAD_NOT_RUN`.
+    Do not invent a successful server receipt or upload state.
+12. The Cantos owner/editor separately reviews rights, QC and the rendition, then publishes
+    an immutable release. An external producer **cannot self-certify** publication.
 
 ## Report
 
-Give the pinned inputs, cast/provider/tool and cost evidence, generated/reused/blocked lines,
-final paths and hashes, measured versus listened evidence, sync IDs or pending recovery issue,
-regeneration scope and residual risk. Use the foundation report; never claim real provider or
-listening verification from mock output, silence-only fixtures or file existence.
+Give pinned work/content/brief IDs and hashes, rights scope, external production tool and
+cost facts, finished audio paths/hash/format/duration, objective measurements, listened
+evidence, actual or unrun upload/finalize result and all remaining blockers. Keep
+`producer-declared`, `server-inspected` and `editor-approved` evidence distinct.

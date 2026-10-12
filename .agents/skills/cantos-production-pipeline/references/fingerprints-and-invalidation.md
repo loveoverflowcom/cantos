@@ -1,5 +1,8 @@
 # Fingerprints and invalidation
 
+> **Current scope (ADR 0018):** Speech fingerprints and regeneration are optional **external producer** techniques. Cantos does not maintain a TTS cache, regenerate clips or compute server-side speech jobs. The remaining details below describe historical producer-side algorithm guidance only.
+
+
 > **Scope.** Compose canonical input fingerprints for dialogue speech, scene mixes, episode
 > masters and release renditions; keep the dependency graph dialogue → scene mix → episode master
 > → release outputs; plan partial regeneration with a pure `plan_regeneration`; decide cache reuse

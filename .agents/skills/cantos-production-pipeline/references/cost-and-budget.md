@@ -1,5 +1,8 @@
 # Cost and budget
 
+> **Current scope (ADR 0018):** Provider token spending, reservations, charges and retries belong to the independent AI producer. Cantos stores provenance/cost claims but never makes or bills a TTS provider call. Historic examples below are for external tool implementers, not backend job code.
+
+
 > **Scope.** Model production cost as distinct, append-only typed records — estimate,
 > reservation, release, provider-reported usage, settlement, billing adjustment and cache reuse —
 > with money as integer minor units and a currency type; reserve budget in the same transaction
