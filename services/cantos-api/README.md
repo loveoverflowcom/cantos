@@ -13,13 +13,17 @@ or in-backend mixing should remain.
 - Reference-only casting/voice planning, rights and immutable production-input approval.
   Entries still describing eSpeak/Google/VieNeu are historical **declarative fixtures**, not
   runtime synthesis or evidence of provider availability.
+- Studio Catalog JSON HTTP API and domain/application/PostgreSQL persistence: Work/ContentUnit metadata,
+  permissions, immutable revisions, archival, guarded reorder, idempotency and bounded queries.
+  [API contract](../../packages/contracts/catalog-v1.md), [evidence](../../docs/evidence/studio-catalog-api.md)
+  and [remaining Catalog acceptance](../../docs/work-plan/011-studio-catalog-api.md).
 - Read-only, bounded RIFF/WAV PCM inspection under `contexts/media/domain/wav_inspection`.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
 ## Planned functionality (not implemented)
 
-Work catalog (`novel | story | podcast`), chapter/episode CRUD, versioned producer briefs,
+Studio catalog Web UI, versioned producer briefs,
 external producer tokens, private object-storage prepare/finalize, audio rendition acceptance,
 QC review, publication manifests and Theatre listener API. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
@@ -31,6 +35,7 @@ creating routes or DTOs. A proposal is not an existing API.
 src/
   script_ir/                # pure structured text contract
   contexts/
+    catalog/                # works/units, permissions and immutable history
     editorial/              # revision and review ownership
     ingestion/              # import and source preservation
     adaptation/             # external proposal acceptance
@@ -49,8 +54,11 @@ flag. Deleted provider/worker compatibility reexports are not maintained.
 
 Previously applied SQL migrations 0001–0009 are immutable and replay checks their original
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
-queues. Do not edit old SQL or drop populated tables during this pivot. A future additive
-migration must introduce catalog/audio tables and handle archival/retention independently.
+queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
+additive migration 0011 adds catalog tables independently of the separately reserved audio-intake
+0010. The migration registry currently has versions 1–9 and 11; upgrade/replay tests preserve
+the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
+in `tests/catalog_postgres.rs::grant_and_seed`; deployment role provisioning remains separate.
 
 ## Local verification
 

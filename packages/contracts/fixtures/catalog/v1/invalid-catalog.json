@@ -1,0 +1,14 @@
+{
+  "code": "invalid_catalog",
+  "current_revision": null,
+  "issues": [
+    {
+      "path": "details.title",
+      "rule": "required"
+    },
+    {
+      "path": "details.language",
+      "rule": "language_tag"
+    }
+  ]
+}

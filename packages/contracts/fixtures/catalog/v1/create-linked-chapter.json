@@ -1,0 +1,20 @@
+{
+  "operation_id": "30000000-0000-4000-8000-000000000001",
+  "id": "20000000-0000-4000-8000-000000000001",
+  "kind": "chapter",
+  "expected_work_revision": 1,
+  "details": {
+    "title": "Chương một — Bến cũ",
+    "description": "Mưa khẽ rơi trên bến sông.",
+    "source": {
+      "id": "src_00000000000040008000000000000002",
+      "sha256": "a1ec7f966650df77800c32c97ea7e6938614fb6a2d7c2a3aa2c573807defbc93"
+    },
+    "script": {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "revision": 3,
+      "export_digest": "sir-e1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "content_digest": "sir-c1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

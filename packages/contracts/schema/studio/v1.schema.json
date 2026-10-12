@@ -121,7 +121,12 @@
             "operation_reused",
             "unavailable",
             "corrupt_revision",
-            "proposal_already_submitted"
+            "proposal_already_submitted",
+            "invalid_catalog",
+            "catalog_conflict",
+            "stale_cursor",
+            "stale_production_inputs",
+            "production_blocked"
           ]
         },
         "current_revision": {

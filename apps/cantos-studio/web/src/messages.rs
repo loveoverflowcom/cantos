@@ -261,6 +261,8 @@ pub fn import_status(value: &crate::import::ImportStatus, english: bool) -> &'st
         (ImportStatus::Error(ErrorCode::StaleRevision), true) => "The referenced revision changed. File preserved; reopen the current source before another request.",
         (ImportStatus::Error(ErrorCode::StaleRevision), false) => "Bản sửa đổi được tham chiếu đã thay đổi. Tệp được giữ nguyên; mở lại nguồn hiện tại trước khi gửi yêu cầu mới.",
         (ImportStatus::Error(ErrorCode::ProposalAlreadySubmitted), english) => status(Status::ProposalAlreadySubmitted, english),
+        (ImportStatus::Error(ErrorCode::InvalidCatalog), english) => status(Status::InvalidRequest, english),
+        (ImportStatus::Error(ErrorCode::CatalogConflict | ErrorCode::StaleCursor), english) => status(Status::StaleRevision, english),
     }
 }
 
@@ -402,6 +404,9 @@ mod import_tests {
             ErrorCode::NotFound,
             ErrorCode::Forbidden,
             ErrorCode::InvalidRequest,
+            ErrorCode::InvalidCatalog,
+            ErrorCode::CatalogConflict,
+            ErrorCode::StaleCursor,
             ErrorCode::InvalidScript,
             ErrorCode::EvidenceUnavailable,
             ErrorCode::StaleRevision,

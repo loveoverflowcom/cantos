@@ -21,6 +21,7 @@ use super::{authenticated, cookie_token, error_response, AppState};
 use crate::platform::postgres::StoreError;
 
 mod adaptations;
+mod catalog;
 mod imports;
 mod production;
 
@@ -53,11 +54,14 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
         .route("/validation", post(validate_script))
         .merge(imports::routes())
         .merge(adaptations::routes())
-        .merge(production::routes())
-        .route_layer(middleware::from_fn_with_state(state, authenticated));
+        .merge(production::routes());
     match mount {
-        Mount::Current => scripts.route("/session", post(login).delete(logout)),
+        Mount::Current => scripts
+            .merge(catalog::routes())
+            .route_layer(middleware::from_fn_with_state(state, authenticated))
+            .route("/session", post(login).delete(logout)),
         Mount::Legacy => scripts
+            .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(legacy_login).delete(legacy_logout))
             .layer(middleware::map_response(deprecated)),
     }

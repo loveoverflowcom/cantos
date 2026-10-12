@@ -12,12 +12,17 @@
        ▲              ▲        ▲
        └───────── production (planning/rights/instructions only)
                         ▲
-                     future catalog/media assets/publication
+                     future media assets/publication
+
+ catalog ──► editorial
+    └──────► ingestion
 ```
 
 `contexts/editorial` owns canonical revisions and permissions. `ingestion` can read editorial
 contracts; `adaptation` can read editorial/ingestion contracts; `production` reads editorial
-to freeze guidance, rights and budget claims. `contexts/media/domain/wav_inspection` is a
+to freeze guidance, rights and budget claims. `catalog` uses editorial and ingestion entrypoints
+to validate owner-bound references to existing revisions, rights records and manuscript sources;
+it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
 pure inspector, with no provider/model dependency. `interfaces/http` owns routers and maps
 errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
@@ -27,10 +32,14 @@ enforces the allowed context edges.
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web editorial/import/adaptation/production planning | Partially implemented |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/production planning | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Proposed Studio audio handoff | Scoped external producer plugin | **Not implemented** |
+
+Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
+adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
+defines work/content-unit mutations, deterministic pages and immutable Work history.
 
 The legacy alias `/api/v1/*` points to the same Studio handlers; avoid adding a new route
 to both spaces by duplicating code. New handler contracts belong in `packages/contracts/api`
@@ -41,6 +50,8 @@ only when implemented. Do not invent implemented route claims from proposal docu
 - `editorial`: accepted Script IR revisions, review and authorization.
 - `ingestion`: original manuscript bytes and extraction receipts.
 - `adaptation`: caller-owned proposal/acceptance, no model inference.
+- `catalog`: work/content-unit identities, metadata, authorization and immutable revisions through
+  application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
 - `production`: purely declarative settings/rights/casting, immutable snapshots and approvals.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
 - `media`: structural WAV byte inspection, soon to own admission rules for externally
@@ -48,8 +59,8 @@ only when implemented. Do not invent implemented route claims from proposal docu
 
 ## Next contexts
 
-Implement separately reviewable `catalog` (works and content units), `media` admission
-(upload intent, digest/metadata check, private object reference, review), `publication`
+Implement Studio catalog Web acceptance against the real API separately. Implement `media`
+admission (upload intent, digest/metadata check, private object reference, review), `publication`
 (approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
 commercial provider adapter, synthesis retry system or speech-clip registry belongs here.

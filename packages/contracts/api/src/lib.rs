@@ -10,6 +10,8 @@ mod adaptations;
 pub use adaptations::*;
 mod production;
 pub use production::*;
+mod catalog;
+pub use catalog::*;
 pub mod admin;
 pub mod routes;
 pub mod theatre;
@@ -115,6 +117,9 @@ pub enum ErrorCode {
     CorruptRevision,
     StaleProductionInputs,
     ProductionBlocked,
+    InvalidCatalog,
+    CatalogConflict,
+    StaleCursor,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

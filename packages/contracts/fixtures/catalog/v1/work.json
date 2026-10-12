@@ -1,0 +1,16 @@
+{
+  "id": "10000000-0000-4000-8000-000000000001",
+  "kind": "novel",
+  "owner_id": "creator",
+  "details": {
+    "title": "Dòng sông ký ức",
+    "synopsis": "Một chuyến trở về, qua những tiếng gọi thân quen.",
+    "language": "vi-VN",
+    "visibility": "private",
+    "rights_refs": []
+  },
+  "lifecycle": "draft",
+  "revision": 2,
+  "created_at": 1791800000000,
+  "updated_at": 1791800000001
+}

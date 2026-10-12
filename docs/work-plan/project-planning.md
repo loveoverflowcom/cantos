@@ -58,6 +58,8 @@ states only proposed routes, not a feature implementation.
 ## Exit criteria and evidence
 
 - **Catalog:** create a plain novel chapter and an unscripted podcast episode without casting.
+  The [backend API](../../packages/contracts/catalog-v1.md) is implemented; #66 also requires
+  responsive/keyboard Studio Web flows and mocked client integration against that contract.
 - **Instructions:** independently authorized plugin can read exact pinned brief/version/digest.
 - **Intake:** real external file, private upload, server-observed integrity, idempotent finalize,
   cross-owner/expired-token/wrong-digest/restart failure tests.

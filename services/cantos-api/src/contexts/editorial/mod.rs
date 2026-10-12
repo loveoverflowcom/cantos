@@ -13,6 +13,6 @@ pub use domain::{
     PriorOperation, ReviewDecision, SaveDecision,
 };
 pub(crate) use postgres::{
-    ensure_evidence, find_revision, load_revision, register_evidence, reviewed_by_active_owner,
-    rights_cited_by_script, script_exists,
+    ensure_evidence, evidence_exists, find_revision, load_revision, owned_revision,
+    register_evidence, reviewed_by_active_owner, rights_cited_by_script, script_exists,
 };

@@ -73,6 +73,7 @@ CONTEXT_UPSTREAM = {
     "ingestion": {"editorial"},
     "adaptation": {"editorial", "ingestion"},
     "production": {"editorial"},
+    "catalog": {"editorial", "ingestion"},
     "media": set(),
 }
 DOMAIN_EXTERNAL = {
@@ -463,6 +464,7 @@ def source_paths(code, module):
 
 def table_owner(table):
     for prefix, owner in (("adaptation_", "adaptation"), ("production_", "production"),
+                          ("catalog_", "catalog"),
                           ("durable_", "synthesis")):
         if table.startswith(prefix):
             return owner
@@ -499,7 +501,17 @@ def dependency_error(path, owner, domain, http):
             "postgres", "application", "providers", "media", "worker",
         }:
             return "cross-context calls must use the owning context's entrypoint"
-        if http and path not in HTTP_PURE_BOUNDARIES:
+        # Catalog's pure wire facade admits raw DTOs and formats immutable outcomes.
+        # The HTTP shell may map typed errors, but cannot invoke a domain transition or SQL.
+        catalog_wire = path[:3] == ("contexts", "catalog", "wire")
+        catalog_error = path[:3] == ("contexts", "catalog", "CatalogStoreError") or path[:4] == (
+            "contexts", "catalog", "domain", "CatalogError")
+        catalog_input_type = path in {
+            ("contexts", "catalog", "CatalogCommand"),
+            ("contexts", "catalog", "CatalogCursor"),
+            ("contexts", "catalog", "CatalogCursor", "decode"),
+        }
+        if http and path not in HTTP_PURE_BOUNDARIES and not (catalog_wire or catalog_error or catalog_input_type):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"
