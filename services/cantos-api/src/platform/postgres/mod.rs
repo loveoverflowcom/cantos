@@ -60,11 +60,6 @@ impl From<tokio_postgres::Error> for StoreError {
 #[derive(Clone)]
 pub struct Store {
     pool: Pool,
-    /// Opt-in experimental read model for `job_status`; absent, every read is PostgreSQL's.
-    /// The one place this module names a context: ADR 0017 attaches the view to the store.
-    #[cfg(feature = "dbsp-experimental")]
-    pub(crate) job_summaries:
-        Option<std::sync::Arc<crate::contexts::synthesis::summary_view::AttachedView>>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.
@@ -119,22 +114,7 @@ impl Store {
             .runtime(deadpool_postgres::Runtime::Tokio1)
             .build()
             .map_err(|_| StoreError::Unavailable)?;
-        Ok(Self {
-            pool,
-            #[cfg(feature = "dbsp-experimental")]
-            job_summaries: None,
-        })
-    }
-
-    /// Answers `job_status` through `view` under its read model. Authentication, authorization
-    /// and every other read and write keep their PostgreSQL path.
-    #[cfg(feature = "dbsp-experimental")]
-    pub fn with_job_summary_view(
-        mut self,
-        view: std::sync::Arc<crate::contexts::synthesis::summary_view::AttachedView>,
-    ) -> Self {
-        self.job_summaries = Some(view);
-        self
+        Ok(Self { pool })
     }
 
     pub(crate) async fn connection(&self) -> Result<deadpool_postgres::Object, StoreError> {

@@ -8,7 +8,7 @@ use std::{
     process::ExitCode,
 };
 
-use cantos_api::contexts::synthesis::media::wav_inspection::{
+use cantos_api::contexts::media::domain::wav_inspection::{
     inspect_wav, Structure, MAX_RIFF_FILE_BYTES,
 };
 

@@ -195,10 +195,6 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "test_postgres.py" | "production_oracle.py" | "cantos_adaptation_tool.py" => {
             impact.gates.insert(Gate::Postgres { keep: false });
         }
-        // Compile-time and test inputs of the neural TTS adapter.
-        "vieneu_nano_runtime.py" => {
-            impact.packages.insert(API_PACKAGE.to_owned());
-        }
         _ if within(script, "fixtures") => {
             impact.packages.insert(API_PACKAGE.to_owned());
         }

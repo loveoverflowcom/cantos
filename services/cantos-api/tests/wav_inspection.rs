@@ -7,7 +7,7 @@ use std::{
     process::{Command, Output},
 };
 
-use cantos_api::contexts::synthesis::media::wav_inspection::{
+use cantos_api::contexts::media::domain::wav_inspection::{
     inspect_wav, ChunkId, Guid, StructuralError, Structure, WavReport, INSPECTOR_VERSION,
     MAX_CHUNKS, NOT_ASSESSED,
 };
