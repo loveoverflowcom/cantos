@@ -2,6 +2,11 @@ package com.cantos.ui
 
 /** A disabled action cannot exist without a human-readable explanation. */
 class DisabledReason private constructor(val text: String) {
+    // Reasons are immutable values; rebuilding equivalent caller state must not reset UI state.
+    override fun equals(other: Any?): Boolean = other is DisabledReason && text == other.text
+
+    override fun hashCode(): Int = text.hashCode()
+
     companion object {
         fun of(text: String): DisabledReason {
             require(text.isNotBlank()) { "A disabled reason must not be blank" }

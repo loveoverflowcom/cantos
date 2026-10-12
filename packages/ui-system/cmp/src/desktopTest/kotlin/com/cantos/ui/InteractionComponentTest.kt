@@ -162,6 +162,46 @@ class InteractionComponentTest {
     }
 
     @Test
+    fun select_preserves_open_menu_for_equivalent_rebuilt_options_but_closes_on_availability_changes() {
+        var parentRevision by mutableStateOf(0)
+        var blockedReason by mutableStateOf("Thiếu quyền dùng giọng")
+        var loading by mutableStateOf(false)
+        var calls = 0
+        compose.setContent {
+            UiRoot { Stack {
+                androidx.compose.material3.Text("Bản nháp: $parentRevision")
+                val unavailable = if (loading) ButtonState.Loading(DisabledReason.of(blockedReason))
+                    else ButtonState.Disabled(DisabledReason.of(blockedReason))
+                // Rebuild identical values on an unrelated parent recomposition, as a caller may do.
+                val options = listOf(
+                    SelectOption("n", "Người dẫn chuyện"),
+                    SelectOption("x", "Giọng chưa được duyệt", unavailable),
+                )
+                Select("Nhân vật", options, "n", { calls += 1 },
+                    expandedDescription = "Mở", collapsedDescription = "Đóng",
+                    placeholder = "Chọn nhân vật", emptyDescription = "Chưa có nhân vật")
+            } }
+        }
+        val trigger = compose.onNodeWithContentDescription("Nhân vật: Người dẫn chuyện")
+        trigger.performClick()
+        compose.onNodeWithText("Giọng chưa được duyệt").assertIsNotEnabled()
+        compose.runOnIdle { parentRevision += 1 }
+        compose.onNodeWithText("Bản nháp: 1").assertExists()
+        compose.onNodeWithText("Giọng chưa được duyệt").assertExists()
+        trigger.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Mở"))
+
+        compose.runOnIdle { blockedReason = "Đang chờ quyền dùng giọng" }
+        compose.onNodeWithText("Giọng chưa được duyệt").assertDoesNotExist()
+        trigger.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Đóng"))
+        trigger.performClick()
+        compose.onNodeWithText("Đang chờ quyền dùng giọng").assertExists()
+        compose.runOnIdle { loading = true }
+        compose.onNodeWithText("Giọng chưa được duyệt").assertDoesNotExist()
+        trigger.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Đóng"))
+        assertEquals(0, calls)
+    }
+
+    @Test
     fun range_semantics_requests_controlled_steps_and_completion_and_blocks_unavailable_changes() {
         var value by mutableStateOf(0f)
         var state by mutableStateOf<ButtonState>(ButtonState.Enabled)
