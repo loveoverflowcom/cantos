@@ -19,6 +19,9 @@ use; the remaining native/reference/accessibility acceptance is explicit. The se
 [PR43 integration acceptance](../evidence/cmp-pr43-acceptance.md) preserves that boundary after
 reconciling develop and fixing Select menu state. GitHub owns merge status; the next component
 adoption task must first close its two-renderer runtime/accessibility/reference qualification.
+The requested [choice focus-spacing follow-up](../evidence/cmp-choice-focus-spacing.md) keeps
+supporting text beyond the painted ring, with failing-first JVM and fresh Android host evidence.
+It preserves that adoption prerequisite; GitHub owns its publication status.
 
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
