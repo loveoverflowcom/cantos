@@ -42,6 +42,12 @@ Read [story workspace](../../../docs/production/story-workspace.md) and
    Check casting and cue coverage against the pinned score. Measure with available tools and
    listen to the declared scope when playback/listening is available. Text inspection, waveform
    metadata and a generated QC report cannot substitute for listening evidence.
+   Use the shared [listening protocol](../../../docs/production/listening-review-protocol.md) and
+   [template](../../../templates/listening-review.md): named reviewer/date, exact file/SHA-256,
+   input/profile identity, transcript-free and transcript passes on headphones and a phone speaker.
+   Preserve heard ranges, dimension results and blocking/advisory timestamped findings. Unheard
+   checks stay `NOT_RUN`; sampling remains incomplete for a full-episode decision. An audit does
+   not accept proposed thresholds or turn a listening result into publication/rights approval.
 5. Sync: verify artifact IDs/parents/checksums, index pointers, stale approvals and unfinished
    operation records. A later file with the same name is not automatically the reviewed artifact.
 6. Write an immutable `audit_<id>.rNNNN.md` beside the stage being audited (`score/` for pre-audio,

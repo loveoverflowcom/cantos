@@ -44,6 +44,12 @@ sync and offline handoff rules, and [radio score](../../../docs/production/radio
    [audio/QC checks](../cantos-production-pipeline/references/audio-mix-and-qc.md). Record tool
    version, profile, duration, codec/sample rate, clipping/loudness/peak where measured and cue
    timing. Mark listening review absent unless someone actually listened to the named render.
+   Hand off the shared [listening protocol](../../../docs/production/listening-review-protocol.md)
+   and [template](../../../templates/listening-review.md) for both headphones and a phone speaker,
+   transcript-free orientation then transcript comparison, named reviewer/date, exact file/SHA-256,
+   input/profile identity and timestamped editorial findings. Keep unperformed checks `NOT_RUN`
+   and proposed thresholds unresolved until an actual owner decision. Listening does not imply
+   measured quality, rights clearance or publication approval.
 7. Place only completed master/delivery mixes and their run/QC records in `audio/` with immutable
    revision names. Update indexes and synchronize artifacts before pointers. Hand off checksums
    and remaining editorial/technical questions to `cantos-story-audit`.

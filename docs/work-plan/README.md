@@ -121,10 +121,17 @@ scene acoustics follow #9. It changes no order, prerequisite, authorization or g
 The project-original [Vietnamese reference episode](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
 provides #44's shared two-scene material with per-ID craft/cue coverage and unresolved controls;
 its [local evidence](../production/examples/vietnamese-reference/verification.md) pins the exact
-JSON bytes. The next editorial task is #45's listening-review protocol, using this reference to
-frame later named-listener observations. #50's auditions then consume the same material and that
-protocol; #51 additionally needs #46's asset intake. No listening, owner rights decision or
-production acceptance follows from text validation. GitHub retains #44/#45 execution status.
+JSON bytes. The shared [listening-review protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md) supply #45's manual evidence format for lines,
+scenes and episodes. Use them for #6's pending named-listener assessment; its quality remains
+**NOT_RUN**.
+
+The next editorial preparation is #46 rights-recorded asset intake, then #47 cue records and
+#48 adaptation checks. #50's auditions consume the same pinned reference and protocol, actual
+render/listening evidence and recorded owner decisions; #51 additionally needs #46's asset intake.
+Text validation and the protocol establish no listening result, approved threshold, owner rights
+decision or production acceptance, and advance no backend, provider or publication gate.
+GitHub retains execution status, including #44/#45.
 
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is

@@ -11,6 +11,9 @@ accepts audio for perception. WAV inspection, hashes, phoneme strings, ASR trans
 shell playback cannot substitute for hearing the renders. All six dimension scores and the
 overall judgment for every sample remain unassigned. A named Vietnamese-speaking listener
 must record results against the exact WAV checksum; changing the recipe requires new evidence.
+Use the shared [listening-review protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md) for that assessment; #45 supplies the record
+and procedure only and does not complete this #6 named-listener task.
 
 The six original fixtures are unchanged in
 [neural-vietnamese.json](../../scripts/fixtures/neural-vietnamese.json). Four additional
@@ -21,33 +24,24 @@ and structural validation establish playable bytes, not speech quality.
 
 ## Proposed rubric
 
-Listen at normal speed, first without reading the transcript, then while checking it. Use
-headphones or ordinary speakers and record the device. Compare all five samples of each voice
+Listen at normal speed, first without reading the transcript, then while checking it, on both
+headphones and a phone's built-in speaker; record each device/setup and its coverage under the
+shared protocol. Compare all five samples of each voice
 for consistency; evaluate Đức Trí and Mỹ Duyên separately. Do not reward a different regional
 accent merely for matching personal preference. Distinguish a legitimate accent from an
 incorrect lexical tone, name or word.
 
-Score each applicable dimension from 1 to 5:
+The six original TTS dimensions, shared 1–5 anchors and NOT_RUN versus N/A rules now live in the
+[canonical rubric](../production/listening-review-protocol.md#shared-dimensions-and-scores),
+with their meaning preserved. For these probes, the proper-name inventory is Nguyễn Ánh,
+Mỹ Duyên, sông Hương, Thừa Thiên Huế, Cần Thơ, Vọng Đài, Anh Minh and An. Apply the additional
+drama dimensions only where the actually heard scope has applicable content; isolated clips
+cannot establish scene orientation or pairwise cast distinctness.
 
-| Dimension | What to check |
-| --- | --- |
-| Lexical tones | Correct meaning-bearing Vietnamese tones and vowel/consonant distinctions; no dropped syllables |
-| Proper names | Nguyễn Ánh, Mỹ Duyên, sông Hương, Thừa Thiên Huế, Cần Thơ, Vọng Đài, Anh Minh and An |
-| Pauses and phrasing | Sentence/semicolon/clause boundaries, breath groups and chunk joins; no interruption inside a word |
-| Question/exclamation | The question remains recognizable as a question; a call/exclamation conveys its intended function within the neutral/default profile |
-| Naturalness | Fluent rhythm and intelligibility; record robotic, strained, repeated or garbled passages |
-| Voice consistency | Stable identity/accent/timbre within that preset across short, long and different sentence types |
-
-Shared anchors: **5** = accurate and fluent with no material issue; **4** = small audible
-imperfections without changed words/meaning; **3** = noticeable issues that interrupt flow;
-**2** = repeated errors or altered meaning; **1** = unusable/incomplete. Mark **N/A** only after
-listening when a dimension has no applicable content. Never convert NOT_RUN to N/A.
-
-Proposed acceptance, subject to the owner's agreement: every applicable dimension at least 4,
-no omitted/incorrect meaning-bearing word, tone or proper name, no clipped/garbled syllable,
-and recognizable question/exclamation intent in the short probes. Record exceptions explicitly;
-an average must not hide a critical error. A passing listening result is independent of rights.
-This proposal is not an already approved production threshold.
+The inherited line acceptance remains
+[PROPOSED](../production/listening-review-protocol.md#proposed-thresholds-and-owner-decisions),
+subject to an actual owner's recorded agreement. No approver or production threshold is supplied
+by this handoff. Preserve blocking findings regardless of averages and keep rights acceptance separate.
 
 ## Scorecard
 
@@ -68,10 +62,13 @@ frame count and filename for each row. No media is committed to Git.
 | short-exclamation-duc-tri | Đức Trí | “An ơi!” | NOT_RUN |
 | short-exclamation-my-duyen | Mỹ Duyên | “An ơi!” | NOT_RUN |
 
-For each judgment record listener name, date, device, filename/checksum, six scores, overall
-decision, exact expected/actually heard excerpt, start/end audio timestamps and explanation.
+For each judgment use the shared template to record listener name, date, both devices/setups,
+filename/checksum, input revision and profile revision when present, applicable dimension scores,
+overall decision, exact expected/actually heard excerpt, start/end audio timestamps and severity.
 The bundle's `scorecard.json` starts with null scores, separate model/human status and an empty
 issues list. Fill observed issues; do not fabricate excerpts or timestamps before listening.
+The historical ZIP/scorecard is unchanged by this documentation update; retain it and add a new
+immutable review linked by exact WAV hashes rather than overwriting its original NOT_RUN evidence.
 
 ## Observed normalization risk
 

@@ -54,7 +54,13 @@
 
 - Casting, pronunciation, dialogue completeness, and cue timing: [results and evidence]
 - Loudness, peak, clipping, silence, and format checks against the approved profile: [measurements]
-- Manual preview and reviewer: [evidence]
+- Listening protocol and review record: [use the shared
+  [protocol](../docs/production/listening-review-protocol.md) and
+  [template](listening-review.md); immutable private record path/checksum, named reviewer/date,
+  exact played filename/SHA-256, input revision and profile revision when present]
+- Listening coverage and editorial decision: [both headphones and phone speaker; transcript-free
+  pass then transcript pass, heard ranges, dimension results, blocking/advisory findings,
+  overall decision and actual owner threshold decision; NOT_RUN for unheard checks]
 - Script-to-render correspondence: [revision verification]
 - Output assets and checksums: [stable internal references; no credentials or signed URLs]
 - Publication checklist: [link]
