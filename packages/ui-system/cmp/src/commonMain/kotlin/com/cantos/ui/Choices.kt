@@ -82,7 +82,16 @@ private fun ChoiceLabel(
             Text(label, modifier = Modifier.weight(1f, fill = false),
                 color = if (state.canPress()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        ChoiceMessages(state, help, error)
+        if (choiceDescription(state, help, error).isNotBlank()) {
+            // The ring paints outside the native row. Keep supporting text beyond that paint
+            // with the normal message gap, and reserve it before focus so the layout stays still.
+            Column(
+                modifier = Modifier.padding(top = tokenDp("size.focusOffset") + tokenDp("size.focusWidth")),
+                verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs")),
+            ) {
+                ChoiceMessages(state, help, error)
+            }
+        }
     }
 }
 

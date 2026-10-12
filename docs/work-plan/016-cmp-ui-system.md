@@ -120,6 +120,10 @@ The requester then selected Android Studio host preview instead of a connected-d
 [Android host follow-up](../evidence/cmp-pr43-android-preview.md) records a real isolated library
 consumer, four static PNG/semantics captures and adapter/freshness fixes. This does not implement
 either product mobile app or change the 0/29 qualification boundary.
+The subsequent requester-authorized [choice focus-spacing fix](../evidence/cmp-choice-focus-spacing.md)
+adds clearance between the shared choice ring and supporting text, with a failing-first JVM
+regression and an inspected repeat of the narrow dark/2× Android host preview. The next adoption
+prerequisite remains native, reference and accessibility acceptance; GitHub owns publication status.
 
 ## Commands and risks
 

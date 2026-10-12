@@ -10,6 +10,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -70,6 +71,77 @@ class InteractionComponentTest {
     fun range_keeps_fractional_value_in_its_visible_label() {
         compose.setContent { UiRoot { RangeField("Tốc độ", 1.25f, {}, range = 0f..2f) } }
         compose.onNodeWithText("Tốc độ: 1.25").assertExists()
+    }
+
+    @Test
+    fun choice_messages_leave_readable_space_beyond_the_focus_ring_without_focus_layout_shift() {
+        var kind by mutableStateOf(0)
+        var preferences by mutableStateOf(UiPreferences())
+        val focus = FocusRequester()
+        val label = "Giữ nguyên ghi chú phát âm tiếng Việt"
+        val help = "Ghi chú được giữ nguyên khi duyệt lựa chọn."
+        val error = "Cần duyệt lựa chọn trước khi tiếp tục."
+        var focusOutsetPx = 0f
+        var messageSpacePx = 0f
+        compose.setContent {
+            UiRoot(preferences = preferences) {
+                with(LocalDensity.current) {
+                    focusOutsetPx = (tokenDp("size.focusOffset") + tokenDp("size.focusWidth")).toPx()
+                    messageSpacePx = tokenDp("space.xs").toPx()
+                }
+                Box(Modifier.requiredWidth(300.dp)) {
+                    val control = Modifier.focusRequester(focus)
+                    when (kind) {
+                        0 -> Checkbox(label, false, {}, controlModifier = control, help = help, error = error)
+                        1 -> Radio(label, false, {}, controlModifier = control, help = help, error = error)
+                        2 -> Switch(label, false, {}, controlModifier = control, help = help, error = error)
+                    }
+                }
+            }
+        }
+        for (theme in Theme.entries) {
+            for (density in Density.entries) {
+                for (scale in listOf(1f, 2f)) {
+                    for (choice in 0..2) {
+                        compose.runOnIdle {
+                            kind = choice
+                            preferences = UiPreferences(theme = theme, density = density, textScale = scale)
+                        }
+                        val control = compose.onNodeWithContentDescription(label)
+                        val beforeFocus = control.fetchSemanticsNode().boundsInRoot
+                        compose.runOnIdle { focus.requestFocus() }
+                        control.assertIsFocused()
+                        val bounds = control.fetchSemanticsNode().boundsInRoot
+                        assertEquals(beforeFocus, bounds, "Focus must not move the control")
+                        val helper = compose.onNodeWithText(help).fetchSemanticsNode().boundsInRoot
+                        val failure = compose.onNodeWithText(error).fetchSemanticsNode().boundsInRoot
+                        kotlin.test.assertTrue(
+                            helper.top - bounds.bottom - focusOutsetPx >= messageSpacePx - 0.5f,
+                            "Choice $choice / $theme / $density / $scale needs readable space outside the focus paint",
+                        )
+                        kotlin.test.assertTrue(
+                            failure.top - helper.bottom >= messageSpacePx - 0.5f,
+                            "Supporting messages must keep their own spacing",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun choices_without_visible_messages_do_not_reserve_supporting_space() {
+        compose.setContent {
+            UiRoot {
+                Checkbox(
+                    "Giữ ghi chú", false, {}, modifier = Modifier.testTag("choice"),
+                    controlModifier = Modifier.testTag("control"), help = " \n ", error = "\t",
+                )
+            }
+        }
+        val choice = compose.onNodeWithTag("choice").fetchSemanticsNode().boundsInRoot
+        val control = compose.onNodeWithTag("control").fetchSemanticsNode().boundsInRoot
+        assertEquals(control, choice)
     }
 
     @Test
