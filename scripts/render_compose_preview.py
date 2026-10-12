@@ -25,9 +25,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MOBILE_DIRS = {
+PROJECT_DIRS = {
     "cantos-theatre": "apps/cantos-theatre/mobile",
     "cantos-studio": "apps/cantos-studio/mobile",
+    "ui-system-cmp": "packages/ui-system/cmp/android-preview",
 }
 UNSUPPORTED = 3
 MAX_COMMAND_LOG_BYTES = 4 * 1024 * 1024
@@ -80,7 +81,7 @@ def bounded_integer(minimum, maximum):
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--app", choices=MOBILE_DIRS, required=True)
+    result.add_argument("--app", choices=PROJECT_DIRS, required=True, help="Selected product or UI-system preview project")
     result.add_argument("--file", type=Path, required=True)
     result.add_argument("--composable", required=True)
     result.add_argument("--label", help="Scenario/profile label; preview annotations set display values")
@@ -92,15 +93,15 @@ def parser():
 
 
 def request_paths(args, root):
-    expected_mobile = root.resolve() / MOBILE_DIRS[args.app]
+    expected_mobile = root.resolve() / PROJECT_DIRS[args.app]
     mobile = expected_mobile.resolve()
     if mobile != expected_mobile:
-        raise PreviewError("selected mobile project must not contain symlinks", 2)
+        raise PreviewError("selected preview project must not contain symlinks", 2)
     if not any((mobile / name).is_file() for name in ("settings.gradle.kts", "settings.gradle")):
-        raise PreviewError(f"no Gradle project in {MOBILE_DIRS[args.app]}", UNSUPPORTED)
+        raise PreviewError(f"no Gradle project in {PROJECT_DIRS[args.app]}", UNSUPPORTED)
     source = (root / args.file).resolve()
     if not source.is_relative_to(mobile) or source.suffix != ".kt" or not source.is_file():
-        raise PreviewError("--file must be an existing Kotlin file inside the selected mobile app", 2)
+        raise PreviewError("--file must be an existing Kotlin file inside the selected preview project", 2)
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", args.composable):
         raise PreviewError("--composable must be a simple Kotlin function name", 2)
     return mobile, source
@@ -143,6 +144,53 @@ def semantics_json(stdout):
     if len(values) != 1:
         raise PreviewError("expected one semantics JSON object/array; inspect render.stdout.log")
     return values[0]
+
+
+def semantics_text(stdout, image):
+    """Validate the observed CLI text envelope; retain tree bytes without an AST.
+
+    The current CLI prints one ComposeViewAdapter tree followed by its image-path trailer.
+    Only node names, indentation and numeric bounds are checked; attributes stay opaque.
+    """
+    node = re.compile(
+        r"(?P<indent> *)(?P<name>[A-Za-z_][A-Za-z0-9_.$]*) "
+        r"\(left: (?P<left>-?[0-9]+), top: (?P<top>-?[0-9]+), "
+        r"right: (?P<right>-?[0-9]+), bottom: (?P<bottom>-?[0-9]+)\)"
+        r"(?: [^\x00-\x1f\x7f]*)?"
+    )
+    lines = stdout.splitlines(keepends=True)
+    first = next((index for index, line in enumerate(lines) if line.strip()), len(lines))
+    tree = []
+    previous_indent = 0
+    cursor = first
+    while cursor < len(lines):
+        match = node.fullmatch(lines[cursor].rstrip("\r\n"))
+        if match is None:
+            break
+        indent = len(match["indent"])
+        left, top, right, bottom = (int(match[name]) for name in ("left", "top", "right", "bottom"))
+        if not tree:
+            valid = indent == 0 and match["name"] == "ComposeViewAdapter" and right > left and bottom > top
+        else:
+            valid = indent > 0 and indent % 2 == 0 and indent <= previous_indent + 2
+            valid = valid and match["name"] != "ComposeViewAdapter" and right >= left and bottom >= top
+        if not valid:
+            raise PreviewError("malformed semantics text tree; inspect render.stdout.log")
+        tree.append(lines[cursor])
+        previous_indent = indent
+        cursor += 1
+    remainder = [line.rstrip("\r\n") for line in lines[cursor:] if line.strip()]
+    if len(tree) < 2 or remainder != [f"Wrote rendering to {image}"]:
+        raise PreviewError("expected one semantics text tree and its image trailer; inspect render.stdout.log")
+    return "".join(tree)
+
+
+def semantics_output(stdout, image):
+    """Choose the CLI's observed format, never combine or reinterpret two trees."""
+    if any(line.lstrip().startswith("ComposeViewAdapter") for line in stdout.splitlines()):
+        return "text-tree", "semantics.txt", semantics_text(stdout, image)
+    tree = semantics_json(stdout)
+    return "json", "semantics.json", json.dumps(tree, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n"
 
 
 def png_header_dimensions(data):
@@ -369,7 +417,7 @@ def capture(args, root=ROOT):
     image = bundle / "preview.png"
     command = render_command(args, mobile, source, image)
     metadata = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "NOT_RUN",
         "app": args.app,
         "project": str(mobile),
@@ -401,13 +449,13 @@ def capture(args, root=ROOT):
         )
         stdout = execute(command, "render", root, bundle, args.timeout_seconds)
         metadata["dimensions"], metadata["image_sha256"] = png_evidence(image)
-        tree = semantics_json(stdout)
+        semantics_format, semantics_path, semantics = semantics_output(stdout, image)
         if sha256(source, MAX_SOURCE_BYTES) != metadata["source_sha256"]:
             raise PreviewError("preview source changed during capture; rerun the same scenario")
-        write_artifact(
-            bundle / "semantics.json", json.dumps(tree, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n",
-        )
-        metadata["semantics_sha256"] = sha256(bundle / "semantics.json")
+        metadata["semantics_format"] = semantics_format
+        metadata["semantics_path"] = semantics_path
+        write_artifact(bundle / semantics_path, semantics)
+        metadata["semantics_sha256"] = sha256(bundle / semantics_path)
         metadata["status"] = "PASS"
     except PreviewError as exc:
         metadata["status"] = "UNSUPPORTED" if exc.code == UNSUPPORTED else "FAIL"
@@ -424,7 +472,7 @@ def capture(args, root=ROOT):
     finally:
         write_artifact(bundle / "capture.json", json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
         print(f"Preview artifacts: {bundle}")
-    print("PASS: PNG and semantics JSON captured; pixels and semantics assertions remain uninspected")
+    print("PASS: PNG and semantics captured; pixels and semantics assertions remain uninspected")
     return 0
 
 

@@ -40,6 +40,7 @@ cargo xtask app cantos-theatre --web [--open]
 cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
+cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 
 cargo xtask verify repository|rust|web|contracts|mutation
 cargo xtask verify postgres [--keep]
@@ -47,7 +48,7 @@ cargo xtask verify postgres [--keep]
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
-cargo xtask compose-preview cantos-theatre|cantos-studio --file PATH --composable NAME \
+cargo xtask compose-preview cantos-theatre|cantos-studio|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 ```
 
@@ -127,6 +128,13 @@ available. Gradle resolves declared project dependencies normally. xtask never i
 downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
 is `UNSUPPORTED` before any build or launch; an actual Gradle compilation/test failure is `FAIL`.
 Existing product `--mobile` surfaces remain reserved and are separate from this desktop preview.
+
+`ui-preview cmp android-build` compiles `compileDebugKotlinAndroid` in the isolated
+`packages/ui-system/cmp/android-preview` library with the same installed Gradle 8.14.3/JDK
+checks. That project consumes the shared CMP source and requires a locally configured Android
+SDK. The command starts no IDE, emulator, app or device process. Its build is optional and
+separate from the desktop build/test gate, so desktop users do not acquire an Android SDK
+requirement. `android-build` applies only to CMP; Leptos refuses it as a usage error.
 
 ### Verification gates
 
@@ -238,14 +246,18 @@ failure only when Cargo, Git or Python 3 is missing.
 
 Capture an existing `@Preview` through the official Android CLI's
 [`android studio render-compose-preview`](https://developer.android.com/tools/agents/android-cli/commands/studio_render-compose-preview).
-It requires Android Studio Quail 2+ running with the selected mobile Gradle project open and ready;
-it does not require an emulator or phone. Both mobile directories still lack a Gradle project,
-so real Cantos capture is **UNSUPPORTED today**. Tool/IDE setup is manual and never performed by
+It requires Android Studio Quail 2+ running with the selected Android Gradle project open and ready;
+it does not require an emulator or phone. `ui-system-cmp` selects the isolated shared-component
+library in `packages/ui-system/cmp/android-preview`; compile it with `ui-preview cmp android-build`
+before rendering its thin `@Preview` wrappers around shared source. Both product mobile
+directories still lack a Gradle project, so their capture remains **UNSUPPORTED**. Tool/IDE setup is manual and never performed by
 xtask. This optional operation is outside `preflight`/CI; its deterministic adapter tests run
 in the existing repository gate.
 
-`--file` resolves from the repository root and must stay inside the selected app's mobile
-directory. `--project` is derived from that directory; `--pid` selects an IDE instance.
+`--file` resolves from the repository root and must stay inside the selected fixed project
+directory: the product's mobile directory, or `packages/ui-system/cmp/android-preview` for
+`ui-system-cmp`. Files elsewhere in the parent CMP package are refused too. `--project` is derived
+from that directory; `--pid` selects an IDE instance.
 `--android-cli` can point to the official executable when the legacy SDK tool occupies `PATH`.
 Each CLI operation has a 1–300 second timeout (default 60). `--label` is provenance only:
 preview annotations/state configure theme, locale, font scale and layout. `--dry-run` prints
@@ -255,16 +267,19 @@ Capture execution currently requires a POSIX host so the adapter can stop only i
 process group, including descendants, on return, failure, timeout or interruption. It never
 signals the connected Android Studio process. Each command retains at most 4 MiB per output
 stream; larger output fails. Preview sources are limited to 4 MiB and PNGs to 32 MiB. Special
-files, symlinked product roots and linked output files are rejected. Fresh capture bundles and
+files, symlinked project roots and linked output files are rejected. Fresh capture bundles and
 adapter-written artifacts use private permissions; existing output paths are never overwritten.
 
-The Python capture primitive saves a fresh PNG, unchanged semantics JSON, raw logs and source/
-command/output provenance under ignored `artifacts/ui-evidence/compose-preview/`. Missing
+The Python capture primitive saves a fresh PNG, unchanged semantics text tree (or legacy JSON),
+raw logs and source/command/output provenance under ignored `artifacts/ui-evidence/compose-preview/`.
+Capture metadata schema v2 names the semantics format/path and hashes. The current CLI text tree
+exposes class names, bounds and text; it does not prove accessibility actions or states. Missing
 prerequisites are `UNSUPPORTED`; render/invalid output/timeouts are `FAIL`. A successful capture
 proves files exist, not inspected pixels, asserted semantics, interaction, a mobile build or
 Android/iOS device behavior. Follow the [CMP workflow](../.agents/skills/cantos-cmp-mobile/references/compose-preview.md)
 to inspect and report them; [tooling evidence](../docs/evidence/compose-preview-tooling.md)
-separates mock adapter tests from unrun real rendering.
+separates the original mock adapter checks from real rendering recorded in the
+[PR43 Android host acceptance](../docs/evidence/cmp-pr43-android-preview.md).
 
 ## Code layout
 

@@ -37,12 +37,13 @@ when this skill and a document disagree, the document wins and the conflict is r
   client) each contain a README only. This skill's playback, download and progress rules are for
   Theatre; the two apps share no Kotlin module until code is actually common. No production
   mobile Kotlin consumer exists yet. There is no app Gradle build, Xcode project, app KMP module
-  or device runner. The UI-system desktop preview is the separate concrete consumer described
-  below; its tests do not establish mobile behavior. The optional `cargo xtask compose-preview`
-  adapter refuses real capture until the selected app has a Gradle project and Android Studio
-  Quail 2+ is ready; see [Compose preview](references/compose-preview.md). Discover app `settings.gradle.kts`,
-  `gradle/libs.versions.toml`, the Xcode project and CI workflows before citing any command; the
-  commands in these references are **proposals** until the repository adds them.
+  or device runner. The UI-system package has separate concrete JVM desktop and Android Studio
+  host-preview consumers; neither establishes mobile app behavior. The `cargo xtask compose-preview`
+  product targets remain `UNSUPPORTED`, while `ui-system-cmp` selects the real isolated Android
+  library in `packages/ui-system/cmp/android-preview`. Capture additionally requires Android Studio
+  Quail 2+ open and ready; see [Compose preview](references/compose-preview.md). Discover app
+  `settings.gradle.kts`, `gradle/libs.versions.toml`, the Xcode project and CI workflows before
+  citing an app command; proposed mobile commands remain proposals until those apps implement them.
 - Every library named here (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
   WorkManager, kotest, Roborazzi …) is a **candidate**. Adopting one needs the ADR listed in
   [mobile.md § Implementation decisions](../../../docs/architecture/mobile.md#implementation-decisions-to-record),
@@ -58,8 +59,13 @@ when this skill and a document disagree, the document wins and the conflict is r
 ## Scope and mode
 
 The separate [`packages/ui-system/cmp`](../../../packages/ui-system/cmp/README.md) Gradle package
-now has a user-requested JVM desktop component preview and shared-token mapping. This concrete
-diagnostic consumer does not implement either mobile app or verify Android/iOS. New shared
+has a user-requested JVM desktop component preview, shared-token mapping and an isolated Android
+library host with thin `@Preview` wrappers around the actual shared components and fixtures.
+`cargo xtask ui-preview cmp android-build` compiles that library; `cargo xtask compose-preview
+ui-system-cmp` captures an existing wrapper through Android Studio. The [PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records an actual
+Android build and four inspected captures with asserted static semantics. These
+consumers produce no mobile APK, implement neither mobile app and do not verify Android/iOS device
+behavior. Production qualification remains 0/29. New shared
 components must be declared/tested in both previews and follow
 [preview admission](../cantos-ui-design/references/preview-catalog.md) before real app adoption.
 

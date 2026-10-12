@@ -7,23 +7,42 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use clap::Args;
+use clap::{Args, ValueEnum};
 
 use crate::{
     command::CommandSpec,
-    config::App,
     process::{Supervisor, Wait},
     report::{Report, Status},
-    run::AppTarget,
     tools::{Tool, ToolProbe},
     workspace::Workspace,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ComposePreviewTarget {
+    /// Cantos Theatre mobile project (UNSUPPORTED until its Gradle project exists).
+    #[value(alias = "cantos")]
+    CantosTheatre,
+    /// Cantos Studio mobile project (UNSUPPORTED until its Gradle project exists).
+    CantosStudio,
+    /// Isolated Android library consuming the shared CMP UI-system source.
+    UiSystemCmp,
+}
+
+impl ComposePreviewTarget {
+    fn cli_name(self) -> &'static str {
+        match self {
+            Self::CantosTheatre => "cantos-theatre",
+            Self::CantosStudio => "cantos-studio",
+            Self::UiSystemCmp => "ui-system-cmp",
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct ComposePreviewArgs {
-    /// Product whose mobile Gradle project is already open in Android Studio Quail 2+.
+    /// Product or UI-system Android Gradle project open in Android Studio Quail 2+.
     #[arg(value_enum)]
-    pub target: AppTarget,
+    pub target: ComposePreviewTarget,
     /// Kotlin file containing the preview, absolute or relative to the repository root.
     #[arg(long)]
     pub file: PathBuf,
@@ -48,14 +67,10 @@ pub struct ComposePreviewArgs {
 }
 
 pub fn command(workspace: &Workspace, args: &ComposePreviewArgs) -> CommandSpec {
-    let app = match args.target {
-        AppTarget::CantosTheatre => App::Theatre,
-        AppTarget::CantosStudio => App::Studio,
-    };
     let mut command = CommandSpec::new("python3", workspace.root()).args([
         "scripts/render_compose_preview.py".to_owned(),
         "--app".to_owned(),
-        app.cli_name().to_owned(),
+        args.target.cli_name().to_owned(),
         "--file".to_owned(),
         args.file.display().to_string(),
         "--composable".to_owned(),
@@ -95,7 +110,7 @@ pub fn run(
             Ok(status) if status.code() == Some(3) => report.record(
                 "capture",
                 Status::Unsupported,
-                "see primitive output: mobile Gradle project, official CLI and Quail 2+ IDE required",
+                "see primitive output: selected Gradle project, official CLI and Quail 2+ IDE required",
             ),
             Ok(status) => {
                 report.record("capture", Status::Fail, format!("capture exited with {status}"));
@@ -219,6 +234,51 @@ mod tests {
                     .unwrap_err();
             assert_eq!(error.exit_code(), 2);
         }
+    }
+
+    #[test]
+    fn cmp_preview_target_is_independent_of_the_product_app_targets() {
+        let cli = Cli::try_parse_from([
+            "cargo xtask",
+            "compose-preview",
+            "ui-system-cmp",
+            "--file",
+            "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/Preview.kt",
+            "--composable",
+            "CantosPreview",
+        ])
+        .unwrap();
+        let Task::ComposePreview(args) = cli.command else {
+            panic!("expected compose-preview");
+        };
+        assert_eq!(args.target, ComposePreviewTarget::UiSystemCmp);
+        let spec = command(&Workspace::discover().unwrap(), &args);
+        assert_eq!(
+            &spec.args[..3],
+            [
+                "scripts/render_compose_preview.py",
+                "--app",
+                "ui-system-cmp"
+            ]
+        );
+        assert!(Cli::try_parse_from(["cargo xtask", "app", "ui-system-cmp", "--mobile"]).is_err());
+        let alias = Cli::try_parse_from([
+            "cargo xtask",
+            "compose-preview",
+            "cantos",
+            "--file",
+            "Screen.kt",
+            "--composable",
+            "Preview",
+        ])
+        .unwrap();
+        assert!(matches!(
+            alias.command,
+            Task::ComposePreview(ComposePreviewArgs {
+                target: ComposePreviewTarget::CantosTheatre,
+                ..
+            })
+        ));
     }
 
     #[cfg(unix)]

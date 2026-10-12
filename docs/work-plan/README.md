@@ -10,6 +10,19 @@ implementation sessions are complete. The subsequent requester-authorized public
 needs a new request; GitHub owns publication execution status.
 This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
 
+The subsequent three-session [CMP UI-system sequence](016-cmp-ui-system.md) has its bounded
+[foundation](../evidence/cmp-ui-system-session1.md),
+[interaction](../evidence/cmp-ui-system-session2.md) and
+[final review/readiness](../evidence/cmp-ui-system-session3.md) local handoffs. The final inventory
+records 29 APIs and 152 scenarios in both previews. All candidates remain unqualified for new app
+use; the remaining native/reference/accessibility acceptance is explicit. The separately authorized
+[PR43 integration acceptance](../evidence/cmp-pr43-acceptance.md) preserves that boundary after
+reconciling develop and fixing Select menu state. GitHub owns merge status; the next component
+adoption task must first close its two-renderer runtime/accessibility/reference qualification.
+The requested [choice focus-spacing follow-up](../evidence/cmp-choice-focus-spacing.md) keeps
+supporting text beyond the painted ring, with failing-first JVM and fresh Android host evidence.
+It preserves that adoption prerequisite; GitHub owns its publication status.
+
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,
@@ -105,14 +118,20 @@ that improve the adaptation process and the audio output. Its editorial phase ca
 through the story workspace; the audio profile and clip conditioning are groundwork for #9, and
 scene acoustics follow #9. It changes no order, prerequisite, authorization or gate above.
 
-The shared [listening-review protocol](../production/listening-review-protocol.md) and
-[template](../../templates/listening-review.md) supply the #45 manual evidence format for lines,
+The project-original [Vietnamese reference episode](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
+provides #44's shared two-scene material with per-ID craft/cue coverage and unresolved controls;
+its [local evidence](../production/examples/vietnamese-reference/verification.md) pins the exact
+JSON bytes. The shared [listening-review protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md) supply #45's manual evidence format for lines,
 scenes and episodes. Use them for #6's pending named-listener assessment; its quality remains
-**NOT_RUN**. The next editorial preparation is #46 rights-recorded asset intake, then #47 cue
-records and #48 adaptation checks. Voice auditions and profile decisions require the reviewed
-[#44 reference](https://github.com/loveoverflowcom/cantos/issues/44) when available, actual
-render/listening evidence and recorded owner decisions. This protocol sets no approved threshold
-and advances no backend, provider, rights or publication gate; GitHub owns execution status.
+**NOT_RUN**.
+
+The next editorial preparation is #46 rights-recorded asset intake, then #47 cue records and
+#48 adaptation checks. #50's auditions consume the same pinned reference and protocol, actual
+render/listening evidence and recorded owner decisions; #51 additionally needs #46's asset intake.
+Text validation and the protocol establish no listening result, approved threshold, owner rights
+decision or production acceptance, and advance no backend, provider or publication gate.
+GitHub retains execution status, including #44/#45.
 
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
@@ -121,7 +140,10 @@ unimplemented/unrun. This enabling change does not advance 050, change #6/#7 ord
 introduce a competing mobile UI implementation.
 The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
 bounded output and private capture paths. The next mobile evidence still comes from an actual
-configured project and renderer; GitHub owns this tooling PR's execution status.
+configured project and renderer; GitHub owns this tooling PR's execution status. The
+[PR43 Android host follow-up](../evidence/cmp-pr43-android-preview.md) now records that configured
+shared-component library and four actual Android Studio captures. Product app, device, IME and
+screen-reader acceptance remains the next prerequisite before mobile adoption.
 
 The repository has documentation/templates, an executable
 [Script IR contract](../../packages/contracts/README.md), and a local authenticated immutable revision

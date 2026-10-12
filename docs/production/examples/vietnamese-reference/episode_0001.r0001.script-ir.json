@@ -1,0 +1,330 @@
+{
+  "schema_version": "0.1.0",
+  "work": {
+    "id": "ref-work",
+    "title": "Hai tiếng chuông bên cầu",
+    "rights_record_id": "ref-work-rights-unregistered",
+    "source_ref": "ref-origin"
+  },
+  "adaptation": {
+    "id": "ref-adaptation",
+    "language": "vi-VN",
+    "rights_record_id": "ref-score-rights-unregistered",
+    "provenance_refs": ["ref-origin"]
+  },
+  "characters": [
+    {
+      "id": "ref-narrator",
+      "name": "Người dẫn chuyện",
+      "role": "narrator",
+      "personality": "Observant storyteller; names places and separates private thought from public speech."
+    },
+    {
+      "id": "ref-thu",
+      "name": "Yên Thư",
+      "role": "character",
+      "personality": "Returning to her childhood town; precise about objects, reluctant to speak about grief."
+    },
+    {
+      "id": "ref-kha",
+      "name": "Vũ Kha",
+      "role": "character",
+      "personality": "Yên Thư's longtime friend; quick to offer practical help, learns to wait for an answer."
+    },
+    {
+      "id": "ref-du",
+      "name": "Mộc Du",
+      "role": "character",
+      "personality": "Older keeper of the closing postal station; spare speech and patient attention."
+    }
+  ],
+  "episode": {
+    "id": "ref-episode",
+    "title": "Lời hẹn còn nghe được",
+    "acts": [
+      {
+        "id": "ref-act",
+        "title": "Trước khi trạm đóng cửa",
+        "scenes": [
+          {
+            "id": "ref-station",
+            "title": "Gian phân thư trạm Gió Nồm — chiều muộn",
+            "dialogues": [
+              {
+                "id": "ref-d01",
+                "speaker_id": "ref-narrator",
+                "text": "Chiều muộn, trong gian phân thư trạm Gió Nồm. Gió đẩy những giọt mưa xuống bậc thềm; Yên Thư vẫn giữ túi áo khô.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d02",
+                "speaker_id": "ref-thu",
+                "text": "Vũ Kha, cậu nghĩ bác Mộc Du còn nhận ra mình không? Mười năm rồi, mình mới quay lại đây.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d03",
+                "speaker_id": "ref-du",
+                "text": "Yên Thư! Vũ Kha! Lại đây, hai cháu. Bác nhận ra giọng Thư trước cả khi nhìn thấy mặt.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d04",
+                "speaker_id": "ref-kha",
+                "text": "Bác Du, sáng mai trạm đóng cửa thật à? Thư chỉ xin lấy chiếc chuông mẹ bạn ấy gửi bác giữ.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d05",
+                "speaker_id": "ref-du",
+                "text": "Ừ, sáng mai. Mùi gỗ ẩm vẫn quẩn quanh chiếc hộp nhỏ. Thư này, mẹ cháu dặn bác trao tận tay, không gửi theo bưu kiện.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d06",
+                "speaker_id": "ref-kha",
+                "text": "Sợi chỉ đỏ đã buộc chặt quanh chiếc hộp bằng gỗ. Yên Thư, mình tháo giúp nhé? Cậu đang run đấy.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d07",
+                "speaker_id": "ref-thu",
+                "text": "Đừng, Kha! Để mình. Hồi nhỏ, mẹ gõ hai tiếng mỗi lần đón mình ở cầu Mây. Mình cứ tưởng sẽ còn được nghe mãi.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d08",
+                "speaker_id": "ref-du",
+                "text": "Mẹ cháu mất đã ba năm. Bác không biết cháu có muốn giữ nó không. Yên Thư, cháu muốn mở hộp ở đây chứ?",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d09",
+                "speaker_id": "ref-thu",
+                "text": "Trong túi áo cháu còn lời hẹn. Tờ giấy cũ của mình vẫn in một vệt mực tím, Kha à. Mẹ viết: Hễ về, ra cầu nghe nước.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d10",
+                "speaker_id": "ref-kha",
+                "text": "Thư, mình nhớ cầu Mây. Nhưng đường bờ sông đang ngập. Nếu đi vòng qua chợ, mình vẫn tới được trước tối.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d11",
+                "speaker_id": "ref-narrator",
+                "text": "Yên Thư giữ câu hỏi trong lòng: bác Mộc Du có hiểu vì sao cô sợ mở chiếc hộp không? Cô chưa hỏi thành lời.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d12",
+                "speaker_id": "ref-thu",
+                "text": "Mở ra rồi, nếu chẳng còn gì để chờ thì sao? Mẹ ơi, con đã về, mà vẫn chưa biết phải đứng ở đâu.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d13",
+                "speaker_id": "ref-du",
+                "text": "Thư, bác mang hộp. Kha lấy áo mưa nhé. Ra cầu Mây, bác có một chuyện chưa kể cho cháu nghe.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d14",
+                "speaker_id": "ref-kha",
+                "text": "Bác Du chờ cháu với! Thư, đi lối chợ cùng mình; đừng xuống bậc ven sông. Mình còn đủ thời gian.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d15",
+                "speaker_id": "ref-thu",
+                "text": "Vâng, bác Du. Kha, mình đi cùng cậu. Chiếc chuông này nhẹ mà sao nãy giờ mình không nhấc nổi.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              }
+            ],
+            "sound_cues": [
+              {
+                "id": "ref-c-room",
+                "kind": "ambience",
+                "description": "Small postal sorting room: muted rain outside and dry interior room tone. Establish shelter; keep words clear. No asset selected.",
+                "anchor": {"dialogue_id": "ref-d01", "edge": "start"}
+              },
+              {
+                "id": "ref-c-enter",
+                "kind": "sfx",
+                "description": "Mộc Du opens the wooden door toward Yên Thư and Vũ Kha, then steps into the sorting room. Make the keeper's entrance audible before his greeting.",
+                "anchor": {"dialogue_id": "ref-d03", "edge": "start"}
+              },
+              {
+                "id": "ref-c-box",
+                "kind": "sfx",
+                "description": "Mộc Du lifts a small wooden box from a shelf and sets it down with its lid still closed. Give the inherited object physical weight without opening it.",
+                "anchor": {"dialogue_id": "ref-d05", "edge": "end"}
+              },
+              {
+                "id": "ref-c-breath",
+                "kind": "sfx",
+                "description": "Yên Thư releases one unsteady breath before answering about her mother. A separate body sound, not a requirement for breathy spoken synthesis.",
+                "anchor": {"dialogue_id": "ref-d07", "edge": "start"}
+              },
+              {
+                "id": "ref-c-motif-a",
+                "kind": "sfx",
+                "description": "Yên Thư loosens the string and tips the still-closed box; the bell inside taps twice. Motif: two taps mean someone waits for you; here they recall her mother's greeting at Mây bridge.",
+                "anchor": {"dialogue_id": "ref-d07", "edge": "end"}
+              },
+              {
+                "id": "ref-c-leave-room",
+                "kind": "sfx",
+                "description": "Yên Thư, Vũ Kha and Mộc Du leave together; footsteps cross the threshold and the wooden door shuts behind them. End their presence in the sorting room.",
+                "anchor": {"dialogue_id": "ref-d15", "edge": "end"}
+              },
+              {
+                "id": "ref-c-transition",
+                "kind": "music",
+                "description": "Brief wordless bridge between locations, without a bell imitation. Carry elapsed time, then yield to the riverside ambience; no music asset or timing selected.",
+                "anchor": {"dialogue_id": "ref-d15", "edge": "end"}
+              }
+            ]
+          },
+          {
+            "id": "ref-bridge",
+            "title": "Mái trú dưới chân cầu Mây — hai mươi phút sau",
+            "dialogues": [
+              {
+                "id": "ref-d16",
+                "speaker_id": "ref-narrator",
+                "text": "Hai mươi phút sau, dưới mái trú ở chân cầu Mây, trời đã nhá nhem. Yên Thư, Vũ Kha và bác Mộc Du vừa tới bằng lối chợ.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d17",
+                "speaker_id": "ref-kha",
+                "text": "Thư, đứng sát mình! Bậc dưới trơn lắm. Bác Du, cháu kê hộp lên ghế này nhé?",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d18",
+                "speaker_id": "ref-du",
+                "text": "Được, Kha. Yên Thư, nghe nước qua chân cầu đi. Ngày mẹ cháu gửi hộp, bác cũng ngồi đúng chỗ này.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d19",
+                "speaker_id": "ref-thu",
+                "text": "Bác Du, mẹ có nói vì sao chỉ gửi chiếc chuông không? Cháu cứ mong có một lá thư trong hộp.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d20",
+                "speaker_id": "ref-du",
+                "text": "Mẹ cháu bảo: đừng để Thư phải đợi một người không thể về. Hãy để nó biết vẫn có người đợi nó.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d21",
+                "speaker_id": "ref-thu",
+                "text": "Kha, nếu mình gõ thử…",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d22",
+                "speaker_id": "ref-kha",
+                "text": "Mình sẽ trả lời, Thư. Không phải thay mẹ cậu. Chỉ để cậu biết mình đang ở đây.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d23",
+                "speaker_id": "ref-du",
+                "text": "Khoan, Kha! Để Thư nói hết. Chiếc hộp không cần mở vội, hai cháu cũng không cần trả lời vội.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d24",
+                "speaker_id": "ref-thu",
+                "text": "Mình chỉ định hỏi cậu có muốn nghe cùng không. Cảm ơn bác Du. Cháu mở được rồi.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d25",
+                "speaker_id": "ref-narrator",
+                "text": "Kìa, dưới nắp hộp là tên Yên Thư viết bằng nét mực tím! Cô nhận ra nét chữ ấy; không có lá thư nào bên trong.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d26",
+                "speaker_id": "ref-thu",
+                "text": "Kha, nghe này. Mẹ không để lại lời nào khác. Mình nghĩ hai tiếng là đủ cho hôm nay.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d27",
+                "speaker_id": "ref-kha",
+                "text": "Ừ, Yên Thư. Mình nghe rõ. Tối nay cậu ăn cơm cùng nhà mình nhé? Mẹ mình vẫn để thêm một cái bát.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d28",
+                "speaker_id": "ref-thu",
+                "text": "Vâng, bác Du, cháu mang chuông về. Kha, cho mình ngồi thêm một lát, rồi mình cùng về ăn cơm.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d29",
+                "speaker_id": "ref-du",
+                "text": "Yên Thư, Vũ Kha, bác về trạm khóa cửa trước. Đừng đi lối bờ sông nhé. Mai ghé nhà bác, trạm đóng chứ bác chưa đi đâu.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              },
+              {
+                "id": "ref-d30",
+                "speaker_id": "ref-kha",
+                "text": "Cháu chào bác Du! Thư, mình ngồi đây. Khi nào cậu đứng dậy, mình mới đứng dậy.",
+                "delivery": {"emotion": "neutral", "intensity_permille": 0}
+              }
+            ],
+            "sound_cues": [
+              {
+                "id": "ref-c-river",
+                "kind": "ambience",
+                "description": "River water against the bridge foot, with rain softened by the shelter roof. Establish an outdoor riverside space distinct from the sorting room; keep the bed under speech and the deliberate holds.",
+                "anchor": {"dialogue_id": "ref-d16", "edge": "start"}
+              },
+              {
+                "id": "ref-c-arrive",
+                "kind": "sfx",
+                "description": "Three sets of wet footsteps stop under the shelter. Mark Yên Thư, Vũ Kha and Mộc Du arriving together, not a fourth visitor.",
+                "anchor": {"dialogue_id": "ref-d16", "edge": "start"}
+              },
+              {
+                "id": "ref-c-open-box",
+                "kind": "sfx",
+                "description": "Yên Thư eases open the small wooden lid. Let the listener hear that opening before the narrator reveals the inscription; no paper rustle or invented letter.",
+                "anchor": {"dialogue_id": "ref-d24", "edge": "end"}
+              },
+              {
+                "id": "ref-c-motif-b",
+                "kind": "sfx",
+                "description": "Yên Thư deliberately sounds the bell twice. Repeat the recognizable two-tap motif from ref-c-motif-a; its meaning now includes a living friend waiting beside her. No asset selected.",
+                "anchor": {"dialogue_id": "ref-d26", "edge": "end"}
+              },
+              {
+                "id": "ref-c-du-exit",
+                "kind": "sfx",
+                "description": "Mộc Du's single set of footsteps recedes toward the market path after his farewell. Yên Thư and Vũ Kha remain seated by the river.",
+                "anchor": {"dialogue_id": "ref-d29", "edge": "end"}
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "provenance": [
+    {
+      "id": "ref-origin",
+      "kind": "generated",
+      "source_record_id": "ref-source-unregistered",
+      "rights_record_id": "ref-work-rights-unregistered",
+      "generation_record_id": "ref-generation-44-r0001-unregistered"
+    }
+  ]
+}

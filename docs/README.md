@@ -8,6 +8,7 @@
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
 | [Audio drama craft](production/audio-drama-craft.md) | Ear-first adaptation, narration purpose, silence, voices, motifs and mix intent |
+| [Original Vietnamese reference episode](production/examples/vietnamese-reference/episode_0001.r0001.review.md) | Shared two-scene audition text, exact craft/cue coverage, unresolved 0.1.0 controls and structural validation evidence; no audio |
 | [Listening-review protocol](production/listening-review-protocol.md) / [template](../templates/listening-review.md) | Named-reviewer, checksum-bound line/scene/episode evidence, two passes and required devices; proposed thresholds |
 | [Listening protocol handoff](evidence/listening-review-protocol.md) | Documentation review, applicable local gates and unresolved listening/threshold/rights decisions; no scored audio |
 | [Story workspace evidence](evidence/story-workspace-skills.md) | Skill/initializer checks, editorial rehearsal, verified Drive setup and residual limits |

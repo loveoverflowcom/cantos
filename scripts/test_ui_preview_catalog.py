@@ -98,6 +98,51 @@ class PreviewCatalog(unittest.TestCase):
         self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewApp.kt", 'when(example) {\n PreviewExample.Button -> Text("Button()")\n}\n')
         self.assertIn("CMP preview omits button dispatch", self.failures())
 
+    def test_public_composable_modifiers_cannot_hide_unregistered_native_apis(self):
+        for declaration in (
+            'inline fun NewControl(content: @Composable () -> Unit) { content() }',
+            'public inline fun NewControl(content: @Composable () -> Unit) { content() }',
+            'inline public fun <T : List<String>> NewControl(value: T) {}',
+        ):
+            with self.subTest(declaration=declaration):
+                self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/NewControl.kt", "@Composable\n" + declaration)
+                self.write("apps/example/mobile/View.kt", "import com.cantos.ui.NewControl\n")
+                self.assertEqual(self.failures(), ["CMP component inventory mismatch: missing [], undeclared ['NewControl']"])
+        for declaration in (
+            'private inline fun NewControl() {}',
+            'internal inline fun NewControl() {}',
+            'inline fun NewControl() {}',
+        ):
+            with self.subTest(non_api=declaration):
+                annotation = "" if declaration.startswith("inline fun") else "@Composable\n"
+                self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/NewControl.kt", annotation + declaration)
+                self.write("apps/example/mobile/View.kt", "// no shared components\n")
+                self.assertEqual(self.failures(), [])
+
+    def test_composable_annotation_names_cannot_hide_unregistered_native_apis(self):
+        for source in (
+            'import androidx.compose.runtime.Composable as UiComponent\n@UiComponent fun NewControl() {}',
+            '@androidx.compose.runtime.Composable fun NewControl() {}',
+            '@`androidx` . `compose` . `runtime` . `Composable` fun NewControl() {}',
+            'import androidx.compose.runtime.Composable as UiComponent\ntypealias UiAlias = UiComponent\n@UiAlias fun NewControl() {}',
+            'import androidx.compose.runtime.Composable as UiComponent\ntypealias UiAlias = OtherAlias\ntypealias OtherAlias = UiComponent\n@UiAlias fun NewControl() {}',
+            '@Composable() fun NewControl() {}',
+            'import androidx.compose.runtime.Composable as UiComponent\n@UiComponent() fun NewControl() {}',
+        ):
+            with self.subTest(source=source):
+                self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/NewControl.kt", source)
+                self.write("apps/example/mobile/View.kt", "import com.cantos.ui.NewControl\n")
+                self.assertEqual(self.failures(), ["CMP component inventory mismatch: missing [], undeclared ['NewControl']"])
+        for source in (
+            'import androidx.compose.runtime.Composable as UiComponent\n@UiComponent private fun NewControl() {}',
+            '/* @androidx.compose.runtime.Composable fun NewControl() {} */',
+            'val note = "@androidx.compose.runtime.Composable fun NewControl() {}"',
+        ):
+            with self.subTest(non_api=source):
+                self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/NewControl.kt", source)
+                self.write("apps/example/mobile/View.kt", "// no shared components\n")
+                self.assertEqual(self.failures(), [])
+
     def test_both_fresh_records_allow_new_use_and_source_or_tokens_invalidate_it(self):
         self.write("apps/example/web/src/view.rs", "use cantos_ui::Button;\n")
         self.qualify()
@@ -148,6 +193,13 @@ class PreviewCatalog(unittest.TestCase):
             ("cmp", "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/build/Control.kt"),
             ("cmp", "packages/ui-system/cmp/src/desktopMain/kotlin/com/cantos/ui/PreviewCatalog.kt"),
             ("cmp", "packages/ui-system/cmp/gradle/libs.versions.toml"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.gradle/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.idea/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/.kotlin/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/nested/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/other-project/build/Control.kt"),
+            ("cmp", "packages/ui-system/cmp/android-preview/src/local.properties"),
         ):
             with self.subTest(renderer=renderer, path=path):
                 self.qualify()
@@ -180,6 +232,42 @@ class PreviewCatalog(unittest.TestCase):
                 for path in paths:
                     self.write(path, "excluded output\n")
                 self.assertEqual(before, catalog.renderer_digest(renderer, self.root, self.source["components"]))
+
+    def test_android_preview_generated_outputs_do_not_invalidate_cmp_qualification(self):
+        self.qualify()
+        before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+        for generated_directory in ("build", ".gradle", ".idea", ".kotlin"):
+            for relative in ("intermediates/AndroidManifest.xml", "metadata/dependencies.json",
+                             "generated/Synthetic.kt", "reports/preview.png"):
+                with self.subTest(generated_directory=generated_directory, relative=relative):
+                    path = self.write(f"packages/ui-system/cmp/android-preview/{generated_directory}/{relative}",
+                                      "generated output\n")
+                    self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                    path.write_text("regenerated output\n")
+                    self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                    self.assertEqual(self.failures(), [])
+
+    def test_android_preview_build_and_preview_sources_invalidate_cmp_qualification(self):
+        for relative in ("build.gradle.kts", "settings.gradle.kts", "gradle.properties",
+                         "gradle/wrapper/gradle-wrapper.properties",
+                         "src/androidMain/AndroidManifest.xml",
+                         "src/androidMain/kotlin/com/cantos/ui/androidpreview/AndroidPreviews.kt"):
+            with self.subTest(relative=relative):
+                path = self.write(f"packages/ui-system/cmp/android-preview/{relative}", "original source\n")
+                self.qualify()
+                before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+                path.write_text("changed source\n")
+                self.assertNotEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+                self.assertIn("button/cmp: stale source or token qualification", self.failures())
+
+    def test_android_preview_local_sdk_path_does_not_invalidate_cmp_qualification(self):
+        self.qualify()
+        before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+        path = self.write("packages/ui-system/cmp/android-preview/local.properties", "sdk.dir=/tmp/first-sdk\n")
+        self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+        path.write_text("sdk.dir=/tmp/second-sdk\n")
+        self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+        self.assertEqual(self.failures(), [])
 
     def test_unsupported_is_declared_but_never_silently_approved(self):
         self.source["components"][0]["cmp"]["status"] = "unsupported"
@@ -247,6 +335,21 @@ class PreviewCatalog(unittest.TestCase):
                 path = "apps/example/web/src/view.rs" if renderer == "leptos" else "apps/example/mobile/View.kt"
                 self.write(path, content)
                 self.assertEqual(self.failures(), [f"{path}: new use requires both preview qualifications: Button"])
+
+    def test_shared_kotlin_package_cannot_hide_application_component_adoption(self):
+        for namespace in ("com.cantos.ui", "`com` . `cantos` . `ui`"):
+            with self.subTest(namespace=namespace):
+                self.write("apps/example/mobile/View.kt", f'package {namespace}\n@Composable fun ProductScreen() {{ Button("Lưu", {{}}) }}\n')
+                self.assertEqual(self.failures(), ["apps/example/mobile/View.kt: explicit CMP component imports required for shared-package adoption checks"])
+        for source in (
+            'package com.cantos.ui.application\nval label = "Button"',
+            'package com.cantos.uinterface\nval label = "Button"',
+            'val note = "package com.cantos.ui"',
+            '/* package com.cantos.ui */\nval note = "Button"',
+        ):
+            with self.subTest(source=source):
+                self.write("apps/example/mobile/View.kt", source)
+                self.assertEqual(self.failures(), [])
 
     def test_character_literals_cannot_swallow_later_shared_component_use(self):
         cases = (

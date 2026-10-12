@@ -1,9 +1,12 @@
 # Audio drama quality plan
 
-Status: planning, recorded 2026-10-12, with a documented manual
-[listening protocol](../production/listening-review-protocol.md) and
-[template](../../templates/listening-review.md). Audio rendering, listening acceptance and backend
-QC are not established by those documents. This plan reconciles an
+Status: planning, recorded 2026-10-12. The project-original
+[reference episode and review notes](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
+provide Step 1's text artifact, with [local structural evidence](../production/examples/vietnamese-reference/verification.md).
+The documented manual [listening protocol](../production/listening-review-protocol.md) and
+[template](../../templates/listening-review.md) provide Step 2's procedure and record format.
+Audio rendering, listening acceptance and backend QC are not established by these documents;
+the other outcomes below remain planned. This plan reconciles an
 externally supplied research report on adapting novels into audio drama (Vietnamese, not
 committed) with the actual Cantos contracts and pipeline, and orders the resulting work into
 bounded GitHub issues. GitHub issues own execution status; this document owns the rationale and
@@ -82,7 +85,7 @@ historical baseline above describes the inspected revision, not the current docu
 Keep the six original TTS dimensions in that canonical rubric. The next editorial preparation
 is rights-recorded asset intake (#46), then sound-bible/cue-sheet records (#47) and adaptation
 checks (#48). Real voice auditions (#50) need the reviewed #44 reference and this protocol;
-profile decisions (#51) additionally need #46. An unmerged reference is not an available render,
+profile decisions (#51) additionally need #46. Reference text supplies no rendered audio,
 and no document/checker pass completes #6's named-listener assessment or those owner decisions.
 
 ## Steps
@@ -99,6 +102,10 @@ agent-operated [story workspace](../production/story-workspace.md).
 | 3 | [#46](https://github.com/loveoverflowcom/cantos/issues/46) | Rights-recorded sound asset library and intake procedure | — |
 | 4 | [#47](https://github.com/loveoverflowcom/cantos/issues/47) | Story sound bible and per-episode cue sheet records | — |
 | 5 | [#48](https://github.com/loveoverflowcom/cantos/issues/48) | Ear-first checks in `cantos-radio-adapt` and `cantos-story-audit` | — |
+
+For auditions and listening handoffs, use #45's shared protocol. Reuse the exact #44 reference
+JSON/hash rather than independently editable copies; its unresolved pause, interior-mode,
+overlap and cue-extent intentions feed #49's decision.
 
 ### Phase 2 — decisions
 
