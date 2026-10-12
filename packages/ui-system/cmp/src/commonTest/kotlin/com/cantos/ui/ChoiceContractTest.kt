@@ -58,6 +58,31 @@ class ChoiceContractTest {
         assertEquals(null, rangeKeyValue(0f, 0f..100f, 0, Key.A))
     }
 
+    @Test
+    fun continuous_range_arrows_reach_an_adjacent_float_when_a_hundredth_is_unrepresentable() {
+        for (range in listOf(0f..Float.MIN_VALUE, 1_000_000f..1_000_000.0625f)) {
+            assertEquals(range.endInclusive, rangeKeyValue(range.start, range, 0, Key.DirectionRight))
+            assertEquals(range.start, rangeKeyValue(range.endInclusive, range, 0, Key.DirectionLeft))
+            assertEquals(range.start, rangeKeyValue(range.start, range, 0, Key.PageDown))
+            assertEquals(range.endInclusive, rangeKeyValue(range.endInclusive, range, 0, Key.PageUp))
+        }
+    }
+
+    @Test
+    fun native_range_requests_are_finite_bounded_and_closed_over_accepted_ticks() {
+        assertEquals(43.5f, rangeChangeValue(43.5f, 0f..100f, 0))
+        assertEquals(0f, rangeChangeValue(-200f, 0f..100f, 0))
+        assertEquals(100f, rangeChangeValue(200f, 0f..100f, 0))
+        assertEquals(-50f, rangeChangeValue(-40f, -100f..0f, 3))
+        assertEquals(-25f, rangeChangeValue(-37.5f, -100f..0f, 3))
+        for (request in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            assertEquals(null, rangeChangeValue(request, -100f..0f, 3))
+        }
+        for (request in -125..25) {
+            validateRange(requireNotNull(rangeChangeValue(request.toFloat(), -100f..0f, 3)), -100f..0f, 3)
+        }
+    }
+
 
     @Test
     fun stepped_ranges_reject_collapsed_float_ticks_before_dispatch() {

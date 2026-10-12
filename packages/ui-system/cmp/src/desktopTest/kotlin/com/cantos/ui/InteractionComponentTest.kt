@@ -38,6 +38,7 @@ import androidx.compose.ui.test.click
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.math.nextDown
 
 /** Production wrappers on the JVM renderer; pointer injection is not native OS input. */
 @OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
@@ -189,6 +190,102 @@ class InteractionComponentTest {
     }
 
     @Test
+    fun negative_stepped_range_accessibility_requests_remain_valid_controlled_ticks() {
+        var value by mutableStateOf(-100f)
+        val values = mutableListOf<Float>()
+        var finishes = 0
+        compose.setContent {
+            UiRoot { RangeField("Mức tín hiệu", value, { values += it; value = it }, range = -100f..0f,
+                steps = 3, onValueChangeFinished = { finishes += 1 }) }
+        }
+        compose.onNodeWithContentDescription("Mức tín hiệu")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(-40f) }
+        compose.waitForIdle()
+        assertEquals(listOf(-50f), values)
+        assertEquals(1, finishes)
+        compose.onNodeWithText("Mức tín hiệu: -50.0").assertExists()
+    }
+
+    @Test
+    fun range_accessibility_rejects_nonfinite_and_unchanged_tick_requests_without_completion() {
+        var value by mutableStateOf(-50f)
+        val values = mutableListOf<Float>()
+        var finishes = 0
+        compose.setContent {
+            UiRoot { RangeField("Mức tín hiệu", value, { values += it; value = it }, range = -100f..0f,
+                steps = 3, onValueChangeFinished = { finishes += 1 }) }
+        }
+        val node = compose.onNodeWithContentDescription("Mức tín hiệu")
+        for (request in listOf(-40f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            node.performSemanticsAction(SemanticsActions.SetProgress) { kotlin.test.assertFalse(it(request)) }
+        }
+        assertEquals(emptyList(), values)
+        assertEquals(0, finishes)
+        node.performSemanticsAction(SemanticsActions.SetProgress) { kotlin.test.assertTrue(it(-200f)) }
+        assertEquals(listOf(-100f), values)
+        assertEquals(1, finishes)
+    }
+
+    @Test
+    fun range_accessibility_keeps_the_caller_decimal_alias_when_its_tick_is_unchanged() {
+        var calls = 0
+        var finishes = 0
+        compose.setContent {
+            UiRoot { RangeField("Tốc độ", 0.7f, { calls += 1 }, range = 0.1f..0.9f, steps = 3,
+                onValueChangeFinished = { finishes += 1 }) }
+        }
+        compose.onNodeWithContentDescription("Tốc độ")
+            .performSemanticsAction(SemanticsActions.SetProgress) { kotlin.test.assertFalse(it(0.7f)) }
+        assertEquals(0, calls)
+        assertEquals(0, finishes)
+        compose.onNodeWithText("Tốc độ: 0.7").assertExists()
+    }
+
+    @Test
+    fun range_keyboard_keeps_a_decimal_alias_when_the_native_thumb_is_already_at_the_end() {
+        var calls = 0
+        var finishes = 0
+        val focus = FocusRequester()
+        compose.setContent {
+            UiRoot { RangeField("Tốc độ", 0.9f.nextDown(), { calls += 1 }, range = 0.1f..0.9f, steps = 3,
+                controlModifier = Modifier.focusRequester(focus), onValueChangeFinished = { finishes += 1 }) }
+        }
+        compose.runOnIdle { focus.requestFocus() }
+        compose.onNodeWithContentDescription("Tốc độ").performKeyInput {
+            pressKey(Key.MoveEnd); pressKey(Key.DirectionRight); pressKey(Key.PageUp)
+        }
+        assertEquals(0, calls)
+        assertEquals(0, finishes)
+    }
+
+    @Test
+    fun range_same_tick_comparison_matches_native_lower_tie_without_suppressing_a_new_tick() {
+        val values = mutableListOf<Float>()
+        var finishes = 0
+        compose.setContent {
+            UiRoot { RangeField("Mức tín hiệu", 1_000_000.0625f, { values += it },
+                range = 1_000_000f..1_000_000.25f, steps = 1, onValueChangeFinished = { finishes += 1 }) }
+        }
+        val node = compose.onNodeWithContentDescription("Mức tín hiệu")
+        node.assert(SemanticsMatcher.expectValue(SemanticsProperties.ProgressBarRangeInfo,
+            androidx.compose.ui.semantics.ProgressBarRangeInfo(1_000_000f, 1_000_000f..1_000_000.25f, 1)))
+        node.performSemanticsAction(SemanticsActions.SetProgress) { kotlin.test.assertFalse(it(1_000_000f)) }
+        node.performSemanticsAction(SemanticsActions.SetProgress) { kotlin.test.assertTrue(it(1_000_000.125f)) }
+        assertEquals(listOf(1_000_000.125f), values)
+        assertEquals(1, finishes)
+    }
+
+    @Test
+    fun range_preview_reports_the_complete_fraction_in_vietnamese_value_text() {
+        compose.setContent { UiRoot {
+            com.cantos.ui.preview.ComponentExample(PreviewExample.RangeField, "enabled", {}, Modifier)
+        } }
+        compose.onNodeWithContentDescription("Mức âm lượng thử")
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(43.5f) }
+        compose.onNodeWithText("Mức âm lượng thử: 43,5 trên 100").assertExists()
+    }
+
+    @Test
     fun native_tabs_name_selection_keyboard_focus_overflow_and_repeated_callbacks() {
         var selected by mutableStateOf(0)
         var state by mutableStateOf<ButtonState>(ButtonState.Enabled)
@@ -269,6 +366,18 @@ class InteractionComponentTest {
         node.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, androidx.compose.ui.semantics.LiveRegionMode.Assertive))
         compose.onNodeWithText("Xem ghi chú").performClick().performClick()
         assertEquals(2, calls)
+    }
+
+    @Test
+    fun loading_preview_registered_announcement_is_explicit_and_default_stays_quiet() {
+        var state by mutableStateOf("loading")
+        compose.setContent { UiRoot {
+            com.cantos.ui.preview.ComponentExample(PreviewExample.LoadingState, state, {}, Modifier.testTag("loading"))
+        } }
+        val node = compose.onNodeWithTag("loading")
+        node.assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.LiveRegion))
+        compose.runOnIdle { state = "announcement" }
+        node.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, androidx.compose.ui.semantics.LiveRegionMode.Polite))
     }
 
     @Test

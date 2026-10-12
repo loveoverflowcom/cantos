@@ -10,10 +10,12 @@ implementation sessions are complete. The subsequent requester-authorized public
 needs a new request; GitHub owns publication execution status.
 This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
 
-The subsequent [CMP UI-system sequence](016-cmp-ui-system.md) now has its bounded
-[session 1 foundation handoff](../evidence/cmp-ui-system-session1.md). Next is the separate Extra
-High session for interaction/navigation/layout/complex inputs, followed by Ultra acceptance;
-the parent starts them sequentially. All 29 CMP candidates remain unqualified for new app use.
+The subsequent three-session [CMP UI-system sequence](016-cmp-ui-system.md) has its bounded
+[foundation](../evidence/cmp-ui-system-session1.md),
+[interaction](../evidence/cmp-ui-system-session2.md) and
+[final review/readiness](../evidence/cmp-ui-system-session3.md) local handoffs. The final inventory
+records 29 APIs and 152 scenarios in both previews. All candidates remain unqualified for new app
+use; the remaining native/reference/accessibility acceptance is explicit. Parent owns publication.
 
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has

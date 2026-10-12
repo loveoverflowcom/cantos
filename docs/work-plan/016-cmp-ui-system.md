@@ -21,7 +21,7 @@ mobile apps remain guides. App journeys, backend, TTS and playback are outside t
 | --- | --- | --- |
 | 1 — Ultra | Scoped theme/density/native text foundation, reusable state contract separated from diagnostics, composable actions and both preview specimens | [Session 1 evidence](../evidence/cmp-ui-system-session1.md): examples/JVM semantics/opened captures and bounded Safari observations; unresolved native gates explicit |
 | 2 — Extra High | Interaction, navigation, layout, feedback and complex-input contracts below | Both previews for every changed API/state; callbacks/semantics, interrupted/repeated interactions, inspected captures and independent review |
-| 3 — Ultra | Independent final review and acceptance matrix for current registry scenarios/tokens/targets | Fresh source/build/token digests, actual reference/pixels, keyboard/focus and native/screen-reader evidence; qualify only when all required gates actually pass |
+| 3 — Ultra | Independent final review and acceptance matrix for current registry scenarios/tokens/targets | [Final readiness handoff](../evidence/cmp-ui-system-session3.md): reproduced/fixed defects and fresh matrix; incomplete runtime/reference/assistive-technology gates leave 0/29 qualified |
 
 Session 1 implements theme scaling/validation, action control modifiers, a named Button content
 slot, inherited icon foreground, normalized blank messages and rich editing/keyboard hooks while
@@ -55,7 +55,7 @@ recovery slots. Both previews now declare 151 scenarios across the same 29 APIs;
 remains zero. Its ignored handoff/matrix under `target/cmp-session2-evidence/` distinguishes
 component tests, opened captures and bounded Safari observations from missing acceptance.
 
-## Exact next task for session 3
+## Session 3 review scope
 
 Continue the same local branch from the session-2 handoff commit. Verify status and retained
 session-1 ancestry before editing; no reset, push, PR, merge or automatic next workchat is authorized.
@@ -90,6 +90,22 @@ opened capture/actual reference; reviewer; blocker/owner. Registration is invent
 Missing tooling is an evidence blocker, not permission to bypass binding, TLS or settings. Do not
 install large mobile SDKs to disguise unsupported apps. Leave qualification unapproved if runtime,
 accessibility or reference evidence is missing.
+
+The [final session](../evidence/cmp-ui-system-session3.md) now closes negative/nonfinite range
+callbacks, Float keyboard precision and same-tick alias completion, preview fraction truncation,
+two inherited admission inventory bypasses and LoadingState announcement discovery. The
+[readiness inventory](../evidence/cmp-ui-system-readiness.json) records 29 APIs / 152 scenarios /
+304 renderer rows and all 73 named roles (72 canonical plus one alias). Local structural and
+behavioral evidence is held separately from incomplete production qualification. No automatic
+additional session or product-app expansion is recommended; manual acceptance and publication
+remain with the parent/owner under the existing contract.
+
+At final handoff, external [PR42](https://github.com/loveoverflowcom/cantos/pull/42) advanced
+develop to `342d65fdbd3764f76b772ee0a398a9e209115b65`, renaming Theatre to `apps/cantos-theatre`
+and migrating its exact baseline import path. The local three-session sequence remains tested
+against merge-base `7f416a1e1bac5bbf338d461463770bffd983b5c1`; it is not rebased/merged here.
+Before any later authorized publication, reconcile paths/catalogue baseline/generators and
+refresh integrated pinned-toolchain evidence. The external merge does not authorize publishing.
 
 ## Commands and risks
 

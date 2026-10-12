@@ -305,6 +305,10 @@ def imported_components(content, renderer, names):
         content, expressions = kotlin_source_regions(original)
         content = re.sub(r"`([A-Za-z_]\w*)`", r"\1", content)
         content = re.sub(r"\s*\.\s*", ".", content)
+        # Kotlin resolves public top-level declarations in the same package without
+        # imports. Product sources may not join the shared package to hide adoption.
+        if re.search(r"\bpackage\s+com\.cantos\.ui(?:\s|;|$)", content):
+            raise ValueError("explicit CMP component imports required for shared-package adoption checks")
         imports = re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", content)
         if re.search(r"\bimport\s+com\.cantos\.ui\.\*", content):
             raise ValueError("explicit CMP component imports required for adoption checks")
@@ -384,7 +388,32 @@ def repository_failures(source, token_source, root=ROOT):
         for path in sorted(cmp.rglob("*.kt")):
             if {"generated", "preview"}.intersection(path.relative_to(cmp).parts):
                 continue
-            declared.update(re.findall(r"@Composable\s+(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:public\s+)?fun\s+([A-Z]\w*)", source_text(path.read_text(), False), re.S))
+            code = source_text(path.read_text(), False)
+            code = re.sub(r"`([A-Za-z_]\w*)`", r"\1", code)
+            code = re.sub(r"\s*\.\s*", ".", code)
+            annotation_names = {"Composable", "androidx.compose.runtime.Composable"}
+            annotation_names.update(re.findall(
+                r"\bimport\s+androidx\.compose\.runtime\.Composable\s+as\s+([A-Za-z_]\w*)", code))
+            # Direct annotation type aliases can be chained or declared out of order.
+            aliases = re.findall(r"\btypealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)", code)
+            while True:
+                resolved = {alias for alias, target in aliases if target in annotation_names}
+                if resolved <= annotation_names:
+                    break
+                annotation_names.update(resolved)
+            annotation = "@(?:" + "|".join(re.escape(name) for name in sorted(annotation_names)) + ")\\b"
+            # Default-public and explicitly public composables remain API declarations
+            # with ordinary Kotlin modifiers and type parameters. Private/internal helpers
+            # do not become shared candidates merely because they are composable.
+            declarations = re.finditer(
+                annotation + r"(?:\(\s*\))?\s+(?:@[\w.]+(?:\([^)]*\))?\s+)*"
+                r"(?P<modifiers>(?:(?:public|private|internal|protected|inline|suspend|tailrec|"
+                r"operator|infix|external|expect|actual|final|open|abstract|override)\s+)*)"
+                r"fun\b\s*(?:<[^()]*>\s*)?(?P<name>[A-Z]\w*)",
+                code, re.S,
+            )
+            declared.update(match["name"] for match in declarations
+                            if not {"private", "internal"}.intersection(match["modifiers"].split()))
         # UiRoot owns the theme adapter; it is not a second standalone component contract.
         declared.discard("CantosTheme")
         supported = {name for name in names if entries[name]["cmp"]["status"] != "unsupported"}

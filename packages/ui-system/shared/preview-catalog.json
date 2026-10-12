@@ -422,7 +422,8 @@
       "name": "LoadingState",
       "family": "feedback",
       "states": [
-        "loading"
+        "loading",
+        "announcement"
       ],
       "leptos": {
         "status": "registered",

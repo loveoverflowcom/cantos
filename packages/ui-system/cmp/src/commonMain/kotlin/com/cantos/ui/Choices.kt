@@ -31,6 +31,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.util.lerp
 import kotlin.math.abs
 import kotlin.math.ulp
+import kotlin.math.nextDown
+import kotlin.math.nextUp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 
 private fun choiceDescription(state: ButtonState, help: String?, error: String?): String =
@@ -237,7 +240,9 @@ fun RangeField(
     var keyboardChanged by remember(state.canPress()) { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
         FieldLabel("$label: $valueText")
-        Slider(value, onValueChange = { if (state.canPress()) onValueChange(it) }, valueRange = range,
+        Slider(value, onValueChange = { request ->
+            if (state.canPress()) rangeChangeValue(request, range, steps)?.let(onValueChange)
+        }, valueRange = range,
             steps = steps, onValueChangeFinished = { if (state.canPress()) onValueChangeFinished() },
             enabled = state.canPress(), modifier = controlModifier.fillMaxWidth().cantosFocus()
                 .onFocusChanged { if (!it.isFocused) keyboardChanged = false }
@@ -245,7 +250,7 @@ fun RangeField(
                     val next = rangeKeyValue(value, range, steps, event.key)
                     if (!state.canPress() || next == null) false
                     else {
-                        if (event.type == KeyEventType.KeyDown && next != value) {
+                        if (event.type == KeyEventType.KeyDown && next != rangeCurrentValue(value, range, steps)) {
                             onValueChange(next)
                             keyboardChanged = true
                         } else if (event.type == KeyEventType.KeyUp && keyboardChanged) {
@@ -259,6 +264,17 @@ fun RangeField(
                     contentDescription = label
                     stateDescription = listOf(valueText, choiceDescription(state, help, error))
                         .filter { it.isNotBlank() }.joinToString(". ")
+                    // Pinned Material3 can emit off-tick negative values or NaN through
+                    // SetProgress. Keep every native request closed over our value contract.
+                    setProgress { request ->
+                        val next = rangeChangeValue(request, range, steps)
+                        if (!state.canPress() || next == null || next == rangeCurrentValue(value, range, steps)) false
+                        else {
+                            onValueChange(next)
+                            onValueChangeFinished()
+                            true
+                        }
+                    }
                 })
         ChoiceMessages(state, help, error)
     }
@@ -286,6 +302,18 @@ internal fun rangeTicks(range: ClosedFloatingPointRange<Float>, steps: Int): Lis
         lerp(range.start, range.endInclusive, index.toFloat() / (steps + 1))
     }
 
+/** Project requests only; never rewrite the caller's controlled value. Ties choose the higher tick. */
+internal fun rangeChangeValue(request: Float, range: ClosedFloatingPointRange<Float>, steps: Int): Float? {
+    if (!request.isFinite()) return null
+    val bounded = request.coerceIn(range)
+    if (steps == 0) return bounded
+    return rangeTicks(range, steps).asReversed().minByOrNull { abs(it.toDouble() - bounded.toDouble()) }
+}
+
+/** Material's current thumb snaps lower on a tie; a caller decimal may be one ULP away. */
+private fun rangeCurrentValue(value: Float, range: ClosedFloatingPointRange<Float>, steps: Int): Float =
+    if (steps == 0) value else requireNotNull(rangeTicks(range, steps).minByOrNull { abs(it.toDouble() - value.toDouble()) })
+
 /** Pinned Material3 has progress semantics but no key handler. Preserve native focus/drag. */
 internal fun rangeKeyValue(value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, key: Key): Float? {
     val delta = when (key) {
@@ -303,5 +331,14 @@ internal fun rangeKeyValue(value: Float, range: ClosedFloatingPointRange<Float>,
         return ticks[(current + delta).coerceIn(ticks.indices)]
     }
     val span = range.endInclusive.toDouble() - range.start.toDouble()
-    return (value.toDouble() + span / 100 * delta).coerceIn(range.start.toDouble(), range.endInclusive.toDouble()).toFloat()
+    val next = (value.toDouble() + span / 100 * delta)
+        .coerceIn(range.start.toDouble(), range.endInclusive.toDouble()).toFloat()
+    // On narrow/large-offset Float ranges, one percent can round to the current
+    // value. Make directional input advance by the smallest representable value.
+    return when {
+        next != value -> next
+        delta > 0 && value < range.endInclusive -> value.nextUp().coerceAtMost(range.endInclusive)
+        delta < 0 && value > range.start -> value.nextDown().coerceAtLeast(range.start)
+        else -> value
+    }
 }

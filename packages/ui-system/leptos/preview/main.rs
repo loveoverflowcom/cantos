@@ -306,12 +306,18 @@ pub fn Gallery(
                                     on_input=Callback::new(move |value| feedback_mode.set(value))>
                                     <option value="empty">"Rỗng"</option>
                                     <option value="loading">"Đang tải"</option>
+                                    <option value="announcement">"Đang tải · thông báo lịch sự"</option>
                                     <option value="error">"Lỗi"</option>
                                     <option value="success">"Thành công"</option>
                                 </Select>
                                 <div aria-live="polite" aria-atomic="true">
                                     {move || match feedback_mode.get().as_str() {
                                         "loading" => view! { <LoadingState>"Đang chờ trong ví dụ. Chọn trạng thái khác để kết thúc; không có yêu cầu mạng."</LoadingState> }.into_any(),
+                                        "announcement" => view! {
+                                            <div data-preview-scenario="announcement">
+                                                <LoadingState announcement=Announcement::Polite>"Thông báo đang tải được bật rõ ràng; nội dung vẫn được giữ."</LoadingState>
+                                            </div>
+                                        }.into_any(),
                                         "error" => view! { <ErrorState title="Không hiển thị được nội dung mẫu">
                                             <p>"Đây là lỗi minh họa. Bạn có thể chọn thử lại và giữ nguyên mọi giá trị đã nhập."</p>
                                             <Button id="gallery-retry" variant=ButtonVariant::Secondary

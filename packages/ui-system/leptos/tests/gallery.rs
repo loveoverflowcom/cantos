@@ -72,6 +72,30 @@ fn gallery_feedback_fixtures_cover_each_actual_conditional_state() {
 }
 
 #[test]
+fn loading_preview_discovery_includes_announcing_state_with_native_status_semantics() {
+    let loading = preview::preview_catalog::COMPONENTS
+        .iter()
+        .find(|entry| entry.id == "loading-state")
+        .expect("registered LoadingState");
+    assert!(loading.states.contains(&"announcement"));
+    let html = Owner::new()
+        .with(|| view! { <preview::Gallery initial_feedback="announcement"/> }.to_html());
+    assert!(html.contains("data-preview-scenario=\"announcement\""));
+    let marker = html
+        .find("class=\"cui-loading-state")
+        .expect("actual LoadingState sample");
+    let start = html[..marker]
+        .rfind('<')
+        .expect("LoadingState element start");
+    let end = html[start..]
+        .find('>')
+        .expect("complete LoadingState opening tag")
+        + start;
+    assert!(html[start..end].contains("role=\"status\""));
+    assert!(html.contains("Thông báo đang tải được bật rõ ràng"));
+}
+
+#[test]
 fn registrations_have_unique_ids_and_every_family_has_a_real_sample_anchor() {
     let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
     let mut registered = BTreeSet::new();

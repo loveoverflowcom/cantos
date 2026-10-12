@@ -143,6 +143,18 @@ than a second root-level script. `MainKt` opens only the local preview window.
 
 ## Tests and evidence boundary
 
+The subsequent three-session Mac sequence has current
+[foundation](../../../docs/evidence/cmp-ui-system-session1.md),
+[interaction](../../../docs/evidence/cmp-ui-system-session2.md) and
+[final review/readiness](../../../docs/evidence/cmp-ui-system-session3.md) records. Its final
+74 executed JVM tests and 26 opened captures establish bounded preview behavior. The registry
+now has 29 APIs and 152 scenarios; production qualification remains 0/29. Range requests are
+finite/bounded and snapped to native ticks; unchanged physical ticks preserve caller decimal
+aliases without callback/completion. Continuous directional steps fall back to the adjacent
+Float if one percent cannot be represented. OS binding, real IME, screen reader, motion,
+Noto/reference and mobile acceptance remain separate. Historical attempts below retain their
+own source/toolchain scope.
+
 `commonTest/PreviewModelTest.kt` checks exact 29-component inventory parity, search/family
 filtering, validated names/reasons, blocked dispatch projections, read-only versus disabled,
 generated token density/alias/motion lookups and nine official icon path mappings.

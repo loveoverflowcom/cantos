@@ -475,7 +475,7 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
         PreviewExample.RangeField -> RangeField("Mức âm lượng thử", range,
             { range = it; onEvent("RangeField: $it") }, state = buttonState,
             steps = if (state == "stepped") 3 else 0,
-            valueText = "${range.toInt()} trên 100", controlModifier = modifier, error = error,
+            valueText = "${range.toString().replace('.', ',')} trên 100", controlModifier = modifier, error = error,
             onValueChangeFinished = { onEvent("RangeField completed: $range") },
             help = "Dùng phím mũi tên, Home/End hoặc kéo. Đây là dữ liệu thử.")
         PreviewExample.FieldLabel -> Column(modifier) {

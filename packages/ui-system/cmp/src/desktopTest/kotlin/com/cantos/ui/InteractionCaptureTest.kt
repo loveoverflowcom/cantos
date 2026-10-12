@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
@@ -46,6 +49,33 @@ class InteractionCaptureTest {
         capture(PreviewExample.Grid, "three-columns", UiPreferences())
         capture(PreviewExample.Container, "inset-none", UiPreferences(), narrow = true)
         capture(PreviewExample.ErrorState, "recovery-slot", UiPreferences(theme = Theme.Dark), narrow = true)
+    }
+
+    @Test
+    @OptIn(ExperimentalTestApi::class)
+    fun range_regression_and_loading_announcement_are_captured() {
+        capture(PreviewExample.LoadingState, "announcement", UiPreferences(textScale = 2f), narrow = true)
+        runDesktopComposeUiTest(width = 372, height = 840) {
+            setContent {
+                var value by androidx.compose.runtime.remember { mutableStateOf(-50f) }
+                Box(Modifier.requiredSize(372.dp, 840.dp).testTag("regression-root")) {
+                    UiRoot(preferences = UiPreferences(theme = Theme.Dark, density = Density.Comfortable, textScale = 2f)) {
+                        Column(Modifier.padding(tokenDp("space.lg"))) {
+                            RangeField("Mức tín hiệu thử", value, { value = it }, range = -100f..0f, steps = 3,
+                                valueText = "$value trên khoảng −100 đến 0 · Ỗ, Ữ")
+                        }
+                    }
+                }
+            }
+            waitForIdle()
+            val bitmap = onNodeWithTag("regression-root").captureToImage()
+            assertEquals(372, bitmap.width)
+            assertEquals(840, bitmap.height)
+            val output = File(System.getenv("CANTOS_UI_PREVIEW_CAPTURE_DIR") ?: "build/reports/cantos-preview")
+            check(output.isDirectory || output.mkdirs())
+            File(output, "cmp-regression-negative-range-dark-comfortable-text2.0-372.png").writeBytes(
+                requireNotNull(Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)).bytes)
+        }
     }
 
     @OptIn(ExperimentalTestApi::class)
