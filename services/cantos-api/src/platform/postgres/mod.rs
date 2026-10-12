@@ -47,6 +47,8 @@ pub enum StoreError {
     ProductionBlocked(Vec<FieldIssue>),
     Unavailable,
     CorruptRevision,
+    AudioRejected(&'static str),
+    AudioInspectionUnavailable(&'static str),
 }
 
 impl From<tokio_postgres::Error> for StoreError {
@@ -60,6 +62,7 @@ impl From<tokio_postgres::Error> for StoreError {
 #[derive(Clone)]
 pub struct Store {
     pool: Pool,
+    pub(crate) audio_root: Option<std::path::PathBuf>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.
@@ -114,7 +117,10 @@ impl Store {
             .runtime(deadpool_postgres::Runtime::Tokio1)
             .build()
             .map_err(|_| StoreError::Unavailable)?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            audio_root: None,
+        })
     }
 
     pub(crate) async fn connection(&self) -> Result<deadpool_postgres::Object, StoreError> {

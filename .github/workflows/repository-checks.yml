@@ -1,6 +1,6 @@
 name: Repository checks
 
-# Each job only provisions its environment (toolchain, Trunk, PostgreSQL binaries) and then
+# Each job only provisions its environment (toolchain, Trunk, PostgreSQL and media tools) and then
 # runs one job of the shared `cargo xtask ci` contract; xtask owns what is verified.
 
 on:
@@ -43,7 +43,11 @@ jobs:
           persist-credentials: false
       - name: Select pinned Rust toolchain
         run: rustup toolchain install 1.87.0 --profile minimal --component rustfmt --component clippy
-      - name: Format, lint, test and the WAV oracle
+      - name: Install read-only inspection and owned-fixture test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+      - name: Format, lint, test, WAV oracle and actual Opus intake inspection
         run: cargo xtask ci --job rust
   web:
     runs-on: ubuntu-latest
@@ -78,5 +82,9 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install --yes postgresql-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Install read-only inspection and owned-fixture test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
       - name: Disposable-cluster migrations, persistence, restart and recovery tests
         run: cargo xtask ci --job postgres

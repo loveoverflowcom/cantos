@@ -1,0 +1,11 @@
+{
+  "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "byte_length": 4096,
+  "container": "ogg",
+  "codec": "opus",
+  "channels": 1,
+  "sample_rate_hz": 48000,
+  "duration_ms": 1000,
+  "audio_bitrate_bps": 20000,
+  "profile_id": "opus-mono-20-v1"
+}

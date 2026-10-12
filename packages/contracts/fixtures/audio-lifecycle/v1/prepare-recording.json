@@ -1,0 +1,27 @@
+{
+  "operation_id": "60000000-0000-4000-8000-000000000006",
+  "id": "50000000-0000-4000-8000-000000000005",
+  "binding": {
+    "work_id": "10000000-0000-4000-8000-000000000001",
+    "unit_id": "20000000-0000-4000-8000-000000000002",
+    "content_revision_id": "30000000-0000-4000-8000-000000000003",
+    "content_revision_digest": "cc-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "brief_id": "40000000-0000-4000-8000-000000000004",
+    "brief_version": 1,
+    "brief_digest": "pb-r1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "profile_id": "opus-mono-24-v1"
+  },
+  "expected_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "expected_byte_length": 6080,
+  "declarations": {
+    "producer": "Synthetic external producer",
+    "method": "recording",
+    "provenance": "Owned test signal; no private story or listening acceptance",
+    "rights_refs": [
+      "synthetic-rights"
+    ],
+    "quality_report": "NOT_RUN listening"
+  },
+  "upload_token": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "expires_at": 5000
+}

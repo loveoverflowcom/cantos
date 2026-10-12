@@ -95,6 +95,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         // experimental DBSP feature must keep compiling and passing the same tests.
         gates.insert(Gate::Dbsp);
         gates.insert(Gate::WavReference);
+        gates.insert(Gate::AudioInspection);
         gates.insert(Gate::Postgres { keep: false });
     }
     if affected.contains(UI_PACKAGE) {
@@ -264,6 +265,7 @@ mod tests {
                 "rust-tests (cantos-api, cantos-contracts, cantos-studio)",
                 "dbsp",
                 "wav-reference",
+                "audio-inspection",
                 "web-lint (cantos-studio)",
                 "web-build (cantos-studio)",
                 "postgres",
@@ -307,6 +309,7 @@ mod tests {
                 "rust-tests (cantos-api)",
                 "dbsp",
                 "wav-reference",
+                "audio-inspection",
                 "postgres",
             ]
         );
@@ -325,6 +328,27 @@ mod tests {
                 "web-build (cantos-theatre)",
             ]
         );
+    }
+
+    #[test]
+    fn media_sources_and_audio_contract_inputs_require_actual_media_inspection() {
+        for path in [
+            "services/cantos-api/src/contexts/media/audio_intake.rs",
+            "services/cantos-api/tests/audio_intake.rs",
+            "packages/contracts/api/src/audio_intake.rs",
+            "packages/contracts/schema/audio-intake/v1.schema.json",
+            "packages/contracts/fixtures/audio-intake/v1/receipt-response.json",
+        ] {
+            let selection = pick(&[path]);
+            assert!(selection.gates.contains(&Gate::AudioInspection), "{path}");
+            assert_eq!(selection.broadened, None, "{path}");
+        }
+        assert!(!pick(&["packages/contracts/studio-audio-intake-v1.md"])
+            .gates
+            .contains(&Gate::AudioInspection));
+        assert!(!pick(&["apps/cantos-theatre/web/src/lib.rs"])
+            .gates
+            .contains(&Gate::AudioInspection));
     }
 
     #[test]

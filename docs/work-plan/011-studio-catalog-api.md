@@ -74,6 +74,10 @@ with ten registered migrations while 0010 is absent. The migration loop supports
 The upgrade regression seeds the actual 0001–0009 schema and proves exact historical
 bytes/checksums survive 0011 and replay. Do not copy unmerged intake code. When #64 merges,
 reconcile the migration array/count and grants without rewriting either SQL checksum.
+The #64 integration registers the combined ordered versions 1–11, preserves both additive SQL
+files verbatim and keeps test-role grants context-scoped. Its authored upgrade regression also
+covers a database already at 0011 with the 0010 gap; migration checks remain NOT_RUN in that
+implementation environment until the disposable PostgreSQL gate can execute.
 
 ## Implementation record and next acceptance
 

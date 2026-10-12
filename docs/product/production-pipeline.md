@@ -1,7 +1,7 @@
 # External Audio Production Handoff
 
 > Direction adopted 2026-10-12; the [handoff v1 design](../../packages/contracts/external-audio-handoff-v1.md)
-> remains a proposal for intake/release, while [Production Brief v1](../../packages/contracts/production-brief-v1.md)
+> implements private intake/review through [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md); public release remains proposed, while [Production Brief v1](../../packages/contracts/production-brief-v1.md)
 implements the bounded instructions/read-permission subset. Cantos is the content and asset authority; it is not an
 > audio generator, mixer, model router, or provider worker.
 
@@ -76,8 +76,7 @@ writing new generation jobs. Prior experiments/ADRs are retained as historical e
 
 ## Not yet implemented
 
-Production identity/credential delivery, producer upload permission, object-store
-prepare/finalize/verification, audio QC approvals and release publication. Catalog/Content and
+Production identity/credential delivery, object-store prepare/finalize, stronger rights/QC policy and public release publication. Bounded development upload capabilities, actual-byte private admission and named review/candidates are implemented; they use one capped PUT with finalization and private filesystem storage. Catalog/Content and
 versioned Brief export with development read grants are implemented independently.
 Existing Studio `production` endpoints manage older planning metadata; they **do not**
 provide an external audio upload API.

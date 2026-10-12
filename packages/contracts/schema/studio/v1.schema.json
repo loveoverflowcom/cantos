@@ -126,7 +126,8 @@
             "catalog_conflict",
             "stale_cursor",
             "stale_production_inputs",
-            "production_blocked"
+            "production_blocked",
+            "audio_rejected"
           ]
         },
         "current_revision": {

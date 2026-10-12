@@ -21,6 +21,8 @@ use super::{authenticated, cookie_token, error_response, AppState};
 use crate::platform::postgres::StoreError;
 
 mod adaptations;
+mod audio_intake;
+mod audio_lifecycle;
 mod briefs;
 mod catalog;
 mod content;
@@ -60,8 +62,12 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
     match mount {
         Mount::Current => scripts
             .merge(catalog::routes())
+            // New Catalog/intake routes have no deprecated aliases.
+            .merge(audio_intake::routes())
+            .merge(audio_lifecycle::owner_routes())
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .merge(briefs::producer_routes())
+            .merge(audio_lifecycle::producer_routes())
             .route("/session", post(login).delete(logout)),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))
@@ -296,5 +302,22 @@ async fn source(
     match state.store.source(&token, &script, &source).await {
         Ok(source) => Json(source).into_response(),
         Err(error) => error_response(error),
+    }
+}
+
+/// Shared Studio transport boundary: malformed route parameters use ApiError JSON.
+pub(super) struct StudioPath<T>(pub(super) T);
+impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send> axum::extract::FromRequestParts<S>
+    for StudioPath<T>
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Response> {
+        Path::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Path(value)| Self(value))
+            .map_err(|_| error_response(StoreError::InvalidRequest))
     }
 }

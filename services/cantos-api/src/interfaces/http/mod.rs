@@ -44,10 +44,15 @@ pub fn router(state: AppState, dist: &str) -> Router {
             state.clone(),
             origin_and_cache,
         ));
-    Router::new()
-        .nest(routes::API_BASE, api)
-        .fallback_service(ServeDir::new(dist))
-        .with_state(state)
+    let host = Router::new().nest(routes::API_BASE, api);
+    let host = if state.store.audio_storage_is_enabled() {
+        // ServeDir follows nested symlinks. An intake-enabled process therefore serves no
+        // static files at all, even if public and private root paths appear disjoint.
+        host.fallback(not_found)
+    } else {
+        host.fallback_service(ServeDir::new(dist))
+    };
+    host.with_state(state)
 }
 
 async fn not_found() -> Response {
@@ -187,6 +192,24 @@ fn error_response(error: StoreError) -> Response {
             ErrorCode::CorruptRevision,
             None,
             vec![],
+        ),
+        StoreError::AudioRejected(rule) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorCode::AudioRejected,
+            None,
+            vec![cantos_contracts::FieldIssue {
+                path: "audio".into(),
+                rule: rule.into(),
+            }],
+        ),
+        StoreError::AudioInspectionUnavailable(rule) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::Unavailable,
+            None,
+            vec![cantos_contracts::FieldIssue {
+                path: "audio".into(),
+                rule: rule.into(),
+            }],
         ),
         StoreError::InvalidScript(error) => (
             StatusCode::UNPROCESSABLE_ENTITY,

@@ -12,7 +12,7 @@
        ▲              ▲        ▲
        └───────── production (planning/rights/instructions only)
                         ▲
-                     future media assets/publication
+                     media assets/admission/review (implemented)
 
  catalog ──► editorial
     └──────► ingestion
@@ -25,7 +25,10 @@ transactional owner/content facts and Ingestion receipts through their owning en
 production remains downstream of Catalog and adds no table shortcut or generation engine. `catalog` uses editorial and ingestion entrypoints
 to validate owner-bound references to existing revisions, rights records and manuscript sources;
 it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
-pure inspector, with no provider/model dependency. `interfaces/http` owns routers and maps
+pure inspector, with no provider/model dependency. Media also reads editorial entrypoints for
+owner/revision authorization in its narrow private development intake; it does not import
+production adapters or move context-specific storage into platform plumbing. Media consumes Catalog domain/facts and Production admitted Briefs through owning entrypoints. The sole reverse Production→Media inquiry is `upload_token_registered`, needed to reject bearer-secret reuse across read/upload issuance under the same Catalog fence. It permits no table/adapter shortcut or general reverse dependency. `interfaces/http`
+owns routers and maps
 errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
 enforces the allowed context edges.
@@ -34,11 +37,11 @@ enforces the allowed context edges.
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/production planning | Partially implemented |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; owner-session development intake | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
-| Proposed Studio audio intake/release | Future upload/publisher scope | **Not implemented on develop** |
+| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; publication absent |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
@@ -61,13 +64,13 @@ only when implemented. Do not invent implemented route claims from proposal docu
   Catalog-bound [Production Briefs](../../packages/contracts/production-brief-v1.md) and scoped
   read-only producer grants. Source/export bytes are copied through owning-context entrypoints.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
-- `media`: structural WAV byte inspection, soon to own admission rules for externally
-  supplied audio. No WAV file is implicitly QC-approved.
+- `media`: structural WAV inspection plus explicit profile/binding rules, bounded Opus-byte
+  inspection, owner-session private development intake and filesystem objects. No admitted file
+  is implicitly QC/rights-reviewed or published; see [ADR 0020](../decisions/0020-studio-private-audio-intake.md).
 
 ## Next contexts
 
-Implement Studio catalog Web acceptance against the real API separately. Implement `media`
-admission (upload intent, digest/metadata check, private object reference, review), `publication`
+Implement Studio catalog Web acceptance against the real API separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) now links Catalog-bound Briefs and private admission/review. Next implement `publication`
 (approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
 commercial provider adapter, synthesis retry system or speech-clip registry belongs here.

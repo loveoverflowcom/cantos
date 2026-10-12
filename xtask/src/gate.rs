@@ -29,6 +29,7 @@ pub enum GateKind {
     Dbsp,
     ContractTests,
     WavReference,
+    AudioInspection,
     WebLint,
     WebBuild,
     UiPreview,
@@ -75,6 +76,8 @@ pub enum Gate {
     Dbsp,
     ContractTests,
     WavReference,
+    /// Actual owned Opus fixtures through the bounded read-only ffmpeg/ffprobe adapter.
+    AudioInspection,
     WebLint(BTreeSet<App>),
     WebBuild(App),
     UiPreview,
@@ -86,9 +89,10 @@ pub enum Gate {
     },
 }
 
-/// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only WAV
-/// inspection. Database tests belong to `Gate::Postgres`.
-pub const API_CONTRACT_TESTS: [&str; 8] = [
+/// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only media
+/// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; database tests
+/// belong to `Gate::Postgres`.
+pub const API_CONTRACT_TESTS: [&str; 10] = [
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -97,6 +101,8 @@ pub const API_CONTRACT_TESTS: [&str; 8] = [
     "script_diff",
     "cli_file_admission",
     "wav_inspection",
+    "audio_intake",
+    "audio_intake_contract",
 ];
 
 impl Gate {
@@ -110,6 +116,7 @@ impl Gate {
             Gate::Dbsp => GateKind::Dbsp,
             Gate::ContractTests => GateKind::ContractTests,
             Gate::WavReference => GateKind::WavReference,
+            Gate::AudioInspection => GateKind::AudioInspection,
             Gate::WebLint(_) => GateKind::WebLint,
             Gate::WebBuild(_) => GateKind::WebBuild,
             Gate::UiPreview => GateKind::UiPreview,
@@ -147,6 +154,7 @@ impl Gate {
             Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
+            Gate::AudioInspection => vec![Tool::Cargo, Tool::Ffmpeg, Tool::Ffprobe],
             Gate::WebLint(_) => vec![Tool::Cargo, Tool::Clippy, Tool::Wasm32Target],
             Gate::WebBuild(_) | Gate::UiPreview => {
                 vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk]
@@ -159,6 +167,8 @@ impl Gate {
                 Tool::Initdb,
                 Tool::PgCtl,
                 Tool::Psql,
+                Tool::Ffmpeg,
+                Tool::Ffprobe,
             ],
         }
     }
@@ -227,6 +237,16 @@ impl Gate {
                 ]),
                 python(&["scripts/reference_wav_inspection.py"]),
             ],
+            Gate::AudioInspection => vec![cargo(&[
+                "test",
+                "-p",
+                API_PACKAGE,
+                "--test",
+                "audio_intake",
+                "--locked",
+                "--",
+                "--ignored",
+            ])],
             Gate::WebLint(apps) => vec![cargo(&["clippy"])
                 .args(["-p", UI_PACKAGE])
                 .args(apps.iter().flat_map(|app| ["-p", app.web_package()]))
@@ -267,6 +287,7 @@ pub fn full() -> Vec<Gate> {
         Gate::RustTests(Scope::Workspace),
         Gate::Dbsp,
         Gate::WavReference,
+        Gate::AudioInspection,
         Gate::WebLint(App::ALL.into_iter().collect()),
         Gate::WebBuild(App::Studio),
         Gate::WebBuild(App::Theatre),
@@ -297,6 +318,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             Gate::ScriptIrReference,
             Gate::ContractTests,
             Gate::WavReference,
+            Gate::AudioInspection,
         ],
         VerifySuite::Mutation => vec![Gate::Mutation],
         VerifySuite::Dbsp => vec![Gate::Dbsp],
@@ -377,6 +399,52 @@ mod tests {
     }
 
     #[test]
+    fn audio_inspection_runs_the_ignored_real_media_target_with_both_tool_prerequisites() {
+        assert_eq!(
+            lines(&Gate::AudioInspection),
+            ["cargo test -p cantos-api --test audio_intake --locked -- --ignored"]
+        );
+        assert_eq!(
+            Gate::AudioInspection.tools(),
+            [Tool::Cargo, Tool::Ffmpeg, Tool::Ffprobe]
+        );
+        assert_eq!(Gate::AudioInspection.name(), "audio-inspection");
+        assert!(full().contains(&Gate::AudioInspection));
+        assert!(API_CONTRACT_TESTS.contains(&"audio_intake"));
+        assert!(API_CONTRACT_TESTS.contains(&"audio_intake_contract"));
+    }
+
+    #[test]
+    fn either_missing_audio_tool_blocks_inspection_before_any_test_command_runs() {
+        use crate::{
+            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
+        };
+
+        let workspace = workspace();
+        let step = Gate::AudioInspection.step(&workspace);
+        for missing in [Tool::Ffmpeg, Tool::Ffprobe] {
+            let mut runner = RecordingRunner::default();
+            let report = pipeline::execute(
+                "audio inspection",
+                std::slice::from_ref(&step),
+                &FakeTools::without(&[missing]),
+                &mut runner,
+            );
+            assert!(runner.commands.is_empty());
+            assert_eq!(report.outcomes[0].status, Status::Unsupported);
+            assert!(report.outcomes[0].detail.contains(missing.label()));
+            assert!(!report.succeeded());
+        }
+    }
+
+    #[test]
+    fn postgres_audio_intake_checks_declare_the_same_media_tools_up_front() {
+        let tools = Gate::Postgres { keep: false }.tools();
+        assert!(tools.contains(&Tool::Ffmpeg));
+        assert!(tools.contains(&Tool::Ffprobe));
+    }
+
+    #[test]
     fn package_scopes_are_explicit_and_sorted() {
         let scope = Scope::Packages(["xtask".into(), "cantos-api".into()].into());
         assert_eq!(
@@ -432,6 +500,7 @@ mod tests {
         let contracts = verify_suite(&VerifySuite::Contracts);
         assert!(contracts.contains(&Gate::ScriptIrReference));
         assert!(contracts.contains(&Gate::WavReference));
+        assert!(contracts.contains(&Gate::AudioInspection));
         assert_eq!(
             verify_suite(&VerifySuite::Postgres { keep: false }),
             [Gate::Postgres { keep: false }]

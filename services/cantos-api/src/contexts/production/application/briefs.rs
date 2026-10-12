@@ -331,6 +331,12 @@ impl Store {
                 rule: "studio_token_reuse".into(),
             }]));
         }
+        if crate::contexts::media::upload_token_registered(&tx, &request.token).await? {
+            return Err(StoreError::InvalidRequestFields(vec![dto::FieldIssue {
+                path: "token".into(),
+                rule: "credential_reuse".into(),
+            }]));
+        }
         if let Some(prior) = sql::grant_prior(&tx, owner, &operation).await? {
             if prior.request_digest != digest {
                 return Err(StoreError::OperationReused);
@@ -448,4 +454,44 @@ impl Store {
         tx.commit().await?;
         Ok(reply.brief)
     }
+}
+
+/// Concrete Media consumer: owning contexts revalidate exact historical instructions and
+/// current Content/rights/guidance under the same Catalog fence used for mutations.
+pub(crate) async fn audio_brief(
+    tx: &Tx<'_>,
+    token: Option<&str>,
+    expected_owner: Option<&OwnerId>,
+    unit_id: &str,
+    version: u64,
+    lock: LockMode,
+) -> Result<(ProductionContent, ProductionBrief, bool), StoreError> {
+    let id = unit(unit_id)?;
+    checked_version(version)?;
+    let facts = catalog::production_content(tx, token, expected_owner, &id, lock)
+        .await
+        .map_err(catalog_error)?;
+    let brief = sql::load(tx, unit_id, version)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    for reference in &facts.work.details().rights_refs {
+        if !editorial::evidence_exists(tx, facts.work.owner_id().as_str(), "rights", reference)
+            .await?
+        {
+            return Err(StoreError::EvidenceUnavailable);
+        }
+    }
+    let reply = response(tx, &facts, brief.clone()).await?;
+    Ok((
+        facts,
+        brief,
+        reply.freshness == dto::BriefFreshness::Current,
+    ))
+}
+
+pub(crate) async fn producer_token_registered(
+    tx: &Tx<'_>,
+    token: &str,
+) -> Result<bool, StoreError> {
+    Ok(sql::by_token(tx, &producer_hash(token)?).await?.is_some())
 }

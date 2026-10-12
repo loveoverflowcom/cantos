@@ -32,14 +32,26 @@ producer access, before linking intake/publication. Catalog Web acceptance remai
 scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../packages/contracts/production-brief-v1.md)
 provides exact snapshots and read grants; [session3 handoff](production-brief-audio-lifecycle-handoff.md)
 keeps intake linkage, review/release and later live client integration in separate boundaries.
+## Private audio admission and next review boundary
+
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) reuses attributed PR69
+intake and binds verified private bytes to exact Content/Brief/profile/rights declarations.
+Named append-only reviews and private candidates expose current blockers; public publication
+always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
+[frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
+
+Next: real Studio Web integration, then secure identity/storage and stronger rights/QC policy,
+then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
+separate. No listening/interoperability is settled by admitting an Opus envelope.
 
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
 MessagePack-capable editorial routes, tests and `cargo xtask`. The earlier editorial endpoints
-are separate from the implemented Catalog API and proposed audio ingestion APIs. Prior worker/Google/eSpeak/VieNeu samples and DBSP job views are
-historical experiments, not prerequisites for the new roadmap.
+are separate from the implemented Catalog API and general external-producer handoff proposal.
+The narrow development intake is described above. Prior worker/Google/eSpeak/VieNeu samples and
+DBSP job views are historical experiments, not prerequisites for the new roadmap.
 
 ## Canonical work plans
 

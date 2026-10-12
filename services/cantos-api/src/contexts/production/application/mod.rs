@@ -152,3 +152,6 @@ pub(super) async fn snapshot(
         eligibility,
     })
 }
+
+pub(crate) use briefs::audio_brief;
+pub(crate) use briefs::producer_token_registered;

@@ -16,6 +16,8 @@ mod content;
 pub use content::*;
 mod briefs;
 pub use briefs::*;
+mod audio_intake;
+pub use audio_intake::*;
 pub mod admin;
 pub mod routes;
 pub mod theatre;
@@ -124,6 +126,7 @@ pub enum ErrorCode {
     InvalidCatalog,
     CatalogConflict,
     StaleCursor,
+    AudioRejected,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -152,3 +155,6 @@ pub struct SessionRequest {
 pub struct SessionResponse {
     pub actor_id: String,
 }
+
+mod audio_lifecycle;
+pub use audio_lifecycle::*;

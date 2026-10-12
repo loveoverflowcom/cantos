@@ -1,0 +1,6 @@
+{
+  "operation_id": "00000000-0000-4000-8000-000000000083",
+  "expected_revision": 7,
+  "expected_content_digest": "sir-c1:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "profile_id": "opus-mono-20-v1"
+}

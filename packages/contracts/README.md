@@ -5,6 +5,11 @@
 > API contract with its [Production Brief v1](production-brief-v1.md) subset implemented. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
 > they are **not live server capabilities** after the 2026-10-12 refactor.
 
+The separate [Studio owner audio intake v1](studio-audio-intake-v1.md) is implemented for
+private development script-revision-bound intents, explicit four-profile Opus inspection and
+immutable receipts. It is not the general external-producer proposal or a publication API;
+required Rust/PostgreSQL execution is **NOT_RUN** in its implementation environment.
+
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
 [Rust reader and semantic validator](../../services/cantos-api/src/script_ir/mod.rs), and
@@ -244,3 +249,5 @@ See [contract evidence](../../docs/evidence/script-ir-contract.md) and
 [revision evidence](../../docs/evidence/script-revision-persistence.md). Studio v1 uses hand-authored
 DTOs checked against the same Schema/fixtures in both native and browser-consumer tests; it is
 not generated OpenAPI. Future generated bindings must name their source and generation command.
+
+[Private Audio Lifecycle v1](audio-lifecycle-v1.md) implements Content/Brief-bound admission, independently scoped upload, append-only review and private candidate readiness. Public publication remains unavailable.
