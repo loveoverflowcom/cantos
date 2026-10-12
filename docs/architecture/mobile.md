@@ -4,7 +4,7 @@ Status: proposed implementation boundaries and acceptance requirements. Native l
 
 ## Scope
 
-Cantos Theatre mobile uses Kotlin Compose Multiplatform for Android and iOS. It plays published, cached audio through native platform integrations; it does not embed the Web player in a WebView or synthesize TTS for listeners. Studio production remains a server-driven workflow, with Theatre listening the mobile MVP priority. The Theatre app lives in `apps/cantos-theatre/mobile`; `apps/cantos-studio/mobile` only reserves a location for a possible Studio client and shares no module with it.
+Cantos Theatre mobile uses Kotlin Compose Multiplatform for Android and iOS. It plays published, cached audio through native platform integrations; it does not embed the Web player in a WebView or synthesize TTS for listeners. The Theatre app lives in `apps/cantos-theatre/mobile`; it is the only supported mobile product. Cantos Studio has Web as its sole deployment target; `apps/cantos-studio/mobile` retains only an out-of-scope / not-implemented notice. Follow the [platform scope](repository-layout.md#platform-scope): do not implement, scaffold, build or maintain Studio Mobile without an explicit future roadmap request. Shared libraries may serve Theatre Mobile and Studio Web.
 
 Keep one modular backend and one shared mobile application layer initially. Introduce services or additional applications only after operational or ownership needs justify them.
 

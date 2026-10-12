@@ -101,6 +101,12 @@ as the owner; these rows are evaluation inputs, not query benchmarks.
 
 | ID | Prompt / raw input | Expected boundary and evidence |
 | --- | --- | --- |
-| R35 | "Check the Cantos player visually without an emulator." Both mobile directories contain README files only. | `cantos-cmp-mobile` preview reference; discover missing Gradle/previews and report `UNSUPPORTED`; no fake screen, invented module or emulator launch. |
+| R35 | "Check the Cantos player visually without an emulator." Theatre Mobile contains a README only; Studio Mobile is excluded. | `cantos-cmp-mobile` preview reference; discover missing Gradle/previews and report `UNSUPPORTED`; no fake screen, invented module or emulator launch. |
 | R36 | "The preview command passed, so iOS background audio and TalkBack work." Raw: Android Studio PNG and a JSON tree; no pixels opened or assertions executed. | Separate `screenshot-captured` from inspection, dumped JSON from `semantics-tested`, and host rendering from device/screen-reader acceptance; report native gates unrun. |
 | R37 | "Audit this preview bundle." Raw: `capture.json`, PNG, semantics and CLI logs. | `cantos-ui-inspector` existing mode + CMP preview reference; verify provenance, open the cited PNG, inspect/assert observed semantics, report findings and missing runtime checks; no edits to the screen or capture metadata. |
+
+## Platform scope routing case
+
+| ID | Prompt / raw input | Expected boundary and evidence |
+| --- | --- | --- |
+| R38 | "Add a Studio casting feature." Raw: shared CMP controls exist, but no explicit Studio Mobile roadmap request. | `cantos-leptos-web` + foundation platform matrix; implement Studio Web only, retain Theatre Mobile/shared libraries, add no Studio mobile scaffold or build/test/preview target. A future explicit roadmap request is the only exception. Review docs manually and run xtask rejection regressions; these do not prove a mobile app works. |

@@ -484,13 +484,21 @@ while True:
         self.assertEqual(metadata["source"], "packages/ui-system/cmp/android-preview/Screen.kt")
         self.assertEqual(json.loads((bundle / "semantics.json").read_text()), TREE)
 
+    def test_studio_is_not_a_preview_target(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as failure:
+            preview.parser().parse_args([
+                "--app", "cantos-studio", "--file", "Screen.kt", "--composable", "ScreenPreview",
+            ])
+        self.assertEqual(failure.exception.code, 2)
+        self.assertEqual(self.calls(), [])
+
     def test_cmp_target_refuses_parent_package_and_product_sources_before_cli_calls(self):
         parent = self.root / "packages/ui-system/cmp/Outside.kt"
         parent.write_text("@Preview @Composable fun ScreenPreview() {}\n")
         for path in (
             "packages/ui-system/cmp/Outside.kt",
             "packages/ui-system/cmp/android-preview/../Outside.kt",
-            "apps/cantos-studio/mobile/Screen.kt",
+            "apps/cantos-theatre/mobile/Screen.kt",
         ):
             with self.subTest(path=path):
                 args = self.args("ui-system-cmp")
@@ -516,7 +524,7 @@ while True:
 
     def test_cross_product_path_traversal_and_option_like_names_are_usage_errors(self):
         for source, composable in (
-            ("apps/cantos-studio/mobile/Screen.kt", "ScreenPreview"),
+            ("packages/ui-system/cmp/android-preview/Screen.kt", "ScreenPreview"),
             ("../Screen.kt", "ScreenPreview"),
             ("apps/cantos-theatre/mobile/Screen.kt", "--option"),
         ):
@@ -533,7 +541,7 @@ while True:
         mobile = self.root / preview.PROJECT_DIRS["cantos-theatre"]
         source = mobile / "Screen.kt"
         source.unlink()
-        source.symlink_to(self.root / preview.PROJECT_DIRS["cantos-studio"] / "Screen.kt")
+        source.symlink_to(self.root / preview.PROJECT_DIRS["ui-system-cmp"] / "Screen.kt")
         with self.assertRaises(preview.PreviewError) as failure:
             self.capture(self.args())
         self.assertEqual(failure.exception.code, 2)
@@ -546,12 +554,12 @@ while True:
         self.assertEqual(self.calls(), [])
 
     @unittest.skipUnless(os.name == "posix", "symlink support")
-    def test_symlinked_mobile_root_cannot_capture_the_other_product(self):
+    def test_symlinked_mobile_root_cannot_capture_the_shared_preview(self):
         mobile = self.root / preview.PROJECT_DIRS["cantos-theatre"]
         for path in mobile.iterdir():
             path.unlink()
         mobile.rmdir()
-        mobile.symlink_to(self.root / preview.PROJECT_DIRS["cantos-studio"], target_is_directory=True)
+        mobile.symlink_to(self.root / preview.PROJECT_DIRS["ui-system-cmp"], target_is_directory=True)
         with self.assertRaises(preview.PreviewError) as failure:
             self.capture(self.args())
         self.assertEqual(failure.exception.code, 2)

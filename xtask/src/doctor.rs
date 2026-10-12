@@ -4,7 +4,7 @@
 use std::process::ExitCode;
 
 use crate::{
-    config::{App, REQUIRED_RUST, TRUNK_VERSION},
+    config::{REQUIRED_RUST, THEATRE_MOBILE_DIR, TRUNK_VERSION},
     gate::{self, Gate},
     report::{Report, Status},
     tools::{SystemTools, Tool, ToolProbe},
@@ -68,13 +68,11 @@ pub fn run(tools: &SystemTools) -> ExitCode {
             );
         }
     }
-    for app in App::ALL {
-        report.record(
-            format!("surface {} --mobile", app.cli_name()),
-            Status::Unsupported,
-            format!("no Gradle project in {}", app.mobile_dir()),
-        );
-    }
+    report.record(
+        "surface cantos-theatre --mobile",
+        Status::Unsupported,
+        format!("no Gradle project in {THEATRE_MOBILE_DIR}"),
+    );
     report.record(
         "services/kanidm",
         Status::NotRun,

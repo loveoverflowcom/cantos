@@ -155,11 +155,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         impact.notes.insert(
             "services/kanidm is configuration only; no executable gate exists for it".into(),
         );
-    } else if App::ALL.iter().any(|app| within(path, app.mobile_dir())) {
+    } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
         if is_doc {
             impact
                 .notes
-                .insert("mobile clients have no Gradle project; only documents changed".into());
+                .insert("Theatre mobile has no Gradle project; only documents changed".into());
         } else {
             impact.broaden = Some(format!(
                 "{path} is a mobile input but no mobile gate exists yet"
@@ -360,7 +360,7 @@ mod tests {
     fn configuration_only_and_reserved_locations_are_noted_not_built() {
         let selection = pick(&[
             "services/kanidm/server.toml.example",
-            "apps/cantos-studio/mobile/README.md",
+            "apps/cantos-theatre/mobile/README.md",
         ]);
         assert_eq!(names(&selection), ["repository", "rust-format"]);
         assert_eq!(selection.notes.len(), 2);

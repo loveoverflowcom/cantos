@@ -48,7 +48,7 @@ iOS tooling cannot be replaced by Linux-only validation. Background permissions,
 
 ## Follow-ups
 
-Defer mobile Studio, car/wearable integrations, and advanced download scheduling. Any interruption, offline corruption, or synchronization failure is a release-blocking correctness follow-up for this slice.
+Studio is web-only; Studio Mobile requires an explicit future roadmap request. Defer car/wearable integrations and advanced download scheduling. Any interruption, offline corruption, or synchronization failure is a release-blocking correctness follow-up for this slice.
 
 ## GitHub execution
 

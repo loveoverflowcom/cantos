@@ -67,8 +67,9 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 ## Repository reality
 
 Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, the Leptos
-Studio, a Theatre Web skeleton, `cargo xtask` and Python oracles; both mobile directories are
-guides without a Gradle project. Discover manifests and runners before saying a check exists,
+Studio, a Theatre Web skeleton, `cargo xtask` and Python oracles. Theatre Mobile is a guide
+without a Gradle app; Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
+targets against the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope). Discover manifests and runners before saying a check exists,
 could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review
 docs, templates, skills and scripts with lens A (policy under review, against the policy trusted
 before the patch) and pass 9; repository checks prove document hygiene only.

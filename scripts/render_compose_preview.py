@@ -27,7 +27,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROJECT_DIRS = {
     "cantos-theatre": "apps/cantos-theatre/mobile",
-    "cantos-studio": "apps/cantos-studio/mobile",
     "ui-system-cmp": "packages/ui-system/cmp/android-preview",
 }
 UNSUPPORTED = 3

@@ -33,17 +33,18 @@ when this skill and a document disagree, the document wins and the conflict is r
 
 ## Repository reality
 
-- `apps/cantos-theatre/mobile/` (Theatre) and `apps/cantos-studio/mobile/` (reserved for a possible Studio
-  client) each contain a README only. This skill's playback, download and progress rules are for
-  Theatre; the two apps share no Kotlin module until code is actually common. No production
+- `apps/cantos-theatre/mobile/` (Theatre) contains a README only. It is the sole supported mobile
+  product. Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
+  Studio is web-only; do not implement, scaffold, build or maintain Studio Mobile unless explicitly
+  requested in a future roadmap. Shared libraries may serve Theatre Mobile and Studio Web. No production
   mobile Kotlin consumer exists yet. There is no app Gradle build, Xcode project, app KMP module
   or device runner. The UI-system package has separate concrete JVM desktop and Android Studio
   host-preview consumers; neither establishes mobile app behavior. The `cargo xtask compose-preview`
-  product targets remain `UNSUPPORTED`, while `ui-system-cmp` selects the real isolated Android
+  Theatre target remains `UNSUPPORTED`, while `ui-system-cmp` selects the real isolated Android
   library in `packages/ui-system/cmp/android-preview`. Capture additionally requires Android Studio
   Quail 2+ open and ready; see [Compose preview](references/compose-preview.md). Discover app
   `settings.gradle.kts`, `gradle/libs.versions.toml`, the Xcode project and CI workflows before
-  citing an app command; proposed mobile commands remain proposals until those apps implement them.
+  citing an app command; proposed mobile commands remain proposals until Theatre implements them.
 - Every library named here (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
   WorkManager, kotest, Roborazzi …) is a **candidate**. Adopting one needs the ADR listed in
   [mobile.md § Implementation decisions](../../../docs/architecture/mobile.md#implementation-decisions-to-record),
@@ -64,7 +65,7 @@ library host with thin `@Preview` wrappers around the actual shared components a
 `cargo xtask ui-preview cmp android-build` compiles that library; `cargo xtask compose-preview
 ui-system-cmp` captures an existing wrapper through Android Studio. The [PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records an actual
 Android build and four inspected captures with asserted static semantics. These
-consumers produce no mobile APK, implement neither mobile app and do not verify Android/iOS device
+consumers produce no mobile APK, implement no product mobile app and do not verify Android/iOS device
 behavior. Production qualification remains 0/29. New shared
 components must be declared/tested in both previews and follow
 [preview admission](../cantos-ui-design/references/preview-catalog.md) before real app adoption.
@@ -79,7 +80,7 @@ components must be declared/tested in both previews and follow
 | review of a PR, range or diff | [`cantos-code-review`](../cantos-code-review/SKILL.md); these references supply criteria only, read-only |
 | UI/UX audit with a findings report, no fixes | [`cantos-ui-inspector`](../cantos-ui-inspector/SKILL.md) |
 
-Mobile Studio, car/wearable integrations, Rust business-code FFI and DRM are
+Studio Mobile is excluded by the platform matrix. Car/wearable integrations, Rust business-code FFI and DRM are
 [050 non-goals](../../../docs/work-plan/050-cmp-native-listening.md#non-goals). Flag a request
 that drifts into them instead of silently implementing it.
 
