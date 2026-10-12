@@ -1,5 +1,10 @@
 # Contracts
 
+> Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
+> [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
+> API contract. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
+> they are **not live server capabilities** after the 2026-10-12 refactor.
+
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
 [Rust reader and semantic validator](../../services/cantos-api/src/script_ir/mod.rs), and
@@ -56,9 +61,9 @@ claimed by this bounded foundation.
 The [clip reuse v1 contract](clip-reuse-v1.md) defines the position-free `speech-v1` fingerprint, the
 verified-clip registry, the attempt-less reuse selection and the read-only regeneration plan that
 extend the durable foundation. Its independent Python oracle writes
-[`speech-vectors.json`](fixtures/clip-reuse/v1/speech-vectors.json), Rust must reproduce them, and the
-plan report has a [JSON Schema](schema/clip-reuse/v1.schema.json) and a literal
-[fixture](fixtures/clip-reuse/v1/plan-edit-one-line.json). It adds no shared HTTP DTO, Studio route,
+[`speech-vectors.json`](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/fixtures/clip-reuse/v1/speech-vectors.json), Rust must reproduce them, and the
+plan report has a [JSON Schema](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/schema/clip-reuse/v1.schema.json) and a literal
+[fixture](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/fixtures/clip-reuse/v1/plan-edit-one-line.json). It adds no shared HTTP DTO, Studio route,
 object storage, live provider or publication path.
 
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its

@@ -1,5 +1,7 @@
 # Local TTS and receipt inspection evidence — issue #6
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 This focused slice is **part of [#6](https://github.com/loveoverflowcom/cantos/issues/6)**.
 The user explicitly authorized local TTS installation and synthesis. It implements one compact
 local engine, scoped receipts and actual bounded WAV inspection. Commercial provider selection,

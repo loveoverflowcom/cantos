@@ -331,7 +331,7 @@ fn f() { state.store.connection(); client.transaction(); tx.query_one(sql, args)
 """, "HTTP must not execute SQL or open transactions")
 
     def test_context_sql_cannot_read_or_write_another_contexts_table(self):
-        self.assertRejected("contexts/synthesis/postgres/jobs.rs", """
+        self.assertRejected("contexts/ingestion/postgres.rs", """
 const QUERY: &str = r#"SELECT document_bytes FROM public.production_snapshots WHERE id=$1"#;
 """, "SQL table production_snapshots belongs to production")
 
@@ -340,13 +340,13 @@ const QUERY: &str = r#"SELECT document_bytes FROM public.production_snapshots WH
                             'let sql = "UPDATE production_snapshots SET id=$1";',
                             "SQL table access belongs in the PostgreSQL adapter")
 
-    def test_platform_has_only_one_explicit_experimental_context_binding(self):
-        self.assertEqual(self.errors("platform/postgres/mod.rs", """
+    def test_platform_cannot_depend_on_business_contexts(self):
+        self.assertRejected("platform/postgres/mod.rs", """
 type View = crate::contexts::synthesis::summary_view::AttachedView;
-"""), [])
+""", "platform must not depend on a business context")
         self.assertRejected("platform/postgres/session.rs", """
 use crate::contexts::production::current_snapshot;
-""", "platform may name only the experimental AttachedView")
+""", "platform must not depend on a business context")
 
     def test_legacy_link_exception_is_read_only_and_path_specific(self):
         self.assertEqual(self.errors("contexts/ingestion/postgres.rs", """

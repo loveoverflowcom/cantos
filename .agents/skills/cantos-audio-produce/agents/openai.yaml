@@ -1,4 +1,4 @@
 interface:
-  display_name: "Cantos Audio Production"
-  short_description: "Render reviewed scores and hand off measured final audio."
-  default_prompt: "Use $cantos-audio-produce to render the reviewed Cantos score, record actual audio evidence and sync the final audio artifacts."
+  display_name: "Cantos External Audio Producer"
+  short_description: "Read frozen Cantos briefs and produce audio outside Cantos for private upload."
+  default_prompt: "Use $cantos-audio-produce in the external AI producer to read a pinned Cantos brief, generate or record and mix audio outside the backend, verify a final audio file, then submit a scoped immutable receipt when the handoff API is implemented."

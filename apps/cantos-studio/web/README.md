@@ -1,5 +1,11 @@
 # Cantos Studio Web
 
+> [ADR 0018](../../../docs/decisions/0018-external-audio-production.md): Studio is
+> **Web-only catalog and management** for novels/stories/podcasts, chapters/episodes and their
+> externally produced audio. Existing provider/casting controls are legacy **reference planning**;
+> Studio does not dispatch TTS and the Work/ContentUnit/Audio handoff UI is not implemented yet
+> ([#66](https://github.com/loveoverflowcom/cantos/issues/66), [#8](https://github.com/loveoverflowcom/cantos/issues/8)).
+
 `cantos-studio` is a Leptos 0.7.8 CSR/WASM consumer of the actual local Axum/PostgreSQL
 revision API. Its text-first workspace has scene/act/character navigation, native dialogue,
 narration, emotion, pronunciation and cue controls, and a source/validation/change inspector.

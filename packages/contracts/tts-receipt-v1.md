@@ -1,8 +1,10 @@
 # Local TTS sample and offline receipt inspection v1
 
+> **Historical / not implemented (2026-10-12).** [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removed the code this contract described (server-side TTS jobs, receipts and speech reuse). Nothing below is a live Cantos capability; links to removed files point at commit `2de8c69`. The proposed replacement is [external-audio-handoff-v1](external-audio-handoff-v1.md).
+
 Status: implemented local sample probe and inspection contract, not a production synthesis or
 audio-ingestion API.
-Rust decoding and [tests](../../services/cantos-api/tests/tts_receipt.rs) own this experimental file shape;
+Rust decoding and [tests](https://github.com/loveoverflowcom/cantos/blob/2de8c69/services/cantos-api/tests/tts_receipt.rs) own this experimental file shape;
 no HTTP route, shared DTO, database receipt or JSON Schema is added. The user selected local
 TTS for [#6](https://github.com/loveoverflowcom/cantos/issues/6). The concrete eSpeak NG 1.52.0
 probe retains private file records; commercial selection/terms/budget and its live sample are

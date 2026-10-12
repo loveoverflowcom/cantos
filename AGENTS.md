@@ -1,5 +1,12 @@
 # Agent instructions — Cantos
 
+> **Current product boundary (ADR 0018):** Cantos Studio is Web-only CMS for
+> novel/story/podcast, chapters/episodes, versioned instructions and external audio assets.
+> **AI plugins/human producers produce, mix and encode audio outside Cantos**, then use a
+> secure private handoff API. No backend TTS/provider/worker. Theatre only plays releases.
+> See [current decision](docs/decisions/0018-external-audio-production.md) and
+> [proposed, not-yet-implemented handoff](packages/contracts/external-audio-handoff-v1.md).
+
 ## Scope and source of truth
 
 Read [README.md](README.md), the relevant product/architecture docs and [docs/work-plan/README.md](docs/work-plan/README.md) before implementing a feature. This is a documentation and template bootstrap; inspect actual code before treating a proposed module, schema, command or API as implemented.
@@ -23,16 +30,22 @@ for scope versus implementation status.
 
 - Begin with a modular monolith; add a service, crate or generic abstraction only for a concrete consumer and reviewed need.
 - Domain rules and versioned Script IR must not depend on HTTP, UI frameworks, a specific AI provider or Narrative Forge internals.
-- Use PostgreSQL for metadata, revision history and durable job state. Store media in object storage.
+- Use PostgreSQL for metadata, revision history, producer submission receipts and release pointers. Store verified received media in private object storage until review/publication.
 - Do not invoke AI during listener playback. Preserve immutable publication manifests and cached renditions.
 - Keep private drafts, voice assets and previews inaccessible to public delivery. Enforce permissions in the backend.
 - Mobile uses CMP with platform-native audio adapters; no WebView audio player.
 
 ## Correctness rules
 
-For production changes, reason about duplicate delivery, worker crashes, cancellation, provider timeouts, expired job leases, stale revisions, cost reservations and approval invalidation. Never claim exactly-once external TTS generation unless a provider contract proves it; record ambiguous attempts before retrying.
+For external audio handoff, reason about **producer scope and revocation, duplicate upload,
+lost finalize response, private object integrity, stale briefs, content ownership, wrong
+episode binding, rights, QC and publication approval invalidation**. The AI producer owns
+voice-provider timeouts, any TTS attempts and costs: there are **no Cantos generation jobs**.
+Server acceptance must verify actual bytes/hash/format and persist immutable receipts.
 
-Cache keys must cover all effective generation inputs. A dialogue edit invalidates its speech plus dependent mix/QC/publication artifacts; unchanged dialogue can remain reusable. Any generated or imported content requires recorded provenance and applicable rights.
+A dialogue/text change can mark older submissions stale but never auto-regenerates audio.
+Any imported or externally produced asset requires provenance and rights claims; claims
+are not the same as verified rights or human-listened quality.
 
 ## Working and review
 
@@ -48,7 +61,7 @@ Canonical skills live in [`.agents/skills/`](.agents/skills/README.md) and are s
 - Domain owners: [`cantos-script-ir`](.agents/skills/cantos-script-ir/SKILL.md), [`cantos-production-pipeline`](.agents/skills/cantos-production-pipeline/SKILL.md), [`cantos-publication`](.agents/skills/cantos-publication/SKILL.md), [`cantos-listening`](.agents/skills/cantos-listening/SKILL.md).
 - UI: [`cantos-ui-design`](.agents/skills/cantos-ui-design/SKILL.md) (Material 3 Expressive and shared UI policy) with [`cantos-leptos-web`](.agents/skills/cantos-leptos-web/SKILL.md) or [`cantos-cmp-mobile`](.agents/skills/cantos-cmp-mobile/SKILL.md).
 - Task entrypoints: [`cantos-work-item`](.agents/skills/cantos-work-item/SKILL.md) to deliver a work-plan item, [`cantos-code-review`](.agents/skills/cantos-code-review/SKILL.md) for a read-only review, [`cantos-ui-inspector`](.agents/skills/cantos-ui-inspector/SKILL.md) for a report-only UI audit.
-- Story artifact workflows: [`cantos-story-ingest`](.agents/skills/cantos-story-ingest/SKILL.md), [`cantos-radio-adapt`](.agents/skills/cantos-radio-adapt/SKILL.md), [`cantos-audio-produce`](.agents/skills/cantos-audio-produce/SKILL.md) and [`cantos-story-audit`](.agents/skills/cantos-story-audit/SKILL.md) share the [Drive/local workspace contract](docs/production/story-workspace.md). They preserve raw sources, maintain `score/name_map.yml`, coordinate immutable score/audio revisions and recover blocked synchronization through local records and GitHub issues. Keep all story data outside Git.
+- Story artifact workflows: [`cantos-story-ingest`](.agents/skills/cantos-story-ingest/SKILL.md), [`cantos-radio-adapt`](.agents/skills/cantos-radio-adapt/SKILL.md), [`cantos-audio-produce`](.agents/skills/cantos-audio-produce/SKILL.md) and [`cantos-story-audit`](.agents/skills/cantos-story-audit/SKILL.md) share the [Drive/local workspace contract](docs/production/story-workspace.md). They preserve raw sources, maintain `score/name_map.yml`, coordinate immutable score/audio revisions and recover blocked synchronization through local records and GitHub issues. **Only external agents run audio rendering**, never the Cantos backend. Keep all story data outside Git.
 
 Skills own working method; `docs/` owns product rules. Keep one copy of each skill and update it rather than adding per-runtime instructions.
 
@@ -69,7 +82,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
-| The experimental DBSP read model (`incremental`, `summary_view`, its outbox) | `cargo xtask verify dbsp` and `cargo xtask verify postgres` |
+| Generic DBSP incremental engine (job summary binding retired) | `cargo xtask verify dbsp`; do not reintroduce a synthesis worker to satisfy it |
 
 Use Rust 1.87 (`RUSTUP_TOOLCHAIN=1.87.0`, as in CI). PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start

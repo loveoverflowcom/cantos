@@ -195,19 +195,11 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "test_postgres.py" | "production_oracle.py" | "cantos_adaptation_tool.py" => {
             impact.gates.insert(Gate::Postgres { keep: false });
         }
-        // Compile-time and test inputs of the neural TTS adapter.
-        "vieneu_nano_runtime.py" => {
-            impact.packages.insert(API_PACKAGE.to_owned());
-        }
-        _ if within(script, "fixtures") => {
-            impact.packages.insert(API_PACKAGE.to_owned());
-        }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
-        | "benchmark_job_summary_dbsp.py"
         | "serve_studio.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
@@ -349,9 +341,6 @@ mod tests {
             names(&pick(&["scripts/reference_wav_inspection.py"])),
             ["repository", "rust-format", "wav-reference"]
         );
-        assert!(pick(&["scripts/fixtures/neural-vietnamese.json"])
-            .affected
-            .contains("cantos-api"));
         assert_eq!(
             names(&pick(&[
                 "scripts/test_check_repository.py",

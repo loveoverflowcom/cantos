@@ -1,10 +1,15 @@
 # Documentation map
 
+> **Active product direction:** [ADR 0018 — external audio production](decisions/0018-external-audio-production.md).
+> [Proposed external producer API](../packages/contracts/external-audio-handoff-v1.md) is not
+> implemented yet. Prior TTS worker/provider/DBSP job-summary evidence below is **historical**,
+> not current deployment or roadmap scope.
+
 | Document | Owns |
 | --- | --- |
 | [Product brief](product/brief.md) | Audience, surfaces, scope and MVP outcome |
 | [Business rules](product/business-rules.md) | Domain invariants, rights, revisions and approvals |
-| [Production pipeline](product/production-pipeline.md) | Rendering flow, recovery, costs and publication gates |
+| [External audio handoff pipeline](product/production-pipeline.md) | Versioned producer briefs, private upload/finalize, QC and immutable publication; no in-backend synthesis |
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
 | [Audio drama craft](production/audio-drama-craft.md) | Ear-first adaptation, narration purpose, silence, voices, motifs and mix intent |
@@ -15,7 +20,7 @@
 | [PostgreSQL/DBSP skill evidence](evidence/postgresql-dbsp-skills.md) | Read-performance workflow validation, routing walkthrough and explicitly unrun database/engine gates |
 | [DBSP job-summary evidence](evidence/dbsp-job-summary.md) | Implemented experimental DBSP read model: differential/failure/authorization tests, mutants, full-suite feature run and bounded benchmark with limits |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
-| [API context architecture](architecture/api-contexts.md) | Implemented business-context ownership, dependency direction, transaction/worker boundaries and compatibility aliases |
+| [API context architecture](architecture/api-contexts.md) | Editorial, reference planning, pure media inspection and planned external artifact admission; no worker |
 | [API refactor evidence](evidence/api-bounded-contexts.md) | Architecture guard, compatibility and invariant regressions, final local gates and residual limits |
 | [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
 | [Restructure evidence](evidence/monorepo-restructure.md) | Checks run for the monorepo reorganization and what remains unverified |
@@ -56,7 +61,7 @@
 | [Decision 0014](decisions/0014-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
 | [Decision 0015](decisions/0015-api-surface-boundaries.md) | Proposed: `apps/cantos-theatre` naming and `studio`/`theatre`/`admin` API route groups |
 | [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Proposed: position-free speech fingerprint, verified clip registry and attempt-less reuse, regeneration plan |
-| [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Accepted as an opt-in local experiment: DBSP job-summary read model, committed outbox feed and fenced serving; production adoption gated |
+| [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Historical opt-in local DBSP TTS job-summary experiment (runtime adapter retired); production adoption gated |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |

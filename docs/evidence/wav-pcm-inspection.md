@@ -1,5 +1,11 @@
 # WAV PCM inspection evidence
 
+> **Current location after [ADR 0018](../decisions/0018-external-audio-production.md):**
+> WAV structural inspection is pure `contexts/media/domain/wav_inspection`, retained
+> while all speech-generation providers and workers were removed. The test measurements
+> and file paths below otherwise describe their **historical 2026-10-10** run.
+
+
 Review boundary: [issue #21](https://github.com/loveoverflowcom/cantos/issues/21), a standalone,
 read-only `inspect-wav` CLI that reports WAV integer PCM structure, checksums and sample peak as
 JSON. It is groundwork for [#9](https://github.com/loveoverflowcom/cantos/issues/9), not mixing or
@@ -18,7 +24,7 @@ a stable code, declared sizes are compared with the bytes present and never driv
 and frame count, duration and sample peak exist only when the structure is valid. A damaged file
 therefore never yields a number that reads like a measurement of the whole file.
 
-[`wav_inspection/`](../../services/cantos-api/src/contexts/synthesis/domain/wav_inspection/mod.rs) has no HTTP, SQL, Script IR,
+[`wav_inspection/`](../../services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs) has no HTTP, SQL, Script IR,
 adaptation, provider, clock or file-system dependency. [`inspect-wav`](../../services/cantos-api/src/bin/inspect-wav.rs)
 is the imperative shell: argument parsing, a bounded read, JSON output and exit codes. The module
 lives in the existing `cantos-server` package beside `validate-script` and reuses its `sha2`,
