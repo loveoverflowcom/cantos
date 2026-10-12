@@ -1,7 +1,8 @@
 # Two UI-system development previews
 
-Status: published in draft PR41 and reconciled locally with PR39/40; Mac review and partial
-runtime verification are recorded below. Required CMP verification remains UNSUPPORTED.
+Status: PR41 is reconciled with PR39/40; all required local gates now PASS on Mac, including
+CMP compilation and 23 executed tests. JVM captures and process cleanup are recorded below;
+OS window interaction remains blocked by the UI tool. GitHub owns merge status.
 No component has new two-renderer qualification or production/mobile acceptance.
 
 ## Request and boundary
@@ -152,6 +153,9 @@ platform-specific browser versus native semantics, mobile/assistive-technology s
 
 ## Mac reconciliation and review, 2026-10-11
 
+This preserves the initial Mac results before download approval. The 2026-10-12 continuation
+below supersedes this section's Gradle availability and required-gate blocker.
+
 [PR41](https://github.com/loveoverflowcom/cantos/pull/41) owns execution status. The requester
 authorized a fresh Mac review, fixes, push and normal merge after suitable local verification;
 the later three CMP sessions remain separate. No force push, branch-protection bypass or
@@ -257,3 +261,87 @@ Next order: obtain the reviewed local Gradle capability under the requester's do
 run the unchanged CMP and aggregate gates, then perform actual desktop interaction/accessibility/
 visual and owned-process shutdown checks. The later CMP Ultra → xhigh → Ultra sequence must start
 from its own freshly inspected SHA and cannot inherit qualification from this partial record.
+
+## Supported Mac continuation, 2026-10-12
+
+The requester approved official Gradle/project dependency downloads on Mac and removal of
+obsolete Gradle only after consumer/process inspection; cloud downloads remain stopped. Fresh
+fetch confirmed starting head `b204ec0f3bfd00c6e7aadfc71df0adacacb05e62` and develop
+`212e2d981bca7bb14843db159979eccbb0a92430`. Corrections below are committed at
+`6ab6161f614dcecb25c30274452162502d8b2e45` (tree `ec6244b81122de4aa720a5d69da4fc0ad6b54565`).
+Full preflight ran on identical code with those two corrections dirty before commit; this
+subsequent documentation adds no renderer/backend behavior. GitHub owns final head/merge status.
+
+### Tooling and cleanup
+
+The official [Gradle 8.14.3 distribution](https://services.gradle.org/distributions/gradle-8.14.3-bin.zip)
+contains 137,393,837 bytes and matched its [official checksum](https://services.gradle.org/distributions/gradle-8.14.3-bin.zip.sha256):
+`bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531`.
+Installation: `/Users/manhblue/.local/share/gradle/gradle-8.14.3`, 152,731,648 allocated bytes.
+The existing full Microsoft JDK 21.0.7+6 supplies both java/javac. Project Kotlin 2.2.20,
+Compose 1.9.0, Material3 1.8.2 and JVM 17 bytecode stay pinned. Dependencies resolved through
+normal TLS; no truststore/CA edit, security bypass, new JDK/SDK or global PATH change occurred.
+
+Four wrappers require Gradle 9.7.0: Tabula mobile, VOT Hub mobile, VOTEX mobile and MyVa Android.
+Its distribution (170,897,408 allocated bytes), version cache (1,000,075,264 bytes), daemon
+metadata and shared dependency/build caches were retained. No unused installed distribution
+was found. Only daemon registry/lock folders for 8.9, 8.10.2, 8.11.1, 8.12 and 8.14.1 were removed:
+1,008 file bytes / 40,960 allocated file bytes total. Exact-content/symlink checks, immediate
+process inspection and `lsof` established no owner/open handle before removal. Wrappers,
+properties/credentials, source, SDKs and other project caches were preserved. Ignored inventory
+and cleanup records are `target/pr41-gradle-inventory-20261012.json` and
+`target/pr41-mac-evidence/gradle-cleanup.json`.
+
+### Corrections from actual execution
+
+- The first supported run safely failed its PID guard: the official launcher adds `-Xms64m`,
+  while the requested JVM omitted that immutable option, causing a detached single-use JVM.
+  One literal `-Xms64m -Xmx2g -Dfile.encoding=UTF-8` profile now feeds both launcher and requested
+  JVM. The guard, in-process Kotlin and no-configuration-cache remain; workers are capped at 2.
+  The command regression checks both channels, and actual starts confirm the retained PID.
+- Exact viewport assertions exposed four clipped captures: 23 executed / 4 failed before the fix.
+  The pinned `runDesktopComposeUiTest` sizes the renderer itself, preserving all four scenarios.
+  The fresh 23-test run passes and produces1140×840 wide / 372×840 narrow PNGs. Primary and
+  independent CMP reviewers opened all four corrected images; the left/top crop is gone.
+  An independent source pass found no actionable defect in these two scoped corrections.
+
+### Actual checks and limits
+
+Commands ran sequentially from the repository root, measured Rust 1.87, `TMPDIR=/private/tmp`,
+Cargo 2 jobs, Gradle 8.14.3/fullJDK 21 on task-local PATH and Gradle 2 workers. Artifacts below are
+under ignored `target/pr41-mac-evidence/`; no generated binaries or private data enter Git.
+
+| Command / observation | Actual result | Artifact |
+| --- | --- | --- |
+| `cargo xtask ui-preview cmp build` | PASS; pinned common/JVM compilation | `cmp-build-supported.log` |
+| `cargo xtask ui-preview cmp verify` after correction | PASS; 23 executed, 0 failures/errors/skips: 10 common, 9 desktop semantics, 4 captures | `cmp-verify-capture-fixed.log`, `cmp-test-results-fixed.json` |
+| `cargo xtask verify rust` | PASS; format, workspace warnings-denied lint/tests | `rust-resume.log` |
+| `cargo xtask verify contracts` | PASS; reference, contract tests, WAV oracle | `contracts-resume.log` |
+| `cargo xtask preflight --changed-only` | PASS; all 13 gates, including repository, Rust, Web/gallery, CMP, mutation and disposable PostgreSQL | `preflight-supported.log` |
+| CMP start / interruption | Observed twice: guard reaches `run`, child stays in owned group; no recorded owned PID remains after interruption | `cmp-runtime-supported.log`, `cmp-runtime-processes.json`, `cmp-runtime-interaction-processes.json` |
+| OS window click / keyboard / focus / resize | BLOCKED: initially locked; after unlock the tool lists MainKt but rejects Java-app ID/name/executable binding and lacks a window selector | `cmp-computer-use-blocked.json`, interaction/process record |
+| Android/iOS product runtime / screen reader | NOT_RUN; mobile apps remain guides | No passing artifact |
+
+Aggregate CMP was UP-TO-DATE for unchanged inputs already exercised by the fresh 23-test run;
+this does not claim another 23 test executions. Failing-first and corrected runs are retained
+separately. No gate skip or remote-CI substitute was used.
+
+Opened JVM pixels show paper/lavender and dark canonical surfaces, capsule/tonal actions,
+paired danger colors, token specimens and 2× text wrapping. Narrow 2× begins above the fold with
+diagnostic controls; tabs wrap within their columns. OS scroll/focus/keyboard, bundled Noto
+metrics, full component/state/reference comparisons, reduced motion and VoiceOver remain
+incomplete. Real JVM semantics/callback tests are separate from an OS-window walkthrough.
+
+Observed lifecycle: launcher PID 3134/MainKt PID 3152 share group 3134; the second pair 8298/8314
+share group 8298. After interrupting only their owning xtask, all three PIDs in each tree were
+absent. This establishes those Ctrl-C cleanup runs, not window-close behavior or every crash
+mode. No unrelated process was stopped.
+
+Current qualification: Leptos build/bounded Safari observations and CMP pinned compilation,
+examples/JVM semantics/inspected captures are recorded PASS/observed; OS-window and full
+accessibility/reference coverage remain blocked/incomplete. Two-renderer production-qualified
+components remain 0/29; catalogue qualifications are unchanged. Mobile/full CMP production is
+NOT_RUN and outside this slice. The next order is the separately authorized CMP
+Ultra → xhigh → Ultra sequence with fresh SHA/resources and those missing gates; this PR does
+not start it or grant app adoption. Local merge gates are satisfied, and normal merge respects
+GitHub protection without polling/awaiting remote CI.
