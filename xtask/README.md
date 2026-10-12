@@ -27,6 +27,7 @@ providers, download models, create cloud resources, publish or deploy.
 
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
+cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in read model)
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
 cargo xtask build all [--release]                  # the API and both Web clients
@@ -42,7 +43,7 @@ cargo xtask ui-preview leptos run --open             # loopback browser preview 
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 
-cargo xtask verify repository|rust|web|contracts|mutation
+cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify postgres [--keep]
 
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
@@ -152,6 +153,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
+| `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
 | `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
@@ -159,7 +161,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
-| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
+| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL), including the DBSP view's PostgreSQL differential tests built with `dbsp-experimental` | initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -168,6 +170,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, contract-tests, wav-reference |
 | `mutation` | mutation |
+| `dbsp` | dbsp |
 | `postgres` | postgres |
 
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
@@ -209,7 +212,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   `cmp-ui-preview`. Package-local CMP source, Gradle and resource changes select the CMP gate
   directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
-  An affected `cantos-api` selects `wav-reference` and `postgres`.
+  An affected `cantos-api` selects `dbsp`, `wav-reference` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
   are `cantos-api` inputs.
@@ -229,7 +232,7 @@ state it in the pull request.
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), wav-reference |
+| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference |
 | `web` | web-lint, web-build (Studio and Theatre) |
 | `postgres` | `cargo fetch --locked`, then postgres |
 

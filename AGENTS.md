@@ -69,6 +69,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
+| The experimental DBSP read model (`incremental`, `summary_view`, its outbox) | `cargo xtask verify dbsp` and `cargo xtask verify postgres` |
 
 Use Rust 1.87 (`RUSTUP_TOOLCHAIN=1.87.0`, as in CI). PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start

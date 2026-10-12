@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::revisions::{decide_save, permits, Access, Action, PriorOperation, SaveDecision};
 use crate::script_ir::{read_canonical_script, read_script, ReadError, WRITE_VERSION};
 
-const MIGRATIONS: [(i32, &str); 8] = [
+const MIGRATIONS: [(i32, &str); 9] = [
     (1, include_str!("../migrations/0001_script_revisions.sql")),
     (2, include_str!("../migrations/0002_editorial_handoff.sql")),
     (3, include_str!("../migrations/0003_manuscript_import.sql")),
@@ -19,6 +19,10 @@ const MIGRATIONS: [(i32, &str); 8] = [
     (6, include_str!("../migrations/0006_production_inputs.sql")),
     (7, include_str!("../migrations/0007_durable_jobs.sql")),
     (8, include_str!("../migrations/0008_speech_clips.sql")),
+    (
+        9,
+        include_str!("../migrations/0009_durable_step_changes.sql"),
+    ),
 ];
 const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, canonical_export, content_digest, export_digest, to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at";
 
@@ -55,6 +59,9 @@ impl From<tokio_postgres::Error> for StoreError {
 #[derive(Clone)]
 pub struct Store {
     pool: Pool,
+    /// Opt-in experimental read model for `job_status`; absent, every read is PostgreSQL's.
+    #[cfg(feature = "dbsp-experimental")]
+    job_summaries: Option<std::sync::Arc<durable::summary_view::AttachedView>>,
 }
 
 pub fn token_hash(token: &str) -> Vec<u8> {
@@ -102,7 +109,22 @@ impl Store {
             .runtime(deadpool_postgres::Runtime::Tokio1)
             .build()
             .map_err(|_| StoreError::Unavailable)?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            #[cfg(feature = "dbsp-experimental")]
+            job_summaries: None,
+        })
+    }
+
+    /// Answers `job_status` through `view` under its read model. Authentication, authorization
+    /// and every other read and write keep their PostgreSQL path.
+    #[cfg(feature = "dbsp-experimental")]
+    pub fn with_job_summary_view(
+        mut self,
+        view: std::sync::Arc<durable::summary_view::AttachedView>,
+    ) -> Self {
+        self.job_summaries = Some(view);
+        self
     }
 
     async fn connection(&self) -> Result<deadpool_postgres::Object, StoreError> {

@@ -57,9 +57,17 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             target,
             surface,
             release,
+            dbsp_experimental,
         } => {
             let profile = Profile::from_release(release);
-            let steps = match build::plan(&workspace, target, surface.surface(), profile) {
+            let plan = build::plan(
+                &workspace,
+                target,
+                surface.surface(),
+                profile,
+                dbsp_experimental,
+            );
+            let steps = match plan {
                 Ok(steps) => steps,
                 Err(refusal) => return Ok(refuse(refusal)),
             };

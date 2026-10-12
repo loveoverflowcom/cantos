@@ -183,7 +183,8 @@ large join consumer to maintain. The completed
 the missing admission evidence and measurable reopening criteria. Reopen an engine experiment
 only for a concrete hot consumer after its simpler PostgreSQL comparison, with a reviewed
 adapter, committed-position/freshness contract and resource/recovery budgets. This is not the
-next automatic implementation.
+next automatic implementation. Revision reads keep that DEFER; the separate durable job summary
+now has the experimental DBSP slice described below.
 Continue the bounded importer/editor work in 010 while preserving complete exports, actor
 filters, immutable revision identity and retry semantics. Revisit read optimization when that
 work changes cardinality, evidence fan-out or introduces an actual list/join/aggregate. The
@@ -278,4 +279,10 @@ query/cardinality changes meet the admission conditions in the affected read inv
 worker foundation adds bounded internal queue claims and authorized run/status/attempt reads;
 its [read assessment](../evidence/durable-tts-jobs.md#affected-read-inventory-and-dbsp-decision)
 retains PostgreSQL transactional consistency and records the baseline without claiming an
-incremental engine or unmeasured speedup.
+incremental engine or unmeasured speedup. [#58](https://github.com/loveoverflowcom/cantos/issues/58)
+then added an **implemented experimental** DBSP read model for that `JobSummary`
+([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md),
+[evidence](../evidence/dbsp-job-summary.md)): a feature-gated engine, a transactional outbox with an
+exact committed position, an opt-in shadow/serve consumer in the development CLI and real-PostgreSQL
+differential tests. The default path stays PostgreSQL and the recommended order is unchanged;
+production adoption is a [backlog](backlog/deferred-expansion.md) item with named prerequisites.

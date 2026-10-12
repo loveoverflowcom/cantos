@@ -1220,7 +1220,7 @@ fn moves_and_membership_agree_with_an_independent_lcs_for_every_arrangement() {
                     .iter()
                     .filter(|id| !before_ids.contains(id))
                     .cloned()
-                    .collect(),
+                    .collect::<BTreeSet<_>>(),
                 "{after_ids:?}"
             );
             assert_eq!(
@@ -1229,7 +1229,7 @@ fn moves_and_membership_agree_with_an_independent_lcs_for_every_arrangement() {
                     .iter()
                     .filter(|id| !after_ids.contains(id))
                     .cloned()
-                    .collect(),
+                    .collect::<BTreeSet<_>>(),
                 "{after_ids:?}"
             );
             assert_eq!(in_report("modified"), BTreeSet::new(), "{after_ids:?}");

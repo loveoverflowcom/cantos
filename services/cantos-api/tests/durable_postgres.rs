@@ -245,6 +245,14 @@ impl Harness {
         Store::new(self.app_config.clone()).unwrap()
     }
 
+    /// The migration actor of this test database, for writes the application role cannot make.
+    #[cfg(feature = "dbsp-experimental")]
+    fn admin_config(&self) -> Config {
+        let mut config = self.app_config.clone();
+        config.user("cantos_test_admin");
+        config
+    }
+
     async fn enqueue(&self, mode: ExecutionMode) -> JobSummary {
         self.store
             .enqueue_job(
@@ -4060,5 +4068,1316 @@ mod clip_reuse {
         );
         assert_eq!(h.executions(), 8);
         assert_invariants(&h).await;
+    }
+}
+
+/// The experimental DBSP job-summary view against the real PostgreSQL oracle. Every comparison
+/// is made at one committed position: the view's frontier and bootstrap snapshot are checked in
+/// the same statement that recounts `durable_steps`, so two arbitrary "now" states are never
+/// compared. Run with `--features dbsp-experimental`.
+#[cfg(feature = "dbsp-experimental")]
+mod dbsp_summary_view {
+    use std::{collections::BTreeMap, time::Duration};
+
+    use cantos_api::{
+        incremental::{GroupCounts, ReadModel},
+        postgres::durable::summary_view::{
+            AttachedView, FailPoint, SummaryView, ViewConfig, ViewStatus,
+        },
+    };
+    use serde_json::json;
+
+    use super::*;
+
+    const SETTLE: Duration = Duration::from_secs(20);
+
+    fn options() -> ViewConfig {
+        ViewConfig {
+            poll_interval: Duration::from_millis(5),
+            transactions_per_step: 3,
+            retry_after_failure: Duration::from_millis(20),
+        }
+    }
+
+    async fn start(h: &Harness) -> Arc<SummaryView> {
+        let view = Arc::new(SummaryView::start(h.app_config.clone(), options()).unwrap());
+        assert!(view.wait_ready(SETTLE).await, "{:?}", view.status());
+        view
+    }
+
+    fn attach(h: &Harness, view: &Arc<SummaryView>, model: ReadModel, fallbacks: usize) -> Store {
+        h.reopened()
+            .with_job_summary_view(Arc::new(AttachedView::new(
+                view.clone(),
+                model,
+                fallbacks,
+                Duration::from_millis(200),
+            )))
+    }
+
+    /// Waits until the view has applied every transaction that committed before this call.
+    async fn settle(h: &Harness, view: &SummaryView) -> ViewStatus {
+        let xmin: String = h
+            .admin
+            .query_one("SELECT pg_snapshot_xmin(pg_current_snapshot())::text", &[])
+            .await
+            .unwrap()
+            .get(0);
+        let xmin: u64 = xmin.parse().unwrap();
+        view.wait_until(SETTLE, |status| {
+            status.state == "ready" && status.frontier.is_some_and(|frontier| frontier >= xmin)
+        })
+        .await
+        .unwrap_or_else(|| panic!("view did not reach {xmin}: {:?}", view.status()))
+    }
+
+    /// The independent oracle: a grouped recount, evaluated in the same snapshot as the fence
+    /// for the view's exact position. The view must cover the snapshot and equal it everywhere.
+    async fn assert_aligned(h: &Harness, view: &SummaryView) {
+        settle(h, view).await;
+        let (position, groups) = view.snapshot().expect("ready view");
+        let row = h.admin.query_one("SELECT $1::text::xid8<=pg_snapshot_xmin(pg_current_snapshot()), (SELECT count(*) FROM durable_step_changes c WHERE c.txid>=$1::text::xid8 AND NOT pg_visible_in_snapshot(c.txid,$2::text::pg_snapshot)), COALESCE((SELECT json_agg(json_build_array(job_id,total,done,reused)) FROM (SELECT job_id,count(*) AS total,count(*) FILTER (WHERE status='succeeded') AS done,count(*) FILTER (WHERE reused_clip_id IS NOT NULL) AS reused FROM durable_steps GROUP BY job_id) g),'[]')::text", &[&position.frontier().to_string(), &position.bootstrap_snapshot().as_str()]).await.unwrap();
+        assert!(
+            row.get::<_, bool>(0),
+            "view is ahead of the oracle snapshot"
+        );
+        assert_eq!(row.get::<_, i64>(1), 0, "a committed change is unapplied");
+        let oracle: Vec<(String, u64, u64, u64)> =
+            serde_json::from_str(&row.get::<_, String>(2)).unwrap();
+        let oracle: BTreeMap<String, GroupCounts> = oracle
+            .into_iter()
+            .map(|(job, total, done, reused)| {
+                (
+                    job,
+                    GroupCounts {
+                        members: total,
+                        flagged: [done, reused],
+                    },
+                )
+            })
+            .collect();
+        assert_eq!(groups.into_iter().collect::<BTreeMap<_, _>>(), oracle);
+    }
+
+    /// The served API response equals the PostgreSQL path's response, field for field.
+    async fn assert_served_equal(h: &Harness, store: &Store, view: &SummaryView, run: &str) {
+        let before = view.status().served;
+        let served = store.job_status(ALICE, run).await.unwrap();
+        let authoritative = h.store.job_status(ALICE, run).await.unwrap();
+        assert_eq!(
+            serde_json::to_value(&served).unwrap(),
+            serde_json::to_value(&authoritative).unwrap()
+        );
+        assert_eq!(view.status().served, before + 1, "{:?}", view.status());
+    }
+
+    async fn add_steps(client: &Client, job: &str, prefix: &str, count: usize) {
+        let mut sql = String::from("BEGIN;");
+        for index in 0..count {
+            sql.push_str(&format!("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES('{}','{job}','{prefix}-{index}','synthetic','pending');", Uuid::new_v4()));
+        }
+        sql.push_str("COMMIT;");
+        client.batch_execute(&sql).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn dbsp_view_bootstraps_existing_steps_and_serves_the_exact_authoritative_summary() {
+        let h = Harness::new(4).await;
+        let done = h.enqueue(ExecutionMode::SyntheticFake).await;
+        assert_eq!(h.drain(&done.run_id).await.status, RunStatus::Completed);
+        let queued = h.enqueue(ExecutionMode::SyntheticFake).await;
+        // Started after the writes: every row comes from the bootstrap snapshot.
+        let view = start(&h).await;
+        assert_eq!(view.status().bootstrap_rows, 8);
+        assert_aligned(&h, &view).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        assert_served_equal(&h, &store, &view, &done.run_id).await;
+        assert_served_equal(&h, &store, &view, &queued.run_id).await;
+        let summary = store.job_status(ALICE, &done.run_id).await.unwrap();
+        assert_eq!(
+            (
+                summary.total_steps,
+                summary.completed_steps,
+                summary.reused_steps
+            ),
+            (4, 4, 0)
+        );
+        let shadow = attach(&h, &view, ReadModel::DbspShadow, 4);
+        shadow.job_status(ALICE, &queued.run_id).await.unwrap();
+        assert_eq!(view.status().shadow_matches, 1);
+        assert_eq!(view.status().shadow_mismatches, 0);
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn dbsp_view_applies_inserts_transitions_and_reuse_as_deltas_without_rebuilding() {
+        let h = Harness::new(8).await;
+        let view = start(&h).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        let first = h.enqueue(ExecutionMode::SyntheticFake).await;
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &first.run_id).await;
+        // One worker iteration at a time: lease, dispatch, observe and accept transitions.
+        for round in 0..6 {
+            h.run_worker_once(&format!("delta-{round}")).await;
+            assert_aligned(&h, &view).await;
+            assert_served_equal(&h, &store, &view, &first.run_id).await;
+        }
+        assert_eq!(h.drain(&first.run_id).await.status, RunStatus::Completed);
+        // A second run over the same snapshot is satisfied by verified clips: reuse flags.
+        let second = h.enqueue(ExecutionMode::SyntheticFake).await;
+        assert_eq!(h.drain(&second.run_id).await.reused_steps, 4);
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &second.run_id).await;
+        let reused = store.job_status(ALICE, &second.run_id).await.unwrap();
+        assert_eq!(
+            (
+                reused.total_steps,
+                reused.completed_steps,
+                reused.reused_steps
+            ),
+            (4, 4, 4)
+        );
+        // A paused-then-cancelled job: status changes, projected step facts do not.
+        let third = h.enqueue(ExecutionMode::SyntheticFake).await;
+        for event in [RunEvent::Pause, RunEvent::Cancel] {
+            h.store
+                .control_job(ALICE, &third.run_id, &Uuid::new_v4().to_string(), event)
+                .await
+                .unwrap();
+        }
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &third.run_id).await;
+        let status = view.status();
+        assert_eq!(status.bootstraps, 1, "maintained incrementally: {status:?}");
+        assert_eq!(status.bootstrap_rows, 0);
+        // Inserts (12 steps), and a -old/+new pair per accepted or reused step (8).
+        assert_eq!(status.applied_changes, 12 + 2 * 8, "{status:?}");
+        assert_eq!(status.failures, 0);
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn dbsp_view_never_applies_a_rolled_back_or_still_open_transaction() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let view = start(&h).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        let open = connect(&h.admin_config()).await;
+        open.batch_execute(&format!("BEGIN; INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES('{}','{}','rolled-back','synthetic','pending')", Uuid::new_v4(), job.job_id)).await.unwrap();
+        // Polls keep running while the writer is open; none may apply its row.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+        open.batch_execute("ROLLBACK").await.unwrap();
+        assert_aligned(&h, &view).await;
+        assert_eq!(
+            store
+                .job_status(ALICE, &job.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            4
+        );
+        let status = view.status();
+        assert_eq!(
+            (status.applied_changes, status.bootstraps, status.failures),
+            (0, 1, 0),
+            "{status:?}"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn dbsp_view_holds_its_frontier_behind_an_older_open_transaction_and_falls_back() {
+        let h = Harness::new(4).await;
+        let older = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let newer = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let view = start(&h).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        let shadow = attach(&h, &view, ReadModel::DbspShadow, 4);
+        // T1 takes the lower xid and stays open; T2 commits three rows after it.
+        let t1 = connect(&h.admin_config()).await;
+        t1.batch_execute(&format!("BEGIN; INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES('{}','{}','t1-0','synthetic','pending')", Uuid::new_v4(), older.job_id)).await.unwrap();
+        add_steps(&h.admin, &newer.job_id, "t2", 3).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        // T2 is committed and visible, but below the open T1 the view cannot have applied it.
+        let lagging = view.status().fallback_lagging;
+        let summary = store.job_status(ALICE, &newer.run_id).await.unwrap();
+        assert_eq!(
+            summary.total_steps, 7,
+            "the fallback is the authoritative count"
+        );
+        assert_eq!(view.status().fallback_lagging, lagging + 1);
+        let comparable = view.status().shadow_not_comparable;
+        assert_eq!(
+            shadow
+                .job_status(ALICE, &newer.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            7
+        );
+        assert_eq!(view.status().shadow_not_comparable, comparable + 1);
+        // The other job has no change after the frontier, so it is still exactly served.
+        assert_served_equal(&h, &store, &view, &older.run_id).await;
+        t1.batch_execute("COMMIT").await.unwrap();
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &newer.run_id).await;
+        assert_served_equal(&h, &store, &view, &older.run_id).await;
+        assert_eq!(
+            store
+                .job_status(ALICE, &older.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            5
+        );
+        let status = view.status();
+        assert_eq!((status.bootstraps, status.failures), (1, 0), "{status:?}");
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn concurrent_multi_row_commits_are_each_applied_whole_and_once() {
+        let h = Harness::new(4).await;
+        let jobs = [
+            h.enqueue(ExecutionMode::SyntheticFake).await,
+            h.enqueue(ExecutionMode::SyntheticFake).await,
+        ];
+        let view = start(&h).await;
+        let mut writers = Vec::new();
+        for writer in 0..6 {
+            let config = h.admin_config();
+            let job = jobs[writer % 2].job_id.clone();
+            writers.push(tokio::spawn(async move {
+                let client = connect(&config).await;
+                for batch in 0..5 {
+                    add_steps(&client, &job, &format!("w{writer}-b{batch}"), 4).await;
+                }
+            }));
+        }
+        for writer in writers {
+            writer.await.unwrap();
+        }
+        assert_aligned(&h, &view).await;
+        let status = view.status();
+        assert_eq!((status.bootstraps, status.failures), (1, 0), "{status:?}");
+        assert_eq!(status.applied_transactions, 30, "{status:?}");
+        assert_eq!(status.applied_changes, 120, "{status:?}");
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        for job in &jobs {
+            assert_served_equal(&h, &store, &view, &job.run_id).await;
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn a_dropped_page_is_replayed_once_and_duplicate_delivery_or_failure_rebuilds() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let view = start(&h).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        // Lost before apply (no acknowledgement to lose): the same window is read again.
+        view.inject(FailPoint::DropNextPage);
+        add_steps(&h.admin, &job.job_id, "dropped", 2).await;
+        assert_aligned(&h, &view).await;
+        assert_eq!(view.status().applied_changes, 2);
+        assert_eq!(view.status().bootstraps, 1);
+        // Delivered twice: the integrity operators refuse it and the engine is rebuilt.
+        view.inject(FailPoint::DuplicateNextPage);
+        add_steps(&h.admin, &job.job_id, "duplicated", 2).await;
+        let rebuilt = view
+            .wait_until(SETTLE, |status| {
+                status.bootstraps == 2 && status.state == "ready"
+            })
+            .await
+            .expect("rebuild after the duplicate delivery");
+        assert_eq!(rebuilt.failures, 1);
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+        // A failure after reading: unavailable until rebuilt, then exact again.
+        view.inject(FailPoint::FailNextPage);
+        add_steps(&h.admin, &job.job_id, "failed", 1).await;
+        view.wait_until(SETTLE, |status| {
+            status.bootstraps == 3 && status.state == "ready"
+        })
+        .await
+        .expect("rebuild after the injected failure");
+        assert_aligned(&h, &view).await;
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+        assert_eq!(
+            store
+                .job_status(ALICE, &job.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            9
+        );
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn a_restarted_view_rebuilds_while_writes_continue_without_gap_or_double_count() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let first = start(&h).await;
+        add_steps(&h.admin, &job.job_id, "before-stop", 2).await;
+        assert_aligned(&h, &first).await;
+        drop(first);
+        let config = h.admin_config();
+        let job_id = job.job_id.clone();
+        let writer = tokio::spawn(async move {
+            let client = connect(&config).await;
+            for batch in 0..40 {
+                add_steps(&client, &job_id, &format!("during-{batch}"), 1).await;
+            }
+        });
+        // The bootstrap snapshot and the feed hand off while the writer is committing.
+        let second = start(&h).await;
+        writer.await.unwrap();
+        assert_aligned(&h, &second).await;
+        let store = attach(&h, &second, ReadModel::DbspServe, 4);
+        assert_served_equal(&h, &store, &second, &job.run_id).await;
+        assert_eq!(
+            store
+                .job_status(ALICE, &job.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            46
+        );
+        // The handoff split the writes between the snapshot and the feed, counting each once.
+        let status = second.status();
+        assert_eq!(
+            status.bootstrap_rows + status.applied_changes,
+            46,
+            "{status:?}"
+        );
+        assert_eq!((status.bootstraps, status.failures), (1, 0), "{status:?}");
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn a_transaction_committed_above_the_bootstrap_xmin_is_counted_once_by_the_snapshot() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        // An older writer holds the bootstrap snapshot's xmin down while a newer one commits:
+        // the newer rows are at or after the frontier and yet already in the snapshot.
+        let older = connect(&h.admin_config()).await;
+        older.batch_execute(&format!("BEGIN; INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES('{}','{}','older','synthetic','pending')", Uuid::new_v4(), job.job_id)).await.unwrap();
+        add_steps(&h.admin, &job.job_id, "newer", 2).await;
+        let view = start(&h).await;
+        assert_eq!(view.status().bootstrap_rows, 6);
+        older.batch_execute("COMMIT").await.unwrap();
+        assert_aligned(&h, &view).await;
+        let status = view.status();
+        assert_eq!(
+            status.applied_changes, 1,
+            "only the older writer's row: {status:?}"
+        );
+        assert_eq!((status.bootstraps, status.failures), (1, 0), "{status:?}");
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn the_view_never_answers_before_authentication_and_owner_authorization() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let view = start(&h).await;
+        assert_aligned(&h, &view).await;
+        for model in [ReadModel::DbspServe, ReadModel::DbspShadow] {
+            let store = attach(&h, &view, model, 4);
+            let before = view.status();
+            // Not a member: no existence leak, exactly as the PostgreSQL path.
+            assert!(matches!(
+                store.job_status(BOB, &job.run_id).await,
+                Err(DurableError::Store(StoreError::NotFound))
+            ));
+            assert!(matches!(
+                h.store.job_status(BOB, &job.run_id).await,
+                Err(DurableError::Store(StoreError::NotFound))
+            ));
+            let after = view.status();
+            assert_eq!(
+                (
+                    after.served,
+                    after.shadow_matches,
+                    after.fallback_unavailable
+                ),
+                (
+                    before.served,
+                    before.shadow_matches,
+                    before.fallback_unavailable
+                ),
+                "the view was consulted for a denied request"
+            );
+        }
+        let store = attach(&h, &view, ReadModel::DbspServe, 4);
+        // An editor may edit the script but only its owner reviews production state.
+        h.admin
+            .execute(
+                "INSERT INTO script_members(script_id,actor_id,role) VALUES($1,'bob','editor')",
+                &[&h.script],
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            store.job_status(BOB, &job.run_id).await,
+            Err(DurableError::Store(StoreError::Forbidden))
+        ));
+        // Revocation is current: a fresh view does not keep a revoked session reading.
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+        h.store.revoke(ALICE).await.unwrap();
+        assert!(matches!(
+            store.job_status(ALICE, &job.run_id).await,
+            Err(DurableError::Store(StoreError::Unauthenticated))
+        ));
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn an_unavailable_view_falls_back_within_its_bound_and_otherwise_fails_closed() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        let view = start(&h).await;
+        let store = attach(&h, &view, ReadModel::DbspServe, 1);
+        let closed = attach(&h, &view, ReadModel::DbspServe, 0);
+        view.invalidate("test_outage");
+        let fallback = store.job_status(ALICE, &job.run_id).await.unwrap();
+        let authoritative = h.store.job_status(ALICE, &job.run_id).await.unwrap();
+        assert_eq!(
+            serde_json::to_value(&fallback).unwrap(),
+            serde_json::to_value(&authoritative).unwrap()
+        );
+        assert!(view.status().fallback_unavailable >= 1);
+        // No fallback capacity: unavailable, never a stale answer.
+        assert!(matches!(
+            closed.job_status(ALICE, &job.run_id).await,
+            Err(DurableError::Store(StoreError::Unavailable))
+        ));
+        assert_eq!(view.status().fallback_rejected, 1);
+        // The maintainer rebuilds the invalidated view, and serving resumes.
+        view.wait_until(SETTLE, |status| {
+            status.bootstraps == 2 && status.state == "ready"
+        })
+        .await
+        .expect("rebuild after invalidation");
+        assert_served_equal(&h, &store, &view, &job.run_id).await;
+        // A stopped view stays unavailable; reads still answer from PostgreSQL.
+        view.stop();
+        assert_eq!(view.status().state, "stopped");
+        let unavailable = view.status().fallback_unavailable;
+        add_steps(&h.admin, &job.job_id, "after-stop", 1).await;
+        assert_eq!(
+            store
+                .job_status(ALICE, &job.run_id)
+                .await
+                .unwrap()
+                .total_steps,
+            5
+        );
+        assert_eq!(view.status().fallback_unavailable, unavailable + 1);
+    }
+
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn shadow_mode_detects_a_forged_feed_row_and_the_rebuild_repairs_the_view() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        // The application role can read the feed but never write it.
+        let app = connect(&h.app_config).await;
+        for sql in [
+            format!("INSERT INTO durable_step_changes(job_id,step_id,weight,succeeded,reused) VALUES('{}','forged',1,false,false)", job.job_id),
+            "UPDATE durable_step_changes SET weight=1".into(),
+            "DELETE FROM durable_step_changes".into(),
+        ] {
+            let error = app.batch_execute(&sql).await.unwrap_err();
+            assert_eq!(error.code(), Some(&tokio_postgres::error::SqlState::INSUFFICIENT_PRIVILEGE), "{sql}");
+        }
+        assert_eq!(
+            app.query_one("SELECT count(*) FROM durable_step_changes", &[])
+                .await
+                .unwrap()
+                .get::<_, i64>(0),
+            4
+        );
+        let view = start(&h).await;
+        let shadow = attach(&h, &view, ReadModel::DbspShadow, 4);
+        shadow.job_status(ALICE, &job.run_id).await.unwrap();
+        assert_eq!(view.status().shadow_matches, 1);
+        // Only a privileged actor can forge the feed; shadow comparison catches the divergence.
+        h.admin.execute("INSERT INTO durable_step_changes(job_id,step_id,weight,succeeded,reused) VALUES($1,'forged',1,false,false)", &[&job.job_id]).await.unwrap();
+        settle(&h, &view).await;
+        let summary = shadow.job_status(ALICE, &job.run_id).await.unwrap();
+        assert_eq!(
+            summary.total_steps, 4,
+            "shadow always returns the authoritative count"
+        );
+        assert_eq!(view.status().shadow_mismatches, 1);
+        view.wait_until(SETTLE, |status| {
+            status.bootstraps == 2 && status.state == "ready"
+        })
+        .await
+        .expect("rebuild after the mismatch");
+        assert_aligned(&h, &view).await;
+        shadow.job_status(ALICE, &job.run_id).await.unwrap();
+        assert_eq!(view.status().shadow_matches, 2);
+    }
+
+    /// The real `production-jobs` binary, built with the feature, prints the same summary for
+    /// `status` and `watch` under every read model and reports only counters on standard error.
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "disposable PostgreSQL cluster required"]
+    async fn the_cli_prints_the_same_summary_under_every_read_model() {
+        let h = Harness::new(4).await;
+        let job = h.enqueue(ExecutionMode::SyntheticFake).await;
+        h.run_worker_once("cli-progress").await;
+        let expected =
+            serde_json::to_value(h.store.job_status(ALICE, &job.run_id).await.unwrap()).unwrap();
+        let db = h.app_config.get_dbname().unwrap().to_owned();
+        let port = h.app_config.get_ports()[0];
+        let url = format!("postgresql://cantos_app@127.0.0.1:{port}/{db}");
+        let cli = |model: &str, args: &[&str]| {
+            let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_production-jobs"));
+            command
+                .env_clear()
+                .env("CANTOS_ENV", "development")
+                .env("CANTOS_DATABASE_URL", &url)
+                .env("CANTOS_SESSION_TOKEN", ALICE)
+                .env("CANTOS_JOB_SUMMARY_READ_MODEL", model)
+                .args(args);
+            tokio::task::spawn_blocking(move || command.output().unwrap())
+        };
+        let counters = |stderr: &str| {
+            stderr
+                .lines()
+                .find_map(|line| line.strip_prefix("job-summary-view: "))
+                .map(|json| serde_json::from_str::<Value>(json).unwrap())
+        };
+        for model in ["postgres", "dbsp-shadow", "dbsp-serve"] {
+            let output = cli(model, &["status", &job.run_id]).await.unwrap();
+            let (stdout, stderr) = (
+                String::from_utf8(output.stdout).unwrap(),
+                String::from_utf8(output.stderr).unwrap(),
+            );
+            assert!(output.status.success(), "{model}: {stderr}");
+            for secret in [ALICE, url.as_str()] {
+                assert!(!stdout.contains(secret) && !stderr.contains(secret));
+            }
+            assert_eq!(
+                serde_json::from_str::<Value>(stdout.trim()).unwrap(),
+                expected
+            );
+            match (model, counters(&stderr)) {
+                ("postgres", counters) => assert_eq!(counters, None),
+                ("dbsp-shadow", Some(counters)) => {
+                    assert_eq!(
+                        (&counters["shadow_matches"], &counters["shadow_mismatches"]),
+                        (&json!(1), &json!(0))
+                    )
+                }
+                (_, Some(counters)) => assert_eq!(counters["served"], json!(1), "{counters}"),
+                (_, None) => panic!("{model} printed no view counters"),
+            }
+        }
+        let output = cli(
+            "dbsp-serve",
+            &[
+                "watch",
+                &job.run_id,
+                "--samples",
+                "3",
+                "--interval-ms",
+                "10",
+            ],
+        )
+        .await
+        .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(output.status.success(), "{stderr}");
+        let lines: Vec<Value> = String::from_utf8(output.stdout)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(lines, vec![expected.clone(); 3]);
+        assert_eq!(counters(&stderr).unwrap()["served"], json!(3));
+        let output = cli("dbsp", &["status", &job.run_id]).await.unwrap();
+        assert!(!output.status.success());
+        assert!(String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("CANTOS_JOB_SUMMARY_READ_MODEL must be postgres, dbsp-shadow or dbsp-serve"));
+    }
+}
+
+/// Bounded synthetic benchmark of original PostgreSQL, improved PostgreSQL statements and the
+/// DBSP view. Run it through `scripts/benchmark_job_summary_dbsp.py`, which provides a release
+/// build and a new disposable cluster; numbers from a debug build are not evidence.
+#[cfg(feature = "dbsp-experimental")]
+mod dbsp_summary_benchmark {
+    use std::{
+        collections::BTreeMap,
+        time::{Duration, Instant},
+    };
+
+    use cantos_api::{
+        incremental::ReadModel,
+        postgres::durable::summary_view::{AttachedView, SummaryView, ViewConfig},
+    };
+    use serde_json::json;
+
+    use super::*;
+
+    /// `(label, runs, steps per run)`: the fixture's own size, a broad run and the 1,000-step cap.
+    const PROFILES: [(&str, usize, usize); 3] = [
+        ("steps_4", 200, 4),
+        ("steps_100", 200, 100),
+        ("steps_1000", 60, 1000),
+    ];
+    const REPETITIONS: usize = 3;
+    const SAMPLES: usize = 400;
+    const CONCURRENCY: usize = 8;
+    const THROUGHPUT_WINDOW: Duration = Duration::from_secs(2);
+    const WRITE_TRANSACTIONS: usize = 1500;
+    const FRESHNESS_SAMPLES: usize = 150;
+
+    const ORIGINAL: &str = "SELECT j.id,j.status,j.reason,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id) AS total,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id AND s.status='succeeded') AS done,(SELECT count(*) FROM durable_steps s WHERE s.job_id=j.id AND s.reused_clip_id IS NOT NULL) AS reused FROM durable_jobs j WHERE j.run_id=$1";
+    const SINGLE_PASS: &str = "SELECT j.id,j.status,j.reason,count(s.id) AS total,count(*) FILTER (WHERE s.status='succeeded') AS done,count(*) FILTER (WHERE s.reused_clip_id IS NOT NULL) AS reused FROM durable_jobs j LEFT JOIN durable_steps s ON s.job_id=j.id WHERE j.run_id=$1 GROUP BY j.id";
+    /// The serve path's fence statement, as `summary_view` issues it.
+    const FENCE: &str = "SELECT j.id,j.status,j.reason,$2::text::xid8<=pg_snapshot_xmin(pg_current_snapshot()) AS covers_frontier,EXISTS(SELECT 1 FROM durable_step_changes c WHERE c.job_id=j.id AND c.txid>=$2::text::xid8 AND NOT pg_visible_in_snapshot(c.txid,$3::text::pg_snapshot)) AS unapplied_change FROM durable_jobs j WHERE j.run_id=$1";
+    const PARTIAL_INDEX: &str =
+        "CREATE INDEX bench_reused_by_job ON durable_steps(job_id) WHERE reused_clip_id IS NOT NULL";
+
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self, bound: usize) -> usize {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            (self.0 % bound as u64) as usize
+        }
+    }
+
+    /// Nearest-rank percentiles over every retained sample, in milliseconds.
+    fn summarize(mut samples: Vec<Duration>, elapsed: Option<Duration>) -> Value {
+        samples.sort();
+        let at = |percent: usize| {
+            let rank = (samples.len() * percent).div_ceil(100).max(1) - 1;
+            samples[rank].as_secs_f64() * 1000.0
+        };
+        let mut out = json!({
+            "samples": samples.len(),
+            "p50_ms": at(50), "p95_ms": at(95), "p99_ms": at(99),
+            "max_ms": samples.last().unwrap().as_secs_f64() * 1000.0,
+        });
+        if let Some(elapsed) = elapsed {
+            out["seconds"] = json!(elapsed.as_secs_f64());
+            out["per_second"] = json!(samples.len() as f64 / elapsed.as_secs_f64());
+        }
+        out
+    }
+
+    fn rusage() -> (f64, f64) {
+        let mut usage = std::mem::MaybeUninit::<libc::rusage>::zeroed();
+        // SAFETY: getrusage writes a complete rusage for RUSAGE_SELF on success.
+        let usage = unsafe {
+            assert_eq!(libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()), 0);
+            usage.assume_init()
+        };
+        let seconds = |t: libc::timeval| t.tv_sec as f64 + t.tv_usec as f64 / 1e6;
+        (
+            seconds(usage.ru_utime) + seconds(usage.ru_stime),
+            usage.ru_maxrss as f64,
+        )
+    }
+
+    /// Resident set of this process in KiB, from `ps`.
+    fn rss_kib() -> u64 {
+        let output = std::process::Command::new("ps")
+            .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+            .output()
+            .unwrap();
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap()
+    }
+
+    async fn wal_bytes(admin: &Client, from: &str) -> i64 {
+        admin
+            .query_one(
+                "SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(),$1::text::pg_lsn)::bigint",
+                &[&from],
+            )
+            .await
+            .unwrap()
+            .get(0)
+    }
+
+    async fn wal_position(admin: &Client) -> String {
+        admin
+            .query_one("SELECT pg_current_wal_insert_lsn()::text", &[])
+            .await
+            .unwrap()
+            .get(0)
+    }
+
+    /// Synthetic runs over the harness snapshot; half of each run's steps succeed through a
+    /// complete attempt/observation chain so every database constraint still holds.
+    async fn load(h: &Harness, label: &str, runs: usize, steps: usize) -> Vec<String> {
+        let digest = &h.snapshot.document.input_digest;
+        h.admin.execute(&format!("INSERT INTO durable_runs(id,script_id,snapshot_id,created_by,operation_id,input_digest,mode,request_bytes,max_attempts,base_seconds,cap_seconds) SELECT md5('{label}-run-'||g)::uuid::text,$1,$2,'alice',md5('{label}-op-'||g)::uuid::text,$3,'synthetic_fake','\\x00'::bytea,2,1,2 FROM generate_series(1,{runs}) g"), &[&h.script, &h.snapshot.id, digest]).await.unwrap();
+        h.admin.batch_execute(&format!("
+            INSERT INTO durable_jobs(id,run_id,status) SELECT md5('{label}-job-'||g)::uuid::text,md5('{label}-run-'||g)::uuid::text,'running' FROM generate_series(1,{runs}) g;
+            INSERT INTO durable_budgets(run_id,currency,limit_minor) SELECT md5('{label}-run-'||g)::uuid::text,'VND',1000000 FROM generate_series(1,{runs}) g;
+            INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) SELECT md5('{label}-step-'||g||'-'||i)::uuid::text,md5('{label}-job-'||g)::uuid::text,'d'||i,'bench','pending' FROM generate_series(1,{runs}) g, generate_series(1,{steps}) i;
+            CREATE TEMP TABLE bench_done AS SELECT md5('{label}-step-'||g||'-'||i)::uuid::text AS step, md5('{label}-run-'||g)::uuid::text AS run, md5('{label}-attempt-'||g||'-'||i)::uuid::text AS attempt FROM generate_series(1,{runs}) g, generate_series(1,{steps}) i WHERE i % 2 = 0;
+            INSERT INTO durable_reservations(id,run_id,step_id,amount_minor,currency) SELECT attempt,run,step,0,'VND' FROM bench_done;
+            INSERT INTO durable_attempts(id,step_id,lease_token,operation_id,reservation_id,intent_bytes,attempt_number) SELECT attempt,step,1,attempt,attempt,'\\x00'::bytea,1 FROM bench_done;
+            INSERT INTO durable_observations(attempt_id,receipt_bytes) SELECT attempt,'\\x00'::bytea FROM bench_done;
+            UPDATE durable_steps s SET status='leased',lease_owner='bench',lease_token=1,lease_expires_at=clock_timestamp()+interval '1 hour' FROM bench_done d WHERE s.id=d.step;
+            UPDATE durable_steps s SET status='succeeded',accepted_attempt_id=d.attempt,lease_owner=NULL,lease_expires_at=NULL FROM bench_done d WHERE s.id=d.step;
+            DROP TABLE bench_done;
+            ANALYZE durable_steps; ANALYZE durable_jobs; ANALYZE durable_step_changes;
+        ")).await.unwrap();
+        let rows = h
+            .admin
+            .query(
+                &format!(
+                    "SELECT md5('{label}-run-'||g)::uuid::text FROM generate_series(1,{runs}) g"
+                ),
+                &[],
+            )
+            .await
+            .unwrap();
+        rows.iter().map(|row| row.get(0)).collect()
+    }
+
+    async fn sequential(store: &Store, runs: &[String], seed: u64) -> Vec<Duration> {
+        let mut rng = Rng(seed);
+        let mut samples = Vec::with_capacity(SAMPLES);
+        for _ in 0..SAMPLES {
+            let run = &runs[rng.next(runs.len())];
+            let started = Instant::now();
+            let summary = store.job_status(ALICE, run).await.unwrap();
+            // Materialize the response the CLI prints.
+            std::hint::black_box(serde_json::to_vec(&summary).unwrap());
+            samples.push(started.elapsed());
+        }
+        samples
+    }
+
+    async fn concurrent(store: &Store, runs: &[String], seed: u64) -> (Vec<Duration>, Duration) {
+        let started = Instant::now();
+        let mut tasks = Vec::new();
+        for worker in 0..CONCURRENCY {
+            let (store, runs) = (store.clone(), runs.to_vec());
+            tasks.push(tokio::spawn(async move {
+                let mut rng = Rng(seed + worker as u64 + 1);
+                let mut samples = Vec::new();
+                while started.elapsed() < THROUGHPUT_WINDOW {
+                    let run = &runs[rng.next(runs.len())];
+                    let at = Instant::now();
+                    let summary = store.job_status(ALICE, run).await.unwrap();
+                    std::hint::black_box(serde_json::to_vec(&summary).unwrap());
+                    samples.push(at.elapsed());
+                }
+                samples
+            }));
+        }
+        let mut samples = Vec::new();
+        for task in tasks {
+            samples.extend(task.await.unwrap());
+        }
+        (samples, started.elapsed())
+    }
+
+    /// One statement per sample with the run as `$1` and `extra` as the following parameters.
+    async fn statement(
+        client: &Client,
+        sql: &str,
+        runs: &[String],
+        extra: &[String],
+        seed: u64,
+    ) -> Vec<Duration> {
+        let prepared = client.prepare(sql).await.unwrap();
+        let mut rng = Rng(seed);
+        let mut samples = Vec::with_capacity(SAMPLES);
+        for _ in 0..SAMPLES {
+            let run = &runs[rng.next(runs.len())];
+            let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = vec![run];
+            params.extend(
+                extra
+                    .iter()
+                    .map(|value| value as &(dyn tokio_postgres::types::ToSql + Sync)),
+            );
+            let started = Instant::now();
+            client.query_one(&prepared, &params).await.unwrap();
+            samples.push(started.elapsed());
+        }
+        samples
+    }
+
+    async fn plan(client: &Client, sql: &str, run: &str) -> Vec<String> {
+        client
+            .query(
+                &format!(
+                    "EXPLAIN (ANALYZE, BUFFERS) {}",
+                    sql.replace("$1", &format!("'{run}'"))
+                ),
+                &[],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
+    }
+
+    /// Single-row commits into existing jobs: the capture trigger's write cost, on and off.
+    async fn write_cost(h: &Harness, jobs: &[String], label: &str) -> Value {
+        let writer = connect(&h.admin_config()).await;
+        let mut phases = serde_json::Map::new();
+        // Alternating phases, each after a checkpoint, so full-page images do not favour one.
+        for (phase, enabled) in [
+            ("capture_on_1", true),
+            ("capture_off_1", false),
+            ("capture_on_2", true),
+            ("capture_off_2", false),
+        ] {
+            let toggle = if enabled { "ENABLE" } else { "DISABLE" };
+            h.admin
+                .batch_execute(&format!(
+                    "ALTER TABLE durable_steps {toggle} TRIGGER durable_steps_change_capture"
+                ))
+                .await
+                .unwrap();
+            h.admin.batch_execute("CHECKPOINT").await.unwrap();
+            let statement = writer.prepare("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,'bench','pending')").await.unwrap();
+            let outbox_before: i64 = h
+                .admin
+                .query_one("SELECT pg_total_relation_size('durable_step_changes')", &[])
+                .await
+                .unwrap()
+                .get(0);
+            let wal = wal_position(&h.admin).await;
+            let mut samples = Vec::with_capacity(WRITE_TRANSACTIONS);
+            for index in 0..WRITE_TRANSACTIONS {
+                let job = &jobs[index % jobs.len()];
+                let started = Instant::now();
+                writer.batch_execute("BEGIN").await.unwrap();
+                writer
+                    .execute(
+                        &statement,
+                        &[
+                            &Uuid::new_v4().to_string(),
+                            job,
+                            &format!("w-{label}-{phase}-{index}"),
+                        ],
+                    )
+                    .await
+                    .unwrap();
+                writer.batch_execute("COMMIT").await.unwrap();
+                samples.push(started.elapsed());
+            }
+            let wal = wal_bytes(&h.admin, &wal).await;
+            let outbox_after: i64 = h
+                .admin
+                .query_one("SELECT pg_total_relation_size('durable_step_changes')", &[])
+                .await
+                .unwrap()
+                .get(0);
+            let mut result = summarize(samples, None);
+            result["wal_bytes_per_commit"] = json!(wal as f64 / WRITE_TRANSACTIONS as f64);
+            result["outbox_bytes_growth"] = json!(outbox_after - outbox_before);
+            phases.insert(phase.into(), result);
+        }
+        h.admin
+            .batch_execute("ALTER TABLE durable_steps ENABLE TRIGGER durable_steps_change_capture")
+            .await
+            .unwrap();
+        Value::Object(phases)
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore = "bounded benchmark; run scripts/benchmark_job_summary_dbsp.py"]
+    async fn bench_job_summary_read_models() {
+        let h = Harness::new(4).await;
+        let mut report = serde_json::Map::new();
+        let mut profiles: BTreeMap<&str, Vec<String>> = BTreeMap::new();
+        let load_started = Instant::now();
+        for (label, runs, steps) in PROFILES {
+            profiles.insert(label, load(&h, label, runs, steps).await);
+        }
+        // Writes go to their own runs so the read profiles keep their cardinalities.
+        let write_runs = load(&h, "writes", 50, 4).await;
+        // A maintained table: every phase sees all-visible pages, instead of whatever autovacuum
+        // happened to finish while an earlier phase ran.
+        h.admin
+            .batch_execute("VACUUM (ANALYZE) durable_steps, durable_jobs, durable_step_changes")
+            .await
+            .unwrap();
+        let write_jobs: Vec<String> = h
+            .admin
+            .query(
+                "SELECT id FROM durable_jobs WHERE run_id=ANY($1) ORDER BY id",
+                &[&write_runs],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect();
+        let steps: i64 = h.count_all("SELECT count(*) FROM durable_steps").await;
+        let outbox: i64 = h
+            .count_all("SELECT count(*) FROM durable_step_changes")
+            .await;
+        report.insert("fixture".into(), json!({
+            "profiles": PROFILES.iter().map(|(label, runs, steps)| json!({"label": label, "runs": runs, "steps_per_run": steps, "succeeded_fraction": 0.5, "reused_fraction": 0.0})).collect::<Vec<_>>(),
+            "write_runs": {"runs": 50, "steps_per_run_before_writes": 4},
+            "total_steps": steps,
+            "outbox_rows_after_load": outbox,
+            "load_seconds": load_started.elapsed().as_secs_f64(),
+            "outbox_bytes": h.count_all("SELECT pg_total_relation_size('durable_step_changes')").await,
+            "steps_bytes": h.count_all("SELECT pg_total_relation_size('durable_steps')").await,
+        }));
+
+        // Write cost before any view runs: a disabled trigger would hide rows from it.
+        report.insert(
+            "write_cost".into(),
+            write_cost(&h, &write_jobs, "single").await,
+        );
+
+        // Statement level, on the application role: original versus single-pass PostgreSQL.
+        let app = connect(&h.app_config).await;
+        let mut statements = serde_json::Map::new();
+        let largest = &profiles["steps_1000"];
+        for rep in 0..REPETITIONS {
+            for (name, sql) in [("original", ORIGINAL), ("single_pass", SINGLE_PASS)] {
+                for (label, runs) in &profiles {
+                    let key = format!("{name}/{label}");
+                    let entry = statements.entry(key).or_insert_with(|| json!([]));
+                    entry.as_array_mut().unwrap().push(summarize(
+                        statement(&app, sql, runs, &[], 7 + rep as u64).await,
+                        None,
+                    ));
+                }
+            }
+        }
+        let mut plans = serde_json::Map::new();
+        plans.insert(
+            "original".into(),
+            json!(plan(&app, ORIGINAL, &largest[0]).await),
+        );
+        plans.insert(
+            "single_pass".into(),
+            json!(plan(&app, SINGLE_PASS, &largest[0]).await),
+        );
+
+        // Rebuild: bootstrap cost of a new view over the whole table.
+        let (cpu_before, _) = rusage();
+        let rss_before = rss_kib();
+        let started = Instant::now();
+        let view =
+            Arc::new(SummaryView::start(h.app_config.clone(), ViewConfig::default()).unwrap());
+        assert!(
+            view.wait_ready(Duration::from_secs(120)).await,
+            "{:?}",
+            view.status()
+        );
+        let ready = started.elapsed();
+        let (cpu_after, max_rss) = rusage();
+        let status = view.status();
+        report.insert(
+            "bootstrap".into(),
+            json!({
+                "seconds_to_ready": ready.as_secs_f64(),
+                "maintainer_reported_micros": status.last_bootstrap_micros,
+                "rows": status.bootstrap_rows,
+                "groups": status.groups,
+                "process_cpu_seconds": cpu_after - cpu_before,
+                "rss_kib_before": rss_before,
+                "rss_kib_after": rss_kib(),
+                "max_rss_raw": max_rss,
+            }),
+        );
+
+        // API level: authorized job_status per read model, interleaved per repetition.
+        let postgres = h.reopened();
+        let serve = h
+            .reopened()
+            .with_job_summary_view(Arc::new(AttachedView::new(
+                view.clone(),
+                ReadModel::DbspServe,
+                8,
+                Duration::from_secs(2),
+            )));
+        let shadow = h
+            .reopened()
+            .with_job_summary_view(Arc::new(AttachedView::new(
+                view.clone(),
+                ReadModel::DbspShadow,
+                8,
+                Duration::from_secs(2),
+            )));
+        let mut api = serde_json::Map::new();
+        async fn measure_api(
+            api: &mut serde_json::Map<String, Value>,
+            name: &str,
+            store: &Store,
+            profiles: &BTreeMap<&str, Vec<String>>,
+            rep: usize,
+        ) {
+            for (label, runs) in profiles {
+                std::hint::black_box(sequential(store, runs, 99).await);
+                let entry = api
+                    .entry(format!("{name}/{label}/concurrency_1"))
+                    .or_insert_with(|| json!([]));
+                entry.as_array_mut().unwrap().push(summarize(
+                    sequential(store, runs, 11 + rep as u64).await,
+                    None,
+                ));
+                let (samples, elapsed) = concurrent(store, runs, 23 + rep as u64).await;
+                let entry = api
+                    .entry(format!("{name}/{label}/concurrency_{CONCURRENCY}"))
+                    .or_insert_with(|| json!([]));
+                entry
+                    .as_array_mut()
+                    .unwrap()
+                    .push(summarize(samples, Some(elapsed)));
+            }
+        }
+        for rep in 0..REPETITIONS {
+            for (name, store) in [
+                ("postgres", &postgres),
+                ("dbsp_serve", &serve),
+                ("dbsp_shadow", &shadow),
+            ] {
+                measure_api(&mut api, name, store, &profiles, rep).await;
+            }
+        }
+
+        // The improved PostgreSQL candidate the real path can use unchanged: a partial index
+        // that makes the reused count index-only. Measured at statement and API level, then
+        // dropped. The fence is the per-request statement dbsp-serve runs instead of the counts.
+        let wal = wal_position(&h.admin).await;
+        let index_started = Instant::now();
+        h.admin.batch_execute(PARTIAL_INDEX).await.unwrap();
+        h.admin
+            .batch_execute("ANALYZE durable_steps")
+            .await
+            .unwrap();
+        let index_build = index_started.elapsed();
+        let index_wal = wal_bytes(&h.admin, &wal).await;
+        let (position, _) = view.snapshot().expect("ready view");
+        let fence_args = [
+            position.frontier().to_string(),
+            position.bootstrap_snapshot().as_str().to_owned(),
+        ];
+        for rep in 0..REPETITIONS {
+            for (label, runs) in &profiles {
+                let entry = statements
+                    .entry(format!("original_with_partial_index/{label}"))
+                    .or_insert_with(|| json!([]));
+                entry.as_array_mut().unwrap().push(summarize(
+                    statement(&app, ORIGINAL, runs, &[], 7 + rep as u64).await,
+                    None,
+                ));
+                let entry = statements
+                    .entry(format!("serve_fence/{label}"))
+                    .or_insert_with(|| json!([]));
+                entry.as_array_mut().unwrap().push(summarize(
+                    statement(&app, FENCE, runs, &fence_args, 7 + rep as u64).await,
+                    None,
+                ));
+            }
+            measure_api(
+                &mut api,
+                "postgres_with_partial_index",
+                &postgres,
+                &profiles,
+                rep,
+            )
+            .await;
+        }
+        plans.insert(
+            "original_with_partial_index".into(),
+            json!(plan(&app, ORIGINAL, &largest[0]).await),
+        );
+        let index_bytes: i64 = h
+            .count_all("SELECT pg_relation_size('bench_reused_by_job')")
+            .await;
+        h.admin
+            .batch_execute("DROP INDEX bench_reused_by_job")
+            .await
+            .unwrap();
+        // Control: the original path again, after the candidate, to expose drift between phases.
+        for rep in 0..REPETITIONS {
+            for (label, runs) in &profiles {
+                let entry = statements
+                    .entry(format!("original_after_drop/{label}"))
+                    .or_insert_with(|| json!([]));
+                entry.as_array_mut().unwrap().push(summarize(
+                    statement(&app, ORIGINAL, runs, &[], 7 + rep as u64).await,
+                    None,
+                ));
+            }
+            measure_api(&mut api, "postgres_after_drop", &postgres, &profiles, rep).await;
+        }
+        plans.insert(
+            "original_after_drop".into(),
+            json!(plan(&app, ORIGINAL, &largest[0]).await),
+        );
+        report.insert("statements".into(), Value::Object(statements));
+        report.insert("plans_steps_1000".into(), Value::Object(plans));
+        report.insert("partial_index_candidate".into(), json!({"build_seconds": index_build.as_secs_f64(), "wal_bytes": index_wal, "bytes": index_bytes, "retained": false}));
+        report.insert("api".into(), Value::Object(api));
+        let after_reads = view.status();
+        assert_eq!(after_reads.shadow_mismatches, 0, "{after_reads:?}");
+        report.insert(
+            "view_after_reads".into(),
+            serde_json::to_value(&after_reads).unwrap(),
+        );
+
+        // Freshness: commit one step change, then time until a served read reflects it.
+        let writer = connect(&h.admin_config()).await;
+        let mut freshness = Vec::new();
+        for index in 0..FRESHNESS_SAMPLES {
+            let run = &write_runs[index % write_runs.len()];
+            let job: String = h
+                .admin
+                .query_one("SELECT id FROM durable_jobs WHERE run_id=$1", &[run])
+                .await
+                .unwrap()
+                .get(0);
+            let before = serve.job_status(ALICE, run).await.unwrap().total_steps;
+            writer.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,'bench','pending')", &[&Uuid::new_v4().to_string(), &job, &format!("fresh-{index}")]).await.unwrap();
+            let committed = Instant::now();
+            loop {
+                let served_before = view.status().served;
+                let summary = serve.job_status(ALICE, run).await.unwrap();
+                if summary.total_steps == before + 1 && view.status().served > served_before {
+                    break;
+                }
+                assert!(
+                    committed.elapsed() < Duration::from_secs(10),
+                    "view never caught up"
+                );
+            }
+            freshness.push(committed.elapsed());
+        }
+        report.insert(
+            "freshness_commit_to_served".into(),
+            summarize(freshness, None),
+        );
+
+        // Write-heavy hot job: reads of the job being written fall back while the view lags.
+        let hot_run = &profiles["steps_1000"][0];
+        let hot_job: String = h
+            .admin
+            .query_one("SELECT id FROM durable_jobs WHERE run_id=$1", &[hot_run])
+            .await
+            .unwrap()
+            .get(0);
+        let config = h.admin_config();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let writer_stop = stop.clone();
+        let hot_writer = tokio::spawn(async move {
+            let client = connect(&config).await;
+            let mut index = 0;
+            while !writer_stop.load(std::sync::atomic::Ordering::Relaxed) {
+                client.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,'bench','pending')", &[&Uuid::new_v4().to_string(), &hot_job, &format!("hot-{index}")]).await.unwrap();
+                index += 1;
+            }
+            index
+        });
+        let mut hot = serde_json::Map::new();
+        for (name, store) in [("postgres", &postgres), ("dbsp_serve", &serve)] {
+            let before = view.status();
+            let samples = sequential(store, std::slice::from_ref(hot_run), 5).await;
+            let after = view.status();
+            let mut result = summarize(samples, None);
+            result["served"] = json!(after.served - before.served);
+            result["fallback_lagging"] = json!(after.fallback_lagging - before.fallback_lagging);
+            hot.insert(name.into(), result);
+        }
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        hot.insert("writer_commits".into(), json!(hot_writer.await.unwrap()));
+        report.insert("hot_job_under_writes".into(), Value::Object(hot));
+
+        // Incremental maintenance CPU for a burst, with no reads.
+        let (cpu_before, _) = rusage();
+        let burst_started = Instant::now();
+        let applied_before = view.status().applied_changes;
+        for (index, job) in write_jobs.iter().cycle().take(2000).enumerate() {
+            writer.execute("INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint,status) VALUES($1,$2,$3,'bench','pending')", &[&Uuid::new_v4().to_string(), job, &format!("burst-{index}")]).await.unwrap();
+        }
+        let xmin: String = h
+            .admin
+            .query_one("SELECT pg_snapshot_xmin(pg_current_snapshot())::text", &[])
+            .await
+            .unwrap()
+            .get(0);
+        let xmin: u64 = xmin.parse().unwrap();
+        view.wait_until(Duration::from_secs(60), |status| {
+            status.frontier.is_some_and(|f| f >= xmin)
+        })
+        .await
+        .unwrap();
+        let (cpu_after, _) = rusage();
+        report.insert(
+            "burst_2000_commits".into(),
+            json!({
+                "seconds_to_applied": burst_started.elapsed().as_secs_f64(),
+                "applied_changes": view.status().applied_changes - applied_before,
+                "process_cpu_seconds_including_writer_client": cpu_after - cpu_before,
+                "rss_kib_after": rss_kib(),
+            }),
+        );
+
+        // Outage: the same reads with the view stopped, through the bounded fallback.
+        view.stop();
+        let mut outage = serde_json::Map::new();
+        for (label, runs) in &profiles {
+            outage.insert(
+                label.to_string(),
+                summarize(sequential(&serve, runs, 3).await, None),
+            );
+        }
+        report.insert("serve_with_view_stopped".into(), Value::Object(outage));
+        report.insert(
+            "view_final".into(),
+            serde_json::to_value(view.status()).unwrap(),
+        );
+        report.insert(
+            "postgres_version".into(),
+            json!(h
+                .admin
+                .query_one("SELECT version()", &[])
+                .await
+                .unwrap()
+                .get::<_, String>(0)),
+        );
+
+        let output = env::var("CANTOS_BENCH_OUTPUT").unwrap_or_else(|_| {
+            format!(
+                "{}/../../target/dbsp-evidence/benchmark-{}.json",
+                env!("CARGO_MANIFEST_DIR"),
+                Uuid::new_v4()
+            )
+        });
+        let path = PathBuf::from(output);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&Value::Object(report)).unwrap(),
+        )
+        .unwrap();
+        println!("benchmark report: {}", path.display());
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run revision, import, adaptation and production tests in a new disposable cluster.
+"""Run revision, import, adaptation, production and DBSP view tests in a new disposable cluster.
 
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
 test cluster for local Studio inspection; its explicit stop command is printed.
@@ -486,6 +486,8 @@ def main():
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "durable_postgres", "--locked", "--offline", "--", "--ignored", "--skip", "installed_local_runtime", "--test-threads=1"], env=env, output=EVIDENCE / "durable-postgres-tests.log")
+        # The experimental DBSP job-summary view against the same PostgreSQL oracle.
+        run(["cargo", "test", "-p", "cantos-api", "--features", "dbsp-experimental", "--test", "durable_postgres", "--locked", "--offline", "--", "--ignored", "dbsp_summary_view::", "--test-threads=1"], env=env, output=EVIDENCE / "dbsp-summary-view-tests.log")
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())

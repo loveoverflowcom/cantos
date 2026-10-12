@@ -6,6 +6,7 @@ pub mod clip_reuse;
 mod diagnostics;
 pub mod http;
 pub mod imports;
+pub mod incremental;
 pub mod jobs;
 pub mod operator;
 pub mod postgres;

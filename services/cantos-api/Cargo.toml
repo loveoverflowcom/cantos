@@ -5,10 +5,16 @@ edition = "2021"
 rust-version = "1.87"
 publish = false
 
+[features]
+# Experimental local/dev DBSP incremental read model. Off by default: production builds
+# and the default test gates keep the direct PostgreSQL path only.
+dbsp-experimental = ["dep:dbsp"]
+
 [dependencies]
 axum = "=0.8.4"
 base64 = "=0.22.1"
 cantos-contracts = { path = "../../packages/contracts/api" }
+dbsp = { version = "=0.198.0", optional = true }
 deadpool-postgres = "=0.14.1"
 getrandom = "=0.3.4"
 serde = { version = "=1.0.228", features = ["derive"] }

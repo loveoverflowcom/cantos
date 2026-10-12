@@ -1,5 +1,7 @@
 //! PostgreSQL durable local/synthetic worker shell. No commercial dispatch or media storage.
 mod clips;
+#[cfg(feature = "dbsp-experimental")]
+pub mod summary_view;
 
 pub use clips::{ObjectProbes, PlanFacts, PlanReport, ReusePrepared, ReuseSelected};
 
@@ -370,6 +372,13 @@ impl Store {
             false,
         )
         .await?;
+        // An attached view answers only after the checks above, for this authorized run.
+        #[cfg(feature = "dbsp-experimental")]
+        if let Some(view) = &self.job_summaries {
+            let result = view.summary(&tx, &id).await?;
+            tx.commit().await?;
+            return Ok(result);
+        }
         let result = summary(&tx, &id).await?;
         tx.commit().await?;
         Ok(result)

@@ -9,11 +9,28 @@
 
 ## Reality, terminology and authority
 
-At the documentation bootstrap inspected at `ca4c9501b36e11dfbbc508a3394f71ded3211072`,
-there is no backend, PostgreSQL schema, DBSP/Feldera dependency, adapter, integration ADR or
-benchmark harness. The [server guide](../../../../services/cantos-api/README.md) and
-[contracts guide](../../../../packages/contracts/README.md) describe future work. Reinspect the actual
-checkout before every implementation; these observations do not describe all future branches.
+The backend, its PostgreSQL schema and one **implemented experimental** DBSP adapter now exist
+([ADR 0017](../../../../docs/decisions/0017-experimental-dbsp-job-summary.md),
+[evidence](../../../../docs/evidence/dbsp-job-summary.md)). The `dbsp` crate (0.198.0, pinned for
+Rust 1.87) is an optional dependency of `cantos-api` behind the `dbsp-experimental` feature; default
+builds do not compile it, and its only consumer is the opt-in development `JobSummary` read. It is
+not a production adoption: there is no Feldera service, connector, checkpoint, outbox retention or
+production configuration. Reinspect the actual checkout before every implementation; these
+observations do not describe all future branches.
+
+Reuse that slice's boundaries before proposing another engine path:
+
+- `services/cantos-api/src/incremental` — engine-independent signed changes, the count view, whole
+  transaction paging and the pure fence/shadow decisions; `incremental::dbsp` — the circuit.
+- Migration `0009_durable_step_changes.sql` — a trigger-written, read-only transactional outbox
+  stamped with `xid8`; positions are `{frontier, bootstrap snapshot}`, never a sequence number.
+- `postgres::durable::summary_view` — bootstrap/poll maintainer, per-request fence in the request's
+  own snapshot, bounded fallback, shadow comparison and rebuild.
+- `cargo xtask verify dbsp`, the DBSP tests in `cargo xtask verify postgres`, and
+  `scripts/benchmark_job_summary_dbsp.py`.
+
+A new consumer still needs its own fit decision below; the existing slice is evidence about one
+small aggregate, not a general license to route reads through the engine.
 
 DBSP is a model of incremental computation over streams, with incremental view maintenance
 (IVM) as a database application. Its [original paper](https://docs.feldera.com/vldb23.pdf)
@@ -28,8 +45,8 @@ PostgreSQL remains the authoritative oracle and source of metadata/durable state
 [the architecture](../../../../docs/architecture/overview.md#data-and-delivery) and
 [ADR 0001](../../../../docs/decisions/0001-modular-monolith.md). Any different authority needs
 a reviewed architecture decision. Keep domain types independent of the engine; an adapter is
-justified only by a concrete consumer. This skill update authorizes evaluation, not installation,
-new services, production CDC configuration or migrations.
+justified only by a concrete consumer. This skill authorizes evaluation, not production
+installation, new services, production CDC configuration or migrations.
 
 When an engine is present, inspect its actual implementation, ADR, lockfiles, versions, edition,
 connectors, query-serving interface and tests. Reuse those boundaries. Otherwise label the
@@ -188,9 +205,10 @@ Execution gaps:         passed | failed | blocked | not-run | unavailable | zero
 - [ ] The report distinguishes documented method, implemented adapter and tested behavior;
   remaining work is routed to its owning slice in the [queue](../../../../docs/work-plan/README.md).
 
-**Enforcement:** inventory and fit assessment are manual requirements now; database/engine
-automation is proposed until actual code and runners exist. The repository checker enforces
-skill/link hygiene only. A documented exception needs workload rationale and an oracle;
+**Enforcement:** inventory and fit assessment are manual requirements. The experimental job
+summary has real runners (`verify dbsp`, the PostgreSQL gate's DBSP tests and the benchmark
+script); other engine automation is proposed until code and runners exist. The repository
+checker enforces skill/link hygiene only. A documented exception needs workload rationale and an oracle;
 unavailable prerequisites are a gap, not a waiver of adoption evidence.
 
 ## Cantos examples (proposed, not endpoints implemented here)

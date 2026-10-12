@@ -372,6 +372,43 @@ regeneration, mixing, storage/CDN, publication and UI/mobile integration remain 
 The [evidence report](../../docs/evidence/durable-tts-jobs.md) names actual gates and fault points;
 ordinary workspace tests do not establish PostgreSQL crash recovery.
 
+## Experimental DBSP job summaries
+
+An opt-in, feature-gated read model maintains the `JobSummary` step counts incrementally with the
+[DBSP](https://docs.feldera.com/vldb23.pdf) engine (`dbsp` 0.198.0, the newest release declaring
+Rust 1.87). It is local/development only; production adoption is not admitted
+([ADR 0017](../../docs/decisions/0017-experimental-dbsp-job-summary.md)). Without the
+`dbsp-experimental` feature nothing below is compiled, and every read uses PostgreSQL.
+
+- `incremental` is the engine-independent core: signed member changes, the count view that
+  applies output deltas atomically, whole-transaction feed paging and the freshness fence.
+  `incremental::dbsp` is the DBSP circuit (a linear aggregate per job plus integrity operators
+  that refuse a change applied twice or a retraction that was never inserted).
+- Migration 0009 adds `durable_step_changes`, a transactional outbox that a trigger writes in
+  the writing transaction, stamped with its `xid8`. The application role can only read it.
+- `postgres::durable::summary_view` runs one maintainer thread: a REPEATABLE READ bootstrap
+  snapshot, then whole committed transactions below each poll's `xmin`, skipping rows the
+  bootstrap snapshot already contained. Nothing is checkpointed; every start rebuilds.
+- `Store::job_status` authenticates and authorizes first, exactly as before. `dbsp-serve` then
+  uses the view's counts only when a fence evaluated in the request's own snapshot proves them
+  exact; otherwise it runs the original query, at most four at a time in the CLI, and fails
+  closed as unavailable beyond that. `dbsp-shadow` always answers from PostgreSQL and compares;
+  a mismatch invalidates the view, which rebuilds.
+
+```sh
+cargo xtask build cantos-api --dbsp-experimental
+CANTOS_JOB_SUMMARY_READ_MODEL=dbsp-shadow target/debug/production-jobs status <run-id>
+CANTOS_JOB_SUMMARY_READ_MODEL=dbsp-serve target/debug/production-jobs watch <run-id> --samples 20 --interval-ms 250
+```
+
+These need the same `CANTOS_ENV`, `CANTOS_DATABASE_URL` and `CANTOS_SESSION_TOKEN` as the other
+commands. Standard error ends with `job-summary-view: {...}` counters (served, fallbacks by reason,
+shadow matches/mismatches, bootstraps, applied transactions). `cargo xtask verify dbsp` lints and
+runs every `cantos-api` test with the feature; `cargo xtask verify postgres` adds the view's
+PostgreSQL differential, failure and authorization tests. `scripts/benchmark_job_summary_dbsp.py`
+is the bounded synthetic benchmark; the [evidence report](../../docs/evidence/dbsp-job-summary.md)
+records its results and limits.
+
 ## Local TTS sample probe and receipt inspection
 
 The additional [neural research adapter](../../docs/evidence/local-neural-tts.md) uses a
