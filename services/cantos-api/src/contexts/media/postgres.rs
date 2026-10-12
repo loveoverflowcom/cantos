@@ -82,13 +82,14 @@ pub(super) async fn find_intent(
 pub(super) async fn insert_intent(
     tx: &Tx<'_>,
     actor: &str,
-    script: &str,
-    revision: i64,
-    digest: &str,
-    profile: &str,
+    binding: super::domain::intake::IntentBinding<'_>,
     operation: &str,
     id: &str,
 ) -> Result<AudioIntentResponse, StoreError> {
+    let script = binding.script_id;
+    let revision = crate::platform::postgres::checked_number(binding.revision)?;
+    let digest = binding.content_digest;
+    let profile = binding.profile_id;
     let query = format!("INSERT INTO audio_upload_intents(id,script_id,script_revision,content_digest,profile_id,operation_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING {INTENT_COLUMNS}");
     let row = tx
         .query_one(
@@ -198,3 +199,5 @@ pub(super) async fn insert_receipt(
     tx.execute("INSERT INTO audio_intake_receipts(id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,accepted_at,object_key,receipt_bytes,receipt_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10,$11,$12)", &[&receipt.id, &receipt.intent_id, &receipt.script_id, &revision, &receipt.content_digest, &receipt.profile_id, &receipt.operation_id, &receipt.accepted_by, &receipt.accepted_at, &object_key, &bytes, &digest]).await?;
     Ok(())
 }
+
+pub(super) mod lifecycle;

@@ -30,15 +30,13 @@ or in-backend mixing should remain.
   filesystem objects; immutable PostgreSQL receipts and exact replay/conflict behavior.
   [Scope and contract](../../packages/contracts/studio-audio-intake-v1.md),
   [ADR 0020](../../docs/decisions/0020-studio-private-audio-intake.md). Required Rust and
-  disposable-PostgreSQL execution is **NOT_RUN** in this implementation environment.
+  disposable-PostgreSQL evidence was originally **NOT_RUN** in PR69; [Audio Lifecycle evidence](../../docs/evidence/audio-lifecycle.md) records this Mac session.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
 ## Planned functionality (not implemented)
 
-Studio catalog Web UI, production identity/credential delivery, producer upload permission,
-private object-storage prepare/finalize, audio rendition acceptance,
-QC review, publication manifests and Theatre listener API. Read the
+Studio catalog Web UI, production identity/credential delivery, S3/CDN storage, stronger rights/QC policy, publication manifests and Theatre listener API. [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
 creating routes or DTOs. A proposal is not an existing API.
 
@@ -71,7 +69,7 @@ checksums. The old `durable_*`/`speech_clips` tables are legacy data, not curren
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds catalog tables independently of the separately reserved audio-intake
 0010. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–9, 11, 12 and 13 (count12); Production Brief migration0013 is additive; upgrade/replay tests preserve
+versions1–14/count14; Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
@@ -94,8 +92,7 @@ Stored keys are SHA-256-derived, immutable and absent from wire responses. Files
 and read-only; every accepted receipt read checks stored integrity. Objects are synchronized
 before metadata acceptance, but filesystem/SQL are not one transaction. Crash/rollback may
 leave private orphans; no request deletes a shared object. Reference-aware cleanup, retention,
-production isolation and S3/CDN integration are deferred. No producer should receive a Studio
-cookie and no uploaded object becomes a release.
+production isolation and S3/CDN integration are deferred. No producer should receive a Studio cookie and no uploaded object becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations, renditions, reviews and candidates; its application-role grants are SELECT/INSERT only. Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
 
 ## Local verification
 

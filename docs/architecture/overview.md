@@ -50,7 +50,7 @@ bounded reconciliation/cleanup. Prevent replay conflicts via exact operation IDs
 The narrow [development intake](../decisions/0020-studio-private-audio-intake.md) uses private
 immutable filesystem objects outside PostgreSQL until production storage is implemented.
 Metadata acceptance follows actual object verification and reauthorization; private orphans may
-remain after rollback. No S3/CDN or scoped external-producer implementation is implied.
+remain after rollback. The [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds exact scoped upload and private review; no S3/CDN/publication is implied.
 
 Historical migrations 0007–0009 for TTS jobs and speech clips stay intact for checksum/
 upgrade compatibility. They are not part of the new write model. Do not drop legacy tables
@@ -79,6 +79,6 @@ Theatre playback only reads accepted published files.
 ## Verification
 
 Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. Work/unit metadata and [Content Identity](../../packages/contracts/content-v1.md) are implemented
-as authenticated Studio APIs. The remaining Audio/Brief lifecycle is **proposed**.
+as authenticated Studio APIs. Brief and private Audio Lifecycle are implemented; public release/delivery remains proposed.
 Read [external handoff contract](../../packages/contracts/external-audio-handoff-v1.md) before
 adding a route and write adversarial/replay/owner-isolation tests as part of its implementation.

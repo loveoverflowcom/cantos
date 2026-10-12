@@ -7,3 +7,7 @@ mod postgres;
 mod process;
 pub(crate) mod storage;
 mod structure;
+
+mod lifecycle_application;
+
+pub(crate) use lifecycle_application::upload_token_registered;

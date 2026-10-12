@@ -32,21 +32,17 @@ producer access, before linking intake/publication. Catalog Web acceptance remai
 scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../packages/contracts/production-brief-v1.md)
 provides exact snapshots and read grants; [session3 handoff](production-brief-audio-lifecycle-handoff.md)
 keeps intake linkage, review/release and later live client integration in separate boundaries.
-## Implemented development intake, verification incomplete
+## Private audio admission and next review boundary
 
-[ADR 0020](../decisions/0020-studio-private-audio-intake.md) and the
-[Studio owner intake contract](../../packages/contracts/studio-audio-intake-v1.md) record the
-narrow implemented slice: explicit four-profile Opus policy, current accepted script revision
-and digest pins, separate immutable intent, actual byte inspection, private filesystem objects
-and immutable receipt/status/retry behavior. It reuses Studio owner sessions and adds no public
-media route or producer credential. Rust/xtask/disposable-PostgreSQL runtime checks are
-**NOT_RUN** here; authored tests do not establish deployability or complete step 3 above.
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) reuses attributed PR69
+intake and binds verified private bytes to exact Content/Brief/profile/rights declarations.
+Named append-only reviews and private candidates expose current blockers; public publication
+always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
+[frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
-Next remains Catalog Web acceptance, then immutable catalog-bound briefs and separate scoped
-producer access. Production S3 storage, provenance/rights/QC review, release/delivery and
-reference-aware orphan cleanup retain their owning slices.
-[#51](https://github.com/loveoverflowcom/cantos/issues/51) listening/interoperability is not settled
-by admitting an Opus envelope.
+Next: real Studio Web integration, then secure identity/storage and stronger rights/QC policy,
+then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
+separate. No listening/interoperability is settled by admitting an Opus envelope.
 
 ## Existing foundations to retain
 

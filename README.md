@@ -28,8 +28,7 @@ routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v
 [Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
 revisions with separate metadata/content sequences and full revision pinning.
 [Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
-and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). External audio-upload/finalize APIs, object-storage
-acceptance and published listener releases are not implemented.
+and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Public publication/delivery remains unimplemented.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
 still planned. Theatre Web is a session-only
 [UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
@@ -50,8 +49,7 @@ Studio: verify object and metadata → human/editorial approval → immutable re
 Theatre: discover → stream/download → resume
 ```
 
-Production Brief export and read grants are implemented for the development host; submissions
-and releases remain proposals until their own API PRs implement them.
+Production Brief export/read grants and private Audio Lifecycle are implemented for the development host. Public releases remain proposals.
 No live routes should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
 
 ## Repository

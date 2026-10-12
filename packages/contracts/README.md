@@ -249,3 +249,5 @@ See [contract evidence](../../docs/evidence/script-ir-contract.md) and
 [revision evidence](../../docs/evidence/script-revision-persistence.md). Studio v1 uses hand-authored
 DTOs checked against the same Schema/fixtures in both native and browser-consumer tests; it is
 not generated OpenAPI. Future generated bindings must name their source and generation command.
+
+[Private Audio Lifecycle v1](audio-lifecycle-v1.md) implements Content/Brief-bound admission, independently scoped upload, append-only review and private candidate readiness. Public publication remains unavailable.

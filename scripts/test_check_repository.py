@@ -299,12 +299,23 @@ use crate::contexts::{production::current_snapshot};
                             "use crate::contexts::editorial::postgres::load_revision;",
                             "owning context's entrypoint")
 
-    def test_media_intake_uses_only_editorial_upstream(self):
-        self.assertEqual(self.errors("contexts/media/application.rs",
-                                     "use crate::contexts::editorial::{authorize, find_revision};"), [])
+    def test_media_lifecycle_consumes_owning_content_brief_entrypoints_only(self):
+        for source in ["use crate::contexts::editorial::{authorize, find_revision};",
+                       "use crate::contexts::production::audio_brief;",
+                       "use crate::contexts::catalog::ProductionContent;"]:
+            self.assertEqual(self.errors("contexts/media/application.rs", source), [])
         self.assertRejected("contexts/media/application.rs",
-                            "use crate::contexts::production::production_catalog;",
-                            "media must not depend on production")
+                            "use crate::contexts::production::postgres::briefs;",
+                            "owning context's entrypoint")
+    def test_production_has_only_the_concrete_reverse_credential_inquiry(self):
+        self.assertEqual(self.errors("contexts/production/application/briefs.rs",
+                                    "use crate::contexts::media::upload_token_registered;"), [])
+        self.assertRejected("contexts/production/application/briefs.rs",
+                            "use crate::contexts::media::audio_intake;",
+                            "production must not depend on media")
+        self.assertRejected("contexts/production/domain/brief.rs",
+                            "use crate::contexts::media::upload_token_registered;",
+                            "production must not depend on media")
 
     def test_media_intake_owns_only_its_postgres_tables(self):
         self.assertEqual(self.errors("contexts/media/postgres.rs", '''

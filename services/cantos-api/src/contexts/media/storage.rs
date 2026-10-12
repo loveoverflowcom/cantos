@@ -359,7 +359,7 @@ mod unix {
                 parent,
                 name.as_ptr(),
                 flags | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
-                mode,
+                libc::c_uint::from(mode),
             )
         };
         if descriptor < 0 {

@@ -32,7 +32,7 @@ pub(super) fn routes() -> Router<AppState> {
 
 // This runs before the Bytes extractor, so authenticated floods cannot buffer arbitrary
 // numbers of 32MiB bodies while waiting for the two inspection/storage lanes.
-async fn limit_upload(request: Request, next: Next) -> Response {
+pub(super) async fn limit_upload(request: Request, next: Next) -> Response {
     let Ok(_permit) = UPLOAD_REQUESTS.try_acquire() else {
         return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
     };

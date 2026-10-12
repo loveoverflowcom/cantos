@@ -1749,9 +1749,9 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(versions, (1..=13).collect::<Vec<_>>());
+    assert_eq!(versions, (1..=14).collect::<Vec<_>>());
     let preserved_versions = if catalog_already_applied {
-        "version<>10"
+        "version<=13 AND version<>10"
     } else {
         "version<=9"
     };

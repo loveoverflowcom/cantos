@@ -185,7 +185,9 @@ fn packet_facts(text: &str) -> Result<(f64, u64), AudioIntakeError> {
     let mut duration = 0.0;
     let mut bytes = 0_u64;
     let mut packet_count = 0_u32;
-    for line in text.lines() {
+    // ffprobe6 emits empty separators after packet side-data blocks. These contain
+    // no packet facts; nonempty lines must still have exact positive size/duration.
+    for line in text.lines().filter(|line| !line.is_empty()) {
         let mut size = None;
         let mut seconds = None;
         for item in line.split('|') {
@@ -408,6 +410,20 @@ mod tests {
         assert_eq!(
             inspect_audio(b"renamed file.opus", profile).unwrap_err(),
             AudioIntakeError::UnsupportedContainer
+        );
+    }
+}
+
+#[cfg(test)]
+mod packet_output_tests {
+    use super::*;
+    #[test]
+    fn ffprobe_packet_side_data_empty_separators_do_not_add_or_remove_packet_facts() {
+        assert_eq!(packet_facts("duration_time=0.020000|size=60|side_data_type=Skip Samples\n\nduration_time=0.020000|size=60\n"),Ok((0.04,24000)));
+        assert_eq!(packet_facts("\n\n"), Err(AudioIntakeError::MalformedAudio));
+        assert_eq!(
+            packet_facts("duration_time=0.020000|size=60\nunknown_nonempty_data\n"),
+            Err(AudioIntakeError::MalformedAudio)
         );
     }
 }

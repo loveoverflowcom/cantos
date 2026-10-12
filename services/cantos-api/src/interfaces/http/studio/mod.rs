@@ -22,6 +22,7 @@ use crate::platform::postgres::StoreError;
 
 mod adaptations;
 mod audio_intake;
+mod audio_lifecycle;
 mod briefs;
 mod catalog;
 mod content;
@@ -63,8 +64,10 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
             .merge(catalog::routes())
             // New Catalog/intake routes have no deprecated aliases.
             .merge(audio_intake::routes())
+            .merge(audio_lifecycle::owner_routes())
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .merge(briefs::producer_routes())
+            .merge(audio_lifecycle::producer_routes())
             .route("/session", post(login).delete(logout)),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))

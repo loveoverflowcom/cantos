@@ -51,7 +51,7 @@ fn ogg(bytes: &[u8]) -> Result<f64, AudioIntakeError> {
         if page_sequence != sequence
             || serial.is_some_and(|value| value != page_serial)
             || (flags & 2 != 0) != (sequence == 0)
-            || (flags & 1 != 0) != !pending.is_empty()
+            || (flags & 1 != 0) == pending.is_empty()
         {
             return Err(AudioIntakeError::MalformedAudio);
         }

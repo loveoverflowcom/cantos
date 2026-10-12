@@ -32,6 +32,11 @@ impl Fixtures {
                 "-b:a",
                 bitrate,
             ])
+            .args(if codec == "vorbis" {
+                vec!["-strict", "experimental"]
+            } else {
+                vec![]
+            })
             .args(if codec == "libopus" {
                 vec!["-vbr", "off"]
             } else {
@@ -93,7 +98,7 @@ fn actual_wrong_codec_container_channels_profile_and_corruption_are_rejected() {
             AudioIntakeError::UnsupportedContainer,
         ),
         (
-            fixtures.encode("wrong.ogg", "libvorbis", "40k", "1"),
+            fixtures.encode("wrong.ogg", "vorbis", "96k", "2"),
             AudioIntakeError::CodecMismatch,
         ),
         (

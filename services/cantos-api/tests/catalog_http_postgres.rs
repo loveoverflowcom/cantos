@@ -84,7 +84,12 @@ fn unit_request(work: &Value, title: &str) -> Value {
 
 fn schema(definition: &str, body: &Value) {
     let root: Value = serde_json::from_str(
-        if matches!(
+        if definition == "ApiError"
+            || definition.starts_with("Audio")
+            || definition.starts_with("ReleaseCandidate")
+        {
+            include_str!("../../../packages/contracts/schema/audio-lifecycle/v1.schema.json")
+        } else if matches!(
             definition,
             "ProductionBriefResponse" | "ProductionBriefDocument" | "ProducerGrantResponse"
         ) {
@@ -149,6 +154,12 @@ async fn request(
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     let definition = if !status.is_success() {
         "ApiError"
+    } else if body.get("submission").is_some() {
+        "AudioSubmissionResponse"
+    } else if body.get("candidate").is_some() {
+        "ReleaseCandidateResponse"
+    } else if body.get("reviewer_id").is_some() {
+        "AudioReviewDocument"
     } else if body.get("brief").is_some() {
         "ProductionBriefResponse"
     } else if body.get("permission").is_some() {
@@ -203,6 +214,7 @@ impl Harness {
         let admin = connect(&config).await;
         admin.batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
+             GRANT SELECT ON audio_submissions TO cantos_app;
              GRANT SELECT,INSERT ON production_briefs,production_brief_heads,production_producer_grants,production_producer_revocations TO cantos_app;
              GRANT UPDATE(brief_id,version) ON production_brief_heads TO cantos_app;
              GRANT INSERT ON source_records,script_evidence TO cantos_app;
@@ -1906,3 +1918,6 @@ async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgre
 
 #[path = "support/brief_http_postgres.rs"]
 mod brief_http;
+
+#[path = "support/audio_lifecycle_http_postgres.rs"]
+mod audio_lifecycle_http;
