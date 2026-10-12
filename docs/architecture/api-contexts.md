@@ -40,6 +40,8 @@ enforces the allowed context edges.
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
 defines work/content-unit mutations, deterministic pages and immutable Work history.
+[Content Identity](../../packages/contracts/content-v1.md) adds separate immutable content,
+plain text/recording support and exact owned source/Script IR bindings in the same context.
 
 The legacy alias `/api/v1/*` points to the same Studio handlers; avoid adding a new route
 to both spaces by duplicating code. New handler contracts belong in `packages/contracts/api`

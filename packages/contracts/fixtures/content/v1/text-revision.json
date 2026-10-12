@@ -1,0 +1,20 @@
+{
+  "id": "00000000-0000-0000-0000-000000000001",
+  "details": {
+    "language": "vi-VN",
+    "body": {
+      "kind": "text",
+      "text": "Ánh đèn.",
+      "source": null
+    },
+    "rights_refs": [],
+    "provenance_note": "Authored synthetic fixture; no rights clearance"
+  },
+  "work_id": "00000000-0000-0000-0000-000000000002",
+  "unit_id": "00000000-0000-0000-0000-000000000003",
+  "revision": 1,
+  "content_digest": "cc-c1:sha256:0e8a479a90588fd0875e0d8b5570c6f5e0ab3f91799840a67848460477311c5e",
+  "recorded_by": "lan",
+  "recorded_at": 1000,
+  "revision_digest": "cc-r1:sha256:481a9614cb0621ec4c824d989731896f54b022741295d991a29ccb356fc7c5a2"
+}

@@ -24,7 +24,9 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 manuscript intake, host-created adaptation proposal submission/review, reference casting/rights
 planning and a read-only WAV inspector. Studio Catalog implements work/content-unit domain rules,
 authorized transactional application use cases, PostgreSQL revision persistence and JSON HTTP
-routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md). External audio-upload/finalize APIs, object-storage
+routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md).
+[Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
+revisions with separate metadata/content sequences and full revision pinning. External audio-upload/finalize APIs, object-storage
 acceptance and published listener releases are not implemented.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
 still planned. Theatre Web is a session-only

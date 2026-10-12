@@ -24,6 +24,11 @@ Catalog visibility grants no public delivery; optional immutable source/Script I
 neither rights clearance nor publication. The deprecated alias and reserved surface groups gain
 no Catalog routes, and Studio Web Catalog UX remains a separate acceptance slice.
 
+The [Content Identity v1 contract](content-v1.md) adds separate immutable content revisions,
+normalized text or exact source/Script IR bindings, recording-only units, full revision digests,
+owner-bound evidence, atomic retries and bounded history. Metadata/content counters are distinct;
+legacy Catalog links do not move managed content. It adds no brief, accepted audio or publication.
+
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,
 separates exact original bytes from normalized extraction, and never saves a script revision or

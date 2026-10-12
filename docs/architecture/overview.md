@@ -31,7 +31,7 @@ manages releases. All apps speak versioned API contracts; no model credentials e
 | Adaptation | Frozen context and externally authored proposal acceptance | LLM inference |
 | Production | Versioned planning-only voice/performance/rights/budget metadata | Dispatch providers |
 | Media | Pure byte/format inspection; future private audio rendition admission | TTS, mixing, encoding |
-| Future catalog | Work/novel/story/podcast, chapter/episode hierarchy | Force Script IR on a recording |
+| Catalog (implemented) | Work/unit metadata and separate immutable ContentRevision, optional exact ScriptRef | Force Script IR on a recording or duplicate original sources |
 | Future publication | Rights/QC approval, immutable release manifest | Trust unverified uploads |
 | Theatre | Listener-visible releases and playback progress | Production work |
 
@@ -71,7 +71,7 @@ Theatre playback only reads accepted published files.
 
 ## Verification
 
-Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. The new Work/Audio
-contracts are **proposed**; no existing API route implements their lifecycle yet.
+Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. Work/unit metadata and [Content Identity](../../packages/contracts/content-v1.md) are implemented
+as authenticated Studio APIs. The remaining Audio/Brief lifecycle is **proposed**.
 Read [external handoff contract](../../packages/contracts/external-audio-handoff-v1.md) before
 adding a route and write adversarial/replay/owner-isolation tests as part of its implementation.
