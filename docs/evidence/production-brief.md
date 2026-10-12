@@ -67,12 +67,12 @@ Final domain target:8 tests PASS, including independent Python literal digest, f
 Content, exact scope errors, CRLF/lone-CR normalization and control rejection. Final real HTTP
 PostgreSQL target:23 tests PASS plus its separate restart test. Its source negative cases reject
 legacy, failed and oversized receipts without a Brief/head. App-role baseline explicitly asserts
-and records `current_user=cantos_app`;20 warm exports across30 versions measured a13.1ms
+and records `current_user=cantos_app`;20 warm exports across30 versions measured a12.8ms
 median in the captured run. This is a local synthetic observation, not a latency guarantee.
 
 Session logs: `/tmp/cantos-brief-{repository,rust,contracts,postgres,preflight,review-fixes}.log`.
 Ignored runtime artifacts: `target/revision-evidence/`, `target/catalog-evidence/`, including
-`brief-read-baseline.json`, `http-restart.json` and `http-crash-recovery.json`.
+`brief-read-baseline.json`, `http-restart.json` and `http-server-restart.json`.
 GitHub CI is not inspected, polled, dispatched or awaited. Runtime UI/mobile, provider, object
 storage, audio measurement/listening and publication are NOT_RUN and outside this boundary.
 
