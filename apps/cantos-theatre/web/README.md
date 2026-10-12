@@ -1,69 +1,100 @@
 # Cantos Theatre Web mock
 
-`cantos-theatre` is the existing Leptos 0.7.8 CSR/WASM build target, extended with a
-**session-only listener UI mock**. Listener-facing names remain **Cantos**. No backend or
-listener contract is integrated, and this mock does not complete listening issues #12/#13.
+The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
+a session-only listener mock; users see **Cantos**. Compilation and runtime verification remain
+incomplete. No production listening issue or UI-system qualification is completed by this PR.
 
-## Scope
+## Scope and honest behavior
 
-- Hash-routed discovery, local search, three work/episode lists, library, mock full player,
-  queue, listening settings, account-unavailable and unknown-route recovery.
-- Deterministic Vietnamese sample titles and synopses, including a long title and an explicitly
-  unavailable sample episode. These are presentation fixtures, not published or approved assets.
-- Session-only save toggles, bounded manual seeking, mock play/pause/ended states, repeated-safe
-  episode selection, deduplicated queue/bookmarks, bookmark return and reset/empty-library controls.
-- A shell-owned mini-player keeps the chosen sample across navigation. **There is no audio or
-  playback clock.** Play changes the mock status; only manual input changes the position.
-- Vietnamese/English typed UI resources, content tagged `vi-VN`, system/light/dark presentation,
-  locale-formatted mock speed and spoken duration, native links/buttons/search/range controls.
-- Loading/empty/error catalog fixtures selected in Settings. Loading waits for the explicit
-  Show sample data action; Retry only switches back to local fixtures. Neither performs I/O.
+- Hash-routed discovery, local search, three synthetic work/episode lists, library, full/compact
+  mock player, queue, settings, unavailable-account and unknown-route recovery.
+- Deterministic Vietnamese titles/synopses, a long title and an unavailable sample episode.
+  Sample availability is not publication, rights or backend authorization.
+- Separate saved works, point bookmarks and explicit session progress. Saving a story never
+  creates a bookmark, playback position or download. Clearing library contents leaves the root
+  player and queue intact. Reload loses every session fact.
+- A single root-owned `PlayerSession` persists across route changes. Play dispatches intention;
+  only a matching **fake-engine** `EngineStarted` confirms **simulated** running. There is no
+  audio, media element or playback clock. Seeking/skipping changes manual position, preserving
+  intent; a fake end event, rather than seeking to the end, labels the sample ended.
+- The full player's clearly labeled demo controls inject fake buffering, acknowledgement,
+  interruption, no-auto-resume and in-memory restore events. Restore offers a position while
+  paused. Reset advances generation instead of reusing an old callback identity.
+- Vietnamese/English typed resources, `vi-VN` content, system/light/dark presentation,
+  localized speed/duration, native accessible links/buttons/search/range controls.
+- Loading/empty/error catalog scenarios use a deterministic fake port. Loading remains pending
+  until Show sample data; Retry requests local samples only. Older response generations are ignored.
 
-No API calls, authentication, session tokens, audio element, playback adapter, downloads,
-sleep timer, sync, persistence, billing, provider calls or backend changes exist in this app.
-Sign-in/sync/download/timer actions are disabled with visible and associated reasons. Reload
-returns the seeded demo; resets do not affect the separate interface locale or theme choices.
+No API, authentication, network client, real audio/download, timer, sync, disk/account persistence,
+billing, provider, backend or publication code is integrated. Unsupported actions stay disabled
+with associated reasons. The fake adapter is not browser/native audio integration, and the
+in-memory cold-restore exercise is not reload/session persistence.
 
-## Boundaries
+## Implemented ownership and dependency direction
 
-| File | Responsibility |
+| Module | Concrete responsibility |
 | --- | --- |
-| `src/model.rs` | Pure fixtures, hash-route parsing and in-memory presentation reducer |
-| `src/messages.rs` | Exhaustive typed Vietnamese/English UI resources and mock formatters |
-| `src/platform.rs` | Fallible browser hash navigation and focus, with native-test fallbacks |
-| `src/view.rs` | Theatre-only screen compositions and session signals |
-| `theatre.css` | App layout through existing canonical semantic roles |
-| `assets/icons/` | Pinned, licensed Google Material Icons Outlined markup and provenance |
+| `src/app/context.rs` | One root composition: independent catalog/player/library/progress/queue handles; explicit user commands; locale/theme/navigation |
+| `src/app/routes.rs` | Typed hash routes; no player construction |
+| `src/core/ids.rs`, `catalog.rs` | Synthetic typed keys and catalog read models; no publication authority |
+| `src/core/playback/` | Framework-free immutable state, events, ordered effects and `reduce(state, event) -> Transition` |
+| `src/core/listening/` | Separate saved-work/bookmark, progress and queue facts/rules |
+| `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s |
+| `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
+| `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
+| `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter/tab signals |
+| `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery/account |
+| `src/messages.rs`, `platform.rs` | Typed locale resources; fallible browser navigation/title/focus only |
+| `src/styles/theatre.css`, `assets/icons/` | Canonical-token layout; pinned licensed official Material Icons |
 
-This is a presentation boundary for a future listener adapter, **not** a provisional production
-API or playback/sync reducer. Before real playback, follow the owning
-[listening work item](../../../docs/work-plan/040-theatre-web-listening.md),
-[API boundaries](../../../docs/decisions/0015-api-surface-boundaries.md) and
-[listening rules](../../../.agents/skills/cantos-listening/SKILL.md). Theatre must only consume
-`/api/v1/theatre/*`; no Studio session, private draft or service module is imported here.
+The core imports no Leptos, browser, I/O or adapter. The application owns effect execution; features
+receive capability handles and never import infrastructure. Player status and view are derived
+with `Memo`, not maintained by an effect copying state. Local progress is recorded only by explicit
+user commands; it makes no completed-listen or synchronization claim. No global `AppStore`, shared
+runtime, FFI, state-management framework, speculative crate or empty production adapter is added.
+
+### Shared mock semantics
+
+The independent Rust and Kotlin reducers share **data**, not runtime code:
+[`theatre-mock-playback@1`](../../../packages/contracts/fixtures/theatre/playback/v1/README.md).
+Its schema/index and seven hand-authored vectors specify full state, derived status and ordered
+effects for play/pause, buffering, interruption, stale responses, restore, preparation races and
+invalid controls. The native Rust harness embeds the exact corpus, rejects unknown versions,
+fields/tags and bounds, and compares every step to the authored expectations. Test-source presence
+is not a passing result; Rust/WASM execution is still NOT_RUN here.
+
+Every callback must match source identity and monotonically checked generation. Play, pause,
+seek, source change, restore and interruption boundaries invalidate old work. Prepare/Start effects
+carry complete source/position/speed, so a new intent during preparation establishes a viable
+current-generation path rather than waiting on discarded readiness. Generation exhaustion rejects
+transactionally, without wrapping. These are pinned **mock** rules, not production OS autoplay,
+media-version or listener synchronization policy.
+
+Production implementation still follows [Web listening](../../../docs/work-plan/040-theatre-web-listening.md),
+[listening rules](../../../.agents/skills/cantos-listening/SKILL.md) and
+[API boundaries](../../../docs/decisions/0015-api-surface-boundaries.md). Future Theatre adapters
+must consume only backend-authorized Theatre data. Private drafts and TTS previews never become
+public releases through a frontend reducer; backend publication authorization remains authoritative.
 
 ## Design and component admission
 
-The [2026-10-11 Web reference](https://drive.google.com/file/d/1UEMLvfNdorz4P9qZgfoVkp2HwQV_Ipwt/view)
-and [handoff](https://drive.google.com/file/d/1d2LA4MxQmcW02gUJElz9RseBWV0sAAah/view)
-were read, and the reference board plus all three original artwork images were visually inspected.
-The board is a manually composed design board, not a browser screenshot.
+The [Web reference](https://drive.google.com/file/d/1UEMLvfNdorz4P9qZgfoVkp2HwQV_Ipwt/view)
+and [handoff](https://drive.google.com/file/d/1d2LA4MxQmcW02gUJElz9RseBWV0sAAah/view) were read in
+the initial mock phase; their board and original artwork were visually inspected. They are design
+references, not changed-app browser screenshots. Typographic covers and system font fallbacks are
+explicit substitutes; reference artwork/fonts are not redistributed. There is no font/icon CDN.
 
-The mock follows the adopted v0.2.0 paper/purple roles, serif hierarchy, tonal grouping and
-responsive rail. It deliberately uses **typographic cover placeholders**: embedded artwork/fonts
-are reference inputs, not redistributed repository assets. There is no font/icon CDN. Exact
-reference fidelity and actual browser font rendering remain unverified.
-
-The existing `UiRoot`, `Container`, `Surface`, `Stack`, `Select` and `EmptyState` imports stay at
-`src/view.rs`, the exact compatibility site. Private Theatre screen compositions use native HTML
-and canonical tokens. No shared API, token, catalog, baseline exemption or qualification changes.
-The shared catalog remains **0/29 qualified** for new adoption; this mock grants none.
-Future reusable controls must complete [both-renderer admission](../../../packages/ui-system/shared/README.md#preview-registration-and-adoption)
-before new app adoption. App composition is not a replacement UI-system acceptance claim.
+Paper/purple v0.2.0 roles, tonal grouping, responsive rail and existing focus/reduced-motion/forced-
+color styling are retained. Shared imports `UiRoot`, `Container`, `Surface`, `Stack`, `Select` and
+`EmptyState` stay at the **same `src/view.rs` compatibility site**. Feature compositions use native
+HTML and existing canonical tokens, not new reusable shared primitives. No token, preview catalog,
+qualification, admission baseline or exemption is changed. The shared catalog remains **0/29
+qualified**; new reusable adoption still requires [both-preview admission](../../../packages/ui-system/shared/README.md#preview-registration-and-adoption).
+No actual app pixels, keyboard behavior, text zoom or assistive-technology result is claimed.
 
 ## Build, run and checks
 
-Use the existing [xtask command surface](../../../xtask/README.md), Rust 1.87,
+Use the existing [xtask commands](../../../xtask/README.md), Rust 1.87,
 `wasm32-unknown-unknown` and Trunk 0.21.14:
 
 ```sh
@@ -77,32 +108,37 @@ cargo xtask verify web
 cargo xtask preflight --changed-only
 ```
 
-The run command serves `127.0.0.1:8082`. No backend/proxy is needed or added. Existing native
-workspace tests include pure reducer/resource tests and Leptos string-render composition tests;
-they are part of `verify rust`, not a second test entrypoint.
+Run serves `127.0.0.1:8082`; no API/proxy is needed. Tests belong to the existing Cargo workspace
+and `verify rust`: pure reducers, exact shared-vector replay, fake ports, stale callbacks, a single
+player across routes, resources and Leptos native string-render compositions. `serde_json` is a
+test-only dependency at already-locked 1.0.145. No alternative test/run orchestrator is introduced.
 
-**Verification is incomplete for this handoff.** The assigned dot cloud environment has no
-Cargo/rustc/Trunk, so required xtask commands cannot start. No toolchain was downloaded or installed.
-The app has not been compiled, built, run or interaction-tested. Supplemental source/catalog/link
-checks do not satisfy those gates. See the exact [evidence and remaining checks](../../../docs/evidence/theatre-web-mock.md).
+**This cloud executor has no Cargo/rustc/rustfmt/Trunk.** No toolchain was installed. Required
+xtask commands cannot start; compile/format/Clippy/native tests/WASM/build/run/browser results
+remain NOT_RUN. Source/schema/catalog/link diagnostics do not satisfy those gates. See the
+[execution record and review limits](../../../docs/evidence/theatre-web-mock.md).
 
 ## Manual browser scenarios still required
 
-After the Web gate passes, use the supported run command and inspect real app pixels at
-1440×1000, 1024×768 and 390/320 CSS px, light/dark, both locales and 200% text zoom.
+After the required gates pass, inspect the real app at 1440×1000, 1024×768 and 390/320 CSS px,
+light/dark, both locales and 200% text zoom:
 
-1. Discovery → a work → each available sample → Player → Library → Back/Forward. The sample
-   identity/position should remain stable; opening a different sample intentionally resets position.
-2. Tab to Skip to main content; confirm it focuses main without changing the route. Inspect focus
-   rings and ensure no focused control is hidden by the mini-player at narrow/zoomed widths.
-3. Seek with arrow keys, skip past either bound, reach the end and replay explicitly. No sound or
-   automatic progression should occur. Play/pause repeated actions only toggle the written mock state.
-4. Add the same bookmark/queue item twice; remove focused rows, including the last row; verify
-   usable focus and empty recovery. Resume a bookmark at its exact sample position.
-5. Change catalog scenario, return to discovery/work/search, retry and clear filters. Existing
-   library/player state should survive. Try the empty library, then Reset.
-6. Check unavailable and disabled controls, all native select fields, hash deep links, an unknown
-   route, Vietnamese diacritics/long titles, reduced motion and forced colors.
+1. Discovery → work → sample → Player → Library → Back/Forward. The same root player identity
+   and position survive navigation. Opening a different sample records progress and selects it paused.
+2. Use Skip to main content; confirm focus without a route change. Check focus rings and that the
+   mini-player does not hide focused controls at narrow/zoomed widths.
+3. Play/pause, manual seek and clamped skips; fake-buffer and confirm recovery. Seek to the end
+   without claiming a completed listen; inject a fake end, then explicitly replay from zero. No sound
+   or clock movement is expected.
+4. Start an interruption; pause during it; end with no automatic resume. Restore the current
+   in-memory snapshot; it stays paused until explicit Play. Repeated restore/Reset advances identity.
+5. Add the same bookmark/queue item twice; remove focused and last rows; verify focus/recovery.
+   Resume a bookmark exactly. Repeat Continue without alternating to an older progress record.
+6. Change catalog scenarios, retry and clear filters. Player/library remain intact. Clear library
+   contents while the player/queue survive, then Reset. Search/filter/tab state belongs to its screen.
+7. Check all disabled reasons, selects, hash deep links/unknown routes, Vietnamese long titles,
+   reduced motion and forced colors. Verify the demo labels remain visible on every player state.
 
-Real audio, reload persistence, release pinning, server synchronization, CDN delivery and
-Android/iOS device acceptance remain separate future work. This mock closes no production gate.
+Real audio, release/media-version pinning, reload persistence, CDN delivery, progress reconciliation
+and Android/iOS/background/native-engine acceptance remain future work. This mock closes no
+production or UI-system acceptance gate.

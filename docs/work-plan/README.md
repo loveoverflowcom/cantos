@@ -91,11 +91,12 @@ repository gate. It preserves the recommended acceptance/reuse order below; GitH
 merge status.
 
 The requester-authorized [Theatre Web session-only mock](../evidence/theatre-web-mock.md) extends
-its existing Leptos build target with local discovery/work/library/player/queue/settings fixtures.
-It integrates no API, audio, account or persistent state and closes neither #12 nor #13. The
-assigned cloud executor lacks Cargo/rustc/Trunk, so required compile/test/xtask and browser gates
-remain NOT_RUN; the draft is verification-incomplete. Shared qualification remains 0/29, and
-new adoption still requires both-preview acceptance. This UI slice does not reorder the queue.
+the existing Leptos target and now has an app-local immutable playback core, concrete fake ports,
+one root player and capability-scoped screen state. The [shared mock vectors](../../packages/contracts/fixtures/theatre/playback/v1/README.md)
+are data shared with the independent CMP reducer, not a production listener API or shared runtime.
+The Web Rust/build/browser gates remain NOT_RUN on its cloud executor; structural diagnostics do
+not qualify a component or complete [040](040-theatre-web-listening.md), #12 or #13. Its existing
+[PR61](https://github.com/loveoverflowcom/cantos/pull/61) stays draft.
 
 ## Recommended bounded follow-ups
 

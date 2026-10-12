@@ -1,0 +1,34 @@
+//! App-private semantic HTML compositions, not new shared UI primitives.
+use leptos::prelude::*;
+use crate::{app::context::TheatreContext, application::catalog::Scenario,
+    core::ids::{EpisodeId, WorkId}, messages::Key};
+use super::{common::*, library::ContinueCard};
+
+#[component]
+pub(crate) fn Discover(ctx: TheatreContext) -> impl IntoView {
+    view! {
+        <PageHeading ctx=ctx title=Key::HomeHeading deck=Key::HomeDeck/>
+        <Show when=move || ctx.catalog.scenario() == Scenario::Ready fallback=move || view! { <CatalogState ctx=ctx/> }>
+            <section class="theatre-feature">
+                <div class="theatre-feature-copy">
+                    <p class="theatre-eyebrow">{move || ctx.text(Key::Featured)}</p>
+                    <h2 lang="vi-VN">{ctx.work(WorkId::Mountain).title}</h2>
+                    <p lang="vi-VN">{ctx.work(WorkId::Mountain).synopsis}</p>
+                    <p class="theatre-muted">{move || ctx.text(Key::ContentLanguage)}</p>
+                    <div class="theatre-actions">
+                        <button type="button" class="theatre-action" on:click=move |_| ctx.open_episode(EpisodeId { work: WorkId::Mountain, index: 0 })>
+                            {icon("play_arrow")}{move || ctx.text(Key::Begin)}
+                        </button>
+                        <a class="theatre-text-link" href=Route::Work(WorkId::Mountain).hash()>{move || ctx.text(Key::AboutWork)}</a>
+                    </div>
+                </div>
+                <div class="theatre-feature-cover"><Cover ctx=ctx id=WorkId::Mountain/></div>
+            </section>
+            <ContinueCard ctx=ctx/>
+            <section aria-labelledby="theatre-shelf-heading">
+                <h2 id="theatre-shelf-heading" class="theatre-section-heading">{move || ctx.text(Key::StoryShelf)}</h2>
+                <div class="theatre-shelf"><For each=move || ctx.catalog.state.get().ids() key=|id| *id children=move |id| view! { <WorkCard ctx=ctx id=id/> }/></div>
+            </section>
+        </Show>
+    }
+}

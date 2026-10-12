@@ -1,5 +1,5 @@
 //! Typed resources for the mock only; Vietnamese content fixtures never change with UI locale.
-use crate::model::{Genre, Route, Transport};
+use crate::{app::routes::Route, core::{catalog::Genre, playback::{PauseCause, Status}}};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Locale {
@@ -101,6 +101,19 @@ resources! {
     Paused => ("Mô phỏng · đang tạm dừng", "Mock · paused"),
     Simulating => ("Mô phỏng đang phát · không có âm thanh", "Simulating play · no audio"),
     Ended => ("Mô phỏng · đã hết tập", "Mock · episode ended"),
+    PlayerLoading => ("Mô phỏng · đang chờ bộ máy giả xác nhận", "Mock · waiting for fake-engine confirmation"),
+    Buffering => ("Mô phỏng · đang đệm, không có âm thanh", "Mock · buffering, no audio"),
+    Interrupted => ("Mô phỏng · dừng sau gián đoạn", "Mock · paused after interruption"),
+    ResumeOffered => ("Mô phỏng · có vị trí để nghe tiếp, chưa phát", "Mock · resume position offered, playback has not started"),
+    MockEngineTools => ("Thử bộ máy giả", "Fake-engine demo controls"),
+    MockBuffer => ("Mô phỏng đệm", "Simulate buffering"),
+    MockReady => ("Xác nhận phát mô phỏng", "Confirm simulated play"),
+    MockInterrupt => ("Mô phỏng gián đoạn", "Simulate interruption"),
+    MockEndInterrupt => ("Kết thúc gián đoạn, giữ tạm dừng", "End interruption and stay paused"),
+    MockEnd => ("Mô phỏng kết thúc tập", "Simulate episode end"),
+    MockRestore => ("Khôi phục vị trí trong phiên", "Restore position within this session"),
+    MockRejected => ("Thao tác mẫu chưa được chấp nhận. Kiểm tra trạng thái mô phỏng rồi thử lại.", "The sample action was not accepted. Check the mock state and try again."),
+    MockEngineHelp => ("Chỉ thử sự kiện giả. Phát mô phỏng trước khi thử đệm; kết thúc gián đoạn trước khi phát lại. Không có âm thanh, cuộc gọi thật, lưu trữ hay tự nghe tiếp.", "Fake events only. Simulate play before buffering; end an interruption before playing again. No sound, actual phone interruption, storage or automatic resume."),
     Timeline => ("Vị trí mô phỏng", "Mock position"),
     TimelineHelp => ("Kéo hoặc dùng phím mũi tên. Không có đồng hồ phát; vị trí chỉ đổi khi bạn thao tác.", "Drag or use arrow keys. There is no playback clock; position changes only with your input."),
     SpokenTimeOf => ("{elapsed} trên tổng số {total}", "{elapsed} of {total}"),
@@ -142,8 +155,8 @@ resources! {
     Error => ("Lỗi", "Error"),
     DemoTools => ("Điều khiển bản mô phỏng", "Demo controls"),
     Reset => ("Đặt lại toàn bộ dữ liệu mẫu", "Reset all sample data"),
-    ResetHelp => ("Đặt lại vị trí, tác phẩm lưu, dấu trang, tiếp theo, tìm kiếm và tốc độ. Chỉ ảnh hưởng phiên demo này.", "Reset position, saved stories, bookmarks, queue, search and speed. Only this demo session is affected."),
-    ClearLibrary => ("Thử tủ sách trống", "Try an empty library"),
+    ResetHelp => ("Đặt lại vị trí, tác phẩm lưu, dấu trang, tiếp theo và tốc độ. Xóa tủ sách chỉ xóa tác phẩm lưu, dấu trang và vị trí, không xóa trình phát. Chỉ ảnh hưởng phiên demo này.", "Reset position, saved stories, bookmarks, queue and speed. Clearing the library only clears saved stories, bookmarks and progress, leaving the player. Only this demo session is affected."),
+    ClearLibrary => ("Xóa nội dung tủ sách mẫu", "Clear sample library contents"),
     AccountHelp => ("Bạn đang dùng bản mô phỏng không có tài khoản. Lưu tác phẩm và dấu trang chỉ tồn tại trong bộ nhớ phiên này.", "You are using an account-free mock. Saved stories and bookmarks exist only in this session's memory."),
     SignIn => ("Đăng nhập", "Sign in"),
     Sync => ("Đồng bộ", "Sync"),
@@ -189,7 +202,7 @@ pub fn position_description(locale: Locale, position: u32, duration: u32) -> Str
 
 pub fn page_title(locale: Locale, route: Route) -> String {
     let page = match route {
-        Route::Work(id) => crate::model::work(id).title,
+        Route::Work(_) => text(Key::AboutWork, locale),
         route => text(route_key(route), locale),
     };
     format(Key::PageTitle, locale, &[("page", page.to_owned())])
@@ -223,11 +236,16 @@ pub fn route_key(route: Route) -> Key {
     }
 }
 
-pub fn transport_key(transport: Transport) -> Key {
-    match transport {
-        Transport::Paused => Key::Paused,
-        Transport::Simulating => Key::Simulating,
-        Transport::Ended => Key::Ended,
+pub fn status_key(status: Status) -> Key {
+    match status {
+        Status::Idle => Key::NoPlayer,
+        Status::Loading => Key::PlayerLoading,
+        Status::Paused(PauseCause::User) => Key::Paused,
+        Status::Paused(PauseCause::Interruption) => Key::Interrupted,
+        Status::Paused(PauseCause::ColdRestore) => Key::ResumeOffered,
+        Status::Simulating => Key::Simulating,
+        Status::Buffering => Key::Buffering,
+        Status::Ended => Key::Ended,
     }
 }
 

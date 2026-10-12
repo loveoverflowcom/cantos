@@ -1,5 +1,5 @@
 //! Fallible browser hash navigation only. No storage, auth, media element or network adapter.
-use crate::model::Route;
+use crate::app::routes::Route;
 use leptos::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
