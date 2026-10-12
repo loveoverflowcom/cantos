@@ -3,7 +3,8 @@
 - Date: 2026-10-12
 - Issue: [#58](https://github.com/loveoverflowcom/cantos/issues/58); decision:
   [ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)
-- Base: `develop` at `5d26d9b6077bbba09e4e9315ae06661658c53e8d` (re-fetched, unchanged at start)
+- Base: `develop` at `5d26d9b6077bbba09e4e9315ae06661658c53e8d` when the work started; later merged
+  with `db1433906e0caeab2b3bc2239476d4e993bf5b28` (see Gate results)
 - Status: **implemented experimental** DBSP read model, feature-gated and local/development only.
   **Production adoption is not admitted.** PostgreSQL remains the authority and the default path.
 
@@ -280,6 +281,15 @@ Python 3.9.6, which lacks `tomllib`. The new `test_benchmark_job_summary_dbsp` p
 repository gate as a whole is `FAIL` here for a pre-existing environment reason, not this change.
 `cargo test -p xtask` (88 tests) covers the new gate, CI job, preflight selection and build flag.
 GitHub Actions results were not awaited, per the local handoff policy.
+
+`develop` then advanced to `db14339` (#59, Studio web-only), which touched xtask and documents but
+nothing under `services/` or the scripts the database gates run. After merging it (one import
+conflict in `xtask/src/build.rs`), `cargo xtask verify rust` **PASS** (669 passed, 0 failed,
+113 ignored), `scripts/check_repository.py` passed, and the Python script tests showed the same
+five pre-existing failures out of 216. One `cargo test -p xtask` run failed
+`probe::tests::port_ownership_reflects_an_existing_listener` (an ephemeral-port race in a test
+this change does not touch); three reruns passed 88 of 88. The `dbsp` and `postgres` gates were
+not rerun after the merge.
 
 ## Completion report
 
