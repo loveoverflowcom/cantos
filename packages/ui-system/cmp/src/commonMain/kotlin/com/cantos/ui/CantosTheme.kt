@@ -2,6 +2,9 @@ package com.cantos.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -20,7 +23,6 @@ import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.cantos.ui.generated.CantosTokens
 
 /** Renderer preferences only. No production app or domain state belongs here. */
@@ -28,10 +30,19 @@ data class UiPreferences(
     val theme: Theme = Theme.Light,
     val density: Density = Density.Compact,
     val reducedMotion: Boolean = false,
+    /** Absolute multiplier on the host font scale, including when themes are nested. */
     val textScale: Float = 1f,
-)
+) {
+    init {
+        require(textScale.isFinite() && textScale > 0f) { "Text scale must be finite and positive" }
+    }
+}
 
 val LocalUiPreferences = staticCompositionLocalOf { UiPreferences() }
+
+// A nested preview changes its own multiplier without treating the outer multiplier as a
+// platform preference. Keeping the baseline scoped also restores the untouched host for siblings.
+private val LocalPlatformFontScale = staticCompositionLocalOf<Float?> { null }
 
 @Composable
 fun tokenDp(name: String): Dp = CantosTokens.number(
@@ -67,6 +78,7 @@ internal fun typeStyle(role: String, editorial: Boolean = false): TextStyle {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CantosTheme(preferences: UiPreferences, content: @Composable () -> Unit) {
     fun color(name: String): Color = parseTokenColor(CantosTokens.color(name, preferences.theme.tokenName))
@@ -123,9 +135,13 @@ fun CantosTheme(preferences: UiPreferences, content: @Composable () -> Unit) {
     val label = typeStyle("label")
     val metadata = typeStyle("metadata")
     val currentDensity = LocalDensity.current
+    val platformFontScale = LocalPlatformFontScale.current ?: currentDensity.fontScale
+    val minimumControlSize = CantosTokens.number("size.control", density = preferences.density.tokenName).toFloat().dp
     CompositionLocalProvider(
         LocalUiPreferences provides preferences,
-        LocalDensity provides DisplayDensity(currentDensity.density, currentDensity.fontScale * preferences.textScale),
+        LocalPlatformFontScale provides platformFontScale,
+        LocalDensity provides DisplayDensity(currentDensity.density, platformFontScale * preferences.textScale),
+        LocalMinimumInteractiveComponentSize provides minimumControlSize,
     ) {
         MaterialTheme(
             colorScheme = mapped,

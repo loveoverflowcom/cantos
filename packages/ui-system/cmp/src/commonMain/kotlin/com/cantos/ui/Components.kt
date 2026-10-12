@@ -1,13 +1,10 @@
 package com.cantos.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,20 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.Icon as MaterialIcon
-import androidx.compose.material3.IconButton as MaterialIconButton
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextField as MaterialTextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch as MaterialSwitch
@@ -38,14 +29,11 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,26 +44,10 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.generated.CantosIcons
 import com.cantos.ui.generated.CantosTokens
 
-private fun Modifier.cantosFocus(): Modifier = composed {
-    var focused by remember { mutableStateOf(false) }
-    val width = tokenDp("size.focusWidth")
-    val color = tokenColor("color.focus")
-    val shape = RoundedCornerShape(tokenDp("shape.control"))
-    onFocusChanged { focused = it.isFocused }
-        .then(if (focused) Modifier.border(width, color, shape) else Modifier)
-}
-
-private fun Modifier.actionState(state: ButtonState, description: String? = null): Modifier = semantics {
-    val descriptions = listOfNotNull(description, state.reason()).joinToString(". ")
-    if (descriptions.isNotBlank()) stateDescription = descriptions
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UiRoot(
     modifier: Modifier = Modifier,
@@ -83,111 +55,7 @@ fun UiRoot(
     content: @Composable () -> Unit,
 ) {
     CantosTheme(preferences) {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides tokenDp("size.control")) {
-            RootContent(modifier, content)
-        }
-    }
-}
-
-@Composable
-fun Button(
-    label: String,
-    onPress: () -> Unit,
-    modifier: Modifier = Modifier,
-    state: ButtonState = ButtonState.Enabled,
-    variant: ButtonVariant = ButtonVariant.Primary,
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        ButtonControl(label, onPress, state = state, variant = variant)
-        state.reason()?.let { FieldHelp(it) }
-    }
-}
-
-/** Control semantics belong on the native interactive node, separate from adjacent help. */
-@Composable
-private fun ButtonControl(
-    label: String,
-    onPress: () -> Unit,
-    modifier: Modifier = Modifier,
-    state: ButtonState = ButtonState.Enabled,
-    variant: ButtonVariant = ButtonVariant.Primary,
-    name: AccessibleName? = null,
-    description: String? = null,
-) {
-    val background = when (variant) {
-        ButtonVariant.Primary -> tokenColor("color.primary")
-        ButtonVariant.Tonal -> tokenColor("color.primaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.errorContainer")
-        ButtonVariant.Secondary, ButtonVariant.Text -> Color.Transparent
-    }
-    val foreground = when (variant) {
-        ButtonVariant.Primary -> tokenColor("color.onPrimary")
-        ButtonVariant.Tonal -> tokenColor("color.onPrimaryContainer")
-        ButtonVariant.Danger -> tokenColor("color.error")
-        ButtonVariant.Secondary, ButtonVariant.Text -> tokenColor("color.primary")
-    }
-    androidx.compose.material3.Button(
-        onClick = { if (state.canPress()) onPress() },
-        enabled = state.canPress(),
-        modifier = modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state, description)
-            .semantics { name?.let { contentDescription = it.text } },
-        shape = RoundedCornerShape(tokenDp("shape.control")),
-        border = if (variant == ButtonVariant.Secondary) BorderStroke(
-            tokenDp("size.border"), tokenColor("color.outline"),
-        ) else null,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = background,
-            contentColor = foreground,
-            disabledContainerColor = tokenColor("color.surfaceContainer"),
-            disabledContentColor = tokenColor("color.onSurfaceVariant"),
-        ),
-        contentPadding = PaddingValues(horizontal = tokenDp("space.controlInline")),
-    ) {
-        if (state is ButtonState.Loading) {
-            Icon("expand_more")
-            Spacer(Modifier.size(tokenDp("space.sm")))
-        }
-        Text(label)
-    }
-}
-
-@Composable
-fun IconButton(
-    name: AccessibleName,
-    icon: String,
-    onPress: () -> Unit,
-    modifier: Modifier = Modifier,
-    state: ButtonState = ButtonState.Enabled,
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        MaterialIconButton(
-            onClick = { if (state.canPress()) onPress() },
-            enabled = state.canPress(),
-            modifier = Modifier.size(tokenDp("size.control")).cantosFocus().actionState(state)
-                .semantics { contentDescription = name.text },
-        ) { Icon(icon) }
-        state.reason()?.let { FieldHelp(it) }
-    }
-}
-
-@Composable
-fun FilterChip(
-    label: String,
-    selected: Boolean,
-    onSelect: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    state: ButtonState = ButtonState.Enabled,
-) {
-    Column(modifier) {
-        MaterialFilterChip(
-            selected = selected,
-            onClick = { if (state.canPress()) onSelect(!selected) },
-            enabled = state.canPress(),
-            label = { Text(label) },
-            leadingIcon = if (selected) ({ Icon("check") }) else null,
-            modifier = Modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state),
-        )
-        state.reason()?.let { FieldHelp(it) }
+        RootContent(modifier, content)
     }
 }
 
@@ -222,108 +90,6 @@ fun NavTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifi
 }
 
 @Composable
-private fun ControlledTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier,
-    state: FieldState,
-    help: String?,
-    errorText: String?,
-    singleLine: Boolean,
-    keyboardType: KeyboardType,
-) {
-    val description = listOfNotNull(help, errorText, state.reason()).joinToString(". ")
-    val fieldContainer = tokenColor(if (state == FieldState.ReadOnly) "color.surfaceContainer" else "color.surfaceContainerHigh")
-    val content = tokenColor("color.onSurface")
-    val secondaryContent = tokenColor("color.onSurfaceVariant")
-    val errorColor = tokenColor("color.error")
-    MaterialTextField(
-        value = value,
-        onValueChange = { if (state.acceptsInput()) onValueChange(it) },
-        modifier = modifier.fillMaxWidth().cantosFocus().semantics {
-            if (description.isNotBlank()) stateDescription = description
-            if (errorText != null) error(errorText)
-        },
-        label = { Text(label) },
-        enabled = state.isEnabled(),
-        readOnly = state == FieldState.ReadOnly,
-        isError = errorText != null,
-        singleLine = singleLine,
-        minLines = if (singleLine) 1 else 3,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        shape = RoundedCornerShape(tokenDp("shape.field")),
-        colors = TextFieldDefaults.colors(
-            focusedTextColor = content,
-            unfocusedTextColor = content,
-            disabledTextColor = secondaryContent,
-            errorTextColor = content,
-            focusedContainerColor = fieldContainer,
-            unfocusedContainerColor = fieldContainer,
-            disabledContainerColor = tokenColor("color.surfaceContainer"),
-            errorContainerColor = tokenColor("color.errorContainer"),
-            cursorColor = tokenColor("color.primary"),
-            errorCursorColor = errorColor,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = errorColor,
-            focusedLabelColor = tokenColor("color.primary"),
-            unfocusedLabelColor = secondaryContent,
-            disabledLabelColor = secondaryContent,
-            errorLabelColor = errorColor,
-        ),
-        supportingText = if (description.isNotBlank()) ({
-            Column {
-                help?.let { FieldHelp(it) }
-                errorText?.let { FieldError(it) }
-                state.reason()?.let { FieldHelp(it) }
-            }
-        }) else null,
-    )
-}
-
-@Composable
-fun TextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    state: FieldState = FieldState.Editable,
-    help: String? = null,
-    error: String? = null,
-) {
-    ControlledTextField(label, value, onValueChange, modifier, state, help, error, true, KeyboardType.Text)
-}
-
-@Composable
-fun TextArea(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    state: FieldState = FieldState.Editable,
-    help: String? = null,
-    error: String? = null,
-) {
-    ControlledTextField(label, value, onValueChange, modifier, state, help, error, false, KeyboardType.Text)
-}
-
-/** Keep incomplete decimal input visible; parsing/validation stays with the caller. */
-@Composable
-fun NumberField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    state: FieldState = FieldState.Editable,
-    help: String? = null,
-    error: String? = null,
-) {
-    ControlledTextField(label, value, onValueChange, modifier, state, help, error, true, KeyboardType.Decimal)
-}
-
-@Composable
 fun Select(
     label: String,
     options: List<String>,
@@ -342,10 +108,10 @@ fun Select(
         FieldLabel(label)
         Box {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                ButtonControl(options[selected], onPress = { expanded = true }, state = state,
+                ButtonControl(onPress = { expanded = true }, state = state,
                     variant = ButtonVariant.Secondary,
                     name = AccessibleName.of("$label: ${options[selected]}"),
-                    description = if (expanded && state.canPress()) expandedDescription else collapsedDescription)
+                    description = if (expanded && state.canPress()) expandedDescription else collapsedDescription) { Text(options[selected]) }
                 state.reason()?.let { FieldHelp(it) }
             }
             DropdownMenu(expanded = expanded && state.canPress(), onDismissRequest = { expanded = false }) {
@@ -606,10 +372,9 @@ fun Dialog(
 
 /** Decorative official Material SVG paths; the enclosing control supplies its name. */
 @Composable
-fun Icon(name: String, modifier: Modifier = Modifier) {
+fun Icon(name: String, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
     val icon = CantosIcons.icons.firstOrNull { it.name == name }
     require(icon != null) { "Unknown official icon: $name" }
-    val tint = tokenColor("color.onSurfaceVariant")
     val vector = remember(name, tint) {
         val bounds = icon.viewBox.split(Regex("\\s+")).map { it.toFloat() }
         ImageVector.Builder(

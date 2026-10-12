@@ -18,6 +18,40 @@ read-only mode.
 The catalog is for inspecting an individual design and its states **before** adopting it into
 an application. An `implemented-unverified` label is not evidence that a state passed.
 
+### Foundation API ownership
+
+`ComponentState.kt` owns reusable names/reasons, controlled availability and renderer enums;
+`PreviewModel.kt` owns diagnostic discovery/selection. `CantosTheme.kt` owns scoped token mapping,
+validated preferences and native minimum interactive size. Nested themes replace the preview
+text multiplier against the inherited platform font scale; they do not multiply it again.
+`Actions.kt` and `Fields.kt` own their native wrappers, sharing focus/state decoration through
+`ComponentModifiers.kt`. Remaining navigation/choice/layout/feedback wrappers stay in
+`Components.kt` for the next bounded session. No new module or runtime dependency is added.
+
+String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
+caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
+received values promptly and do not normalize composing text. Read-only permits selection changes
+but rejects text/composition edits; disabled/loading blocks all callbacks. The caller owns a
+transition out of active IME composition before locking a field; real platform commit/cancellation
+is still unverified. All overloads expose native `KeyboardOptions`/`KeyboardActions`; custom
+actions are guarded by editability. TextArea exposes positive ordered min/max line limits.
+NumberField keeps raw `0`, empty and incomplete localized decimals; keyboard hints are not numeric
+validation. Blank help/error messages have no visible or semantic error state.
+
+`Button(name, onPress, ..., content)` adds a RowScope content slot with a required localized
+accessible name that includes its visible label. The existing label overload delegates to it.
+For Button/IconButton/FilterChip, `modifier` still applies once to the whole field; new
+`controlModifier` attaches focus, geometry and semantics to the actual native control. It does not
+silently move existing root modifiers. Decorative Icon now inherits the surrounding content tint,
+with an explicit tint override when needed. Focus consumes width/offset and the control's shape;
+text fields use `shape.field`. Parents need spacing for an outset focus ring.
+
+The [session 1 evidence](../../../docs/evidence/cmp-ui-system-session1.md) records 41 executed CMP
+tests and inspected captures. Both previews declare nested-theme, composed-content, selection,
+ime-action and blank-error examples: 29 APIs, 129 scenarios, unchanged 73 tokens. OS Java-window
+input is still blocked, native/mobile/screen-reader/full reference evidence is incomplete and all
+qualifications remain unapproved. Continue with [session 2](../../../docs/work-plan/016-cmp-ui-system.md).
+
 ## Preview contents
 
 - Search and component-family filtering; one selected component and its registered state list
@@ -58,7 +92,7 @@ trigger. These behaviors still need the named renderer tests and observation bel
 Pinned versions are Kotlin Multiplatform **2.2.20**, Compose compiler **2.2.20**, Compose
 Multiplatform Gradle plugin **1.9.0**, and explicitly stable Material3 **1.8.2**. No experimental
 M3 Expressive alpha widgets are adopted. Material3's minimum interactive-size composition local
-is the one scoped experimental opt-in in `UiRoot`; it follows the selected desktop density.
+is the one scoped experimental opt-in in `CantosTheme`; it follows the selected desktop density.
 No Android Gradle plugin or Xcode target is introduced.
 
 This is a conservative, reproducible desktop foundation rather than a latest-version upgrade.

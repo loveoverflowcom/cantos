@@ -314,3 +314,146 @@ fn token_sample_geometry_stays_preview_scoped_static_and_token_driven() {
     assert!(!css.contains("transition:"));
     assert!(!css.contains("#"), "preview CSS must not create a palette");
 }
+
+#[test]
+fn foundation_scenarios_keep_existing_public_components_and_native_web_limits() {
+    let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
+    for scenario in [
+        "nested-theme",
+        "composed-content",
+        "blank-error",
+        "selection ime-action",
+    ] {
+        assert!(html.contains(&format!("data-preview-scenario=\"{scenario}\"")));
+    }
+    let nested = html
+        .find("class=\"cantos-ui cui-gallery-nested-root\"")
+        .unwrap();
+    let tag_start = html[..nested].rfind('<').expect("nested root opening tag");
+    let tag_end = nested + html[nested..].find('>').expect("complete nested root tag");
+    let nested_root = &html[tag_start..tag_end];
+    assert!(nested_root.contains("class=\"cantos-ui cui-gallery-nested-root\""));
+    assert!(nested_root.contains("data-theme=\"dark\""));
+    assert!(nested_root.contains("data-density=\"comfortable\""));
+    assert!(html.contains("id=\"gallery-outer-theme-sibling\""));
+    let button = opening_tag(&html, "gallery-composed-button");
+    assert!(button.contains("type=\"button\""));
+    assert!(html.contains("Đọc lời hẹn dưới chân Thanh Vân Sơn"));
+    assert!(html.contains("Số lần nhận hành động có nội dung ghép: 0"));
+    for id in [
+        "gallery-blank-error-text",
+        "gallery-blank-error-area",
+        "gallery-blank-error-number",
+    ] {
+        let control = opening_tag(&html, id);
+        assert!(
+            control.contains("aria-invalid=\"false\""),
+            "blank error marks {id} invalid"
+        );
+        assert!(
+            !control.contains("aria-errormessage"),
+            "blank error references an invisible message for {id}"
+        );
+        assert!(opening_tag(&html, &format!("{id}-error")).contains("hidden"));
+    }
+    assert!(opening_tag(&html, "gallery-native-number").contains("type=\"number\""));
+    assert!(opening_tag(&html, "gallery-native-number").contains("min=\"0\""));
+    assert!(opening_tag(&html, "gallery-native-number").contains("max=\"100\""));
+    assert!(opening_tag(&html, "gallery-native-number").contains("step=\"1\""));
+    assert!(html.contains("không hỗ trợ selectionStart/selectionEnd hoặc setSelectionRange"));
+    assert!(html.contains("không chứng minh IME hệ điều hành"));
+}
+
+#[test]
+fn composed_button_callback_counts_only_enabled_dispatches() {
+    use cantos_ui::{ButtonState, DisabledReason};
+
+    Owner::new().with(|| {
+        let state = RwSignal::new(ButtonState::Enabled);
+        let count = RwSignal::new(0);
+        let press = preview::foundation_samples::composed_press(state.into(), count);
+        press.run(());
+        assert_eq!(count.get_untracked(), 1);
+        let reason = DisabledReason::new("Khóa trong bản mẫu").unwrap();
+        state.set(ButtonState::Disabled(reason.clone()));
+        press.run(());
+        state.set(ButtonState::Loading(reason));
+        press.run(());
+        assert_eq!(count.get_untracked(), 1);
+        state.set(ButtonState::Enabled);
+        press.run(());
+        assert_eq!(count.get_untracked(), 2);
+    });
+}
+
+#[test]
+fn ime_action_guard_preserves_composition_and_locked_field_states() {
+    use cantos_ui::{DisabledReason, FieldState};
+    use preview::foundation_samples::accepts_ime_action;
+
+    assert!(accepts_ime_action(
+        &FieldState::Editable,
+        "Enter",
+        false,
+        13
+    ));
+    assert!(!accepts_ime_action(
+        &FieldState::Editable,
+        "Enter",
+        true,
+        13
+    ));
+    assert!(!accepts_ime_action(
+        &FieldState::Editable,
+        "Enter",
+        false,
+        229
+    ));
+    assert!(!accepts_ime_action(&FieldState::Editable, "Tab", false, 9));
+    let reason = DisabledReason::new("Khóa trong bản mẫu").unwrap();
+    for state in [
+        FieldState::ReadOnly,
+        FieldState::Disabled(reason.clone()),
+        FieldState::Loading(reason),
+    ] {
+        assert!(!accepts_ime_action(&state, "Enter", false, 13));
+    }
+}
+
+#[test]
+fn native_editing_samples_connect_labels_readonly_selection_and_visible_block_reasons() {
+    use cantos_ui::{DisabledReason, FieldState};
+    use preview::foundation_samples::{NativeEditingSample, NativeFieldKind};
+
+    for kind in [
+        NativeFieldKind::Text,
+        NativeFieldKind::Area,
+        NativeFieldKind::Number,
+    ] {
+        let key = match kind {
+            NativeFieldKind::Text => "text",
+            NativeFieldKind::Area => "area",
+            NativeFieldKind::Number => "number",
+        };
+        let id = format!("gallery-native-{key}");
+        let html = Owner::new().with(|| {
+            view! { <NativeEditingSample kind=kind state=FieldState::ReadOnly/> }.to_html()
+        });
+        let control = opening_tag(&html, &id);
+        assert!(control.contains("readonly"));
+        assert!(!control.contains(" disabled"));
+        assert!(html.contains(&format!("for=\"{id}\"")));
+        assert!(!opening_tag(&html, &format!("{id}-select-all")).contains("disabled"));
+
+        let reason = DisabledReason::new("Trường bị khóa; nội dung vẫn được giữ.").unwrap();
+        let html = Owner::new().with(|| {
+            view! { <NativeEditingSample kind=kind state=FieldState::Loading(reason)/> }.to_html()
+        });
+        let control = opening_tag(&html, &id);
+        assert!(control.contains("disabled"));
+        assert!(control.contains("aria-busy=\"true\""));
+        assert!(control.contains(&format!("aria-describedby=\"{id}-help {id}-reason\"")));
+        assert!(!opening_tag(&html, &format!("{id}-reason")).contains("hidden"));
+        assert!(opening_tag(&html, &format!("{id}-select-all")).contains("disabled"));
+    }
+}

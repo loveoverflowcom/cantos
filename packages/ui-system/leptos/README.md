@@ -139,6 +139,13 @@ not permanent field outlines or section separators.
 
 ## Consumer map
 
+The CMP foundation sequence adds companion development specimens in
+`preview/foundation_samples.rs`: nested theme/density, composed Button children, blank errors,
+native selection/composition/Enter observers. They use existing public APIs and app-composed native
+control anatomy; real application imports and behavior are unchanged. HTML number controls retain
+their selection limitation and min/max/step behavior. These diagnostics do not claim OS IME or
+native parity; see [session 1 evidence](../../../docs/evidence/cmp-ui-system-session1.md).
+
 | Primitive / contract | Studio Web | Theatre Web |
 | --- | --- | --- |
 | UiRoot + Theme + Density | app root, appearance selector; comfortable targets and compact pane spacing | themed skeleton, appearance selector; comfortable targets |

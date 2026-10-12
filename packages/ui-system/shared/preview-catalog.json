@@ -9,7 +9,8 @@
         "light",
         "dark",
         "compact",
-        "comfortable"
+        "comfortable",
+        "nested-theme"
       ],
       "leptos": {
         "status": "registered",
@@ -28,7 +29,8 @@
         "enabled",
         "disabled",
         "loading",
-        "focus"
+        "focus",
+        "composed-content"
       ],
       "leptos": {
         "status": "registered",
@@ -141,7 +143,10 @@
         "loading",
         "error",
         "focus",
-        "readonly"
+        "readonly",
+        "selection",
+        "ime-action",
+        "blank-error"
       ],
       "leptos": {
         "status": "registered",
@@ -162,7 +167,10 @@
         "loading",
         "error",
         "focus",
-        "readonly"
+        "readonly",
+        "selection",
+        "ime-action",
+        "blank-error"
       ],
       "leptos": {
         "status": "registered",
@@ -183,7 +191,10 @@
         "loading",
         "error",
         "focus",
-        "readonly"
+        "readonly",
+        "selection",
+        "ime-action",
+        "blank-error"
       ],
       "leptos": {
         "status": "registered",

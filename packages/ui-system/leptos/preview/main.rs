@@ -12,11 +12,13 @@ use leptos::prelude::*;
 
 pub mod catalog;
 mod discovery;
+pub mod foundation_samples;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
 pub mod token_sample;
 
 use discovery::{ComponentCatalog, FamilyNavigation, TokenCatalog};
+use foundation_samples::{ComposedButtonSample, FieldFoundationSamples, NestedThemeSample};
 
 fn name(text: &str) -> AccessibleName {
     AccessibleName::new(text).expect("gallery fixture names are nonempty")
@@ -137,6 +139,7 @@ pub fn Gallery(
                                             help=Some("Lỗi được liên kết với các trường; không tự xác thực dữ liệu nhập.".to_owned())/>
                                     </Grid>
                                     <p class="cui-gallery-note">"Font theo handoff: Noto Sans / Noto Serif khi có trên máy; dùng font hệ thống dự phòng. Bản mẫu không tải font, artwork hoặc âm thanh."</p>
+                                    <NestedThemeSample/>
                                 </Stack>
                             </section>
                         </Surface>
@@ -184,6 +187,7 @@ pub fn Gallery(
                                     </p>
                                 </Status>
                                 <p class="cui-gallery-note">"Dùng Tab, Enter và Space để thử native controls; hãy quan sát hover, pressed và focus-visible trực tiếp. Liên kết vẫn điều hướng khi các hành động bị khóa."</p>
+                                <ComposedButtonSample state=action_state/>
                             </Stack>
                         </section>
 
@@ -272,6 +276,7 @@ pub fn Gallery(
                                     <output id="gallery-input-output" class="cui-gallery-output" aria-live="off">
                                         {move || format!("Sự kiện nhập: {} · Sự kiện chọn: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME đang ghép = {} · Số lần compositionend = {}\nTên hiện tại: {}", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}
                                     </output>
+                                    <FieldFoundationSamples state=field_state/>
                                 </Stack>
                             </Surface>
                         </section>

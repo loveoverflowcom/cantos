@@ -119,3 +119,7 @@ owned-process cleanup and full preflight PASS. Gradle 9.7.0 remains available fo
 projects that require it. Recommended next order is the separately requested three CMP sessions,
 closing OS-window input, accessibility, fonts and complete reference/state coverage before new
 app adoption. These preview checks are not mobile or full CMP production acceptance.
+
+The requested follow-up is tracked in [016](016-cmp-ui-system.md), with
+[session 1 evidence](../evidence/cmp-ui-system-session1.md). It keeps Leptos consumers compatible
+and adds companion specimens; application adoption remains gated.

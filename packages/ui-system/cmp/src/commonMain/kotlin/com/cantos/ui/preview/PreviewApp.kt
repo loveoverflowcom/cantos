@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
@@ -262,10 +268,20 @@ private fun ParityNotes(id: String) {
 }
 
 @Composable
-private fun ComponentExample(example: PreviewExample, state: String, onEvent: (String) -> Unit, modifier: Modifier) {
+internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (String) -> Unit, modifier: Modifier) {
     var title by remember(example) { mutableStateOf("Ánh đèn cuối sân khấu") }
     var dialogue by remember(example) { mutableStateOf("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?\nỖ, Ữ, Nguyễn Thị Minh Phương") }
     var number by remember(example) { mutableStateOf("1,25") }
+    var richText by remember(example, state) {
+        val text = if (example == PreviewExample.TextArea) {
+            "Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?\nỖ, Ữ"
+        } else if (example == PreviewExample.NumberField) {
+            "1,25"
+        } else {
+            "Ánh đèn cuối sân khấu · Ỗ, Ữ"
+        }
+        mutableStateOf(TextFieldValue(text, selection = TextRange(0, minOf(7, text.length))))
+    }
     var checked by remember(example, state) { mutableStateOf(state == "selected" || state == "current") }
     var choice by remember(example, state) { mutableStateOf(if (state == "current") 1 else 0) }
     var range by remember(example, state) { mutableStateOf(when (state) {
@@ -285,7 +301,11 @@ private fun ComponentExample(example: PreviewExample, state: String, onEvent: (S
         "readonly" -> FieldState.ReadOnly
         else -> FieldState.Editable
     }
-    val error = if (state == "error") "Tên tác phẩm cần có ít nhất 3 ký tự. Nội dung chưa bị xóa." else null
+    val error = when (state) {
+        "error" -> "Tên tác phẩm cần có ít nhất 3 ký tự. Nội dung chưa bị xóa."
+        "blank-error" -> " \n\t"
+        else -> null
+    }
     val onPress = { presses += 1; onEvent("${example.id} · callback #$presses · không có yêu cầu mạng") }
     val tone = when (state) {
         "error" -> StatusTone.Error
@@ -320,28 +340,92 @@ private fun ComponentExample(example: PreviewExample, state: String, onEvent: (S
                         Text("Ánh đèn cuối sân khấu", style = MaterialTheme.typography.headlineSmall)
                         Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? · Ỗ, Ữ", style = typeStyle("editor", editorial = true))
                         Button("Lưu bản nháp", onPress)
+                        if (state == "nested-theme") {
+                            UiRoot(
+                                Modifier.height(tokenDp("breakpoint.medium") / 4).fillMaxWidth(),
+                                preferences = nested.copy(theme = Theme.Dark),
+                            ) {
+                                Container {
+                                    Text("Theme lồng nhau · cùng cỡ chữ: Ỗ, Ữ")
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-        PreviewExample.Button -> Stack(modifier) {
+        PreviewExample.Button -> Stack {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                ButtonVariant.entries.forEach { variant -> Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant) }
+                ButtonVariant.entries.forEach { variant ->
+                    if (state == "composed-content") {
+                        Button(AccessibleName.of("Lưu · ${variant.name} · bản nháp Ánh đèn cuối sân khấu"), onPress,
+                            state = buttonState, variant = variant,
+                            controlModifier = if (variant == ButtonVariant.Primary) modifier else Modifier) {
+                            Icon("add")
+                            androidx.compose.foundation.layout.Spacer(Modifier.size(tokenDp("space.sm")))
+                            Text("Lưu · ${variant.name}")
+                        }
+                    } else {
+                        Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant,
+                            controlModifier = if (variant == ButtonVariant.Primary) modifier else Modifier)
+                    }
+                }
+            }
+            if (state == "composed-content") {
+                Button(
+                    name = AccessibleName.of("Thêm cảnh · Ỗ, Ữ · cho Ánh đèn cuối sân khấu"),
+                    onPress = onPress,
+                    variant = ButtonVariant.Tonal,
+                ) {
+                    Icon("add")
+                    androidx.compose.foundation.layout.Spacer(Modifier.size(tokenDp("space.sm")))
+                    Text("Thêm cảnh · Ỗ, Ữ")
+                }
             }
             FieldHelp("Callback count: $presses")
         }
-        PreviewExample.IconButton -> IconButton(AccessibleName.of("Thêm cảnh cho Ánh đèn cuối sân khấu"), "add", onPress, modifier, buttonState)
-        PreviewExample.FilterChip -> FilterChip("Kịch nói · tiếng Việt", checked, { checked = it; onEvent("Selected: $it") }, modifier, buttonState)
+        PreviewExample.IconButton -> IconButton(AccessibleName.of("Thêm cảnh cho Ánh đèn cuối sân khấu"), "add", onPress,
+            state = buttonState, controlModifier = modifier)
+        PreviewExample.FilterChip -> FilterChip("Kịch nói · tiếng Việt", checked, { checked = it; onEvent("Selected: $it") },
+            state = buttonState, controlModifier = modifier)
         PreviewExample.Link -> Link("Mở bản nháp Ánh đèn cuối sân khấu", "/draft/example", { onEvent("Link callback: $it") }, modifier)
         PreviewExample.NavItem -> NavItem("Tác phẩm của tôi", checked, { checked = true; onEvent("NavItem selected") }, modifier)
         PreviewExample.NavTabs -> NavTabs(listOf("Kịch bản", "Nhân vật", "Lịch sử"), choice, { choice = it; onEvent("Tab: $it") }, modifier)
-        PreviewExample.TextField -> TextField("Tên tác phẩm", title, { title = it; onEvent("TextField: value updated") }, modifier, fieldState,
-            "Tên có dấu được giữ nguyên, không chuẩn hóa khi gõ.", error)
-        PreviewExample.TextArea -> TextArea("Lời thoại", dialogue, { dialogue = it; onEvent("TextArea: value updated") }, modifier, fieldState,
-            "Hãy thử chọn, sao chép và nhập tiếng Việt có dấu.", error)
-        PreviewExample.NumberField -> NumberField("Tốc độ tham khảo", number, { number = it; onEvent("NumberField raw text: $it") }, modifier, fieldState,
-            "Dữ liệu thử: 1,25. Chủ ứng dụng quyết định quy tắc phân tích số.", error)
+        PreviewExample.TextField -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            if (state == "selection" || state == "ime-action") {
+                TextField("Tên tác phẩm", richText, { richText = it }, modifier,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onEvent("TextField · Done · ${richText.text}") }))
+                FieldHelp("Selection: ${richText.selection.start}..${richText.selection.end}; composition: ${richText.composition}")
+            } else {
+                TextField("Tên tác phẩm", title, { title = it; onEvent("TextField: value updated") }, modifier, fieldState,
+                    "Tên có dấu được giữ nguyên, không chuẩn hóa khi gõ.", error)
+            }
+        }
+        PreviewExample.TextArea -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            if (state == "selection" || state == "ime-action") {
+                TextArea("Lời thoại", richText, { richText = it }, modifier,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onEvent("TextArea · Done · ${richText.text}") }),
+                    minLines = 2, maxLines = 6)
+                FieldHelp("Selection: ${richText.selection.start}..${richText.selection.end}; composition: ${richText.composition}")
+            } else {
+                TextArea("Lời thoại", dialogue, { dialogue = it; onEvent("TextArea: value updated") }, modifier, fieldState,
+                    "Hãy thử chọn, sao chép và nhập tiếng Việt có dấu.", error)
+            }
+        }
+        PreviewExample.NumberField -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            if (state == "selection" || state == "ime-action") {
+                NumberField("Tốc độ tham khảo", richText, { richText = it }, modifier,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { onEvent("NumberField · Done · ${richText.text}") }))
+                FieldHelp("Selection: ${richText.selection.start}..${richText.selection.end}; raw text: ${richText.text}")
+            } else {
+                NumberField("Tốc độ tham khảo", number, { number = it; onEvent("NumberField raw text: $it") }, modifier, fieldState,
+                    "Dữ liệu thử: 1,25. Chủ ứng dụng quyết định quy tắc phân tích số.", error)
+            }
+        }
         PreviewExample.Select -> Column(modifier) {
             Select("Nhân vật", listOf("Người dẫn chuyện", "Nguyễn Thị Minh Phương", "Người giữ đèn cuối sân khấu"), choice,
                 { choice = it; onEvent("Select: $it") }, state = buttonState,
