@@ -134,6 +134,7 @@ SDK35/build-tools35.0.0, macOS15.6 arm64. No toolchain, TLS, credentials or perm
 | Phase1 full preflight / verify rust / verify contracts | **PASS**, retained baseline | all15 preflight gates, including disposable PostgreSQL and9/9mutation; predates inherited PR62; no fresh verification claim for that backend |
 | Phase2 pre-integration changed-only preflight | **PASS**, with7 explicit **NOT_RUN** gates | repository, rust-format and theatre-cmp-demo PASS; `/tmp/cantos-cmp-phase2-preflight.log`; integrated repeat uses the baseline below |
 | Integrated uncommitted-merge preflight | **PASS**, with8 explicit **NOT_RUN** gates | inherited staged PR62 paths broadened selection; repository, rust-format, script-ir-reference, ui-preview, cmp-ui-preview, theatre-cmp-demo and9/9mutation PASS; `/tmp/cantos-cmp-phase2-preflight-integrated.log` |
+| Final committed-merge preflight | **PASS**, with7 explicit **NOT_RUN** gates | repository (365text files,15skills,243Python tests), rust-format and theatre-cmp-demo PASS; `/tmp/cantos-cmp-phase2-preflight-committed.log` |
 | `cargo xtask theatre-demo run` | **PASS**, bounded process observation | refactored root reached `:shared:run`; launcher/guard PID18235 and MainKt PID18251 shared PGID18235; Ctrl-C exit0, no recorded PID/group descendants remained |
 | iOS framework / generated header / Swift compilation | **UNSUPPORTED** | exact installed Kotlin/Native2.2.20 unavailable; current2.2.0 rejected before provisioning |
 | Android Studio/official CLI render | **UNSUPPORTED** | required current-host renderer unavailable; historicalPR43 images are separate |
@@ -154,8 +155,12 @@ web-lint, web-build and postgres; their all15-gate phase1 baseline remains separ
 ```sh
 cargo xtask preflight --changed-only --base b0869291078ec9100f49a5dd24d1eb60a9393a01 \
   --skip rust-lint --skip rust-tests --skip dbsp --skip wav-reference \
-  --skip web-lint --skip web-build --skip postgres
+  --skip web-lint --skip web-build --skip postgres \
+  --skip script-ir-reference --skip ui-preview --skip cmp-ui-preview --skip mutation
 ```
+
+The last four explicit exclusions guard against unrelated merge-index broadening; they are not
+selected in the final62-path diff. The final output has three PASS and seven NOT_RUN steps.
 
 The actual run/interrupt observation is retained under ignored
 `target/theatre-cmp-evidence/phase2-process.md`. Only task-owned identifiers were checked or
