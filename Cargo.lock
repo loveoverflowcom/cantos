@@ -850,6 +850,7 @@ version = "0.1.0"
 dependencies = [
  "cantos-ui",
  "leptos",
+ "web-sys",
 ]
 
 [[package]]

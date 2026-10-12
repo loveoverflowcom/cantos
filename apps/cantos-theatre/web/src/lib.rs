@@ -1,3 +1,6 @@
-//! Cantos Theatre Web skeleton: a buildable Leptos shell with no listener behavior.
+//! Session-only Cantos listener mock. No API, account, playback engine or persistent data.
 
+pub mod messages;
+pub mod model;
+mod platform;
 pub mod view;

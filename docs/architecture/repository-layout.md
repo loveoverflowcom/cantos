@@ -13,8 +13,8 @@ existing code without changing behavior, migrations or wire contracts; the
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
-Support here defines product scope, not implementation evidence. Theatre Web is a skeleton and
-Theatre Mobile has no Gradle app yet. Studio Mobile is only a scope notice: never a workspace
+Support here defines product scope, not implementation evidence. Theatre Web is a session-only
+UI mock with no API/audio integration and incomplete compile/runtime verification; Theatre Mobile has no Gradle app yet. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
@@ -25,7 +25,7 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 ```text
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
-    web/                   Leptos CSR skeleton              (package cantos-theatre)      SKELETON
+    web/                   Leptos CSR session-only mock     (package cantos-theatre)      MOCK / UNVERIFIED
     mobile/                Kotlin Compose Multiplatform     (guide only, no Gradle)       RESERVED
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
@@ -105,7 +105,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | Shared | Where | Consumers today |
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio` |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre skeleton; development gallery |
+| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre session-only mock (existing compatibility imports); development gallery |
 
 Not shared, deliberately:
 
@@ -149,7 +149,7 @@ Trunk and refuses reserved surfaces instead of simulating them.
 ```sh
 cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
-cargo xtask build cantos-theatre --web         # Theatre Web skeleton through Trunk
+cargo xtask build cantos-theatre --web         # Theatre Web mock through Trunk; verification incomplete
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: no Gradle project
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients

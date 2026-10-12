@@ -90,6 +90,13 @@ review also corrects an inherited macOS preview-process reap race exposed by the
 repository gate. It preserves the recommended acceptance/reuse order below; GitHub owns its
 merge status.
 
+The requester-authorized [Theatre Web session-only mock](../evidence/theatre-web-mock.md) extends
+its existing Leptos build target with local discovery/work/library/player/queue/settings fixtures.
+It integrates no API, audio, account or persistent state and closes neither #12 nor #13. The
+assigned cloud executor lacks Cargo/rustc/Trunk, so required compile/test/xtask and browser gates
+remain NOT_RUN; the draft is verification-incomplete. Shared qualification remains 0/29, and
+new adoption still requires both-preview acceptance. This UI slice does not reorder the queue.
+
 ## Recommended bounded follow-ups
 
 1. Complete the named-listener assessment and exact source/voice rights decisions in #6.

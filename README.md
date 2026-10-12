@@ -73,8 +73,8 @@ measured benefit justifies a switch ([wire codec](docs/architecture/wire-codec.m
 The repository is organised by product and kind: `apps/cantos-theatre` (Theatre, for listeners)
 targets Web and native Mobile; `apps/cantos-studio` (Studio, for creators) targets Web only. One
 backend lives in `services/cantos-api` beside Kanidm deployment notes; shared contracts and design
-tokens live in `packages/`. Studio Web and the API are implemented; Theatre Web is a skeleton and
-Theatre Mobile remains a guide without a Gradle app. Supported product scope does not imply an
+tokens live in `packages/`. Studio Web and the API are implemented; Theatre Web is a session-only
+UI mock with no API/audio integration and Theatre Mobile remains a guide without a Gradle app. Supported product scope does not imply an
 implemented client. See the [repository layout](docs/architecture/repository-layout.md#platform-scope).
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
@@ -84,7 +84,7 @@ implemented client. See the [repository layout](docs/architecture/repository-lay
 | Surface | Purpose | Technology |
 | --- | --- | --- |
 | Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web only (`apps/cantos-studio/web`) |
-| Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
+| Cantos Theatre | Discover and listen to published audio drama | Leptos Web (mock UI); Kotlin Compose Multiplatform on Android/iOS (planned) |
 | Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
 | Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
@@ -97,7 +97,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | --- | --- | --- |
 | `apps/cantos-studio/web` | Supported | Implemented |
 | `apps/cantos-studio/mobile` | Out of scope | Not implemented; scope notice only |
-| `apps/cantos-theatre/web` | Supported | Skeleton |
+| `apps/cantos-theatre/web` | Supported | Session-only UI mock; compile/runtime verification incomplete |
 | `apps/cantos-theatre/mobile` | Supported | Planned; no Gradle app yet |
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
@@ -118,7 +118,7 @@ Shared libraries may serve Theatre Mobile and Studio Web.
 | --- | --- |
 | `apps/cantos-studio/web/` | Structured Leptos Studio CSR editor and casting/input review |
 | `apps/cantos-studio/mobile/` | Out of scope / not implemented; scope notice only |
-| `apps/cantos-theatre/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
+| `apps/cantos-theatre/web/` | Cantos listener Leptos mock: local screen/state fixtures, no API/audio; verification incomplete |
 | `apps/cantos-theatre/mobile/` | Guide for the native CMP listening app; no Gradle project |
 | `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
@@ -168,7 +168,7 @@ cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-i
 cargo run --locked --bin diff-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json packages/contracts/fixtures/script-ir/0.1.0/accept/provenance.json
 ```
 
-[API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos-theatre/web/README.md) describe migration, test-role
+[API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre mock](apps/cantos-theatre/web/README.md) describe migration, test-role
 permissions and local serving. [.env.example](.env.example) distinguishes implemented development configuration
 from future provider/storage configuration; no dotenv loader or audio QA runtime is provided.
 
