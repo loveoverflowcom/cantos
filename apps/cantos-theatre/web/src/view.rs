@@ -13,7 +13,7 @@ pub fn Theatre() -> impl IntoView {
             <Container width=ContainerWidth::Reading>
                 <main class="theatre-main">
                     <header class="theatre-header">
-                        <div><p class="theatre-wordmark">"Vọng Đài · Theatre of Voices"</p><h1>"Cantos Theatre"</h1></div>
+                        <div><p class="theatre-wordmark">"Vọng Đài · Theatre of Voices"</p><h1>"Cantos"</h1></div>
                         <Select id="theatre-theme" label="Giao diện".to_string()
                             value=Signal::derive(move || theme.get().as_str().to_owned())
                             on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })>
@@ -41,6 +41,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn listener_page_title_is_the_user_facing_name_not_the_technical_one() {
+        let index = include_str!("../index.html");
+        assert!(index.contains("<title>Cantos</title>"));
+        assert!(!index.contains("Cantos Theatre"));
+        assert!(index.contains("data-bin=\"cantos-theatre\""));
+    }
+
+    #[test]
     fn theatre_shared_shell_stays_explicitly_unavailable_and_separate_from_studio() {
         let owner = Owner::new();
         owner.with(|| {
@@ -49,6 +57,8 @@ mod tests {
             assert!(html.contains("cui-empty-state"));
             assert!(html.contains("no catalog, account or playback exists yet"));
             assert!(html.contains("for=\"theatre-theme\""));
+            assert!(html.contains("<h1>Cantos</h1>"));
+            assert!(!html.contains("Cantos Theatre"));
             assert!(!html.contains("<audio"));
             assert!(!html.contains("<button"));
             assert!(!html.contains("/studio"));

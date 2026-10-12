@@ -2,7 +2,7 @@
 
 This directory reserves the location for a Kotlin Compose Multiplatform Android/iOS Studio client.
 **No Gradle/Xcode project exists, no screen is designed and nothing is built or verified.** The MVP
-mobile priority is listening in [Cantos Theatre](../../cantos/mobile/README.md); whether Studio
+mobile priority is listening in [Cantos Theatre](../../cantos-theatre/mobile/README.md); whether Studio
 needs a mobile client, and for which tasks (for example review and approval), is a later product
 decision.
 

@@ -47,6 +47,7 @@
 | [Decision 0012](decisions/0012-xtask-command-surface.md) | `cargo xtask` as the single build, run and verification surface; CI runs its jobs |
 | [Decision 0013](decisions/0013-optional-messagepack-wire.md) | Optional MessagePack beside JSON on four Studio routes; the Studio ships JSON until revisit conditions hold |
 | [Decision 0014](decisions/0014-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
+| [Decision 0015](decisions/0015-api-surface-boundaries.md) | Proposed: `apps/cantos-theatre` naming and `studio`/`theatre`/`admin` API route groups |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 

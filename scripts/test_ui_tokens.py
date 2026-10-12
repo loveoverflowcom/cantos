@@ -100,7 +100,7 @@ class TokenContract(unittest.TestCase):
                 if tag == "link" and "data-trunk" in attributes and attributes.get("rel") == "css":
                     self.paths.append(attributes["href"])
 
-        for app, geometry in (("cantos-studio", "studio.css"), ("cantos", "theatre.css")):
+        for app, geometry in (("cantos-studio", "studio.css"), ("cantos-theatre", "theatre.css")):
             with self.subTest(app=app):
                 app_root = ROOT / "apps" / app / "web"
                 links = Stylesheets()
@@ -451,7 +451,7 @@ class CanonicalRepositoryTokens(unittest.TestCase):
         defined = {variable(role) for role in roles}
         consumers = list((ROOT / "packages/ui-system/leptos").glob("*.css*"))
         consumers += list((ROOT / "apps/cantos-studio/web").glob("*.css"))
-        consumers += list((ROOT / "apps/cantos/web").glob("*.css"))
+        consumers += list((ROOT / "apps/cantos-theatre/web").glob("*.css"))
         self.assertTrue(consumers)
         for path in consumers:
             with self.subTest(path=path.relative_to(ROOT)):

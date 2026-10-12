@@ -37,6 +37,13 @@ and reused here unchanged.
 Link these; never restate a competing copy of a target, token family or state list. When this
 skill and a document disagree on product behavior, the document wins; report the conflict.
 
+## Naming on screen
+
+Listener-facing strings (Web `<title>`, headings, navigation, splash, PWA/mobile manifest and
+labels, localization keys' values) say **Cantos**; creator-facing strings say **Cantos Studio**.
+`cantos-theatre` and "Cantos Theatre" are technical and documentation names only. Check every
+listener surface for the technical name before calling UI work done.
+
 ## Repository reality
 
 Studio, the Theatre skeleton and `packages/ui-system` Web foundation now exist. The authenticated

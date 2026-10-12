@@ -1,6 +1,6 @@
 # Manuscript import API v1
 
-Implemented private development boundary: [Axum](../../services/cantos-api/src/http/imports.rs) →
+Implemented private development boundary: [Axum](../../services/cantos-api/src/http/studio/imports.rs) →
 [the existing PostgreSQL source registry](../../services/cantos-api/src/postgres/imports.rs), consumed by
 Cantos Studio. The [JSON Schema](schema/manuscript/v1.schema.json) and
 [shared raw Rust DTOs](api/src/imports.rs) are hand-authored. Independent literal wire examples
@@ -11,7 +11,7 @@ OpenAPI or Kotlin bindings are claimed.
 
 ## Routes and access
 
-| Route under `/api/v1` | Request / result |
+| Route under `/api/v1/studio` | Request / result |
 | --- | --- |
 | `POST /imports` | `ImportRequest` → immutable `ImportResponse`, HTTP 200 for a new receipt or exact replay |
 | `GET /imports/{SOURCE_ID}` | The authenticated import owner's preserved receipt |

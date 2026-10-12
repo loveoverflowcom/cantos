@@ -70,7 +70,7 @@ MessagePack beside JSON with the same DTOs and error semantics; the Studio ships
 measured benefit justifies a switch ([wire codec](docs/architecture/wire-codec.md),
 [evidence](docs/evidence/messagepack-wire.md)).
 
-The repository is organised by product and kind: `apps/cantos` (Theatre, for listeners) and
+The repository is organised by product and kind: `apps/cantos-theatre` (Theatre, for listeners) and
 `apps/cantos-studio` (Studio, for creators) each have `web` and `mobile`; one backend lives in
 `services/cantos-api` beside Kanidm deployment notes; shared contracts and design tokens live in
 `packages/`. Only Studio Web and the API are implemented; the Theatre Web crate is a skeleton and
@@ -105,8 +105,8 @@ Start with one modular backend. Worker execution can run separately for resource
 | --- | --- |
 | `apps/cantos-studio/web/` | Structured Leptos Studio CSR editor and casting/input review |
 | `apps/cantos-studio/mobile/` | Reserved location for a Studio CMP client; guide only |
-| `apps/cantos/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
-| `apps/cantos/mobile/` | Guide for the native CMP listening app; no Gradle project |
+| `apps/cantos-theatre/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
+| `apps/cantos-theatre/mobile/` | Guide for the native CMP listening app; no Gradle project |
 | `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
@@ -155,7 +155,7 @@ cargo run --locked --bin validate-script -- packages/contracts/fixtures/script-i
 cargo run --locked --bin diff-script -- packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json packages/contracts/fixtures/script-ir/0.1.0/accept/provenance.json
 ```
 
-[API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos/web/README.md) describe migration, test-role
+[API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos-theatre/web/README.md) describe migration, test-role
 permissions and local serving. [.env.example](.env.example) distinguishes implemented development configuration
 from future provider/storage configuration; no dotenv loader or audio QA runtime is provided.
 

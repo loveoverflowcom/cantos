@@ -214,7 +214,7 @@ impl Harness {
     ) -> (StatusCode, Value) {
         let mut request = Request::builder()
             .method(method)
-            .uri(format!("/api/v1{path}"))
+            .uri(format!("/api/v1/studio{path}"))
             .header("origin", ORIGIN)
             .header("content-type", "application/json");
         if let Some(token) = token {

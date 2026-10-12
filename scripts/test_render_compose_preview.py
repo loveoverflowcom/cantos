@@ -135,7 +135,7 @@ while True:
         )
         self.cli.chmod(0o755)
 
-    def args(self, app="cantos", *extra):
+    def args(self, app="cantos-theatre", *extra):
         return preview.parser().parse_args([
             "--app", app, "--file", preview.MOBILE_DIRS[app] + "/Screen.kt",
             "--composable", "ScreenPreview", "--android-cli", str(self.cli), *extra,
@@ -145,7 +145,7 @@ while True:
         with contextlib.redirect_stdout(io.StringIO()):
             return preview.capture(args, self.root)
 
-    def bundles(self, app="cantos"):
+    def bundles(self, app="cantos-theatre"):
         return sorted((self.root / "artifacts/ui-evidence/compose-preview" / app).glob("*"))
 
     def calls(self):
@@ -246,7 +246,7 @@ while True:
     def test_timeout_is_bounded_and_partial_logs_are_retained(self):
         (self.root / "mode.txt").write_text("timeout")
         with self.assertRaises(preview.PreviewError) as failure:
-            self.capture(self.args("cantos", "--timeout-seconds", "1"))
+            self.capture(self.args("cantos-theatre", "--timeout-seconds", "1"))
         self.assertEqual(failure.exception.code, 1)
         self.assertIn("timed out", str(failure.exception))
         bundle, = self.bundles()
@@ -264,7 +264,7 @@ while True:
                         self.assertEqual(self.capture(self.args()), 0)
                     else:
                         with self.assertRaises(preview.PreviewError):
-                            self.capture(self.args("cantos", "--timeout-seconds", "1"))
+                            self.capture(self.args("cantos-theatre", "--timeout-seconds", "1"))
                     self.assertTrue((self.root / "child-stopped").exists(), "CLI descendant survived capture")
                     self.assert_test_child_exited()
                     bundle, = set(self.bundles()) - before
@@ -289,7 +289,7 @@ while True:
         try:
             with mock.patch.object(os, "killpg", side_effect=exiting_group):
                 with self.assertRaises(preview.PreviewError) as failure:
-                    self.capture(self.args("cantos", "--timeout-seconds", "1"))
+                    self.capture(self.args("cantos-theatre", "--timeout-seconds", "1"))
             self.assertIn("timed out", str(failure.exception))
             self.assertEqual(len(denied), 2)
             self.assertEqual(denied[0], denied[1])
@@ -309,7 +309,7 @@ while True:
         adapter.parent.mkdir()
         shutil.copyfile(preview.__file__, adapter)
         arguments = [
-            "--app", "cantos", "--file", preview.MOBILE_DIRS["cantos"] + "/Screen.kt",
+            "--app", "cantos-theatre", "--file", preview.MOBILE_DIRS["cantos-theatre"] + "/Screen.kt",
             "--composable", "ScreenPreview", "--android-cli", str(self.cli),
         ]
         for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
@@ -416,7 +416,7 @@ while True:
             self.assertEqual(stat.S_IMODE(artifact.stat().st_mode) & 0o077, 0)
 
     def test_dry_run_neither_probes_cli_nor_writes_evidence(self):
-        args = self.args("cantos", "--dry-run")
+        args = self.args("cantos-theatre", "--dry-run")
         args.android_cli = "cantos-no-such-cli"
         self.assertEqual(self.capture(args), 0)
         self.assertEqual(self.calls(), [])
@@ -424,12 +424,12 @@ while True:
 
     def test_missing_project_and_cli_are_unsupported(self):
         args = self.args()
-        (self.root / preview.MOBILE_DIRS["cantos"] / "settings.gradle.kts").unlink()
+        (self.root / preview.MOBILE_DIRS["cantos-theatre"] / "settings.gradle.kts").unlink()
         with self.assertRaises(preview.PreviewError) as failure:
             self.capture(args)
         self.assertEqual(failure.exception.code, preview.UNSUPPORTED)
         self.assertEqual(self.calls(), [])
-        (self.root / preview.MOBILE_DIRS["cantos"] / "settings.gradle").write_text("// project\n")
+        (self.root / preview.MOBILE_DIRS["cantos-theatre"] / "settings.gradle").write_text("// project\n")
         args.android_cli = "cantos-no-such-cli"
         with self.assertRaises(preview.PreviewError) as failure:
             self.capture(args)
@@ -440,7 +440,7 @@ while True:
         for source, composable in (
             ("apps/cantos-studio/mobile/Screen.kt", "ScreenPreview"),
             ("../Screen.kt", "ScreenPreview"),
-            ("apps/cantos/mobile/Screen.kt", "--option"),
+            ("apps/cantos-theatre/mobile/Screen.kt", "--option"),
         ):
             args = self.args()
             args.file = Path(source)
@@ -452,7 +452,7 @@ while True:
 
     @unittest.skipUnless(os.name == "posix", "symlink support")
     def test_symlinked_source_and_evidence_cannot_escape_selected_locations(self):
-        mobile = self.root / preview.MOBILE_DIRS["cantos"]
+        mobile = self.root / preview.MOBILE_DIRS["cantos-theatre"]
         source = mobile / "Screen.kt"
         source.unlink()
         source.symlink_to(self.root / preview.MOBILE_DIRS["cantos-studio"] / "Screen.kt")
@@ -469,7 +469,7 @@ while True:
 
     @unittest.skipUnless(os.name == "posix", "symlink support")
     def test_symlinked_mobile_root_cannot_capture_the_other_product(self):
-        mobile = self.root / preview.MOBILE_DIRS["cantos"]
+        mobile = self.root / preview.MOBILE_DIRS["cantos-theatre"]
         for path in mobile.iterdir():
             path.unlink()
         mobile.rmdir()

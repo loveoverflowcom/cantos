@@ -69,7 +69,7 @@ async fn call(
 ) -> Exchange {
     let mut request = Request::builder()
         .method(method)
-        .uri(format!("/api/v1{path}"))
+        .uri(format!("/api/v1/studio{path}"))
         .header(header::ORIGIN, origin)
         .header(header::ACCEPT, format.media_type());
     if method == "POST" {

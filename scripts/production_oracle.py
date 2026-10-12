@@ -57,7 +57,7 @@ def http(port, token, path, payload=None, expected_status=200, method=None):
     """Actual private API, explicitly loopback with environment proxies disabled."""
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError("invalid loopback port")
-    if not path.startswith("/api/v1/") or "\n" in path or "\r" in path:
+    if not path.startswith("/api/v1/studio/") or "\n" in path or "\r" in path:
         raise ValueError("invalid private API path")
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
@@ -261,12 +261,12 @@ def summarize_latency(samples):
 
 def production_before_restart(env, port, token, app_url):
     """Cross real import/revision/production HTTP and PostgreSQL with synthetic facts."""
-    catalog = http(port, token, "/api/v1/production/catalog")
+    catalog = http(port, token, "/api/v1/studio/production/catalog")
     capabilities = [item for item in catalog["capabilities"] if item["reference_only"]]
     assert capabilities and all(not item["billable_dispatch_available"] for item in capabilities)
     capability = next(item for item in capabilities if "vi-VN" in item["languages"])
     script = str(uuid.uuid4())
-    base = f"/api/v1/scripts/{script}/production"
+    base = f"/api/v1/studio/scripts/{script}/production"
     source_bytes = "Synthetic source: Ngày mai, mình có diễn tiếp không? 🎭\n".encode()
     import_request = {"metadata": {
         "operation_id": str(uuid.uuid4()), "file_name": "production-oracle-vi.txt", "format": "txt",
@@ -274,7 +274,7 @@ def production_before_restart(env, port, token, app_url):
         "rights_holder": "Synthetic fixture author", "permission_evidence": "local test only; no legal verification",
         "usage_scope": "Disposable local production-input logic checks only"},
         "original_bytes": list(source_bytes)}
-    source = http(port, token, "/api/v1/imports", import_request)
+    source = http(port, token, "/api/v1/studio/imports", import_request)
     assert source["sha256"] == hashlib.sha256(source_bytes).hexdigest()
     document = json.loads((ROOT / "packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json").read_text())
     document["provenance"][0]["source_record_id"] = source["id"]
@@ -282,7 +282,7 @@ def production_before_restart(env, port, token, app_url):
     document["episode"]["acts"][0]["scenes"][0]["dialogues"][1]["text"] = "Nga\u0300y mai, mình có diễn tiếp không? 🎭"
     revision_request = {"operation_id": str(uuid.uuid4()), "expected_revision": 0,
                         "script_json": json.dumps(document, ensure_ascii=False)}
-    revision = http(port, token, f"/api/v1/scripts/{script}/revisions", revision_request)
+    revision = http(port, token, f"/api/v1/studio/scripts/{script}/revisions", revision_request)
     accepted_document = json.loads(revision["script_json"])
     assert accepted_document["provenance"][0]["source_record_id"] == source["id"]
     assert accepted_document["episode"]["acts"][0]["scenes"][0]["dialogues"][1]["text"] == "Ngày mai, mình có diễn tiếp không? 🎭"
@@ -367,7 +367,7 @@ def production_before_restart(env, port, token, app_url):
     assert rejected["code"] == "production_blocked"
     assert row_counts(env, app_url, script) == before
     reviewed_request = {"operation_id": str(uuid.uuid4()), "revision": revision["revision"]}
-    review = http(port, token, f"/api/v1/scripts/{script}/reviews", reviewed_request)
+    review = http(port, token, f"/api/v1/studio/scripts/{script}/reviews", reviewed_request)
     for record_id in rights_ids(accepted_document):
         save_right(record_id, {"kind": "evidence", "record_id": record_id})
     voice_subject = {"kind": "voice", "provider_id": capability["provider_id"],
@@ -496,7 +496,7 @@ def production_before_restart(env, port, token, app_url):
     edited_document["episode"]["acts"][0]["scenes"][0]["dialogues"][1]["text"] += " Hẹn gặp lại!"
     edit_request = {"operation_id": str(uuid.uuid4()), "expected_revision": revision["revision"],
                     "script_json": json.dumps(edited_document, ensure_ascii=False)}
-    second_revision = http(port, token, f"/api/v1/scripts/{script}/revisions", edit_request)
+    second_revision = http(port, token, f"/api/v1/studio/scripts/{script}/revisions", edit_request)
     old = http(port, token, approved_path)
     assert old["document"] == approved_document
     assert "revision_changed" in finding_codes(old["eligibility"])
@@ -504,7 +504,7 @@ def production_before_restart(env, port, token, app_url):
     save_settings(settings, second_revision["revision"])
     assert "script_unreviewed" in finding_codes(http(port, token, base + "/review"))
     second_review_request = {"operation_id": str(uuid.uuid4()), "revision": second_revision["revision"]}
-    second_review = http(port, token, f"/api/v1/scripts/{script}/reviews", second_review_request)
+    second_review = http(port, token, f"/api/v1/studio/scripts/{script}/reviews", second_review_request)
     final_snapshot = freeze_current()
     final_approval = approve(final_snapshot)
     state = http(port, token, base)

@@ -45,7 +45,7 @@ side in the same change when it is in scope.
 
 Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
 Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
-[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos` (Theatre) and
+[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre` (Theatre) and
 `apps/cantos-studio` (Studio), each with `web` and `mobile`, one backend in `services/cantos-api`,
 Kanidm configuration in `services/kanidm` and shared `packages/`; read the
 [repository layout](../../docs/architecture/repository-layout.md) for which parts are implemented,

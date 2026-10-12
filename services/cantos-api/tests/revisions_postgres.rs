@@ -116,7 +116,7 @@ impl Harness {
     ) -> (StatusCode, Value) {
         let mut request = Request::builder()
             .method(method)
-            .uri(format!("/api/v1{path}"))
+            .uri(format!("/api/v1/studio{path}"))
             .header("origin", ORIGIN)
             .header("content-type", "application/json")
             .header("x-actor-id", "alice");
@@ -204,7 +204,7 @@ impl Harness {
     ) -> Exchange {
         let mut request = Request::builder()
             .method(method)
-            .uri(format!("/api/v1{path}"))
+            .uri(format!("/api/v1/studio{path}"))
             .header("origin", origin);
         for (name, value) in [("content-type", content_type), ("accept", accept)] {
             if let Some(value) = value {
@@ -1183,7 +1183,7 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
     h.store.save(ALICE, &script, request(0)).await.unwrap();
     let login = Request::builder()
         .method("POST")
-        .uri("/api/v1/session")
+        .uri("/api/v1/studio/session")
         .header("origin", ORIGIN)
         .header("content-type", "application/json")
         .body(Body::from(json!({"token":ALICE}).to_string()))
@@ -1194,14 +1194,14 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
     assert!(
         cookie.contains("HttpOnly")
             && cookie.contains("SameSite=Strict")
-            && cookie.contains("Path=/api/v1")
+            && cookie.contains("Path=/api/v1/studio")
     );
     let identity: cantos_contracts::SessionResponse =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(identity.actor_id, "alice");
     let request = Request::builder()
         .method("POST")
-        .uri(format!("/api/v1/scripts/{script}/revisions"))
+        .uri(format!("/api/v1/studio/scripts/{script}/revisions"))
         .header("origin", "https://attacker.invalid")
         .header("cookie", format!("cantos_session={ALICE}"))
         .header("content-type", "application/json")
@@ -1252,7 +1252,7 @@ async fn session_exchange_origin_guard_and_malformed_inputs_are_safe() {
     assert_eq!(h.count(&script).await, (1, 1));
     let logout = Request::builder()
         .method("DELETE")
-        .uri("/api/v1/session")
+        .uri("/api/v1/studio/session")
         .header("origin", ORIGIN)
         .header("cookie", format!("cantos_session={ALICE}"))
         .body(Body::empty())
@@ -1516,4 +1516,76 @@ async fn msgpack_requests_get_the_same_origin_session_and_permission_decisions()
         "unauthenticated"
     );
     assert_eq!(h.count(&script).await, (1, 1));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn legacy_studio_paths_remain_compatible_and_sessions_stay_scoped_to_their_mount() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let send = |method: &'static str, uri: String, cookie: Option<String>, body: String| {
+        let app = h.app.clone();
+        async move {
+            let mut request = Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("origin", ORIGIN)
+                .header("content-type", "application/json");
+            if let Some(cookie) = cookie {
+                request = request.header("cookie", cookie);
+            }
+            app.oneshot(request.body(Body::from(body)).unwrap())
+                .await
+                .unwrap()
+        }
+    };
+    // Legacy login keeps the pre-split cookie scope and is flagged deprecated.
+    let login = send(
+        "POST",
+        "/api/v1/session".into(),
+        None,
+        json!({"token":ALICE}).to_string(),
+    )
+    .await;
+    assert_eq!(login.status(), StatusCode::OK);
+    assert!(login.headers()["set-cookie"]
+        .to_str()
+        .unwrap()
+        .ends_with("Path=/api/v1"));
+    assert_eq!(login.headers()["deprecation"], "true");
+    // A write through the legacy path and a read through the current path see one revision.
+    let session = Some(format!("cantos_session={ALICE}"));
+    let body = serde_json::to_string(&request(0)).unwrap();
+    let saved = send(
+        "POST",
+        format!("/api/v1/scripts/{script}/revisions"),
+        session.clone(),
+        body,
+    )
+    .await;
+    assert_eq!(saved.status(), StatusCode::OK);
+    let saved: RevisionResponse =
+        serde_json::from_slice(&saved.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let (status, current) = h
+        .request("GET", &format!("/scripts/{script}/head"), Some(ALICE), None)
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_value::<RevisionResponse>(current).unwrap(),
+        saved
+    );
+    assert_eq!(h.count(&script).await, (1, 1));
+    // A valid Studio session grants nothing on the reserved surfaces.
+    for base in ["/api/v1/theatre", "/api/v1/admin"] {
+        for path in [format!("/scripts/{script}/head"), "/session".into()] {
+            let response = send(
+                "GET",
+                format!("{base}{path}"),
+                session.clone(),
+                String::new(),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{base}{path}");
+        }
+    }
 }

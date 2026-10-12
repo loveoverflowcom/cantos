@@ -156,7 +156,7 @@ async fn negotiated_post<T: DeserializeOwned, P: Serialize>(
 
 impl StudioHttp {
     pub async fn production_catalog(&self) -> Result<ProductionCatalogResponse, ApiError> {
-        get("/api/v1/production/catalog").await
+        get("/api/v1/studio/production/catalog").await
     }
 
     pub async fn production_state(
@@ -233,7 +233,7 @@ impl StudioHttp {
         &self,
         request: &ValidateScriptRequest,
     ) -> Result<ScriptValidationResponse, ApiError> {
-        negotiated_post("/api/v1/validation", request).await
+        negotiated_post("/api/v1/studio/validation", request).await
     }
 
     pub async fn history(
@@ -300,7 +300,7 @@ impl StudioHttp {
         negotiated_get(&format!("{}/revisions/{revision}", script_path(script)?)).await
     }
     pub async fn import(&self, request: &ImportRequest) -> Result<ImportResponse, ApiError> {
-        post("/api/v1/imports", request).await
+        post("/api/v1/studio/imports", request).await
     }
 
     pub async fn read_import(&self, id: &str) -> Result<ImportResponse, ApiError> {
@@ -311,7 +311,7 @@ impl StudioHttp {
         Ok(format!("{}/original", import_path(id)?))
     }
     pub async fn login(&self, token: String) -> Result<SessionResponse, ApiError> {
-        post("/api/v1/session", &SessionRequest { token }).await
+        post("/api/v1/studio/session", &SessionRequest { token }).await
     }
     pub async fn read(&self, script: &str) -> Result<RevisionResponse, ApiError> {
         negotiated_get(&format!("{}/head", script_path(script)?)).await
@@ -348,7 +348,7 @@ fn script_path(id: &str) -> Result<String, ApiError> {
     if !crate::adaptation::is_run_id(id) {
         return Err(invalid_request());
     }
-    Ok(format!("/api/v1/scripts/{id}"))
+    Ok(format!("/api/v1/studio/scripts/{id}"))
 }
 
 fn adaptation_path(id: &str) -> Result<String, ApiError> {
@@ -359,7 +359,7 @@ fn adaptation_path(id: &str) -> Result<String, ApiError> {
             issues: vec![],
         });
     }
-    Ok(format!("/api/v1/adaptations/{id}"))
+    Ok(format!("/api/v1/studio/adaptations/{id}"))
 }
 
 fn import_path(id: &str) -> Result<String, ApiError> {
@@ -370,5 +370,5 @@ fn import_path(id: &str) -> Result<String, ApiError> {
             issues: vec![],
         });
     }
-    Ok(format!("/api/v1/imports/{id}"))
+    Ok(format!("/api/v1/studio/imports/{id}"))
 }

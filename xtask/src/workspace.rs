@@ -63,8 +63,8 @@ mod tests {
         assert!(workspace.path("xtask/Cargo.toml").is_file());
         assert_eq!(workspace.relative(workspace.root()), ".");
         assert_eq!(
-            workspace.relative(&workspace.path("apps/cantos/web")),
-            "apps/cantos/web"
+            workspace.relative(&workspace.path("apps/cantos-theatre/web")),
+            "apps/cantos-theatre/web"
         );
     }
 

@@ -33,7 +33,7 @@ production-p1 encoding, frozen snapshots, shared DTOs and JSON Schema are unchan
 
 ## Routes and current permissions
 
-Paths below are relative to `/api/v1`. Script IDs, snapshot IDs and operation IDs are canonical
+Paths below are relative to `/api/v1/studio`. Script IDs, snapshot IDs and operation IDs are canonical
 lowercase UUIDs; actor/evidence/editorial IDs use the existing bounded identifier contract.
 
 | Method and path | Shared request → response | Permission and result |
