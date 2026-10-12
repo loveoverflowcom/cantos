@@ -33,6 +33,13 @@ as the small complete example. The old
 [`0.1.0-draft` example](../../packages/contracts/examples/episode-draft.json) is illustrative and rejected
 by the current backend; it is not a template for new scores.
 
+For representative audition/craft material, use the project-original
+[Vietnamese reference episode](examples/vietnamese-reference/episode_0001.r0001.script-ir.json)
+and its [derived review notes](examples/vietnamese-reference/episode_0001.r0001.review.md).
+It adds no contract fields or fixture goldens. Its unregistered external references and
+unresolved performance controls must be resolved before backend/production use; passing the
+standalone reader is structural evidence only.
+
 The [story workspace contract](story-workspace.md) owns story matching, filenames beyond this
 score convention, indexes, Drive synchronization, offline work and recovery issues. This
 document owns performance authoring and its mapping to Script IR. Production and publication

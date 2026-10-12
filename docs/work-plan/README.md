@@ -118,6 +118,14 @@ that improve the adaptation process and the audio output. Its editorial phase ca
 through the story workspace; the audio profile and clip conditioning are groundwork for #9, and
 scene acoustics follow #9. It changes no order, prerequisite, authorization or gate above.
 
+The project-original [Vietnamese reference episode](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
+provides #44's shared two-scene material with per-ID craft/cue coverage and unresolved controls;
+its [local evidence](../production/examples/vietnamese-reference/verification.md) pins the exact
+JSON bytes. The next editorial task is #45's listening-review protocol, using this reference to
+frame later named-listener observations. #50's auditions then consume the same material and that
+protocol; #51 additionally needs #46's asset intake. No listening, owner rights decision or
+production acceptance follows from text validation. GitHub retains #44/#45 execution status.
+
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
 tested with a process double; both mobile projects and real Android/iOS acceptance remain
