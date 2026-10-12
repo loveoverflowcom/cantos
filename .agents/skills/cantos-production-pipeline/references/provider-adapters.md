@@ -1,5 +1,9 @@
 # Provider adapters
 
+> **Design history (ADR 0018).** This describes provider ports and adapters that the removed synthesis context implemented; Cantos now holds no provider credentials. Cantos no longer runs this; do not implement it in this
+> repository. It remains the discipline an external producer follows, and a checklist for any
+> future component that must survive crashes.
+
 > **Scope.** Put TTS and adaptation-AI providers behind provider-neutral ports: a typed
 > capability model checked before any paid call, honest classification of the send boundary,
 > append-only attempts kept separate from artifacts, reconciliation of ambiguous outcomes before

@@ -2,8 +2,10 @@
 
 Status: implemented internal organization of the single `cantos-api` crate. The
 [handoff evidence](../evidence/api-bounded-contexts.md) records verification separately.
-This reorganizes the existing backend; it adds no API surface, schema, production provider or
-deployment unit. [ADR 0001](../decisions/0001-modular-monolith.md) still owns the modular-monolith
+[ADR 0018](../decisions/0018-external-audio-production.md) later removed the Synthesis context:
+Cantos runs no text-to-speech, and the Media context only inspects audio that external producers
+will submit. This document describes the resulting structure. The original reorganization added
+no API surface, schema, production provider or deployment unit. [ADR 0001](../decisions/0001-modular-monolith.md) still owns the modular-monolith
 choice, and [ADR 0015](../decisions/0015-api-surface-boundaries.md) owns Studio/Theatre/Admin isolation.
 
 ## Ownership and dependencies
@@ -21,14 +23,14 @@ No repository trait or generic effect framework is needed for the existing Postg
 | Ingestion | Bounded extraction, source bytes and immutable import receipts | Editorial |
 | Adaptation | Frozen caller context, proposal admission, acceptance and cancellation | Editorial, Ingestion |
 | Production | Casting capabilities, settings, rights, estimates, frozen inputs and approval | Editorial |
-| Synthesis | Durable jobs, attempts, receipt/audio admission, speech identity, reuse and regeneration | Editorial, Production |
+| Media | Pure, read-only inspection of externally produced audio (WAV PCM); submission use cases when the API exists | None |
 
 An upstream dependency uses its owner's named entrypoint, never its private application or
 PostgreSQL module. Domain dependencies name `contexts::<owner>::domain` directly so an
 application helper re-export cannot silently enter the pure core. Production's dated provider
-capabilities are immutable data and validation rules under `domain/catalog/`; provider processes,
-HTTP transports and credentials belong to `synthesis/providers/`. Synthesis byte-only WAV/audio
-admission lives in its domain, while filesystem clip probing stays under `media/`.
+capabilities are immutable data and validation rules under `domain/catalog/`; no provider process,
+HTTP transport or credential exists in Cantos. Media's byte-only WAV inspection lives in its pure
+domain and does no I/O.
 
 `interfaces/http/` owns routing, cookie/origin/body checks, wire negotiation and error formatting.
 Its handlers delegate to `Store` application methods. Three existing pure boundary operations
@@ -38,12 +40,11 @@ Studio, Theatre and Admin are separate API surfaces; they are not competing doma
 Theatre and Admin routers still return the existing reserved responses.
 
 `platform/` owns IDs, connection/session/migration plumbing, trusted local operator utilities and
-the incremental engine support. Its sole context-type dependency is the feature-gated
-`synthesis::summary_view::AttachedView` attachment required by
-[ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md). The operator utilities retain
-their existing privileged fixture/source-recording SQL; they are not HTTP use cases.
+the engine-independent incremental support, which no read model uses since the job-summary view
+was removed. `platform/` names no business context. The operator utilities retain their existing
+privileged fixture/source-recording SQL; they are not HTTP use cases.
 
-## Transactions and worker execution
+## Transactions
 
 Extracting a pure decision does not move locked facts outside the transaction. Editorial
 append/replay, adaptation submission/acceptance and production freeze/approval authenticate,
@@ -51,30 +52,21 @@ lock/load current facts, decide, persist and commit under the same transaction. 
 still reconcile their prior immutable result. Authorization and the expiry checks at the final
 write boundary remain necessary after a lock wait.
 
-Synthesis application modules own enqueue, status, control, preparation, dispatch authorization,
-attempt observation/settlement, output acceptance/quarantine and explicit not-executed
-reconciliation. They keep dispatch intent, reservation, fencing and selected-result persistence
-inside their transactions. The PostgreSQL adapter is split by jobs, leases, attempts, observations,
-acceptance, reconciliation and clips. Lease claim/heartbeat and clip selection retain their
-concrete atomic persistence boundaries; this is not a claim that every adapter is a single SQL
-statement.
-
-Worker modules divide runtime/heartbeat, dispatch, recovery/reuse and the private output journal.
-They retain the existing explicit local eSpeak or synthetic development provider configuration.
-A recorded ambiguous attempt still blocks automatic redispatch; a stale lease still cannot select
-output; reuse still creates no provider attempt. No external exactly-once guarantee is introduced.
+Cantos runs no worker: there is no lease, fence, dispatch intent or reservation to protect. A
+future submission use case carries the same rules as the others, and must additionally make
+repeated uploads idempotent and bind each result to an exact revision and checksum.
 
 SQL for business tables stays in the owning context's PostgreSQL adapter. Two existing read-only
 joins remain explicit exceptions: Ingestion's linked-source query reads Editorial's
 `revision_evidence` under the already-held script lock, and Editorial's active-reviewer query
 joins platform `actors`. Neither exception admits a cross-context write or a query from another
-file. Synthesis loads stored frozen-document bytes through Production's transaction helper.
+file.
 
 ## Compatibility and checks
 
-The existing crate-root module paths remain hidden compatibility re-exports, including
-`postgres::durable` and `tts`. New backend context code uses canonical owner paths; the architecture
-guard rejects legacy aliases there. HTTP/CLI wire DTOs, route groups, JSON/MessagePack negotiation,
+The crate-root module paths of the retained contexts remain hidden compatibility re-exports; the
+`tts`, `worker`, `jobs` and `postgres::durable` aliases went with Synthesis. New backend context
+code uses canonical owner paths; the architecture guard rejects legacy aliases there. HTTP/CLI wire DTOs, route groups, JSON/MessagePack negotiation,
 error mapping, migrations, stored bytes and historical digest inputs retain their existing contracts.
 No removal date for these library aliases is implied by this refactor.
 

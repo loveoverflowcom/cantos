@@ -1,6 +1,6 @@
 # ADR 0016: Position-free speech fingerprint, verified clip reuse and regeneration planning
 
-- Status: proposed
+- Status: superseded by [ADR 0018](0018-external-audio-production.md); the fingerprint, registry and plan were removed. Kept as history
 - Date: 2026-10-12
 - Decision owner: Cantos maintainers
 - Related issue or PR: [#7](https://github.com/loveoverflowcom/cantos/issues/7) (reuse criterion),

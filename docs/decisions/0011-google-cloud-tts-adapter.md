@@ -1,6 +1,6 @@
 # ADR 0011: Google Cloud Text-to-Speech as the first commercial synthesis adapter
 
-- Status: proposed
+- Status: superseded by [ADR 0018](0018-external-audio-production.md); the adapter was removed. The documented provider facts remain useful to producers. Kept as history
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers; provider selection made by the repository owner on 2026-10-11
 - Related issue or PR: [#6](https://github.com/loveoverflowcom/cantos/issues/6)

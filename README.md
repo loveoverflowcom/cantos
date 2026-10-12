@@ -2,7 +2,10 @@
 
 **Vọng Đài — Theatre of Voices.** An AI-assisted audio drama platform with a creator Studio and a podcast-like Theatre for listeners.
 
-Cantos produces performances with a cast, narration, atmosphere, music and sound effects. Published audio is rendered once and streamed from stored assets; listening does not call a TTS provider.
+Cantos Studio manages novels, stories and podcasts, their episodes and their audio. It does not
+synthesize speech: it supplies the script, casting guidance, standards and an API that external AI
+producers follow and send finished audio back through ([ADR 0018](docs/decisions/0018-external-audio-production.md)).
+Published audio is stored once and streamed from stored assets; listening does not call a TTS provider.
 
 ## Repository status
 
@@ -22,48 +25,21 @@ the user-controlled host; Cantos performs no model inference for adaptation. [Ad
 separates actual tool/storage tests from synthetic content and unrun model quality. The [structured Studio editor](docs/evidence/studio-script-editor.md) adds scene/dialogue/character authoring,
 validation previews, source comparison and revision history on that same authority.
 [Casting and production inputs](docs/evidence/casting-production-inputs.md) add versioned
-reference-only voice controls, script-scoped rights/budget declarations, immutable candidates
-and exact owner approval on the same backend. Reference capabilities and rates are planning
-fixtures; that #5 slice produces no TTS/LLM call, reservation, actual charge or audio. The bounded
-[durable local/fake worker foundation](docs/evidence/durable-tts-jobs.md) now adds PostgreSQL
-runs, jobs, dialogue steps, intent/reservation/observation history, leases and fenced result
-selection. Its separate `cantos-worker` process belongs to the same backend package and requires
-explicit development/local or synthetic execution. Google commercial dispatch stays disabled;
-VieNeu stays research-only. Full production execution, Theatre and native mobile playback remain
-planned. No runnable Gradle project or production
-identity deployment is claimed. A standalone, read-only [WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md)
-reports structure, checksums and sample peak as JSON; it is groundwork for audio QC, not mixing,
+voice guidance, script-scoped rights/budget declarations, immutable candidates and exact owner
+approval on the same backend. An approved snapshot is guidance that an external producer reads;
+Cantos makes no TTS or LLM call, reservation, charge or audio.
+The in-process text-to-speech runtime (durable jobs, the `cantos-worker` process, eSpeak NG, VieNeu
+Nano and Google Cloud TTS adapters, receipts, clip reuse and probe CLIs) was removed by
+[ADR 0018](docs/decisions/0018-external-audio-production.md). Its evidence stays under `docs/evidence/` as
+history with links pinned to the last commit that contained it. The API for producers to submit
+audio, with scoped credentials and storage, is proposed and **not implemented**, so no audio can
+enter Cantos yet. Mixing, QC, object storage, Theatre and native mobile playback remain planned.
+No runnable Gradle project or production identity deployment is claimed. A standalone, read-only
+[WAV PCM inspection CLI](docs/evidence/wav-pcm-inspection.md) reports structure, checksums and
+sample peak as JSON; it is the retained admission primitive for submitted audio, not mixing,
 loudness measurement or QC approval. A read-only [Script IR diff CLI](docs/evidence/script-diff.md)
 compares two versions of one episode by stable ID and reports edited, moved, added and removed
 lines, cues and characters plus provenance and rights changes; it is a review aid, not a reuse decision.
-A [local TTS probe and receipt inspection CLI](docs/evidence/tts-receipt-inspection.md) now
-exercise the user-authorized eSpeak NG 1.52.0 path. Real samples from all three supported
-Vietnamese voices were generated and validated as native 22,050 Hz mono 16-bit PCM WAV.
-The probe saves private frozen-input, intent, receipt and output-hash records; the inspector
-checks exact scope and conservative recovery facts. Listening quality is **NOT_RUN**.
-This is a sample path, with explicit neutral/default controls and no production dispatch
-authorization, durable jobs or asset acceptance. See
-[local selection](docs/decisions/0008-local-tts-inspection.md) and
-[provider prerequisites](docs/evidence/tts-provider-prerequisites.md).
-The user-requested [local neural research slice](docs/evidence/local-neural-tts.md) adds a
-bounded VieNeu Nano research adapter while preserving eSpeak. Its pinned model/preset selection
-and [rights comparison](docs/evidence/local-neural-tts-research.md) keep production dispatch
-disabled. The pinned ARM64 CPU runtime generated six inspected 24,000 Hz mono 16-bit PCM WAVs
-from the Đức Trí and Mỹ Duyên presets; required native, PostgreSQL and browser checks passed.
-This remains part of #6, with commercial execution and listening acceptance unresolved.
-
-The owner-selected commercial provider, Google Cloud TTS, follows the same pattern: its vi-VN
-voices are castable with an explicit neutral delivery, and an opt-in `probe-google-tts` sends
-one capped request for one frozen line. Its evidence is mocked only; the live Google sample is
-**NOT_RUN** ([Google selection](docs/decisions/0011-google-cloud-tts-adapter.md),
-[adapter evidence](docs/evidence/google-tts-adapter.md)). This completes only part of #6 and
-does not close the issue.
-The [existing provider verification](docs/evidence/tts-provider-verification.md) hardens
-conservative HTTP execution, pinned sample rights/budget checks and private local output safety.
-Fresh eSpeak samples remain structurally verified; Google live and listening remain NOT_RUN.
-The sequential #7 [worker foundation](docs/evidence/durable-tts-jobs.md) starts from the merged
-[PR #38](https://github.com/loveoverflowcom/cantos/pull/38), preserving those #6 gates. Completed
-worker execution grants neither editorial/publication approval nor accepted delivery assets.
 
 Four Studio revision routes (head, pinned revision, save, validation) can also negotiate
 MessagePack beside JSON with the same DTOs and error semantics; the Studio ships JSON until the
@@ -83,13 +59,13 @@ implemented client. See the [repository layout](docs/architecture/repository-lay
 
 | Surface | Purpose | Technology |
 | --- | --- | --- |
-| Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web only (`apps/cantos-studio/web`) |
+| Cantos Studio | Import, adapt, edit, cast, review and approve episodes; manage works and the audio producers submit | Leptos Web only (`apps/cantos-studio/web`) |
 | Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
-| Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
+| Backend | Domain rules, APIs, production guidance, audio admission and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
 | Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
 
-Start with one modular backend. Worker execution can run separately for resource isolation while sharing the same codebase and PostgreSQL job model.
+Start with one modular backend. Audio is produced outside Cantos by AI plugins that read its guidance and submit results through the API.
 
 ## Platform scope
 
@@ -120,7 +96,7 @@ Shared libraries may serve Theatre Mobile and Studio Web.
 | `apps/cantos-studio/mobile/` | Out of scope / not implemented; scope notice only |
 | `apps/cantos-theatre/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
 | `apps/cantos-theatre/mobile/` | Guide for the native CMP listening app; no Gradle project |
-| `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
+| `services/cantos-api/` | Pure Script IR/revision/production rules, media inspection, local Axum host, PostgreSQL store and migration CLI |
 | `services/kanidm/` | Identity-provider deployment notes and an example config; not integrated |
 | `packages/contracts/` | Script IR and Studio v1 schemas/fixtures, contract documents and shared Rust wire DTOs (`cantos-contracts`) |
 | `packages/ui-system/` | Canonical semantic tokens and Leptos foundation; CMP mapping deferred |
@@ -144,7 +120,7 @@ cargo xtask compose-preview --help         # optional Android Studio PNG/semanti
 cargo xtask preflight --changed-only       # gates selected from your diff against origin/develop
 cargo xtask verify repository              # documents, links, skills, Python tests, whitespace
 cargo xtask verify rust                    # fmt, clippy -D warnings, workspace tests
-cargo xtask verify contracts               # Script IR goldens, wire/WAV/TTS receipt contracts, WAV oracle
+cargo xtask verify contracts               # Script IR goldens, wire/WAV contracts, WAV oracle
 cargo xtask verify web                     # WASM clippy, both Web clients and the shared component gallery
 cargo xtask verify postgres                # disposable PostgreSQL cluster (never an inherited DATABASE_URL)
 cargo xtask verify mutation                # bounded Script IR mutation checks
@@ -170,7 +146,7 @@ cargo run --locked --bin diff-script -- packages/contracts/fixtures/script-ir/0.
 
 [API service](services/cantos-api/README.md), [Studio](apps/cantos-studio/web/README.md) and [Theatre skeleton](apps/cantos-theatre/web/README.md) describe migration, test-role
 permissions and local serving. [.env.example](.env.example) distinguishes implemented development configuration
-from future provider/storage configuration; no dotenv loader or audio QA runtime is provided.
+from future storage configuration for submitted audio; no dotenv loader or audio QA runtime is provided.
 
 Measure the implemented revision reads against synthetic data in a fresh disposable cluster:
 
@@ -186,7 +162,7 @@ samples/plans locally under ignored `target/read-benchmarks/`. It never accepts 
 
 ## MVP completion
 
-The MVP must demonstrate an authorized script imported into Studio, reviewed adaptation and casting, resumable production, partial regeneration, mixed audio passing QC, approved publication, Theatre Web playback and native Android/iOS listening with background controls, offline playback and synchronized progress. See the [work plan](docs/work-plan/README.md) for individual acceptance gates.
+The MVP must demonstrate an authorized script imported into Studio, reviewed adaptation and casting, audio produced by an external AI producer and submitted through the API, mixed audio passing QC, approved publication, Theatre Web playback and native Android/iOS listening with background controls, offline playback and synchronized progress. See the [work plan](docs/work-plan/README.md) for individual acceptance gates.
 
 The referenced UI image was not attached to this request. Exact visual matching remains pending receipt of that reference. The lavender/purple, compact Material 3 Expressive direction is recorded in the UI specification.
 

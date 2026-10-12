@@ -1,6 +1,6 @@
 # Audio drama quality plan
 
-Status: planning, recorded 2026-10-12. The project-original
+Status: planning, recorded 2026-10-12. Since [ADR 0018](../decisions/0018-external-audio-production.md) Cantos neither synthesizes nor mixes: the mix, conditioning and acoustics steps below become standards that external producers follow, which Cantos measures; see the proposed re-scope in the [issue map](project-planning.md#re-scoped-by-adr-0018). Editorial craft, cue records, auditions and the listening protocol are unchanged. The project-original
 [reference episode and review notes](../production/examples/vietnamese-reference/episode_0001.r0001.review.md)
 provide Step 1's text artifact, with [local structural evidence](../production/examples/vietnamese-reference/verification.md).
 The documented manual [listening protocol](../production/listening-review-protocol.md) and

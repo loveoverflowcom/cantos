@@ -100,12 +100,6 @@ def main():
         for member in ("services/cantos-api", "apps/cantos-theatre/web", "apps/cantos-studio/web",
                        "packages/contracts", "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
-        # The concrete neural adapter embeds its fixed helper; its integration
-        # fixture is also a compile-time input even for this package-scoped test.
-        (workspace / "scripts").mkdir()
-        shutil.copy2(ROOT / "scripts/vieneu_nano_runtime.py",
-                     workspace / "scripts/vieneu_nano_runtime.py")
-        shutil.copytree(ROOT / "scripts/fixtures", workspace / "scripts/fixtures")
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         baseline = run(workspace, env)
         summary = f"test result: ok. {EXPECTED_CONTRACT_TESTS} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"

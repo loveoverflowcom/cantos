@@ -45,10 +45,10 @@ If an active task becomes blocked, record the reason and native blocking relatio
 | 03 | [010](010-import-and-edit-script.md) | [010.3 — Generate reviewable AI script adaptations](https://github.com/loveoverflowcom/cantos/issues/3) | [#2](https://github.com/loveoverflowcom/cantos/issues/2) |
 | 04 | [010](010-import-and-edit-script.md) | [010.4 — Deliver the accessible Studio script editor](https://github.com/loveoverflowcom/cantos/issues/4) | [#3](https://github.com/loveoverflowcom/cantos/issues/3) |
 | 05 | [020](020-cast-and-generate-dialogue.md) | [020.1 — Freeze casting and authorize production inputs](https://github.com/loveoverflowcom/cantos/issues/5) | [#4](https://github.com/loveoverflowcom/cantos/issues/4) |
-| 06 | [020](020-cast-and-generate-dialogue.md) | [020.2 — Integrate verified local and commercial TTS](https://github.com/loveoverflowcom/cantos/issues/6) | [#5](https://github.com/loveoverflowcom/cantos/issues/5) |
-| 07 | [020](020-cast-and-generate-dialogue.md) | [020.3 — Recover durable TTS jobs and reuse valid clips](https://github.com/loveoverflowcom/cantos/issues/7) | [#6](https://github.com/loveoverflowcom/cantos/issues/6) |
-| 08 | [020](020-cast-and-generate-dialogue.md) | [020.4 — Expose casting, production progress and partial regeneration](https://github.com/loveoverflowcom/cantos/issues/8) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
-| 09 | [030](030-mix-review-and-publish.md) | [030.1 — Mix episodes and review versioned QC findings](https://github.com/loveoverflowcom/cantos/issues/9) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
+| 06 | [020](020-cast-and-generate-dialogue.md) | [020.2 — Integrate verified local and commercial TTS](https://github.com/loveoverflowcom/cantos/issues/6) *(superseded by ADR 0018; re-scope below)* | [#5](https://github.com/loveoverflowcom/cantos/issues/5) |
+| 07 | [020](020-cast-and-generate-dialogue.md) | [020.3 — Recover durable TTS jobs and reuse valid clips](https://github.com/loveoverflowcom/cantos/issues/7) *(superseded by ADR 0018; re-scope below)* | [#6](https://github.com/loveoverflowcom/cantos/issues/6) |
+| 08 | [020](020-cast-and-generate-dialogue.md) | [020.4 — Expose casting, production progress and partial regeneration](https://github.com/loveoverflowcom/cantos/issues/8) *(re-scope below)* | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
+| 09 | [030](030-mix-review-and-publish.md) | [030.1 — Mix episodes and review versioned QC findings](https://github.com/loveoverflowcom/cantos/issues/9) *(re-scope below)* | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
 | 10 | [030](030-mix-review-and-publish.md) | [030.2 — Stage private assets and verify media delivery](https://github.com/loveoverflowcom/cantos/issues/10) | [#7](https://github.com/loveoverflowcom/cantos/issues/7) |
 | 11 | [030](030-mix-review-and-publish.md) | [030.3 — Publish approved immutable releases atomically](https://github.com/loveoverflowcom/cantos/issues/11) | [#8](https://github.com/loveoverflowcom/cantos/issues/8), [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#10](https://github.com/loveoverflowcom/cantos/issues/10) |
 | 12 | [040](040-theatre-web-listening.md) | [040.1 — Implement listener APIs and conflict-safe progress](https://github.com/loveoverflowcom/cantos/issues/12) | [#11](https://github.com/loveoverflowcom/cantos/issues/11) |
@@ -57,6 +57,26 @@ If an active task becomes blocked, record the reason and native blocking relatio
 | 15 | [050](050-cmp-native-listening.md) | [050.2 — Add background playback, OS controls and interruption recovery](https://github.com/loveoverflowcom/cantos/issues/15) | [#14](https://github.com/loveoverflowcom/cantos/issues/14) |
 | 16 | [050](050-cmp-native-listening.md) | [050.3 — Deliver verified and resumable offline downloads](https://github.com/loveoverflowcom/cantos/issues/16) | [#14](https://github.com/loveoverflowcom/cantos/issues/14) |
 | 17 | [050](050-cmp-native-listening.md) | [050.4 — Synchronize mobile progress and verify the complete MVP journey](https://github.com/loveoverflowcom/cantos/issues/17) | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#15](https://github.com/loveoverflowcom/cantos/issues/15), [#16](https://github.com/loveoverflowcom/cantos/issues/16) |
+
+## Re-scoped by ADR 0018
+
+[ADR 0018](../decisions/0018-external-audio-production.md) (2026-10-12) removed the in-process TTS
+runtime: Cantos manages works and audio, while external AI producers follow its instructions and
+submit audio through the API. The GitHub issues below still carry their original text; this table
+is the **proposed** rewrite, to be applied to the issues once the owner confirms. Until then the
+issue body is not an accurate scope statement for these rows.
+
+| Issue | Original scope | Proposed scope | Immediate blocker |
+| --- | --- | --- | --- |
+| [#6](https://github.com/loveoverflowcom/cantos/issues/6) | Integrate verified local and commercial TTS | Close as superseded: provider adapters live in external producers. The producer instructions and standards move to the new item below | None |
+| [#7](https://github.com/loveoverflowcom/cantos/issues/7) | Recover durable TTS jobs and reuse valid clips | Replace with: audio submission API (scoped producer credentials, idempotent upload bound to revision/snapshot/dialogue, WAV inspection, stale marking) | [#5](https://github.com/loveoverflowcom/cantos/issues/5), [#10](https://github.com/loveoverflowcom/cantos/issues/10) storage decision |
+| [#8](https://github.com/loveoverflowcom/cantos/issues/8) | Casting, production progress and partial regeneration | Studio submission view: per-dialogue status, preview, accept/replace, stale marks | The #7 replacement |
+| [#9](https://github.com/loveoverflowcom/cantos/issues/9) | Mix episodes and review versioned QC findings | Accept and review submitted scene/episode audio: measured loudness/peak/duration, versioned QC findings; no mixing in Cantos | The #7 replacement |
+| [#51](https://github.com/loveoverflowcom/cantos/issues/51) | Decide the versioned audio profile | Unchanged intent, now the delivery profile producers must meet | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45), [#46](https://github.com/loveoverflowcom/cantos/issues/46) |
+| [#52](https://github.com/loveoverflowcom/cantos/issues/52) | Condition TTS clips before mixing | Becomes a producer standard (padding, levels, joins) plus an optional measurement check, not a Cantos planner | [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+| [#53](https://github.com/loveoverflowcom/cantos/issues/53) | Scene acoustics and stereo placement in the mix plan | Becomes a producer standard; Cantos measures, it does not render | [#9](https://github.com/loveoverflowcom/cantos/issues/9) |
+| [#50](https://github.com/loveoverflowcom/cantos/issues/50) | Voice auditions and pronunciation lexicon | Unchanged; auditions are run against external producers | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45) |
+| [#64](https://github.com/loveoverflowcom/cantos/issues/64) | Low-bandwidth audio presets (Opus, AAC fallback) | Needs an owner decision on who encodes delivery renditions (the producer, or Cantos at publication). ADR 0018 rules out synthesis and mixing in Cantos but does not decide transcoding | None |
 
 ## Supplementary audio-quality issues
 
@@ -79,9 +99,9 @@ The [audio drama quality plan](audio-drama-quality.md) adds these bounded issues
 
 ## Sequence and parallel work
 
-Start with [#1](https://github.com/loveoverflowcom/cantos/issues/1), then complete the import/adaptation/editor journey before casting. Casting and real provider integration establish the inputs needed by durable generation.
+Start with [#1](https://github.com/loveoverflowcom/cantos/issues/1), then complete the import/adaptation/editor journey before casting. Casting establishes the inputs an external producer needs; the submission API then brings audio back in.
 
-After [#7](https://github.com/loveoverflowcom/cantos/issues/7), the Studio production controls ([#8](https://github.com/loveoverflowcom/cantos/issues/8)), mixing/QC ([#9](https://github.com/loveoverflowcom/cantos/issues/9)) and private storage/delivery ([#10](https://github.com/loveoverflowcom/cantos/issues/10)) can proceed in parallel against concrete clip/artifact contracts. Publication ([#11](https://github.com/loveoverflowcom/cantos/issues/11)) waits for all three acceptance results.
+After the audio submission API (the #7 re-scope above), the Studio submission view ([#8](https://github.com/loveoverflowcom/cantos/issues/8)), mixing/QC ([#9](https://github.com/loveoverflowcom/cantos/issues/9)) and private storage/delivery ([#10](https://github.com/loveoverflowcom/cantos/issues/10)) can proceed in parallel against concrete clip/artifact contracts. Publication ([#11](https://github.com/loveoverflowcom/cantos/issues/11)) waits for all three acceptance results.
 
 Listener contracts ([#12](https://github.com/loveoverflowcom/cantos/issues/12)) require a complete publication/delivery gate. Theatre Web ([#13](https://github.com/loveoverflowcom/cantos/issues/13)) and native CMP streaming ([#14](https://github.com/loveoverflowcom/cantos/issues/14)) can then proceed in parallel. Native background controls ([#15](https://github.com/loveoverflowcom/cantos/issues/15)) and downloads ([#16](https://github.com/loveoverflowcom/cantos/issues/16)) can run in parallel after native foreground playback. The final cross-device journey ([#17](https://github.com/loveoverflowcom/cantos/issues/17)) waits for Web, background and download acceptance. Contract-fixture experiments before those gates must be labeled as prototypes.
 
@@ -90,8 +110,8 @@ Listener contracts ([#12](https://github.com/loveoverflowcom/cantos/issues/12)) 
 A milestone is complete only when its issues pass acceptance and the owning phase's end-to-end review boundary is demonstrated. Completing a backend task alone does not finish its creator/listener capability.
 
 - **010:** import → adaptation review → edit → save → restart/reopen, with preserved provenance, rights and immutable versions.
-- **020:** casting → real local/commercial TTS → clip preview → partial regeneration, including crash recovery, bounded retries and budget/ambiguous-charge handling.
-- **030:** real multi-voice mixing → measured and editorial QC → verified upload → exact-revision approval → atomic publication/replacement, preserving a playable prior release on failure.
+- **020:** casting → external producer reads the approved snapshot → audio submission → inspection → clip preview → single-line change and stale marking, including interrupted and repeated uploads.
+- **030:** producer-submitted multi-voice scene and episode audio → measured and editorial QC → verified upload → exact-revision approval → atomic publication/replacement, preserving a playable prior release on failure.
 - **040:** real discovery/CDN playback → bookmark → reload/resume → two-session synchronization, including deliberate rewind and release-version changes.
 - **050:** Android and iOS native play → background/lock-screen → verified offline play → restart/resume → Web/mobile sync, with platform lifecycle and accessibility observations.
 

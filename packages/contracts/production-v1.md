@@ -8,28 +8,33 @@ and evaluates current eligibility. [ADR 0007](../../docs/decisions/0007-casting-
 is proposed for production adoption. [Execution evidence](../../docs/evidence/casting-production-inputs.md)
 owns which checks actually ran.
 
+> Since [ADR 0018](../../docs/decisions/0018-external-audio-production.md) this contract is guidance
+> for external producers. Cantos runs no synthesis, so no provider adapter, probe or dispatch
+> exists behind the catalog entries below; their `adapter_version` and `output_contract` fields are
+> identities pinned in frozen snapshots, kept so existing snapshots still read, replay and
+> evaluate. The receipt, durable-job and clip-reuse contracts mentioned in earlier versions of
+> this document were removed; [the last commit that had them](https://github.com/loveoverflowcom/cantos/tree/2de8c69/packages/contracts)
+> is the reference.
+
 HTTP remains a planning data pipeline: requests do not call TTS/LLM, install a runtime, reserve
 money or create accepted audio. Two reference entries keep `reference_only: true`. The local
 eSpeak NG 1.52.0 descriptor exposes adapter-supported Vietnamese identities with
-`reference_only: false`; runtime presence is checked by the explicit local probe. Four Google
-Cloud TTS entries (`google-chirp3-hd`, `google-neural2`, `google-wavenet`, `google-standard`)
-declare the documented vi-VN voices and controls of [ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md),
-not account availability. Like eSpeak, a Google binding freezes only with an explicit `neutral`
-delivery at intensity `0` and text admissible to that adapter (`invalid_google_text`,
-`google_text_too_large`); resolved lines pin `google-cloud-tts-synthesize-3` and
-`wav-pcm-s16le-mono-24000-v1`. Every entry keeps `billable_dispatch_available: false`.
-Approval grants no agent permission to spend. The [receipt contract](tts-receipt-v1.md) owns the
-separate user-invoked local and Google sample probes. The JSON Schema enumerates every
-implemented provider, model, voice, adapter version and output contract; the server remains
-authoritative for which combinations a capability allows.
+`reference_only: false`. Four Google Cloud TTS entries (`google-chirp3-hd`, `google-neural2`,
+`google-wavenet`, `google-standard`) declare the documented vi-VN voices and controls of
+[ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md) (superseded), not account
+availability. Like eSpeak, a Google binding freezes only with an explicit `neutral` delivery at
+intensity `0` and text admissible to that adapter (`invalid_google_text`, `google_text_too_large`);
+resolved lines pin `google-cloud-tts-synthesize-3` and `wav-pcm-s16le-mono-24000-v1`. Every entry
+keeps `billable_dispatch_available: false`. Approval grants no agent permission to spend. The JSON
+Schema enumerates every provider, model, voice, adapter version and output contract; the server
+remains authoritative for which combinations a capability allows.
 
 The optional `vieneu-nano-local` descriptor appends a separate research-only entry with its
 exact pinned model, `duc-tri`/`my-duyen` presets and neutral/default controls. It has
-`reference_only: false` but `billable_dispatch_available: false`; this denotes a concrete research
-adapter, not production rights. Its invocation boundary refuses production before runtime/model
-I/O independently of approval. Model/preset provenance and live evidence are recorded in
-[the neural slice](../../docs/evidence/local-neural-tts.md). Existing entries, catalog version,
-production-p1 encoding, frozen snapshots, shared DTOs and JSON Schema are unchanged.
+`reference_only: false` but `billable_dispatch_available: false`; this denotes a concrete
+catalog identity, not production rights. Its provenance is recorded in
+[the neural slice](../../docs/evidence/local-neural-tts.md) (history). Existing entries, catalog
+version, production-p1 encoding, frozen snapshots, shared DTOs and JSON Schema are unchanged.
 
 ## Routes and current permissions
 
@@ -221,5 +226,5 @@ Restart reopens the same document/approval and reconciles exact operations; no w
 lease or billing recovery claim follows from database recovery.
 
 Historical Google adapter `google-cloud-tts-synthesize-2` remains valid for immutable snapshot
-read/receipt inspection. Current freeze emits `-3`; old adapter eligibility is blocked and a new
+read and replay. Current freeze emits `-3`; old adapter eligibility is blocked and a new
 candidate/approval is required. This read compatibility does not permit dispatch.

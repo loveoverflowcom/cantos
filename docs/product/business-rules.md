@@ -5,13 +5,15 @@
 > and actor/read/write checks have [bounded evidence](../evidence/script-revision-persistence.md);
 > [Production-input planning](../evidence/casting-production-inputs.md) implements bounded
 > reference-only casting, rights/budget declarations and immutable candidate/approval checks.
-> Legal clearance, actual dispatch/cost settlement and publication gates remain separate work.
+> Cantos does not synthesize audio: external producers do, and submit it back
+> ([ADR 0018](../decisions/0018-external-audio-production.md)); the submission API is not yet
+> implemented. Legal clearance, audio acceptance and publication gates remain separate work.
 
 ## Content and revisions
 
 1. Preserve the editorial hierarchy: **Work → Adaptation → Episode → Act → Scene → Dialogue → Audio**. Narration is a spoken role; ambience, music and effects are scene cues linked to audio assets.
 2. Support original scripts, imported manuscripts and AI-assisted adaptations. Preserve the imported source and record its provenance; adaptation must be reviewable before production.
-3. Give editorial entities stable identifiers. Editing creates a new immutable script revision once a revision is submitted for production; in-progress drafts may be mutable. A production run pins one script revision and its resolved casting, voice settings, pronunciation rules and sound assets.
+3. Give editorial entities stable identifiers. Editing creates a new immutable script revision once a revision is submitted for production; in-progress drafts may be mutable. A production snapshot pins one script revision and its resolved casting, voice settings, pronunciation rules and sound assets.
 4. Maintain a versioned Script IR with schema validation and explicit migration/compatibility rules. Reuse Narrative Forge concepts through a documented exchange format, without a mandatory dependency on that project's storage or deployment.
 5. Do not mutate approved or published output in place. Corrections produce a new revision, production run or release as appropriate. Retain the previous release and its audit history according to the retention policy.
 
@@ -19,24 +21,24 @@
 
 6. A character has a stable identity, personality, voice assignment, pronunciation guidance and emotional/performance profile within an adaptation. Changes must be explicit and versioned.
 7. A line may override permitted performance settings, such as emotion or pacing, without silently changing the character's voice identity. Record resolved settings in the production input.
-8. Voice selection and provider capabilities must be validated before production. Missing voices, unavailable models or unsupported required settings block the affected work with an actionable finding; do not silently substitute a different voice.
+8. Voice selection and the declared capabilities of the named voice or model must be validated before a production snapshot is approved. Missing voices, unavailable models or unsupported required settings block the affected work with an actionable finding; do not silently substitute a different voice.
 9. Source text and pronunciation rules must remain available for inspection. AI-inferred speakers, emotions and cues are suggestions until the script/casting review accepts them.
 
 ## Rights and access
 
 10. Record permission evidence, rights holder/source, applicable scope, language, territory, term and attribution requirements where relevant for source works, adaptations, voices, music and effects. Imported material is not automatically cleared for publication.
-11. A creator must have the necessary rights for the intended production and distribution. Unknown or expired permissions block the relevant operation. Configure checks for the required rights before paid generation and again before publication.
-12. Generated outputs inherit applicable provider and source restrictions; an output's existence does not establish its distribution rights. Provider credentials remain server-side and must not appear in scripts, manifests or logs.
+11. A creator must have the necessary rights for the intended production and distribution. Unknown or expired permissions block the relevant operation. Check the required rights before production inputs are approved and again before publication.
+12. Produced audio inherits applicable provider and source restrictions; its existence does not establish its distribution rights. Cantos holds no TTS provider credential, and no producer credential may appear in scripts, manifests or logs.
 13. Define permissions for script editing, production execution, QC acceptance, publication approval and listener access. The implementation may initially allow one authorized creator to perform several roles, but each approval must record its actor and scope.
 
-## Production, caching and costs
+## External production and submission
 
-14. Generate dialogue audio once for a specific input fingerprint. Include exact effective text, voice/provider/model version where available, synthesis settings, pronunciation version and relevant adapter/processing version in the key. Record actual provider identifiers and any unversioned-model uncertainty.
-15. Cache reuse is allowed only when the input fingerprint, access/rights scope and artifact integrity remain valid. Do not reuse private voice assets across unrelated creators. An uploaded result is immutable; revised inputs produce a new artifact.
-16. Regenerate only changed or invalid dialogue and its dependent scenes/episode mixes. A voice or pronunciation change invalidates every line that depends on that version. Unrelated lines remain reusable.
-17. Track estimated cost before execution and actual usage/cost per generation attempt, production run and provider. Cached reuse, failed calls, retries and credits must be distinguishable. Never present an estimate as a settled charge.
-18. Enforce configured production budgets and concurrency limits. If a limit is reached, pause or fail with an explanation; automatic retries must not bypass the limit. Provider billing reconciliation is needed when actual cost arrives later.
-19. Background jobs must survive worker restarts. Duplicate dispatch or a retried step must not create duplicate accepted output. A paid provider call with an unknown outcome requires reconciliation or explicit handling before an equivalent call is repeated.
+14. Cantos does not generate audio. A producer outside Cantos (an AI plugin, an agent or a person with an audio tool) reads the approved production snapshot and the published standards, produces the audio and submits it through the API. Cantos supplies guidance and verifies what comes back.
+15. A submission names the exact script revision, snapshot digest and dialogue IDs it covers, and carries the producer's provenance claim (tool, model or voice, version, rights assertion). An accepted result is immutable; a corrected result is a new submission. Producer claims are recorded as claims, never as facts Cantos measured.
+16. Ask for new audio only for changed or invalid dialogue and its dependent scenes and episode mixes. A voice or pronunciation change makes every submission that depends on that version stale. Unrelated lines remain reusable. Do not reuse private voice assets across unrelated creators.
+17. The producer owns provider accounts, credentials, spend and retries. Cantos makes no paid generation call and never presents a producer-reported cost as a settled charge. Producers authenticate with scoped, revocable credentials, never a creator's browser session.
+18. Submitted audio is untrusted. Cantos inspects it (format, checksum, duration, sample peak) before it can be accepted, records those measurements separately from the producer's claims, and rejects unreadable, mismatched or oversized input. Passing inspection is not QC approval.
+19. Submissions are idempotent. A repeated or interrupted upload must not create duplicate accepted output, an incomplete upload is never accepted, and selecting the accepted result for a dialogue is a recorded decision tied to its checksum.
 
 ## Review and publication
 
@@ -58,13 +60,13 @@
 
 | Scenario | Required result |
 | --- | --- |
-| One line changes | Only that line and dependent mixes need regeneration |
-| Character voice changes | All dependent lines are invalidated; unrelated characters' audio remains eligible for reuse |
-| Worker dies after dispatch | A recovered run resumes safely without duplicate accepted output |
-| Provider response is lost | Reconcile the uncertain paid call before repeating it |
+| One line changes | Only that line's submission and dependent mixes become stale |
+| Character voice changes | All dependent lines are marked stale; unrelated characters' audio remains eligible for reuse |
+| Upload is interrupted or repeated | No duplicate accepted output; the incomplete upload is never accepted |
+| Audio arrives for a superseded revision | It is rejected or marked stale, never accepted for the current revision |
 | QC approval predates a new render | Publication remains blocked until the new render is reviewed |
 | Upload is incomplete | No incomplete release becomes listener-accessible |
-| Listener presses play repeatedly | No synthesis cost is incurred |
+| Listener presses play repeatedly | No generation is started and no producer is contacted |
 | Offline progress arrives late | The documented sync policy resolves it without blind last-arrival overwrite |
 
 Related: [product brief](brief.md) and [production pipeline](production-pipeline.md).

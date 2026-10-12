@@ -1,7 +1,6 @@
 # ADR 0017: Experimental DBSP job-summary read model
 
-- Status: accepted for an opt-in local/development experiment; production adoption is **not**
-  admitted and remains gated by the revisit conditions below
+- Status: superseded by [ADR 0018](0018-external-audio-production.md) for its only consumer (the durable job summary, removed). The engine-independent `incremental` core and the `dbsp-experimental` feature remain until a separate removal decision. Kept as history
 - Date: 2026-10-12
 - Decision owner: Cantos maintainers
 - Related issue or PR: [#58](https://github.com/loveoverflowcom/cantos/issues/58)

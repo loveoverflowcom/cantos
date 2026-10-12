@@ -2,7 +2,7 @@
 
 Status: an agent-operated editorial workflow. The initializer and skills support local files;
 Drive synchronization is performed through available connectors or browser tools, not a
-background service. This does not implement the planned production workers or publication API.
+background service. Cantos runs no production worker ([ADR 0018](../decisions/0018-external-audio-production.md)); the audio-submission API and publication are planned, not implemented.
 
 ## Project destination and ownership
 

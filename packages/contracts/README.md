@@ -31,35 +31,12 @@ and Studio. Its [schema](schema/production/v1.schema.json) and
 catalog. Current eligibility is computed from authoritative facts; freezing is preservation,
 not permission to dispatch. Those reference fixtures establish no real voice availability,
 legal verification, provider price, audio, reservation or actual billing receipt. Historical
-reference snapshots keep their exact identities and output contracts. The catalog now also
-declares the separately implemented local eSpeak inspection entry and the Google Cloud TTS
-vi-VN entries; their availability evidence belongs to the bounded local TTS and Google adapter
-slices.
-
-The [offline TTS receipt inspection contract](tts-receipt-v1.md) is a local server CLI format
-over those exact frozen documents. It checks synthetic and actual local WAV bytes plus
-caller-recorded attempt/cost facts without changing authority. A user-invoked eSpeak NG 1.52.0
-probe saves private frozen-input/intent/receipt/output records with an explicit native 22,050 Hz
-PCM profile. Three Vietnamese voices have live synthesis/byte-validation evidence; listening
-quality is **NOT_RUN**. This offline format supplies no shared synthesis API, current production
-authorization, durable job or audio-asset acceptance. Commercial selection and its live sample remain deferred;
-the local slice does not close #6.
-
-The [durable jobs v1 development contract](durable-jobs-v1.md) describes the same-package
-authenticated CLI, PostgreSQL run/job/step/attempt records and separate local/fake worker.
-It reuses production-p1 frozen documents and receipt-v1 admission; it adds no shared HTTP DTO,
-new wire schema or provider abstraction. `durable-input-v1` is an exact resolved-input linkage
-fingerprint, not the future reusable speech-cache key. Google commercial dispatch is disabled
-and VieNeu remains research-only. Full #7 acceptance, clip reuse and delivery assets are not
-claimed by this bounded foundation.
-
-The [clip reuse v1 contract](clip-reuse-v1.md) defines the position-free `speech-v1` fingerprint, the
-verified-clip registry, the attempt-less reuse selection and the read-only regeneration plan that
-extend the durable foundation. Its independent Python oracle writes
-[`speech-vectors.json`](fixtures/clip-reuse/v1/speech-vectors.json), Rust must reproduce them, and the
-plan report has a [JSON Schema](schema/clip-reuse/v1.schema.json) and a literal
-[fixture](fixtures/clip-reuse/v1/plan-edit-one-line.json). It adds no shared HTTP DTO, Studio route,
-object storage, live provider or publication path.
+reference snapshots keep their exact identities and output contracts. The catalog entries are casting
+vocabulary; the TTS receipt, durable-job and clip-reuse contracts, their schema, fixtures and
+oracle, and the runtime they described were removed
+([ADR 0018](../../docs/decisions/0018-external-audio-production.md)). A snapshot is guidance for an
+external producer and is never a dispatch. The audio-submission contract that will replace them is
+proposed and not written.
 
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its
 `0.1.0-draft` version is illustrative and explicitly unsupported by the reader. The new fixtures

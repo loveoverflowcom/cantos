@@ -1,6 +1,6 @@
 # ADR 0010: Bounded local neural Vietnamese research samples
 
-- Status: proposed for adoption; research implementation within user-authorized local scope
+- Status: superseded by [ADR 0018](0018-external-audio-production.md); the research adapter was removed. Kept as history
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers
 - Related issue: [#6](https://github.com/loveoverflowcom/cantos/issues/6)

@@ -14,7 +14,7 @@ implementation sessions are complete. The subsequent requester-authorized public
 [PR #33](https://github.com/loveoverflowcom/cantos/pull/33), with
 [combined verification evidence](../evidence/ui-system-publication.md). Additional UI/CMP work
 needs a new request; GitHub owns publication execution status.
-This sequence does not advance production/listening acceptance or change #6/#7 ordering below.
+This sequence does not advance production/listening acceptance or change the issue ordering below.
 
 The subsequent three-session [CMP UI-system sequence](016-cmp-ui-system.md) has its bounded
 [foundation](../evidence/cmp-ui-system-session1.md),
@@ -32,86 +32,36 @@ It preserves that adoption prerequisite; GitHub owns its publication status.
 The bounded [#5](https://github.com/loveoverflowcom/cantos/issues/5) casting and immutable
 production-input implementation in [020](020-cast-and-generate-dialogue.md) has
 [local verification evidence](../evidence/casting-production-inputs.md), using the source,
-adaptation and structured editor authority from 010. The acceptance work in
-[#6](https://github.com/loveoverflowcom/cantos/issues/6) remains open: its user-authorized local eSpeak NG
-1.52.0 sample path is implemented, with real generation and native 22,050 Hz mono 16-bit PCM
-validation for all three supported Vietnamese voices. Listening quality is **NOT_RUN**.
-GitHub owns acceptance and execution status; this queue preserves recommended order and rationale.
+adaptation and structured editor authority from 010. GitHub owns acceptance and execution status;
+this queue preserves recommended order and rationale.
 
-The [local probe and receipt inspection](../evidence/tts-receipt-inspection.md) bind private
-frozen-input/intent/receipt/output records to exact #5 snapshot identity and conservative
-recovery facts. They grant no current production authorization, durable jobs or asset acceptance.
-The [local selection](../decisions/0008-local-tts-inspection.md) is resolved for this sample scope;
-commercial provider/terms/voice rights/authentication/spending cap and its real sample remain
-deferred in [provider prerequisites](../evidence/tts-provider-prerequisites.md). This is partial
-delivery and cannot close #6. The requester now authorizes two sequential backend PRs: first
-[existing provider verification](../evidence/tts-provider-verification.md), then #7 after the
-first PR merges. [PR #38](https://github.com/loveoverflowcom/cantos/pull/38) merged into
-`develop` at `209e9e905c680e7cecab831f2d8f7894656e14fe`. The subsequent
-[durable local/fake foundation](../evidence/durable-tts-jobs.md) uses the same backend/receipt
-authority under that explicit request. Commercial live, rights and listening acceptance remain
-separately open; no paid dispatch is granted and this bounded handoff does not close #7.
-
-[PR #26](https://github.com/loveoverflowcom/cantos/pull/26) delivers the local research slice.
-The requester directed its merge into `develop` on 2026-10-11; it does not close #6, and the
-listening and production-rights gates below still block any production use.
-The requested [local neural investigation](../evidence/local-neural-tts-research.md) compares
-Piper Vietnamese models with VieNeu Nano. A bounded [research adapter](../evidence/local-neural-tts.md)
-retains exact frozen input/receipt identity, rejects unsupported controls and refuses production
-dispatch. Local installation and all six original samples have now run successfully across the
-two admitted presets, Đức Trí and Mỹ Duyên, with native 24,000 Hz mono 16-bit PCM and checked
-WAV hashes/receipts. The next recommended task is a named-listener assessment of pronunciation,
-naturalness and the neutral delivery; listening remains **NOT_RUN**. Resolve training/voice
-provenance before considering production eligibility, which remains **NO_GO**. Then continue
-the separate unfinished commercial #6 criteria after the required provider/terms/rights and
-budget decisions. Preserve eSpeak and keep #6 open; these research samples do not establish
-production acceptance; the subsequent requester-authorized #7 PR must preserve these gates.
-
-The owner-selected Google Cloud TTS path follows the same pattern: Google vi-VN voices are in the
-casting catalog with an explicit neutral-delivery rule, and an opt-in probe consumes one frozen
-line through the shared receipt audit, with [mocked evidence](../evidence/google-tts-adapter.md)
-only ([ADR 0011](../decisions/0011-google-cloud-tts-adapter.md)). Studio can now record the
-explicit neutral delivery at intensity 0 that eSpeak and Google casting require, and freeze and
-approve those inputs ([Studio casting evidence](../evidence/studio-provider-casting.md)). Within
-#6, the commercial acceptance task needs separate operator authorization before a capped live
-sample with real envelopes. [#7](https://github.com/loveoverflowcom/cantos/issues/7)
-now has the explicitly authorized local/fake foundation that persists attempts and reservations
-before provider invocation. The preceding
-[provider verification](../evidence/tts-provider-verification.md) hardens existing adapters and
-records fresh eSpeak evidence with Google live/listening NOT_RUN. The new foundation adds
-development-only same-package workers, fenced immutable result selection and conservative
-crash/ambiguous-attempt handling, without claiming #6 commercial acceptance or enabling VieNeu
-production. Its [contract](../../packages/contracts/durable-jobs-v1.md) and
-[evidence](../evidence/durable-tts-jobs.md) keep the actual verification boundary visible.
-The sequential [PR #40](https://github.com/loveoverflowcom/cantos/pull/40) review integrates
-PR #39's preview tooling and closes a confirmed owner-session expiry gap with final transaction
-checks and six real PostgreSQL lock-wait regressions for new commands and exact retries. This
-review also corrects an inherited macOS preview-process reap race exposed by the integrated
-repository gate. It preserves the recommended acceptance/reuse order below; GitHub owns its
-merge status.
+**Direction change, 2026-10-12 ([ADR 0018](../decisions/0018-external-audio-production.md)).**
+Cantos Studio manages works, episodes and audio; it does not synthesize or mix. External AI
+producers read its instructions and standards and send audio back through the API.
+[PR #65](https://github.com/loveoverflowcom/cantos/pull/65) removed the in-process text-to-speech
+runtime (durable jobs, the `cantos-worker` process, the eSpeak, VieNeu and Google adapters,
+receipts, clip reuse and the probe CLIs) and the DBSP job-summary view; the pure WAV inspection
+remains as the admission primitive for submitted audio. The earlier evidence for that runtime under
+`docs/evidence/` is history, with links to removed files pinned to commit `2de8c69`. No audio can
+enter Cantos until the submission API exists. Issues #6, #7 and #8 describe the removed runtime
+and #9 assumed in-process mixing; their proposed replacements are in the
+[issue map](project-planning.md#re-scoped-by-adr-0018) until the issues themselves are rewritten.
 
 ## Recommended bounded follow-ups
 
-1. Complete the named-listener assessment and exact source/voice rights decisions in #6.
-   Commercial live/billing requires a new explicit operator authorization; keep Google disabled
-   and VieNeu research-only NO_GO while those gates remain open. This resolves acceptance that
-   structural WAVs and local/fake jobs cannot establish.
-2. Complete remaining #7 production-adoption criteria on the existing job authority: reviewed
-   external reconciliation/accounting and storage/asset recovery boundaries when their owning
-   work is authorized. Preserve ambiguity, retained reservations and stale-fence refusal. The
-   foundation's process-kill evidence is not host power-loss or external-billing evidence.
-3. The position-free speech fingerprint, verified clip registry, attempt-less reuse and read-only
-   regeneration plan are now a bounded backend slice ([clip reuse v1](../../packages/contracts/clip-reuse-v1.md),
-   [evidence](../evidence/speech-clip-reuse.md); GitHub owns its PR status). It closes neither #7 nor #8:
-   object storage, cross-run in-flight de-duplication, unpinned-model refresh, persisted mix/QC stale
-   marks and the Studio journey remain. The foundation's scoped `durable-input-v1` identity still
-   authorizes no reuse, and a complete job is still not reusable or publishable audio.
-4. Add the corresponding Studio progress/clip-preview journey, then continue 030's mixing,
-   object-storage/CDN and publication gates. UI, Theatre and native mobile remain outside the
-   worker foundation and retain their own evidence requirements.
+1. Write the producer instructions and standards (documents and agent skills) and the read path an
+   external producer uses for an approved snapshot, then run them with a real producer on the
+   original [reference scene](../production/examples/vietnamese-reference/episode_0001.r0001.review.md).
+2. Decide the producer credential and upload-grant model and the object-storage layout (an ADR),
+   then implement the submission API: idempotent, bound to revision/snapshot/dialogue, inspected by
+   Cantos (reusing the WAV inspection), with stale marking. Private storage and delivery is #10.
+3. Add the Studio submission view and stale marks, then continue 030's QC records, publication and
+   release gates against submitted audio.
+4. Cleanup decisions, each its own reviewed change: whether the casting provider catalog stays as
+   vocabulary, retiring the dormant `durable_*`/`speech_clips` tables, removing the now
+   consumer-less `dbsp-experimental` feature, and the Studio screens that still describe generation.
 
-These are recommendations, not newly authorized execution. GitHub issues/PRs own live status;
-neither #6 nor #7 is closed by this bounded foundation.
+These are recommendations, not newly authorized execution. GitHub issues/PRs own live status.
 
 Cross-cutting infrastructure, not a work-plan item: four Studio revision routes can negotiate
 MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.md),
@@ -119,7 +69,7 @@ MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.
 prerequisite or issue status above.
 
 The requested single-PR [API context refactor](../architecture/api-contexts.md) finishes the
-in-progress internal module/application/worker split and adds source dependency guards while
+in-progress internal module/application split and adds source dependency guards while
 preserving existing wire, stored identities and transaction authority. Its
 [handoff evidence](../evidence/api-bounded-contexts.md) records local results and remaining
 limits. This maintenance changes no capability acceptance, execution order or issue status;
@@ -136,8 +86,7 @@ provides #44's shared two-scene material with per-ID craft/cue coverage and unre
 its [local evidence](../production/examples/vietnamese-reference/verification.md) pins the exact
 JSON bytes. The shared [listening-review protocol](../production/listening-review-protocol.md) and
 [template](../../templates/listening-review.md) supply #45's manual evidence format for lines,
-scenes and episodes. Use them for #6's pending named-listener assessment; its quality remains
-**NOT_RUN**.
+scenes and episodes. Use them to judge an external producer's output; no listening result exists.
 
 The next editorial preparation is #46 rights-recorded asset intake, then #47 cue records and
 #48 adaptation checks. #50's auditions consume the same pinned reference and protocol, actual
@@ -149,7 +98,7 @@ GitHub retains execution status, including #44/#45.
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
 tested with a process double; the Theatre Mobile app and real Android/iOS acceptance remain
-unimplemented/unrun. Studio Mobile is excluded from the command surface. This enabling change does not advance 050, change #6/#7 ordering or
+unimplemented/unrun. Studio Mobile is excluded from the command surface. This enabling change does not advance 050, change the issue ordering or
 introduce a competing mobile UI implementation.
 The [PR #39](https://github.com/loveoverflowcom/cantos/pull/39) review hardens owned CLI cleanup,
 bounded output and private capture paths. The next mobile evidence still comes from an actual
@@ -167,8 +116,8 @@ and are not permanent task IDs.
 | Order | Outcome | Prerequisite |
 | --- | --- | --- |
 | [010](010-import-and-edit-script.md) | A creator imports a manuscript, reviews an adaptation, and saves an editable Script IR version. | Project brief and architecture decisions |
-| [020](020-cast-and-generate-dialogue.md) | A creator assigns voices and generates dialogue through durable, resumable jobs. | Validated scripts from 010 |
-| [030](030-mix-review-and-publish.md) | A creator mixes, reviews, uploads, and publishes a complete episode. | Generated dialogue from 020 |
+| [020](020-cast-and-generate-dialogue.md) | A creator assigns voices, freezes production inputs and receives dialogue audio from an external producer through the API. | Validated scripts from 010 |
+| [030](030-mix-review-and-publish.md) | A creator reviews submitted scene and episode audio, uploads, and publishes a complete episode. | Submitted dialogue audio from 020 |
 | [040](040-theatre-web-listening.md) | A listener discovers and streams published episodes in Theatre Web. | Published manifests and media from 030 |
 | [050](050-cmp-native-listening.md) | A listener uses native Android/iOS playback, downloads, and synchronized progress. | Publication contracts from 030 and listening contracts from 040 |
 
@@ -191,7 +140,7 @@ the missing admission evidence and measurable reopening criteria. Reopen an engi
 only for a concrete hot consumer after its simpler PostgreSQL comparison, with a reviewed
 adapter, committed-position/freshness contract and resource/recovery budgets. This is not the
 next automatic implementation. Revision reads keep that DEFER; the separate durable job summary
-now has the experimental DBSP slice described below.
+had an experimental DBSP slice, described below, that has since been removed.
 Continue the bounded importer/editor work in 010 while preserving complete exports, actor
 filters, immutable revision identity and retry semantics. Revisit read optimization when that
 work changes cardinality, evidence fan-out or introduces an actual list/join/aggregate. The
@@ -230,8 +179,8 @@ scene/speaker authoring, preserving provenance and concurrency without another d
 | Capability | Execution issues | Milestone |
 | --- | --- | --- |
 | [010](010-import-and-edit-script.md) | [#1](https://github.com/loveoverflowcom/cantos/issues/1), [#2](https://github.com/loveoverflowcom/cantos/issues/2), [#3](https://github.com/loveoverflowcom/cantos/issues/3), [#4](https://github.com/loveoverflowcom/cantos/issues/4) | [010 — Import and edit a versioned script](https://github.com/loveoverflowcom/cantos/milestone/1) |
-| [020](020-cast-and-generate-dialogue.md) | [#5](https://github.com/loveoverflowcom/cantos/issues/5), [#6](https://github.com/loveoverflowcom/cantos/issues/6), [#7](https://github.com/loveoverflowcom/cantos/issues/7), [#8](https://github.com/loveoverflowcom/cantos/issues/8) | [020 — Cast and generate dialogue durably](https://github.com/loveoverflowcom/cantos/milestone/2) |
-| [030](030-mix-review-and-publish.md) | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#10](https://github.com/loveoverflowcom/cantos/issues/10), [#11](https://github.com/loveoverflowcom/cantos/issues/11) | [030 — Mix, review and publish](https://github.com/loveoverflowcom/cantos/milestone/3) |
+| [020](020-cast-and-generate-dialogue.md) | [#5](https://github.com/loveoverflowcom/cantos/issues/5), [#6](https://github.com/loveoverflowcom/cantos/issues/6), [#7](https://github.com/loveoverflowcom/cantos/issues/7), [#8](https://github.com/loveoverflowcom/cantos/issues/8) | [020 — Cast and hand dialogue to external producers](https://github.com/loveoverflowcom/cantos/milestone/2) |
+| [030](030-mix-review-and-publish.md) | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#10](https://github.com/loveoverflowcom/cantos/issues/10), [#11](https://github.com/loveoverflowcom/cantos/issues/11) | [030 — Review and publish](https://github.com/loveoverflowcom/cantos/milestone/3) |
 | [040](040-theatre-web-listening.md) | [#12](https://github.com/loveoverflowcom/cantos/issues/12), [#13](https://github.com/loveoverflowcom/cantos/issues/13) | [040 — Theatre Web listening](https://github.com/loveoverflowcom/cantos/milestone/4) |
 | [050](050-cmp-native-listening.md) | [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#15](https://github.com/loveoverflowcom/cantos/issues/15), [#16](https://github.com/loveoverflowcom/cantos/issues/16), [#17](https://github.com/loveoverflowcom/cantos/issues/17) | [050 — CMP native listening](https://github.com/loveoverflowcom/cantos/milestone/5) |
 
@@ -255,11 +204,11 @@ proposal/ADR within its owning slice; this update schedules no engine deployment
 The [story artifact workspace](../production/story-workspace.md) supplies agent-operated intake,
 proper-name mapping, radio-score authoring, production handoffs and audit through Drive/local
 folders. Its skills and local initializer support editorial preparation for 010–030; they do
-not complete the planned importer, provider workers, Studio UI or publication gates. Continue
+not complete the planned importer, submission API, Studio UI or publication gates. Continue
 with the existing recommended implementation order above. Artifact sync failures are tracked
 by deduplicated recovery issues (or local drafts while GitHub is unavailable).
 
-For every item, provide the user journey demonstrated, relevant contract/migration changes, targeted failure-case checks, and known limitations. A successful mock response alone does not demonstrate a real provider, storage, or native playback integration. Label mocked and live evidence separately.
+For every item, provide the user journey demonstrated, relevant contract/migration changes, targeted failure-case checks, and known limitations. A successful mock response alone does not demonstrate a real producer, storage, or native playback integration. Label mocked and live evidence separately.
 
 Keep Rust/Axum and PostgreSQL as a modular backend with Leptos Web and CMP native mobile clients. Avoid introducing independent services without a demonstrated operational need. Apply the shared Material 3 Expressive design requirements to each UI slice.
 
@@ -273,23 +222,14 @@ The [casting input evidence](../evidence/casting-production-inputs.md) and
 rights/budget policy, owner approval and immutable snapshots on that same PostgreSQL authority.
 The bounded implementation is locally verified through domain/wire/schema checks, real
 PostgreSQL/HTTP restart journeys and the observed Studio freeze/approval/stale-input flow.
-Historical reference capabilities establish no real voice availability or billable eligibility.
-The catalog now also exposes the explicit eSpeak local inspection entry, with billable dispatch
-unavailable. [#6](https://github.com/loveoverflowcom/cantos/issues/6) has actual local sample
-evidence under the user's subsequent local authorization; its commercial path still needs an
-explicit decision and remains unrun. The earlier host-owned adaptation policy and the #5
-no-generation boundary remain intact. This local sample choice grants neither cloud credentials
-nor paid-call permission. The separate requester authorization, after PR #38 merged, permits the
-bounded #7 local/fake foundation; it does not satisfy #6's remaining acceptance.
+Reference capabilities establish no real voice availability. The earlier host-owned adaptation
+policy and the #5 no-generation boundary remain intact; the removed local-sample work grants no
+provider or paid-call permission.
 DBSP remains deferred for bounded authorized point/history reads; revisit only if measured
 query/cardinality changes meet the admission conditions in the affected read inventory. The
-worker foundation adds bounded internal queue claims and authorized run/status/attempt reads;
-its [read assessment](../evidence/durable-tts-jobs.md#affected-read-inventory-and-dbsp-decision)
-retains PostgreSQL transactional consistency and records the baseline without claiming an
-incremental engine or unmeasured speedup. [#58](https://github.com/loveoverflowcom/cantos/issues/58)
-then added an **implemented experimental** DBSP read model for that `JobSummary`
+job-summary read model that
+[#58](https://github.com/loveoverflowcom/cantos/issues/58) added as an experimental DBSP slice
 ([ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md),
-[evidence](../evidence/dbsp-job-summary.md)): a feature-gated engine, a transactional outbox with an
-exact committed position, an opt-in shadow/serve consumer in the development CLI and real-PostgreSQL
-differential tests. The default path stays PostgreSQL and the recommended order is unchanged;
-production adoption is a [backlog](backlog/deferred-expansion.md) item with named prerequisites.
+[evidence](../evidence/dbsp-job-summary.md)) was removed with the runtime it served
+([ADR 0018](../decisions/0018-external-audio-production.md)). The feature-gated engine core stays
+until its removal is decided; the default path is PostgreSQL and the recommended order is unchanged.

@@ -1,5 +1,10 @@
 # Local neural Vietnamese TTS research
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 Status: **documented** primary-source comparison, 2026-10-11. VieNeu-TTS v3 Nano is selected
 for a bounded private research sample; production adoption is **NO_GO** pending provenance
 review. Installation identity, installed model/preset bytes, disk footprint and the host
@@ -179,7 +184,7 @@ The target output is explicit mono signed 16-bit PCM WAV at 24,000 Hz. All six l
 passed the existing WAV inspector's neural profile and independent Python `wave`/SHA-256 checks,
 including nonempty, nonzero PCM and scoped receipt inspection.
 
-The [helper source](../../scripts/vieneu_nano_runtime.py) and
+The [helper source](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/vieneu_nano_runtime.py) and
 [pure admission contract](../../services/cantos-api/src/contexts/production/domain/catalog/neural.rs) are implemented boundaries.
 Their existence alone does not prove safeguards; fresh live and fault evidence is linked below.
 The process boundary

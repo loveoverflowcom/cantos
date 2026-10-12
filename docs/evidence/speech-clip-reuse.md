@@ -1,11 +1,16 @@
 # Speech fingerprint, verified clip reuse and regeneration planning
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 Status: bounded backend implementation, 2026-10-12. Branch `feat/speech-clip-reuse`, based on
 `develop` at `342d65fdbd3764f76b772ee0a398a9e209115b65`. It advances the reuse criterion of
 [#7](https://github.com/loveoverflowcom/cantos/issues/7) and the planning half of
 [#8](https://github.com/loveoverflowcom/cantos/issues/8) and **closes neither**: #8's Studio
 journey, object storage, a live provider, listening review and publication are all absent. Contract:
-[clip reuse v1](../../packages/contracts/clip-reuse-v1.md). Decision:
+[clip reuse v1](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/clip-reuse-v1.md). Decision:
 [ADR 0016](../decisions/0016-speech-fingerprint-and-clip-reuse.md) (proposed).
 
 Everything below is **local, development-only and synthetic**. There is no provider call, no real or

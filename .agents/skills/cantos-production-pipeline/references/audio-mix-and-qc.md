@@ -1,5 +1,7 @@
 # Audio mix and QC
 
+> **Who renders (ADR 0018).** Cantos neither mixes nor renders. Read the mix plan and profile as the *standard* an external producer delivers against; Cantos's part is measuring submitted audio and recording checksum-bound QC facts.
+
 > **Scope.** Model the audio side of a Cantos run as typed values and pure functions around a thin
 > tool shell: a versioned audio profile, a deterministic mix plan (placement, pauses, ducking,
 > fades), measurements as facts, technical QC as a pure function of those facts, append-only QC

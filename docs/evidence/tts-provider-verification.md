@@ -1,5 +1,10 @@
 # Existing TTS provider execution verification
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 Status: bounded backend verification for issue #6, 2026-10-11. Base `develop` is
 `8a9e140cb7198f3a53beca23f71490f180fa0c28`; branch `feat/tts-provider-verification`.
 This slice adds no second commercial adapter, production dispatcher, durable job, reservation,

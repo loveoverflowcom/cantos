@@ -1,5 +1,10 @@
 # Local neural listening handoff
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 Recorded 2026-10-11 for [draft PR #26](https://github.com/loveoverflowcom/cantos/pull/26).
 Production remains disabled. This handoff supplies actual research WAVs and a proposed human
 rubric; it does not supply listening scores or creator acceptance.
@@ -16,8 +21,8 @@ Use the shared [listening-review protocol](../production/listening-review-protoc
 and procedure only and does not complete this #6 named-listener task.
 
 The six original fixtures are unchanged in
-[neural-vietnamese.json](../../scripts/fixtures/neural-vietnamese.json). Four additional
-[short probes](../../scripts/fixtures/neural-vietnamese-short.json) cover each admitted voice
+[neural-vietnamese.json](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/fixtures/neural-vietnamese.json). Four additional
+[short probes](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/fixtures/neural-vietnamese-short.json) cover each admitted voice
 with `Em về chưa?` (three words) and `An ơi!` (two words). All ten WAVs are native 24 kHz,
 mono signed 16-bit PCM, with frozen-input identity and scoped receipt checks. Actual synthesis
 and structural validation establish playable bytes, not speech quality.

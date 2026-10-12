@@ -27,7 +27,7 @@ providers, download models, create cloud resources, publish or deploy.
 
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
-cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in read model)
+cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
 cargo xtask build all [--release]                  # the API and both Web clients
@@ -154,14 +154,14 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
 | `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission, WAV and TTS receipt test targets | cargo |
+| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission and WAV test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
-| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL), including the DBSP view's PostgreSQL differential tests built with `dbsp-experimental` | initdb, pg_ctl, psql |
+| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -214,8 +214,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
-- Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
-  are `cantos-api` inputs.
+- Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
   and the Theatre Mobile guide are noted as having no executable gate. The Studio Mobile scope
   notice is documentation only.

@@ -8,7 +8,7 @@ they are not product documentation and they do not implement anything.
 cantos-engineering                 ← foundation: invariants, decoupling, immutability, types,
         ↑                             functional core, tests, evidence vocabulary, residual risk
         ├── cantos-script-ir             ← Script IR, editorial revisions, import/adaptation boundary
-        ├── cantos-production-pipeline   ← production runs, durable jobs, providers, cost, cache, mix/QC
+        ├── cantos-production-pipeline   ← production guidance, producer standards, audio submission, mix/QC (job runtime removed)
         ├── cantos-publication           ← rights, approvals, staged publication, manifests, delivery
         └── cantos-listening             ← listener API, playback semantics, progress/bookmark sync
         ↑
@@ -54,9 +54,10 @@ requested in a future roadmap. Theatre Web is a skeleton and Theatre Mobile rema
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
-casting with frozen production inputs, local/Google TTS probe CLIs and an optional MessagePack
-representation for four Studio routes are implemented. Theatre Mobile and production execution
-remain planned. Story artifact skills
+casting with frozen production inputs, read-only WAV inspection and an optional MessagePack
+representation for four Studio routes are implemented. Cantos runs no TTS, worker or mixer:
+external AI producers read its guidance and submit audio ([ADR 0018](../../docs/decisions/0018-external-audio-production.md));
+the submission API, Theatre Mobile and publication remain planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
 Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:
@@ -76,7 +77,7 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
 | JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, codec benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
 | Script IR schema, stable IDs, revisions, digests, import, AI adaptation output, Narrative Forge | [`cantos-script-ir`](cantos-script-ir/SKILL.md) |
-| production runs, jobs, leases, TTS/adaptation providers, budgets, cache keys, mixing, QC records | [`cantos-production-pipeline`](cantos-production-pipeline/SKILL.md) |
+| production snapshots, producer standards, audio submission, staleness, QC records (the job/lease/provider runtime is removed history) | [`cantos-production-pipeline`](cantos-production-pipeline/SKILL.md) |
 | rights, approvals, release manifests, object storage, CDN, publish/republish/retract | [`cantos-publication`](cantos-publication/SKILL.md) |
 | catalog/listener APIs, playback state meaning, progress, bookmarks, download entitlement | [`cantos-listening`](cantos-listening/SKILL.md) |
 | visual design, Material 3 Expressive, tokens, typography, motion, accessibility, copy | [`cantos-ui-design`](cantos-ui-design/SKILL.md) |

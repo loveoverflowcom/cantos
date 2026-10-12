@@ -1,6 +1,8 @@
 # ADR 0007: Versioned casting and scoped production-input authorization
 
-- Status: proposed for production adoption; bounded local implementation under review
+- Status: proposed for production adoption; bounded local implementation under review.
+  Narrowed by [ADR 0018](0018-external-audio-production.md): a snapshot is guidance for an external
+  producer, and any dispatch, reservation or provider-adapter statement below is superseded
 - Date: 2026-10-10
 - Decision owner: Cantos maintainers
 - Related issue: [#5](https://github.com/loveoverflowcom/cantos/issues/5)

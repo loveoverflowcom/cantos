@@ -1,20 +1,34 @@
 ---
 name: cantos-production-pipeline
 description: >-
-  Rule owner for implementing and verifying Cantos production runs: frozen production inputs,
-  durable PostgreSQL jobs with expiring leases and fencing tokens, write-once acceptance and the
-  transactional outbox, provider-neutral TTS and adaptation ports with capability checks and
-  ambiguous-attempt reconciliation, integer-money reservations and budgets, canonical speech and
-  mix fingerprints with partial regeneration and cache reuse, versioned audio profiles, mix plans,
-  technical QC records and fault-injection testing. Use for production runs, workers, claims,
-  retries, cancellation, TTS or adaptation providers, voice and control mapping, cost, budgets,
-  cache keys, regeneration, mixing, loudness or QC code.
+  Rule owner for Cantos production guidance and the external-producer boundary: frozen production
+  inputs, producer-facing standards, versioned audio profiles, technical QC records, and the point
+  where external AI producers submit audio (idempotent, bound to an exact revision, inspected,
+  marked stale on change). Cantos runs no TTS, worker or provider adapter (ADR 0018); the durable
+  job, lease, fencing, reservation and provider-adapter references remain as design history and
+  as the discipline a producer follows. Use for production snapshots, producer instructions and
+  standards, staleness, audio profiles, QC or submission design, or when acting as a producer.
 ---
 
 # Cantos production pipeline
 
 This skill is a **behavioral contract and router** for the path from a pinned script revision to
-accepted, QC-measured audio artifacts. It composes [`cantos-engineering`](../cantos-engineering/SKILL.md):
+accepted, QC-measured audio artifacts.
+
+> **Status after [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).** Cantos
+> does not synthesize or mix. The in-process runtime that rules PL3–PL6, PL9, PL10 (credentials
+> and fakes) and PL13 govern was removed, so those rules and their references —
+> [`durable-jobs.md`](references/durable-jobs.md), [`cost-and-budget.md`](references/cost-and-budget.md)
+> and [`fault-injection-testing.md`](references/fault-injection-testing.md) — are **design history**:
+> never rebuild a worker, lease or provider adapter here because of them. They stay useful as the
+> discipline an *external producer* follows (record intent before a paid call, reconcile an
+> ambiguous outcome before repeating it) and as the checklist for any future Cantos component
+> that has to survive crashes. Still binding in this repository: PL1 and PL2 (frozen inputs;
+> execution, editorial and publication status stay separate), PL7 and PL8 read as *staleness*
+> (what makes a submission stale or reusable), PL11 and PL12 (QC facts and bounded probing of
+> untrusted bytes). A rewrite of this skill around producer standards and the submission API is
+> pending; until then, where this text and ADR 0018 disagree, the ADR wins.
+ It composes [`cantos-engineering`](../cantos-engineering/SKILL.md):
 the required order, the [evidence vocabulary](../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified)
 and the [completion report](../cantos-engineering/SKILL.md#9-completion-report) apply unchanged.
 This skill adds the production-specific method and never redefines them.
@@ -38,23 +52,16 @@ conflict and fix the stale side when in scope.
 
 ## Repository reality
 
-The backend implements frozen production candidates, scoped approval, bounded WAV/receipt
-inspection and sample-only eSpeak/Google probes. The bounded
-[durable worker foundation](../../../docs/evidence/durable-tts-jobs.md) adds same-package
-development-only local/fake execution with PostgreSQL runs/jobs/steps, immutable intent and
-observations, reservations, leases and fenced result selection. Google commercial dispatch
-stays disabled; VieNeu Nano remains research-only and refuses production dispatch. A bounded
-[clip reuse slice](../../../packages/contracts/clip-reuse-v1.md) adds the position-free `speech-v1`
-fingerprint, a verified local clip registry, attempt-less reuse under the existing fence and a
-read-only regeneration plan. Cross-run in-flight de-duplication, unpinned-model refresh epochs,
-mixing, object-storage acceptance, transactional outbox and publication remain unimplemented.
-The advanced production spine and illustrative types below remain **proposed** unless named
-implementation evidence says otherwise. Discover the real manifests,
-migrations and modules first. A provider, an audio tool, a numeric loudness or
-peak target, a retry schedule and a budget currency each need a recorded decision
-([ADR](../../../templates/adr.md), after listening tests for audio) and a pinned, verified version
-before they are treated as settled. Libraries (sqlx, proptest, a failpoint crate, cargo-fuzz,
-ffmpeg) are candidates, not commitments.
+The backend implements frozen production candidates with scoped approval (guidance for a
+producer), bounded read-only WAV inspection and the editorial, ingestion and adaptation contexts.
+It implements no TTS, mixing, worker, lease, reservation, receipt, clip registry or provider
+adapter: [PR #65](https://github.com/loveoverflowcom/cantos/pull/65) removed them, and the audio
+submission API, object-storage acceptance, QC records, outbox and publication are unimplemented
+(`cantos-publication` owns the last two). Discover the real manifests, migrations and modules
+first, and treat the spine and illustrative types below as **history or proposal**, not as
+code to be found. A numeric loudness or peak target and a delivery profile each need a recorded
+decision ([ADR](../../../templates/adr.md), after listening tests for audio) and a pinned,
+verified version before they are treated as settled.
 
 ## The production spine
 

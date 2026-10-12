@@ -1,5 +1,10 @@
 # Local TTS and receipt inspection evidence — issue #6
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 This focused slice is **part of [#6](https://github.com/loveoverflowcom/cantos/issues/6)**.
 The user explicitly authorized local TTS installation and synthesis. It implements one compact
 local engine, scoped receipts and actual bounded WAV inspection. Commercial provider selection,

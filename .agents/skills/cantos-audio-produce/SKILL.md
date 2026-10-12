@@ -3,8 +3,9 @@ name: cantos-audio-produce
 description: >-
   Produce a Cantos radio-drama episode from a reviewed score folder: resolve casting and sound
   cues, synthesize supported dialogue, mix final audio, record QC and synchronize the Drive
-  workspace. Use for an artifact production run or partial regeneration; use the production
-  pipeline owner for implementing worker/backend code. Never implies publication.
+  workspace. The agent is the external producer: Cantos runs no TTS (ADR 0018). Use for an
+  artifact production run or partial regeneration; use the production pipeline owner for
+  guidance and submission design. Never implies publication.
 ---
 
 # Cantos audio production
@@ -22,16 +23,17 @@ sync and offline handoff rules, and [radio score](../../../docs/production/radio
    byte/content digests, casting, pronunciation,
    voice/model revisions, cue assets/rights and output/mix profile. Raw source is never fed straight
    to TTS when an adaptation is required. An unreviewed/unresolved score is a blocker.
-2. Inspect actual executables/provider adapters before selecting commands. Production workers are
-   still planned; a manual local run must be labeled as such and must not claim durable backend
-   jobs, automatic acceptance or a production API exists. Use the
+2. Inspect actual executables/provider tools before selecting commands. You are the external
+   producer ([ADR 0018](../../../docs/decisions/0018-external-audio-production.md)): Cantos has no
+   worker, job or provider adapter, and the audio-submission API is not implemented, so hand off
+   through the story workspace and never claim automatic acceptance or a production API. Use the
    [production-run template](../../../templates/production-run.md) for the run evidence.
 3. Reuse installed TTS/audio tools or install a necessary maintained package in an isolated
    environment under the runtime's permission rules. Confirm voice/model licensing, Vietnamese
    support, available emotion/pronunciation controls and actual cost. A tool described as free
    does not prove every hosted endpoint or voice is free. For a paid call, use the user's actual
    budget and approved destination; ask only for missing consequential cost/scope.
-4. Apply the owner's [provider protocol](../cantos-production-pipeline/references/provider-adapters.md):
+4. Apply the producer discipline in the (historical) [provider protocol](../cantos-production-pipeline/references/provider-adapters.md):
    persist intent/request ID and frozen inputs before a call; record response or ambiguity before
    retrying; reconcile uncertain attempts. Send only spoken `text` and mapped supported controls.
    Music, effects, panting and ambience are cue/mix events, not text for a voice to read aloud.

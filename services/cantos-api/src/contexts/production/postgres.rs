@@ -341,22 +341,6 @@ impl SnapshotRow {
     }
 }
 
-/// Historical bytes for recording a late provider observation. This deliberately grants no
-/// current production authority; dispatch and acceptance still require `current_snapshot`.
-pub(crate) async fn stored_document(
-    tx: &Tx<'_>,
-    script: &str,
-    snapshot: &str,
-) -> Result<Vec<u8>, StoreError> {
-    Ok(tx
-        .query_one(
-            "SELECT document_bytes FROM production_snapshots WHERE id=$1 AND script_id=$2",
-            &[&snapshot, &script],
-        )
-        .await?
-        .get(0))
-}
-
 pub(super) async fn find_snapshot(
     tx: &Tx<'_>,
     id: &str,

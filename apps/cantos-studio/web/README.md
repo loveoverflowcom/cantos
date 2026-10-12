@@ -142,7 +142,9 @@ mixing or listener control is provided.
 The [production v1 contract](../../../packages/contracts/production-v1.md) provides a static
 capability catalog and authenticated settings, rights, preview, freeze, exact snapshot and owner
 approval routes. Studio binds existing accepted script characters to catalog provider/model/voice
-profiles (synthetic reference, eSpeak NG, VieNeu Nano research and Google Cloud TTS) with
+profiles (synthetic reference, eSpeak NG, VieNeu Nano research and Google Cloud TTS; casting
+vocabulary for an external producer, since Cantos runs no synthesis, see
+[ADR 0018](../../../docs/decisions/0018-external-audio-production.md)) with
 versioned performance/pronunciation and an explicit private-planning budget. Controls follow the
 selected profile: voice, language and emotion choices, rate/pitch bounds, and, where a profile has
 no intensity control, a choice between each line's setting and an explicit `0`. Switching provider

@@ -123,7 +123,7 @@ consequence: "replacing the TTS vendor now requires editing `plan_regeneration`"
 [revision-lifecycle](../../cantos-script-ir/references/revision-lifecycle.md),
 [canonical-digest](../../cantos-script-ir/references/canonical-digest.md),
 [fingerprints-and-invalidation](../../cantos-production-pipeline/references/fingerprints-and-invalidation.md);
-product rules in [business rules § Production, caching and costs](../../../../docs/product/business-rules.md#production-caching-and-costs)
+product rules in [business rules § External production and submission](../../../../docs/product/business-rules.md#external-production-and-submission)
 and the [TTS cache boundary](../../../../docs/architecture/script-ir.md#tts-cache-boundary).
 
 - **In-place mutation** of an accepted revision, frozen inputs, provider attempt, accepted

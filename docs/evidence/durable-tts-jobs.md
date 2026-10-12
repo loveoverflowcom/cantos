@@ -1,5 +1,10 @@
 # Durable local/fake TTS job foundation
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 Status: bounded implementation for [issue #7](https://github.com/loveoverflowcom/cantos/issues/7),
 2026-10-11. Branch `feat/durable-tts-jobs`, originally based on merged
 [PR #38](https://github.com/loveoverflowcom/cantos/pull/38)
@@ -80,7 +85,7 @@ Migration `0007_durable_jobs.sql` adds immutable run scope, jobs, dialogue steps
 unique dispatch markers, observations, budget/reservation/settlement history, controls and owner
 resolution records. Triggers/constraints preserve scope, append-only facts, valid transitions,
 monotonic fences and write-once selected attempts. The
-[development contract](../../packages/contracts/durable-jobs-v1.md) records concrete commands,
+[development contract](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/durable-jobs-v1.md) records concrete commands,
 states, bounds and the local private filesystem boundary.
 
 The functional core explicitly models `queued`, `running`, `completed`, `failed`, `paused`,

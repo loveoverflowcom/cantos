@@ -3,11 +3,10 @@
 The `cantos-api` package (the one backend service, formerly `cantos-server`) now implements the Script IR contract, a local development Axum
 host, PostgreSQL revision persistence and a migration CLI. It remains one modular package.
 Versioned casting and immutable production-input authorization use that same authority.
-Casting can bind Google Cloud TTS voices, and an opt-in probe can synthesize one frozen line;
-the bounded [durable local/fake job foundation](../../docs/evidence/durable-tts-jobs.md) persists
-attempts and reservations and runs a separate `cantos-worker` process from this same package.
-Production identity deployment and commercial dispatch remain unimplemented/disabled. Google
-live/billing is NOT_RUN; VieNeu remains research-only NO_GO for production.
+Cantos does not synthesize audio: it manages works, episodes, script revisions and production
+guidance, and inspects audio that external AI producers will submit
+([ADR 0018](../../docs/decisions/0018-external-audio-production.md)). The audio-submission API is
+proposed and not implemented. Production identity deployment remains unimplemented.
 The HTTP host is one modular monolith with three surfaces, each with its own router module
 (`src/http/{studio,theatre,admin}.rs`): `/api/v1/studio/*` is implemented (the pre-split `/api/v1/*`
 paths remain a deprecated alias of the same handlers); `/api/v1/theatre/*` and `/api/v1/admin/*`
@@ -31,28 +30,20 @@ transaction boundaries, compatibility aliases and the repository architecture gu
   acceptance and cancellation. Domain performs no inference; the host enables no generation provider.
 - `contexts/production/`: casting/settings/rights/estimate/frozen/eligibility decisions and the
   transaction use cases that append settings, declarations, candidates and approvals. Pure
-  `domain/catalog/` preserves historical capabilities, local eSpeak and research-only VieNeu;
-  transport and runtime adapters live in Synthesis.
-- `contexts/synthesis/domain/`: execution/retry/lease decisions, durable input identity, provider
-  attempts/receipts, pure WAV/audio admission, position-free speech fingerprints, reuse and regeneration.
-- `contexts/synthesis/application/` and private `postgres/`: enqueue/status/control/preparation/
-  dispatch/settlement/acceptance/reconciliation use cases plus jobs/leases/attempts/observations/
-  acceptance/clips persistence. Current snapshot
-  authority, reservations, dispatch intents, fencing and one selected result remain transactional;
-  ambiguous outcomes require explicit reconciliation.
-- `contexts/synthesis/worker/`: separate-process development runtime/heartbeat, dispatch,
-  recovery/reuse and private output journal. Only explicit local eSpeak or synthetic fake execution.
-- `contexts/synthesis/providers/` and `media/`: concrete local/Google/neural adapters and
-  filesystem clip probing. Existing opt-in probe binaries retain their sample-only permission and
-  provider-rights boundaries; the [receipt contract](../../packages/contracts/tts-receipt-v1.md) is unchanged.
+  `domain/catalog/` holds dated voice capabilities as casting vocabulary. It dispatches nothing;
+  an approved snapshot is guidance that an external producer reads.
+- `contexts/media/`: admission and read-only inspection of externally produced audio. The pure
+  `domain/wav_inspection` reports RIFF structure, checksums and sample peak; nothing here
+  synthesizes, converts or mixes. The submission use cases will live here when they exist.
 - `platform/`: IDs, connection/session/migration plumbing, trusted operator tools and the
-  optional incremental engine support. Business tables/queries stay with their context owner.
+  unused optional incremental engine support. Business tables/queries stay with their context owner.
 - `interfaces/http/`: thin Axum Studio mapping plus separate reserved Theatre/Admin routers.
   `wire.rs` owns JSON/MessagePack negotiation; errors stay JSON
   ([wire codec](../../docs/architecture/wire-codec.md)).
 
-Legacy library paths such as `production`, `postgres::durable`, `tts` and `worker` remain
-temporary hidden re-exports. CLI names, wire DTOs, error codes and historical digests are unchanged.
+Hidden library aliases remain only for retained contexts (`adaptation`, `imports`, `production`,
+`revisions`, `postgres`, `wav_inspection`, `operator`, `incremental`). The removed `tts`, `worker`, `jobs`, `postgres::durable`,
+`speech_fingerprint`, `clip_reuse`, `regeneration` and `clip_probe` paths no longer exist.
 
 The existing migrations remain the persistent compatibility boundary:
 
@@ -68,9 +59,11 @@ The existing migrations remain the persistent compatibility boundary:
   receipts; historical input decoding remains compatible.
 - `migrations/0006_production_inputs.sql`: versioned settings/rights assertions and immutable
   candidates/approvals; no reservation, generation attempt or charge table.
-- `migrations/0007_durable_jobs.sql`: immutable local/fake run scope, jobs/steps, attempts,
-  dispatch markers, observations, controls, reservations and settlement/resolution records;
-  constraints and triggers protect scope, transitions and write-once selection.
+- `migrations/0007_durable_jobs.sql`, `0008_speech_clips.sql`, `0009_durable_step_changes.sql`:
+  tables of the removed in-process synthesis runtime. They are still applied (history is
+  append-only), nothing reads or writes them and they are not a supported interface; retiring
+  them needs a new migration after a data-retention decision
+  ([ADR 0018](../../docs/decisions/0018-external-audio-production.md)).
 
 All validated saves are immutable accepted storage revisions. They are not production approvals.
 Metadata-only edits can retain c1 while changing e1 and revision identity; no digest deduplication
@@ -306,155 +299,14 @@ names actual outputs, limits and DBSP deferral; [ADR 0007](../../docs/decisions/
 remains proposed for production adoption. Real adapter/dispatch and settlement work follows only
 in its explicitly authorized owning slice.
 
-## Durable local/fake jobs
+## Experimental incremental core
 
-The [development contract](../../packages/contracts/durable-jobs-v1.md) exposes authenticated
-`production-jobs` commands and the same-package `cantos-worker` binary. There are no new HTTP
-routes or Studio controls. Both require `CANTOS_ENV=development` and an explicitly configured
-local `CANTOS_DATABASE_URL`; user commands also require `CANTOS_SESSION_TOKEN`. The worker
-defaults to no dispatch and requires either `--local-espeak` or `--test-fake`. Synthetic mode
-still consumes an exact admitted eSpeak snapshot and labels its output as a fixture.
-
-Enqueue requires one currently approved frozen snapshot containing at most 1,000 dialogues.
-The owner, complete revision/export/input digest, settings and required-rights authority are
-rechecked before intent, at the committed send boundary and before result selection. Draft
-edits never alter the frozen document; an ineligible snapshot blocks further work. Status
-remains readable with current script permission after eligibility expires.
-
-```sh
-cargo xtask build cantos-api
-target/debug/production-jobs enqueue <script-id> <snapshot-id> <operation-id> --local-espeak
-target/debug/production-jobs status <run-id>
-target/debug/production-jobs pause <run-id> <operation-id>
-target/debug/production-jobs resume <run-id> <operation-id>
-target/debug/cantos-worker --output-root /absolute/private/directory --worker-id local-worker --local-espeak /absolute/path/to/espeak-ng
-```
-
-The output root must already be a private regular directory (mode `0700` on Unix). Keep it
-outside Git, or in ignored local evidence storage. Attempt directories and files are create-only;
-recovery reopens only the exact attempt's `output.wav` beneath that root and rechecks WAV/hash
-and receipt linkage. These private local records are development evidence, not an object-storage
-adapter or accepted publication assets. Run these examples from the repository root; repository
-build/orchestration/verification remain [`cargo xtask`](../../xtask/README.md). The binaries
-above are application process commands, not another build/test interface.
-
-One transaction commits the reservation and conservative intent before provider invocation;
-another commits the unique send marker after current-authority and fence checks. A worker never
-holds a transaction during synthesis or filesystem I/O. Heartbeats extend expiring leases;
-reclaims increase their fence. Late workers can preserve exact observations and accounting,
-but cannot select a result with a stale fence. Pause and cancel prevent new authorization and
-fence in-flight selection; an invocation already authorized may still finish.
-
-Invalid current authorization pauses a queued job as `authorization_invalid` so it does not
-starve a later eligible job. Recovery quarantines unavailable or invalid recorded output as
-`recorded_output_unavailable` / `recorded_output_invalid`, preserving observations and avoiding
-another provider invocation. These require explicit authority/file repair, not blind retry.
-
-Missing/ambiguous attempt outcomes pause as `uncertain_attempt` and retain reservations.
-`resolve-not-executed <run-id> <attempt-id> <evidence-reference>` records an explicit owner
-attestation, followed by a separate resume. It is not a provider lookup or automatic proof of
-non-execution. A contradictory late observation is preserved and quarantined. Only definitive
-non-execution with transient timeout/rate-limit failure permits retry within the persisted bound;
-the CLI selects three attempts with bounded exponential/equal-jitter delay capped at 30 seconds,
-seeded by the recorded operation UUID and enforced after observation/resolution.
-
-Local eSpeak reserves zero provider-spend units while keeping charge unknown and local settlement
-provisional. Synthetic amounts exercise integer currency budgets under concurrency and are not
-real bills. Commercial accounting/overruns, external idempotency/lookup, cache/reuse, partial
-regeneration, mixing, storage/CDN, publication and UI/mobile integration remain separate work.
-The [evidence report](../../docs/evidence/durable-tts-jobs.md) names actual gates and fault points;
-ordinary workspace tests do not establish PostgreSQL crash recovery.
-
-## Experimental DBSP job summaries
-
-An opt-in, feature-gated read model maintains the `JobSummary` step counts incrementally with the
-[DBSP](https://docs.feldera.com/vldb23.pdf) engine (`dbsp` 0.198.0, the newest release declaring
-Rust 1.87). It is local/development only; production adoption is not admitted
-([ADR 0017](../../docs/decisions/0017-experimental-dbsp-job-summary.md)). Without the
-`dbsp-experimental` feature nothing below is compiled, and every read uses PostgreSQL.
-
-- `incremental` is the engine-independent core: signed member changes, the count view that
-  applies output deltas atomically, whole-transaction feed paging and the freshness fence.
-  `incremental::dbsp` is the DBSP circuit (a linear aggregate per job plus integrity operators
-  that refuse a change applied twice or a retraction that was never inserted).
-- Migration 0009 adds `durable_step_changes`, a transactional outbox that a trigger writes in
-  the writing transaction, stamped with its `xid8`. The application role can only read it.
-- `postgres::durable::summary_view` runs one maintainer thread: a REPEATABLE READ bootstrap
-  snapshot, then whole committed transactions below each poll's `xmin`, skipping rows the
-  bootstrap snapshot already contained. Nothing is checkpointed; every start rebuilds.
-- `Store::job_status` authenticates and authorizes first, exactly as before. `dbsp-serve` then
-  uses the view's counts only when a fence evaluated in the request's own snapshot proves them
-  exact; otherwise it runs the original query, at most four at a time in the CLI, and fails
-  closed as unavailable beyond that. `dbsp-shadow` always answers from PostgreSQL and compares;
-  a mismatch invalidates the view, which rebuilds.
-
-```sh
-cargo xtask build cantos-api --dbsp-experimental
-CANTOS_JOB_SUMMARY_READ_MODEL=dbsp-shadow target/debug/production-jobs status <run-id>
-CANTOS_JOB_SUMMARY_READ_MODEL=dbsp-serve target/debug/production-jobs watch <run-id> --samples 20 --interval-ms 250
-```
-
-These need the same `CANTOS_ENV`, `CANTOS_DATABASE_URL` and `CANTOS_SESSION_TOKEN` as the other
-commands. Standard error ends with `job-summary-view: {...}` counters (served, fallbacks by reason,
-shadow matches/mismatches, bootstraps, applied transactions). `cargo xtask verify dbsp` lints and
-runs every `cantos-api` test with the feature; `cargo xtask verify postgres` adds the view's
-PostgreSQL differential, failure and authorization tests. `scripts/benchmark_job_summary_dbsp.py`
-is the bounded synthetic benchmark; the [evidence report](../../docs/evidence/dbsp-job-summary.md)
-records its results and limits.
-
-## Local TTS sample probe and receipt inspection
-
-The additional [neural research adapter](../../docs/evidence/local-neural-tts.md) uses a
-separately installed pinned VieNeu Nano runtime/model. Production is refused before runtime
-or model I/O. Its exact two presets and default controls are research-only; current live and
-verification results are recorded in that evidence rather than inferred from source code.
-
-```sh
-cargo run --locked --bin probe-neural-tts -- --research-only /absolute/frozen-document.json dialogue-id /absolute/private/runtime/bin/python /absolute/private/pinned-model /absolute/new-private-output-directory
-cargo test -p cantos-api --test tts_neural --test tts_neural_receipt --locked
-```
-
-The neural probe saves create-only intent, frozen document, research purpose, receipt, inspected
-PCM/hash and resource observations. Existing destinations are refused and errors retain
-uncertainty without retries. It installs/downloads nothing, sends no input to a cloud service
-and creates no accepted asset. The fixed helper verifies local model/SDK/preset identity,
-rejects unsupported text/phonemes and captures mono 24 kHz PCM WAV on stdout under resource
-bounds. Consult [the research comparison](../../docs/evidence/local-neural-tts-research.md) and
-[ADR 0010](../../docs/decisions/0010-local-neural-tts-research.md) before installation. Heavy runs
-need a coordinated execution window; preserve the prior eSpeak evidence described below.
-
-The user-authorized local selection is eSpeak NG 1.52.0, invoked as a separate installed
-executable. Its exact adapter identity is `espeak-ng-local` / `espeak-ng-1.52.0` /
-`espeak-ng-local-v1`; output contract `wav-pcm-s16le-mono-22050-v1` preserves native 22,050 Hz
-mono signed 16-bit PCM. Supported voices are `vi`, `vi-vn-x-central` and `vi-vn-x-south`, and
-languages are `vi` and `vi-VN`. The current adapter admits rate 1000 permille, pitch zero,
-emotion `neutral` and intensity zero; other controls are rejected before invocation.
-Pronunciation uses the existing resolved spoken text. Installed version and exact voice
-availability are checked for each run, with bounded process time, I/O and private regular-file
-output. The adapter installs nothing and silently substitutes no voice or output format.
-
-```sh
-cargo run --locked --bin probe-local-tts -- /absolute/frozen-document.json dialogue-id /absolute/path/to/espeak-ng /absolute/new-private-output-directory
-cargo run --locked --bin inspect-tts-receipt -- /absolute/new-private-output-directory/frozen-document.json /absolute/new-private-output-directory/receipt.json /absolute/new-private-output-directory/output.wav
-```
-
-Supply an exact frozen document with the supported local provider/voice/controls/output profile;
-do not relabel an existing reference snapshot. The sample probe checks frozen input identity,
-creates a new private directory and writes `intent.json` plus `frozen-document.json` before
-synthesis. Success saves `output.wav`, `receipt.json` and `audit.json`; failure retains its
-intent and a failure receipt when possible. Existing destinations are refused, with no
-overwrite or automatic retry. A retained ambiguous intent requires inspection and reconciliation;
-these local files are not a PostgreSQL job queue or production crash-recovery guarantee.
-The offline path establishes no current owner/rights/budget approval and accepts no production
-asset. Local charge remains unknown; resource use is not a provider billing receipt.
-
-All three Vietnamese voices produced actual inspected samples in the local run; listening
-quality is **NOT_RUN**. [Execution evidence](../../docs/evidence/tts-receipt-inspection.md)
-separates live synthesis from synthetic failure tests. [ADR 0008](../../docs/decisions/0008-local-tts-inspection.md)
-records this local inspection choice, with production adoption proposed. Commercial selection,
-terms, rights, authentication boundary, spending cap and live sample remain deferred in
-[provider prerequisites](../../docs/evidence/tts-provider-prerequisites.md).
-This is part of #6; it grants no publication clearance and does not complete that issue.
+The `dbsp-experimental` Cargo feature (off by default) compiles only the engine-independent
+`platform/incremental` core and its DBSP circuit. After [ADR 0018](../../docs/decisions/0018-external-audio-production.md)
+no read model uses it: the durable job-summary view was removed with the in-process synthesis
+runtime ([ADR 0017](../../docs/decisions/0017-experimental-dbsp-job-summary.md) is superseded for
+that consumer). `cargo xtask verify dbsp` still lints and tests the feature. Removing the feature
+is a separate decision.
 
 ## WAV PCM inspection
 
@@ -478,58 +330,6 @@ it records no QC result and approves nothing. The oracle script compares the CLI
 `wave`/hashlib (and ffprobe when installed) on seeded synthetic files in a temporary directory.
 The [inspection evidence](../../docs/evidence/wav-pcm-inspection.md) defines every field, error
 code, limit and residual risk.
-
-## Google Cloud TTS adapter
-
-[ADR 0011](../../docs/decisions/0011-google-cloud-tts-adapter.md) (proposed) records the provider
-facts, mapping and failure policy. The catalog offers `google-cloud-tts` with models
-`google-chirp3-hd`, `google-neural2`, `google-wavenet` and `google-standard` and their documented
-vi-VN voices. Google has no emotion or intensity control, so a binding freezes only when every
-line's effective delivery is explicitly `neutral` at intensity `0` (set the binding's performance
-override); inherited Script IR emotion is `unsupported_control`. Chirp3-HD has no rate or pitch
-control. Resolved text must be nonblank NFC plain text of at most 5,000 bytes. Frozen lines pin
-`google-cloud-tts-synthesize-3` and `wav-pcm-s16le-mono-24000-v1`. Historical `-2` snapshots
-and receipts remain readable with their original digest; their current eligibility is blocked
-until a new candidate is frozen and approved.
-
-`tts::google::plan` refuses any line frozen for another adapter or version and re-checks every
-capability; a plan holds the exact LINEAR16/24 kHz body, its `google-tts-request-1` digest and a
-list-price estimate. `classify` maps each observation to a receipt-v1 class and delivery state:
-a connection that never opened is `timeout`/`not_sent`; everything after it is
-`may_have_executed`, so the shared recovery planner advises reconciliation, never a resend. The
-exact HTTP status, canonical `error.status` name or audio defect stays in a private observation.
-Audio must pass the `cantos-google-tts-pcm-1` profile. Provider messages are discarded; records
-never carry dialogue text or credentials.
-
-`probe-google-tts` re-admits a frozen document through the production authority and plans one
-dialogue. Without `--live` it reads no credential, creates nothing and sends nothing:
-
-```sh
-cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-01
-```
-
-A live run is an explicit, operator-paid action on original sample text, never a private
-manuscript. Before credentials or output creation, the probe requires a USD frozen budget,
-a line estimate within both budget and cap, and eligible pinned rights/budget declarations
-at the current clock instant. This offline check cannot establish current revocation, editorial
-review or owner approval; it grants no production dispatch. The cap bounds the list-price
-estimate, not an account bill or durable reservation. The new private directory must be outside Git:
-
-```sh
-CANTOS_GOOGLE_TTS_ACCESS_TOKEN="$(gcloud auth print-access-token)" \
-CANTOS_GOOGLE_TTS_QUOTA_PROJECT=your-project-id \
-cargo run --locked --bin probe-google-tts -- frozen-document.json dialogue-01 \
-  --live /absolute/new-private-directory --max-estimate-cents 1
-```
-
-It refuses an estimate above the cap before reading the token, writes create-only `intent.json`
-and `frozen-document.json` before sending, sends exactly one request and never retries. It then
-writes `observation.json` and `receipt.json`, plus `output.wav` and `audit.json` on success, for
-`inspect-tts-receipt`. Exit `0` means a plan or admitted audio; `1` a blocked plan, rejected
-scope, exceeded cap or failed attempt (the report includes the recovery advice); `2` usage,
-input, credential or file errors. The cap compares the list-price estimate, not a bill. This is
-not production dispatch: no reservation, durable attempt or current approval check exists yet.
-The [adapter evidence](../../docs/evidence/google-tts-adapter.md) lists what ran and what did not.
 
 ## Script IR diff
 

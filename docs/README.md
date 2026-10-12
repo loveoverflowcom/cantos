@@ -46,17 +46,18 @@
 | [Decision 0002](decisions/0002-script-ir-contract.md) | Proposed adoption of implemented Script IR and digest policy |
 | [Decision 0003](decisions/0003-script-revision-persistence.md) | Local revision persistence and the minimal Studio consumer |
 | [Decision 0004](decisions/0004-editorial-handoff.md) | Compatible editorial handoff on the existing revision backend |
-| [Decision 0007](decisions/0007-casting-production-inputs.md) | Proposed production adoption of versioned casting and scoped input authorization |
-| [Decision 0008](decisions/0008-local-tts-inspection.md) | Accepted local eSpeak inspection selection; production adoption proposed |
+| [Decision 0007](decisions/0007-casting-production-inputs.md) | Proposed production adoption of versioned casting and scoped input authorization (guidance for external producers since 0018) |
+| [Decision 0008](decisions/0008-local-tts-inspection.md) | Superseded by 0018: local eSpeak inspection (runtime removed) |
 | [Decision 0009](decisions/0009-monorepo-layout.md) | Product-grouped apps, one backend service and shared packages |
-| [Decision 0010](decisions/0010-local-neural-tts-research.md) | Proposed VieNeu Nano research selection; production dispatch disabled |
-| [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Proposed Google Cloud TTS adapter: documented vi-VN capabilities, mapping, failure and charge policy |
+| [Decision 0010](decisions/0010-local-neural-tts-research.md) | Superseded by 0018: VieNeu Nano research selection (runtime removed) |
+| [Decision 0011](decisions/0011-google-cloud-tts-adapter.md) | Superseded by 0018: Google Cloud TTS adapter (runtime removed) |
 | [Decision 0012](decisions/0012-xtask-command-surface.md) | `cargo xtask` as the single build, run and verification surface; CI runs its jobs |
 | [Decision 0013](decisions/0013-optional-messagepack-wire.md) | Optional MessagePack beside JSON on four Studio routes; the Studio ships JSON until revisit conditions hold |
 | [Decision 0014](decisions/0014-ui-system-foundation.md) | Shared canonical UI tokens and separate Leptos/CMP renderer ownership |
 | [Decision 0015](decisions/0015-api-surface-boundaries.md) | Proposed: `apps/cantos-theatre` naming and `studio`/`theatre`/`admin` API route groups |
-| [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Proposed: position-free speech fingerprint, verified clip registry and attempt-less reuse, regeneration plan |
-| [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Accepted as an opt-in local experiment: DBSP job-summary read model, committed outbox feed and fenced serving; production adoption gated |
+| [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Superseded by 0018: speech fingerprint and clip reuse (runtime removed) |
+| [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Superseded by 0018 for its only consumer: DBSP job-summary read model (removed with the job runtime) |
+| [Decision 0018](decisions/0018-external-audio-production.md) | Accepted: Studio manages works and audio; external AI producers synthesize and submit it. In-process TTS removed; submission API proposed |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |

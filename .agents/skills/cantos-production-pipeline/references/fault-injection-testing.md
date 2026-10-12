@@ -1,5 +1,9 @@
 # Fault-injection testing
 
+> **Design history (ADR 0018).** This describes fault injection against the removed job runtime. Cantos no longer runs this; do not implement it in this
+> repository. It remains the discipline an external producer follows, and a checklist for any
+> future component that must survive crashes.
+
 > **Scope.** Prove Cantos crash, retry, duplicate-delivery, timeout, stale-worker, cancellation
 > and budget behavior instead of asserting it in prose: named fault points, a data-driven fault
 > plan, a clock the test owns, a scripted provider with its own execution ledger, a simulated

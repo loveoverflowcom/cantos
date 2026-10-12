@@ -68,7 +68,7 @@ pub enum Gate {
     ScriptIrReference,
     RustLint(Scope),
     RustTests(Scope),
-    /// The API built with its experimental DBSP read model: lint and every non-ignored test,
+    /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
     /// so the feature's added dependency features cannot silently change existing behavior.
     Dbsp,
     ContractTests,

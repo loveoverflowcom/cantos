@@ -1,5 +1,9 @@
 # Durable jobs
 
+> **Design history (ADR 0018).** This describes the PostgreSQL job runtime (leases, fencing, outbox, recovery) of the removed synthesis context. Cantos no longer runs this; do not implement it in this
+> repository. It remains the discipline an external producer follows, and a checklist for any
+> future component that must survive crashes.
+
 > **Scope.** Build Cantos production runs, steps and provider attempts as durable PostgreSQL
 > state: freezing inputs into a witness, three separate state machines, the pure decisions
 > (`decide_next_step`, `classify_failure`, `backoff_delay`), a transactional claim with an

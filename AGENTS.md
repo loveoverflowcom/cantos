@@ -23,16 +23,17 @@ for scope versus implementation status.
 
 - Begin with a modular monolith; add a service, crate or generic abstraction only for a concrete consumer and reviewed need.
 - Domain rules and versioned Script IR must not depend on HTTP, UI frameworks, a specific AI provider or Narrative Forge internals.
-- Use PostgreSQL for metadata, revision history and durable job state. Store media in object storage.
+- Cantos Studio manages works, episodes and audio; it does not synthesize or mix. External AI producers read its guidance and standards and submit audio through the API ([ADR 0018](docs/decisions/0018-external-audio-production.md)). Never add a TTS provider, generation worker or provider credential to this repository.
+- Use PostgreSQL for metadata, revision history and durable submission and publication state. Store media in object storage.
 - Do not invoke AI during listener playback. Preserve immutable publication manifests and cached renditions.
 - Keep private drafts, voice assets and previews inaccessible to public delivery. Enforce permissions in the backend.
 - Mobile uses CMP with platform-native audio adapters; no WebView audio player.
 
 ## Correctness rules
 
-For production changes, reason about duplicate delivery, worker crashes, cancellation, provider timeouts, expired job leases, stale revisions, cost reservations and approval invalidation. Never claim exactly-once external TTS generation unless a provider contract proves it; record ambiguous attempts before retrying.
+For production changes, reason about duplicate or interrupted uploads, stale revisions, superseded snapshots and approval invalidation. Producers are outside the trust boundary: record their provenance and rights statements as claims, keep them apart from what Cantos measured, and never claim a provider guarantee Cantos cannot observe.
 
-Cache keys must cover all effective generation inputs. A dialogue edit invalidates its speech plus dependent mix/QC/publication artifacts; unchanged dialogue can remain reusable. Any generated or imported content requires recorded provenance and applicable rights.
+A submission binds the exact revision, snapshot and dialogue it was made for. A dialogue edit makes its submitted speech stale plus dependent mix/QC/publication artifacts; unchanged dialogue can remain reusable. Any submitted or imported content requires recorded provenance and applicable rights.
 
 ## Working and review
 
@@ -69,7 +70,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
-| The experimental DBSP read model (`incremental`, `summary_view`, its outbox) | `cargo xtask verify dbsp` and `cargo xtask verify postgres` |
+| The experimental DBSP incremental core (`incremental`; no read model uses it) | `cargo xtask verify dbsp` |
 
 Use Rust 1.87 (`RUSTUP_TOOLCHAIN=1.87.0`, as in CI). PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start

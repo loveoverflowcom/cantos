@@ -1,6 +1,6 @@
 # ADR 0008: Bounded local TTS inspection with eSpeak NG
 
-- Status: local inspection selection accepted; production adoption proposed
+- Status: superseded by [ADR 0018](0018-external-audio-production.md); the local eSpeak runtime it selected was removed. Kept as history
 - Date: 2026-10-10
 - Decision owner: Cantos maintainers; implementation choice within user-authorized local scope
 - Related issue: [#6](https://github.com/loveoverflowcom/cantos/issues/6)

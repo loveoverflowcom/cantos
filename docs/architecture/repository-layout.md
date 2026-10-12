@@ -93,12 +93,13 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   API is split by surface into three route groups with separate routers, DTO modules, authentication
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` and `/api/v1/admin/*`
   (reserved: empty routers answering `404 not_found`, no fake data; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
-  Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's handler. A worker may run as a second
-  process of the same package. The bounded `cantos-worker` now does so for explicit local/fake
-  development jobs, on the existing PostgreSQL authority; there is no broker or new service.
-  Internal ownership follows [five API contexts](api-contexts.md): Editorial, Ingestion,
-  Adaptation, Production and Synthesis, each with pure domain and private application/SQL
-  boundaries. Script IR is the shared kernel; HTTP surfaces remain separate from these contexts.
+  Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's handler. Cantos runs no
+  audio worker: external producers submit audio through the API
+  ([ADR 0018](../decisions/0018-external-audio-production.md)); there is no broker or new service.
+  Internal ownership follows [four API contexts plus Media](api-contexts.md): Editorial, Ingestion,
+  Adaptation and Production, each with pure domain and private application/SQL boundaries, and a
+  Media context for audio inspection. Script IR is the shared kernel; HTTP surfaces remain
+  separate from these contexts.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API will validate tokens issued by it once identity work starts;
   nothing in this repository reimplements an identity provider.
@@ -112,11 +113,11 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 Not shared, deliberately:
 
-- **Script IR rules, revisions, production-input and job rules** remain modules of `cantos-api`
-  (`script_ir` and the domain modules under `contexts/`). The HTTP host, application CLIs and local
-  worker share that package; the Studio editor validates
-  through the API. Extract a crate under `packages/` when a second consumer such as a worker binary
-  in another package needs it and a review accepts the interface. Domain code must stay free of
+- **Script IR rules, revisions, production-input and media-inspection rules** remain modules of
+  `cantos-api` (`script_ir` and the domain modules under `contexts/`). The HTTP host and
+  application CLIs share that package; the Studio editor validates through the API. Extract a crate
+  under `packages/` when a second consumer in another package needs it and a review accepts the
+  interface. Domain code must stay free of
   HTTP, UI and provider types so that move stays mechanical.
 - **UI renderers.** Leptos and Compose evolve separately. Web apps may share renderer primitives
   from `packages/ui-system/leptos`, while application patterns/routes/state stay app-owned.
@@ -134,7 +135,7 @@ The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its
 
 | Member | Package | Build target |
 | --- | --- | --- |
-| `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, `production-jobs`, `cantos-worker` and inspection/probe CLIs |
+| `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator` and the `validate-script`, `diff-script` and `inspect-wav` CLIs |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |

@@ -1,5 +1,9 @@
 # Cost and budget
 
+> **Design history (ADR 0018).** This describes cost reservation and settlement for the removed synthesis context; Cantos now holds no provider spend. Cantos no longer runs this; do not implement it in this
+> repository. It remains the discipline an external producer follows, and a checklist for any
+> future component that must survive crashes.
+
 > **Scope.** Model production cost as distinct, append-only typed records — estimate,
 > reservation, release, provider-reported usage, settlement, billing adjustment and cache reuse —
 > with money as integer minor units and a currency type; reserve budget in the same transaction

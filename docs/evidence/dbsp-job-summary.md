@@ -1,5 +1,10 @@
 # DBSP job-summary read model — implementation evidence
 
+> **Historical (ADR 0018).** This evidence describes the in-process text-to-speech runtime that
+> [ADR 0018](../decisions/0018-external-audio-production.md) removed on 2026-10-12. The code, tests
+> and contracts it names no longer exist; links to them are pinned to commit `2de8c69`, the last
+> commit that contained them. Nothing here describes current behavior.
+
 - Date: 2026-10-12
 - Issue: [#58](https://github.com/loveoverflowcom/cantos/issues/58); decision:
   [ADR 0017](../decisions/0017-experimental-dbsp-job-summary.md)
@@ -69,7 +74,7 @@ holds `xmin`, and so the frontier, back: that costs fallbacks, never stale answe
 
 ## Differential and recovery checklist
 
-Tests are in [`tests/durable_postgres.rs`](../../services/cantos-api/tests/durable_postgres.rs)
+Tests are in [`tests/durable_postgres.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c69/services/cantos-api/tests/durable_postgres.rs)
 module `dbsp_summary_view` (12 tests on real PostgreSQL with the real DBSP runtime, including
 `the_cli_prints_the_same_summary_under_every_read_model`, which spawns the real binary) and in
 `incremental`/`incremental::dbsp` (15 unit and property tests).
