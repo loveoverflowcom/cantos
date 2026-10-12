@@ -1,0 +1,135 @@
+{
+  "sourceRepository": "https://github.com/google/material-design-icons",
+  "sourceRevision": "49d4db35df873165d6bd6ba09b063c7dafbac2f4",
+  "license": "Apache-2.0",
+  "icons": {
+    "home": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/action/home/materialiconsoutlined/24px.svg",
+      "sha256": "6f5d2c85c8d60a818c3d6011e7cf1b981bc7c7ba5a7ced3664c6c0b6d42c9d69",
+      "sourcePath": "src/action/home/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "72eaca5313ed30a9284cf7504bf6375f7822e1ba6357b74f384c129ffdd6cd90"
+    },
+    "search": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/action/search/materialiconsoutlined/24px.svg",
+      "sha256": "4679a3ccd253f707eeacf7edbb2fb3e395174b690a9ca55ab5fe8a3826002625",
+      "sourcePath": "src/action/search/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "8d919c8fa4fc353e93612b855a50cd43a7c6a70f156ce291686a116b9319696f"
+    },
+    "library_books": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12zM10 9h8v2h-8zm0 3h4v2h-4zm0-6h8v2h-8z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/av/library_books/materialiconsoutlined/24px.svg",
+      "sha256": "f696829dd2398219fe7865e9a126efa29c399a8353818cf06ded7658b565d62b",
+      "sourcePath": "src/av/library_books/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "ffc386c400712e660be9b5dbbfde1c9e7100dcd5ccffc8a7c66765e6ac6f9b4c"
+    },
+    "headphones": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" enable-background=\"new 0 0 24 24\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><g><rect fill=\"none\" height=\"24\" width=\"24\"/></g><g><path d=\"M12,3c-4.97,0-9,4.03-9,9v7c0,1.1,0.9,2,2,2h4v-8H5v-1c0-3.87,3.13-7,7-7s7,3.13,7,7v1h-4v8h4c1.1,0,2-0.9,2-2v-7 C21,7.03,16.97,3,12,3z M7,15v4H5v-4H7z M19,19h-2v-4h2V19z\"/></g></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/hardware/headphones/materialiconsoutlined/24px.svg",
+      "sha256": "a12747058b7121c7e7a74dcb25236c7ca950272380fcf8cfa2f190079c8cdd4d",
+      "sourcePath": "src/hardware/headphones/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "7259cb8810f96ad59daf71051a1d162a026f14bc30eee03149e26a99a3d1fb72"
+    },
+    "settings": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.09-.16-.26-.25-.44-.25-.06 0-.12.01-.17.03l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.06-.02-.12-.03-.18-.03-.17 0-.34.09-.43.25l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.09.16.26.25.44.25.06 0 .12-.01.17-.03l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.06.02.12.03.18.03.17 0 .34-.09.43-.25l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zm-1.98-1.71c.04.31.05.52.05.73 0 .21-.02.43-.05.73l-.14 1.13.89.7 1.08.84-.7 1.21-1.27-.51-1.04-.42-.9.68c-.43.32-.84.56-1.25.73l-1.06.43-.16 1.13-.2 1.35h-1.4l-.19-1.35-.16-1.13-1.06-.43c-.43-.18-.83-.41-1.23-.71l-.91-.7-1.06.43-1.27.51-.7-1.21 1.08-.84.89-.7-.14-1.13c-.03-.31-.05-.54-.05-.74s.02-.43.05-.73l.14-1.13-.89-.7-1.08-.84.7-1.21 1.27.51 1.04.42.9-.68c.43-.32.84-.56 1.25-.73l1.06-.43.16-1.13.2-1.35h1.39l.19 1.35.16 1.13 1.06.43c.43.18.83.41 1.23.71l.91.7 1.06-.43 1.27-.51.7 1.21-1.07.85-.89.7.14 1.13zM12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/action/settings/materialiconsoutlined/24px.svg",
+      "sha256": "814b7a6eea050c073d4a8d7b1f72512b0bd4f71b33beb584c8063fb0bfa78d41",
+      "sourcePath": "src/action/settings/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "f5d116cb0bf1db3a0276b67125d6ba6342d5e3fa07746474bbc064edc651ad64"
+    },
+    "arrow_back": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/navigation/arrow_back/materialiconsoutlined/24px.svg",
+      "sha256": "5eab5a4557e97143f2166479366672a76bbc31d805be62efa75c7d1a10e13cf2",
+      "sourcePath": "src/navigation/arrow_back/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "277b20506863941393c9c3c724d1275d56777a1db8eb61cf95b5552ea3b65771"
+    },
+    "play_arrow": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/av/play_arrow/materialiconsoutlined/24px.svg",
+      "sha256": "d9a74a4c94f74d39adb1b519afe7e3569c59c72eacd56817644f691a9c68449a",
+      "sourcePath": "src/av/play_arrow/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "38c15a320df84be25aa10592ed0520ec4ccba3c50b1bd044813b24a4e886a326"
+    },
+    "pause": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M6 19h4V5H6v14zm8-14v14h4V5h-4z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/av/pause/materialiconsoutlined/24px.svg",
+      "sha256": "777f7140fb9403ece787bdbf37e1ef5d91908bb5c9ed5428949d607e51aec3ae",
+      "sourcePath": "src/av/pause/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "749c3fa4472b037bcc33e2bfe73ac81a4a0a62626a3fc52f41bf2535113148d5"
+    },
+    "bookmark_border": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15l-5-2.18L7 18V5h10v13z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/action/bookmark_border/materialiconsoutlined/24px.svg",
+      "sha256": "1a624fa82577014fbf066bd8ffd6817ea3532c34413a9810af442e7b1c78f9eb",
+      "sourcePath": "src/action/bookmark_border/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "73d965a17db1c4cc6e61ee5bcbf96fccc0a4e4a80cbf0351d9d334cf63e621b3"
+    },
+    "check": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/navigation/check/materialiconsoutlined/24px.svg",
+      "sha256": "e7bd57a6f37125b7363cfc9fb11f8c1dc9aec12003c94e96329d1cca5c11d8f8",
+      "sourcePath": "src/navigation/check/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "aadc0a189bbe3c6f86b94e04755de153b23fb45eedfaff1149f2ecbccf9291b8"
+    },
+    "queue_music": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" enable-background=\"new 0 0 24 24\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><g><rect fill=\"none\" height=\"24\" width=\"24\"/></g><g><path d=\"M22,6h-5v8.18C16.69,14.07,16.35,14,16,14c-1.66,0-3,1.34-3,3s1.34,3,3,3s3-1.34,3-3V8h3V6z M15,6H3v2h12V6z M15,10H3v2h12 V10z M11,14H3v2h8V14z\"/></g></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/av/queue_music/materialiconsoutlined/24px.svg",
+      "sha256": "79710f5ada5639c0ca0be7db7bc77f60047fffed26e7b9567a3de44d9fc630ef",
+      "sourcePath": "src/av/queue_music/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "2174eaea7c119ba1f649a967af37da2147de576949b5053f0d3f75b1f064d94b"
+    },
+    "replay": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" enable-background=\"new 0 0 24 24\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><g><rect fill=\"none\" height=\"24\" width=\"24\"/><rect fill=\"none\" height=\"24\" width=\"24\"/><rect fill=\"none\" height=\"24\" width=\"24\"/></g><g><g/><path d=\"M12,5V1L7,6l5,5V7c3.31,0,6,2.69,6,6s-2.69,6-6,6s-6-2.69-6-6H4c0,4.42,3.58,8,8,8s8-3.58,8-8S16.42,5,12,5z\"/></g></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/av/replay/materialiconsoutlined/24px.svg",
+      "sha256": "ba8f2db44ae3ba8fe3af6daefb067e9971fc1ce959d820316ee29a39476880b9",
+      "sourcePath": "src/av/replay/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "bd008236843cf6a803b0e9df1efcb51aec27e33f24cc106bde83e5473a4e8d22"
+    },
+    "rotate_right": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/image/rotate_right/materialiconsoutlined/24px.svg",
+      "sha256": "0cd93fb252836d16eca7e8fae04e5a8521f3c725829631f59cb81ac021c9678b",
+      "sourcePath": "src/image/rotate_right/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "bd3216e5bb835088bb377bd3776e992f55b367f48d53c679d10d6430e1ca58ac"
+    },
+    "delete_outline": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/action/delete_outline/materialiconsoutlined/24px.svg",
+      "sha256": "7b5a961d9057b001389f9e27d8c61f6d30e6b01606e0cffd8f20e3831d5e845b",
+      "sourcePath": "src/action/delete_outline/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "3f6c59e34886953e7a4143c1668fde8efe1e2dcd878585c96fbfad4740fa9f02"
+    },
+    "add": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/content/add/materialiconsoutlined/24px.svg",
+      "sha256": "670df546c8e7b8f19fb262ec89156108f87fcbcb57b19a40f37244b980cb7b53",
+      "sourcePath": "src/content/add/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "382a85a582909eb2c0f44f22a72e22131f08920653e6bbde3bc5d79203d56136"
+    },
+    "smartphone": {
+      "svg": "<svg fill=\"currentColor\" aria-hidden=\"true\" focusable=\"false\" xmlns=\"http://www.w3.org/2000/svg\" height=\"24\" viewBox=\"0 0 24 24\" width=\"24\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z\"/></svg>",
+      "source": "https://raw.githubusercontent.com/google/material-design-icons/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/hardware/smartphone/materialiconsoutlined/24px.svg",
+      "sha256": "4ea823de683b202958a205899cbbfefbf60c848c219b2ca4c07e337cf63e8a3c",
+      "sourcePath": "src/hardware/smartphone/materialiconsoutlined/24px.svg",
+      "adaptation": "root fill=currentColor; aria-hidden=true; focusable=false. Geometry unchanged.",
+      "adapted_sha256": "094c4adc2d69adccef57415af3e4a7361ca17e6e626e0a5cacd8a76eef5d6b74"
+    }
+  }
+}

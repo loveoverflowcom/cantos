@@ -100,7 +100,7 @@ class TokenContract(unittest.TestCase):
                 if tag == "link" and "data-trunk" in attributes and attributes.get("rel") == "css":
                     self.paths.append(attributes["href"])
 
-        for app, geometry in (("cantos-studio", "studio.css"), ("cantos-theatre", "theatre.css")):
+        for app, geometry in (("cantos-studio", "studio.css"), ("cantos-theatre", "src/styles/theatre.css")):
             with self.subTest(app=app):
                 app_root = ROOT / "apps" / app / "web"
                 links = Stylesheets()

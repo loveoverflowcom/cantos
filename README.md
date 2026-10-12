@@ -25,7 +25,8 @@ manuscript intake, host-created adaptation proposal submission/review, reference
 planning and a read-only WAV inspector. It does **not** yet implement a general work/podcast catalog,
 external audio-upload/finalize APIs, object-storage acceptance or published listener releases.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
-still planned. Theatre Web is a skeleton and Theatre Mobile has an isolated
+still planned. Theatre Web is a session-only
+[UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md) without native audio or API.
 
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
@@ -49,7 +50,7 @@ No live routes should be inferred from [the proposed contract](packages/contract
 ## Repository
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
-- `apps/cantos-theatre/web`: listener Web skeleton; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
+- `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs and pure media inspection.
 - `services/kanidm`: proposed identity configuration, not yet integrated.
 - `packages/contracts`: versioned Script IR and existing wire contracts; future external-audio handoff.

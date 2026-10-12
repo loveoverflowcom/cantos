@@ -18,7 +18,8 @@ existing code without changing behavior, migrations or wire contracts; the
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
-Support here defines product scope, not implementation evidence. Theatre Web is a skeleton and
+Support here defines product scope, not implementation evidence. Theatre Web is a session-only
+UI mock with no API/audio integration and
 Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or API. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
@@ -30,7 +31,7 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 ```text
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
-    web/                   Leptos CSR skeleton              (package cantos-theatre)      SKELETON
+    web/                   Leptos CSR session-only mock     (package cantos-theatre)      MOCK
     mobile/                Kotlin Compose Multiplatform     (isolated mock, no audio/API) DEMO
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
@@ -50,8 +51,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 ```
 
 - **IMPLEMENTED** has code that existed before the restructure and kept its tests.
-- **SKELETON** builds and renders a statement that nothing exists yet. It has no catalog, account,
-  player or fake data, and it is not evidence for any Theatre work item.
+- **MOCK** is the session-only Theatre Web mock: synthetic catalog, simulated player and in-memory
+  library/queue, with evidence in its [record](../evidence/theatre-web-mock.md). It has no listener
+  API, audio, account or persistence and is not evidence for any Theatre work item.
 - **DEMO** is the isolated Theatre CMP mock: shared Kotlin screens and Android/iOS host wiring,
   with target evidence in its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md).
   It implements no native audio, listener API, background playback, downloads or durable sync.
@@ -113,7 +115,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 | Shared | Where | Consumers today |
 | --- | --- | --- |
 | Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio` |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre skeleton; development gallery |
+| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web mock; development gallery |
 
 Not shared, deliberately:
 
@@ -155,7 +157,7 @@ Trunk and refuses reserved surfaces instead of simulating them.
 ```sh
 cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
-cargo xtask build cantos-theatre --web         # Theatre Web skeleton through Trunk
+cargo xtask build cantos-theatre --web         # Theatre Web session-only mock through Trunk
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
 cargo xtask theatre-demo build                 # shared mock + JVM diagnostic host
 cargo xtask theatre-demo android-build         # mock debug APK; existing Android SDK required

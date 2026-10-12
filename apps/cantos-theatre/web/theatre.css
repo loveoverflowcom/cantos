@@ -1,8 +1,0 @@
-body { margin: 0; }
-.theatre-shell { min-block-size: 100vh; }
-.theatre-shell .theatre-main { padding-block: var(--cantos-space-xl); }
-.theatre-shell .theatre-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
-.theatre-shell .theatre-header > * { min-inline-size: 0; max-inline-size: 100%; }
-.theatre-shell h1 { font: var(--cantos-type-headline-weight) var(--cantos-type-headline-size)/var(--cantos-type-headline-line-height) var(--cantos-type-family-editorial); overflow-wrap: anywhere; margin: 0; }
-.theatre-shell .theatre-wordmark { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); margin-block: 0 var(--cantos-space-sm); }
-.theatre-shell .cui-stack p { margin: 0; }
