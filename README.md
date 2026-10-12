@@ -70,11 +70,12 @@ MessagePack beside JSON with the same DTOs and error semantics; the Studio ships
 measured benefit justifies a switch ([wire codec](docs/architecture/wire-codec.md),
 [evidence](docs/evidence/messagepack-wire.md)).
 
-The repository is organised by product and kind: `apps/cantos-theatre` (Theatre, for listeners) and
-`apps/cantos-studio` (Studio, for creators) each have `web` and `mobile`; one backend lives in
-`services/cantos-api` beside Kanidm deployment notes; shared contracts and design tokens live in
-`packages/`. Only Studio Web and the API are implemented; the Theatre Web crate is a skeleton and
-both mobile directories are guides. See the [repository layout](docs/architecture/repository-layout.md).
+The repository is organised by product and kind: `apps/cantos-theatre` (Theatre, for listeners)
+targets Web and native Mobile; `apps/cantos-studio` (Studio, for creators) targets Web only. One
+backend lives in `services/cantos-api` beside Kanidm deployment notes; shared contracts and design
+tokens live in `packages/`. Studio Web and the API are implemented; Theatre Web is a skeleton and
+Theatre Mobile remains a guide without a Gradle app. Supported product scope does not imply an
+implemented client. See the [repository layout](docs/architecture/repository-layout.md#platform-scope).
 
 `develop` is the first and default branch. Create short-lived feature branches from it and target pull requests to `develop`.
 
@@ -82,13 +83,25 @@ both mobile directories are guides. See the [repository layout](docs/architectur
 
 | Surface | Purpose | Technology |
 | --- | --- | --- |
-| Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web (`apps/cantos-studio/web`); a mobile client is reserved |
+| Cantos Studio | Import, adapt, edit, cast, preview, produce and approve episodes | Leptos Web only (`apps/cantos-studio/web`) |
 | Cantos Theatre | Discover and listen to published audio drama | Leptos Web (skeleton); Kotlin Compose Multiplatform on Android/iOS (planned) |
 | Backend | Domain rules, APIs, production orchestration and publication | Rust, Axum, PostgreSQL (`services/cantos-api`) |
 | Identity | Sign-in and single sign-on | Proposed: Kanidm, pending its own ADR; example config only (`services/kanidm`) |
 | Media delivery | Private production assets and approved episode renditions | S3-compatible object storage and CDN |
 
 Start with one modular backend. Worker execution can run separately for resource isolation while sharing the same codebase and PostgreSQL job model.
+
+## Platform scope
+
+| Path | Platform support | Implementation |
+| --- | --- | --- |
+| `apps/cantos-studio/web` | Supported | Implemented |
+| `apps/cantos-studio/mobile` | Out of scope | Not implemented; scope notice only |
+| `apps/cantos-theatre/web` | Supported | Skeleton |
+| `apps/cantos-theatre/mobile` | Supported | Planned; no Gradle app yet |
+
+Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
+Shared libraries may serve Theatre Mobile and Studio Web.
 
 ## Start here
 
@@ -104,7 +117,7 @@ Start with one modular backend. Worker execution can run separately for resource
 | Path | Responsibility at bootstrap |
 | --- | --- |
 | `apps/cantos-studio/web/` | Structured Leptos Studio CSR editor and casting/input review |
-| `apps/cantos-studio/mobile/` | Reserved location for a Studio CMP client; guide only |
+| `apps/cantos-studio/mobile/` | Out of scope / not implemented; scope notice only |
 | `apps/cantos-theatre/web/` | Cantos Theatre Leptos skeleton: builds, shows that nothing exists yet |
 | `apps/cantos-theatre/mobile/` | Guide for the native CMP listening app; no Gradle project |
 | `services/cantos-api/` | Pure Script IR/revision/production/job rules, local Axum host, PostgreSQL store, migration CLI and same-package local worker |
@@ -143,8 +156,8 @@ cargo xtask ci                             # the four CI jobs, as GitHub Actions
 Use Rust 1.87 (CI sets `RUSTUP_TOOLCHAIN=1.87.0`), the `wasm32-unknown-unknown` target, Trunk
 0.21.14 and, for the database gate, PostgreSQL 17 binaries on `PATH` (on a Mac, for example
 `PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"`). Summaries report `PASS`, `FAIL`, `NOT_RUN`
-or `UNSUPPORTED`; only explicit `--skip` leaves a gate out, and it is shown as `NOT_RUN`. Mobile
-surfaces are `UNSUPPORTED` until a Gradle project exists. [Contract evidence](docs/evidence/script-ir-contract.md)
+or `UNSUPPORTED`; only explicit `--skip` leaves a gate out, and it is shown as `NOT_RUN`. Theatre Mobile
+commands are `UNSUPPORTED` until a Gradle project exists; Studio Mobile is out of scope and rejected. [Contract evidence](docs/evidence/script-ir-contract.md)
 names the actual verification boundary. On macOS where temporary symlink tests encounter `/var`
 versus `/private/var`, use `TMPDIR=/private/tmp` for the Python unit/mutation runs.
 

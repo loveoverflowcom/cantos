@@ -45,14 +45,17 @@ side in the same change when it is in scope.
 
 Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
 Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
-[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre` (Theatre) and
-`apps/cantos-studio` (Studio), each with `web` and `mobile`, one backend in `services/cantos-api`,
-Kanidm configuration in `services/kanidm` and shared `packages/`; read the
-[repository layout](../../docs/architecture/repository-layout.md) for which parts are implemented,
-skeletons or only reserved. Theatre Web is a skeleton and both mobile apps are guides.
+[contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
+`apps/cantos-studio/web` (Studio), one backend in `services/cantos-api`, Kanidm configuration in
+`services/kanidm` and shared `packages/`; read the
+[platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
+Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
+requested in a future roadmap. Theatre Web is a skeleton and Theatre Mobile remains a guide;
+Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
+serve Theatre Mobile and Studio Web.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen production inputs, local/Google TTS probe CLIs and an optional MessagePack
-representation for four Studio routes are implemented. Mobile apps and production execution
+representation for four Studio routes are implemented. Theatre Mobile and production execution
 remain planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.

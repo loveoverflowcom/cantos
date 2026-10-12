@@ -8,7 +8,7 @@ use clap::ValueEnum;
 
 use crate::{
     command::CommandSpec,
-    config::{App, API_PACKAGE},
+    config::{App, API_PACKAGE, THEATRE_MOBILE_DIR},
     pipeline::Step,
     tools::Tool,
     workspace::Workspace,
@@ -86,27 +86,26 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
     }
 }
 
-/// Resolves the surface flags for an app target. Mobile is a reserved extension point: it is
-/// refused as UNSUPPORTED until a Gradle project exists, never simulated.
+/// Studio is web-only. Theatre mobile is a reserved extension point, refused as
+/// UNSUPPORTED until a Gradle project exists, never simulated.
 pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
-    match surface {
-        Some(Surface::Web) => Ok(()),
-        Some(Surface::Mobile) => Err(mobile_unsupported(app)),
-        None => Err(Refusal::Usage(format!(
-            "{name} has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: no Gradle project in {dir})",
-            name = app.cli_name(),
-            dir = app.mobile_dir()
+    match (app, surface) {
+        (_, Some(Surface::Web)) => Ok(()),
+        (App::Studio, Some(Surface::Mobile)) => Err(Refusal::Usage(
+            "Cantos Studio is web-only; --mobile is out of scope".into(),
+        )),
+        (App::Studio, None) => Err(Refusal::Usage(
+            "cantos-studio is web-only: pass --web".into(),
+        )),
+        (App::Theatre, Some(Surface::Mobile)) => Err(Refusal::Unsupported {
+            subject: "cantos-theatre --mobile".into(),
+            reason: format!(
+                "{THEATRE_MOBILE_DIR} has no Gradle project; see its README.md for the planned CMP structure"
+            ),
+        }),
+        (App::Theatre, None) => Err(Refusal::Usage(format!(
+            "cantos-theatre has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: no Gradle project in {THEATRE_MOBILE_DIR})"
         ))),
-    }
-}
-
-pub fn mobile_unsupported(app: App) -> Refusal {
-    Refusal::Unsupported {
-        subject: format!("{} --mobile", app.cli_name()),
-        reason: format!(
-            "{} has no Gradle project; see its README.md for the planned CMP structure",
-            app.mobile_dir()
-        ),
     }
 }
 
@@ -224,10 +223,22 @@ mod tests {
     }
 
     #[test]
-    fn mobile_is_unsupported_and_missing_surfaces_are_usage_errors() {
-        assert!(matches!(
+    fn studio_mobile_is_out_of_scope_and_theatre_mobile_remains_reserved() {
+        assert_eq!(
             resolve(BuildTarget::CantosStudio, Some(Surface::Mobile)),
-            Err(Refusal::Unsupported { subject, .. }) if subject == "cantos-studio --mobile"
+            Err(Refusal::Usage(
+                "Cantos Studio is web-only; --mobile is out of scope".into()
+            ))
+        );
+        assert_eq!(
+            resolve(BuildTarget::CantosStudio, None),
+            Err(Refusal::Usage(
+                "cantos-studio is web-only: pass --web".into()
+            ))
+        );
+        assert!(matches!(
+            resolve(BuildTarget::CantosTheatre, Some(Surface::Mobile)),
+            Err(Refusal::Unsupported { subject, .. }) if subject == "cantos-theatre --mobile"
         ));
         assert!(matches!(
             resolve(BuildTarget::CantosTheatre, None),

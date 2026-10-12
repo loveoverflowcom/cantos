@@ -32,7 +32,7 @@ pub struct SurfaceArgs {
     /// Select the app's Leptos Web client.
     #[arg(long)]
     pub web: bool,
-    /// Select the app's CMP mobile client (UNSUPPORTED: no Gradle project yet).
+    /// Select Theatre's CMP mobile client (UNSUPPORTED: no Gradle project yet); invalid for Studio.
     #[arg(long)]
     pub mobile: bool,
 }

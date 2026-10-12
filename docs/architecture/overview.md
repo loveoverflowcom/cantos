@@ -19,7 +19,11 @@ Use one Rust backend with Axum API handlers, domain/application modules and infr
 | Production | Durable step execution, TTS/mixing/QC adapters and asset manifests | Listener navigation or public permissions bypasses |
 | Infrastructure | PostgreSQL transactions, object storage, AI providers, media tools and delivery adapters | Product state-transition policy |
 | Web | Studio editor (`apps/cantos-studio/web`) and Theatre player (`apps/cantos-theatre/web`), as separate applications | Credentials for AI/object storage or authoritative approvals |
-| Mobile | CMP screens/state plus native playback/download adapters for Theatre (`apps/cantos-theatre/mobile`); a Studio client is reserved (`apps/cantos-studio/mobile`) | Server orchestration or in-app TTS for published episodes |
+| Mobile | CMP screens/state plus native playback/download adapters for Theatre only (`apps/cantos-theatre/mobile`) | Server orchestration or in-app TTS for published episodes |
+
+Cantos Studio has Web as its sole deployment target. Studio Mobile is out of scope / not
+implemented; follow the [platform scope](repository-layout.md#platform-scope) before adding a
+client or build target. Shared libraries may serve Theatre Mobile and Studio Web.
 
 These are module responsibilities, not requirements to create one crate per row. Create packages only when a real build target or independent consumer justifies them.
 
@@ -70,8 +74,8 @@ runtime I/O. The eSpeak adapter/probe, Script IR, production-p1, PostgreSQL auth
 boundaries remain intact. See [ADR 0010](../decisions/0010-local-neural-tts-research.md).
 The Studio WASM consumer imports only `cantos-contracts`, never server
 internals. This shared DTO crate has two concrete consumers. Migration and HTTP binaries live
-in the same `cantos-api` package. `apps/cantos-theatre/mobile/` and `apps/cantos-studio/mobile/` remain guides;
-Gradle belongs to the native listening slice. [ADR 0003](../decisions/0003-script-revision-persistence.md) is proposed for
+in the same `cantos-api` package. `apps/cantos-theatre/mobile/` remains a guide; its Gradle app
+belongs to the native listening slice. `apps/cantos-studio/mobile/` retains only an out-of-scope notice. [ADR 0003](../decisions/0003-script-revision-persistence.md) is proposed for
 production adoption, not an accepted deployment decision.
 
 ## First verification targets

@@ -579,7 +579,11 @@ mod tests {
         };
         assert!(matches!(
             plan_run(&workspace, RunTarget::CantosStudio, &mobile),
-            Err(Refusal::Unsupported { .. })
+            Err(Refusal::Usage(message)) if message == "Cantos Studio is web-only; --mobile is out of scope"
+        ));
+        assert!(matches!(
+            plan_app(&workspace, AppTarget::CantosStudio, &mobile),
+            Err(Refusal::Usage(message)) if message == "Cantos Studio is web-only; --mobile is out of scope"
         ));
         assert!(matches!(
             plan_app(&workspace, AppTarget::CantosTheatre, &mobile),

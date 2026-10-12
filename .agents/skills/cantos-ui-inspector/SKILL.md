@@ -19,7 +19,8 @@ with the same scenario.
 
 ## Repository reality
 
-Studio Web now exists; Theatre Web is a skeleton and both CMP apps are guides. Therefore:
+Studio Web now exists; Theatre Web is a skeleton and Theatre Mobile is a guide. Studio Mobile
+is out of scope; do not create a mobile scaffold or mock screen to inspect Studio. Therefore:
 
 - **`live` mode is blocked** until a surface ships with a documented launch path. Report
   `blocked`; never build a demo screen to have something to inspect.

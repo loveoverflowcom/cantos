@@ -39,7 +39,6 @@ REQUIRED = (
     "apps/cantos-theatre/web/README.md",
     "apps/cantos-theatre/mobile/README.md",
     "apps/cantos-studio/web/README.md",
-    "apps/cantos-studio/mobile/README.md",
     "services/cantos-api/README.md",
     "services/kanidm/README.md",
     "packages/README.md",

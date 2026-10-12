@@ -1,8 +1,8 @@
 # Compose preview without an emulator
 
 Use Android Studio's layout renderer for a quick pixel and semantics pass over actual Compose
-code. Both product mobile directories remain README guides, so their capture targets are
-`UNSUPPORTED`. The separate `ui-system-cmp` target selects a real Android library host in
+code. Theatre Mobile remains a README guide, so its capture target is `UNSUPPORTED`.
+Studio is web-only and has no mobile capture target; never scaffold one for preview evidence. The separate `ui-system-cmp` target selects a real Android library host in
 `packages/ui-system/cmp/android-preview`, with thin wrappers around the shared components and
 existing deterministic fixtures. The [PR43 host record](../../../../docs/evidence/cmp-pr43-android-preview.md)
 records an actual Android build and four inspected captures with asserted static semantics.
@@ -13,8 +13,7 @@ or production qualification; the shared component qualification count remains 0/
 
 1. Inspect the selected project's actual Gradle files, Kotlin/CMP versions, Android target and
    preview annotation dependencies. Targets have fixed roots: `cantos-theatre` selects
-   `apps/cantos-theatre/mobile`, `cantos-studio` selects `apps/cantos-studio/mobile` and
-   `ui-system-cmp` selects `packages/ui-system/cmp/android-preview`. Never substitute a Web screen
+   `apps/cantos-theatre/mobile` and `ui-system-cmp` selects `packages/ui-system/cmp/android-preview`. Never substitute a Web screen
    or the other product. The UI-system host directly consumes `../src/commonMain/kotlin`; the
    preview source passed to the capture command must be inside the isolated Android project.
 2. Install the **official Android CLI** following [Google's overview](https://developer.android.com/tools/agents/android-cli).

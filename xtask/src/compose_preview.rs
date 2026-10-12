@@ -22,8 +22,6 @@ pub enum ComposePreviewTarget {
     /// Cantos Theatre mobile project (UNSUPPORTED until its Gradle project exists).
     #[value(alias = "cantos")]
     CantosTheatre,
-    /// Cantos Studio mobile project (UNSUPPORTED until its Gradle project exists).
-    CantosStudio,
     /// Isolated Android library consuming the shared CMP UI-system source.
     UiSystemCmp,
 }
@@ -32,7 +30,6 @@ impl ComposePreviewTarget {
     fn cli_name(self) -> &'static str {
         match self {
             Self::CantosTheatre => "cantos-theatre",
-            Self::CantosStudio => "cantos-studio",
             Self::UiSystemCmp => "ui-system-cmp",
         }
     }
@@ -150,9 +147,9 @@ mod tests {
         let cli = Cli::try_parse_from([
             "cargo xtask",
             "compose-preview",
-            "cantos-studio",
+            "cantos-theatre",
             "--file",
-            "apps/cantos-studio/mobile/Screen.kt",
+            "apps/cantos-theatre/mobile/Screen.kt",
             "--composable",
             "ScreenPreview",
             "--label",
@@ -178,9 +175,9 @@ mod tests {
             [
                 "scripts/render_compose_preview.py",
                 "--app",
-                "cantos-studio",
+                "cantos-theatre",
                 "--file",
-                "apps/cantos-studio/mobile/Screen.kt",
+                "apps/cantos-theatre/mobile/Screen.kt",
                 "--composable",
                 "ScreenPreview",
                 "--timeout-seconds",
@@ -199,6 +196,13 @@ mod tests {
     #[test]
     fn rejects_missing_preview_identity_and_unbounded_timeouts() {
         for tail in [
+            vec![
+                "cantos-studio",
+                "--file",
+                "Screen.kt",
+                "--composable",
+                "Preview",
+            ],
             vec!["cantos-theatre"],
             vec!["cantos-theatre", "--file", "Screen.kt"],
             vec![

@@ -1,7 +1,7 @@
 ---
 name: cantos-ui-design
 description: >-
-  Shared UI policy for Cantos Studio and Theatre on both renderers, Leptos Web and Compose
+  Shared UI policy for Cantos Studio Web and Theatre Web/Mobile, using Leptos and Compose
   Multiplatform: Material 3 Expressive as an attention system with a per-surface intensity
   model, the calm Lavender Stage identity, one versioned semantic token source mapped to CSS and
   Kotlin, Vietnamese-safe typography, intent-based motion with reduced motion, accessibility,
@@ -23,6 +23,10 @@ It composes [`cantos-engineering`](../cantos-engineering/SKILL.md): the required
 [evidence vocabulary](../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified)
 and the [completion report](../cantos-engineering/SKILL.md#9-completion-report) are defined there
 and reused here unchanged.
+
+Apply the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope) before
+routing renderer work: Studio is Web only; Theatre supports Web/Mobile. Shared CMP components
+and preview fixtures never authorize a Studio mobile client or mock screen.
 
 ## Product truth lives in the docs
 
