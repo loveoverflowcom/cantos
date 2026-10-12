@@ -136,12 +136,14 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         // Kotlin is not a Cargo member. Its gate must not depend on metadata or reverse Rust deps.
         if !is_doc {
             impact.gates.insert(Gate::CmpUiPreview);
+            impact.gates.insert(Gate::TheatreCmpDemo);
         }
     } else if within(path, "packages/ui-system") {
         if !is_doc {
             impact.packages.insert(UI_PACKAGE.to_owned());
             if !within(path, "packages/ui-system/leptos") {
                 impact.gates.insert(Gate::CmpUiPreview);
+                impact.gates.insert(Gate::TheatreCmpDemo);
             }
         }
     } else if let Some(package) = graph.owner(path) {
@@ -158,14 +160,8 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             "services/kanidm is configuration only; no executable gate exists for it".into(),
         );
     } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
-        if is_doc {
-            impact
-                .notes
-                .insert("Theatre mobile has no Gradle project; only documents changed".into());
-        } else {
-            impact.broaden = Some(format!(
-                "{path} is a mobile input but no mobile gate exists yet"
-            ));
+        if !is_doc {
+            impact.gates.insert(Gate::TheatreCmpDemo);
         }
     } else if is_doc
         || REPOSITORY_FILES.contains(&path)
@@ -182,6 +178,7 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "ui_tokens.py" | "ui_icons.py" | "studio_tokens.py" | "ui_preview_catalog.py" => {
             impact.packages.insert(UI_PACKAGE.to_owned());
             impact.gates.insert(Gate::CmpUiPreview);
+            impact.gates.insert(Gate::TheatreCmpDemo);
         }
         "reference_script_ir.py" => {
             impact.gates.insert(Gate::ScriptIrReference);
@@ -195,19 +192,11 @@ fn classify_script(script: &str, impact: &mut Impact) {
         "test_postgres.py" | "production_oracle.py" | "cantos_adaptation_tool.py" => {
             impact.gates.insert(Gate::Postgres { keep: false });
         }
-        // Compile-time and test inputs of the neural TTS adapter.
-        "vieneu_nano_runtime.py" => {
-            impact.packages.insert(API_PACKAGE.to_owned());
-        }
-        _ if within(script, "fixtures") => {
-            impact.packages.insert(API_PACKAGE.to_owned());
-        }
         // Tested by the repository gate's Python unit tests (or untested helpers).
         "check_repository.py"
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
-        | "benchmark_job_summary_dbsp.py"
         | "serve_studio.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
@@ -255,7 +244,6 @@ mod tests {
             &[".cargo/config.toml"],
             &["scripts/new_tool.py"],
             &["Makefile"],
-            &["apps/cantos-theatre/mobile/settings.gradle.kts"],
             &["docs/README.md", "rust-toolchain.toml"],
         ] {
             let selection = pick(paths);
@@ -349,9 +337,6 @@ mod tests {
             names(&pick(&["scripts/reference_wav_inspection.py"])),
             ["repository", "rust-format", "wav-reference"]
         );
-        assert!(pick(&["scripts/fixtures/neural-vietnamese.json"])
-            .affected
-            .contains("cantos-api"));
         assert_eq!(
             names(&pick(&[
                 "scripts/test_check_repository.py",
@@ -368,7 +353,7 @@ mod tests {
             "apps/cantos-theatre/mobile/README.md",
         ]);
         assert_eq!(names(&selection), ["repository", "rust-format"]);
-        assert_eq!(selection.notes.len(), 2);
+        assert_eq!(selection.notes.len(), 1);
     }
 
     #[test]
@@ -386,12 +371,42 @@ mod tests {
             assert!(selection.affected.is_empty(), "{path}");
             assert_eq!(
                 names(&selection),
-                ["repository", "rust-format", "cmp-ui-preview"],
+                [
+                    "repository",
+                    "rust-format",
+                    "cmp-ui-preview",
+                    "theatre-cmp-demo"
+                ],
                 "{path}"
             );
         }
         assert_eq!(
             names(&pick(&["packages/ui-system/cmp/README.md"])),
+            ["repository", "rust-format"]
+        );
+    }
+
+    #[test]
+    fn theatre_mobile_inputs_select_mock_tests_without_production_or_studio_mobile() {
+        for path in [
+            "apps/cantos-theatre/mobile/settings.gradle.kts",
+            "apps/cantos-theatre/mobile/gradle.properties",
+            "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/DemoState.kt",
+            "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/DemoTest.kt",
+            "apps/cantos-theatre/mobile/androidApp/src/main/AndroidManifest.xml",
+            "apps/cantos-theatre/mobile/iosApp/CantosDemo.xcodeproj/project.pbxproj",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.affected.is_empty(), "{path}");
+            assert_eq!(
+                names(&selection),
+                ["repository", "rust-format", "theatre-cmp-demo"],
+                "{path}"
+            );
+        }
+        assert_eq!(
+            names(&pick(&["apps/cantos-theatre/mobile/README.md"])),
             ["repository", "rust-format"]
         );
     }
@@ -434,6 +449,7 @@ mod tests {
             ];
             if !path.starts_with("packages/ui-system/leptos/") {
                 expected.push("cmp-ui-preview");
+                expected.push("theatre-cmp-demo");
             }
             assert_eq!(names(&selection), expected, "{path}");
         }

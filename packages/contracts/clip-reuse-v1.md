@@ -1,5 +1,7 @@
 # Clip reuse v1 — speech fingerprint, verified clips and regeneration plan
 
+> **Historical / not implemented (2026-10-12).** [ADR 0018](../../docs/decisions/0018-external-audio-production.md) removed the code this contract described (server-side TTS jobs, receipts and speech reuse). Nothing below is a live Cantos capability; links to removed files point at commit `2de8c69`. The proposed replacement is [external-audio-handoff-v1](external-audio-handoff-v1.md).
+
 Status: implemented bounded backend contract for the cache/reuse and partial-regeneration
 criteria of [#7](https://github.com/loveoverflowcom/cantos/issues/7) and the planning half of
 [#8](https://github.com/loveoverflowcom/cantos/issues/8). It adds no Studio route, no shared HTTP
@@ -93,7 +95,7 @@ change only by a deliberate `--write-goldens` run of the independent oracle.
 
 ### Vectors and oracle
 
-[`fixtures/clip-reuse/v1/speech-vectors.json`](fixtures/clip-reuse/v1/speech-vectors.json) holds 16
+[`fixtures/clip-reuse/v1/speech-vectors.json`](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/fixtures/clip-reuse/v1/speech-vectors.json) holds 16
 accepted inputs, 5 refused inputs and the same/different relations. It is written by
 `scripts/reference_speech_fingerprint.py`, a standard-library implementation of the rules above that
 shares no code with Rust. Rust must reproduce every canonical document and digest, every refusal code
@@ -211,7 +213,7 @@ production-jobs plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake)
 
 Read-only; requires `CANTOS_ENV=development`, `CANTOS_DATABASE_URL` and `CANTOS_SESSION_TOKEN`. It starts
 no job, calls no provider and creates no reservation. Output is one JSON report
-([schema](schema/clip-reuse/v1.schema.json), [fixture](fixtures/clip-reuse/v1/plan-edit-one-line.json)).
+([schema](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/schema/clip-reuse/v1.schema.json), [fixture](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/fixtures/clip-reuse/v1/plan-edit-one-line.json)).
 
 - **`gate`** mirrors the worker's authority test: a current approval over eligible inputs, else
   `blocked` with finding codes. A closed gate makes every line `blocked`; a hit never widens it.

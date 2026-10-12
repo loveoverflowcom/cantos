@@ -2,8 +2,8 @@
 
 Status: agent-operated authoring convention for the [story workspace](story-workspace.md).
 The strict [Script IR 0.1.0 contract](../../packages/contracts/README.md) and editorial revision
-backend exist. A Markdown converter, browser importer, production worker and TTS/mix adapter
-are not supplied by this convention.
+backend exist. A Markdown converter and browser importer are not supplied by this convention, and Cantos
+runs no production worker or TTS/mix adapter ([ADR 0018](../decisions/0018-external-audio-production.md)).
 
 ## One authoritative script
 

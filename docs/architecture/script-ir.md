@@ -54,12 +54,18 @@ budget/rate policy under `production-p1`. That scope includes evidence c1 delibe
 current input/cost approval cannot be inferred from storage acceptance, editorial review or c1.
 The candidate produces no audio and is not a speech artifact cache fingerprint.
 
-## TTS cache boundary
+## Speech identity (producer-side)
 
-A speech fingerprint must include effective spoken text, language, pronunciation, delivery/emotion controls, voice profile revision, provider/model revision, synthesis parameters and output profile. Script revision IDs alone are neither sufficient cache keys nor a reason to rerender unchanged speech. Rights/tenant authorization is checked separately before reuse. The implemented `speech-v1` fingerprint and its
-vector corpus are in the [clip reuse contract](../../packages/contracts/clip-reuse-v1.md).
+Cantos no longer computes a speech fingerprint or keeps a clip cache; the in-process generator was
+removed ([ADR 0018](../decisions/0018-external-audio-production.md)). What makes spoken audio stale
+is still defined by its effective inputs: spoken text, language, pronunciation, delivery/emotion
+controls, voice profile and output profile. Script revision IDs alone are neither sufficient
+cache keys nor a reason to redo unchanged speech, and rights/tenant authorization is checked
+separately before reuse. A producer may keep such a cache; Cantos only marks a submission stale
+when its brief or revision changes. The removed `speech-v1` fingerprint and vectors remain
+readable in [the historical clip reuse contract](../../packages/contracts/clip-reuse-v1.md).
 
-Scene mix fingerprints additionally include ordered speech assets, timing, cue assets, gain/ducking instructions and mixing-tool/profile revisions. Episode fingerprints cover scene order, transitions and mastering/rendition settings. Changing a mix does not imply changing speech.
+Producer-side mix identity additionally includes ordered speech assets, timing, cue assets, gain/ducking instructions and mixing-tool/profile revisions. Episode identity covers scene order, transitions and mastering/rendition settings. Changing a mix does not imply changing speech.
 
 ## Narrative Forge integration
 

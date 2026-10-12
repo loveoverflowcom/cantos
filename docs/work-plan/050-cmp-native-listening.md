@@ -53,3 +53,17 @@ Studio is web-only; Studio Mobile requires an explicit future roadmap request. D
 ## GitHub execution
 
 [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#15](https://github.com/loveoverflowcom/cantos/issues/15), [#16](https://github.com/loveoverflowcom/cantos/issues/16), [#17](https://github.com/loveoverflowcom/cantos/issues/17). See the [issue/dependency map](project-planning.md) and [Kanban](https://github.com/users/loveoverflowcom/projects/6/views/1) for the recommended sequence and live execution state.
+
+## Bounded mock groundwork
+
+The [CMP mock skeleton](../../apps/cantos-theatre/mobile/README.md) is a separate, memory-only
+UI slice with shared screens and native host wiring. Its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md)
+is the source for actual build/test/visual evidence; it supplies no native playback, real
+publication, downloads, sync or production acceptance. Resolve native build/runtime/accessibility
+and two-renderer component admission before adopting the UI foundation in a real listener app.
+Keep the suggested production sequence and issue ownership above.
+
+The [bounded architecture refactor](../../apps/cantos-theatre/mobile/docs/architecture.md) keeps
+one mock player, pure Kotlin transitions and independent catalog/listening owners. Its shared
+mock vectors and fake-port evidence establish neither backend publication authority nor native
+audio, durable progress, download or production acceptance. Continue the same prerequisites.

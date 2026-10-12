@@ -1,4 +1,9 @@
 > Historical adapter-2 evidence. The current adapter and fresh local checks are recorded in
+
+> **Archive only:** Google TTS adapter and probe were deleted under
+> [ADR 0018](../decisions/0018-external-audio-production.md). Original source permalinks
+> refer to the historical commit; do not treat this as an available Cantos provider.
+
 > [provider verification](tts-provider-verification.md); this record is not current live evidence.
 
 # Google Cloud TTS adapter evidence
@@ -32,9 +37,9 @@ shared planner never advises a resend. A body becomes audio only through the sha
 Google profile. No record contains a credential, dialogue text or a provider error message.
 
 [`tts/google_contract.rs`](../../services/cantos-api/src/contexts/production/domain/catalog/google.rs) is pure identity used by
-casting and the audit. [`tts/google.rs`](../../services/cantos-api/src/contexts/synthesis/providers/google/mod.rs) is pure: no
-network, clock, credential or file access. [`tts/google_http.rs`](../../services/cantos-api/src/contexts/synthesis/providers/google/http.rs)
-is the shell and sends exactly once per call. [`probe-google-tts`](../../services/cantos-api/src/bin/probe-google-tts.rs)
+casting and the audit. [`tts/google.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/contexts/synthesis/providers/google/mod.rs) is pure: no
+network, clock, credential or file access. [`tts/google_http.rs`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/contexts/synthesis/providers/google/http.rs)
+is the shell and sends exactly once per call. [`probe-google-tts`](https://github.com/loveoverflowcom/cantos/blob/2de8c694ec695f36fd80a34f4b8305580d5edace/services/cantos-api/src/bin/probe-google-tts.rs)
 is the only caller. Dependency edges point inward: `production.rs` and the receipt audit depend on
 the contract module only; the core depends on `cantos-api`, `tts::attempt` and `tts::audio`,
 never on reqwest. The transport port has two implementations: the reqwest shell and the

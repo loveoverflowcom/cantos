@@ -1,5 +1,7 @@
 # Existing TTS provider execution verification
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 Status: bounded backend verification for issue #6, 2026-10-11. Base `develop` is
 `8a9e140cb7198f3a53beca23f71490f180fa0c28`; branch `feat/tts-provider-verification`.
 This slice adds no second commercial adapter, production dispatcher, durable job, reservation,

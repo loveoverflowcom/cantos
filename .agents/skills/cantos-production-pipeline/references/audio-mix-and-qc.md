@@ -1,5 +1,8 @@
 # Audio mix and QC
 
+> **Current scope (ADR 0018):** Mixing, loudness correction and format conversion execute in an external producer tool. Cantos receives immutable media and validates bounded technical facts plus human/editorial approvals; no backend mix engine. Use examples below as agent-side craft/QC guidance, not server features.
+
+
 > **Scope.** Model the audio side of a Cantos run as typed values and pure functions around a thin
 > tool shell: a versioned audio profile, a deterministic mix plan (placement, pauses, ducking,
 > fades), measurements as facts, technical QC as a pure function of those facts, append-only QC

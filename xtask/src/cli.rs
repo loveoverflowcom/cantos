@@ -10,6 +10,7 @@ use crate::{
     config::DEFAULT_BASE,
     gate::GateKind,
     run::{AppTarget, RunTarget},
+    theatre_demo::DemoAction,
     ui_preview::{PreviewAction, Renderer},
 };
 
@@ -32,7 +33,7 @@ pub struct SurfaceArgs {
     /// Select the app's Leptos Web client.
     #[arg(long)]
     pub web: bool,
-    /// Select Theatre's CMP mobile client (UNSUPPORTED: no Gradle project yet); invalid for Studio.
+    /// Select Theatre's production CMP mobile client (UNSUPPORTED); invalid for Studio.
     #[arg(long)]
     pub mobile: bool,
 }
@@ -60,7 +61,7 @@ pub enum Task {
         /// Optimized local artifact (cargo/trunk --release); not a production image.
         #[arg(long)]
         release: bool,
-        /// cantos-api only: compile the opt-in experimental DBSP job-summary read model.
+        /// cantos-api only: compile the opt-in experimental DBSP incremental core.
         #[arg(long)]
         dbsp_experimental: bool,
     },
@@ -100,6 +101,11 @@ pub enum Task {
         renderer: Renderer,
         #[command(subcommand)]
         action: PreviewAction,
+    },
+    /// Build, verify or run the isolated Theatre mock UI; no API or audio playback.
+    TheatreDemo {
+        #[command(subcommand)]
+        action: DemoAction,
     },
     /// Run one verification suite.
     Verify {
@@ -142,11 +148,11 @@ pub enum VerifySuite {
     Rust,
     /// WASM clippy and Trunk builds for Studio and Theatre Web.
     Web,
-    /// Script IR goldens, wire/Script IR/WAV/TTS receipt contract tests and the WAV oracle.
+    /// Script IR goldens, wire/Script IR/WAV contract tests and the WAV oracle.
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,
-    /// clippy and every cantos-api test with the experimental DBSP read model compiled in.
+    /// clippy and every cantos-api test with the experimental DBSP incremental core compiled in.
     Dbsp,
     /// PostgreSQL integration and restart tests in a new disposable cluster.
     Postgres {
@@ -319,6 +325,34 @@ mod tests {
             "ui-preview mobile run",
             "ui-preview cmp deploy",
             "ui-preview leptos build --test-cluster",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
+    }
+
+    #[test]
+    fn theatre_demo_keeps_mock_and_native_actions_explicit() {
+        for (verb, action) in [
+            ("build", DemoAction::Build),
+            ("verify", DemoAction::Verify),
+            ("run", DemoAction::Run),
+            ("android-build", DemoAction::AndroidBuild),
+        ] {
+            assert!(matches!(
+                parse(&format!("theatre-demo {verb}")).unwrap(),
+                Task::TheatreDemo { action: parsed } if parsed == action
+            ));
+        }
+        assert!(matches!(
+            parse("theatre-demo ios-build --kotlin-native-home /tmp/kotlin-native").unwrap(),
+            Task::TheatreDemo { action: DemoAction::IosBuild { kotlin_native_home } }
+                if kotlin_native_home == std::path::Path::new("/tmp/kotlin-native")
+        ));
+        for line in [
+            "theatre-demo",
+            "theatre-demo ios-build",
+            "theatre-demo run --open",
+            "theatre-demo deploy",
         ] {
             assert!(parse(line).is_err(), "{line}");
         }

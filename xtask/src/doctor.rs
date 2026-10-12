@@ -71,7 +71,7 @@ pub fn run(tools: &SystemTools) -> ExitCode {
     report.record(
         "surface cantos-theatre --mobile",
         Status::Unsupported,
-        format!("no Gradle project in {THEATRE_MOBILE_DIR}"),
+        format!("production native listening is unavailable; {THEATRE_MOBILE_DIR} has a separate theatre-demo mock UI"),
     );
     report.record(
         "services/kanidm",
