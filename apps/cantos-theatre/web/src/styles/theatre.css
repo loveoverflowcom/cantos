@@ -10,10 +10,12 @@ body { margin: 0; }
 }
 .theatre-app * { box-sizing: border-box; }
 .theatre-app :where(h1, h2, h3, p) { margin-block-start: 0; overflow-wrap: anywhere; }
-.theatre-app :where(a, button, input, [tabindex]):focus-visible {
+.theatre-app :where(a, button, input, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
 }
+/* Route changes move focus to <main> for assistive technology; the landmark itself is not a control. */
+.theatre-main:focus { outline: none; }
 .theatre-app :where(a, button, input, select) {
   scroll-margin-block: var(--cantos-space-xl) var(--theatre-player-clearance);
 }

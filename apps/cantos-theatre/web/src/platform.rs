@@ -14,6 +14,10 @@ pub fn bind_navigation(route: RwSignal<Route>, main: NodeRef<leptos::html::Main>
     route.set(read_route());
     let listener = window_event_listener_untyped("hashchange", move |_| {
         route.set(read_route());
+        // A new route starts at its heading, not at the previous page's scroll offset.
+        if let Some(window) = web_sys::window() {
+            window.scroll_to_with_x_and_y(0.0, 0.0);
+        }
         if let Some(element) = main.get_untracked() {
             let _ = element.focus();
         }
