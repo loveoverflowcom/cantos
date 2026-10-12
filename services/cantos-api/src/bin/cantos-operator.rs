@@ -1,4 +1,4 @@
-use cantos_api::{operator, postgres::local_config};
+use cantos_api::platform::{operator, postgres::local_config};
 use std::{env, fs::File, io::Read};
 
 #[tokio::main]

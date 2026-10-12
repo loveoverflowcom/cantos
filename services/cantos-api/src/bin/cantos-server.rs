@@ -1,6 +1,6 @@
 use cantos_api::{
-    http::{router, AppState},
-    postgres::{local_config, Store},
+    interfaces::http::{router, AppState},
+    platform::postgres::{local_config, Store},
 };
 use std::{env, net::SocketAddr};
 

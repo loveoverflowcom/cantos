@@ -1,13 +1,13 @@
 use std::{fs, process::Command, time::Instant};
 
-use cantos_api::production::prepare_inputs;
-use cantos_api::script_ir::read_script;
-use cantos_api::tts::attempt::{ContractCapability, ReconciliationCapabilities};
-use cantos_api::tts::neural_contract;
-use cantos_api::tts::{
+use cantos_api::contexts::production::catalog::neural as neural_contract;
+use cantos_api::contexts::production::prepare_inputs;
+use cantos_api::contexts::synthesis::attempt::{ContractCapability, ReconciliationCapabilities};
+use cantos_api::contexts::synthesis::receipt::{
     audit_receipt, ChargeObservation, ReceiptError, ReceiptEvidence, ReceiptOutcome,
     TtsProviderIdentity, TtsReceipt, UsageObservation, RECEIPT_VERSION,
 };
+use cantos_api::script_ir::read_script;
 use cantos_contracts::{
     FieldIssue, FrozenProductionDocument, ProductionPronunciation, ProductionSettingsResponse,
     RevisionResponse, SaveProductionSettingsRequest,
@@ -230,8 +230,8 @@ fn cli_preserves_conservative_intent_and_permanent_not_sent_preflight_failure() 
     assert!(matches!(
         intent.outcome,
         ReceiptOutcome::Failure {
-            class: cantos_api::tts::attempt::FailureClass::Timeout,
-            delivery: cantos_api::tts::attempt::DeliveryState::MayHaveExecuted,
+            class: cantos_api::contexts::synthesis::attempt::FailureClass::Timeout,
+            delivery: cantos_api::contexts::synthesis::attempt::DeliveryState::MayHaveExecuted,
         }
     ));
     let receipt_path = destination.join("receipt.json");
@@ -240,8 +240,8 @@ fn cli_preserves_conservative_intent_and_permanent_not_sent_preflight_failure() 
     assert!(matches!(
         receipt.outcome,
         ReceiptOutcome::Failure {
-            class: cantos_api::tts::attempt::FailureClass::Permanent,
-            delivery: cantos_api::tts::attempt::DeliveryState::NotSent,
+            class: cantos_api::contexts::synthesis::attempt::FailureClass::Permanent,
+            delivery: cantos_api::contexts::synthesis::attempt::DeliveryState::NotSent,
         }
     ));
     assert_eq!(receipt.attempt_id, intent.attempt_id);

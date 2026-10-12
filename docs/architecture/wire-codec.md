@@ -22,7 +22,7 @@ foundation, not the default.
 | --- | --- |
 | DTO shapes (one source of truth) | [`cantos-contracts`](../../packages/contracts/api/src/lib.rs) |
 | Media types, named encoding, bounded decoding | [`cantos_contracts::wire`](../../packages/contracts/api/src/wire.rs) |
-| Server negotiation, extractors, response adapter | [`http/wire.rs`](../../services/cantos-api/src/http/wire.rs) |
+| Server negotiation, extractors, response adapter | [`http/wire.rs`](../../services/cantos-api/src/interfaces/http/wire.rs) |
 | Studio codec switch and response decoding | [`apps/cantos-studio/web/src/wire.rs`](../../apps/cantos-studio/web/src/wire.rs), used by [`api.rs`](../../apps/cantos-studio/web/src/api.rs) |
 | Independent oracle and goldens | [`scripts/reference_msgpack.py`](../../scripts/reference_msgpack.py), [`msgpack-goldens.json`](../../packages/contracts/fixtures/studio/v1/msgpack-goldens.json) |
 

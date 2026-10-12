@@ -1,4 +1,4 @@
-use cantos_api::adaptation::{
+use cantos_api::contexts::adaptation::{
     admit_edited_proposal, admit_output_with_ids, prepare_request, validate_caller_generation,
     TrustedBinding, MAX_OUTPUT_BYTES,
 };
@@ -505,7 +505,8 @@ fn caller_configuration_is_a_bounded_json_object_and_preserves_missing_as_unknow
 
 #[test]
 fn narrow_schema_and_admission_agree_on_required_nullable_speaker_and_string_notes() {
-    let schema: Value = serde_json::from_str(cantos_api::adaptation::OUTPUT_SCHEMA).unwrap();
+    let schema: Value =
+        serde_json::from_str(cantos_api::contexts::adaptation::OUTPUT_SCHEMA).unwrap();
     let validator = jsonschema::validator_for(&schema).unwrap();
     assert!(validator.is_valid(&output()));
     let mut value = output();

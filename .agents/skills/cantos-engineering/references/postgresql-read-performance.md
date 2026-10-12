@@ -20,7 +20,7 @@ observations do not describe all future branches.
 
 Reuse that slice's boundaries before proposing another engine path:
 
-- `services/cantos-api/src/incremental` — engine-independent signed changes, the count view, whole
+- `services/cantos-api/src/platform/incremental` — engine-independent signed changes, the count view, whole
   transaction paging and the pure fence/shadow decisions; `incremental::dbsp` — the circuit.
 - Migration `0009_durable_step_changes.sql` — a trigger-written, read-only transactional outbox
   stamped with `xid8`; positions are `{frontier, bootstrap snapshot}`, never a sequence number.

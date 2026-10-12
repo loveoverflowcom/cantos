@@ -7,9 +7,9 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    http::{router, AppState},
-    postgres::{local_config, migrate, token_hash, Store, StoreError},
-    production::production_catalog,
+    contexts::production::production_catalog,
+    interfaces::http::{router, AppState},
+    platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };
 use cantos_contracts::{
@@ -557,7 +557,7 @@ async fn mixed_espeak_and_google_casting_freezes_and_approves_only_explicit_neut
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
 async fn historical_google_snapshot_reads_and_replays_without_becoming_current_authorization() {
-    use cantos_api::tts::google::{plan, PlanFinding};
+    use cantos_api::contexts::synthesis::providers::google::{plan, PlanFinding};
 
     const HISTORICAL_ADAPTER: &str = "google-cloud-tts-synthesize-2";
     let h = Harness::new(true).await;
@@ -592,7 +592,8 @@ async fn historical_google_snapshot_reads_and_replays_without_becoming_current_a
         assert_eq!(line.adapter_version, "google-cloud-tts-synthesize-3");
         line.adapter_version = HISTORICAL_ADAPTER.into();
     }
-    historical.input_digest = cantos_api::production::production_input_digest(&historical).unwrap();
+    historical.input_digest =
+        cantos_api::contexts::production::production_input_digest(&historical).unwrap();
     assert_ne!(historical.input_digest, current.document.input_digest);
 
     // Seed the old immutable shape against real pinned revision/settings/rights
@@ -1173,7 +1174,8 @@ async fn a_self_consistent_forged_snapshot_does_not_replace_actual_pinned_receip
     let snapshot = h.freeze().await;
     let mut document = snapshot.document.clone();
     document.settings.settings.budget.limit_minor += 1;
-    document.input_digest = cantos_api::production::production_input_digest(&document).unwrap();
+    document.input_digest =
+        cantos_api::contexts::production::production_input_digest(&document).unwrap();
     let id = Uuid::new_v4().to_string();
     let operation = Uuid::new_v4().to_string();
     let request = FreezeProductionRequest {
