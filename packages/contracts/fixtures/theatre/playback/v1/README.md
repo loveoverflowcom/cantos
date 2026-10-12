@@ -55,8 +55,9 @@ is a UI suggestion only. `rejected` contains one closed reason: `no_session`, `i
    preparing engine; effect `prepare_engine`. Selecting the same source again is a no-op that
    preserves position. Unknown/unavailable catalog keys must be refused at the catalog boundary.
 2. An accepted Play expresses intent and allocates a new generation with preparing engine;
-   it emits `start_engine`. When intent is already `play` and the engine is not `ended`, repeated
-   Play is an equal-state, zero-effect no-op, even if a manual seek put position at duration.
+   it emits `start_engine`. With no active interruption, when intent is already `play` and the
+   engine is not `ended`, repeated Play is an equal-state, zero-effect no-op, even if a manual
+   seek put position at duration.
    A matching `engine_started` confirms running; UI cannot infer it merely from the button press.
 3. Pause allocates a new generation, user-paused intent/engine and a `pause_engine` effect. A
    repeated already-user-paused engine action is a no-op. Late started/ready callbacks cannot
