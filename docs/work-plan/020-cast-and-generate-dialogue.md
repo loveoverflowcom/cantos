@@ -101,8 +101,10 @@ Final episode mastering/publication, a distributed job platform, automatic provi
    following merged [provider verification PR #38](../evidence/tts-provider-verification.md).
    Complete its remaining production-adoption/reconciliation/storage criteria only within
    separately authorized work; preserve open #6 live/rights/listening gates before production use.
-5. Implement #8 scoped cache/reuse and partial regeneration, then add Studio queue progress and
-   clip preview. Keep each boundary separately reviewable; mixing/storage/CDN/publication and
+5. Implement #8 scoped cache/reuse and partial regeneration (the bounded backend half is the
+   [clip reuse v1](../../packages/contracts/clip-reuse-v1.md) slice: fingerprint, verified local registry,
+   attempt-less reuse and a read-only plan, with object storage and persisted stale marks still open),
+   then add Studio queue progress and clip preview. Keep each boundary separately reviewable; mixing/storage/CDN/publication and
    UI/mobile are outside the worker foundation.
 
 ## Acceptance criteria

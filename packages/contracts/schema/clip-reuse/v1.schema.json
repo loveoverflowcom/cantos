@@ -1,0 +1,686 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/clip-reuse/v1",
+  "title": "Cantos regeneration plan report v1",
+  "description": "Read-only forecast printed by `production-jobs plan`. It is not an authorization: the durable worker rechecks authority, the lease and a fresh object probe before any reuse, and a cache hit is never a provider dispatch. Mix and QC staleness name what would need rework; no mix or QC record exists yet. Costs are planning estimates under the recorded rate, never a reservation, usage or charge.",
+  "$ref": "#/$defs/PlanReport",
+  "$defs": {
+    "SpeechFingerprint": {
+      "type": "string",
+      "pattern": "^speech-v1:sha256:[a-f0-9]{64}$"
+    },
+    "AudioSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "SpeechField": {
+      "enum": [
+        "text",
+        "language",
+        "provider",
+        "model",
+        "voice",
+        "adapter",
+        "output_contract",
+        "rate",
+        "pitch",
+        "emotion",
+        "intensity",
+        "pronunciation"
+      ]
+    },
+    "Refusal": {
+      "enum": [
+        "fingerprint_mismatch",
+        "owner_scope",
+        "voice_rights_record",
+        "producer_mismatch",
+        "output_contract_mismatch",
+        "unverified",
+        "unavailable",
+        "artifact_invalid",
+        "checksum_mismatch"
+      ]
+    },
+    "Staleness": {
+      "enum": [
+        "unchanged",
+        "stale"
+      ]
+    },
+    "Gate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "open"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "findings"
+          ],
+          "properties": {
+            "status": {
+              "const": "blocked"
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      ]
+    },
+    "LineChange": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "added"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "placement_changed"
+          ],
+          "properties": {
+            "kind": {
+              "const": "unchanged"
+            },
+            "placement_changed": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "fields"
+          ],
+          "properties": {
+            "kind": {
+              "const": "changed"
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/SpeechField"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "incomparable"
+            }
+          }
+        }
+      ]
+    },
+    "CacheMiss": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "no_candidate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "refusals"
+          ],
+          "properties": {
+            "kind": {
+              "const": "refused"
+            },
+            "refusals": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "clip_id",
+                  "reason"
+                ],
+                "properties": {
+                  "clip_id": {
+                    "$ref": "#/$defs/Identifier"
+                  },
+                  "reason": {
+                    "$ref": "#/$defs/Refusal"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "code"
+          ],
+          "properties": {
+            "kind": {
+              "const": "no_fingerprint"
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        }
+      ]
+    },
+    "LineAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "clip_id",
+            "audio_sha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "reuse"
+            },
+            "clip_id": {
+              "$ref": "#/$defs/Identifier"
+            },
+            "audio_sha256": {
+              "$ref": "#/$defs/AudioSha256"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "cache"
+          ],
+          "properties": {
+            "kind": {
+              "const": "produce"
+            },
+            "cache": {
+              "$ref": "#/$defs/CacheMiss"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    "LinePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene_id",
+        "dialogue_id",
+        "fingerprint",
+        "change",
+        "action"
+      ],
+      "properties": {
+        "scene_id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "dialogue_id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "fingerprint": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SpeechFingerprint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "change": {
+          "$ref": "#/$defs/LineChange"
+        },
+        "action": {
+          "$ref": "#/$defs/LineAction"
+        }
+      }
+    },
+    "StaleReason": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene_added"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "speech_sequence_changed"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "dialogue_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "speech_regenerated"
+            },
+            "dialogue_id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "dialogue_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "speech_blocked"
+            },
+            "dialogue_id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          }
+        }
+      ]
+    },
+    "SceneImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene_id",
+        "mix",
+        "qc",
+        "reasons"
+      ],
+      "properties": {
+        "scene_id": {
+          "$ref": "#/$defs/Identifier"
+        },
+        "mix": {
+          "$ref": "#/$defs/Staleness"
+        },
+        "qc": {
+          "$ref": "#/$defs/Staleness"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StaleReason"
+          }
+        }
+      }
+    },
+    "EpisodeReason": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "no_previous_production"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene_order_changed"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "scene_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene_removed"
+            },
+            "scene_id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "scene_id"
+          ],
+          "properties": {
+            "kind": {
+              "const": "scene_stale"
+            },
+            "scene_id": {
+              "$ref": "#/$defs/Identifier"
+            }
+          }
+        }
+      ]
+    },
+    "EpisodeImpact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "master",
+        "qc",
+        "reasons"
+      ],
+      "properties": {
+        "master": {
+          "$ref": "#/$defs/Staleness"
+        },
+        "qc": {
+          "$ref": "#/$defs/Staleness"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EpisodeReason"
+          }
+        }
+      }
+    },
+    "Estimate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "currency",
+            "amount_minor",
+            "units",
+            "rate_reference",
+            "rate_version"
+          ],
+          "properties": {
+            "status": {
+              "const": "known"
+            },
+            "currency": {
+              "enum": [
+                "USD",
+                "VND"
+              ]
+            },
+            "amount_minor": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "units": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rate_reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "rate_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        }
+      ]
+    },
+    "CostForecast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "cache_hits",
+        "cache_misses",
+        "blocked",
+        "provider_dispatches_expected",
+        "miss_estimate",
+        "hit_estimate_avoided"
+      ],
+      "properties": {
+        "basis": {
+          "const": "planning_estimate_not_a_charge"
+        },
+        "cache_hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_misses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider_dispatches_expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "miss_estimate": {
+          "$ref": "#/$defs/Estimate"
+        },
+        "hit_estimate_avoided": {
+          "$ref": "#/$defs/Estimate"
+        }
+      }
+    },
+    "RegenerationPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "gate",
+        "lines",
+        "removed_dialogues",
+        "scenes",
+        "removed_scenes",
+        "episode",
+        "cost"
+      ],
+      "properties": {
+        "version": {
+          "const": "regeneration-plan-v1"
+        },
+        "gate": {
+          "$ref": "#/$defs/Gate"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinePlan"
+          }
+        },
+        "removed_dialogues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Identifier"
+          }
+        },
+        "scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SceneImpact"
+          }
+        },
+        "removed_scenes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Identifier"
+          }
+        },
+        "episode": {
+          "$ref": "#/$defs/EpisodeImpact"
+        },
+        "cost": {
+          "$ref": "#/$defs/CostForecast"
+        }
+      }
+    },
+    "PlanReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "script_id",
+        "previous_snapshot_id",
+        "next_snapshot_id",
+        "execution_mode",
+        "object_probes",
+        "plan"
+      ],
+      "properties": {
+        "script_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "previous_snapshot_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "next_snapshot_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "execution_mode": {
+          "enum": [
+            "local_espeak",
+            "synthetic_fake"
+          ]
+        },
+        "object_probes": {
+          "enum": [
+            "performed",
+            "not_performed"
+          ]
+        },
+        "plan": {
+          "$ref": "#/$defs/RegenerationPlan"
+        }
+      }
+    }
+  }
+}

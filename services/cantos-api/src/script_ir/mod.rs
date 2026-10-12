@@ -9,7 +9,7 @@ mod wire;
 pub use diff::{
     diff_scripts, ScopeDifference, ScopeLevel, ScopeMismatch, ScriptDiff, DIFF_REPORT_VERSION,
 };
-pub use model::{ContentDigest, ScriptContent, SpokenLine};
+pub use model::{ContentDigest, ScriptContent, SpokenLine, SpokenScene};
 pub use validation::{Diagnostic, ValidationIssue};
 pub use wire::{ReadError, ShapeDiagnostic, ShapeRule, MAX_DOCUMENT_BYTES, WRITE_VERSION};
 

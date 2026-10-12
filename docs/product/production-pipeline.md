@@ -8,8 +8,10 @@
 > The bounded [durable local/fake worker foundation](../evidence/durable-tts-jobs.md) implements
 > development-only PostgreSQL jobs, attempts/reservations, leases and fenced result selection
 > through a separate process in the same backend package. Google commercial dispatch remains
-> disabled and VieNeu is research-only. Full production generation/cache reuse, mixing,
-> storage/delivery and publication below remain implementation requirements.
+> disabled and VieNeu is research-only. A bounded [clip reuse slice](../../packages/contracts/clip-reuse-v1.md)
+> adds a position-free speech fingerprint, a verified local clip registry, attempt-less reuse and a
+> read-only regeneration plan. Full production generation, mixing, object-storage delivery and
+> publication below remain implementation requirements.
 
 ## End-to-end flow
 
@@ -69,6 +71,11 @@ check.
 Build a canonical input fingerprint for each dialogue synthesis request. It must include every effective setting that could alter the output, including provider/model changes and pronunciation rules. For providers whose model version cannot be pinned, record that limitation and provide an explicit refresh/invalidation mechanism.
 
 An accepted artifact can be reused after validating its fingerprint, rights/access scope, checksum and availability. Provider attempts and accepted artifacts are different records: several attempts may exist, but a step selects only one accepted result.
+
+The bounded [clip reuse contract](../../packages/contracts/clip-reuse-v1.md) implements this for the local worker's private
+output root: a clip is reused only after a fresh probe of its object, in the same creator and voice-rights scope, for the
+same kind of producer and under current authority; a reused step has no provider attempt and spends nothing. Object
+storage, the CDN, mix/QC records and publication still need their own gates, so a reused clip is not publishable audio.
 
 Maintain dependency edges from dialogue to scene mix, scene mix to episode master, and master to release outputs. Changing one line invalidates that line and dependent output. Changing a shared voice/profile invalidates its dependent lines. Changing only a scene sound cue can reuse synthesized dialogue while rerunning the relevant mix. Never invalidate unrelated dialogue just because a new episode render is needed.
 

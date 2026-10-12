@@ -8,6 +8,14 @@
 > mutation. Use when a cache key, an effective synthesis input, a reuse rule, an invalidation
 > reason or "why did this line regenerate?" is involved.
 
+> **Implemented subset.** The bounded [clip reuse v1 contract](../../../../packages/contracts/clip-reuse-v1.md) implements
+> sections 2, 4 and 5 for dialogue speech only, with these deliberate differences from the sketches below: the
+> fingerprint is `speech-v1` over `ResolvedSynthesisInput` (no separate voice-profile or model-revision types; the
+> exact `model_id` is the pin, and an unpinned model has no fingerprint); reuse also requires the same *producer*
+> (a synthetic fixture never satisfies a real engine) and the same voice-rights record; and `plan_regeneration`
+> reports scene mix/QC staleness and cost but persists nothing. Section 3 (mix, master and rendition
+> fingerprints) and the refresh epoch are still proposals.
+
 The product rules live in [Script IR § TTS cache boundary](../../../../docs/architecture/script-ir.md#tts-cache-boundary)
 (the field lists), [pipeline § Cache and partial regeneration](../../../../docs/product/production-pipeline.md#cache-and-partial-regeneration)
 and [business rules § Production, caching and costs](../../../../docs/product/business-rules.md#production-caching-and-costs)

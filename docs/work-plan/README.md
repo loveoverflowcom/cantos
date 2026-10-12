@@ -81,10 +81,12 @@ merge status.
    external reconciliation/accounting and storage/asset recovery boundaries when their owning
    work is authorized. Preserve ambiguity, retained reservations and stale-fence refusal. The
    foundation's process-kill evidence is not host power-loss or external-billing evidence.
-3. Implement #8's position-free speech fingerprint, scoped cache availability/checksum admission
-   and partial-regeneration plan as its own reviewable slice. The foundation's scoped
-   `durable-input-v1` identity does not serve this purpose; separating this work prevents a
-   complete job from being mistaken for reusable/publishable audio.
+3. The position-free speech fingerprint, verified clip registry, attempt-less reuse and read-only
+   regeneration plan are now a bounded backend slice ([clip reuse v1](../../packages/contracts/clip-reuse-v1.md),
+   [evidence](../evidence/speech-clip-reuse.md); GitHub owns its PR status). It closes neither #7 nor #8:
+   object storage, cross-run in-flight de-duplication, unpinned-model refresh, persisted mix/QC stale
+   marks and the Studio journey remain. The foundation's scoped `durable-input-v1` identity still
+   authorizes no reuse, and a complete job is still not reusable or publishable audio.
 4. Add the corresponding Studio progress/clip-preview journey, then continue 030's mixing,
    object-storage/CDN and publication gates. UI, Theatre and native mobile remain outside the
    worker foundation and retain their own evidence requirements.
