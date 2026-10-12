@@ -10,13 +10,28 @@ This is a small renderer package, not a second application or a domain authority
 | --- | --- | --- |
 | [`shared`](shared/README.md) | Versioned semantic tokens, schema contract, licensed icon originals and provenance | Implemented |
 | [`leptos`](leptos/README.md) | `cantos-ui` on Leptos 0.7.8; generated CSS/Rust; UiRoot, composable controls/layout/feedback, native dialog and decorative Icon | Implemented components and development gallery |
-| [`cmp`](cmp/README.md) | Future native mapping and ownership contract | Deferred documentation only |
+| [`cmp`](cmp/README.md) | Generated native tokens/icons, reusable Compose controls and JVM desktop preview | Implemented diagnostic source; target evidence recorded separately |
 
-Generate with `python3 scripts/ui_tokens.py` and `python3 scripts/ui_icons.py`; append `--check`
+Generate with `python3 scripts/ui_tokens.py`, `python3 scripts/ui_icons.py` and
+`python3 scripts/ui_preview_catalog.py`; append `--check`
 to detect missing outputs or drift. Generated files are committed, so consumers do not run Python
 during Trunk builds. The old `python3 scripts/studio_tokens.py` command forwards to the new generator.
 See [migration](../../docs/architecture/ui-system-migration.md) and the
 [four-session sequence](../../docs/work-plan/015-leptos-ui-system.md).
+
+## Two diagnostic apps
+
+Use `cargo xtask ui-preview leptos build|verify|run` for the existing Leptos gallery, now with
+searchable component/state and named-token catalogues. Use `cargo xtask ui-preview cmp
+build|verify|run` for the separate Compose desktop app. They share declarations and semantic
+values; they share no UI runtime. Both remain under UI System and call no service or provider.
+
+New components must be declared and individually tested in **both** previews before real app
+adoption. [Registration and qualification](shared/README.md#preview-registration-and-adoption)
+separate source parity from actual runtime, accessibility and inspected design-reference evidence.
+An unsupported/native-only difference needs an explicit reason, never a fabricated counterpart pass.
+The repository gate guards new explicit imports while retaining exact current Leptos import sites.
+No newly native component is approved merely because its source or pure core compiles.
 
 ## Shared primitives and application patterns
 

@@ -71,6 +71,10 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Web non-negotiables
 
+Before a new shared Web component enters a real app, declare its matching samples/states in both
+UI-system previews and complete [preview admission](../cantos-ui-design/references/preview-catalog.md).
+Keep existing gallery fixtures and controlled state; source/string-render tests are not visual approval.
+
 | Rule | Failure it prevents | Oracle | Depth |
 |---|---|---|---|
 | Studio and Theatre are separate surfaces and permission contexts with their own route roots, contexts and ports | a listener route reaches a private draft, preview or Studio port | Theatre routes mount with only `TheatreContext`; backend authorization tests | [`web-architecture.md`](references/web-architecture.md#1-two-surfaces-two-permission-contexts) |

@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE, UI_PACKAGE},
+    config::{App, API_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
     gate::{self, Gate, Scope},
 };
 
@@ -130,9 +130,17 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
         }
+    } else if within(path, UI_CMP_DIR) {
+        // Kotlin is not a Cargo member. Its gate must not depend on metadata or reverse Rust deps.
+        if !is_doc {
+            impact.gates.insert(Gate::CmpUiPreview);
+        }
     } else if within(path, "packages/ui-system") {
         if !is_doc {
             impact.packages.insert(UI_PACKAGE.to_owned());
+            if !within(path, "packages/ui-system/leptos") {
+                impact.gates.insert(Gate::CmpUiPreview);
+            }
         }
     } else if let Some(package) = graph.owner(path) {
         if path != format!("{}/README.md", package.dir) {
@@ -169,8 +177,9 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
 
 fn classify_script(script: &str, impact: &mut Impact) {
     match script {
-        "ui_tokens.py" | "ui_icons.py" | "studio_tokens.py" => {
+        "ui_tokens.py" | "ui_icons.py" | "studio_tokens.py" | "ui_preview_catalog.py" => {
             impact.packages.insert(UI_PACKAGE.to_owned());
+            impact.gates.insert(Gate::CmpUiPreview);
         }
         "reference_script_ir.py" => {
             impact.gates.insert(Gate::ScriptIrReference);
@@ -358,6 +367,31 @@ mod tests {
     }
 
     #[test]
+    fn kotlin_preview_inputs_select_the_cmp_gate_without_a_cargo_package() {
+        for path in [
+            "packages/ui-system/cmp/settings.gradle.kts",
+            "packages/ui-system/cmp/build.gradle.kts",
+            "packages/ui-system/cmp/gradle.properties",
+            "packages/ui-system/cmp/src/commonMain/kotlin/PreviewCatalog.kt",
+            "packages/ui-system/cmp/src/desktopMain/kotlin/Main.kt",
+            "packages/ui-system/cmp/src/desktopTest/kotlin/PreviewTest.kt",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.affected.is_empty(), "{path}");
+            assert_eq!(
+                names(&selection),
+                ["repository", "rust-format", "cmp-ui-preview"],
+                "{path}"
+            );
+        }
+        assert_eq!(
+            names(&pick(&["packages/ui-system/cmp/README.md"])),
+            ["repository", "rust-format"]
+        );
+    }
+
+    #[test]
     fn within_matches_whole_path_components() {
         assert!(within("apps/cantos/web/src/lib.rs", "apps/cantos/web"));
         assert!(within("xtask", "xtask"));
@@ -375,23 +409,25 @@ mod tests {
             "scripts/ui_tokens.py",
             "scripts/ui_icons.py",
             "scripts/studio_tokens.py",
+            "scripts/ui_preview_catalog.py",
+            "packages/ui-system/shared/preview-catalog.json",
         ] {
             let selection = pick(&[path]);
             assert_eq!(selection.broadened, None, "{path}");
-            assert_eq!(
-                names(&selection),
-                [
-                    "repository",
-                    "rust-format",
-                    "rust-lint (cantos-studio, cantos-theatre, cantos-ui)",
-                    "rust-tests (cantos-studio, cantos-theatre, cantos-ui)",
-                    "web-lint (cantos-studio, cantos)",
-                    "web-build (cantos-studio)",
-                    "web-build (cantos)",
-                    "ui-preview",
-                ],
-                "{path}"
-            );
+            let mut expected = vec![
+                "repository",
+                "rust-format",
+                "rust-lint (cantos-studio, cantos-theatre, cantos-ui)",
+                "rust-tests (cantos-studio, cantos-theatre, cantos-ui)",
+                "web-lint (cantos-studio, cantos)",
+                "web-build (cantos-studio)",
+                "web-build (cantos)",
+                "ui-preview",
+            ];
+            if !path.starts_with("packages/ui-system/leptos/") {
+                expected.push("cmp-ui-preview");
+            }
+            assert_eq!(names(&selection), expected, "{path}");
         }
     }
 }

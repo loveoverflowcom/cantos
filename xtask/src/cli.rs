@@ -10,6 +10,7 @@ use crate::{
     config::DEFAULT_BASE,
     gate::GateKind,
     run::{AppTarget, RunTarget},
+    ui_preview::{PreviewAction, Renderer},
 };
 
 #[derive(Debug, Parser)]
@@ -89,6 +90,13 @@ pub enum Task {
         /// Open the Web client in a browser once it is ready.
         #[arg(long)]
         open: bool,
+    },
+    /// Build, run or verify a package-local UI-system preview without an API or database.
+    UiPreview {
+        #[arg(value_enum)]
+        renderer: Renderer,
+        #[command(subcommand)]
+        action: PreviewAction,
     },
     /// Run one verification suite.
     Verify {
@@ -259,6 +267,39 @@ mod tests {
             }
         ));
         assert!(matches!(parse("doctor").unwrap(), Task::Doctor));
+    }
+
+    #[test]
+    fn parses_the_package_local_ui_preview_interface() {
+        for (name, renderer) in [("leptos", Renderer::Leptos), ("cmp", Renderer::Cmp)] {
+            for (verb, action) in [
+                ("build", PreviewAction::Build),
+                ("run", PreviewAction::Run { open: false }),
+                ("verify", PreviewAction::Verify),
+            ] {
+                assert!(matches!(
+                    parse(&format!("ui-preview {name} {verb}")).unwrap(),
+                    Task::UiPreview { renderer: parsed_renderer, action: parsed_action }
+                        if parsed_renderer == renderer && parsed_action == action
+                ));
+            }
+        }
+        assert!(matches!(
+            parse("ui-preview leptos run --open").unwrap(),
+            Task::UiPreview {
+                renderer: Renderer::Leptos,
+                action: PreviewAction::Run { open: true }
+            }
+        ));
+        for line in [
+            "ui-preview",
+            "ui-preview leptos",
+            "ui-preview mobile run",
+            "ui-preview cmp deploy",
+            "ui-preview leptos build --test-cluster",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
     }
 
     #[test]

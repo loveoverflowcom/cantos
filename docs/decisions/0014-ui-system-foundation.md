@@ -36,6 +36,22 @@ outputs; the imperative shell reads/writes files. UI components render anatomy a
 callbacks. A non-empty disabled reason is a type barrier. The app owns durable state, permissions
 and effects. No production rule is extracted or duplicated by this UI change.
 
+### User-requested preview extension, 2026-10-11
+
+The subsequent request supplies a concrete native diagnostic consumer in `packages/ui-system/cmp`:
+a Kotlin Multiplatform common UI with one JVM desktop host, separate from both reserved mobile
+products. Kotlin/Compose/Gradle choices and official references are recorded in its
+[package guide](../../packages/ui-system/cmp/README.md). The same canonical JSON generates native
+logical-unit values; the native adapter maps dp/sp, Material colors and Vietnamese-safe platform
+font fallbacks. No second palette or font/art redistribution is introduced.
+
+Both package-local preview apps now consume one component/state catalogue and expose semantic
+token names. New real-app use requires both fresh test/runtime/accessibility/inspected-reference
+records; code registration and unsupported targets cannot silently qualify. The
+[catalog contract](../../packages/ui-system/shared/README.md#preview-registration-and-adoption)
+and [evidence record](../evidence/ui-system-previews.md) separate implemented diagnostics from
+actual renderer/device evidence. This extension does not accept any native listening capability.
+
 ## Alternatives
 
 | Option | Decision |

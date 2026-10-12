@@ -115,6 +115,11 @@ Token *names* map one semantic role to each renderer; values stay open. Illustra
 
 ## Shared UI loop
 
+New shared components must follow [two-renderer preview admission](references/preview-catalog.md):
+declare and test actual samples in both UI-system preview apps, inspect named tokens and design
+fidelity on each renderer, and keep unrun/unsupported components unqualified before real app use.
+Registration/parity/source tests never replace runtime, accessibility and inspected-reference QA.
+
 Every UI change follows this order on either renderer. Skipping a step is a decision you state.
 
 ```text
@@ -229,6 +234,7 @@ belongs on the residual-risk line, never in silence.
 | strings, keys, parameters, plurals, formatting, error presentation, the framework decision | [`localization.md`](references/localization.md) |
 | anatomy and state matrices: buttons, chips, navigation, fields, episode rows, player, job status, QC, dialogs, stale indicators | [`component-states.md`](references/component-states.md) |
 | the screenshot review pass, Studio and Theatre checks, ledger, same-scenario recheck, evidence | [`visual-review.md`](references/visual-review.md) |
+| registering a new component in both preview apps, named-token inspection, qualification before app adoption | [`preview-catalog.md`](references/preview-catalog.md) |
 
 ## Compose with
 

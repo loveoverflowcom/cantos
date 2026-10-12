@@ -13,6 +13,7 @@ use crate::{
     config::{App, API_PACKAGE, UI_PACKAGE, WASM_TARGET},
     pipeline::Step,
     tools::Tool,
+    ui_preview,
     workspace::Workspace,
 };
 
@@ -29,6 +30,7 @@ pub enum GateKind {
     WebLint,
     WebBuild,
     UiPreview,
+    CmpUiPreview,
     Mutation,
     Postgres,
 }
@@ -70,6 +72,7 @@ pub enum Gate {
     WebLint(BTreeSet<App>),
     WebBuild(App),
     UiPreview,
+    CmpUiPreview,
     Mutation,
     Postgres { keep: bool },
 }
@@ -104,6 +107,7 @@ impl Gate {
             Gate::WebLint(_) => GateKind::WebLint,
             Gate::WebBuild(_) => GateKind::WebBuild,
             Gate::UiPreview => GateKind::UiPreview,
+            Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::Mutation => GateKind::Mutation,
             Gate::Postgres { .. } => GateKind::Postgres,
         }
@@ -140,6 +144,7 @@ impl Gate {
             Gate::WebBuild(_) | Gate::UiPreview => {
                 vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk]
             }
+            Gate::CmpUiPreview => ui_preview::cmp_tools(),
             Gate::Postgres { .. } => vec![
                 Tool::Cargo,
                 Tool::Python3,
@@ -212,19 +217,8 @@ impl Gate {
                     "warnings",
                 ])],
             Gate::WebBuild(app) => vec![build::trunk(workspace, *app, "build", Profile::Dev)],
-            Gate::UiPreview => {
-                vec![
-                    CommandSpec::new("trunk", workspace.path("packages/ui-system/leptos"))
-                        .args([
-                            "build",
-                            "preview.html",
-                            "--locked",
-                            "--dist",
-                            "../../../target/ui-foundation-preview",
-                        ])
-                        .env("NO_COLOR", "true"),
-                ]
-            }
+            Gate::UiPreview => vec![ui_preview::leptos_command(workspace, "build")],
+            Gate::CmpUiPreview => vec![ui_preview::cmp_command(workspace, "desktopTest")],
             Gate::Mutation => vec![python(&["scripts/mutate_script_ir.py"])],
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
@@ -250,6 +244,7 @@ pub fn full() -> Vec<Gate> {
         Gate::WebBuild(App::Studio),
         Gate::WebBuild(App::Theatre),
         Gate::UiPreview,
+        Gate::CmpUiPreview,
         Gate::Mutation,
         Gate::Postgres { keep: false },
     ]
@@ -331,6 +326,16 @@ mod tests {
         assert_eq!(
             lines(&Gate::Postgres { keep: true }),
             ["python3 scripts/test_postgres.py --keep"]
+        );
+    }
+
+    #[test]
+    fn web_verification_is_independent_of_the_cmp_toolchain() {
+        assert!(!verify_suite(&VerifySuite::Web).contains(&Gate::CmpUiPreview));
+        assert!(full().contains(&Gate::CmpUiPreview));
+        assert_eq!(
+            Gate::CmpUiPreview.tools(),
+            [Tool::Gradle, Tool::Java, Tool::CmpGradleProject]
         );
     }
 

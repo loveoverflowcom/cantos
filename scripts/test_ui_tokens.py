@@ -356,7 +356,7 @@ class TokenContract(unittest.TestCase):
     def test_check_mode_reports_every_missing_and_drifted_output_without_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             expected = outputs(json.dumps(self.source), SAMPLE_TEMPLATE, directory)
-            self.assertEqual(len(check_outputs(expected)), 3)
+            self.assertEqual(len(check_outputs(expected)), len(OUTPUTS))
             write_outputs(expected)
             self.assertEqual(check_outputs(expected), [])
             paths = list(expected)
@@ -369,6 +369,16 @@ class TokenContract(unittest.TestCase):
             self.assertTrue(all(failure.startswith("drift:") for failure in failures[1:]))
             self.assertFalse(paths[0].exists())
             self.assertEqual(paths[1].read_text(), "manual drift")
+
+    def test_native_mapping_keeps_logical_values_and_all_names_with_no_css_units(self):
+        expected = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)
+        kotlin = expected[OUTPUTS["kotlin"]]
+        self.assertIn('TokenValue("size.control", "dimension", "44", "44", "44", "48", null)', kotlin)
+        self.assertIn('TokenValue("shape.field", "dimension", "12", "12", null, null, "shape.reading")', kotlin)
+        self.assertIn('TokenValue("type.body.size", "dimension", "16", "16"', kotlin)
+        self.assertNotIn('"1rem"', kotlin)
+        self.assertIn('require(theme == "light" || theme == "dark")', kotlin)
+        self.assertIn('reducedMotion && name in reducedRoles', kotlin)
 
     def test_cli_validates_all_artifacts_before_writing_and_check_mode_is_read_only(self):
         with tempfile.TemporaryDirectory() as directory:

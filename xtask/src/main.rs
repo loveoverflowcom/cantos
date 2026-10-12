@@ -17,6 +17,7 @@ mod process;
 mod report;
 mod run;
 mod tools;
+mod ui_preview;
 mod workspace;
 
 use std::process::ExitCode;
@@ -105,6 +106,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
                 Ok(plan) => run::launch(&workspace, &plan, &tools, &mut runner),
                 Err(refusal) => Ok(refuse(refusal)),
             }
+        }
+        Task::UiPreview { renderer, action } => {
+            ui_preview::execute(&workspace, renderer, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
             let steps = gate::steps(&gate::verify_suite(&suite), &workspace);

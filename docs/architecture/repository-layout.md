@@ -22,7 +22,7 @@ packages/
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
-    cmp/                   Native mapping contract        (documentation only)            DEFERRED
+    cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
 xtask/                     cargo xtask: build, run and verification command surface (package xtask)
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
@@ -35,6 +35,8 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   has no Gradle project, so nothing about Android or iOS is built or claimed.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   authenticate through Kanidm: the API still uses operator-issued development tokens.
+- **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
+  It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 
 ## Dependency direction
 

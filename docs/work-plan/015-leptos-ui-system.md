@@ -99,3 +99,23 @@ the [publication record](../evidence/ui-system-publication.md) records final rec
 PR31/PR32, the mutation workspace-copy correction and actual combined local verification.
 The UI decision is now ADR 0014, preserving upstream MessagePack ADR 0013. This request does
 not start CMP or advance production/listening acceptance; residual UI gates remain explicit.
+
+## Subsequent two-preview request
+
+The later user request adds a concrete CMP desktop diagnostic app beside the existing Leptos
+gallery, a shared component/state registry, named-token inspection and enforceable before-app
+admission. [Preview evidence](../evidence/ui-system-previews.md) records the exact local checks.
+Keep mobile products/listening and production backend scope unchanged. The next required step for
+an unqualified new component is its missing target runtime/accessibility/design-reference evidence;
+do not promote it to a real app from source parity alone. Platform-specific differences require
+reviewed explicit reasons, not a pretend cross-renderer pass.
+
+[PR41](https://github.com/loveoverflowcom/cantos/pull/41) now owns this preview slice's execution.
+Its Mac review reconciles PR39/40, tightens admission/source freshness and fixes CMP selection,
+availability and canonical field semantics. Bounded actual Safari observations are recorded in
+the preview evidence; two-renderer qualifications remain 0/29. The supported Mac continuation
+now records Gradle 8.14.3/JDK 21 compilation, all 23 CMP tests, corrected inspected captures,
+owned-process cleanup and full preflight PASS. Gradle 9.7.0 remains available for the other
+projects that require it. Recommended next order is the separately requested three CMP sessions,
+closing OS-window input, accessibility, fonts and complete reference/state coverage before new
+app adoption. These preview checks are not mobile or full CMP production acceptance.

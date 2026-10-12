@@ -19,7 +19,8 @@ Supported types: `color` (sRGB six-digit hex), `dimension` (non-negative logical
 `number` (line-height or opacity), `fontFamily`, `fontWeight`, `duration` (milliseconds),
 `cubicBezier` (bounded effects curve), and structured `shadow` (offsets/blur/color/opacity).
 Web maps dimension units to rem at 16 logical units per rem. Typography line height is unitless;
-weights are integer values; durations map to ms. CMP will select dp/sp mappings separately.
+weights are integer values; durations map to ms. The generated CMP lookup retains logical
+numbers, maps geometry to dp and type sizes to sp through its theme adapter, and never imports CSS units.
 
 Roles map mechanically to CSS custom properties and generated Rust `Token` variants.
 `Token::css_variable()` is the runtime contract; `css_value(Theme::Light|Dark)` provides static
@@ -55,3 +56,42 @@ foreground color; rendered contrast and browser `color-mix` remain runtime revie
 All token pairs are checked in both themes. This does not measure text over art, transparency,
 disabled opacity, focus occlusion or forced-colors rendering. Provenance and exact executed
 checks are in the [foundation evidence](../../../docs/evidence/ui-system-foundation.md).
+
+## Preview registration and adoption
+
+[`preview-catalog.json`](preview-catalog.json) is the one component declaration source. Each
+component has a stable ID/API name, a family, concrete host-driven sample states and status/reason
+for both Leptos and CMP. `registered` and `implemented-unverified` describe code registration;
+neither means design qualification. `unsupported` records an honest target exception and cannot
+qualify for shared adoption. Both preview apps display these records and named canonical tokens.
+
+`scripts/ui_preview_catalog.py` deterministically generates Rust/Kotlin metadata. The existing
+token/icon generators produce both native and Web mappings. The repository gate checks drift,
+public component inventories, actual sample/dispatch presence and new explicit app imports.
+Current source checks are conservative; they are not compiler, semantics or visual-diff evidence.
+Compiler/renderer tests independently check controlled values, callbacks and anatomy.
+
+The exact current Leptos import sites at base `209e9e905c680e7cecab831f2d8f7894656e14fe` are a
+bounded compatibility baseline, not newly approved components. Do not widen this exemption for
+new adoption. A new component/import site requires `qualifications` with `component_id` and
+`evidence` paths for **both** renderers. Each JSON evidence record has:
+
+- `component_id`, `renderer`, `status: "PASS"`, named `reviewer` and inspected `reference`
+- `tokens_sha256` and `source_sha256`, matching `python3 scripts/ui_preview_catalog.py --digests`
+- `checks` entries for `structural`, `runtime`, `accessibility` and `visual`; each with actual
+  `status: "PASS"`, reproducible `command` and existing repository-local `artifact`
+
+Use [`templates/ui-component-qualification.json`](../../../templates/ui-component-qualification.json)
+as an unqualified record skeleton. `NOT_RUN`, missing/stale artifacts, source/token edits or an
+unsupported target refuse qualification. Approval invalidation is conservative across each
+renderer package and its build manifests, lock/toolchain inputs and shared component/state
+declarations. Evidence/baseline fields are excluded from that digest to avoid recursive hashes.
+The gate verifies records/freshness; reviewers still own honest assertions,
+pixel inspection, design comparison and appropriate device scope. A desktop/JVM test does not
+verify Android/iOS or a screen reader.
+
+Run the canonical `cargo xtask ui-preview leptos build|verify|run` and `cargo xtask ui-preview
+cmp build|verify|run`, then `cargo xtask preflight --changed-only`. The
+[skill admission sequence](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md)
+owns the before-production requirement. No current CMP/new-catalog qualification is granted by
+the generated records alone.

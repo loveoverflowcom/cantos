@@ -37,6 +37,10 @@ cargo xtask run cantos --web [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos --web [--open]
 
+cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gallery
+cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
+cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
+
 cargo xtask verify repository|rust|web|contracts|mutation
 cargo xtask verify postgres [--keep]
 
@@ -96,6 +100,34 @@ The Trunk development proxy is a convenience. The browser walkthroughs recorded 
 `docs/evidence/` used the API serving `apps/cantos-studio/web/dist` same-origin; do not cite a
 `trunk serve` session as that evidence.
 
+### Package-local UI-system previews
+
+`ui-preview leptos` and `ui-preview cmp` are independent playgrounds for the shared UI system.
+They start no product app, API, PostgreSQL cluster, identity provider or audio adapter.
+
+| Renderer | `build` | `verify` | `run` |
+| --- | --- | --- | --- |
+| `leptos` | Trunk builds `packages/ui-system/leptos/preview.html` to `target/ui-foundation-preview` | native `cantos-ui` SSR package tests, WASM clippy with CSR `preview` and warnings denied, then the same Trunk build | Only Trunk serves `preview.html` on `127.0.0.1:8083`; readiness requires HTTP 200 with the gallery's own title |
+| `cmp` | Installed Gradle runs `compileKotlinDesktop` in `packages/ui-system/cmp` | Gradle runs `desktopTest` | Gradle runs `run`; xtask supervises the foreground task and its process group until Ctrl-C or a successful task exit |
+
+Leptos `run --open` opens the browser after readiness. CMP opens its own desktop window; no
+window-readiness, Android/iOS-device or accessibility evidence is implied by launching its task.
+Both use the existing process-group supervisor, which signals only groups this invocation owns.
+CMP `run` additionally needs POSIX `/bin/sh`; other hosts report `UNSUPPORTED`. Its fixed exec
+chain supplies the launcher PID, task-local JVM options, in-process Kotlin compilation and
+disabled configuration caching. The Gradle project rejects a missing or detached run JVM before
+task execution. `--no-daemon` alone can still create a detached single-use JVM; successful task
+launch does not prove window readiness or complete process cleanup. Record actual shutdown
+observations separately.
+
+CMP requires a real package-local Gradle project (both settings and build files), an installed
+Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
+`--no-daemon` and `-Dorg.gradle.java.installations.auto-download=false`: the JDK must already be
+available. Gradle resolves declared project dependencies normally. xtask never invokes a
+downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
+is `UNSUPPORTED` before any build or launch; an actual Gradle compilation/test failure is `FAIL`.
+Existing product `--mobile` surfaces remain reserved and are separate from this desktop preview.
+
 ### Verification gates
 
 Every check is a gate with declared prerequisites; `verify`, `preflight` and `ci` select from the
@@ -113,6 +145,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
+| `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
 
@@ -160,7 +193,10 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   of `cantos-contracts` and its dependents; only its non-fixture Markdown is documentation.
 - An affected Web package selects `web-lint`/`web-build` for that client. Shared
   `packages/ui-system` tokens, icons, Leptos components and their generators affect `cantos-ui`,
-  both Web consumers and `ui-preview`; renderer documentation alone remains a document.
+  both Web consumers and `ui-preview`; shared semantic inputs and generators also select
+  `cmp-ui-preview`. Package-local CMP source, Gradle and resource changes select the CMP gate
+  directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
+  a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `wav-reference` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; neural TTS helpers and `scripts/fixtures`
@@ -186,9 +222,11 @@ state it in the pull request.
 
 `cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
 runs one per GitHub job with `RUSTUP_TOOLCHAIN=1.87.0`. CI has no `--skip`. Every full-preflight gate
-runs in CI except `mutation`, which stays opt-in through `verify mutation` and is selected by
-preflight when Script IR sources change. Branch protection and required checks are configured
-outside this repository.
+runs in CI except `mutation` and `cmp-ui-preview`. Mutation stays opt-in through
+`verify mutation` and is selected by preflight when Script IR sources change. The CMP desktop preview is
+a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
+added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
+protection and required checks are configured outside this repository.
 
 ### doctor
 
@@ -238,6 +276,7 @@ separates mock adapter tests from unrun real rendering.
 | `tools.rs` | tool detection behind `ToolProbe` |
 | `pipeline.rs`, `report.rs` | prerequisite checks, sequential execution and the summary |
 | `gate.rs`, `build.rs`, `ci.rs` | gate catalog, build plans and CI jobs |
+| `ui_preview.rs` | package-local Leptos/CMP preview plans and supervised execution |
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `preflight/` | Git change collection, the Cargo package graph and pure selection |
 | `doctor.rs` | read-only environment report |
