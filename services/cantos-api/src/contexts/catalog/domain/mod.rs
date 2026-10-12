@@ -1,5 +1,6 @@
 //! Pure catalog values and transitions. IDs and authoritative time come from the shell;
 //! ownership, link existence and transaction guards are checked by the application boundary.
+pub mod content;
 mod error;
 mod ids;
 mod metadata;
@@ -19,6 +20,5 @@ pub use reorder::{plan_reorder, OrderAssignment, ReorderPlan};
 pub use unit::{ContentUnit, NewContentUnit, StoredContentUnit};
 pub use work::{NewWork, StoredWork, Work};
 
-pub mod content;
 #[cfg(test)]
 mod tests;

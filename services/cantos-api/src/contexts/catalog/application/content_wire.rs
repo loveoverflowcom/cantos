@@ -31,13 +31,39 @@ pub(super) fn content_error(error: ContentError) -> CatalogStoreError {
 }
 
 fn source(value: dto::CatalogSourceRef) -> Result<SourceRef, CatalogStoreError> {
-    SourceRef::new(value.id, value.sha256).map_err(Into::into)
+    SourceRef::new(value.id, value.sha256)
+        .map_err(|_| invalid("details.body.source", "invalid_source"))
 }
 fn script(value: dto::CatalogScriptRef) -> Result<ScriptRef, CatalogStoreError> {
     if crate::platform::ids::canonical_uuid(&value.id).as_deref() != Some(&value.id) {
         return Err(invalid("details.body.script.id", "invalid_uuid"));
     }
-    ScriptRef::new(value.id, value.revision, value.export_digest).map_err(Into::into)
+    ScriptRef::new(value.id, value.revision, value.export_digest).map_err(|error| {
+        if error == crate::contexts::catalog::domain::CatalogError::InvalidRevision {
+            invalid("details.body.script.revision", "invalid_revision")
+        } else {
+            invalid("details.body.script", "invalid_script")
+        }
+    })
+}
+
+pub fn validate_revision_id(value: &str) -> Result<ContentRevisionId, CatalogStoreError> {
+    ContentRevisionId::parse(value).map_err(content_error)
+}
+
+pub fn admit_append(
+    unit: &str,
+    request: dto::AppendContentRequest,
+) -> Result<(String, super::AppendContent), CatalogStoreError> {
+    let command = super::AppendContent {
+        unit_id: crate::contexts::catalog::wire::validate_unit_id(unit)
+            .map_err(StoreError::InvalidRequestFields)?,
+        id: validate_revision_id(&request.id)?,
+        expected_revision: request.expected_revision,
+        expected_work_revision: request.expected_work_revision,
+        details: admit_details(request.details)?,
+    };
+    Ok((request.operation_id, command))
 }
 
 pub fn admit_details(value: dto::ContentDetails) -> Result<ContentDetails, CatalogStoreError> {

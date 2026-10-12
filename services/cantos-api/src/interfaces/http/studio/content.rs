@@ -12,9 +12,7 @@ use serde::Deserialize;
 use super::super::{cookie_token, error_response, AppState};
 use super::catalog::{catalog_error, failure, CatalogBody};
 use crate::contexts::catalog::{
-    content::{wire, AppendContent},
-    domain::{content::ContentRevisionId, ContentUnitId},
-    wire::validate_unit_id,
+    wire::{content as input, validate_unit_id},
     CatalogStoreError,
 };
 use crate::platform::postgres::StoreError;
@@ -44,29 +42,6 @@ fn content_error(error: CatalogStoreError) -> Response {
         error => catalog_error(error),
     }
 }
-fn unit_id(id: &str) -> Result<ContentUnitId, Response> {
-    validate_unit_id(id).map_err(|issues| {
-        failure(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorCode::InvalidCatalog,
-            None,
-            issues,
-        )
-    })
-}
-fn revision_id(id: &str) -> Result<ContentRevisionId, Response> {
-    ContentRevisionId::parse(id).map_err(|_| {
-        failure(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            ErrorCode::InvalidCatalog,
-            None,
-            vec![cantos_contracts::FieldIssue {
-                path: "id".into(),
-                rule: "invalid_uuid".into(),
-            }],
-        )
-    })
-}
 
 async fn append(
     State(state): State<AppState>,
@@ -78,16 +53,8 @@ async fn append(
         Ok(path) => path,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let unit_id = match unit_id(&id) {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let id = match revision_id(&body.id) {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let details = match wire::admit_details(body.details) {
-        Ok(details) => details,
+    let (operation, command) = match input::admit_append(&id, body) {
+        Ok(value) => value,
         Err(error) => return content_error(error),
     };
     let token = match cookie_token(&headers) {
@@ -96,23 +63,14 @@ async fn append(
     };
     match state
         .store
-        .append_content(
-            &token,
-            &body.operation_id,
-            AppendContent {
-                id,
-                unit_id,
-                expected_revision: body.expected_revision,
-                expected_work_revision: body.expected_work_revision,
-                details,
-            },
-        )
+        .append_content(&token, &operation, command)
         .await
     {
         Ok(reply) => (StatusCode::CREATED, Json(reply)).into_response(),
         Err(error) => content_error(error),
     }
 }
+
 async fn head(
     State(state): State<AppState>,
     path: Result<Path<String>, axum::extract::rejection::PathRejection>,
@@ -133,21 +91,32 @@ async fn revision(
         Ok(path) => path,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let revision = match revision_id(&revision) {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
     read(state, unit, Some(revision), headers).await
 }
 async fn read(
     state: AppState,
     unit: String,
-    revision: Option<ContentRevisionId>,
+    revision: Option<String>,
     headers: HeaderMap,
 ) -> Response {
-    let unit = match unit_id(&unit) {
+    let unit = match validate_unit_id(&unit) {
         Ok(id) => id,
-        Err(response) => return response,
+        Err(issues) => {
+            return failure(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidCatalog,
+                None,
+                issues,
+            )
+        }
+    };
+    let revision = match revision
+        .as_deref()
+        .map(input::validate_revision_id)
+        .transpose()
+    {
+        Ok(id) => id,
+        Err(error) => return content_error(error),
     };
     let token = match cookie_token(&headers) {
         Ok(token) => token,
@@ -158,7 +127,7 @@ async fn read(
         .content_revision(&token, &unit, revision.as_ref())
         .await
     {
-        Ok(value) => match wire::response(&value) {
+        Ok(value) => match input::response(&value) {
             Ok(reply) => Json(reply).into_response(),
             Err(error) => content_error(error),
         },
@@ -190,9 +159,16 @@ async fn history(
         Ok(query) => query,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let unit = match unit_id(&id) {
+    let unit = match validate_unit_id(&id) {
         Ok(id) => id,
-        Err(response) => return response,
+        Err(issues) => {
+            return failure(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::InvalidCatalog,
+                None,
+                issues,
+            )
+        }
     };
     let token = match cookie_token(&headers) {
         Ok(token) => token,

@@ -1,8 +1,8 @@
 //! Indexed immutable content storage. Transactions/access live in application::content.
 use tokio_postgres::Row;
 
-use super::super::application::content::wire;
 use crate::contexts::catalog::domain::content::ContentRevision;
+use crate::contexts::catalog::wire::content as wire;
 use crate::platform::postgres::{checked_number, StoreError, Tx};
 
 const COLUMNS: &str =

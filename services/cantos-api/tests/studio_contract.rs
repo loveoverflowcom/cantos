@@ -137,12 +137,19 @@ fn content_identity_literal_contracts_and_independent_digests_match_admission() 
         if case["valid"] == false {
             if case["file"] == "reject-latest-script.json" {
                 let request: AppendContentRequest = serde_json::from_value(value).unwrap();
-                assert!(matches!(
-                    wire::admit_details(request.details),
-                    Err(cantos_api::contexts::catalog::CatalogStoreError::Domain(
-                        cantos_api::contexts::catalog::domain::CatalogError::InvalidRevision
-                    ))
-                ));
+                let Err(cantos_api::contexts::catalog::CatalogStoreError::Storage(
+                    cantos_api::platform::postgres::StoreError::InvalidRequestFields(issues),
+                )) = wire::admit_details(request.details)
+                else {
+                    panic!("expected exact revision issue");
+                };
+                assert_eq!(
+                    issues,
+                    vec![cantos_contracts::FieldIssue {
+                        path: "details.body.script.revision".into(),
+                        rule: "invalid_revision".into()
+                    }]
+                );
             } else {
                 assert!(
                     serde_json::from_value::<AppendContentRequest>(value).is_err(),
