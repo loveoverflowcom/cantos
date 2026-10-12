@@ -1,0 +1,183 @@
+{
+  "vector_format": 1,
+  "contract": "theatre-mock-playback@1",
+  "id": "restore-session",
+  "initial_state": {
+    "generation": 0,
+    "session": null,
+    "status": "idle",
+    "pause_cause": null
+  },
+  "steps": [
+    {
+      "event": {
+        "type": "restore_requested",
+        "snapshot": {
+          "source": {
+            "work_id": "son-ha-ky",
+            "episode_index": 2,
+            "duration_ms": 1722000
+          },
+          "position_ms": 768000,
+          "speed_permille": 1250
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 1,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250,
+            "intent": {
+              "type": "pause",
+              "cause": "cold_restore"
+            },
+            "engine": "preparing",
+            "interruption": "none"
+          },
+          "status": "paused",
+          "pause_cause": "cold_restore"
+        },
+        "effects": [
+          {
+            "type": "prepare_engine",
+            "identity": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "generation": 1
+            },
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250
+          },
+          {
+            "type": "offer_resume",
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000
+          }
+        ]
+      }
+    },
+    {
+      "event": {
+        "type": "engine_ready",
+        "identity": {
+          "work_id": "son-ha-ky",
+          "episode_index": 2,
+          "generation": 1
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 1,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250,
+            "intent": {
+              "type": "pause",
+              "cause": "cold_restore"
+            },
+            "engine": "ready",
+            "interruption": "none"
+          },
+          "status": "paused",
+          "pause_cause": "cold_restore"
+        },
+        "effects": []
+      }
+    },
+    {
+      "event": {
+        "type": "play_requested"
+      },
+      "expected": {
+        "state": {
+          "generation": 2,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250,
+            "intent": {
+              "type": "play"
+            },
+            "engine": "preparing",
+            "interruption": "none"
+          },
+          "status": "loading",
+          "pause_cause": null
+        },
+        "effects": [
+          {
+            "type": "start_engine",
+            "identity": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "generation": 2
+            },
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250
+          }
+        ]
+      }
+    },
+    {
+      "event": {
+        "type": "engine_started",
+        "identity": {
+          "work_id": "son-ha-ky",
+          "episode_index": 2,
+          "generation": 2
+        }
+      },
+      "expected": {
+        "state": {
+          "generation": 2,
+          "session": {
+            "source": {
+              "work_id": "son-ha-ky",
+              "episode_index": 2,
+              "duration_ms": 1722000
+            },
+            "position_ms": 768000,
+            "speed_permille": 1250,
+            "intent": {
+              "type": "play"
+            },
+            "engine": "running",
+            "interruption": "none"
+          },
+          "status": "simulating",
+          "pause_cause": null
+        },
+        "effects": []
+      }
+    }
+  ]
+}
