@@ -299,6 +299,24 @@ use crate::contexts::{production::current_snapshot};
                             "use crate::contexts::editorial::postgres::load_revision;",
                             "owning context's entrypoint")
 
+    def test_media_intake_uses_only_editorial_upstream(self):
+        self.assertEqual(self.errors("contexts/media/application.rs",
+                                     "use crate::contexts::editorial::{authorize, find_revision};"), [])
+        self.assertRejected("contexts/media/application.rs",
+                            "use crate::contexts::production::production_catalog;",
+                            "media must not depend on production")
+
+    def test_media_intake_owns_only_its_postgres_tables(self):
+        self.assertEqual(self.errors("contexts/media/postgres.rs", '''
+const QUERY: &str = "SELECT id FROM audio_upload_intents JOIN audio_intake_receipts USING(id)";
+'''), [])
+        self.assertRejected("contexts/production/postgres.rs",
+                            'const QUERY: &str = "SELECT id FROM audio_intake_receipts";',
+                            "SQL table audio_intake_receipts belongs to media")
+        self.assertRejected("contexts/media/application.rs",
+                            'let sql = "INSERT INTO audio_upload_intents VALUES ($1)";',
+                            "SQL table access belongs in the PostgreSQL adapter")
+
     def test_new_context_requires_explicit_dependency_policy(self):
         self.assertRejected("contexts/publishing/mod.rs", "mod domain;",
                             "new context needs an explicit dependency policy")

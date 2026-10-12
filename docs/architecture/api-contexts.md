@@ -23,7 +23,10 @@ contracts; `adaptation` can read editorial/ingestion contracts; `production` rea
 to freeze guidance, rights and budget claims. `catalog` uses editorial and ingestion entrypoints
 to validate owner-bound references to existing revisions, rights records and manuscript sources;
 it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
-pure inspector, with no provider/model dependency. `interfaces/http` owns routers and maps
+pure inspector, with no provider/model dependency. Media also reads editorial entrypoints for
+owner/revision authorization in its narrow private development intake; it does not import
+production adapters or move context-specific storage into platform plumbing. `interfaces/http`
+owns routers and maps
 errors; `platform` owns pool/session/migrations/IDs and generic incremental computation,
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
 enforces the allowed context edges.
@@ -32,7 +35,7 @@ enforces the allowed context edges.
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/production planning | Partially implemented |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; owner-session development intake | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Proposed Studio audio handoff | Scoped external producer plugin | **Not implemented** |
@@ -54,13 +57,14 @@ only when implemented. Do not invent implemented route claims from proposal docu
   application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
 - `production`: purely declarative settings/rights/casting, immutable snapshots and approvals.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
-- `media`: structural WAV byte inspection, soon to own admission rules for externally
-  supplied audio. No WAV file is implicitly QC-approved.
+- `media`: structural WAV inspection plus explicit profile/binding rules, bounded Opus-byte
+  inspection, owner-session private development intake and filesystem objects. No admitted file
+  is implicitly QC/rights-reviewed or published; see [ADR 0019](../decisions/0019-studio-private-audio-intake.md).
 
 ## Next contexts
 
-Implement Studio catalog Web acceptance against the real API separately. Implement `media`
-admission (upload intent, digest/metadata check, private object reference, review), `publication`
+Implement Studio catalog Web acceptance against the real API separately. Implement catalog-bound
+briefs, general scoped-producer `media` admission and review, `publication`
 (approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
 commercial provider adapter, synthesis retry system or speech-clip registry belongs here.

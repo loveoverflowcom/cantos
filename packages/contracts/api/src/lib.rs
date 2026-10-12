@@ -12,6 +12,8 @@ mod production;
 pub use production::*;
 mod catalog;
 pub use catalog::*;
+mod audio_intake;
+pub use audio_intake::*;
 pub mod admin;
 pub mod routes;
 pub mod theatre;
@@ -120,6 +122,7 @@ pub enum ErrorCode {
     InvalidCatalog,
     CatalogConflict,
     StaleCursor,
+    AudioRejected,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

@@ -25,13 +25,30 @@ and HTTP evidence are recorded separately in [session 1](../evidence/studio-cata
 and [session 2](../evidence/studio-catalog-api.md). Keep #66 open for responsive and keyboard
 Studio Web acceptance; GitHub owns execution status.
 
+## Implemented development intake, verification incomplete
+
+[ADR 0019](../decisions/0019-studio-private-audio-intake.md) and the
+[Studio owner intake contract](../../packages/contracts/studio-audio-intake-v1.md) record the
+narrow implemented slice: explicit four-profile Opus policy, current accepted script revision
+and digest pins, separate immutable intent, actual byte inspection, private filesystem objects
+and immutable receipt/status/retry behavior. It reuses Studio owner sessions and adds no public
+media route or producer credential. Rust/xtask/disposable-PostgreSQL runtime checks are
+**NOT_RUN** here; authored tests do not establish deployability or complete step 3 above.
+
+Next remains Catalog Web acceptance, then immutable catalog-bound briefs and separate scoped
+producer access. Production S3 storage, provenance/rights/QC review, release/delivery and
+reference-aware orphan cleanup retain their owning slices.
+[#51](https://github.com/loveoverflowcom/cantos/issues/51) listening/interoperability is not settled
+by admitting an Opus envelope.
+
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
 MessagePack-capable editorial routes, tests and `cargo xtask`. The earlier editorial endpoints
-are separate from the implemented Catalog API and proposed audio ingestion APIs. Prior worker/Google/eSpeak/VieNeu samples and DBSP job views are
-historical experiments, not prerequisites for the new roadmap.
+are separate from the implemented Catalog API and general external-producer handoff proposal.
+The narrow development intake is described above. Prior worker/Google/eSpeak/VieNeu samples and
+DBSP job views are historical experiments, not prerequisites for the new roadmap.
 
 ## Canonical work plans
 

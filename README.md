@@ -24,8 +24,12 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 manuscript intake, host-created adaptation proposal submission/review, reference casting/rights
 planning and a read-only WAV inspector. Studio Catalog implements work/content-unit domain rules,
 authorized transactional application use cases, PostgreSQL revision persistence and JSON HTTP
-routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md). External audio-upload/finalize APIs, object-storage
-acceptance and published listener releases are not implemented.
+routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md). A narrow
+[Studio owner audio intake](packages/contracts/studio-audio-intake-v1.md) now has code for explicit
+revision/profile-pinned intents, actual Opus-byte inspection, private filesystem objects and
+immutable receipts. Intake is development-only; its Rust/PostgreSQL runtime verification is
+**NOT_RUN** in this environment. Scoped external-producer handoff, production briefs, live S3
+storage and published listener releases remain unimplemented.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
 still planned. Theatre Web is a session-only
 [UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
@@ -46,8 +50,10 @@ Studio: verify object and metadata → human/editorial approval → immutable re
 Theatre: discover → stream/download → resume
 ```
 
-Briefs and submissions are proposal contracts until an API issue/PR implements them.
-No live routes should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
+General catalog-bound briefs and scoped producer submissions remain proposal contracts.
+The separate [development intake decision](docs/decisions/0019-studio-private-audio-intake.md)
+uses only the existing script owner’s Studio session. Third-party producers must never reuse it.
+No general handoff route should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
 
 ## Repository
 

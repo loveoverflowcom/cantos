@@ -21,6 +21,7 @@ use super::{authenticated, cookie_token, error_response, AppState};
 use crate::platform::postgres::StoreError;
 
 mod adaptations;
+mod audio_intake;
 mod catalog;
 mod imports;
 mod production;
@@ -58,6 +59,8 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
     match mount {
         Mount::Current => scripts
             .merge(catalog::routes())
+            // New Catalog/intake routes have no deprecated aliases.
+            .merge(audio_intake::routes())
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(login).delete(logout)),
         Mount::Legacy => scripts

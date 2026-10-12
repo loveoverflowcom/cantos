@@ -1,0 +1,11 @@
+{
+  "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "byte_length": 4096,
+  "container": "mp4",
+  "codec": "aac_lc",
+  "channels": 1,
+  "sample_rate_hz": 48000,
+  "duration_ms": 1000,
+  "audio_bitrate_bps": 40000,
+  "profile_id": "aac-lc-mono-40-v1"
+}

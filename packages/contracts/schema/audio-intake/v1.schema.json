@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/audio-intake/v1",
+  "title": "Cantos development-only Studio owner audio intake v1",
+  "description": "Raw JSON transport for private owner-session intake, not general external producer handoff. Actual bytes and profile, current authorization, exact revision/digest binding and cross-record identities are checked by the service. JSON Schema cannot prove media validity, storage durability, rights, listened quality or publication. The four explicit Opus profiles do not select a default or settle playback/loudness decisions. AAC is outside this intake contract.",
+  "$defs": {
+    "CanonicalId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "ActorId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+    },
+    "ContentDigest": {
+      "type": "string",
+      "pattern": "^sir-c1:sha256:[a-f0-9]{64}$"
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "AudioProfileId": {
+      "type": "string",
+      "enum": [
+        "opus-mono-20-v1",
+        "opus-mono-24-v1",
+        "opus-mono-32-v1",
+        "opus-mono-40-v1"
+      ],
+      "description": "Explicit selected Opus intake-envelope identity. No default or automatic selection; playback/loudness adoption remains separate."
+    },
+    "CreateAudioIntentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "expected_content_digest",
+        "profile_id"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "expected_content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        }
+      }
+    },
+    "AudioIntentResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "script_id",
+        "script_revision",
+        "content_digest",
+        "profile_id",
+        "operation_id",
+        "created_by",
+        "created_at",
+        "upload_path",
+        "status_path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "created_at": {
+          "$ref": "#/$defs/UtcTimestamp"
+        },
+        "upload_path": {
+          "type": "string",
+          "pattern": "^/api/v1/studio/scripts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/audio-intents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/bytes$"
+        },
+        "status_path": {
+          "type": "string",
+          "pattern": "^/api/v1/studio/scripts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/audio-intents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "AudioMediaMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byte_length",
+        "container",
+        "codec",
+        "channels",
+        "sample_rate_hz",
+        "duration_ms",
+        "audio_bitrate_bps",
+        "profile_id"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "container": {
+          "const": "ogg"
+        },
+        "codec": {
+          "const": "opus"
+        },
+        "channels": {
+          "const": 1
+        },
+        "sample_rate_hz": {
+          "const": 48000
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "audio_bitrate_bps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 48000
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-20-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 24000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-24-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 28800
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-32-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 38400
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-40-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 48000
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AudioReceiptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "intent_id",
+        "script_id",
+        "script_revision",
+        "content_digest",
+        "profile_id",
+        "operation_id",
+        "accepted_by",
+        "accepted_at",
+        "media"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "intent_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "accepted_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "accepted_at": {
+          "$ref": "#/$defs/UtcTimestamp"
+        },
+        "media": {
+          "$ref": "#/$defs/AudioMediaMetadata"
+        }
+      }
+    },
+    "AudioIntentStatusResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent"
+      ],
+      "properties": {
+        "intent": {
+          "$ref": "#/$defs/AudioIntentResponse"
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudioReceiptResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Responses serialize an explicit null until bytes are accepted. Raw serde also permits omission; omission never creates an accepted receipt."
+        }
+      }
+    }
+  }
+}

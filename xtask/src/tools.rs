@@ -30,11 +30,13 @@ pub enum Tool {
     Initdb,
     PgCtl,
     Psql,
+    Ffmpeg,
+    Ffprobe,
     AndroidCli,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 16] = [
+    pub const ALL: [Tool; 18] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -50,6 +52,8 @@ impl Tool {
         Tool::Initdb,
         Tool::PgCtl,
         Tool::Psql,
+        Tool::Ffmpeg,
+        Tool::Ffprobe,
         Tool::AndroidCli,
     ];
 
@@ -70,6 +74,8 @@ impl Tool {
             Tool::Initdb => "initdb",
             Tool::PgCtl => "pg_ctl",
             Tool::Psql => "psql",
+            Tool::Ffmpeg => "ffmpeg",
+            Tool::Ffprobe => "ffprobe",
             Tool::AndroidCli => "android",
         }
     }
@@ -97,6 +103,9 @@ impl Tool {
             }
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
+            Tool::Ffmpeg | Tool::Ffprobe => {
+                "put trusted installed ffmpeg and ffprobe executables on PATH; xtask never installs them"
+            }
             Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the selected Android project open",
             Tool::Initdb | Tool::PgCtl | Tool::Psql => {
                 "put the PostgreSQL 17 server binaries directory on PATH"
@@ -121,6 +130,8 @@ impl Tool {
             Tool::Initdb => Some(("initdb", &["--version"])),
             Tool::PgCtl => Some(("pg_ctl", &["--version"])),
             Tool::Psql => Some(("psql", &["--version"])),
+            Tool::Ffmpeg => Some(("ffmpeg", &["-version"])),
+            Tool::Ffprobe => Some(("ffprobe", &["-version"])),
             Tool::AndroidCli => Some(("android", &["--version"])),
         }
     }
@@ -206,7 +217,9 @@ impl SystemTools {
             Tool::Java => self
                 .version(tool)
                 .is_some_and(|version| java_version_supported(&version)),
-            Tool::Rustfmt | Tool::Clippy => self.version(tool).is_some(),
+            Tool::Rustfmt | Tool::Clippy | Tool::Ffmpeg | Tool::Ffprobe => {
+                self.version(tool).is_some()
+            }
             other => find_on_path(other.label()).is_some(),
         }
     }
@@ -433,6 +446,23 @@ mod tests {
         assert_eq!(
             probe.missing(&[Tool::Cargo, Tool::Trunk, Tool::Psql]),
             vec![Tool::Trunk, Tool::Psql]
+        );
+    }
+
+    #[test]
+    fn media_tools_use_their_supported_version_flags_and_keep_separate_prerequisites() {
+        assert_eq!(
+            Tool::Ffmpeg.version_command(),
+            Some(("ffmpeg", &["-version"][..]))
+        );
+        assert_eq!(
+            Tool::Ffprobe.version_command(),
+            Some(("ffprobe", &["-version"][..]))
+        );
+        let probe = testing::FakeTools::without(&[Tool::Ffprobe]);
+        assert_eq!(
+            probe.missing(&[Tool::Cargo, Tool::Ffmpeg, Tool::Ffprobe]),
+            [Tool::Ffprobe]
         );
     }
 }

@@ -155,22 +155,23 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
 | `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
-| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production wire, JSON/MessagePack wire, diff, CLI admission and WAV test targets | cargo |
+| `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
+| `audio-inspection` | `cargo test -p cantos-api --test audio_intake --locked -- --ignored` | cargo, trusted installed ffmpeg and ffprobe |
 | `web-lint` | `cargo clippy -p cantos-ui -p cantos-studio -p cantos-theatre --all-targets --target wasm32-unknown-unknown --features cantos-ui/preview --locked -- -D warnings` | clippy, wasm32 target |
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
 | `theatre-cmp-demo` | installed Gradle `:shared:desktopTest` in the isolated Theatre mock | compatible gradle, java, real Theatre mock project |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
-| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | initdb, pg_ctl, psql |
+| `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 
 | `verify` suite | Gates |
 | --- | --- |
 | `repository` | repository |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
-| `contracts` | script-ir-reference, contract-tests, wav-reference |
+| `contracts` | script-ir-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
 | `dbsp` | dbsp |
 | `postgres` | postgres |
@@ -178,6 +179,18 @@ same catalog in [`gate.rs`](src/gate.rs).
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
 with `TMPDIR=/private/tmp`.
+
+The `audio-inspection` gate explicitly runs the ignored real-media tests that ordinary
+`cargo test` skips. Tests encode owned synthetic signals into temporary files at runtime,
+then exercise the actual bounded read-only inspection adapter at all four explicit Opus
+profiles and its invalid-media cases. No audio is committed to Git. This test-only fixture
+encoding does not add an encoder, TTS provider or production worker to the backend.
+The adapter probes and decodes to a discarded output; it never converts or publishes media.
+`ffmpeg -version` and `ffprobe -version` must succeed before any selected gate runs.
+Missing tools produce `UNSUPPORTED`; skipped or unreachable inspection remains `NOT_RUN`.
+xtask never installs these tools. The Rust and PostgreSQL CI jobs provision the distribution's
+trusted `ffmpeg` package, which supplies both executables. The PostgreSQL suite also needs them
+for its actual-byte private-intake/storage/replay tests.
 
 ### Outcome vocabulary
 
@@ -214,7 +227,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   `cmp-ui-preview` and `theatre-cmp-demo`. Package-local CMP source, Gradle and resource changes
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
-  An affected `cantos-api` selects `dbsp`, `wav-reference` and `postgres`.
+  An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
@@ -233,7 +246,7 @@ state it in the pull request.
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference |
+| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
 | `web` | web-lint, web-build (Studio and Theatre) |
 | `postgres` | `cargo fetch --locked`, then postgres |
 

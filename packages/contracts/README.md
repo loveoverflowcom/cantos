@@ -5,6 +5,11 @@
 > API contract. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
 > they are **not live server capabilities** after the 2026-10-12 refactor.
 
+The separate [Studio owner audio intake v1](studio-audio-intake-v1.md) is implemented for
+private development script-revision-bound intents, explicit four-profile Opus inspection and
+immutable receipts. It is not the general external-producer proposal or a publication API;
+required Rust/PostgreSQL execution is **NOT_RUN** in its implementation environment.
+
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
 `0.1.0` has a hand-authored [JSON Schema](schema/script-ir/0.1.0.schema.json), a
 [Rust reader and semantic validator](../../services/cantos-api/src/script_ir/mod.rs), and
