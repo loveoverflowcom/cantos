@@ -187,6 +187,19 @@ async fn content_identity_routes_exist_only_in_current_studio_and_never_share_it
             format!("/content-units/{SCRIPT}/content/revisions/{SCRIPT}"),
         ),
         ("POST", format!("/content-units/{SCRIPT}/content/revisions")),
+        ("POST", format!("/content-units/{SCRIPT}/production-briefs")),
+        (
+            "GET",
+            format!("/content-units/{SCRIPT}/production-briefs/1"),
+        ),
+        (
+            "POST",
+            format!("/content-units/{SCRIPT}/production-briefs/1/producer-grants"),
+        ),
+        (
+            "GET",
+            format!("/producer/content-units/{SCRIPT}/production-briefs/1"),
+        ),
     ] {
         let current = call(method, &format!("{STUDIO_BASE}{suffix}"), false, "{}").await;
         assert_eq!(current.status, StatusCode::UNAUTHORIZED);

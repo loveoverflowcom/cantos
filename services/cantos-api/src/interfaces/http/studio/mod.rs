@@ -21,6 +21,7 @@ use super::{authenticated, cookie_token, error_response, AppState};
 use crate::platform::postgres::StoreError;
 
 mod adaptations;
+mod briefs;
 mod catalog;
 mod content;
 mod imports;
@@ -60,6 +61,7 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
         Mount::Current => scripts
             .merge(catalog::routes())
             .route_layer(middleware::from_fn_with_state(state, authenticated))
+            .merge(briefs::producer_routes())
             .route("/session", post(login).delete(logout)),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))

@@ -90,7 +90,7 @@ pub enum ProductionInstructions {
     },
     Recording {},
     Source {
-        receipt: ImportResponse,
+        receipt: Box<ImportResponse>,
         receipt_digest: String,
     },
     Script {
@@ -145,6 +145,8 @@ pub struct CreateProducerGrantRequest {
     /// Caller-generated 32 random bytes as lowercase hex. Only a separated hash is persisted.
     pub token: String,
     pub expires_at: i64,
+    /// Producer-declared support, never platform-verified tool capability.
+    pub capabilities: Vec<ProducerCapability>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

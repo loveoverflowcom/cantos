@@ -86,6 +86,11 @@ fn schema(definition: &str, body: &Value) {
     let root: Value = serde_json::from_str(
         if matches!(
             definition,
+            "ProductionBriefResponse" | "ProductionBriefDocument" | "ProducerGrantResponse"
+        ) {
+            include_str!("../../../packages/contracts/schema/briefs/v1.schema.json")
+        } else if matches!(
+            definition,
             "AppendContentResponse" | "ContentRevisionResponse" | "ContentHistoryResponse"
         ) {
             include_str!("../../../packages/contracts/schema/content/v1.schema.json")
@@ -130,12 +135,24 @@ async fn request(
         .unwrap();
     assert_eq!(response.headers()["cache-control"], "no-store");
     assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-    assert_eq!(response.headers()["content-type"], "application/json");
+    if response.status() != StatusCode::NO_CONTENT {
+        assert_eq!(response.headers()["content-type"], "application/json");
+    }
     let status = response.status();
+    if status == StatusCode::NO_CONTENT {
+        return Reply {
+            status,
+            body: Value::Null,
+        };
+    }
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     let definition = if !status.is_success() {
         "ApiError"
+    } else if body.get("brief").is_some() {
+        "ProductionBriefResponse"
+    } else if body.get("permission").is_some() {
+        "ProducerGrantResponse"
     } else if body.get("content").is_some() {
         "AppendContentResponse"
     } else if body.get("unit_id").is_some() {
@@ -186,6 +203,9 @@ impl Harness {
         let admin = connect(&config).await;
         admin.batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
+             GRANT SELECT,INSERT ON production_briefs,production_brief_heads,production_producer_grants,production_producer_revocations TO cantos_app;
+             GRANT UPDATE(brief_id,version) ON production_brief_heads TO cantos_app;
+             GRANT INSERT ON source_records,script_evidence TO cantos_app;
              GRANT SELECT ON actors,sessions,scripts,script_revisions,script_members,script_evidence,source_records,revision_evidence,
              catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations,catalog_content_revisions,catalog_content_heads TO cantos_app;
              GRANT INSERT ON scripts,script_revisions,revision_evidence,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations,catalog_content_revisions,catalog_content_heads TO cantos_app;
@@ -1151,10 +1171,32 @@ async fn committed_http_catalog_emits_exact_postgres_restart_oracle() {
         )
         .await
         .success(StatusCode::CREATED);
+    let brief_request = brief_http::brief_request(&content_second["content"], 0, false);
+    let brief_path = format!("/content-units/{cuid}/production-briefs");
+    let brief = h
+        .json(
+            "POST",
+            &brief_path,
+            Some(ALICE),
+            Some(brief_request.clone()),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let grant_request = json!({"operation_id":operation(),"id":operation(),"brief_digest":brief["brief"]["digest"],"token":"d".repeat(64),"expires_at":brief["brief"]["created_at"].as_i64().unwrap()+7200000,"capabilities":brief["brief"]["guidance"]["required_capabilities"]});
+    let grant = h
+        .json(
+            "POST",
+            &format!("{brief_path}/1/producer-grants"),
+            Some(ALICE),
+            Some(grant_request.clone()),
+        )
+        .await
+        .success(StatusCode::CREATED);
     fs::create_dir_all(EVIDENCE).unwrap();
     fs::write(format!("{EVIDENCE}/http-restart.json"),serde_json::to_vec_pretty(&json!({
         "database":h.database,"create_body":create_body,"unit_body":unit_body,
         "content_target":{"unit_id":cuid,"request":content_body,"first":content_first,"second":content_second},
+        "brief_target":{"unit_id":cuid,"request":brief_request,"response":brief,"grant_request":grant_request,"grant":grant},
         "work_id":wid,"unit_id":uid,"original":original,"current":current,"counts":h.counts().await,
         "provenance":"Real Router/application/app-role PostgreSQL; synthetic metadata; no provider or media"
     })).unwrap()).unwrap();
@@ -1249,6 +1291,38 @@ async fn catalog_http_recovery_after_server_restart() {
         target["first"]
     );
     assert_eq!(h.counts().await, fixture["counts"]);
+    let brief = &fixture["brief_target"];
+    let uid = brief["unit_id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/production-briefs");
+    assert_eq!(
+        h.json("GET", &format!("{path}/1"), Some(ALICE), None)
+            .await
+            .success(StatusCode::OK),
+        brief["response"]
+    );
+    assert_eq!(
+        h.json("POST", &path, Some(ALICE), Some(brief["request"].clone()))
+            .await
+            .success(StatusCode::CREATED),
+        brief["response"]
+    );
+    assert_eq!(
+        h.json(
+            "POST",
+            &format!("{path}/1/producer-grants"),
+            Some(ALICE),
+            Some(brief["grant_request"].clone())
+        )
+        .await
+        .success(StatusCode::CREATED),
+        brief["grant"]
+    );
+    assert_eq!(
+        brief_http::producer(h.app.clone(), uid, 1, Some(&"d".repeat(64)))
+            .await
+            .success(StatusCode::OK),
+        brief["response"]["brief"]
+    );
 }
 
 fn content_request(expected: u64, work: u64, body: Value) -> Value {
@@ -1735,7 +1809,7 @@ async fn content_concurrent_append_rollback_and_database_immutability_are_real_c
     for sql in [
         "UPDATE catalog_content_revisions SET snapshot=decode('00','hex')",
         "DELETE FROM catalog_content_revisions",
-        "TRUNCATE catalog_content_revisions,catalog_content_heads",
+        "TRUNCATE catalog_content_revisions,catalog_content_heads CASCADE",
     ] {
         let error = h.admin.batch_execute(sql).await.unwrap_err();
         assert_eq!(error.code().unwrap().code(), "55000");
@@ -1829,3 +1903,6 @@ async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgre
     fs::create_dir_all(EVIDENCE).unwrap();
     fs::write(format!("{EVIDENCE}/content-read-baseline.json"),serde_json::to_vec_pretty(&json!({"postgres":server,"revision_count":100,"samples":30,"head_ms":head_ms,"history_ms":history_ms,"write_total_ms":write_ms,"head_sql":head_sql,"history_sql":history_sql,"head_plan":head_plan,"history_plan":history_plan,"scope":"Warm synthetic local Router/application/app-role PostgreSQL; not production latency or cold-cache evidence"})).unwrap()).unwrap();
 }
+
+#[path = "brief_http_postgres.rs"]
+mod brief_http;

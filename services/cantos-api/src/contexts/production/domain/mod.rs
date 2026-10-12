@@ -4,6 +4,7 @@
 use cantos_contracts::{FieldIssue, ProductionFinding, ProductionFindingCode};
 use unicode_normalization::UnicodeNormalization;
 
+pub mod brief;
 mod casting;
 pub mod catalog;
 mod commands;

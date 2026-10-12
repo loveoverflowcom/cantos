@@ -1,0 +1,26 @@
+{
+  "operation_id": "60000000-0000-4000-8000-000000000006",
+  "id": "40000000-0000-4000-8000-000000000004",
+  "expected_version": 0,
+  "content_revision_id": "30000000-0000-4000-8000-000000000003",
+  "content_revision_digest": "cc-r1:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "guidance": {
+    "editorial": {
+      "mode": "recording",
+      "notes": "Đọc rõ, giữ hơi thở tự nhiên."
+    },
+    "voice": null,
+    "sound_design": null,
+    "required_capabilities": [
+      "recording",
+      "ogg_opus_mono"
+    ],
+    "delivery": {
+      "profile_id": "opus-mono-24-v1",
+      "permitted_use": "Private production review only.",
+      "attribution": "Original synthetic fixture.",
+      "naming": "chapter-01.ogg",
+      "qa_instructions": "Compare every paragraph; record measured and listened evidence separately."
+    }
+  }
+}

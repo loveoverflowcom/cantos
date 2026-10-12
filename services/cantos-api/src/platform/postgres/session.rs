@@ -8,6 +8,16 @@ pub fn token_hash(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
 }
 
+pub(crate) async fn session_token_registered(tx: &Tx<'_>, token: &str) -> Result<bool, StoreError> {
+    Ok(tx
+        .query_opt(
+            "SELECT token_hash FROM sessions WHERE token_hash=$1",
+            &[&token_hash(token)],
+        )
+        .await?
+        .is_some())
+}
+
 /// Locks the session row for the transaction, so a concurrent revocation waits for it.
 pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, StoreError> {
     if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {

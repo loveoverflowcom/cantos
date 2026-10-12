@@ -428,14 +428,17 @@ def editor_recovery(env, port, app_url, fixture):
     return snapshot
 
 
-def catalog_http(port, path, method="GET", payload=None, expected_status=200):
+def catalog_http(port, path, method="GET", payload=None, expected_status=200, producer_token=None):
     """Actual socket requests against the catalog's own synthetic app-role database."""
+    headers = {"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json", "Accept": "application/json"}
+    if producer_token is None:
+        headers["Cookie"] = "cantos_session=" + "a" * 64
+    else:
+        headers["Authorization"] = "Bearer " + producer_token
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}/api/v1/studio{path}", method=method,
         data=None if payload is None else json.dumps(payload, ensure_ascii=False).encode(),
-        headers={"Cookie": "cantos_session=" + "a" * 64,
-                 "Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json",
-                 "Accept": "application/json"})
+        headers=headers)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=5) as response:
         assert response.status == expected_status
@@ -471,6 +474,15 @@ def catalog_recovery(port, fixture):
     assert result["content_head"] == content["second"]["content"]
     assert result["content_pinned"] == content["first"]["content"]
     assert result["content_replay"] == content["first"]
+    brief = fixture["brief_target"]
+    path = f"/content-units/{brief['unit_id']}/production-briefs"
+    result["brief_read"] = catalog_http(port, f"{path}/1")
+    result["brief_replay"] = catalog_http(port, path, "POST", brief["request"], 201)
+    result["grant_replay"] = catalog_http(port, f"{path}/1/producer-grants", "POST", brief["grant_request"], 201)
+    result["producer_instructions"] = catalog_http(port, f"/producer/content-units/{brief['unit_id']}/production-briefs/1", producer_token=brief["grant_request"]["token"])
+    assert result["brief_read"] == brief["response"] == result["brief_replay"]
+    assert result["grant_replay"] == brief["grant"]
+    assert result["producer_instructions"] == brief["response"]["brief"]
     return result
 
 
