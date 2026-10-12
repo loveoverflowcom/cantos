@@ -1,11 +1,21 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, core::listening::library::Bookmark,
-    messages::Key, platform, view::Recovery};
 use super::common::*;
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    core::listening::library::Bookmark,
+    messages::Key,
+    platform,
+    view::Recovery,
+};
+use leptos::prelude::*;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum LibraryTab { #[default] Continue, Saved, Bookmarks }
+enum LibraryTab {
+    #[default]
+    Continue,
+    Saved,
+    Bookmarks,
+}
 
 #[component]
 pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
@@ -27,6 +37,14 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
 #[component]
 pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
     let tab = RwSignal::new(LibraryTab::Continue);
+    let saved_works = move || {
+        ctx.library
+            .get()
+            .saved
+            .into_iter()
+            .map(|saved| saved.work)
+            .collect::<Vec<_>>()
+    };
     view! {
         <PageHeading ctx=ctx title=Key::Library/>
         <div class="theatre-filters" role="group" aria-label=move || ctx.text(Key::Library)>
@@ -43,7 +61,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
             }.into_any(),
             LibraryTab::Saved => view! {
                 <Show when=move || !ctx.library.get().saved.is_empty() fallback=move || view! { <Recovery ctx=ctx title=Key::NoLibrary help=Key::NoLibraryHelp/> }>
-                    <div class="theatre-shelf"><For each=move || ctx.library.get().saved.into_iter().map(|saved| saved.work).collect::<Vec<_>>() key=|id| *id children=move |id| view! { <WorkCard ctx=ctx id=id/> }/></div>
+                    <div class="theatre-shelf"><For each=saved_works key=|id| *id children=move |id| view! { <WorkCard ctx=ctx id=id/> }/></div>
                 </Show>
             }.into_any(),
             LibraryTab::Bookmarks => view! {
@@ -57,7 +75,10 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
 
 #[component]
 pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView {
-    let title = ctx.episode(mark.episode).map(|episode| episode.title).unwrap_or_default();
+    let title = ctx
+        .episode(mark.episode)
+        .map(|episode| episode.title)
+        .unwrap_or_default();
     view! {
         <li class="theatre-bookmark-row">
             <div><h3 lang="vi-VN">{title}</h3><p>{clock(mark.position_ms / 1000)}</p></div>

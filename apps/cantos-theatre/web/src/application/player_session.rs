@@ -1,9 +1,9 @@
 //! Root-owned imperative shell. Pure transitions commit before fake effects execute.
-use std::collections::VecDeque;
-use std::cell::RefCell;
-use leptos::prelude::*;
-use crate::core::playback::{self, Effect, Event, PlayerState, ResumeSnapshot, Status};
 use super::ports::MediaPort;
+use crate::core::playback::{self, Effect, Event, PlayerState, ResumeSnapshot, Status};
+use leptos::prelude::*;
+use std::cell::RefCell;
+use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerView {
@@ -15,9 +15,11 @@ pub struct PlayerView {
     pub speed: u16,
 }
 
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct PlayerFeedback { pub resume_offered: Option<ResumeSnapshot>, pub rejection: Option<playback::Rejection> }
+pub struct PlayerFeedback {
+    pub resume_offered: Option<ResumeSnapshot>,
+    pub rejection: Option<playback::Rejection>,
+}
 #[derive(Clone, Copy)]
 pub struct PlayerSession {
     pub state: ReadSignal<PlayerState>,
@@ -31,13 +33,28 @@ pub struct PlayerSession {
 impl PlayerSession {
     pub fn new(adapter: impl MediaPort + 'static) -> Self {
         let state = RwSignal::new(PlayerState::default());
-        let view = Memo::new(move |_| state.with(|state| state.session().map(|session| PlayerView {
-            episode: session.source().episode(), position: session.position_ms() / 1000,
-            duration: session.source().duration_ms() / 1000, transport: state.status(),
-            intent: session.intent(), speed: session.speed_permille() / 10,
-        })));
+        let view = Memo::new(move |_| {
+            state.with(|state| {
+                state.session().map(|session| PlayerView {
+                    episode: session.source().episode(),
+                    position: session.position_ms() / 1000,
+                    duration: session.source().duration_ms() / 1000,
+                    transport: state.status(),
+                    intent: session.intent(),
+                    speed: session.speed_permille() / 10,
+                })
+            })
+        });
         let feedback = RwSignal::new(PlayerFeedback::default());
-        Self { state: state.read_only(), writer: state, view, feedback: feedback.read_only(), feedback_writer: feedback, status: Memo::new(move |_| state.get().status()), adapter: StoredValue::new_local(RefCell::new(Box::new(adapter))) }
+        Self {
+            state: state.read_only(),
+            writer: state,
+            view,
+            feedback: feedback.read_only(),
+            feedback_writer: feedback,
+            status: Memo::new(move |_| state.get().status()),
+            adapter: StoredValue::new_local(RefCell::new(Box::new(adapter))),
+        }
     }
     pub fn dispatch(self, event: Event) {
         let mut pending = VecDeque::from([event]);
@@ -46,32 +63,84 @@ impl PlayerSession {
             self.writer.set(transition.state);
             for effect in transition.effects {
                 match &effect {
-                    Effect::OfferResume { source, position_ms } => {
-                        let speed_permille = self.state.get_untracked().session().map(|session| session.speed_permille()).unwrap_or(1000);
-                        self.feedback_writer.set(PlayerFeedback { resume_offered: Some(ResumeSnapshot { source: *source, position_ms: *position_ms, speed_permille }), rejection: None });
+                    Effect::OfferResume {
+                        source,
+                        position_ms,
+                    } => {
+                        let speed_permille = self
+                            .state
+                            .get_untracked()
+                            .session()
+                            .map(|session| session.speed_permille())
+                            .unwrap_or(1000);
+                        self.feedback_writer.set(PlayerFeedback {
+                            resume_offered: Some(ResumeSnapshot {
+                                source: *source,
+                                position_ms: *position_ms,
+                                speed_permille,
+                            }),
+                            rejection: None,
+                        });
                     }
-                    Effect::Rejected(reason) => self.feedback_writer.set(PlayerFeedback { resume_offered: None, rejection: Some(*reason) }),
-                    Effect::PrepareEngine(_) | Effect::StartEngine(_) | Effect::PauseEngine(_) | Effect::SeekEngine(_) | Effect::SetSpeed(_) => {
+                    Effect::Rejected(reason) => self.feedback_writer.set(PlayerFeedback {
+                        resume_offered: None,
+                        rejection: Some(*reason),
+                    }),
+                    Effect::PrepareEngine(_)
+                    | Effect::StartEngine(_)
+                    | Effect::PauseEngine(_)
+                    | Effect::SeekEngine(_)
+                    | Effect::SetSpeed(_) => {
                         self.feedback_writer.set(PlayerFeedback::default());
-                        let callbacks = self.adapter.with_value(|port| port.borrow_mut().execute(&effect));
+                        let callbacks = self
+                            .adapter
+                            .with_value(|port| port.borrow_mut().execute(&effect));
                         pending.extend(callbacks);
                     }
                 }
             }
         }
     }
-    pub fn snapshot(self) -> Option<ResumeSnapshot> { self.state.get_untracked().session().map(|session| session.snapshot()) }
+    pub fn snapshot(self) -> Option<ResumeSnapshot> {
+        self.state
+            .get_untracked()
+            .session()
+            .map(|session| session.snapshot())
+    }
     /// Restore always advances generation; Reset never reuses callback identities.
-    pub fn restore(self, snapshot: ResumeSnapshot) { self.dispatch(Event::RestoreRequested { snapshot }); }
+    pub fn restore(self, snapshot: ResumeSnapshot) {
+        self.dispatch(Event::RestoreRequested { snapshot });
+    }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::{ids::{EpisodeId, WorkId}, playback::{Intent, Source}}, infrastructure::fake_media::FakeMedia};
+    use crate::{
+        core::{
+            ids::{EpisodeId, WorkId},
+            playback::{Intent, Source},
+        },
+        infrastructure::fake_media::FakeMedia,
+    };
     struct DeferredFake;
-    impl MediaPort for DeferredFake { fn execute(&mut self, _effect: &Effect) -> Vec<Event> { Vec::new() } }
+    impl MediaPort for DeferredFake {
+        fn execute(&mut self, _effect: &Effect) -> Vec<Event> {
+            Vec::new()
+        }
+    }
     fn sample() -> ResumeSnapshot {
-        ResumeSnapshot { source: Source::new(EpisodeId { work: WorkId::Mountain, index: 2 }, 1722000).unwrap(), position_ms: 768000, speed_permille: 1000 }
+        ResumeSnapshot {
+            source: Source::new(
+                EpisodeId {
+                    work: WorkId::Mountain,
+                    index: 2,
+                },
+                1722000,
+            )
+            .unwrap(),
+            position_ms: 768000,
+            speed_permille: 1000,
+        }
     }
     #[test]
     fn delayed_old_started_cannot_override_a_new_pause_or_reset() {
@@ -88,7 +157,10 @@ mod tests {
             session.restore(sample());
             assert!(session.state.get_untracked().generation() > old.generation);
             session.dispatch(Event::EngineStarted { identity: old });
-            assert!(matches!(session.state.get_untracked().session().unwrap().intent(), Intent::Pause(_)));
+            assert!(matches!(
+                session.state.get_untracked().session().unwrap().intent(),
+                Intent::Pause(_)
+            ));
         });
     }
     #[test]
@@ -96,8 +168,14 @@ mod tests {
         Owner::new().with(|| {
             let session = PlayerSession::new(FakeMedia);
             session.restore(sample());
-            assert!(matches!(session.state.get_untracked().status(), Status::Paused(_)));
-            assert_eq!(session.feedback.get_untracked().resume_offered, Some(sample()));
+            assert!(matches!(
+                session.state.get_untracked().status(),
+                Status::Paused(_)
+            ));
+            assert_eq!(
+                session.feedback.get_untracked().resume_offered,
+                Some(sample())
+            );
         });
     }
 }

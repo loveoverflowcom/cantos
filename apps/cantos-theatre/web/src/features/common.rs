@@ -1,7 +1,12 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    application::catalog::Scenario,
+    core::ids::WorkId,
+    messages::{self, Key},
+    platform,
+};
 use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, application::catalog::Scenario,
-    core::ids::WorkId, messages::{self, Key}, platform};
 
 // Official licensed static markup, never user content. This is app chrome, not a shared API.
 pub(crate) fn icon(asset: &'static str) -> impl IntoView {
@@ -27,10 +32,16 @@ pub(crate) fn icon(asset: &'static str) -> impl IntoView {
     view! { <span class="theatre-icon" aria-hidden="true" inner_html=markup></span> }
 }
 
-pub(crate) fn clock(seconds: u32) -> String { format!("{}:{:02}", seconds / 60, seconds % 60) }
+pub(crate) fn clock(seconds: u32) -> String {
+    format!("{}:{:02}", seconds / 60, seconds % 60)
+}
 
 #[component]
-pub(crate) fn PageHeading(ctx: TheatreContext, title: Key, #[prop(optional)] deck: Option<Key>) -> impl IntoView {
+pub(crate) fn PageHeading(
+    ctx: TheatreContext,
+    title: Key,
+    #[prop(optional)] deck: Option<Key>,
+) -> impl IntoView {
     view! {
         <header class="theatre-page-heading">
             <p class="theatre-eyebrow">{move || ctx.text(Key::BrandCaption)}</p>

@@ -40,13 +40,41 @@ macro_rules! embedded_vector {
 // check; the SHA-256 values below are pinned from the reviewed index. No crypto code or app
 // runtime dependency is introduced.
 const VECTORS: [EmbeddedVector; 7] = [
-    embedded_vector!("play-pause", "bc9b73d4be95362d1a6d7e178464bf26d100d93edac02edb27cf018c45a54622", 0x91e2d9aa26005cdc),
-    embedded_vector!("buffering", "4b5f7df3d009c0855f328a600f2c4c9149e6277d50469b01b864ea2604a1797c", 0x2695743e2e5ee7e7),
-    embedded_vector!("interruption", "3c39358f06d38dce35fd73ddebae35fe0a6a36bc04727ceee8dd6feb624fb945", 0xa8f639846bc12bb3),
-    embedded_vector!("stale-response", "d58ea2b08b79ab453c3864da3cb5532fe01825adf4db0c93f895c4c81f018ae6", 0x91aa2f29801c7141),
-    embedded_vector!("restore-session", "bca2510896ed12250a3979abe42414e66c14357c73d403532a90c54316ddb900", 0xfc1ad5b2413c178b),
-    embedded_vector!("preparing-races", "b5d21a9cece278313b89de9b5e885bff424ca1752f5b0d23d8fc39f838fa8082", 0x5bc5db51bc5986f2),
-    embedded_vector!("invalid-controls", "bfa0807d0df0186dd5429ac082ef40df87879d487c6823d3c365e6e5ba0304a9", 0x2391a88f3ef69f18),
+    embedded_vector!(
+        "play-pause",
+        "bc9b73d4be95362d1a6d7e178464bf26d100d93edac02edb27cf018c45a54622",
+        0x91e2d9aa26005cdc
+    ),
+    embedded_vector!(
+        "buffering",
+        "4b5f7df3d009c0855f328a600f2c4c9149e6277d50469b01b864ea2604a1797c",
+        0x2695743e2e5ee7e7
+    ),
+    embedded_vector!(
+        "interruption",
+        "3c39358f06d38dce35fd73ddebae35fe0a6a36bc04727ceee8dd6feb624fb945",
+        0xa8f639846bc12bb3
+    ),
+    embedded_vector!(
+        "stale-response",
+        "d58ea2b08b79ab453c3864da3cb5532fe01825adf4db0c93f895c4c81f018ae6",
+        0x91aa2f29801c7141
+    ),
+    embedded_vector!(
+        "restore-session",
+        "bca2510896ed12250a3979abe42414e66c14357c73d403532a90c54316ddb900",
+        0xfc1ad5b2413c178b
+    ),
+    embedded_vector!(
+        "preparing-races",
+        "b5d21a9cece278313b89de9b5e885bff424ca1752f5b0d23d8fc39f838fa8082",
+        0x5bc5db51bc5986f2
+    ),
+    embedded_vector!(
+        "invalid-controls",
+        "bfa0807d0df0186dd5429ac082ef40df87879d487c6823d3c365e6e5ba0304a9",
+        0x2391a88f3ef69f18
+    ),
 ];
 
 type Decode<T> = Result<T, &'static str>;
@@ -115,7 +143,10 @@ fn speed(value: &Value) -> Decode<u16> {
 fn episode(value: &Value) -> Decode<EpisodeId> {
     let work = WorkId::from_slug(string(&value["work_id"])?).ok_or("unknown work key")?;
     let index = u16_value(&value["episode_index"])?;
-    Ok(EpisodeId { work, index: usize::from(index) })
+    Ok(EpisodeId {
+        work,
+        index: usize::from(index),
+    })
 }
 
 fn source(value: &Value) -> Decode<Source> {
@@ -125,7 +156,10 @@ fn source(value: &Value) -> Decode<Source> {
 
 fn identity(value: &Value) -> Decode<CallbackIdentity> {
     fields(value, &["work_id", "episode_index", "generation"])?;
-    Ok(CallbackIdentity { episode: episode(value)?, generation: u32_value(&value["generation"])? })
+    Ok(CallbackIdentity {
+        episode: episode(value)?,
+        generation: u32_value(&value["generation"])?,
+    })
 }
 
 fn pause_cause(value: &Value) -> Decode<PauseCause> {
@@ -172,7 +206,17 @@ fn interruption(value: &Value) -> Decode<Interruption> {
 }
 
 fn session(value: &Value) -> Decode<PlaybackSession> {
-    fields(value, &["source", "position_ms", "speed_permille", "intent", "engine", "interruption"])?;
+    fields(
+        value,
+        &[
+            "source",
+            "position_ms",
+            "speed_permille",
+            "intent",
+            "engine",
+            "interruption",
+        ],
+    )?;
     let source = source(&value["source"])?;
     let position_ms = u32_value(&value["position_ms"])?;
     if position_ms > source.duration_ms() {
@@ -209,7 +253,11 @@ fn snapshot(value: &Value) -> Decode<Snapshot> {
     }
     let state = PlayerState {
         generation: u32_value(&value["generation"])?,
-        session: if value["session"].is_null() { None } else { Some(session(&value["session"])?) },
+        session: if value["session"].is_null() {
+            None
+        } else {
+            Some(session(&value["session"])?)
+        },
     };
     Ok(Snapshot { state, status })
 }
@@ -236,30 +284,48 @@ fn event(value: &Value) -> Decode<Event> {
         }
         "source_selected" => {
             fields(value, &["type", "source", "position_ms"])?;
-            Ok(Event::SourceSelected { source: source(&value["source"])?, position_ms: u32_value(&value["position_ms"])? })
+            Ok(Event::SourceSelected {
+                source: source(&value["source"])?,
+                position_ms: u32_value(&value["position_ms"])?,
+            })
         }
         "restore_requested" => {
             fields(value, &["type", "snapshot"])?;
-            Ok(Event::RestoreRequested { snapshot: resume_snapshot(&value["snapshot"])? })
+            Ok(Event::RestoreRequested {
+                snapshot: resume_snapshot(&value["snapshot"])?,
+            })
         }
         "seek_requested" => {
             fields(value, &["type", "position_ms"])?;
-            Ok(Event::SeekRequested { position_ms: u32_value(&value["position_ms"])? })
+            Ok(Event::SeekRequested {
+                position_ms: u32_value(&value["position_ms"])?,
+            })
         }
         "skip_requested" => {
             fields(value, &["type", "delta_ms"])?;
-            let delta = value["delta_ms"].as_i64().ok_or("expected signed integer")?;
-            Ok(Event::SkipRequested { delta_ms: i32::try_from(delta).map_err(|_| "signed integer out of bounds")? })
+            let delta = value["delta_ms"]
+                .as_i64()
+                .ok_or("expected signed integer")?;
+            Ok(Event::SkipRequested {
+                delta_ms: i32::try_from(delta).map_err(|_| "signed integer out of bounds")?,
+            })
         }
         "speed_requested" => {
             fields(value, &["type", "speed_permille"])?;
-            Ok(Event::SpeedRequested { speed_permille: u16_value(&value["speed_permille"])? })
+            Ok(Event::SpeedRequested {
+                speed_permille: u16_value(&value["speed_permille"])?,
+            })
         }
         "interruption_ended" => {
             fields(value, &["type", "resume_allowed"])?;
-            Ok(Event::InterruptionEnded { resume_allowed: value["resume_allowed"].as_bool().ok_or("expected boolean")? })
+            Ok(Event::InterruptionEnded {
+                resume_allowed: value["resume_allowed"]
+                    .as_bool()
+                    .ok_or("expected boolean")?,
+            })
         }
-        "engine_ready" | "engine_started" | "engine_paused" | "engine_buffering" | "engine_ended" => {
+        "engine_ready" | "engine_started" | "engine_paused" | "engine_buffering"
+        | "engine_ended" => {
             fields(value, &["type", "identity"])?;
             let identity = identity(&value["identity"])?;
             match tag {
@@ -272,7 +338,10 @@ fn event(value: &Value) -> Decode<Event> {
         }
         "engine_position" => {
             fields(value, &["type", "identity", "position_ms"])?;
-            Ok(Event::EnginePosition { identity: identity(&value["identity"])?, position_ms: u32_value(&value["position_ms"])? })
+            Ok(Event::EnginePosition {
+                identity: identity(&value["identity"])?,
+                position_ms: u32_value(&value["position_ms"])?,
+            })
         }
         _ => Err("unknown event type"),
     }
@@ -294,7 +363,16 @@ fn effect(value: &Value) -> Decode<Effect> {
     let tag = string(&value["type"])?;
     match tag {
         "prepare_engine" | "start_engine" | "pause_engine" | "seek_engine" | "set_speed" => {
-            fields(value, &["type", "identity", "source", "position_ms", "speed_permille"])?;
+            fields(
+                value,
+                &[
+                    "type",
+                    "identity",
+                    "source",
+                    "position_ms",
+                    "speed_permille",
+                ],
+            )?;
             let command = EngineCommand {
                 identity: identity(&value["identity"])?,
                 source: source(&value["source"])?,
@@ -311,7 +389,10 @@ fn effect(value: &Value) -> Decode<Effect> {
         }
         "offer_resume" => {
             fields(value, &["type", "source", "position_ms"])?;
-            Ok(Effect::OfferResume { source: source(&value["source"])?, position_ms: u32_value(&value["position_ms"])? })
+            Ok(Effect::OfferResume {
+                source: source(&value["source"])?,
+                position_ms: u32_value(&value["position_ms"])?,
+            })
         }
         "rejected" => {
             fields(value, &["type", "reason"])?;
@@ -332,30 +413,46 @@ fn version(value: &Value) -> Decode<()> {
 }
 
 fn decode_vector(value: &Value) -> Decode<Vector> {
-    fields(value, &["vector_format", "contract", "id", "initial_state", "steps"])?;
+    fields(
+        value,
+        &["vector_format", "contract", "id", "initial_state", "steps"],
+    )?;
     version(value)?;
     let id = string(&value["id"])?;
     if id.is_empty() {
         return Err("empty vector id");
     }
-    if !VECTORS.iter().any(|vector| vector.name.strip_suffix(".json") == Some(id)) {
+    if !VECTORS
+        .iter()
+        .any(|vector| vector.name.strip_suffix(".json") == Some(id))
+    {
         return Err("unknown vector id");
     }
     let steps = array(&value["steps"])?;
     if steps.is_empty() {
         return Err("empty vector steps");
     }
-    let steps = steps.iter().map(|value| {
-        fields(value, &["event", "expected"])?;
-        let expected = &value["expected"];
-        fields(expected, &["state", "effects"])?;
-        Ok(Step {
-            event: event(&value["event"])?,
-            state: snapshot(&expected["state"])?,
-            effects: array(&expected["effects"])?.iter().map(effect).collect::<Decode<Vec<_>>>()?,
+    let steps = steps
+        .iter()
+        .map(|value| {
+            fields(value, &["event", "expected"])?;
+            let expected = &value["expected"];
+            fields(expected, &["state", "effects"])?;
+            Ok(Step {
+                event: event(&value["event"])?,
+                state: snapshot(&expected["state"])?,
+                effects: array(&expected["effects"])?
+                    .iter()
+                    .map(effect)
+                    .collect::<Decode<Vec<_>>>()?,
+            })
         })
-    }).collect::<Decode<Vec<_>>>()?;
-    Ok(Vector { id: id.to_owned(), initial_state: snapshot(&value["initial_state"])?, steps })
+        .collect::<Decode<Vec<_>>>()?;
+    Ok(Vector {
+        id: id.to_owned(),
+        initial_state: snapshot(&value["initial_state"])?,
+        steps,
+    })
 }
 
 fn decode_index(value: &Value) -> Decode<Vec<(String, String)>> {
@@ -376,7 +473,11 @@ fn decode_index(value: &Value) -> Decode<Vec<(String, String)>> {
         if decoded.iter().any(|(existing, _)| existing == file) {
             return Err("duplicate vector file");
         }
-        if sha256.len() != 64 || !sha256.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
+        if sha256.len() != 64
+            || !sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
             return Err("invalid sha256");
         }
         decoded.push((file.to_owned(), sha256.to_owned()));
@@ -394,12 +495,23 @@ fn fixture(name: &str) -> Value {
 fn replay(name: &str) {
     let vector = decode_vector(&fixture(name)).unwrap();
     assert_eq!(format!("{}.json", vector.id), name);
-    assert_eq!(Snapshot::of(vector.initial_state.state.clone()), vector.initial_state, "{name}: initial state projection");
+    assert_eq!(
+        Snapshot::of(vector.initial_state.state.clone()),
+        vector.initial_state,
+        "{name}: initial state projection"
+    );
     let mut state = vector.initial_state.state;
     for (index, step) in vector.steps.into_iter().enumerate() {
         let transition = reduce(state, step.event);
-        assert_eq!(Snapshot::of(transition.state.clone()), step.state, "{name}#{index}: complete state");
-        assert_eq!(transition.effects, step.effects, "{name}#{index}: ordered effects");
+        assert_eq!(
+            Snapshot::of(transition.state.clone()),
+            step.state,
+            "{name}#{index}: complete state"
+        );
+        assert_eq!(
+            transition.effects, step.effects,
+            "{name}#{index}: ordered effects"
+        );
         state = transition.state;
     }
 }
@@ -415,24 +527,49 @@ macro_rules! vector_test {
 
 vector_test!(play_pause_matches_the_canonical_vector, "play-pause.json");
 vector_test!(buffering_matches_the_canonical_vector, "buffering.json");
-vector_test!(interruption_matches_the_canonical_vector, "interruption.json");
-vector_test!(stale_response_matches_the_canonical_vector, "stale-response.json");
-vector_test!(restore_session_matches_the_canonical_vector, "restore-session.json");
-vector_test!(preparing_races_matches_the_canonical_vector, "preparing-races.json");
-vector_test!(invalid_controls_matches_the_canonical_vector, "invalid-controls.json");
+vector_test!(
+    interruption_matches_the_canonical_vector,
+    "interruption.json"
+);
+vector_test!(
+    stale_response_matches_the_canonical_vector,
+    "stale-response.json"
+);
+vector_test!(
+    restore_session_matches_the_canonical_vector,
+    "restore-session.json"
+);
+vector_test!(
+    preparing_races_matches_the_canonical_vector,
+    "preparing-races.json"
+);
+vector_test!(
+    invalid_controls_matches_the_canonical_vector,
+    "invalid-controls.json"
+);
 
 #[test]
 fn reviewed_index_hashes_and_embedded_bytes_have_no_unnoticed_drift() {
     let index: Value = serde_json::from_str(INDEX).unwrap();
     let entries = decode_index(&index).unwrap();
-    let expected = VECTORS.iter().map(|file| (file.name.to_owned(), file.sha256.to_owned())).collect::<Vec<_>>();
+    let expected = VECTORS
+        .iter()
+        .map(|file| (file.name.to_owned(), file.sha256.to_owned()))
+        .collect::<Vec<_>>();
     assert_eq!(entries, expected);
     let mut step_count = 0;
     for file in &VECTORS {
-        let fingerprint = file.json.bytes().fold(0xcbf29ce484222325_u64, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
-        });
-        assert_eq!(fingerprint, file.byte_fingerprint, "{}: embedded bytes changed", file.name);
+        let fingerprint = file
+            .json
+            .bytes()
+            .fold(0xcbf29ce484222325_u64, |hash, byte| {
+                (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+            });
+        assert_eq!(
+            fingerprint, file.byte_fingerprint,
+            "{}: embedded bytes changed",
+            file.name
+        );
         step_count += decode_vector(&fixture(file.name)).unwrap().steps.len();
     }
     assert_eq!(step_count, 51);
@@ -443,10 +580,15 @@ fn reviewed_index_hashes_and_embedded_bytes_have_no_unnoticed_drift() {
 fn every_repository_vector_is_listed_and_embedded() {
     let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../packages/contracts/fixtures/theatre/playback/v1");
-    let mut actual = std::fs::read_dir(directory).unwrap().map(|entry| {
-        entry.unwrap().file_name().into_string().unwrap()
-    }).filter(|name| name.ends_with(".json")).collect::<Vec<_>>();
-    let mut expected = VECTORS.iter().map(|file| file.name.to_owned()).collect::<Vec<_>>();
+    let mut actual = std::fs::read_dir(directory)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".json"))
+        .collect::<Vec<_>>();
+    let mut expected = VECTORS
+        .iter()
+        .map(|file| file.name.to_owned())
+        .collect::<Vec<_>>();
     expected.push("index.json".to_owned());
     actual.sort();
     expected.sort();
@@ -457,7 +599,11 @@ fn every_repository_vector_is_listed_and_embedded() {
 fn vector_decoder_rejects_unknown_versions_and_empty_scenarios() {
     for (field, replacement, error) in [
         ("vector_format", Value::from(2), "unknown vector format"),
-        ("contract", Value::from("theatre-mock-playback@2"), "unknown playback contract"),
+        (
+            "contract",
+            Value::from("theatre-mock-playback@2"),
+            "unknown playback contract",
+        ),
         ("id", Value::from(""), "empty vector id"),
         ("id", Value::from("unlisted"), "unknown vector id"),
         ("steps", Value::Array(vec![]), "empty vector steps"),
@@ -478,62 +624,143 @@ fn vector_decoder_rejects_unknown_tags_at_every_semantic_level() {
         ("/initial_state/session/intent/type", "unknown intent type"),
         ("/initial_state/session/intent/cause", "unknown pause cause"),
         ("/initial_state/session/engine", "unknown engine phase"),
-        ("/initial_state/session/interruption", "unknown interruption phase"),
+        (
+            "/initial_state/session/interruption",
+            "unknown interruption phase",
+        ),
         ("/initial_state/session/source/work_id", "unknown work key"),
     ] {
         let mut value = fixture("play-pause.json");
         *value.pointer_mut(pointer).unwrap() = Value::from("future");
         assert_eq!(decode_vector(&value).unwrap_err(), error, "{pointer}");
     }
-    assert_eq!(effect(&serde_json::json!({"type": "rejected", "reason": "future"})), Err("unknown rejection reason"));
+    assert_eq!(
+        effect(&serde_json::json!({"type": "rejected", "reason": "future"})),
+        Err("unknown rejection reason")
+    );
 }
 
 #[test]
 fn vector_decoder_rejects_unknown_fields_in_every_nested_shape() {
     for pointer in [
-        "", "/initial_state", "/initial_state/session", "/initial_state/session/source",
-        "/initial_state/session/intent", "/steps/0", "/steps/0/event", "/steps/0/expected",
-        "/steps/0/expected/state", "/steps/0/expected/effects/0",
-        "/steps/0/expected/effects/0/identity", "/steps/0/expected/effects/0/source",
+        "",
+        "/initial_state",
+        "/initial_state/session",
+        "/initial_state/session/source",
+        "/initial_state/session/intent",
+        "/steps/0",
+        "/steps/0/event",
+        "/steps/0/expected",
+        "/steps/0/expected/state",
+        "/steps/0/expected/effects/0",
+        "/steps/0/expected/effects/0/identity",
+        "/steps/0/expected/effects/0/source",
     ] {
         let mut value = fixture("play-pause.json");
-        value.pointer_mut(pointer).unwrap().as_object_mut().unwrap().insert("future".to_owned(), Value::Null);
-        assert_eq!(decode_vector(&value).unwrap_err(), "unexpected object fields", "{pointer}");
+        value
+            .pointer_mut(pointer)
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .insert("future".to_owned(), Value::Null);
+        assert_eq!(
+            decode_vector(&value).unwrap_err(),
+            "unexpected object fields",
+            "{pointer}"
+        );
     }
     let mut restore = fixture("restore-session.json");
-    restore["steps"][0]["event"]["snapshot"].as_object_mut().unwrap().insert("future".to_owned(), Value::Null);
-    assert_eq!(decode_vector(&restore).unwrap_err(), "unexpected object fields");
+    restore["steps"][0]["event"]["snapshot"]
+        .as_object_mut()
+        .unwrap()
+        .insert("future".to_owned(), Value::Null);
+    assert_eq!(
+        decode_vector(&restore).unwrap_err(),
+        "unexpected object fields"
+    );
 }
 
 #[test]
 fn vector_decoder_rejects_missing_fields_and_invalid_integer_bounds() {
     let mut missing = fixture("play-pause.json");
-    missing["initial_state"].as_object_mut().unwrap().remove("session");
-    assert_eq!(decode_vector(&missing).unwrap_err(), "unexpected object fields");
+    missing["initial_state"]
+        .as_object_mut()
+        .unwrap()
+        .remove("session");
+    assert_eq!(
+        decode_vector(&missing).unwrap_err(),
+        "unexpected object fields"
+    );
     for (pointer, replacement, error) in [
-        ("/initial_state/generation", Value::from(4_294_967_296_u64), "unsigned integer out of bounds"),
-        ("/initial_state/session/source/episode_index", Value::from(65_536), "unsigned integer out of bounds"),
-        ("/initial_state/session/source/duration_ms", Value::from(0), "invalid source"),
-        ("/initial_state/session/position_ms", Value::from(u32::MAX), "snapshot position out of bounds"),
-        ("/initial_state/session/speed_permille", Value::from(999), "unsupported snapshot speed"),
-        ("/initial_state/generation", Value::from(-1), "expected unsigned integer"),
-        ("/initial_state/generation", Value::from(1.5), "expected unsigned integer"),
+        (
+            "/initial_state/generation",
+            Value::from(4_294_967_296_u64),
+            "unsigned integer out of bounds",
+        ),
+        (
+            "/initial_state/session/source/episode_index",
+            Value::from(65_536),
+            "unsigned integer out of bounds",
+        ),
+        (
+            "/initial_state/session/source/duration_ms",
+            Value::from(0),
+            "invalid source",
+        ),
+        (
+            "/initial_state/session/position_ms",
+            Value::from(u32::MAX),
+            "snapshot position out of bounds",
+        ),
+        (
+            "/initial_state/session/speed_permille",
+            Value::from(999),
+            "unsupported snapshot speed",
+        ),
+        (
+            "/initial_state/generation",
+            Value::from(-1),
+            "expected unsigned integer",
+        ),
+        (
+            "/initial_state/generation",
+            Value::from(1.5),
+            "expected unsigned integer",
+        ),
     ] {
         let mut value = fixture("play-pause.json");
         *value.pointer_mut(pointer).unwrap() = replacement;
         assert_eq!(decode_vector(&value).unwrap_err(), error, "{pointer}");
     }
-    assert_eq!(event(&serde_json::json!({"type": "skip_requested", "delta_ms": 2_147_483_648_u64})), Err("signed integer out of bounds"));
-    assert_eq!(event(&serde_json::json!({"type": "interruption_ended", "resume_allowed": 1})), Err("expected boolean"));
+    assert_eq!(
+        event(&serde_json::json!({"type": "skip_requested", "delta_ms": 2_147_483_648_u64})),
+        Err("signed integer out of bounds")
+    );
+    assert_eq!(
+        event(&serde_json::json!({"type": "interruption_ended", "resume_allowed": 1})),
+        Err("expected boolean")
+    );
 }
 
 #[test]
 fn inventory_decoder_rejects_unlisted_duplicate_missing_and_unknown_fields() {
     for (pointer, replacement, error) in [
         ("/vector_format", Value::from(2), "unknown vector format"),
-        ("/contract", Value::from("theatre-mock-playback@2"), "unknown playback contract"),
-        ("/vectors/0/file", Value::from("unlisted.json"), "unknown vector file"),
-        ("/vectors/0/sha256", Value::from("not-a-digest"), "invalid sha256"),
+        (
+            "/contract",
+            Value::from("theatre-mock-playback@2"),
+            "unknown playback contract",
+        ),
+        (
+            "/vectors/0/file",
+            Value::from("unlisted.json"),
+            "unknown vector file",
+        ),
+        (
+            "/vectors/0/sha256",
+            Value::from("not-a-digest"),
+            "invalid sha256",
+        ),
     ] {
         let mut value: Value = serde_json::from_str(INDEX).unwrap();
         *value.pointer_mut(pointer).unwrap() = replacement;
@@ -547,7 +774,12 @@ fn inventory_decoder_rejects_unlisted_duplicate_missing_and_unknown_fields() {
     assert_eq!(decode_index(&missing), Err("incomplete vector inventory"));
     for pointer in ["", "/vectors/0"] {
         let mut value: Value = serde_json::from_str(INDEX).unwrap();
-        value.pointer_mut(pointer).unwrap().as_object_mut().unwrap().insert("future".to_owned(), Value::Null);
+        value
+            .pointer_mut(pointer)
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .insert("future".to_owned(), Value::Null);
         assert_eq!(decode_index(&value), Err("unexpected object fields"));
     }
 }

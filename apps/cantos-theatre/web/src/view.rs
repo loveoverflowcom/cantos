@@ -1,12 +1,23 @@
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    application::catalog::Scenario,
+    features::{
+        common::*,
+        discovery::Discover,
+        explore::Explore,
+        library::Library,
+        player::{MiniPlayer, Player},
+        queue::Queue,
+        work_detail::WorkDetail,
+    },
+    messages::{self, Key, Locale},
+    platform,
+};
 use cantos_ui::{
     Container, ContainerWidth, Density, EmptyState, Select, Space, Stack, Surface, SurfaceTone,
     Theme, UiRoot,
 };
 use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, application::catalog::Scenario,
-    features::{common::*, discovery::Discover, explore::Explore, work_detail::WorkDetail,
-        library::Library, player::{Player, MiniPlayer}, queue::Queue},
-    messages::{self, Key}, platform};
 
 #[component]
 pub fn Theatre() -> impl IntoView {
@@ -17,7 +28,9 @@ pub fn Theatre() -> impl IntoView {
     Effect::new(move |_| {
         let route = ctx.route.get();
         let title = match route {
-            Route::Work(id) => ctx.format(Key::PageTitle, &[("page", ctx.work(id).title.to_owned())]),
+            Route::Work(id) => {
+                ctx.format(Key::PageTitle, &[("page", ctx.work(id).title.to_owned())])
+            }
             route => messages::page_title(ctx.locale.get(), route),
         };
         platform::set_title(&title);
@@ -76,14 +89,17 @@ fn Navigation(ctx: TheatreContext) -> impl IntoView {
         (Route::Player, Key::Player, "headphones"),
         (Route::Settings, Key::Settings, "settings"),
         (Route::Account, Key::Account, "smartphone"),
-    ].into_iter().map(move |(route, label, asset)| {
+    ]
+    .into_iter()
+    .map(move |(route, label, asset)| {
         view! {
             <a class="theatre-nav-link" href=route.hash()
                 aria-current=move || (ctx.route.get() == route).then_some("page")>
                 {icon(asset)}<span>{move || ctx.text(label)}</span>
             </a>
         }
-    }).collect_view()
+    })
+    .collect_view()
 }
 
 #[component]
@@ -156,7 +172,14 @@ pub(crate) fn Recovery(ctx: TheatreContext, title: Key, help: Key) -> impl IntoV
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::{ids::{EpisodeId, WorkId}, listening::library::Bookmark}, features::player::{position_label, TransportAction}, messages::Locale};
+    use crate::{
+        core::{
+            ids::{EpisodeId, WorkId},
+            listening::library::Bookmark,
+        },
+        features::player::{position_label, TransportAction},
+        messages::Locale,
+    };
 
     #[test]
     fn listener_title_is_the_user_facing_name() {
@@ -176,7 +199,9 @@ mod tests {
             assert!(html.contains("aria-label=\"Điều hướng chính\""));
             assert!(html.contains("aria-current=\"page\""));
             assert!(!html.contains("Cantos Theatre"));
-            for forbidden in ["<audio", "<video", "/api/v1/", "session-token", "/studio"] { assert!(!html.contains(forbidden), "{forbidden}"); }
+            for forbidden in ["<audio", "<video", "/api/v1/", "session-token", "/studio"] {
+                assert!(!html.contains(forbidden), "{forbidden}");
+            }
         });
     }
     #[test]
@@ -185,7 +210,10 @@ mod tests {
             let ctx = TheatreContext::new(NodeRef::new());
             ctx.locale.set(Locale::English);
             ctx.add_bookmark();
-            ctx.open_episode(EpisodeId { work: WorkId::River, index: 0 });
+            ctx.open_episode(EpisodeId {
+                work: WorkId::River,
+                index: 0,
+            });
             assert_eq!(ctx.route.get_untracked(), Route::Player);
             let html = view! { <Player ctx=ctx/> }.to_html();
             assert!(html.contains("Ngọn đèn đầu ngõ"));
@@ -193,7 +221,13 @@ mod tests {
             assert!(html.contains("Mock position"));
             assert!(html.contains("theatre-position"));
             assert!(html.contains("Not integrated in this mock"));
-            ctx.resume_bookmark(Bookmark { episode: EpisodeId { work: WorkId::Mountain, index: 2 }, position_ms: 768000 });
+            ctx.resume_bookmark(Bookmark {
+                episode: EpisodeId {
+                    work: WorkId::Mountain,
+                    index: 2,
+                },
+                position_ms: 768000,
+            });
             assert_eq!(position_label(ctx), "12:48 / 28:42");
             ctx.route.set(Route::Discover);
             let identity = ctx.player.state.get_untracked().identity();
@@ -217,8 +251,10 @@ mod tests {
             assert!(!sought.contains("Simulate from the beginning"));
             ctx.toggle_transport();
             assert_eq!(ctx.player.snapshot().unwrap().position_ms, 30000);
-            assert_eq!(ctx.player.state.get_untracked().status(), crate::core::playback::Status::Simulating);
+            assert_eq!(
+                ctx.player.state.get_untracked().status(),
+                crate::core::playback::Status::Simulating
+            );
         });
     }
-
 }

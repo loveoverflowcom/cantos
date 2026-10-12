@@ -1,8 +1,12 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::context::TheatreContext, application::catalog::Scenario,
-    core::catalog::Genre, messages::{self, Key}};
 use super::common::*;
+use crate::{
+    app::context::TheatreContext,
+    application::catalog::Scenario,
+    core::catalog::Genre,
+    messages::{self, Key},
+};
+use leptos::prelude::*;
 
 #[component]
 pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
@@ -11,11 +15,20 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
     let matches = Memo::new(move |_| {
         let query = query.get().trim().to_lowercase();
         let genre = genre.get();
-        ctx.catalog.state.get().ids().into_iter().filter(|id| {
-            let item = ctx.work(*id);
-            (genre == Genre::All || genre == item.genre)
-                && (query.is_empty() || format!("{} {}", item.title, item.synopsis).to_lowercase().contains(&query))
-        }).collect::<Vec<_>>()
+        ctx.catalog
+            .state
+            .get()
+            .ids()
+            .into_iter()
+            .filter(|id| {
+                let item = ctx.work(*id);
+                (genre == Genre::All || genre == item.genre)
+                    && (query.is_empty()
+                        || format!("{} {}", item.title, item.synopsis)
+                            .to_lowercase()
+                            .contains(&query))
+            })
+            .collect::<Vec<_>>()
     });
     view! {
         <PageHeading ctx=ctx title=Key::Explore/>

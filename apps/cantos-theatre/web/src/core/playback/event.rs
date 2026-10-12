@@ -2,21 +2,47 @@ use super::state::{CallbackIdentity, PlayerState, ResumeSnapshot, Source};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
-    SourceSelected { source: Source, position_ms: u32 },
+    SourceSelected {
+        source: Source,
+        position_ms: u32,
+    },
     PlayRequested,
     PauseRequested,
-    SeekRequested { position_ms: u32 },
-    SkipRequested { delta_ms: i32 },
-    SpeedRequested { speed_permille: u16 },
-    RestoreRequested { snapshot: ResumeSnapshot },
+    SeekRequested {
+        position_ms: u32,
+    },
+    SkipRequested {
+        delta_ms: i32,
+    },
+    SpeedRequested {
+        speed_permille: u16,
+    },
+    RestoreRequested {
+        snapshot: ResumeSnapshot,
+    },
     InterruptionBegan,
-    InterruptionEnded { resume_allowed: bool },
-    EngineReady { identity: CallbackIdentity },
-    EngineStarted { identity: CallbackIdentity },
-    EnginePaused { identity: CallbackIdentity },
-    EngineBuffering { identity: CallbackIdentity },
-    EnginePosition { identity: CallbackIdentity, position_ms: u32 },
-    EngineEnded { identity: CallbackIdentity },
+    InterruptionEnded {
+        resume_allowed: bool,
+    },
+    EngineReady {
+        identity: CallbackIdentity,
+    },
+    EngineStarted {
+        identity: CallbackIdentity,
+    },
+    EnginePaused {
+        identity: CallbackIdentity,
+    },
+    EngineBuffering {
+        identity: CallbackIdentity,
+    },
+    EnginePosition {
+        identity: CallbackIdentity,
+        position_ms: u32,
+    },
+    EngineEnded {
+        identity: CallbackIdentity,
+    },
 }
 
 /// Complete current-generation facts, so a command never depends on a stale prepare.
@@ -29,7 +55,14 @@ pub struct EngineCommand {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Rejection { NoSession, Interrupted, OutOfBounds, UnsupportedSpeed, GenerationExhausted, InvalidSource }
+pub enum Rejection {
+    NoSession,
+    Interrupted,
+    OutOfBounds,
+    UnsupportedSpeed,
+    GenerationExhausted,
+    InvalidSource,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Effect {

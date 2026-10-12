@@ -1,5 +1,11 @@
 //! Typed resources for the mock only; Vietnamese content fixtures never change with UI locale.
-use crate::{app::routes::Route, core::{catalog::Genre, playback::{PauseCause, Status}}};
+use crate::{
+    app::routes::Route,
+    core::{
+        catalog::Genre,
+        playback::{PauseCause, Status},
+    },
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Locale {
@@ -169,9 +175,11 @@ resources! {
 }
 
 pub fn format(key: Key, locale: Locale, values: &[(&str, String)]) -> String {
-    values.iter().fold(text(key, locale).to_owned(), |message, (name, value)| {
-        message.replace(&format!("{{{name}}}"), value)
-    })
+    values
+        .iter()
+        .fold(text(key, locale).to_owned(), |message, (name, value)| {
+            message.replace(&format!("{{{name}}}"), value)
+        })
 }
 
 pub fn episode_count(locale: Locale, count: usize) -> String {
@@ -185,19 +193,41 @@ pub fn episode_count(locale: Locale, count: usize) -> String {
 pub fn spoken_time(locale: Locale, position: u32) -> String {
     let minutes = position / 60;
     let seconds = position % 60;
-    let minute_key = if locale == Locale::English && minutes == 1 { Key::MinuteOne } else { Key::MinuteOther };
-    let second_key = if locale == Locale::English && seconds == 1 { Key::SecondOne } else { Key::SecondOther };
-    format(Key::SpokenTime, locale, &[
-        ("minutes", format(minute_key, locale, &[("count", minutes.to_string())])),
-        ("seconds", format(second_key, locale, &[("count", seconds.to_string())])),
-    ])
+    let minute_key = if locale == Locale::English && minutes == 1 {
+        Key::MinuteOne
+    } else {
+        Key::MinuteOther
+    };
+    let second_key = if locale == Locale::English && seconds == 1 {
+        Key::SecondOne
+    } else {
+        Key::SecondOther
+    };
+    format(
+        Key::SpokenTime,
+        locale,
+        &[
+            (
+                "minutes",
+                format(minute_key, locale, &[("count", minutes.to_string())]),
+            ),
+            (
+                "seconds",
+                format(second_key, locale, &[("count", seconds.to_string())]),
+            ),
+        ],
+    )
 }
 
 pub fn position_description(locale: Locale, position: u32, duration: u32) -> String {
-    format(Key::SpokenTimeOf, locale, &[
-        ("elapsed", spoken_time(locale, position)),
-        ("total", spoken_time(locale, duration)),
-    ])
+    format(
+        Key::SpokenTimeOf,
+        locale,
+        &[
+            ("elapsed", spoken_time(locale, position)),
+            ("total", spoken_time(locale, duration)),
+        ],
+    )
 }
 
 pub fn page_title(locale: Locale, route: Route) -> String {
@@ -209,7 +239,11 @@ pub fn page_title(locale: Locale, route: Route) -> String {
 }
 
 pub fn speed_label(locale: Locale, speed: u16) -> String {
-    let separator = if locale == Locale::Vietnamese { ',' } else { '.' };
+    let separator = if locale == Locale::Vietnamese {
+        ','
+    } else {
+        '.'
+    };
     format!("{}{separator}{:02}×", speed / 100, speed % 100)
 }
 
@@ -255,7 +289,11 @@ mod tests {
     use std::collections::BTreeSet;
 
     fn placeholders(value: &str) -> BTreeSet<&str> {
-        value.split('{').skip(1).filter_map(|part| part.split_once('}').map(|pair| pair.0)).collect()
+        value
+            .split('{')
+            .skip(1)
+            .filter_map(|part| part.split_once('}').map(|pair| pair.0))
+            .collect()
     }
 
     #[test]

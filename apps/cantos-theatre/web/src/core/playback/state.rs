@@ -9,10 +9,17 @@ pub struct Source {
 
 impl Source {
     pub fn new(episode: EpisodeId, duration_ms: u32) -> Option<Self> {
-        (duration_ms > 0 && episode.index <= 65535).then_some(Self { episode, duration_ms })
+        (duration_ms > 0 && episode.index <= 65535).then_some(Self {
+            episode,
+            duration_ms,
+        })
     }
-    pub const fn episode(self) -> EpisodeId { self.episode }
-    pub const fn duration_ms(self) -> u32 { self.duration_ms }
+    pub const fn episode(self) -> EpisodeId {
+        self.episode
+    }
+    pub const fn duration_ms(self) -> u32 {
+        self.duration_ms
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,15 +29,39 @@ pub struct CallbackIdentity {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PauseCause { User, Interruption, ColdRestore }
+pub enum PauseCause {
+    User,
+    Interruption,
+    ColdRestore,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Intent { Play, Pause(PauseCause) }
+pub enum Intent {
+    Play,
+    Pause(PauseCause),
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Engine { Preparing, Ready, Running, Paused, Buffering, Ended }
+pub enum Engine {
+    Preparing,
+    Ready,
+    Running,
+    Paused,
+    Buffering,
+    Ended,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Interruption { None, Active }
+pub enum Interruption {
+    None,
+    Active,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status { Idle, Loading, Paused(PauseCause), Simulating, Buffering, Ended }
+pub enum Status {
+    Idle,
+    Loading,
+    Paused(PauseCause),
+    Simulating,
+    Buffering,
+    Ended,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResumeSnapshot {
@@ -50,14 +81,30 @@ pub struct PlaybackSession {
 }
 
 impl PlaybackSession {
-    pub const fn source(&self) -> Source { self.source }
-    pub const fn position_ms(&self) -> u32 { self.position_ms }
-    pub const fn speed_permille(&self) -> u16 { self.speed_permille }
-    pub const fn intent(&self) -> Intent { self.intent }
-    pub const fn engine(&self) -> Engine { self.engine }
-    pub const fn interruption(&self) -> Interruption { self.interruption }
+    pub const fn source(&self) -> Source {
+        self.source
+    }
+    pub const fn position_ms(&self) -> u32 {
+        self.position_ms
+    }
+    pub const fn speed_permille(&self) -> u16 {
+        self.speed_permille
+    }
+    pub const fn intent(&self) -> Intent {
+        self.intent
+    }
+    pub const fn engine(&self) -> Engine {
+        self.engine
+    }
+    pub const fn interruption(&self) -> Interruption {
+        self.interruption
+    }
     pub fn snapshot(&self) -> ResumeSnapshot {
-        ResumeSnapshot { source: self.source, position_ms: self.position_ms, speed_permille: self.speed_permille }
+        ResumeSnapshot {
+            source: self.source,
+            position_ms: self.position_ms,
+            speed_permille: self.speed_permille,
+        }
     }
 }
 
@@ -68,17 +115,34 @@ pub struct PlayerState {
 }
 
 impl PlayerState {
-    pub const fn generation(&self) -> u32 { self.generation }
-    pub fn session(&self) -> Option<&PlaybackSession> { self.session.as_ref() }
-    pub fn identity(&self) -> Option<CallbackIdentity> {
-        self.session.as_ref().map(|session| CallbackIdentity { episode: session.source.episode, generation: self.generation })
+    pub const fn generation(&self) -> u32 {
+        self.generation
     }
-    pub fn accepts(&self, identity: CallbackIdentity) -> bool { self.identity() == Some(identity) }
+    pub fn session(&self) -> Option<&PlaybackSession> {
+        self.session.as_ref()
+    }
+    pub fn identity(&self) -> Option<CallbackIdentity> {
+        self.session.as_ref().map(|session| CallbackIdentity {
+            episode: session.source.episode,
+            generation: self.generation,
+        })
+    }
+    pub fn accepts(&self, identity: CallbackIdentity) -> bool {
+        self.identity() == Some(identity)
+    }
     pub fn status(&self) -> Status {
-        let Some(session) = &self.session else { return Status::Idle; };
-        if session.engine == Engine::Ended { return Status::Ended; }
-        if let Intent::Pause(cause) = session.intent { return Status::Paused(cause); }
-        if session.interruption == Interruption::Active { return Status::Paused(PauseCause::Interruption); }
+        let Some(session) = &self.session else {
+            return Status::Idle;
+        };
+        if session.engine == Engine::Ended {
+            return Status::Ended;
+        }
+        if let Intent::Pause(cause) = session.intent {
+            return Status::Paused(cause);
+        }
+        if session.interruption == Interruption::Active {
+            return Status::Paused(PauseCause::Interruption);
+        }
         match session.engine {
             Engine::Running => Status::Simulating,
             Engine::Buffering => Status::Buffering,
@@ -88,4 +152,6 @@ impl PlayerState {
     }
 }
 
-pub(super) fn supported_speed(speed: u16) -> bool { [750, 1000, 1250, 1500, 2000].contains(&speed) }
+pub(super) fn supported_speed(speed: u16) -> bool {
+    [750, 1000, 1250, 1500, 2000].contains(&speed)
+}

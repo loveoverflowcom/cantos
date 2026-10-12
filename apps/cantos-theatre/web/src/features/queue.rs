@@ -1,7 +1,12 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, messages::Key, platform, view::Recovery};
 use super::common::*;
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    messages::Key,
+    platform,
+    view::Recovery,
+};
+use leptos::prelude::*;
 
 #[component]
 pub(crate) fn Queue(ctx: TheatreContext) -> impl IntoView {

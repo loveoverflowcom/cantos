@@ -1,8 +1,12 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, application::catalog::Scenario,
-    core::ids::{EpisodeId, WorkId}, messages::{self, Key}};
 use super::common::*;
+use crate::{
+    app::context::TheatreContext,
+    application::catalog::Scenario,
+    core::ids::{EpisodeId, WorkId},
+    messages::{self, Key},
+};
+use leptos::prelude::*;
 
 #[component]
 pub(crate) fn WorkDetail(ctx: TheatreContext, id: WorkId) -> impl IntoView {
@@ -32,7 +36,9 @@ pub(crate) fn WorkDetail(ctx: TheatreContext, id: WorkId) -> impl IntoView {
 
 #[component]
 pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
-    let Some(episode) = ctx.episode(id) else { return ().into_any(); };
+    let Some(episode) = ctx.episode(id) else {
+        return ().into_any();
+    };
     view! {
         <li class="theatre-episode-row" data-current=move || ctx.player.view.get().is_some_and(|player| player.episode == id)>
             <span class="theatre-episode-number">{format!("{:02}", id.index + 1)}</span>

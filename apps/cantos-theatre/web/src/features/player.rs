@@ -1,16 +1,29 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route},
-    core::{listening::library::Bookmark, playback::{Event, Intent, Status}},
-    messages::{self, Key}, view::Recovery};
 use super::common::*;
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    core::{
+        listening::library::Bookmark,
+        playback::{Event, Intent, Status},
+    },
+    messages::{self, Key},
+    view::Recovery,
+};
+use leptos::prelude::*;
 
 pub(crate) fn position_label(ctx: TheatreContext) -> String {
-    ctx.player.view.get().map(|player| format!("{} / {}", clock(player.position), clock(player.duration))).unwrap_or_default()
+    ctx.player
+        .view
+        .get()
+        .map(|player| format!("{} / {}", clock(player.position), clock(player.duration)))
+        .unwrap_or_default()
 }
 
 #[component]
-pub(crate) fn TransportAction(ctx: TheatreContext, #[prop(optional)] compact: bool) -> impl IntoView {
+pub(crate) fn TransportAction(
+    ctx: TheatreContext,
+    #[prop(optional)] compact: bool,
+) -> impl IntoView {
     view! {
         <button type="button" class="theatre-action theatre-transport" data-compact=compact
             on:click=move |_| ctx.toggle_transport() aria-describedby="theatre-demo-notice">

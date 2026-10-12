@@ -1,8 +1,12 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use leptos::prelude::*;
-use crate::{app::context::TheatreContext, application::catalog::Scenario,
-    core::ids::{EpisodeId, WorkId}, messages::Key};
 use super::{common::*, library::ContinueCard};
+use crate::{
+    app::{context::TheatreContext, routes::Route},
+    application::catalog::Scenario,
+    core::ids::{EpisodeId, WorkId},
+    messages::Key,
+};
+use leptos::prelude::*;
 
 #[component]
 pub(crate) fn Discover(ctx: TheatreContext) -> impl IntoView {

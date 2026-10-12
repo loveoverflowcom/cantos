@@ -1,6 +1,10 @@
 //! Concrete consumer boundaries; mock adapters implement these ports in this app.
-use crate::core::{catalog::Work, ids::WorkId, playback::{Effect, Event}};
 use super::catalog::{CatalogRequest, CatalogResponse};
+use crate::core::{
+    catalog::Work,
+    ids::WorkId,
+    playback::{Effect, Event},
+};
 
 pub trait CatalogPort {
     fn work(&self, id: WorkId) -> Work;
