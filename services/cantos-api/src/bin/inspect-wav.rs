@@ -8,7 +8,9 @@ use std::{
     process::ExitCode,
 };
 
-use cantos_api::wav_inspection::{inspect_wav, Structure, MAX_RIFF_FILE_BYTES};
+use cantos_api::contexts::synthesis::media::wav_inspection::{
+    inspect_wav, Structure, MAX_RIFF_FILE_BYTES,
+};
 
 const USAGE: &str = "usage: inspect-wav <file.wav> [--max-bytes <n>]";
 /// Fits about one hour of 48 kHz stereo 24-bit PCM; raise it explicitly for longer masters.

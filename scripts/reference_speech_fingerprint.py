@@ -3,7 +3,7 @@
 
 It rebuilds the canonical effective-input document and its SHA-256 identity from the field
 rules in packages/contracts/clip-reuse-v1.md using only the Python standard library. It shares
-no code with `services/cantos-api/src/speech_fingerprint.rs`: Rust agreeing with
+no code with `services/cantos-api/src/contexts/synthesis/domain/fingerprint.rs`: Rust agreeing with
 `packages/contracts/fixtures/clip-reuse/v1/speech-vectors.json` is evidence about the contract,
 not about one implementation reproducing itself.
 

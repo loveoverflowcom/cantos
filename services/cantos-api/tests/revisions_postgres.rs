@@ -5,8 +5,8 @@ use axum::{
     Router,
 };
 use cantos_api::{
-    http::{router, AppState},
-    postgres::{local_config, migrate, token_hash, Store, StoreError},
+    interfaces::http::{router, AppState},
+    platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
     script_ir::read_script,
 };
 use cantos_contracts::{
@@ -431,7 +431,7 @@ async fn editorial_reviews_are_pinned_replayable_owner_only_and_history_is_bound
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
 async fn source_bytes_operator_credentials_and_review_rollback_cross_real_boundaries() {
-    use cantos_api::operator;
+    use cantos_api::platform::operator;
     let h = Harness::new(None).await;
     let script = Uuid::new_v4().to_string();
     let original = "Người dẫn chuyện\r\n  Bản thảo gốc.\n";

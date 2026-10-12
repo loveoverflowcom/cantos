@@ -180,7 +180,7 @@ passed the existing WAV inspector's neural profile and independent Python `wave`
 including nonempty, nonzero PCM and scoped receipt inspection.
 
 The [helper source](../../scripts/vieneu_nano_runtime.py) and
-[pure admission contract](../../services/cantos-api/src/tts/neural_contract.rs) are implemented boundaries.
+[pure admission contract](../../services/cantos-api/src/contexts/production/domain/catalog/neural.rs) are implemented boundaries.
 Their existence alone does not prove safeguards; fresh live and fault evidence is linked below.
 The process boundary
 must enforce current research eligibility, bounded input/output, deadline/resources, child

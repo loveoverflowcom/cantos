@@ -1,4 +1,4 @@
-use cantos_api::production::{
+use cantos_api::contexts::production::{
     admit_frozen_document, authorize_inputs, estimate_cost, evaluate_snapshot, prepare_inputs,
     production_catalog, production_input_digest, validate_rights_declaration, validate_settings,
     MAX_MONEY_MINOR,
@@ -255,7 +255,10 @@ fn reference_catalog_and_resolved_inputs_make_no_running_voice_or_billing_claim(
     assert_eq!(local.provider_id, "espeak-ng-local");
     assert!(!local.reference_only && !local.billable_dispatch_available);
     let neural = &catalog.capabilities[3];
-    assert_eq!(neural, &cantos_api::tts::neural_contract::capability());
+    assert_eq!(
+        neural,
+        &cantos_api::contexts::production::catalog::neural::capability()
+    );
     assert_eq!(neural.voice_ids, ["duc-tri", "my-duyen"]);
     assert!(!neural.billable_dispatch_available);
     let google: Vec<_> = catalog.capabilities[4..]

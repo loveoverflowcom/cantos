@@ -82,7 +82,7 @@ def make_document(dialogues):
 
 def source_queries():
     """Extract the real SQL, failing closed on code drift instead of benchmarking a stale copy."""
-    source = (ROOT / "services/cantos-api/src/postgres.rs").read_text()
+    source = (ROOT / "services/cantos-api/src/platform/postgres/mod.rs").read_text()
     columns = re.search(r'const REVISION_COLUMNS: &str = ("(?:\\.|[^"\\])*");', source)
     if columns is None:
         raise RuntimeError("revision projection changed; update the read inventory/harness")
@@ -546,7 +546,7 @@ def main():
               "hardware": run(["sysctl", "-n", "machdep.cpu.brand_string", "hw.memsize", "hw.logicalcpu"]),
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
-                                ("services/cantos-api/src/postgres.rs", "services/cantos-api/src/http.rs",
+                                ("services/cantos-api/src/platform/postgres/mod.rs", "services/cantos-api/src/interfaces/http/mod.rs",
                                  "services/cantos-api/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:

@@ -2,9 +2,11 @@
 use std::{env, path::PathBuf, process::ExitCode};
 
 use cantos_api::{
-    jobs::LeaseDuration,
-    postgres::{local_config, Store},
-    worker::{run_worker, Failpoint, WorkerConfig, WorkerProvider},
+    contexts::synthesis::{
+        jobs::LeaseDuration,
+        worker::{run_worker, Failpoint, WorkerConfig, WorkerProvider},
+    },
+    platform::postgres::{local_config, Store},
 };
 
 const USAGE: &str = "usage: cantos-worker --output-root <absolute-private-directory> --worker-id <id> [--once] [--lease-seconds <1..300>] (--local-espeak <absolute-runtime> | --test-fake [--failpoint <after_claim|before_reuse|after_intent|after_provider|after_observation|before_accept|after_accept>]); requires CANTOS_ENV=development and CANTOS_DATABASE_URL";

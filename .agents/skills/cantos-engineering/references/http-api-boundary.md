@@ -8,7 +8,7 @@
 Listener-facing contracts are owned by [`cantos-listening`](../../cantos-listening/references/listener-api.md);
 this reference owns the general shape every endpoint follows. Implemented today: the Studio v1,
 manuscript import, adaptation and production-input contracts in
-[`services/cantos-api/src/http`](../../../../services/cantos-api/src/http.rs) (`studio`, `theatre`, `admin`), each with a
+[`services/cantos-api/src/http`](../../../../services/cantos-api/src/interfaces/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
 no generated client and no listener API yet. Whether a route also carries MessagePack is owned by

@@ -1,20 +1,12 @@
-//! One modular backend; Script IR and revision decisions are independent of adapters.
-
-pub mod adaptation;
-pub mod clip_probe;
-pub mod clip_reuse;
-mod diagnostics;
-pub mod http;
-pub mod imports;
-pub mod incremental;
-pub mod jobs;
-pub mod operator;
-pub mod postgres;
-pub mod production;
-pub mod regeneration;
-pub mod revisions;
+//! One modular backend, organized by bounded context.
+//!
+//! - [`script_ir`] is the versioned Script IR shared kernel every context reads and writes.
+//! - [`contexts`] holds the business capabilities: pure `domain` rules, `application` use cases
+//!   and each context's own PostgreSQL adapter.
+//! - [`interfaces`] maps HTTP onto those use cases and decides nothing itself.
+//! - [`platform`] is technical plumbing with no business rule: the connection pool and
+//!   migrations, session tokens, operator tools and the engine-independent incremental core.
+pub mod contexts;
+pub mod interfaces;
+pub mod platform;
 pub mod script_ir;
-pub mod speech_fingerprint;
-pub mod tts;
-pub mod wav_inspection;
-pub mod worker;
