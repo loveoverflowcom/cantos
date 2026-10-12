@@ -9,8 +9,8 @@ use clap::{Subcommand, ValueEnum};
 use crate::{
     command::{CommandSpec, Runner},
     config::{
-        loopback, UI_CMP_DIR, UI_LEPTOS_DIR, UI_PACKAGE, UI_PREVIEW_DIST, UI_PREVIEW_MARKER,
-        UI_PREVIEW_PORT, WASM_TARGET,
+        loopback, UI_CMP_ANDROID_DIR, UI_CMP_DIR, UI_LEPTOS_DIR, UI_PACKAGE, UI_PREVIEW_DIST,
+        UI_PREVIEW_MARKER, UI_PREVIEW_PORT, WASM_TARGET,
     },
     gate::Gate,
     pipeline::{self, Step},
@@ -34,6 +34,8 @@ pub enum Renderer {
 pub enum PreviewAction {
     /// Compile the package-local preview (Trunk or compileKotlinDesktop).
     Build,
+    /// Compile the isolated CMP Android preview library; does not launch an IDE or device.
+    AndroidBuild,
     /// Supervise only the preview process until Ctrl-C or desktop window closure.
     Run {
         /// Open the Leptos preview in a browser once its own title is ready.
@@ -103,6 +105,20 @@ pub fn cmp_command(workspace: &Workspace, task: &str) -> CommandSpec {
 
 pub fn cmp_tools() -> Vec<Tool> {
     vec![Tool::Gradle, Tool::Java, Tool::CmpGradleProject]
+}
+
+pub fn android_build_steps(workspace: &Workspace) -> Vec<Step> {
+    vec![Step::new(
+        "cmp-ui-preview Android build",
+        &[Tool::Gradle, Tool::Java, Tool::CmpAndroidGradleProject],
+        vec![CommandSpec::new("gradle", workspace.root()).args([
+            "--project-dir",
+            UI_CMP_ANDROID_DIR,
+            "--no-daemon",
+            "-Dorg.gradle.java.installations.auto-download=false",
+            "compileDebugKotlinAndroid",
+        ])],
+    )]
 }
 
 pub fn build_steps(workspace: &Workspace, renderer: Renderer) -> Vec<Step> {
@@ -236,6 +252,15 @@ pub fn execute(
 ) -> Result<ExitCode> {
     let steps = match action {
         PreviewAction::Build => build_steps(workspace, renderer),
+        PreviewAction::AndroidBuild => {
+            if renderer != Renderer::Cmp {
+                eprintln!(
+                    "xtask: error: android-build applies only to the CMP Android preview library"
+                );
+                return Ok(ExitCode::from(2));
+            }
+            android_build_steps(workspace)
+        }
         PreviewAction::Verify => verify_steps(workspace, renderer),
         PreviewAction::Run { open } => {
             if renderer == Renderer::Cmp && open {
@@ -323,6 +348,55 @@ mod tests {
             .args
             .windows(2)
             .any(|pair| pair == ["--features", "preview"]));
+    }
+
+    #[test]
+    fn android_build_compiles_only_the_isolated_library_without_launching_an_ide_or_device() {
+        let workspace = workspace();
+        let mut runner = RecordingRunner::default();
+        assert_eq!(
+            execute(
+                &workspace,
+                Renderer::Cmp,
+                PreviewAction::AndroidBuild,
+                &FakeTools::all(),
+                &mut runner
+            )
+            .unwrap(),
+            ExitCode::SUCCESS
+        );
+        assert_eq!(runner.commands.len(), 1);
+        assert_eq!(runner.commands[0].display(workspace.root()),
+            "gradle --project-dir packages/ui-system/cmp/android-preview --no-daemon -Dorg.gradle.java.installations.auto-download=false compileDebugKotlinAndroid");
+        assert!(runner.commands[0].env.is_empty());
+        let mut runner = RecordingRunner::default();
+        assert_eq!(
+            execute(
+                &workspace,
+                Renderer::Leptos,
+                PreviewAction::AndroidBuild,
+                &FakeTools::all(),
+                &mut runner
+            )
+            .unwrap(),
+            ExitCode::from(2)
+        );
+        assert!(runner.commands.is_empty());
+    }
+
+    #[test]
+    fn missing_android_build_prerequisites_never_run_gradle() {
+        for tool in [Tool::Gradle, Tool::Java, Tool::CmpAndroidGradleProject] {
+            let mut runner = RecordingRunner::default();
+            let report = pipeline::execute(
+                "test",
+                &android_build_steps(&workspace()),
+                &FakeTools::without(&[tool]),
+                &mut runner,
+            );
+            assert_eq!(report.outcomes[0].status, Status::Unsupported);
+            assert!(runner.commands.is_empty());
+        }
     }
 
     #[test]

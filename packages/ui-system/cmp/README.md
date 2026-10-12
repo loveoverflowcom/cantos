@@ -1,7 +1,8 @@
 # Cantos CMP UI-system preview
 
 This package is a **development-only preview consumer** of the shared UI system. It now has
-Kotlin Multiplatform `commonMain` component wrappers and a Compose Desktop JVM host. It is
+Kotlin Multiplatform `commonMain` component wrappers, a Compose Desktop JVM host and an isolated
+Android library for Android Studio host previews. It is
 neither Cantos Theatre nor Cantos Studio mobile, and implements no API, authentication,
 navigation shell, downloads, audio session or playback adapter.
 
@@ -17,6 +18,69 @@ read-only mode.
 
 The catalog is for inspecting an individual design and its states **before** adopting it into
 an application. An `implemented-unverified` label is not evidence that a state passed.
+
+### Foundation API ownership
+
+`ComponentState.kt` owns reusable names/reasons, controlled availability and renderer enums;
+`PreviewModel.kt` owns diagnostic discovery/selection. `CantosTheme.kt` owns scoped token mapping,
+validated preferences and native minimum interactive size. Nested themes replace the preview
+text multiplier against the inherited platform font scale; they do not multiply it again.
+`Actions.kt` and `Fields.kt` own their native wrappers, sharing focus/state decoration through
+`ComponentModifiers.kt`. `Choices.kt`, `Navigation.kt`, `Layout.kt` and `Feedback.kt` now own their native contracts;
+`Components.kt` retains the root, field messages and decorative icons. The isolated Android diagnostic host shares these sources directly and adds tooling only.
+
+String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
+caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
+received values promptly and do not normalize composing text. Read-only permits selection changes
+but rejects text/composition edits; disabled/loading blocks all callbacks. The caller owns a
+transition out of active IME composition before locking a field; real platform commit/cancellation
+is still unverified. All overloads expose native `KeyboardOptions`/`KeyboardActions`; custom
+actions are guarded by editability. TextArea exposes positive ordered min/max line limits.
+NumberField keeps raw `0`, empty and incomplete localized decimals; keyboard hints are not numeric
+validation. Blank help/error messages have no visible or semantic error state.
+
+`Button(name, onPress, ..., content)` adds a RowScope content slot with a required localized
+accessible name that includes its visible label. The existing label overload delegates to it.
+For Button/IconButton/FilterChip, `modifier` still applies once to the whole field; new
+`controlModifier` attaches focus, geometry and semantics to the actual native control. It does not
+silently move existing root modifiers. Decorative Icon now inherits the surrounding content tint,
+with an explicit tint override when needed. Focus consumes width/offset and the control's shape;
+text fields use `shape.field`. Parents need spacing for an outset focus ring.
+
+The [session 1 evidence](../../../docs/evidence/cmp-ui-system-session1.md) records 41 executed CMP
+tests and inspected captures. Both previews declare nested-theme, composed-content, selection,
+ime-action and blank-error examples: 29 APIs, 129 scenarios, unchanged 73 tokens. OS Java-window
+input is still blocked, native/mobile/screen-reader/full reference evidence is incomplete and all
+qualifications remain unapproved. Its continuation is recorded below; [session 3](../../../docs/work-plan/016-cmp-ui-system.md#exact-next-task-for-session-3) owns final review/acceptance.
+
+### Controlled choice, navigation, layout and feedback APIs
+
+Choice labels are one full-row native target with guarded callbacks, a control modifier and
+associated help/error/reason. Material's visual checkbox/radio/switch has no second handler.
+Stable-value SelectOption lists support null/missing/empty selection and unavailable options;
+localized placeholder/empty/menu descriptions are required, and external input changes close
+open menus. The fixed-list index overload remains compatible.
+
+RangeField accepts finite in-range values, 0–1000 interior ticks, localized valueText, completion
+and keyboard alternatives. Stepped configurations need finite distinct native Float ticks;
+controlled values match a tick within one ULP. The bounded core uses the actual pinned native
+Float interpolation and rejects collapsed precision before dispatch. Continuous arrow keys move
+one percent of the range, Page keys ten percent; a completed key interaction dispatches completion.
+NumberField still preserves raw text and leaves numeric validation to its caller.
+
+NavTabs is named native in-place selection with keyboard focus and adaptive full-label reflow,
+while Leptos NavTabs retains anchor navigation. Dialog accepts initial/return FocusRequesters
+and native properties; keep it mounted across close, keep targets valid and retain input in the
+caller. Default outside-click dismissal is off. Link/NavItem expose native availability.
+Space controls semantic gap/insets; Reading Surface maps reading shape/type intent; horizontal
+Stack wraps. Loading/Error announcements default Off and support explicit urgency. ErrorState
+has a composable recovery slot and retains its retry overload. Callers own announcement policy.
+
+The [session 2 evidence](../../../docs/evidence/cmp-ui-system-session2.md) records 64 executed JVM
+tests, 13 new opened state captures, bounded Safari counterpart observations and independent
+review. Both catalogues now declare 151 states for the same 29 APIs and unchanged 73 tokens.
+CMP OS-window binding remains BLOCKED; native/mobile/IME/screen-reader/motion/reference acceptance
+remains incomplete. All qualifications stay unapproved before app adoption.
 
 ## Preview contents
 
@@ -58,8 +122,8 @@ trigger. These behaviors still need the named renderer tests and observation bel
 Pinned versions are Kotlin Multiplatform **2.2.20**, Compose compiler **2.2.20**, Compose
 Multiplatform Gradle plugin **1.9.0**, and explicitly stable Material3 **1.8.2**. No experimental
 M3 Expressive alpha widgets are adopted. Material3's minimum interactive-size composition local
-is the one scoped experimental opt-in in `UiRoot`; it follows the selected desktop density.
-No Android Gradle plugin or Xcode target is introduced.
+is the one scoped experimental opt-in in `CantosTheme`; it follows the selected desktop density.
+The isolated Android preview uses Android Gradle plugin 8.11.1; no Xcode target is introduced.
 
 This is a conservative, reproducible desktop foundation rather than a latest-version upgrade.
 The official [Compose 1.9.0 release](https://github.com/JetBrains/compose-multiplatform/releases/tag/v1.9.0)
@@ -69,8 +133,9 @@ permits Gradle 7.6.3–8.14 for Kotlin 2.2.20; the intended Gradle distribution 
 that release family. The [Compose compiler guide](https://kotlinlang.org/docs/multiplatform/compose-compiler.html)
 requires the compiler plugin to use the same Kotlin version. The [desktop compatibility guide](https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html)
 requires JDK 11+ for desktop runtime and JDK 17+ for native packaging; this preview emits JVM 17
-bytecode and does not package an installer. The available host Java is 21. No auto-downloading
-JDK toolchain, unverified wrapper binary, formatter or external plugin is added. A full local
+bytecode and does not package an installer. The integrated acceptance used a full JDK 17.
+The desktop project adds no Android plugin or SDK requirement; the isolated Android host below
+pins its own tooling. No auto-downloading JDK or wrapper executable/JAR is added. A full local
 JDK with `javac` is required for the desktop test lifecycle, even though the source is Kotlin.
 
 Repository operations go through [`cargo xtask`](../../../xtask/README.md), including the
@@ -78,7 +143,48 @@ renderer-specific UI-system build/run/verification routes. Under that surface th
 primitives are `compileKotlinDesktop`, `desktopTest`, and `run`; use the repository routes rather
 than a second root-level script. `MainKt` opens only the local preview window.
 
+## Android Studio host previews
+
+[`android-preview`](android-preview/build.gradle.kts) is a real Android library diagnostic consumer,
+not a Theatre/Studio app. It compiles the existing `commonMain` source directly, keeping the desktop
+project independent of Android SDK setup. Kotlin/Compose/Material3 pins remain the same; AGP
+**8.11.1**, Android tooling **1.9.0**, Gradle **8.14.3**, JDK 17 and compile SDK 35 define this host.
+The diagnostic min SDK 23 does not select a production mobile support floor. See the official
+[AGP compatibility](https://developer.android.com/build/releases/agp-8-11-0-release-notes) and
+[Kotlin compatibility](https://kotlinlang.org/docs/multiplatform/multiplatform-compatibility-guide.html).
+
+```sh
+cargo xtask ui-preview cmp android-build
+cargo xtask compose-preview ui-system-cmp \
+  --file packages/ui-system/cmp/android-preview/src/androidMain/kotlin/com/cantos/ui/preview/AndroidPreviews.kt \
+  --composable AndroidFieldsLightPreview --label fields-light-narrow-vi
+```
+
+Open `android-preview` in Android Studio Quail 2+ and complete Gradle sync first. The IDE distribution
+properties pin Gradle 8.14.3 with its published SHA256; repository builds use the installed pinned
+Gradle through xtask. No wrapper executable/JAR, device, emulator or app install is provided.
+Other specimens are `AndroidChoicesDarkLargePreview`, `AndroidNavigationLightWidePreview` and
+`AndroidNestedThemeDarkLargePreview`. Each wraps actual shared components and registered fixtures
+with explicit Vietnamese locale, width, theme and platform font scale. Open captured PNGs and
+assert the observed semantics separately; neither capture nor compilation proves interaction,
+IME, TalkBack, Android/iOS runtime or production qualification. The two product mobile directories
+remain guides and all 29 component qualifications remain unapproved. The
+[PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records the actual
+build, four inspected PNGs, static semantics assertions and remaining native gates.
+
 ## Tests and evidence boundary
+
+The subsequent three-session Mac sequence has current
+[foundation](../../../docs/evidence/cmp-ui-system-session1.md),
+[interaction](../../../docs/evidence/cmp-ui-system-session2.md) and
+[final review/readiness](../../../docs/evidence/cmp-ui-system-session3.md) records. Its final
+74 executed JVM tests and 26 opened captures establish bounded preview behavior. The registry
+now has 29 APIs and 152 scenarios; production qualification remains 0/29. Range requests are
+finite/bounded and snapped to native ticks; unchanged physical ticks preserve caller decimal
+aliases without callback/completion. Continuous directional steps fall back to the adjacent
+Float if one percent cannot be represented. OS binding, real IME, screen reader, motion,
+Noto/reference and mobile acceptance remain separate. Historical attempts below retain their
+own source/toolchain scope.
 
 `commonTest/PreviewModelTest.kt` checks exact 29-component inventory parity, search/family
 filtering, validated names/reasons, blocked dispatch projections, read-only versus disabled,
@@ -118,7 +224,7 @@ under its normal trusted configuration and the renderer executes them.
 No passing Android/iOS or production runtime claim follows from this package.
 
 The initial [Mac PR41 review](../../../docs/evidence/ui-system-previews.md#mac-reconciliation-and-review-2026-10-11)
-preserves that historical cloud result separately from changed source. The current suite declares
+preserves that historical cloud result separately from changed source. That initial suite declared
 23 tests (10 common, 9 desktop semantics and 4 captures), including filtered selection, named
 Select state and interruption behavior. Select callers provide localized expanded/collapsed
 descriptions; losing availability clears its open menu. Final Mac compilation/tests/window

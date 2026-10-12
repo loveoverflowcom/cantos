@@ -5,6 +5,10 @@ CMP compilation and 23 executed tests. JVM captures and process cleanup are reco
 OS window interaction remains blocked by the UI tool. GitHub owns merge status.
 No component has new two-renderer qualification or production/mobile acceptance.
 
+The subsequent three-session CMP improvement sequence starts from merged PR39/40/41. Its
+[session 1 record](cmp-ui-system-session1.md) owns the new scoped theme/actions/text-field evidence;
+the history below remains attributable to PR41. Qualification remains 0/29.
+
 ## Request and boundary
 
 The user requested two preview apps **inside UI System**, for Leptos and CMP, to declare/display

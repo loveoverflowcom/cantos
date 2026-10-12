@@ -169,6 +169,9 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
     directory = Path(root) / "packages/ui-system" / renderer
     suffixes = {".rs", ".css", ".in", ".html", ".toml", ".lock", ".json", ".svg", ".png", ".ttf", ".otf"} if renderer == "leptos" else {".kt", ".kts", ".properties", ".toml", ".lockfile", ".json", ".xml", ".svg", ".png", ".ttf", ".otf"}
     excluded = {RUST_OUTPUT.relative_to(ROOT), KOTLIN_OUTPUT.relative_to(ROOT)}
+    if renderer == "cmp":
+        # The SDK location is machine-local configuration, not a rendering input.
+        excluded.add(Path("packages/ui-system/cmp/android-preview/local.properties"))
     records = {}
     if declarations is None:
         declarations = load_source((Path(root) / CATALOG.relative_to(ROOT)).read_bytes())["components"]
@@ -179,7 +182,15 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
         records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
-        if path.is_file() and path.suffix in suffixes and path.relative_to(root) not in excluded and relative.parts[0] not in {"build", ".gradle"}:
+        generated_output = relative.parts[0] in {"build", ".gradle"}
+        if renderer == "cmp":
+            # Only this isolated project's build/IDE output roots are excluded; source
+            # directories with those names elsewhere still affect qualification.
+            generated_output |= relative.parts[:2] in {
+                ("android-preview", "build"), ("android-preview", ".gradle"),
+                ("android-preview", ".idea"), ("android-preview", ".kotlin"),
+            }
+        if path.is_file() and path.suffix in suffixes and path.relative_to(root) not in excluded and not generated_output:
             records[path.relative_to(root).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return digest(records)
 
@@ -305,6 +316,10 @@ def imported_components(content, renderer, names):
         content, expressions = kotlin_source_regions(original)
         content = re.sub(r"`([A-Za-z_]\w*)`", r"\1", content)
         content = re.sub(r"\s*\.\s*", ".", content)
+        # Kotlin resolves public top-level declarations in the same package without
+        # imports. Product sources may not join the shared package to hide adoption.
+        if re.search(r"\bpackage\s+com\.cantos\.ui(?:\s|;|$)", content):
+            raise ValueError("explicit CMP component imports required for shared-package adoption checks")
         imports = re.findall(r"\bcom\.cantos\.ui\.([A-Z]\w*)", content)
         if re.search(r"\bimport\s+com\.cantos\.ui\.\*", content):
             raise ValueError("explicit CMP component imports required for adoption checks")
@@ -384,7 +399,32 @@ def repository_failures(source, token_source, root=ROOT):
         for path in sorted(cmp.rglob("*.kt")):
             if {"generated", "preview"}.intersection(path.relative_to(cmp).parts):
                 continue
-            declared.update(re.findall(r"@Composable\s+(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:public\s+)?fun\s+([A-Z]\w*)", source_text(path.read_text(), False), re.S))
+            code = source_text(path.read_text(), False)
+            code = re.sub(r"`([A-Za-z_]\w*)`", r"\1", code)
+            code = re.sub(r"\s*\.\s*", ".", code)
+            annotation_names = {"Composable", "androidx.compose.runtime.Composable"}
+            annotation_names.update(re.findall(
+                r"\bimport\s+androidx\.compose\.runtime\.Composable\s+as\s+([A-Za-z_]\w*)", code))
+            # Direct annotation type aliases can be chained or declared out of order.
+            aliases = re.findall(r"\btypealias\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)", code)
+            while True:
+                resolved = {alias for alias, target in aliases if target in annotation_names}
+                if resolved <= annotation_names:
+                    break
+                annotation_names.update(resolved)
+            annotation = "@(?:" + "|".join(re.escape(name) for name in sorted(annotation_names)) + ")\\b"
+            # Default-public and explicitly public composables remain API declarations
+            # with ordinary Kotlin modifiers and type parameters. Private/internal helpers
+            # do not become shared candidates merely because they are composable.
+            declarations = re.finditer(
+                annotation + r"(?:\(\s*\))?\s+(?:@[\w.]+(?:\([^)]*\))?\s+)*"
+                r"(?P<modifiers>(?:(?:public|private|internal|protected|inline|suspend|tailrec|"
+                r"operator|infix|external|expect|actual|final|open|abstract|override)\s+)*)"
+                r"fun\b\s*(?:<[^()]*>\s*)?(?P<name>[A-Z]\w*)",
+                code, re.S,
+            )
+            declared.update(match["name"] for match in declarations
+                            if not {"private", "internal"}.intersection(match["modifiers"].split()))
         # UiRoot owns the theme adapter; it is not a second standalone component contract.
         declared.discard("CantosTheme")
         supported = {name for name in names if entries[name]["cmp"]["status"] != "unsupported"}

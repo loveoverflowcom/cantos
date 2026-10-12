@@ -291,6 +291,13 @@ mod tests {
                 action: PreviewAction::Run { open: true }
             }
         ));
+        assert!(matches!(
+            parse("ui-preview cmp android-build").unwrap(),
+            Task::UiPreview {
+                renderer: Renderer::Cmp,
+                action: PreviewAction::AndroidBuild,
+            }
+        ));
         for line in [
             "ui-preview",
             "ui-preview leptos",
