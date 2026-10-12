@@ -16,8 +16,8 @@ mod migrations;
 mod session;
 
 pub use migrations::migrate;
-pub(crate) use session::authenticate;
 pub use session::token_hash;
+pub(crate) use session::{authenticate, session_token_registered};
 
 /// A transaction borrowed by repository functions. Use cases open, pass and commit it but never
 /// issue SQL through it themselves.

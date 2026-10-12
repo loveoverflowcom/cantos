@@ -40,6 +40,7 @@ pub(super) fn routes() -> Router<AppState> {
             get(get_unit).patch(patch_unit).delete(archive_unit),
         )
         .merge(super::content::routes())
+        .merge(super::briefs::owner_routes())
         .method_not_allowed_fallback(|| async {
             failure(
                 StatusCode::METHOD_NOT_ALLOWED,
@@ -52,7 +53,7 @@ pub(super) fn routes() -> Router<AppState> {
         .layer(middleware::from_fn(json_only))
 }
 
-async fn json_only(request: Request, next: Next) -> Response {
+pub(super) async fn json_only(request: Request, next: Next) -> Response {
     let accept = wire::accept_header(request.headers());
     let mut response = if wire::json_response_format(accept.as_deref()).is_err() {
         failure(

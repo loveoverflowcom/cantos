@@ -15,6 +15,7 @@ use crate::platform::postgres::{
 };
 
 mod approve;
+pub(super) mod briefs;
 mod casting;
 mod freeze;
 

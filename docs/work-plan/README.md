@@ -29,7 +29,9 @@ The [Content Identity slice](../decisions/0019-content-identity.md) adds immutab
 Catalog metadata. Its [handoff to Production Brief](content-identity-production-brief-handoff.md)
 keeps the next backend boundary narrow: exact content/guidance revision pinning and independent
 producer access, before linking intake/publication. Catalog Web acceptance remains separately
-scoped; this sequence does not close #66 or #64.
+scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../packages/contracts/production-brief-v1.md)
+provides exact snapshots and read grants; [session3 handoff](production-brief-audio-lifecycle-handoff.md)
+keeps intake linkage, review/release and later live client integration in separate boundaries.
 
 ## Existing foundations to retain
 

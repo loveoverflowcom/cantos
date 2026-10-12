@@ -72,7 +72,7 @@ CONTEXT_UPSTREAM = {
     "editorial": set(),
     "ingestion": {"editorial"},
     "adaptation": {"editorial", "ingestion"},
-    "production": {"editorial"},
+    "production": {"editorial", "catalog", "ingestion"},
     "catalog": {"editorial", "ingestion"},
     "media": set(),
 }

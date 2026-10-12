@@ -14,6 +14,8 @@ mod catalog;
 pub use catalog::*;
 mod content;
 pub use content::*;
+mod briefs;
+pub use briefs::*;
 pub mod admin;
 pub mod routes;
 pub mod theatre;

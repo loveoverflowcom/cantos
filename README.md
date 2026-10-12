@@ -26,7 +26,9 @@ planning and a read-only WAV inspector. Studio Catalog implements work/content-u
 authorized transactional application use cases, PostgreSQL revision persistence and JSON HTTP
 routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md).
 [Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
-revisions with separate metadata/content sequences and full revision pinning. External audio-upload/finalize APIs, object-storage
+revisions with separate metadata/content sequences and full revision pinning.
+[Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
+and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). External audio-upload/finalize APIs, object-storage
 acceptance and published listener releases are not implemented.
 Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
 still planned. Theatre Web is a session-only
@@ -48,7 +50,8 @@ Studio: verify object and metadata → human/editorial approval → immutable re
 Theatre: discover → stream/download → resume
 ```
 
-Briefs and submissions are proposal contracts until an API issue/PR implements them.
+Production Brief export and read grants are implemented for the development host; submissions
+and releases remain proposals until their own API PRs implement them.
 No live routes should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
 
 ## Repository
@@ -88,8 +91,8 @@ Start with the [product brief](docs/product/brief.md), [business rules](docs/pro
 
 Source, translation, voice, music and effects permissions are scoped claims that must be
 reviewed. External uploads remain private and are **never** implicitly published. Store immutable
-release manifests and deliver approved audio over object storage/CDN; low-bandwidth Opus/AAC
-profile decisions are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues/64).
+release manifests and deliver approved audio over object storage/CDN; explicit Opus mono20/24/32/40-v1 Brief profiles and further playback/quality
+acceptance are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues/64).
 
 Cantos has no selected repository software license. Repository visibility does not grant a right
 to redistribute narrative or voice material.

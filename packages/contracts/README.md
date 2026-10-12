@@ -2,7 +2,7 @@
 
 > Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
 > [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
-> API contract. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
+> API contract with its [Production Brief v1](production-brief-v1.md) subset implemented. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
 > they are **not live server capabilities** after the 2026-10-12 refactor.
 
 This directory owns versioned interchange descriptions and representative fixtures. Script IR
@@ -28,6 +28,10 @@ The [Content Identity v1 contract](content-v1.md) adds separate immutable conten
 normalized text or exact source/Script IR bindings, recording-only units, full revision digests,
 owner-bound evidence, atomic retries and bounded history. Metadata/content counters are distinct;
 legacy Catalog links do not move managed content. It adds no brief, accepted audio or publication.
+
+The [Production Brief v1 contract](production-brief-v1.md) exports immutable Catalog content,
+rights/guidance/profile pins and independent expiring read permissions. It produces no audio
+and grants no upload/review/publication authority.
 
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,

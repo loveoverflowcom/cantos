@@ -20,7 +20,9 @@
 
 `contexts/editorial` owns canonical revisions and permissions. `ingestion` can read editorial
 contracts; `adaptation` can read editorial/ingestion contracts; `production` reads editorial
-to freeze guidance, rights and budget claims. `catalog` uses editorial and ingestion entrypoints
+to freeze guidance, rights and budget claims. Production Briefs additionally consume Catalog
+transactional owner/content facts and Ingestion receipts through their owning entrypoints;
+production remains downstream of Catalog and adds no table shortcut or generation engine. `catalog` uses editorial and ingestion entrypoints
 to validate owner-bound references to existing revisions, rights records and manuscript sources;
 it does not read those contexts' tables directly. `contexts/media/domain/wav_inspection` is a
 pure inspector, with no provider/model dependency. `interfaces/http` owns routers and maps
@@ -35,7 +37,8 @@ enforces the allowed context edges.
 | `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/production planning | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
-| Proposed Studio audio handoff | Scoped external producer plugin | **Not implemented** |
+| Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
+| Proposed Studio audio intake/release | Future upload/publisher scope | **Not implemented on develop** |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
@@ -54,7 +57,9 @@ only when implemented. Do not invent implemented route claims from proposal docu
 - `adaptation`: caller-owned proposal/acceptance, no model inference.
 - `catalog`: work/content-unit identities, metadata, authorization and immutable revisions through
   application use cases, PostgreSQL persistence and the authenticated Studio HTTP API.
-- `production`: purely declarative settings/rights/casting, immutable snapshots and approvals.
+- `production`: declarative settings/rights/casting, immutable snapshots and approvals, plus
+  Catalog-bound [Production Briefs](../../packages/contracts/production-brief-v1.md) and scoped
+  read-only producer grants. Source/export bytes are copied through owning-context entrypoints.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
 - `media`: structural WAV byte inspection, soon to own admission rules for externally
   supplied audio. No WAV file is implicitly QC-approved.

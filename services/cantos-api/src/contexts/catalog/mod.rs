@@ -5,6 +5,9 @@ mod application;
 mod postgres;
 
 pub use application::content;
+pub(crate) use application::production_content::{
+    pinned_content, production_content, restore_content, ProductionContent,
+};
 pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,

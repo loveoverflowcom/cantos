@@ -21,14 +21,17 @@ or in-backend mixing should remain.
   content sequence, text/source/script/recording bodies, full revision digest and exact retries.
   [Authority split](../../docs/decisions/0019-content-identity.md);
   [local evidence](../../docs/evidence/content-identity.md).
+- [Production Brief v1](../../packages/contracts/production-brief-v1.md): immutable Catalog-bound
+  instructions, exact source/Script exports, explicit Opus profiles, current stale comparison
+  and independently scoped expiring/revocable read grants. [Evidence](../../docs/evidence/production-brief.md).
 - Read-only, bounded RIFF/WAV PCM inspection under `contexts/media/domain/wav_inspection`.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
 ## Planned functionality (not implemented)
 
-Studio catalog Web UI, versioned producer briefs,
-external producer tokens, private object-storage prepare/finalize, audio rendition acceptance,
+Studio catalog Web UI, production identity/credential delivery, producer upload permission,
+private object-storage prepare/finalize, audio rendition acceptance,
 QC review, publication manifests and Theatre listener API. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
 creating routes or DTOs. A proposal is not an existing API.
@@ -61,11 +64,13 @@ checksums. The old `durable_*`/`speech_clips` tables are legacy data, not curren
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds catalog tables independently of the separately reserved audio-intake
 0010. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–9, 11 and 12; upgrade/replay tests preserve
+versions 1–9, 11, 12 and 13 (count12); Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
-and UPDATE(revision_id,revision) on heads. Deployment role provisioning remains separate.
+and UPDATE(revision_id,revision) on heads. Brief grants add SELECT/INSERT on `production_briefs`, `production_brief_heads`,
+`production_producer_grants`, `production_producer_revocations` and UPDATE(brief_id,version)
+on Brief heads only. Deployment role provisioning remains separate.
 
 ## Local verification
 

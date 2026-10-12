@@ -1,7 +1,8 @@
 # External Audio Handoff v1 — Proposed Contract
 
-> **Design only / NOT IMPLEMENTED.** No route or DTO in this document is a promise about an
-> existing server. [ADR 0018](../../docs/decisions/0018-external-audio-production.md) owns the
+> **Partially implemented.** [Production Brief v1](production-brief-v1.md) implements the
+> immutable instructions and scoped read subset for the development host. Intake/review/release
+> operations below remain proposals. [ADR 0018](../../docs/decisions/0018-external-audio-production.md) owns the
 > product boundary. Freeze schemas and update this document with code/evidence in a future PR.
 
 ## Objective
@@ -67,7 +68,7 @@ endpoint/credential acquisition. Keep secrets and unlicensed full texts out of p
 
 ## Codec / audio profile
 
-Default suggestions remain a proposal: Opus mono 20/24/32/40 kbps for bandwidth-sensitive
-speech/mixed programs, AAC-LC mono 40 kbps as a compatibility fallback. Do not hardcode a
-mandatory profile or advertise codec compatibility until [#51](https://github.com/loveoverflowcom/cantos/issues/51)
+Brief v1 requires explicit `opus-mono-20/24/32/40-v1`, matching the separate PR69 intake
+contract, with no default or AAC fallback. Perceptual quality and Theatre compatibility remain
+separate acceptance; do not advertise verified playback compatibility until [#51](https://github.com/loveoverflowcom/cantos/issues/51)
 and [#64](https://github.com/loveoverflowcom/cantos/issues/64) resolve.
