@@ -129,3 +129,27 @@ compile/format/lint/test failures; then perform the [manual browser scenarios](.
 New shared components still need both-preview/runtime/accessibility admission. Real listener API,
 publication rights/release pinning, playback, reload persistence, CDN/progress synchronization and
 native/background/device gates remain separate. No production issue is closed by this mock.
+
+## Pre-merge acceptance run (2026-10-12)
+
+Linux host, Rust 1.87.0, Trunk 0.21.14, Chromium in the Claude desktop browser pane;
+`CFLAGS=-std=gnu17` only because this host's GCC rejects mimalloc's `ATOMIC_VAR_INIT`.
+
+- Fixed before running: compile errors (turbofish inside a `view!` attribute, missing
+  `Route`/`Locale` imports, unused import), `cargo fmt` drift and the stale stylesheet path in
+  `scripts/test_ui_tokens.py` after the move to `src/styles/theatre.css`.
+- `cargo xtask preflight --changed-only --base origin/develop --skip postgres --skip cmp-ui-preview`:
+  **PASS** for repository, rust-format, script-ir-reference, rust-lint, rust-tests (43 Theatre
+  tests including the seven vectors), dbsp, wav-reference, web-lint, both web builds,
+  ui-preview and mutation. postgres and cmp-ui-preview **NOT_RUN** (no PostgreSQL binaries or
+  Gradle 8.14.3 on this host).
+- Browser walkthrough on `cargo xtask run cantos-theatre --web` at 1280×860 and 375×812:
+  discovery, search (diacritic query `đèn`, empty result and clear), work detail, simulated
+  play/seek/bookmark, library tabs, queue, settings (English, dark), account and unknown-route
+  recovery. `screenshot-inspected` and `interaction-tested` for these paths only.
+- UI defects found and fixed: route changes kept the previous scroll offset, so the new page
+  opened mid-content; programmatic focus on `<main>` drew a focus ring around the whole page.
+  Routes now scroll to the top before focusing `<main>`; keyboard focus rings on controls were
+  rechecked after the fix.
+- Still NOT_RUN: assistive technology, Back/Forward history audit, 200% zoom, motion and real
+  media. `<html lang>` stays `vi-VN` while the app container switches `lang` with the locale.
