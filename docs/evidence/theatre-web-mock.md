@@ -103,6 +103,29 @@ localized speed/plurals, document title and elapsed/total spoken position, keyed
 These have not been interaction-tested. Reviewer assurance remains limited by the missing compiler
 and browser app; a draft is not ready-to-merge or production acceptance.
 
+## Focused seek/Reset follow-up
+
+Canonical rules 2/3 now describe the existing guard order precisely: active interruption rejects
+Play; without interruption, already-play intent with a non-ended engine makes repeated Play a
+full-state/zero-effect no-op, even after seeking to duration. Only an accepted new Play at duration
+resets to zero. Both reducer implementations and all seven canonical vector/schema/index bytes
+are unchanged. A targeted Rust regression covers the seek/repeat/Pause/new-Play boundary and
+interruption override; it is authored, NOT_RUN.
+
+The Web uses synchronous fake port execution and reads current bookmarks/progress at dispatch.
+It has no captured asynchronous resume snapshot or delayed write that can repopulate Reset data.
+Existing source/generation fences reject old engine callbacks. Focused regressions cover captured
+bookmark refusal and old started/position/ended callbacks after Reset, current-seed Continue,
+and empty Continue/Next. No future async framework or speculative epoch adapter was added.
+
+Confirmed source-level routing leaks were fixed: BookmarkRow previously navigated even after
+its captured bookmark was rejected, and Next added unconditional navigation after an empty
+command. Screen callbacks now delegate navigation solely to the guarded application command.
+The independent focused review found no current stale-data resurrection path; browser/runtime
+behavior and all added native tests remain NOT_RUN. There are 46 authored native test cases;
+none were executed on this cloud computer. Required xtask attempts again stop before startup
+because Cargo is absent; supplemental admission/repository/hash/whitespace checks are separate.
+
 ## UI and design evidence
 
 - The initial phase retrieved/read [Web HTML](https://drive.google.com/file/d/1UEMLvfNdorz4P9qZgfoVkp2HwQV_Ipwt/view),
@@ -132,6 +155,7 @@ native/background/device gates remain separate. No production issue is closed by
 
 ## Pre-merge acceptance run (2026-10-12)
 
+This run supersedes the earlier NOT_RUN rows for the gates and paths named here.
 Linux host, Rust 1.87.0, Trunk 0.21.14, Chromium in the Claude desktop browser pane;
 `CFLAGS=-std=gnu17` only because this host's GCC rejects mimalloc's `ATOMIC_VAR_INIT`.
 
@@ -139,8 +163,8 @@ Linux host, Rust 1.87.0, Trunk 0.21.14, Chromium in the Claude desktop browser p
   `Route`/`Locale` imports, unused import), `cargo fmt` drift and the stale stylesheet path in
   `scripts/test_ui_tokens.py` after the move to `src/styles/theatre.css`.
 - `cargo xtask preflight --changed-only --base origin/develop --skip postgres --skip cmp-ui-preview`:
-  **PASS** for repository, rust-format, script-ir-reference, rust-lint, rust-tests (43 Theatre
-  tests including the seven vectors), dbsp, wav-reference, web-lint, both web builds,
+  **PASS** for repository, rust-format, script-ir-reference, rust-lint, rust-tests (46 Theatre
+  tests including the seven vectors, with the resume-route follow-up merged), dbsp, wav-reference, web-lint, both web builds,
   ui-preview and mutation. postgres and cmp-ui-preview **NOT_RUN** (no PostgreSQL binaries or
   Gradle 8.14.3 on this host).
 - Browser walkthrough on `cargo xtask run cantos-theatre --web` at 1280×860 and 375×812:

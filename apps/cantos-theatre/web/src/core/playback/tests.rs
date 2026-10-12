@@ -671,3 +671,41 @@ fn bounded_event_sequences_are_deterministic_immutable_and_preserve_root_invaria
         frontier = next_frontier;
     }
 }
+
+#[test]
+fn seeking_to_duration_does_not_turn_repeated_play_into_a_restart() {
+    for engine in [
+        Engine::Preparing,
+        Engine::Ready,
+        Engine::Running,
+        Engine::Paused,
+        Engine::Buffering,
+    ] {
+        let playing = session_state(Intent::Play, engine);
+        let sought = reduce(
+            playing,
+            Event::SeekRequested {
+                position_ms: 60_000,
+            },
+        );
+        let at_end = sought.state;
+        assert_eq!(at_end.session().unwrap().position_ms(), 60_000);
+        assert_eq!(at_end.session().unwrap().intent(), Intent::Play);
+        assert_eq!(at_end.session().unwrap().engine(), engine);
+        assert_eq!(
+            reduce(at_end.clone(), Event::PlayRequested),
+            Transition {
+                state: at_end.clone(),
+                effects: vec![]
+            },
+            "duplicate Play remains a no-op at duration with {engine:?}",
+        );
+        let paused = reduce(at_end.clone(), Event::PauseRequested);
+        let restarted = reduce(paused.state, Event::PlayRequested);
+        assert_eq!(restarted.state.generation(), 10);
+        assert_eq!(restarted.state.session().unwrap().position_ms(), 0);
+        assert_eq!(restarted.effects, vec![Effect::StartEngine(command(10, 0))]);
+        let interrupted = reduce(at_end, Event::InterruptionBegan).state;
+        assert_rejected(interrupted, Event::PlayRequested, Rejection::Interrupted);
+    }
+}

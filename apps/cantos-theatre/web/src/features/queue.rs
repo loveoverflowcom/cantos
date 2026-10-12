@@ -1,11 +1,6 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
 use super::common::*;
-use crate::{
-    app::{context::TheatreContext, routes::Route},
-    messages::Key,
-    platform,
-    view::Recovery,
-};
+use crate::{app::context::TheatreContext, messages::Key, platform, view::Recovery};
 use leptos::prelude::*;
 
 #[component]
@@ -15,7 +10,7 @@ pub(crate) fn Queue(ctx: TheatreContext) -> impl IntoView {
         <PageHeading ctx=ctx title=Key::Queue/>
         <p class="theatre-muted">{move || ctx.text(Key::QueueEmptyHelp)}</p>
         <button type="button" class="theatre-action" disabled=move || ctx.queue.get().items.is_empty()
-            aria-describedby="theatre-next-reason" on:click=move |_| { ctx.next(); platform::navigate(ctx.route, Route::Player); }>
+            aria-describedby="theatre-next-reason" on:click=move |_| ctx.next()>
             {icon("play_arrow")}{move || ctx.text(Key::Next)}
         </button>
         <p id="theatre-next-reason" hidden=move || !ctx.queue.get().items.is_empty()>{move || ctx.text(Key::NoNext)}</p>

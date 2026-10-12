@@ -136,7 +136,10 @@ light/dark, both locales and 200% text zoom:
    Resume a bookmark exactly. Repeat Continue without alternating to an older progress record.
 6. Change catalog scenarios, retry and clear filters. Player/library remain intact. Clear library
    contents while the player/queue survive, then Reset. Search/filter/tab state belongs to its screen.
-7. Check all disabled reasons, selects, hash deep links/unknown routes, Vietnamese long titles,
+7. After Reset, stale bookmark clicks and older engine acknowledgements must not reopen a removed
+   bookmark, navigate on a rejected action or revive old progress. Continue uses the current seed;
+   an empty Continue/Next remains a no-op. These Reset paths have synchronous fake ports.
+8. Check all disabled reasons, selects, hash deep links/unknown routes, Vietnamese long titles,
    reduced motion and forced colors. Verify the demo labels remain visible on every player state.
 
 Real audio, release/media-version pinning, reload persistence, CDN delivery, progress reconciliation
