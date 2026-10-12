@@ -7,6 +7,7 @@
 | [Production pipeline](product/production-pipeline.md) | Rendering flow, recovery, costs and publication gates |
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
+| [Audio drama craft](production/audio-drama-craft.md) | Ear-first adaptation, narration purpose, silence, voices, motifs and mix intent |
 | [Story workspace evidence](evidence/story-workspace-skills.md) | Skill/initializer checks, editorial rehearsal, verified Drive setup and residual limits |
 | [PostgreSQL/DBSP skill evidence](evidence/postgresql-dbsp-skills.md) | Read-performance workflow validation, routing walkthrough and explicitly unrun database/engine gates |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
@@ -50,5 +51,6 @@
 | [Decision 0015](decisions/0015-api-surface-boundaries.md) | Proposed: `apps/cantos-theatre` naming and `studio`/`theatre`/`admin` API route groups |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
+| [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |
 
 These documents specify intended behavior, unless a section explicitly provides implementation evidence. Update the owning document instead of copying the same rule into multiple competing specifications. Use [templates](../templates/README.md) for subsequent decisions and production records.

@@ -97,6 +97,12 @@ MessagePack beside JSON ([ADR 0013](../decisions/0013-optional-messagepack-wire.
 [evidence](../evidence/messagepack-wire.md)). The Studio still ships JSON; this changes no order,
 prerequisite or issue status above.
 
+The [audio drama quality plan](audio-drama-quality.md) reconciles external research on adapting
+novels for audio drama with these contracts and orders ten issues, [#44](https://github.com/loveoverflowcom/cantos/issues/44)–[#53](https://github.com/loveoverflowcom/cantos/issues/53),
+that improve the adaptation process and the audio output. Its editorial phase can proceed now
+through the story workspace; the audio profile and clip conditioning are groundwork for #9, and
+scene acoustics follow #9. It changes no order, prerequisite, authorization or gate above.
+
 The requested [Compose preview tooling](../evidence/compose-preview-tooling.md) adds an optional
 Android Studio host-capture command and updates CMP/inspection skills. Its CLI boundary is
 tested with a process double; both mobile projects and real Android/iOS acceptance remain

@@ -59,6 +59,10 @@ and place a panting effect with the identified performer. Keep a short narrator 
 dark room if its darkness matters and the listener cannot infer it. Do not invent a second
 person's reply or make An announce an unnatural explanation solely to remove narration.
 
+The [audio drama craft guide](audio-drama-craft.md) owns the ear-first techniques behind such
+choices: scene orientation, narration with a recorded purpose, interior thought, silence,
+voices and motifs, with an ear-first review checklist.
+
 This example illustrates an editorial choice, not a Markdown syntax parsed by Cantos. Record
 every compression, omission, new connective line and inferred cue against its source location.
 Uncertain names, broken OCR, ambiguous speakers and missing passages remain findings; guessing

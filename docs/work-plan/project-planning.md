@@ -58,6 +58,25 @@ If an active task becomes blocked, record the reason and native blocking relatio
 | 16 | [050](050-cmp-native-listening.md) | [050.3 — Deliver verified and resumable offline downloads](https://github.com/loveoverflowcom/cantos/issues/16) | [#14](https://github.com/loveoverflowcom/cantos/issues/14) |
 | 17 | [050](050-cmp-native-listening.md) | [050.4 — Synchronize mobile progress and verify the complete MVP journey](https://github.com/loveoverflowcom/cantos/issues/17) | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#15](https://github.com/loveoverflowcom/cantos/issues/15), [#16](https://github.com/loveoverflowcom/cantos/issues/16) |
 
+## Supplementary audio-quality issues
+
+The [audio drama quality plan](audio-drama-quality.md) adds these bounded issues outside the
+17-issue MVP order above. They are not Project items unless the owner adds them; their native
+`blocked by` links record the dependencies. None closes or unblocks an MVP issue by itself.
+
+| Step | Issue and outcome | Immediate blockers |
+| --- | --- | --- |
+| 1 | [Author an original Vietnamese reference scene for audio evaluation](https://github.com/loveoverflowcom/cantos/issues/44) | None |
+| 2 | [Define the listening-review protocol for audio-listened evidence](https://github.com/loveoverflowcom/cantos/issues/45) | None |
+| 3 | [Build a rights-recorded sound asset library](https://github.com/loveoverflowcom/cantos/issues/46) | None |
+| 4 | [Add story sound bible and per-episode cue sheet records](https://github.com/loveoverflowcom/cantos/issues/47) | None |
+| 5 | [Apply ear-first craft checks in radio adaptation and story audit](https://github.com/loveoverflowcom/cantos/issues/48) | None |
+| 6 | [Decide Script IR controls for pauses, voice mode, overlap and cue extent](https://github.com/loveoverflowcom/cantos/issues/49) | None |
+| 7 | [Run voice auditions and build a pronunciation lexicon](https://github.com/loveoverflowcom/cantos/issues/50) | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45) |
+| 8 | [Decide the versioned audio profile (groundwork for #9)](https://github.com/loveoverflowcom/cantos/issues/51) | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45), [#46](https://github.com/loveoverflowcom/cantos/issues/46) |
+| 9 | [Condition TTS clips before mixing (groundwork for #9)](https://github.com/loveoverflowcom/cantos/issues/52) | [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+| 10 | [Add scene acoustics and stereo placement to the mix plan](https://github.com/loveoverflowcom/cantos/issues/53) | [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#47](https://github.com/loveoverflowcom/cantos/issues/47), [#51](https://github.com/loveoverflowcom/cantos/issues/51) |
+
 ## Sequence and parallel work
 
 Start with [#1](https://github.com/loveoverflowcom/cantos/issues/1), then complete the import/adaptation/editor journey before casting. Casting and real provider integration establish the inputs needed by durable generation.
