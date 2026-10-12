@@ -185,4 +185,65 @@ mod tests {
         });
     }
 
+    #[test]
+    fn reset_rejects_captured_bookmarks_and_old_callbacks_without_reviving_progress() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            ctx.add_bookmark();
+            let old_mark = ctx.library.get_untracked().bookmarks[0];
+            let other = EpisodeId { work: WorkId::River, index: 0 };
+            ctx.open_episode(other);
+            ctx.playback(Event::SeekRequested { position_ms: 15000 });
+            let old_identity = ctx.player.state.get_untracked().identity().unwrap();
+            let old_progress = ctx.progress.get_untracked().latest().unwrap();
+            ctx.route.set(Route::Settings);
+            ctx.reset_demo();
+            let reset_player = ctx.player.state.get_untracked();
+            let reset_progress = ctx.progress.get_untracked();
+            let reset_queue = ctx.queue.get_untracked();
+            ctx.resume_bookmark(old_mark);
+            assert_eq!(ctx.route.get_untracked(), Route::Settings);
+            assert_eq!(ctx.player.state.get_untracked(), reset_player);
+            assert_eq!(ctx.progress.get_untracked(), reset_progress);
+            assert_eq!(ctx.queue.get_untracked(), reset_queue);
+            for event in [
+                Event::EngineStarted { identity: old_identity },
+                Event::EnginePosition { identity: old_identity, position_ms: 30000 },
+                Event::EngineEnded { identity: old_identity },
+            ] {
+                ctx.playback(event);
+                assert_eq!(ctx.player.state.get_untracked(), reset_player);
+                assert_eq!(ctx.progress.get_untracked(), reset_progress);
+            }
+            // The click captures only ctx: Continue reads the new seed at dispatch, not old_progress.
+            ctx.continue_progress();
+            let resumed = ctx.player.snapshot().unwrap();
+            assert_ne!(resumed.source.episode(), old_progress.snapshot.source.episode());
+            assert_eq!(resumed.source.episode(), EpisodeId { work: WorkId::Mountain, index: 2 });
+            assert_eq!(resumed.position_ms, 768000);
+            assert_eq!(ctx.progress.get_untracked().records().len(), 1);
+            assert!(ctx.library.get_untracked().bookmarks.is_empty());
+        });
+    }
+    #[test]
+    fn rejected_empty_resume_actions_do_not_navigate() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            ctx.route.set(Route::Settings);
+            ctx.queue_writer.set(QueueState::default());
+            ctx.clear_library();
+            let player = ctx.player.state.get_untracked();
+            ctx.next();
+            ctx.continue_progress();
+            assert_eq!(ctx.route.get_untracked(), Route::Settings);
+            assert_eq!(ctx.player.state.get_untracked(), player);
+            assert!(ctx.progress.get_untracked().records().is_empty());
+            // Screen callbacks delegate to the guarded command, without a second navigation.
+            let bookmarks = include_str!("../features/library.rs");
+            let queue = include_str!("../features/queue.rs");
+            assert!(bookmarks.contains("on:click=move |_| ctx.resume_bookmark(mark)"));
+            assert!(queue.contains("on:click=move |_| ctx.next()"));
+        });
+    }
+
 }

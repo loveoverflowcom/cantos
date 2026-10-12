@@ -1,6 +1,6 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
 use leptos::prelude::*;
-use crate::{app::{context::TheatreContext, routes::Route}, core::listening::library::Bookmark,
+use crate::{app::context::TheatreContext, core::listening::library::Bookmark,
     messages::Key, platform, view::Recovery};
 use super::common::*;
 
@@ -63,7 +63,7 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
             <div><h3 lang="vi-VN">{title}</h3><p>{clock(mark.position_ms / 1000)}</p></div>
             <button type="button" class="theatre-action theatre-action-tonal"
                 aria-label=move || ctx.format(Key::BookmarkName, &[("title", title.to_owned()), ("time", clock(mark.position_ms / 1000))])
-                on:click=move |_| { ctx.resume_bookmark(mark); platform::navigate(ctx.route, Route::Player); }>
+                on:click=move |_| ctx.resume_bookmark(mark)>
                 {icon("play_arrow")}{move || ctx.text(Key::Continue)}
             </button>
             <button type="button" class="theatre-action theatre-action-text"
