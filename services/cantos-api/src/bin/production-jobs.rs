@@ -1,13 +1,14 @@
 //! Authenticated development CLI for the durable local-worker foundation.
-use std::{env, path::PathBuf, process::ExitCode};
+use std::{env, path::PathBuf, process::ExitCode, time::Duration};
 
 use cantos_api::{
+    incremental::ReadModel,
     jobs::{ExecutionMode, RetryPolicy, RunEvent},
     postgres::{durable::DurableError, local_config, Store},
 };
 use serde::Serialize;
 
-const USAGE: &str = "usage: production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak|--test-fake) | status <run-id> | (pause|resume|cancel|retry) <run-id> <operation-id> | resolve-not-executed <run-id> <attempt-id> <evidence-reference> | plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake) [--previous <snapshot-id>] [--output-root <absolute-private-directory>]; requires CANTOS_ENV=development, CANTOS_DATABASE_URL and CANTOS_SESSION_TOKEN";
+const USAGE: &str = "usage: production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak|--test-fake) | status <run-id> | watch <run-id> [--samples <1-10000>] [--interval-ms <10-60000>] | (pause|resume|cancel|retry) <run-id> <operation-id> | resolve-not-executed <run-id> <attempt-id> <evidence-reference> | plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake) [--previous <snapshot-id>] [--output-root <absolute-private-directory>]; requires CANTOS_ENV=development, CANTOS_DATABASE_URL and CANTOS_SESSION_TOKEN; optional CANTOS_JOB_SUMMARY_READ_MODEL=postgres|dbsp-shadow|dbsp-serve (DBSP needs the dbsp-experimental build)";
 
 enum Command<'a> {
     Enqueue {
@@ -18,6 +19,12 @@ enum Command<'a> {
     },
     Status {
         run: &'a str,
+    },
+    /// Re-reads one run's summary on an interval: the long-lived read-model consumer.
+    Watch {
+        run: &'a str,
+        samples: u32,
+        interval: Duration,
     },
     Control {
         run: &'a str,
@@ -65,9 +72,19 @@ async fn execute(args: &[String]) -> Result<(), String> {
     if env::var("CANTOS_ENV").ok().as_deref() != Some("development") {
         return Err("production jobs support CANTOS_ENV=development only".into());
     }
+    let read_model = match env::var(ReadModel::VARIABLE) {
+        Ok(value) => value.parse::<ReadModel>().map_err(|_| {
+            format!(
+                "{} must be postgres, dbsp-shadow or dbsp-serve",
+                ReadModel::VARIABLE
+            )
+        })?,
+        Err(_) => ReadModel::Postgres,
+    };
     let url = env::var("CANTOS_DATABASE_URL").map_err(|_| "CANTOS_DATABASE_URL is required")?;
     let config = local_config(&url).map_err(|_| "invalid local PostgreSQL configuration")?;
-    let store = Store::new(config).map_err(|_| "database pool unavailable")?;
+    let store = Store::new(config.clone()).map_err(|_| "database pool unavailable")?;
+    let (store, view) = attach_read_model(store, config, read_model).await?;
     let token = env::var("CANTOS_SESSION_TOKEN").map_err(|_| "CANTOS_SESSION_TOKEN is required")?;
     // Token and database URL are never argv fields or included in reports.
     let result = match command {
@@ -90,6 +107,29 @@ async fn execute(args: &[String]) -> Result<(), String> {
             Ok(summary) => report(&summary),
             Err(error) => Err(error),
         },
+        Command::Watch {
+            run,
+            samples,
+            interval,
+        } => {
+            let mut last = Ok(String::new());
+            for sample in 0..samples {
+                if sample > 0 {
+                    tokio::time::sleep(interval).await;
+                }
+                last = store
+                    .job_status(&token, run)
+                    .await
+                    .and_then(|summary| report(&summary));
+                match &last {
+                    // Every sample but the last is printed here; the last follows below.
+                    Ok(line) if sample + 1 < samples => println!("{line}"),
+                    Ok(_) => {}
+                    Err(_) => break,
+                }
+            }
+            last
+        }
         Command::Control {
             run,
             operation,
@@ -123,9 +163,68 @@ async fn execute(args: &[String]) -> Result<(), String> {
             Err(error) => Err(error),
         },
     }
-    .map_err(|error| format!("production job command rejected: {error:?}"))?;
-    println!("{result}");
+    .map_err(|error| format!("production job command rejected: {error:?}"));
+    // Counters only: no identifiers, counts, token or database URL.
+    if let Some(status) = view_status(view.as_ref()) {
+        eprintln!("job-summary-view: {status}");
+    }
+    println!("{}", result?);
     Ok(())
+}
+
+#[cfg(feature = "dbsp-experimental")]
+type View = std::sync::Arc<cantos_api::postgres::durable::summary_view::SummaryView>;
+#[cfg(not(feature = "dbsp-experimental"))]
+type View = std::convert::Infallible;
+
+/// Starts and attaches the experimental view for a DBSP read model. A build without the
+/// feature refuses it rather than silently answering from PostgreSQL.
+#[cfg(feature = "dbsp-experimental")]
+async fn attach_read_model(
+    store: Store,
+    config: tokio_postgres::Config,
+    model: ReadModel,
+) -> Result<(Store, Option<View>), String> {
+    use cantos_api::postgres::durable::summary_view::{AttachedView, SummaryView, ViewConfig};
+    if !model.uses_view() {
+        return Ok((store, None));
+    }
+    let view = std::sync::Arc::new(
+        SummaryView::start(config, ViewConfig::default())
+            .map_err(|_| "job summary view could not start")?,
+    );
+    // A view that is not ready in time is still attached: reads fall back to PostgreSQL.
+    view.wait_ready(Duration::from_secs(10)).await;
+    let attached = AttachedView::new(view.clone(), model, 4, Duration::from_secs(2));
+    Ok((
+        store.with_job_summary_view(std::sync::Arc::new(attached)),
+        Some(view),
+    ))
+}
+
+#[cfg(not(feature = "dbsp-experimental"))]
+async fn attach_read_model(
+    store: Store,
+    _config: tokio_postgres::Config,
+    model: ReadModel,
+) -> Result<(Store, Option<View>), String> {
+    if model.uses_view() {
+        return Err(format!(
+            "{} requires a build with the dbsp-experimental feature",
+            model.as_str()
+        ));
+    }
+    Ok((store, None))
+}
+
+#[cfg(feature = "dbsp-experimental")]
+fn view_status(view: Option<&View>) -> Option<String> {
+    view.and_then(|view| serde_json::to_string(&view.status()).ok())
+}
+
+#[cfg(not(feature = "dbsp-experimental"))]
+fn view_status(view: Option<&View>) -> Option<String> {
+    view.map(|never| match *never {})
 }
 
 fn parse_command<'a>(args: &[&'a str]) -> Result<Command<'a>, String> {
@@ -143,6 +242,7 @@ fn parse_command<'a>(args: &[&'a str]) -> Result<Command<'a>, String> {
             mode: ExecutionMode::SyntheticFake,
         },
         ["status", run] => Command::Status { run },
+        ["watch", run, options @ ..] => parse_watch(run, options)?,
         [action @ ("pause" | "resume" | "cancel" | "retry"), run, operation] => Command::Control {
             run,
             operation,
@@ -163,6 +263,42 @@ fn parse_command<'a>(args: &[&'a str]) -> Result<Command<'a>, String> {
         _ => return Err(USAGE.into()),
     };
     Ok(command)
+}
+
+/// Bounded sampling: each option at most once, within its documented range.
+fn parse_watch<'a>(run: &'a str, options: &[&'a str]) -> Result<Command<'a>, String> {
+    let (mut samples, mut interval) = (None, None);
+    let mut index = 0;
+    while index < options.len() {
+        let value = options.get(index + 1).ok_or(USAGE)?;
+        match options[index] {
+            "--samples" if samples.is_none() => {
+                samples = Some(
+                    value
+                        .parse::<u32>()
+                        .ok()
+                        .filter(|n| (1..=10_000).contains(n))
+                        .ok_or(USAGE)?,
+                );
+            }
+            "--interval-ms" if interval.is_none() => {
+                interval = Some(
+                    value
+                        .parse::<u64>()
+                        .ok()
+                        .filter(|n| (10..=60_000).contains(n))
+                        .ok_or(USAGE)?,
+                );
+            }
+            _ => return Err(USAGE.into()),
+        }
+        index += 2;
+    }
+    Ok(Command::Watch {
+        run,
+        samples: samples.unwrap_or(10),
+        interval: Duration::from_millis(interval.unwrap_or(500)),
+    })
 }
 
 /// Exactly one execution mode, and each of `--previous` and `--output-root` at most once.
@@ -222,6 +358,42 @@ mod tests {
             vec!["enqueue", "script", "snapshot", "operation", "--vieneu"],
         ] {
             assert_eq!(parse_command(&values).err().as_deref(), Some(USAGE));
+        }
+    }
+
+    #[test]
+    fn watch_samples_and_interval_are_bounded_and_given_at_most_once() {
+        assert!(matches!(
+            parse_command(&["watch", "run"]),
+            Ok(Command::Watch {
+                run: "run",
+                samples: 10,
+                interval
+            }) if interval == Duration::from_millis(500)
+        ));
+        assert!(matches!(
+            parse_command(&["watch", "run", "--interval-ms", "10", "--samples", "10000"]),
+            Ok(Command::Watch {
+                samples: 10_000,
+                interval,
+                ..
+            }) if interval == Duration::from_millis(10)
+        ));
+        for values in [
+            vec!["watch"],
+            vec!["watch", "run", "--samples"],
+            vec!["watch", "run", "--samples", "0"],
+            vec!["watch", "run", "--samples", "10001"],
+            vec!["watch", "run", "--interval-ms", "9"],
+            vec!["watch", "run", "--interval-ms", "60001"],
+            vec!["watch", "run", "--samples", "2", "--samples", "3"],
+            vec!["watch", "run", "--follow"],
+        ] {
+            assert_eq!(
+                parse_command(&values).err().as_deref(),
+                Some(USAGE),
+                "{values:?}"
+            );
         }
     }
 

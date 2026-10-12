@@ -587,7 +587,10 @@ mod tests {
                 observed.insert(delay);
             }
             // Exercise the complete integer jitter range, including each endpoint.
-            assert_eq!(observed, (floor..=ceiling).collect());
+            assert_eq!(
+                observed,
+                (floor..=ceiling).collect::<std::collections::BTreeSet<_>>()
+            );
         }
         for base in [1, 3, MAX_BACKOFF_SECONDS / 2, MAX_BACKOFF_SECONDS] {
             let policy = RetryPolicy::new(8, base, MAX_BACKOFF_SECONDS).unwrap();

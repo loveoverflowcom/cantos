@@ -429,7 +429,7 @@ fn preflight_zip(bytes: &[u8]) -> Result<(), ImportProblem> {
     if count == u16::MAX as usize
         || directory_size == u32::MAX
         || directory_start == u32::MAX
-        || (end >= 20 && bytes.get(end - 20..end - 16) == Some(b"PK\x06\x07"))
+        || (end >= 20 && bytes.get(end - 20..end - 16) == Some(b"PK\x06\x07".as_slice()))
     {
         return Err(problem("archive_zip64_unsupported"));
     }
@@ -445,7 +445,7 @@ fn preflight_zip(bytes: &[u8]) -> Result<(), ImportProblem> {
     let mut names = BTreeSet::new();
     let mut expansion = 0_u64;
     for _ in 0..count {
-        if bytes.get(position..position.saturating_add(4)) != Some(b"PK\x01\x02") {
+        if bytes.get(position..position.saturating_add(4)) != Some(b"PK\x01\x02".as_slice()) {
             return Err(problem("malformed_archive"));
         }
         let compressed = zip_u32(bytes, position + 20)?;
