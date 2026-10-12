@@ -18,16 +18,17 @@ not a production adoption: there is no Feldera service, connector, checkpoint, o
 production configuration. Reinspect the actual checkout before every implementation; these
 observations do not describe all future branches.
 
-Reuse that slice's boundaries before proposing another engine path:
+That slice's only consumer, the durable job summary, was removed with the in-process TTS runtime
+([ADR 0018](../../../../docs/decisions/0018-external-audio-production.md)). What remains is
+reusable evidence for another engine path, not a live read model:
 
 - `services/cantos-api/src/platform/incremental` — engine-independent signed changes, the count view, whole
   transaction paging and the pure fence/shadow decisions; `incremental::dbsp` — the circuit.
 - Migration `0009_durable_step_changes.sql` — a trigger-written, read-only transactional outbox
   stamped with `xid8`; positions are `{frontier, bootstrap snapshot}`, never a sequence number.
-- `postgres::durable::summary_view` — bootstrap/poll maintainer, per-request fence in the request's
-  own snapshot, bounded fallback, shadow comparison and rebuild.
-- `cargo xtask verify dbsp`, the DBSP tests in `cargo xtask verify postgres`, and
-  `scripts/benchmark_job_summary_dbsp.py`.
+  It stays applied but unused.
+- `cargo xtask verify dbsp`. The `summary_view` maintainer, its PostgreSQL tests and
+  `scripts/benchmark_job_summary_dbsp.py` are gone; recover them from commit `2de8c69`.
 
 A new consumer still needs its own fit decision below; the existing slice is evidence about one
 small aggregate, not a general license to route reads through the engine.

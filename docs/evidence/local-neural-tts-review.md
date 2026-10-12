@@ -1,5 +1,7 @@
 # Neural TTS boundary review and conditional delivery
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 Review date: 2026-10-11. [Draft PR #26](https://github.com/loveoverflowcom/cantos/pull/26)
 targets `develop`; [issue #6](https://github.com/loveoverflowcom/cantos/issues/6) remains open.
 **Production integration and merge: blocked.** Listening is NOT_RUN and production rights are

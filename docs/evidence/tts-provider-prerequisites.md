@@ -1,5 +1,7 @@
 # TTS provider prerequisites
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 Status: primary-source research, **2026-10-10**. The user subsequently authorized local
 runtime/library/model installation and actual local TTS. The bounded implementation selects
 eSpeak NG 1.52.0 for a nonprivate Vietnamese inspection sample. Commercial/cloud calls,

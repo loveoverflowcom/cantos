@@ -1,6 +1,6 @@
 //! Compatibility aliases for the retained editorial, planning and media inspection contracts.
-use std::convert::identity;
 use cantos_api::{contexts, postgres, production, revisions};
+use std::convert::identity;
 
 #[test]
 fn revision_entrypoints_share_the_same_retry_policy_and_types() {
@@ -25,7 +25,6 @@ fn revision_entrypoints_share_the_same_retry_policy_and_types() {
         contexts::editorial::export_digest(&export)
     );
 }
-
 
 #[test]
 fn production_catalog_entrypoint_is_compatible() {

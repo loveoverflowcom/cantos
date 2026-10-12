@@ -60,7 +60,7 @@ pub enum Task {
         /// Optimized local artifact (cargo/trunk --release); not a production image.
         #[arg(long)]
         release: bool,
-        /// cantos-api only: compile the opt-in experimental DBSP job-summary read model.
+        /// cantos-api only: compile the opt-in experimental DBSP incremental core.
         #[arg(long)]
         dbsp_experimental: bool,
     },
@@ -142,11 +142,11 @@ pub enum VerifySuite {
     Rust,
     /// WASM clippy and Trunk builds for Studio and Theatre Web.
     Web,
-    /// Script IR goldens, wire/Script IR/WAV/TTS receipt contract tests and the WAV oracle.
+    /// Script IR goldens, wire/Script IR/WAV contract tests and the WAV oracle.
     Contracts,
     /// Bounded Script IR validator/encoder mutations on a disposable copy (offline Cargo).
     Mutation,
-    /// clippy and every cantos-api test with the experimental DBSP read model compiled in.
+    /// clippy and every cantos-api test with the experimental DBSP incremental core compiled in.
     Dbsp,
     /// PostgreSQL integration and restart tests in a new disposable cluster.
     Postgres {

@@ -100,10 +100,6 @@ def main():
         for member in ("services/cantos-api", "apps/cantos-theatre/web", "apps/cantos-studio/web",
                        "packages/contracts", "packages/ui-system", "xtask"):
             shutil.copytree(ROOT / member, workspace / member, ignore=shutil.ignore_patterns("dist"))
-        # The former neural/TTS runtime was removed by ADR 0018.
-        # Script IR mutation tests retain only files required for contract checks.
-        (workspace / "scripts").mkdir()
-        shutil.copytree(ROOT / "scripts/fixtures", workspace / "scripts/fixtures")
         env = dict(os.environ, CARGO_TARGET_DIR=str(Path(temp) / "target"))
         baseline = run(workspace, env)
         summary = f"test result: ok. {EXPECTED_CONTRACT_TESTS} passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"

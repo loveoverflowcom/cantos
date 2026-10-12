@@ -1,5 +1,7 @@
 # Local neural Vietnamese TTS research
 
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior. Links to removed files point at commit `2de8c69`, the last commit that contained them.
+
 Status: **documented** primary-source comparison, 2026-10-11. VieNeu-TTS v3 Nano is selected
 for a bounded private research sample; production adoption is **NO_GO** pending provenance
 review. Installation identity, installed model/preset bytes, disk footprint and the host
@@ -179,7 +181,7 @@ The target output is explicit mono signed 16-bit PCM WAV at 24,000 Hz. All six l
 passed the existing WAV inspector's neural profile and independent Python `wave`/SHA-256 checks,
 including nonempty, nonzero PCM and scoped receipt inspection.
 
-The [helper source](../../scripts/vieneu_nano_runtime.py) and
+The [helper source](https://github.com/loveoverflowcom/cantos/blob/2de8c69/scripts/vieneu_nano_runtime.py) and
 [pure admission contract](../../services/cantos-api/src/contexts/production/domain/catalog/neural.rs) are implemented boundaries.
 Their existence alone does not prove safeguards; fresh live and fault evidence is linked below.
 The process boundary
