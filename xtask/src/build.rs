@@ -86,8 +86,8 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
     }
 }
 
-/// Studio is web-only. Theatre mobile is a reserved extension point, refused as
-/// UNSUPPORTED until a Gradle project exists, never simulated.
+/// Studio is web-only. Theatre production mobile remains UNSUPPORTED; its isolated mock
+/// presentation build belongs to `theatre-demo` and cannot establish native listening.
 pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
     match (app, surface) {
         (_, Some(Surface::Web)) => Ok(()),
@@ -100,12 +100,12 @@ pub fn app_surface(app: App, surface: Option<Surface>) -> Result<(), Refusal> {
         (App::Theatre, Some(Surface::Mobile)) => Err(Refusal::Unsupported {
             subject: "cantos-theatre --mobile".into(),
             reason: format!(
-                "{THEATRE_MOBILE_DIR} has no Gradle project; see its README.md for the planned CMP structure"
+                "{THEATRE_MOBILE_DIR} contains an isolated mock UI; use theatre-demo for it. Production native listening remains unavailable"
             ),
         }),
-        (App::Theatre, None) => Err(Refusal::Usage(format!(
-            "cantos-theatre has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: no Gradle project in {THEATRE_MOBILE_DIR})"
-        ))),
+        (App::Theatre, None) => Err(Refusal::Usage(
+            "cantos-theatre has two surfaces: pass --web (implemented) or --mobile (UNSUPPORTED: production native listening; use theatre-demo for the isolated mock UI)".into(),
+        )),
     }
 }
 

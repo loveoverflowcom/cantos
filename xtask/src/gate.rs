@@ -12,6 +12,7 @@ use crate::{
     command::CommandSpec,
     config::{App, API_PACKAGE, DBSP_FEATURE, UI_PACKAGE, WASM_TARGET},
     pipeline::Step,
+    theatre_demo,
     tools::Tool,
     ui_preview,
     workspace::Workspace,
@@ -32,6 +33,7 @@ pub enum GateKind {
     WebBuild,
     UiPreview,
     CmpUiPreview,
+    TheatreCmpDemo,
     Mutation,
     Postgres,
 }
@@ -77,6 +79,7 @@ pub enum Gate {
     WebBuild(App),
     UiPreview,
     CmpUiPreview,
+    TheatreCmpDemo,
     Mutation,
     Postgres {
         keep: bool,
@@ -111,6 +114,7 @@ impl Gate {
             Gate::WebBuild(_) => GateKind::WebBuild,
             Gate::UiPreview => GateKind::UiPreview,
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
+            Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
             Gate::Mutation => GateKind::Mutation,
             Gate::Postgres { .. } => GateKind::Postgres,
         }
@@ -148,6 +152,7 @@ impl Gate {
                 vec![Tool::Cargo, Tool::Wasm32Target, Tool::Trunk]
             }
             Gate::CmpUiPreview => ui_preview::cmp_tools(),
+            Gate::TheatreCmpDemo => theatre_demo::tools(),
             Gate::Postgres { .. } => vec![
                 Tool::Cargo,
                 Tool::Python3,
@@ -239,6 +244,7 @@ impl Gate {
             Gate::WebBuild(app) => vec![build::trunk(workspace, *app, "build", Profile::Dev)],
             Gate::UiPreview => vec![ui_preview::leptos_command(workspace, "build")],
             Gate::CmpUiPreview => vec![ui_preview::cmp_command(workspace, "desktopTest")],
+            Gate::TheatreCmpDemo => vec![theatre_demo::desktop_command(workspace, "desktopTest")],
             Gate::Mutation => vec![python(&["scripts/mutate_script_ir.py"])],
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
@@ -266,6 +272,7 @@ pub fn full() -> Vec<Gate> {
         Gate::WebBuild(App::Theatre),
         Gate::UiPreview,
         Gate::CmpUiPreview,
+        Gate::TheatreCmpDemo,
         Gate::Mutation,
         Gate::Postgres { keep: false },
     ]

@@ -1,0 +1,34 @@
+{
+  "vector_format": 1,
+  "contract": "theatre-mock-playback@1",
+  "vectors": [
+    {
+      "file": "play-pause.json",
+      "sha256": "bc9b73d4be95362d1a6d7e178464bf26d100d93edac02edb27cf018c45a54622"
+    },
+    {
+      "file": "buffering.json",
+      "sha256": "4b5f7df3d009c0855f328a600f2c4c9149e6277d50469b01b864ea2604a1797c"
+    },
+    {
+      "file": "interruption.json",
+      "sha256": "3c39358f06d38dce35fd73ddebae35fe0a6a36bc04727ceee8dd6feb624fb945"
+    },
+    {
+      "file": "stale-response.json",
+      "sha256": "d58ea2b08b79ab453c3864da3cb5532fe01825adf4db0c93f895c4c81f018ae6"
+    },
+    {
+      "file": "restore-session.json",
+      "sha256": "bca2510896ed12250a3979abe42414e66c14357c73d403532a90c54316ddb900"
+    },
+    {
+      "file": "preparing-races.json",
+      "sha256": "b5d21a9cece278313b89de9b5e885bff424ca1752f5b0d23d8fc39f838fa8082"
+    },
+    {
+      "file": "invalid-controls.json",
+      "sha256": "bfa0807d0df0186dd5429ac082ef40df87879d487c6823d3c365e6e5ba0304a9"
+    }
+  ]
+}

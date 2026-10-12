@@ -19,7 +19,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ComposePreviewTarget {
-    /// Cantos Theatre mobile project (UNSUPPORTED until its Gradle project exists).
+    /// Cantos Theatre mobile project (Isolated mock Gradle project; captures do not establish native listening).
     #[value(alias = "cantos")]
     CantosTheatre,
     /// Isolated Android library consuming the shared CMP UI-system source.

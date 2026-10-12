@@ -32,6 +32,7 @@ const GRACE: Duration = Duration::from_secs(10);
 struct Managed {
     name: String,
     child: Child,
+    group_stopped: bool,
 }
 
 /// How waiting ended.
@@ -91,6 +92,7 @@ impl Supervisor {
         self.children.push(Managed {
             name: name.to_owned(),
             child,
+            group_stopped: false,
         });
         Ok(())
     }
@@ -112,7 +114,7 @@ impl Supervisor {
                 .children
                 .last_mut()
                 .context("no process has been started")?;
-            if let Some(status) = managed.child.try_wait()? {
+            if let Some(status) = poll_exit(managed)? {
                 bail!(
                     "{} exited with {status} before becoming ready at {addr}",
                     managed.name
@@ -146,7 +148,7 @@ impl Supervisor {
                 return Ok(Wait::Interrupted);
             }
             for managed in &mut self.children {
-                if let Some(status) = managed.child.try_wait()? {
+                if let Some(status) = poll_exit(managed)? {
                     return Ok(Wait::Exited {
                         name: managed.name.clone(),
                         status,
@@ -160,13 +162,54 @@ impl Supervisor {
     /// Stops every supervised process group, newest first, and reaps it.
     pub fn shutdown(&mut self) {
         while let Some(mut managed) = self.children.pop() {
-            if let Ok(Some(_)) = managed.child.try_wait() {
+            if managed.group_stopped {
                 continue;
             }
             println!("Stopping {} (pid {})", managed.name, managed.child.id());
             terminate(&mut managed.child, self.grace);
         }
     }
+}
+
+/// Observe Unix exit without reaping: the leader reserves its identity until the final owned
+/// group signal. Reaping first could leave descendants alive or allow that identity to be reused.
+fn exited_without_reaping(child: &mut Child) -> std::io::Result<bool> {
+    #[cfg(unix)]
+    {
+        // SAFETY: siginfo_t accepts zero initialization. waitid writes this valid pointer,
+        // selects only our child, and WNOWAIT deliberately retains its waitable status.
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        let result = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                child.id(),
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if result == -1 {
+            return Err(std::io::Error::last_os_error());
+        }
+        // SAFETY: successful waitid with WEXITED initializes the child-status fields.
+        Ok(unsafe { info.si_pid() } != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        child.try_wait().map(|status| status.is_some())
+    }
+}
+
+fn poll_exit(managed: &mut Managed) -> std::io::Result<Option<ExitStatus>> {
+    if managed.group_stopped {
+        return managed.child.try_wait();
+    }
+    if !exited_without_reaping(&mut managed.child)? {
+        return Ok(None);
+    }
+    #[cfg(unix)]
+    signal_group(&managed.child, libc::SIGKILL);
+    managed.group_stopped = true;
+    managed.child.wait().map(Some)
 }
 
 impl Drop for Supervisor {
@@ -195,9 +238,10 @@ fn terminate(child: &mut Child, grace: Duration) {
     let _ = child.kill();
     let deadline = Instant::now() + grace;
     while Instant::now() < deadline {
-        if let Ok(Some(_)) = child.try_wait() {
+        if let Ok(true) = exited_without_reaping(child) {
             #[cfg(unix)]
             signal_group(child, libc::SIGKILL); // stragglers left in the group
+            let _ = child.wait();
             return;
         }
         thread::sleep(Duration::from_millis(50));
@@ -211,7 +255,13 @@ fn terminate(child: &mut Child, grace: Duration) {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::{net::TcpListener, path::PathBuf};
+    use std::{
+        io::Read,
+        net::TcpListener,
+        os::{fd::AsRawFd, unix::process::CommandExt},
+        path::PathBuf,
+        process::Stdio,
+    };
 
     fn shell(script: &str) -> CommandSpec {
         CommandSpec::new("sh", std::env::temp_dir()).args(["-c", script])
@@ -278,6 +328,71 @@ mod tests {
                 assert_eq!(status.code(), Some(7));
             }
             other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_exited_launcher_cannot_leave_a_descendant_holding_its_owned_pipe() {
+        // The pipe observes only our descendants; no process-name or PID lookup is needed.
+        // Stdout's pipe goes only to this child; parallel test children cannot retain it.
+        let script = "import os,signal,time\nchild=os.fork()\nif child:\n os.write(1,b'ready')\n os._exit(7)\nsignal.signal(signal.SIGINT,signal.SIG_IGN)\ntime.sleep(60)";
+        let mut child = CommandSpec::new("python3", std::env::temp_dir())
+            .args(["-c", script])
+            .to_command()
+            .stdout(Stdio::piped())
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let mut reader = child.stdout.take().unwrap();
+        let reader_fd = reader.as_raw_fd();
+        let mut supervisor = supervisor();
+        supervisor.children.push(Managed {
+            name: "exited launcher".to_owned(),
+            child,
+            group_stopped: false,
+        });
+        // SAFETY: this is the valid reader descriptor, still owned by reader.
+        assert_eq!(
+            unsafe { libc::fcntl(reader_fd, libc::F_SETFL, libc::O_NONBLOCK) },
+            0
+        );
+        let mut readiness = [0; 5];
+        let mut received = 0;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while received < readiness.len() {
+            match reader.read(&mut readiness[received..]) {
+                Ok(0) => panic!("owned launcher exited before pipe readiness"),
+                Ok(count) => received += count,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        Instant::now() < deadline,
+                        "owned launcher did not become ready"
+                    );
+                    thread::sleep(Duration::from_millis(20));
+                }
+                Err(error) => panic!("owned pipe readiness failed: {error}"),
+            }
+        }
+        assert_eq!(&readiness, b"ready");
+        assert!(
+            matches!(supervisor.wait().unwrap(), Wait::Exited { status, .. } if status.code() == Some(7))
+        );
+        supervisor.shutdown();
+        // A surviving pipe owner fails within a bounded time.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut byte = [0];
+        loop {
+            match reader.read(&mut byte) {
+                Ok(0) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        Instant::now() < deadline,
+                        "owned descendant survived the exited launcher"
+                    );
+                    thread::sleep(Duration::from_millis(20));
+                }
+                other => panic!("unexpected pipe state: {other:?}"),
+            }
         }
     }
 

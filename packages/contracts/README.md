@@ -66,6 +66,11 @@ plan report has a [JSON Schema](https://github.com/loveoverflowcom/cantos/blob/2
 [fixture](https://github.com/loveoverflowcom/cantos/blob/2de8c69/packages/contracts/fixtures/clip-reuse/v1/plan-edit-one-line.json). It adds no shared HTTP DTO, Studio route,
 object storage, live provider or publication path.
 
+The requester-selected [Theatre mock playback v1 corpus](fixtures/theatre/playback/v1/README.md)
+shares exact state/event/effect vocabulary and hand-authored regression vectors between independent
+Rust and Kotlin presentation cores. It is mock-only test data, not a listener HTTP DTO, publication
+manifest, production authorization or audio acceptance. Each platform reports its own test gaps.
+
 The historical [draft example](examples/episode-draft.json) stays byte-for-byte unchanged. Its
 `0.1.0-draft` version is illustrative and explicitly unsupported by the reader. The new fixtures
 reuse that original sample and add synthetic content. Their external record IDs are placeholders;

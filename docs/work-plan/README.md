@@ -33,7 +33,8 @@ historical experiments, not prerequisites for the new roadmap.
 - [020 — external production instructions and audio handoff](020-cast-and-generate-dialogue.md).
 - [030 — external master intake, QC and release](030-mix-review-and-publish.md).
 - [040 — Theatre Web](040-theatre-web-listening.md).
-- [050 — native Theatre Mobile](050-cmp-native-listening.md).
+- [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
+  [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
 - [GitHub execution map](project-planning.md) and [audio drama craft](audio-drama-quality.md)
   support these, without authorizing TTS inside Cantos.
 

@@ -8,7 +8,10 @@ use std::{
     process::{Command, Stdio},
 };
 
-use crate::config::{GRADLE_VERSION, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET};
+use crate::{
+    config::{GRADLE_VERSION, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET},
+    theatre_demo,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Tool {
@@ -21,6 +24,7 @@ pub enum Tool {
     Java,
     CmpGradleProject,
     CmpAndroidGradleProject,
+    TheatreDemoGradleProject,
     Python3,
     Git,
     Initdb,
@@ -30,7 +34,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 15] = [
+    pub const ALL: [Tool; 16] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -40,6 +44,7 @@ impl Tool {
         Tool::Java,
         Tool::CmpGradleProject,
         Tool::CmpAndroidGradleProject,
+        Tool::TheatreDemoGradleProject,
         Tool::Python3,
         Tool::Git,
         Tool::Initdb,
@@ -59,6 +64,7 @@ impl Tool {
             Tool::Java => "java",
             Tool::CmpGradleProject => "CMP Gradle project",
             Tool::CmpAndroidGradleProject => "CMP Android preview Gradle project",
+            Tool::TheatreDemoGradleProject => "Theatre mock Gradle project",
             Tool::Python3 => "python3",
             Tool::Git => "git",
             Tool::Initdb => "initdb",
@@ -86,6 +92,9 @@ impl Tool {
             Tool::CmpAndroidGradleProject => {
                 "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp/android-preview"
             }
+            Tool::TheatreDemoGradleProject => {
+                "the isolated root/shared Gradle project and common/desktop sources must exist in apps/cantos-theatre/mobile"
+            }
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
             Tool::AndroidCli => "install the official Android CLI; Compose preview needs Android Studio Quail 2+ with the selected Android project open",
@@ -106,6 +115,7 @@ impl Tool {
             Tool::Java => Some(("java", &["-version"])),
             Tool::CmpGradleProject => None,
             Tool::CmpAndroidGradleProject => None,
+            Tool::TheatreDemoGradleProject => None,
             Tool::Python3 => Some(("python3", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
             Tool::Initdb => Some(("initdb", &["--version"])),
@@ -147,7 +157,10 @@ impl SystemTools {
     pub fn version(&self, tool: Tool) -> Option<String> {
         if matches!(
             tool,
-            Tool::Wasm32Target | Tool::CmpGradleProject | Tool::CmpAndroidGradleProject
+            Tool::Wasm32Target
+                | Tool::CmpGradleProject
+                | Tool::CmpAndroidGradleProject
+                | Tool::TheatreDemoGradleProject
         ) {
             return self.available(tool).then(|| "available".to_owned());
         }
@@ -183,6 +196,9 @@ impl SystemTools {
             Tool::CmpGradleProject => cmp_gradle_project_exists(&self.root.join(UI_CMP_DIR)),
             Tool::CmpAndroidGradleProject => {
                 cmp_gradle_project_exists(&self.root.join(UI_CMP_ANDROID_DIR))
+            }
+            Tool::TheatreDemoGradleProject => {
+                theatre_demo::project_exists(&self.root.join(crate::config::THEATRE_MOBILE_DIR))
             }
             Tool::Gradle => self
                 .version(tool)
