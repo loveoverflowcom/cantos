@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::revisions::{decide_save, permits, Access, Action, PriorOperation, SaveDecision};
 use crate::script_ir::{read_canonical_script, read_script, ReadError, WRITE_VERSION};
 
-const MIGRATIONS: [(i32, &str); 7] = [
+const MIGRATIONS: [(i32, &str); 8] = [
     (1, include_str!("../migrations/0001_script_revisions.sql")),
     (2, include_str!("../migrations/0002_editorial_handoff.sql")),
     (3, include_str!("../migrations/0003_manuscript_import.sql")),
@@ -18,6 +18,7 @@ const MIGRATIONS: [(i32, &str); 7] = [
     (5, include_str!("../migrations/0005_caller_adaptation.sql")),
     (6, include_str!("../migrations/0006_production_inputs.sql")),
     (7, include_str!("../migrations/0007_durable_jobs.sql")),
+    (8, include_str!("../migrations/0008_speech_clips.sql")),
 ];
 const REVISION_COLUMNS: &str = "script_id, revision, expected_revision, accepted_by, canonical_export, content_digest, export_digest, to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at";
 

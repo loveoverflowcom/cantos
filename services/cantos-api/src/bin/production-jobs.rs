@@ -1,12 +1,13 @@
 //! Authenticated development CLI for the durable local-worker foundation.
-use std::{env, process::ExitCode};
+use std::{env, path::PathBuf, process::ExitCode};
 
 use cantos_api::{
     jobs::{ExecutionMode, RetryPolicy, RunEvent},
-    postgres::{local_config, Store},
+    postgres::{durable::DurableError, local_config, Store},
 };
+use serde::Serialize;
 
-const USAGE: &str = "usage: production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak|--test-fake) | status <run-id> | (pause|resume|cancel|retry) <run-id> <operation-id> | resolve-not-executed <run-id> <attempt-id> <evidence-reference>; requires CANTOS_ENV=development, CANTOS_DATABASE_URL and CANTOS_SESSION_TOKEN";
+const USAGE: &str = "usage: production-jobs enqueue <script-id> <snapshot-id> <operation-id> (--local-espeak|--test-fake) | status <run-id> | (pause|resume|cancel|retry) <run-id> <operation-id> | resolve-not-executed <run-id> <attempt-id> <evidence-reference> | plan <script-id> <next-snapshot-id> (--local-espeak|--test-fake) [--previous <snapshot-id>] [--output-root <absolute-private-directory>]; requires CANTOS_ENV=development, CANTOS_DATABASE_URL and CANTOS_SESSION_TOKEN";
 
 enum Command<'a> {
     Enqueue {
@@ -28,6 +29,18 @@ enum Command<'a> {
         attempt: &'a str,
         evidence: &'a str,
     },
+    /// Read-only: forecast which dialogue would be synthesized, reused or blocked.
+    Plan {
+        script: &'a str,
+        next: &'a str,
+        previous: Option<&'a str>,
+        mode: ExecutionMode,
+        output_root: Option<PathBuf>,
+    },
+}
+
+fn report(value: &impl Serialize) -> Result<String, DurableError> {
+    serde_json::to_string(value).map_err(|_| DurableError::InvalidRequest)
 }
 
 #[tokio::main]
@@ -65,29 +78,53 @@ async fn execute(args: &[String]) -> Result<(), String> {
             mode,
         } => {
             let policy = RetryPolicy::new(3, 1, 30).map_err(|_| "invalid retry policy")?;
-            store
+            match store
                 .enqueue_job(&token, script, snapshot, operation, mode, policy)
                 .await
+            {
+                Ok(summary) => report(&summary),
+                Err(error) => Err(error),
+            }
         }
-        Command::Status { run } => store.job_status(&token, run).await,
+        Command::Status { run } => match store.job_status(&token, run).await {
+            Ok(summary) => report(&summary),
+            Err(error) => Err(error),
+        },
         Command::Control {
             run,
             operation,
             event,
-        } => store.control_job(&token, run, operation, event).await,
+        } => match store.control_job(&token, run, operation, event).await {
+            Ok(summary) => report(&summary),
+            Err(error) => Err(error),
+        },
         Command::ResolveNotExecuted {
             run,
             attempt,
             evidence,
-        } => {
-            store
-                .resolve_not_executed(&token, run, attempt, evidence)
-                .await
-        }
+        } => match store
+            .resolve_not_executed(&token, run, attempt, evidence)
+            .await
+        {
+            Ok(summary) => report(&summary),
+            Err(error) => Err(error),
+        },
+        Command::Plan {
+            script,
+            next,
+            previous,
+            mode,
+            output_root,
+        } => match store
+            .regeneration_plan(&token, script, previous, next, mode, output_root.as_deref())
+            .await
+        {
+            Ok(plan) => report(&plan),
+            Err(error) => Err(error),
+        },
     }
     .map_err(|error| format!("production job command rejected: {error:?}"))?;
-    let report = serde_json::to_string(&result).map_err(|_| "job report cannot be serialized")?;
-    println!("{report}");
+    println!("{result}");
     Ok(())
 }
 
@@ -122,9 +159,48 @@ fn parse_command<'a>(args: &[&'a str]) -> Result<Command<'a>, String> {
             attempt,
             evidence,
         },
+        ["plan", script, next, options @ ..] => parse_plan(script, next, options)?,
         _ => return Err(USAGE.into()),
     };
     Ok(command)
+}
+
+/// Exactly one execution mode, and each of `--previous` and `--output-root` at most once.
+/// The output root is the only place object probes read, and it must be absolute.
+fn parse_plan<'a>(
+    script: &'a str,
+    next: &'a str,
+    options: &[&'a str],
+) -> Result<Command<'a>, String> {
+    let (mut mode, mut previous, mut output_root) = (None, None, None);
+    let mut index = 0;
+    while index < options.len() {
+        match options[index] {
+            "--local-espeak" if mode.is_none() => mode = Some(ExecutionMode::LocalEspeak),
+            "--test-fake" if mode.is_none() => mode = Some(ExecutionMode::SyntheticFake),
+            "--previous" if previous.is_none() => {
+                index += 1;
+                previous = Some(*options.get(index).ok_or(USAGE)?);
+            }
+            "--output-root" if output_root.is_none() => {
+                index += 1;
+                let path = PathBuf::from(*options.get(index).ok_or(USAGE)?);
+                if !path.is_absolute() {
+                    return Err("--output-root must be an absolute path".into());
+                }
+                output_root = Some(path);
+            }
+            _ => return Err(USAGE.into()),
+        }
+        index += 1;
+    }
+    Ok(Command::Plan {
+        script,
+        next,
+        previous,
+        mode: mode.ok_or(USAGE)?,
+        output_root,
+    })
 }
 
 #[cfg(test)]
@@ -147,5 +223,66 @@ mod tests {
         ] {
             assert_eq!(parse_command(&values).err().as_deref(), Some(USAGE));
         }
+    }
+
+    #[test]
+    fn plan_requires_one_explicit_mode_and_an_absolute_output_root() {
+        let parsed = parse_command(&[
+            "plan",
+            "script",
+            "next",
+            "--test-fake",
+            "--previous",
+            "old",
+            "--output-root",
+            "/private/root",
+        ]);
+        assert!(matches!(
+            parsed,
+            Ok(Command::Plan {
+                previous: Some("old"),
+                mode: ExecutionMode::SyntheticFake,
+                output_root: Some(_),
+                ..
+            })
+        ));
+        assert!(matches!(
+            parse_command(&["plan", "script", "next", "--local-espeak"]),
+            Ok(Command::Plan {
+                previous: None,
+                output_root: None,
+                mode: ExecutionMode::LocalEspeak,
+                ..
+            })
+        ));
+        for values in [
+            vec!["plan", "script", "next"],
+            vec!["plan", "script", "next", "--google"],
+            vec!["plan", "script", "next", "--test-fake", "--local-espeak"],
+            vec!["plan", "script", "next", "--test-fake", "--previous"],
+            vec![
+                "plan",
+                "script",
+                "next",
+                "--test-fake",
+                "--previous",
+                "a",
+                "--previous",
+                "b",
+            ],
+            vec!["plan", "script", "next", "--test-fake", "--unknown"],
+        ] {
+            assert_eq!(
+                parse_command(&values).err().as_deref(),
+                Some(USAGE),
+                "{values:?}"
+            );
+        }
+        assert_eq!(
+            parse_command(&["plan", "s", "n", "--test-fake", "--output-root", "relative"])
+                .err()
+                .as_deref(),
+            Some("--output-root must be an absolute path")
+        );
     }
 }

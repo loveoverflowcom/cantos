@@ -680,7 +680,7 @@ async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_faile
             .await
             .unwrap()
             .get::<_, i64>(0),
-        7
+        8
     );
     assert_eq!(
         admin
@@ -689,6 +689,14 @@ async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_faile
             .unwrap()
             .get::<_, Option<String>>(0),
         Some("durable_runs".into())
+    );
+    assert_eq!(
+        admin
+            .query_one("SELECT to_regclass('speech_clips')::text", &[])
+            .await
+            .unwrap()
+            .get::<_, Option<String>>(0),
+        Some("speech_clips".into())
     );
 }
 

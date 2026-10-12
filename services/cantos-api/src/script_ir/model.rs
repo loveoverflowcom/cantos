@@ -158,7 +158,30 @@ impl SpokenLine<'_> {
     }
 }
 
+/// One scene's spoken dialogue identifiers in script order. Scene membership is placement, not
+/// synthesis input: it never enters a speech fingerprint, but a mix depends on it.
+pub struct SpokenScene<'a> {
+    pub scene_id: &'a str,
+    pub dialogue_ids: Vec<&'a str>,
+}
+
 impl ScriptContent {
+    pub fn spoken_scenes(&self) -> Vec<SpokenScene<'_>> {
+        self.episode
+            .acts
+            .iter()
+            .flat_map(|act| &act.scenes)
+            .map(|scene| SpokenScene {
+                scene_id: &scene.id.0,
+                dialogue_ids: scene
+                    .dialogues
+                    .iter()
+                    .map(|dialogue| dialogue.id.0.as_str())
+                    .collect(),
+            })
+            .collect()
+    }
+
     pub fn spoken_lines(&self) -> impl Iterator<Item = SpokenLine<'_>> {
         self.episode
             .acts
