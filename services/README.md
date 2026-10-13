@@ -36,6 +36,11 @@ never start PostgreSQL or Kanidm, install Podman or initialize/start a machine. 
 Secrets, certificates, identity databases and persistent data stay outside Git. Stop/restart
 must preserve volumes; no lifecycle command performs migrations, pruning or data deletion.
 
+## Local guides
+
+See [PostgreSQL](postgresql/README.md) and [Kanidm](kanidm/README.md) for private prerequisites,
+explicit commands, storage and recovery. Configured examples grant no production acceptance.
+
 ## Implementation sequence
 
 The process inventory and policy land first. The PostgreSQL/Kanidm guides and private environment

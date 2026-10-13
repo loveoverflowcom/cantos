@@ -1,10 +1,11 @@
-# Example Kanidm server configuration for LOCAL DEVELOPMENT only.
-# Copy to a private location, replace the domain with one you control and supply real TLS
-# material through your deployment secret store. Never commit certificates, keys or the database.
+# Narrow LOCAL EVALUATION config for the pinned Kanidm 1.10.5 image.
+# Copy outside Git; supply operator-owned TLS, never generated automatically by xtask.
+# Mount private config/TLS read-only at /config; keep identity data on the named /data volume.
 version = "2"
 bindaddress = "[::]:8443"
 db_path = "/data/kanidm.db"
-tls_chain = "/data/chain.pem"
-tls_key = "/data/key.pem"
+tls_chain = "/config/chain.pem"
+tls_key = "/config/key.pem"
 domain = "idm.cantos.localhost"
+# Match the chosen HOST port; internal TLS health uses localhost:8443.
 origin = "https://idm.cantos.localhost:8443"
