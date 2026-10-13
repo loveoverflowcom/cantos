@@ -138,7 +138,11 @@ These are source-audited obligations, not reproduced end-to-end defects:
 8. Studio state; 9. Theatre state; 10. opt-in xtask Kani selector; 11. final evidence.
 
 The work is delivered in one sequenced Draft PR, in three sequential phases
-(1–4, 5–7, 8–11). No merge or squash. A no-op audit is recorded rather than
+(1–4, 5–7, 8–11). Keep implementation commits ordered and unsquashed; do not
+merge the PR into `develop`. The user's later completion instruction queues a
+merge of latest `develop` into the feature branch after all three phases, then
+one separate Sol 6.1 Ultra review workchat with fixes pushed to this same PR.
+A no-op audit is recorded rather than
 creating an empty commit or an abstraction without a current consumer.
 
 ## Verification record (initial)
@@ -195,5 +199,103 @@ matrix tests and two compile-fail checks for private/non-default nonempty text).
 Package clippy with warnings denied passed. Existing native string-render tests
 and the new text-state matrix cover HTML associations/state projections; they
 are not live DOM, browser interaction, pixels or screen-reader evidence. No
-rendered behavior was intentionally changed. Broader WASM verification is running
-and is not yet credited as PASS.
+rendered behavior was intentionally changed. `cargo xtask verify web` passed all
+four gates: both apps' WASM lint, Studio build, Theatre build and UI preview.
+The first run failed because Trunk's default cache directory was read-only;
+the retry used an isolated task cache through `XDG_CACHE_HOME`. These successful
+builds still do not establish live interaction, visual or assistive-technology
+behavior.
+
+## Phase 1: Catalog, ingestion and Script IR checkpoint
+
+C1/C2 retain their existing distinct ID types and immutable snapshot fields.
+Accepted Work/ContentUnit/ContentRevision/ScriptRef sequences now use a private
+`Revision` representation with a fallible `1..=i64::MAX` admission and checked
+successor. It has no Deserialize, Default or unchecked From path. Raw New/Stored
+facts, public numeric projections, conflict/diagnostic order and the intentional
+zero pre-first-content head remain unchanged. Serialization is transparent.
+This is `TYPE_ENFORCED` plus `RUNTIME_VALIDATED`, not an authority witness or proof.
+
+I1 now admits immutable metadata and original bytes together in `AdmittedImport`.
+Both the existing application and stored-row reconstruction consume the same
+fallible boundary, and insertion derives stored metadata from that admitted
+value instead of taking a second metadata snapshot. The original diagnostics
+and their ordering, bytes, extraction behavior and replay comparisons are
+preserved. The witness states intrinsic metadata/size validity only: empty or
+malformed source bytes may still produce an extraction failure. It does not
+certify receipt integrity, parser success, rights or transaction authorization.
+I2 continues to check stored byte hash, outcome digest and text projection.
+
+S1 already had sealed validated ScriptContent and read-only identity; its runtime
+implementation needed no justified replacement. No schema, canonical digest,
+wire shape, SQL migration or persisted-byte rewrite was introduced. Seven API
+compile-fail examples now check distinct IDs, immutable Work identity, the
+absence of Deserialize on Work, and the absence of Deserialize/Default on
+admitted ManuscriptText/ScriptContent.
+The mutation runner's exact baseline count increases from 15 to 16 to include
+the new Script IR property; its zero-test, failure and mutant guards remain intact.
+
+The following generated laws actually ran (`PROPERTY_TESTED`; proptest defaults
+otherwise unchanged). Bounded samples are not exhaustive or model-checked:
+
+| Production boundary / law | Generated domain; cases and fixed RNG seed |
+| --- | --- |
+| Revision admission/successor equals an independent u128 oracle; transparent JSON | arbitrary u64; 256 cases; 20261013, plus explicit zero/i64/u64 edges |
+| Manuscript NFC/LF canonicalization is idempotent and NFD-equivalent; wire restoration reproduces content/digest | 0–63 chunks from 11 Vietnamese/decomposed/whitespace/emoji choices, after a valid prefix; 128 cases; 20261014 |
+| Script canonical export re-admits with identical bytes/content digest/speech; NFD-equivalence | accepted two-scene fixture with one dialogue varied by 0–63 chunks from 11 choices; 128 cases; 20261015 |
+| Admitted import raw projection preserves original bytes and metadata | arbitrary byte vectors of length 0–256; 128 cases; 20261016, plus exact maximum-size and diagnostic-order cases |
+
+`cargo xtask verify rust` passed formatting, warnings-denied workspace clippy and
+all workspace Rust tests, including the seven API and two shared UI compile-fail
+examples. API library tests passed 131 cases. Ignored PostgreSQL tests remain
+uncredited. Targeted Catalog tests and the complete API suite also passed during
+implementation; final workspace checks include the final source changes.
+
+`cargo xtask verify postgres` failed before test execution. Official PostgreSQL
+17.11 tools initialize the disposable cluster, but this environment denies
+creating `/tmp/.s.PGSQL.<port>` with `Operation not permitted`. An exact reviewed
+escalation retry failed at the same boundary. No runner, socket/network policy,
+database or integration expectation was weakened to obtain a green result.
+PostgreSQL behavior remains `NOT_VERIFIED` / FAIL; no integration pass is claimed.
+Kani remains NOT_RUN pending the phase 2 kernels and phase 3 opt-in workflow.
+
+Final changed-only preflight (`cargo xtask preflight --changed-only --base
+origin/develop`) ran all 13 selected gates: repository (221 Python cases), Rust
+format/lint/tests for the five affected crates, experimental DBSP lint/tests,
+WAV reference, actual-byte audio inspection, both apps' WASM lint/builds, UI
+preview and mutation all passed (12 gates). PostgreSQL alone failed at the
+environment boundary above, so preflight's overall result is **FAIL**, not PASS.
+The nine actual source mutations were all killed, with zero survivors, timeouts
+or unviable mutants and an exact 16-test passing baseline. This is targeted
+mutation evidence, not a correctness proof or DBSP production adoption.
+
+The first expanded preflight stopped at architecture validation because a domain
+property referenced its wire adapter. The unchanged reconstruction law now lives
+at the application boundary. Visibility declarations on the narrow import value
+were adjusted to crate visibility while preserving private fields and fallible
+construction. No architecture checker or failure expectation was weakened.
+
+## End-of-phase fresh-develop rebase
+
+Fresh `develop` advanced to `3a78e77a2190cd443401ed95d58c5933e302724e`,
+including PR73 live client/finding fixes and PR76 engineering guidance. The
+task-only rebase applied all four ordered commits without source conflicts;
+the original published head was retained locally before rewriting task history.
+The initial inventory and its evidence above remain attributed to the original
+`4f33a90` baseline, rather than being relabeled as fresh-base evidence.
+
+The current baseline now includes bounded Studio Catalog/Brief/private-audio
+forms and an explicitly unsupported Theatre transport boundary. Phase 3 must
+audit their actual async state and preserve PR73's work-selection, session/cookie
+and draft-preservation fixes. No production listener API or real playback engine
+was implemented by this rebase or hardening work. The merged app, HTTP shell,
+repository instructions and existing xtask changes were retained unchanged.
+
+Against this fresh baseline, full workspace Rust verification passed 727 tests
+with 136 explicitly ignored cases, and contracts verification passed all four
+gates again. Expanded changed-only preflight passed the same 12 gates, including
+225 Python repository cases, affected-crate tests, DBSP, both WASM builds, UI
+preview and all nine killed mutants. PostgreSQL alone failed before tests with
+the same Unix-socket denial, so the rebased preflight result remains **FAIL**.
+Ignored cases, Kani, live browser/assistive-technology and audio listening earn no
+new verification credit from the rebase.

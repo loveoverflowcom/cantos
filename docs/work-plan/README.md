@@ -58,6 +58,14 @@ backend sequence above is unchanged.
 
 ## Existing foundations to retain
 
+The [domain assurance hardening](../assurance/domain-invariants.md) inventories
+and strengthens existing boundaries in [Draft PR75](https://github.com/loveoverflowcom/cantos/pull/75).
+Phase 1 covers contracts, shared UI and Catalog/ingestion/Script IR. Next, audit
+editorial/production and media/incremental before bounded production-kernel Kani
+verification; the final phase covers client state and the opt-in verifier workflow.
+GitHub owns execution status. This correctness work does not complete broader
+Studio acceptance, rights/QC, publication or listener implementation.
+
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
 MessagePack-capable editorial routes, tests and `cargo xtask`. The earlier editorial endpoints
