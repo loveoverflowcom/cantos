@@ -163,4 +163,4 @@ checks precede admission, which is acquired before buffering. GET/HEAD preview u
 MIME, byte length and quoted SHA-256 ETag. HEAD verifies/open-reauthorizes then drops the stream;
 Range/conditional headers do not confer a grant or change the full-byte 200 policy. Actual
 loopback HTTP, database, target/version resolution and storage readback remain separate pending
-acceptance. Five executed Router probes establish extractor/header/limit behavior only.
+acceptance. Executed Router probes establish extractor/header/limit and composition behavior only.
