@@ -29,9 +29,10 @@ container infrastructure; build/test/run/preflight never do.
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
 cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
+cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
-cargo xtask build all [--release]                  # the API and both Web clients
+cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
 cargo xtask run cantos-studio --web [--test-cluster] [--open]
@@ -64,13 +65,16 @@ cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composabl
 
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) is web-only: pass
+`cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
+([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
+xtask only builds it: no `run`, gate or CI job executes Forge, and Forge calls no provider.
+`cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
 Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
 `UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
-out-of-scope directory. `build all` covers the API and both Web clients and notes that Theatre
+out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
 Mobile and `services/kanidm` (configuration only) are not built. See the
 [platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
@@ -304,17 +308,17 @@ state it in the pull request.
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly three registered API-library propositions:
-`catalog-revision`, `wav-payload` and `submission-window`. Repeat `--harness` to select a subset;
+`cargo xtask verify kani` selects exactly five registered API-library propositions:
+`catalog-revision`, `wav-payload`, `submission-window`, `publication-commit` and `listener-access`. Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/7/8) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/7/8/6/5) and reviewed unreachable checks.
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
-limits. Existing Theatre harnesses are outside this registry and have no new executed claim.
+limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all three. Unrelated documents, Web/CMP and service configuration select
+uncertain changes select all five. Unrelated documents, Web/CMP and service configuration select
 none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.

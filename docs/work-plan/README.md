@@ -95,6 +95,16 @@ are separate from the implemented Catalog API and general external-producer hand
 The narrow development intake is described above. Prior worker/Google/eSpeak/VieNeu samples and
 DBSP job views are historical experiments, not prerequisites for the new roadmap.
 
+## Producer-side Cantos Forge
+
+[Issue #82](https://github.com/loveoverflowcom/cantos/issues/82) and the proposed
+[ADR 0022](../decisions/0022-cantos-forge-producer-cli.md) add a producer-side CLI outside the
+API runtime. Its [foundation](../../apps/cantos-forge/README.md) holds the crate, xtask build, the
+tested pure core and a host-assisted local workflow (workspace, register, validate, export a
+local bundle). Recommended next: instruction bundles and AI/human review evidence commands, then
+provider orchestration and the authorized handoff as separate boundaries. None of this changes the
+API sequence above. GitHub owns status.
+
 ## Canonical work plans
 
 - [010 — source/script import and editor](010-import-and-edit-script.md) — completed portions retained.
@@ -152,3 +162,12 @@ then publication before Theatre playback. Next runtime acceptance needs an opera
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
 lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.

@@ -21,6 +21,8 @@ pub const WASM_TARGET: &str = "wasm32-unknown-unknown";
 pub const DEFAULT_BASE: &str = "origin/develop";
 
 pub const API_PACKAGE: &str = "cantos-api";
+/// The producer-side Forge CLI. xtask builds it; it never runs it inside build/test/preflight.
+pub const FORGE_PACKAGE: &str = "cantos-forge";
 /// The opt-in experimental DBSP incremental core of the API; off in every other gate and build.
 pub const DBSP_FEATURE: &str = "dbsp-experimental";
 pub const UI_PACKAGE: &str = "cantos-ui";
@@ -130,6 +132,7 @@ mod tests {
     fn rust_version_matches_every_package() {
         for manifest in [
             "services/cantos-api/Cargo.toml",
+            "apps/cantos-forge/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",
             "packages/contracts/api/Cargo.toml",

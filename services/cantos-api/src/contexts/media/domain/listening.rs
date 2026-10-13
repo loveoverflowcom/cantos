@@ -117,6 +117,14 @@ pub struct ListenerFacts<'a> {
     pub now: i64,
 }
 /// Cannot deserialize or construct public authority from a raw DTO.
+/// ```compile_fail,E0277
+/// use cantos_api::contexts::media::domain::listening::ListenerPublication;
+/// let forged=serde_json::from_str::<ListenerPublication>("{}");
+/// ```
+/// ```compile_fail,E0616
+/// use cantos_api::contexts::media::domain::listening::ListenerPublication;
+/// fn mutate(p:&mut ListenerPublication){ p.release = p.release.clone(); }
+/// ```
 #[derive(Clone, Debug)]
 pub struct ListenerPublication {
     release: AudioRelease,
@@ -394,6 +402,45 @@ mod tests {
             .unwrap_err(),
             ListenerDomainError::BindingMismatch
         );
+    }
+    #[test]
+    fn current_privacy_and_archival_changes_remove_access_without_rewriting_release() {
+        use super::super::publication::{decide, AudioRelease, ReleaseId};
+        let f = public_fixture();
+        let release = AudioRelease::publish(
+            ReleaseId::parse("80000000-0000-4000-8000-000000000008").unwrap(),
+            &f.actor,
+            5000,
+            None,
+            decide(&f.facts()).unwrap(),
+        )
+        .unwrap();
+        let resolve = |work: &Work, unit: &ContentUnit| {
+            ListenerPublication::resolve(ListenerFacts {
+                release: &release,
+                pinned_work: &f.work,
+                pinned_unit: &f.unit,
+                current_work: work,
+                current_unit: unit,
+                rights: Some(&f.rights),
+                approval: Some(&f.approval),
+                active: true,
+                owner_active: true,
+                withdrawn: false,
+                submission_revoked: false,
+                now: 6000,
+            })
+            .unwrap()
+        };
+        for visibility in [Visibility::Private, Visibility::Unlisted] {
+            let mut details = f.work.details().clone();
+            details.visibility = visibility;
+            let current = f.work.edit(1, details, 6000).unwrap();
+            assert!(resolve(&current, &f.unit).is_none());
+        }
+        assert!(resolve(&f.work.archive(1, 6000).unwrap(), &f.unit).is_none());
+        assert!(resolve(&f.work, &f.unit.archive(&f.work, 1, 6000).unwrap()).is_none());
+        assert!(resolve(&f.work, &f.unit).is_some());
     }
     #[test]
     fn mixed_language_work_preserves_actual_published_audio_language() {

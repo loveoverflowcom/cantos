@@ -258,3 +258,10 @@ DTOs checked against the same Schema/fixtures in both native and browser-consume
 not generated OpenAPI. Future generated bindings must name their source and generation command.
 
 [Private Audio Lifecycle v1](audio-lifecycle-v1.md) implements Content/Brief-bound admission, independently scoped upload, append-only review and private candidate readiness. Public publication remains unavailable.
+
+## Theatre Discovery/Playback
+
+[Discovery/Playback v1](theatre-discovery-v1.md) adds real anonymous public-release queries,
+opaque keysets and a fail-closed playback authorization port. Shared DTOs and strict fixtures
+are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
+acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.

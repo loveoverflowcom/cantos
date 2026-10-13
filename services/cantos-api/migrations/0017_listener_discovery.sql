@@ -4,14 +4,14 @@ CREATE TABLE audio_listener_works (
     first_release_id text NOT NULL REFERENCES audio_releases(id),
     first_published_at bigint NOT NULL CHECK(first_published_at>=0)
 );
-CREATE INDEX audio_listener_works_recent ON audio_listener_works(first_published_at DESC,work_id ASC);
+CREATE INDEX audio_listener_works_recent ON audio_listener_works(first_published_at DESC,work_id COLLATE "C" ASC);
 CREATE TABLE audio_listener_units (
     unit_id text PRIMARY KEY REFERENCES catalog_units(id),
     work_id text NOT NULL REFERENCES catalog_works(id),
     first_position integer NOT NULL CHECK(first_position>=0),
     UNIQUE(unit_id,work_id)
 );
-CREATE INDEX audio_listener_units_order ON audio_listener_units(work_id,first_position,unit_id);
+CREATE INDEX audio_listener_units_order ON audio_listener_units(work_id,first_position,unit_id COLLATE "C");
 CREATE TABLE audio_listener_releases (
     release_id text PRIMARY KEY REFERENCES audio_releases(id),
     work_id text NOT NULL REFERENCES catalog_works(id),
@@ -29,7 +29,7 @@ CREATE TABLE audio_listener_releases (
     unit_revision bigint NOT NULL CHECK(unit_revision>0),
     content_revision_id text NOT NULL REFERENCES catalog_content_revisions(id)
 );
-CREATE INDEX audio_listener_releases_work ON audio_listener_releases(work_id,published_at DESC,release_id);
+CREATE INDEX audio_listener_releases_work ON audio_listener_releases(work_id,published_at DESC,release_id COLLATE "C");
 CREATE INDEX audio_listener_releases_unit ON audio_listener_releases(unit_id,release_id);
 DO $$ DECLARE name text; BEGIN
     FOREACH name IN ARRAY ARRAY['audio_listener_works','audio_listener_units','audio_listener_releases'] LOOP

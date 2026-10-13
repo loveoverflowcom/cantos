@@ -58,6 +58,7 @@ No live routes should be inferred from [the proposed contract](packages/contract
 ## Repository
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
+- `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
@@ -79,6 +80,7 @@ cargo xtask verify repository
 cargo xtask verify rust
 cargo xtask verify contracts
 cargo xtask verify postgres
+cargo xtask build cantos-forge
 cargo xtask preflight --changed-only
 ```
 
@@ -99,3 +101,11 @@ acceptance are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues
 
 Cantos has no selected repository software license. Repository visibility does not grant a right
 to redistribute narrative or voice material.
+
+## Public listener backend core
+
+[Theatre Discovery/Playback v1](packages/contracts/theatre-discovery-v1.md) adds anonymous
+current-public works/search/detail, ordered units and immutable manifest projections. Media
+authorization remains fail-closed with unavailable public delivery. PostgreSQL/runtime and
+Web/CMP live adapter acceptance are still required; current mock clients are unchanged.
+[Evidence and boundaries](docs/evidence/theatre-discovery.md).

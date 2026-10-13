@@ -113,3 +113,13 @@ cargo xtask preflight --changed-only
 tests, integration mocks and verification must be reported with actual results; CI need
 not finish for handoff. No test of historical TTS synthesis may be used as proof that
 external audio upload, storage or publication exists.
+
+## Theatre discovery and playback boundary
+
+The [Theatre v1 contract](../../packages/contracts/theatre-discovery-v1.md) exposes real
+public-only work/search/detail/ordered-unit/manifest reads and anonymous playback authorization
+at `/api/v1/theatre`. Media owns current eligibility; Catalog supplies exact batched snapshots
+and Platform supplies owner activity. Studio cookies grant nothing here. Migration 0017 indexes
+public releases in the existing atomic publication transaction. The default playback adapter
+is explicitly unavailable; this is not real public delivery or production acceptance.
+See [evidence](../../docs/evidence/theatre-discovery.md).
