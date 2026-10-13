@@ -29,6 +29,11 @@ text multiplier against the inherited platform font scale; they do not multiply 
 `ComponentModifiers.kt`. `Choices.kt`, `Navigation.kt`, `Layout.kt` and `Feedback.kt` now own their native contracts;
 `Components.kt` retains the root, field messages and decorative icons. The isolated Android diagnostic host shares these sources directly and adds tooling only.
 
+`Avatar.kt` owns the pure [avatar contract](../shared/README.md#avatar) (`avatarInitials`,
+`avatarSeed`, `avatarTone`) and a renderer for a caller-decoded `ImageBitmap` or the initials
+fallback. The composable stays `internal` until the Leptos counterpart, both preview samples
+and the catalogue entry land together; no application may adopt it before qualification.
+
 String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
 caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
 received values promptly and do not normalize composing text. Read-only permits selection changes

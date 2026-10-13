@@ -1,4 +1,4 @@
-# Shared semantic contract v0.2.2
+# Shared semantic contract v0.3.0
 
 [`tokens.json`](tokens.json) is the sole active source. This is a bounded Cantos JSON schema,
 not a claim of DTCG conformance. The generator validates it before any output write.
@@ -79,6 +79,53 @@ foreground color; rendered contrast and browser `color-mix` remain runtime revie
 All token pairs are checked in both themes. This does not measure text over art, transparency,
 disabled opacity, focus occlusion or forced-colors rendering. Provenance and exact executed
 checks are in the [foundation evidence](../../../docs/evidence/ui-system-foundation.md).
+
+v0.3.0 adds avatar identity roles: six `color.avatar<Tone>` / `color.onAvatar<Tone>` pairs
+(Lavender, Gold, Sage, Rose, Sky, Clay) and `size.avatarSmall|Medium|Large` (32/40/64). The
+hues are muted container tones beside Lavender Ink, not status colors; every pair is a 4.5
+text contrast check in both themes (measured 7.7–9.4). Existing roles are unchanged.
+
+## Avatar
+
+A text avatar shows a person or creator when no picture is available. The rules follow the
+Google account / YouTube channel fallback and correct the VOTHub divergence, where CMP showed
+one letter and Leptos two. One contract serves both renderers:
+
+| Rule | Contract |
+| --- | --- |
+| Initial of a word | first BMP letter (Unicode `L*`) or ASCII digit, uppercased, keeping following combining marks (U+0300–036F, 1AB0–1AFF, 1DC0–1DFF, 20D0–20FF, FE20–FE2F); leading punctuation is skipped |
+| Single (default) | initial of the first word: `Nguyễn Thị Ánh` → `N`, `@cantos.studio` → `C` |
+| Pair | first and last words, keeping the Vietnamese given name: `Nguyễn Thị Ánh` → `NÁ` |
+| No initial | empty text and a plain tone circle, never `?` |
+| Tone seed | trimmed caller stable ID (account/creator ID) so a rename keeps the color; else the display name with whitespace runs collapsed |
+| Tone | 32-bit FNV-1a over UTF-8 of the seed, mod 6, in the order Lavender, Gold, Sage, Rose, Sky, Clay |
+| Glyph size | proportional to the diameter (0.44 single, 0.36 pair), not to text scale, so it never escapes the circle |
+| Picture | caller-owned and drawn over the tone; while loading or after failure the initials show |
+| Semantics | decorative by default; an optional localized accessible name makes it a standalone image |
+
+Golden vectors (both renderer test suites assert these):
+
+| Input | Single | Pair |
+| --- | --- | --- |
+| `  Nguyễn Thị Ánh  ` | `N` | `NÁ` |
+| `  __Đỗ Văn An` | `Đ` | `ĐA` |
+| `岑 昕` | `岑` | `岑昕` |
+| `a◌́nh Dương` (decomposed) | `A◌́` | `A◌́D` |
+| `ß` | `S` | `S` |
+| `  😀 ` / empty | empty | empty |
+
+| Seed | Tone |
+| --- | --- |
+| `user-42` | Rose |
+| `user-1` | Sky |
+| `alice@example.com` | Sage |
+| empty, `creator-7` | Gold |
+| `Nguyễn Thị Ánh`, `Người dẫn chuyện` | Lavender |
+
+Supplementary-plane characters are skipped on both renderers because Kotlin common has no
+code-point classification. Unicode category tables of the two standard libraries can still
+differ for rare letters; the vectors cover realistic Vietnamese, Latin and CJK names. Fetching,
+caching, size limits and decoding of pictures stay in the host; the primitive calls no network.
 
 ## Preview registration and adoption
 
