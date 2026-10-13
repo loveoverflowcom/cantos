@@ -65,12 +65,12 @@ body { margin: 0; }
 .studio-shell .revision-strip { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--cantos-space-sm); }
 .studio-shell .authoring-workspace { display: grid; grid-template-columns: minmax(11rem, .75fr) minmax(0, 2.4fr) minmax(16rem, 1fr); gap: var(--cantos-space-lg); margin-block: var(--cantos-space-md); align-items: start; }
 .studio-shell .authoring-nav, .studio-shell .authoring-canvas, .studio-shell .authoring-inspector { min-width: 0; }
-.studio-shell .authoring-nav { background: var(--cantos-color-surface-container); padding: var(--cantos-space-sm); border-radius: var(--cantos-shape-field); }
+.studio-shell .authoring-nav { background: var(--cantos-color-surface-container); padding: var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); }
 .studio-shell .authoring-nav button { display: block; width: 100%; text-align: start; overflow-wrap: anywhere; margin-block: var(--cantos-space-sm); }
 .studio-shell .authoring-nav ul { list-style: none; margin: 0; padding-inline-start: var(--cantos-space-sm); }
 .studio-shell .authoring-nav h3 { margin-block: var(--cantos-space-sm); }
 .studio-shell .authoring-canvas > h3, .studio-shell .authoring-inspector > h3 { margin-block-start: 0; }
-.studio-shell .authoring-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-shape-container); overflow-wrap: anywhere; }
+.studio-shell .authoring-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
 .studio-shell .authoring-inspector pre { max-height: 18rem; font-size: var(--cantos-type-metadata-size); }
 .studio-shell .authoring-inspector .source-identity { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-sm); }
 .studio-shell .authoring-inspector .source-identity dd { margin-block-end: var(--cantos-space-sm); }
@@ -125,8 +125,8 @@ body { margin: 0; }
 .studio-shell .production-reference { background: var(--cantos-color-surface-container); padding: var(--cantos-space-md); overflow-wrap: anywhere; }
 .studio-shell .production-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: var(--cantos-space-lg); align-items: start; margin-block: var(--cantos-space-lg); }
 .studio-shell .production-settings, .studio-shell .production-inspector { min-width: 0; }
-.studio-shell .production-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-shape-container); overflow-wrap: anywhere; }
-.studio-shell .production-inputs fieldset { min-width: 0; min-inline-size: 0; width: 100%; max-width: 100%; padding: var(--cantos-space-md); margin: 0 0 var(--cantos-space-md); border: 0; background: var(--cantos-color-surface-container); border-radius: var(--cantos-shape-container); }
+.studio-shell .production-inspector { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); overflow-wrap: anywhere; }
+.studio-shell .production-inputs fieldset { min-width: 0; min-inline-size: 0; width: 100%; max-width: 100%; padding: var(--cantos-space-md); margin: 0 0 var(--cantos-space-md); border: 0; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
 .studio-shell .production-inputs legend { font-weight: 600; max-width: 100%; overflow-wrap: anywhere; }
 .studio-shell .production-inputs legend code { display: block; font-weight: 400; font-size: var(--cantos-type-metadata-size); color: var(--cantos-color-on-surface-variant); }
 .studio-shell .production-fields { display: grid; min-width: 0; max-width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--cantos-space-sm) var(--cantos-space-md); }
@@ -146,17 +146,17 @@ body { margin: 0; }
 
 /* Component wrappers participate in the app toolbar without changing their anatomy. */
 .studio-shell .toolbar > .cui-button-field { max-inline-size: 100%; }
-.studio-shell .session-panel { background: var(--cantos-color-surface-container); padding: var(--cantos-space-inset); border-radius: var(--cantos-shape-container); }
+.studio-shell .session-panel { background: var(--cantos-color-surface-container); padding: var(--cantos-space-inset); border-radius: var(--cantos-web-shape-container); }
 .studio-shell .authoring-field, .studio-shell .production-field { min-inline-size: 0; }
 @container studio (max-width: 36rem) {
   .studio-shell .toolbar > .cui-button-field, .studio-shell .toolbar > .cui-button { inline-size: 100%; }
   .studio-shell .toolbar > .cui-button-field > .cui-button { inline-size: 100%; }
 }
 
-.studio-shell .production-unsupported { display: block; margin-block-start: calc(var(--cantos-space-sm) / 2); padding: var(--cantos-space-sm); background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); border-radius: var(--cantos-shape-reading); font-weight: 400; overflow-wrap: anywhere; }
+.studio-shell .production-unsupported { display: block; margin-block-start: calc(var(--cantos-space-sm) / 2); padding: var(--cantos-space-sm); background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); border-radius: var(--cantos-web-shape-reading); font-weight: 400; overflow-wrap: anywhere; }
 
 /* App-local content workspace: tonal containment, no decorative section borders. */
-.studio-shell .live-section, .studio-shell .live-status { margin-block: var(--cantos-space-section); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-shape-container); }
+.studio-shell .live-section, .studio-shell .live-status { margin-block: var(--cantos-space-section); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
 .studio-shell .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--cantos-space-md); }
 .studio-shell .live-field { min-width: 0; }
 .studio-shell .live-field input, .studio-shell .live-field select { width: 100%; }
