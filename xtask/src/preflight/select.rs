@@ -156,10 +156,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         }
     } else if let Some(script) = path.strip_prefix("scripts/") {
         classify_script(script, impact);
-    } else if within(path, "services/kanidm") {
-        impact.notes.insert(
-            "services/kanidm is configuration only; no executable gate exists for it".into(),
-        );
+    } else if within(path, "services/kanidm")
+        || within(path, "services/postgresql")
+        || path == "services/manifest.toml"
+    {
+        impact.notes.insert("service inventory/examples are statically validated by repository; no runtime is started".into());
     } else if within(path, crate::config::THEATRE_MOBILE_DIR) {
         if !is_doc {
             impact.gates.insert(Gate::TheatreCmpDemo);

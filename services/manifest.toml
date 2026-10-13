@@ -1,0 +1,74 @@
+# Process inventory, schema 1. No credentials or host-specific paths belong here.
+version = 1
+
+[services.cantos-api]
+runtime = "native"
+implementation = "implemented"
+owner = "Cantos backend maintainers"
+required_dependencies = ["postgresql"]
+optional_dependencies = ["kanidm", "object-storage"]
+development = "Native cargo xtask run; explicit migrated DATABASE_URL or retained test cluster"
+production = "Planned deployment; development host is not a production runtime"
+environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT"]
+ports = [8080]
+health = "Native run checks TCP readiness; no identity or publication readiness implied"
+persistence = "PostgreSQL metadata; explicit private development audio root"
+lifecycle = "cargo xtask run cantos-api owns only its foreground process group"
+
+[services.postgresql]
+runtime = "podman"
+implementation = "configured"
+owner = "Cantos infrastructure operator"
+required_dependencies = []
+optional_dependencies = []
+development = "Explicit rootless Podman local database; independent of native verification"
+production = "Operator-managed PostgreSQL; backups, roles, upgrades and HA require separate review"
+environment = ["CANTOS_POSTGRES_PORT", "CANTOS_POSTGRES_PASSWORD_FILE"]
+ports = [5432]
+health = "pg_isready on container loopback; readiness does not prove app-role grants"
+persistence = "Named instance-scoped volume; never deleted by lifecycle commands"
+lifecycle = "Explicit services up/down; down stops and preserves container and volume"
+[services.postgresql.container]
+kind = "postgresql"
+image = "docker.io/library/postgres:17.11-bookworm"
+data_path = "/var/lib/postgresql/data"
+port_env = "CANTOS_POSTGRES_PORT"
+container_port = 5432
+default_port = 5432
+health_command = ["pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres", "-d", "postgres"]
+
+[services.kanidm]
+runtime = "podman"
+implementation = "configured"
+owner = "Cantos identity operator"
+required_dependencies = []
+optional_dependencies = []
+development = "Opt-in evaluation only, private config/TLS supplied by operator"
+production = "Not deployed or integrated; identity decision, clients and recovery remain planned"
+environment = ["CANTOS_KANIDM_PORT", "CANTOS_KANIDM_CONFIG_DIR"]
+ports = [8443]
+health = "kanidmd scripting healthcheck with TLS verification; not Cantos OIDC integration"
+persistence = "Named instance-scoped identity volume; read-only private config/TLS mount"
+lifecycle = "Explicit services up kanidm, configtest before first server start; --all excludes it"
+[services.kanidm.container]
+kind = "kanidm"
+image = "docker.io/kanidm/server:1.10.5"
+data_path = "/data"
+port_env = "CANTOS_KANIDM_PORT"
+container_port = 8443
+default_port = 8443
+health_command = ["/sbin/kanidmd", "scripting", "healthcheck", "--verify-tls", "-c", "/config/server.toml"]
+
+[services.object-storage]
+runtime = "external"
+implementation = "planned"
+owner = "Cantos storage operator"
+required_dependencies = []
+optional_dependencies = []
+development = "Private filesystem intake exists; no local object-store service provisioned"
+production = "S3-compatible private staging and immutable delivery storage planned"
+environment = []
+ports = []
+health = "No implemented probe"
+persistence = "Externally managed media; no lifecycle or deletion command"
+lifecycle = "Operator-managed; services commands report external status as unobserved"

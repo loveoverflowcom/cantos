@@ -104,3 +104,15 @@ are separate evidence levels.
 A missing upload/storage/identity backend is **not** satisfied by a schema-only proposal.
 Acceptance requires real, authorized upload, retry, wrong-scope, tampering and publication
 failure tests.
+
+## Local service runtime support
+
+[Draft PR77](https://github.com/loveoverflowcom/cantos/pull/77) owns the Podman-first runtime
+change ([ADR 0021](../decisions/0021-podman-service-runtime.md),
+[evidence](../evidence/podman-service-runtime.md)); GitHub owns execution status. It adds a
+bounded local infrastructure option while preserving native verification. It does not move the
+product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
+then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
+rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
+lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.

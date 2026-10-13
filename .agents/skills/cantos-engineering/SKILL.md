@@ -32,7 +32,7 @@ vocabulary and report; none of them redefines these.
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with
   native playback, S3-compatible storage. A new crate, service, trait, dependency or framework
-  needs a concrete consumer and a stated reason ([decision 0001](../../../docs/decisions/0001-modular-monolith.md)).
+  needs a concrete consumer and a stated reason ([decision 0001](../../../docs/decisions/0001-modular-monolith.md)); runtime work follows [service-runtime](references/service-runtime.md).
 
 ## The required order
 

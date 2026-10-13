@@ -101,3 +101,15 @@ Studio Mobile is excluded. The shared `ui-system-cmp` library has an Android pre
 evidence; host rendering does not replace Android/iOS runtime or screen-reader gates.
 
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.
+
+## Service runtime ownership
+
+A service is a runnable process or independently managed infrastructure, not necessarily a Rust
+crate. Follow [the service inventory](services/README.md) and
+[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
+Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
+registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
+Podman, initialize/start a machine or change its connection without explicit consent. Manage
+only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
+TLS and data outside Git, and distinguish configuration from observed runtime and integration.

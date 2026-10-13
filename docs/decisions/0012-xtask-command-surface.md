@@ -30,8 +30,12 @@ primitives that it invokes unchanged (one script gains the new member in its dis
 - `build`, `run` and `app` cover `cantos-api`, `cantos-studio --web`, `cantos --web` and `all`,
   with `dev` and `--release` profiles. `--mobile` is a reserved surface that reports `UNSUPPORTED`.
 - `run`/`app` supervise their own process groups, check ports and readiness, and never stop
-  a process they did not start. They never provision PostgreSQL; they use an explicit
+  a process they did not start. They never start infrastructure; they use an explicit
   `DATABASE_URL` or the cluster retained by `verify postgres --keep`.
+- Explicit `services list|validate|up|status|logs|down` implements the local infrastructure
+  contract from [ADR 0021](0021-podman-service-runtime.md). Native run remains separate; no
+  build/test/preflight command starts a container or machine. Static manifest/example validation
+  joins the repository gate without Podman or new CI infrastructure.
 - A gate catalog owns every check; `verify <suite>`, `preflight [--changed-only]` and
   `ci [--job]` select from it. Uncertain impact broadens to every gate. Skips are explicit and
   reported as `NOT_RUN`.
