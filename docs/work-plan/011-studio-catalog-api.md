@@ -105,6 +105,9 @@ See [foundation evidence](../evidence/studio-catalog-foundation.md). The single 
 prioritizes simple stable pages/current permissions at initial scale; all tenants contend and
 unrelated mutations invalidate pages. No production throughput/latency acceptance is claimed.
 Reassess the clock granularity and per-page membership lookups only against a measured workload.
-The API has HTTP routes but no Catalog UI consumer or public delivery behavior.
+The API now has a bounded Catalog UI consumer in draft PR73; its
+[real-browser follow-up](../evidence/live-client-browser-acceptance.md) is partial/FAIL, with
+default-kind, existing-profile session and chip-contrast findings still open. Correct/recheck
+those within #66 before broad responsive/keyboard acceptance. There is no public delivery behavior.
 Membership changes may advance archived Work revisions without changing content, allowing
 current access revocation after archive; content edits remain draft-only.

@@ -45,6 +45,13 @@ impl Mount {
             Mount::Legacy => routes::API_BASE,
         }
     }
+
+    fn other_cookie_path(self) -> &'static str {
+        match self {
+            Mount::Current => routes::API_BASE,
+            Mount::Legacy => routes::STUDIO_BASE,
+        }
+    }
 }
 
 pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
@@ -68,7 +75,7 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .merge(briefs::producer_routes())
             .merge(audio_lifecycle::producer_routes())
-            .route("/session", post(login).delete(logout)),
+            .route("/session", post(login).get(current_session).delete(logout)),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(legacy_login).delete(legacy_logout))
@@ -92,6 +99,18 @@ async fn login(
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
     start_session(state, body, Mount::Current).await
+}
+
+/// Confirm the cookie that the browser actually sends, independently of a token exchange.
+async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let token = match cookie_token(&headers) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state.store.authenticate(&token).await {
+        Ok(actor_id) => Json(SessionResponse { actor_id }).into_response(),
+        Err(error) => error_response(error),
+    }
 }
 
 async fn legacy_login(
@@ -131,7 +150,17 @@ async fn start_session(
             );
             match HeaderValue::from_str(&cookie) {
                 Ok(value) => {
-                    response.headers_mut().insert(header::SET_COOKIE, value);
+                    // Retire only the other known Studio mount. Otherwise a browser sends both
+                    // same-name cookies at /studio and the fail-closed parser rejects the session.
+                    let retired = format!(
+                        "cantos_session=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                        mount.other_cookie_path()
+                    );
+                    let Ok(retired) = HeaderValue::from_str(&retired) else {
+                        return error_response(StoreError::InvalidRequest);
+                    };
+                    response.headers_mut().append(header::SET_COOKIE, value);
+                    response.headers_mut().append(header::SET_COOKIE, retired);
                     response
                 }
                 Err(_) => error_response(StoreError::InvalidRequest),

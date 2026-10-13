@@ -153,3 +153,16 @@ in its evidence at 1440×1000, 1024×768, 390×844 and 320×800, light/dark and 
 Real audio, release/media-version pinning, reload persistence, CDN delivery, progress reconciliation
 and Android/iOS/background/native-engine acceptance remain future work. This mock closes no
 production or UI-system acceptance gate.
+
+## Explicit live and mock modes
+
+The default entrypoint mounts a live capability boundary. It never constructs the synthetic
+catalog or fake player. **Check API availability** performs a real same-origin, cookie-free GET
+against `/api/v1/theatre` through the local Trunk proxy to the existing API on8080. A JSON404
+`not_found` renders unsupported; other statuses, invalid responses and connection failures
+render errors. Cancelling or superseding a check fences its late response.
+
+Open `?mode=mock` explicitly for the existing isolated UI preview. An unknown mode never falls
+back to mock success. No Studio session, producer token, private submission or draft is available
+to either listener mode. There is no catalog, manifest, progress or media route to connect, so
+this transport probe is **not live Theatre playback integration**.

@@ -33,6 +33,148 @@ const SCRIPT: &str =
     include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
 const ORIGINAL: &str = "\u{feff}Ánh đèn cuối sân khấu\r\nNgười kể chuyện đã trở về.\r\n";
 
+#[tokio::test]
+#[ignore = "requires xtask's disposable PostgreSQL cluster"]
+async fn session_exchange_migrates_overlapping_cookies_and_confirms_actual_access() {
+    let h = Harness::new().await;
+    async fn call(
+        app: &Router,
+        method: &str,
+        path: &str,
+        cookie: &str,
+        token: &str,
+    ) -> (StatusCode, Vec<String>, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("origin", ORIGIN)
+                    .header("content-type", "application/json")
+                    .header("cookie", cookie)
+                    .body(Body::from(if method == "POST" {
+                        json!({"token":token}).to_string()
+                    } else {
+                        String::new()
+                    }))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        let cookies = response
+            .headers()
+            .get_all("set-cookie")
+            .iter()
+            .map(|h| h.to_str().unwrap().to_owned())
+            .collect();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            cookies,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    // Reproduce an old broad cookie alongside the current narrow cookie. Ambiguity remains denied.
+    let duplicate = format!("cantos_session={ALICE}; cantos_session={BOB}");
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/works", &duplicate, "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    for (path, own, retired, token, actor) in [
+        (
+            "/api/v1/studio/session",
+            "/api/v1/studio",
+            "/api/v1",
+            ALICE,
+            "alice",
+        ),
+        ("/api/v1/session", "/api/v1", "/api/v1/studio", BOB, "bob"),
+        (
+            "/api/v1/studio/session",
+            "/api/v1/studio",
+            "/api/v1",
+            ALICE,
+            "alice",
+        ),
+    ] {
+        let (status, cookies, body) = call(&h.app, "POST", path, &duplicate, token).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["actor_id"], actor);
+        assert!(
+            cookies.contains(&format!(
+                "cantos_session=; HttpOnly; SameSite=Strict; Path={retired}; Max-Age=0"
+            )),
+            "retired cookie must expire"
+        );
+        assert!(
+            cookies.contains(&format!(
+                "cantos_session={token}; HttpOnly; SameSite=Strict; Path={own}"
+            )),
+            "new cookie must preserve scope and protections"
+        );
+        let current = format!("cantos_session={token}");
+        let (status, _, body) = call(&h.app, "GET", "/api/v1/studio/session", &current, "").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["actor_id"], actor);
+        assert_eq!(
+            call(&h.app, "GET", "/api/v1/studio/works", &current, "")
+                .await
+                .0,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/session", "", "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/session", &duplicate, "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    h.admin
+        .execute(
+            "UPDATE sessions SET revoked=true WHERE actor_id='alice'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let (status, _, body) = call(
+        &h.app,
+        "GET",
+        "/api/v1/studio/session",
+        &format!("cantos_session={ALICE}"),
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["code"], "unauthenticated");
+    h.admin
+        .execute("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE actor_id='bob'", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &h.app,
+            "GET",
+            "/api/v1/studio/session",
+            &format!("cantos_session={BOB}"),
+            ""
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
 struct Harness {
     admin: Client,
     config: Config,

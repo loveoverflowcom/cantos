@@ -5,13 +5,62 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
 import test_postgres as runner
+import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_studio_audio_context_uses_its_retained_private_fixture_without_inherited_database(self):
+        config = {"app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial",
+                  "catalog_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_catalog",
+                  "audio_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio",
+                  "audio_root": "/private/tmp/synthetic-owned-audio"}
+        env = serve_studio.studio_environment(config, {"DATABASE_URL": "production", "CANTOS_TEST_CONTEXT": "audio"})
+        self.assertEqual(env["DATABASE_URL"], config["audio_app_url"])
+        self.assertEqual(env["CANTOS_AUDIO_ROOT"], config["audio_root"])
+        self.assertEqual(env["CANTOS_ENV"], "development")
+        with self.assertRaises(ValueError):
+            serve_studio.studio_environment(config, {"CANTOS_TEST_CONTEXT": "production"})
+        with self.assertRaises(ValueError):
+            serve_studio.studio_environment(dict(config, audio_app_url="postgresql://production@example.com/live"), {"CANTOS_TEST_CONTEXT": "audio"})
+
+    def test_every_actual_restart_database_is_retained_between_suites(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            revision, editor, catalog = (root / name for name in ("revision", "editor", "catalog"))
+            for folder in (revision, editor, catalog):
+                folder.mkdir()
+            paths = (revision / "restart.json", editor / "editor-api-journey.json",
+                     catalog / "restart.json", catalog / "http-restart.json", catalog / "audio-restart.json")
+            expected = {f"cantos_test_recovery_{index}" for index in range(5)}
+            for index, path in enumerate(paths):
+                path.write_text(json.dumps({"database": f"cantos_test_recovery_{index}"}))
+            with patch.object(runner, "EVIDENCE", revision), patch.object(runner, "EDITOR_EVIDENCE", editor), patch.object(runner, "CATALOG_EVIDENCE", catalog):
+                self.assertEqual(runner.retained_restart_databases(), expected)
+
+    def test_completed_database_cleanup_preserves_restart_fixtures_and_other_names(self):
+        listed = subprocess.CompletedProcess([], 0, "postgres\ncantos_test_completed\ncantos_test_recovery\nother_database\n", "")
+        dropped = subprocess.CompletedProcess([], 0, "", "")
+        with patch.object(runner.subprocess, "run", side_effect=[listed, dropped]) as execute:
+            runner.reap_completed_databases({}, "postgresql://cantos_test_admin@127.0.0.1:12345/postgres", {"cantos_test_recovery"})
+        self.assertEqual(execute.call_count, 2)
+        self.assertEqual(execute.call_args.args[0][-1], 'DROP DATABASE "cantos_test_completed"')
+        self.assertNotIn("FORCE", execute.call_args.args[0][-1])
+
+    def test_completed_cleanup_refuses_inherited_or_non_cluster_url_and_unsafe_names(self):
+        for url in ["postgresql://cantos_app@127.0.0.1:12345/postgres", "postgresql://cantos_test_admin@example.com/postgres", "postgresql://cantos_test_admin@127.0.0.1:12345/production"]:
+            with patch.object(runner.subprocess, "run") as execute, self.assertRaises(ValueError):
+                runner.reap_completed_databases({}, url, set())
+            execute.assert_not_called()
+        listed = subprocess.CompletedProcess([], 0, 'cantos_test_unsafe";drop database postgres;\n', "")
+        with patch.object(runner.subprocess, "run", return_value=listed) as execute, self.assertRaises(ValueError):
+            runner.reap_completed_databases({}, "postgresql://cantos_test_admin@127.0.0.1:12345/postgres", set())
+        self.assertEqual(execute.call_count, 1)
+
     def test_optimized_python_refuses_before_cluster_or_host_start(self):
         result = subprocess.run([sys.executable, "-O", str(Path(runner.__file__)), "--help"],
                                 text=True, capture_output=True, timeout=10)

@@ -29,10 +29,13 @@ routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v
 revisions with separate metadata/content sequences and full revision pinning.
 [Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
 and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Public publication/delivery remains unimplemented.
-Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
-still planned. Theatre Web is a session-only
-[UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
-[CMP mock](apps/cantos-theatre/mobile/README.md) without native audio or API.
+Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
+private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
+distinguishes connected forms from deferred controls and user acceptance. Theatre Web defaults
+to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
+selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
+[CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
+there is no live listener resource, native audio or publication/delivery integration.
 
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
 No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.

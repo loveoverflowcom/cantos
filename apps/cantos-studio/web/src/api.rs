@@ -311,7 +311,9 @@ impl StudioHttp {
         Ok(format!("{}/original", import_path(id)?))
     }
     pub async fn login(&self, token: String) -> Result<SessionResponse, ApiError> {
-        post("/api/v1/studio/session", &SessionRequest { token }).await
+        let exchanged = post("/api/v1/studio/session", &SessionRequest { token }).await?;
+        let observed = get("/api/v1/studio/session").await?;
+        crate::session::confirm_exchange(exchanged, observed)
     }
     pub async fn read(&self, script: &str) -> Result<RevisionResponse, ApiError> {
         negotiated_get(&format!("{}/head", script_path(script)?)).await

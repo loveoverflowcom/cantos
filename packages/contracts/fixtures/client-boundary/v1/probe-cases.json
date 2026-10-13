@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {"status":404,"content_type":"application/json","body":{"code":"not_found","current_revision":null,"issues":[]},"expected":"unsupported"},
+    {"status":401,"content_type":"application/json","body":{"code":"unauthenticated","current_revision":null,"issues":[]},"expected":"unauthenticated"},
+    {"status":403,"content_type":"application/json","body":{"code":"forbidden","current_revision":null,"issues":[]},"expected":"forbidden"},
+    {"status":503,"content_type":"application/json","body":{"code":"unavailable","current_revision":null,"issues":[]},"expected":"unavailable"},
+    {"status":200,"content_type":"application/json","body":{},"expected":"protocol"},
+    {"status":404,"content_type":"application/json","body":{},"expected":"protocol"}
+  ]
+}

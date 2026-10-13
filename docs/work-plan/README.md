@@ -40,9 +40,21 @@ Named append-only reviews and private candidates expose current blockers; public
 always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
 [frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
-Next: real Studio Web integration, then secure identity/storage and stronger rights/QC policy,
+The [live client boundary](live-client-api-matrix.md) connects the bounded Studio forms and
+keeps Theatre capabilities unsupported until a reviewed listener/publication contract exists.
+Remaining Studio controls and responsive/keyboard/user acceptance stay with #66; transport
+checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, secure
+identity/storage and stronger rights/QC policy,
 then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
 separate. No listening/interoperability is settled by admitting an Opus envelope.
+
+The [PR73 browser follow-up](../evidence/live-client-browser-acceptance.md) exercised the real
+bounded Studio flow and retains its historical partial/FAIL acceptance. The
+[bounded correction/recheck record](../evidence/live-client-finding-fixes.md) owns the later
+default-kind, existing-profile session and chip-contrast evidence. Next within #66, prioritize
+pending-write/concurrent identity cases, then full accessibility acceptance; keep missing
+browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
+backend sequence above is unchanged.
 
 ## Existing foundations to retain
 

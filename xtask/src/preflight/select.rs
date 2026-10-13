@@ -261,13 +261,14 @@ mod tests {
             [
                 "repository",
                 "rust-format",
-                "rust-lint (cantos-api, cantos-contracts, cantos-studio)",
-                "rust-tests (cantos-api, cantos-contracts, cantos-studio)",
+                "rust-lint (cantos-api, cantos-contracts, cantos-studio, cantos-theatre)",
+                "rust-tests (cantos-api, cantos-contracts, cantos-studio, cantos-theatre)",
                 "dbsp",
                 "wav-reference",
                 "audio-inspection",
-                "web-lint (cantos-studio)",
+                "web-lint (cantos-studio, cantos-theatre)",
                 "web-build (cantos-studio)",
+                "web-build (cantos-theatre)",
                 "postgres",
             ]
         );

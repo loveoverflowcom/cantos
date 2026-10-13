@@ -118,3 +118,26 @@ Production retains the [mobile architecture](../../../docs/architecture/mobile.m
 listener adapters, one native media owner, background controls, verified rights-aware downloads,
 durable progress, lifecycle, native text scaling and TalkBack/VoiceOver. This mock supplies no
 playback-quality or production-acceptance evidence.
+
+## Listener HTTP boundary
+
+`shared/.../adapters/http` now has a closed GET-only `ListenerClient`, explicit origin
+configuration, error taxonomy, cancellation/session generation owner and a JVM HTTP adapter
+shared with the opt-in Android source set. It probes only the actual reserved
+`/api/v1/theatre` group.404 `not_found` means `Unsupported(ListenerApi)`, and200never supplies
+fake catalog or media. Publication, identity, playback, downloads and progress report explicit
+unsupported capabilities. No Studio cookie, producer bearer or Studio DTO enters this port.
+
+The existing Android/iOS/desktop app hosts remain **isolated mock previews** through
+`AppContainer.mock`; they do not mount this adapter as a real player. Constructing a
+`ListenerClient(ApiOrigin.parse(...), JvmHttpTransport())` crosses a real HTTP boundary but
+cannot fetch any listener resource yet. TLS checks stay platform-default; HTTP is limited to
+explicit loopback development. Redirects, caches and ambient cookie runtimes are refused;
+responses are bounded to8KiB. The future iOS concrete HTTP adapter and listener session require
+the reviewed Theatre backend contract before app wiring. No iOS transport integration is claimed.
+
+`cargo xtask theatre-demo verify` compiles the common/JVM code, executes the shared
+[error fixtures](../../../packages/contracts/fixtures/client-boundary/v1/README.md), exercises
+noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
+These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
+acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-matrix.md).
