@@ -1,12 +1,13 @@
-//! Trusted evidence bindings: application-loaded facts that a proposal cannot forge, and the
-//! acceptance check that an edited proposal keeps every source, attempt and rights binding.
+//! Admission of source/binding facts and retention of those bindings in edited proposals.
+//! Current ownership, registry integrity and authorization remain application/SQL checks.
 use cantos_contracts::{AdaptationProblem, ImportResponse};
 use serde_json::{json, Value};
 
 use super::{array, problem, script_problem};
 use crate::script_ir::{read_script, ScriptContent};
 
-/// Application-loaded facts; the model has no fields through which to forge these references.
+/// Raw binding facts, normally loaded by the application. Public fields are not evidence of
+/// provenance or current authorization; every entry point admits them before consuming them.
 #[derive(Clone, Debug)]
 pub struct TrustedBinding {
     pub source_id: String,
@@ -17,10 +18,27 @@ pub struct TrustedBinding {
     pub base_script_json: Option<String>,
 }
 
-pub(super) fn check_binding(
-    source: &ImportResponse,
-    binding: &TrustedBinding,
-) -> Result<(), AdaptationProblem> {
+/// Intrinsic, immutable source/binding agreement only. It cannot be constructed from raw
+/// fields by the materializer, and borrowing pins the exact source and facts during use.
+pub(super) struct BoundSource<'a> {
+    source: &'a ImportResponse,
+    facts: &'a TrustedBinding,
+}
+
+impl<'a> BoundSource<'a> {
+    pub(super) fn source(&self) -> &'a ImportResponse {
+        self.source
+    }
+
+    pub(super) fn facts(&self) -> &'a TrustedBinding {
+        self.facts
+    }
+}
+
+pub(super) fn check_binding<'a>(
+    source: &'a ImportResponse,
+    binding: &'a TrustedBinding,
+) -> Result<BoundSource<'a>, AdaptationProblem> {
     let valid_id = |id: &str| {
         !id.is_empty()
             && id.len() <= 64
@@ -40,7 +58,10 @@ pub(super) fn check_binding(
     {
         return Err(problem("binding_mismatch", "/source_id", "trusted_source"));
     }
-    Ok(())
+    Ok(BoundSource {
+        source,
+        facts: binding,
+    })
 }
 
 /// Edited acceptance uses the existing validator and retains the complete trusted evidence set.
@@ -50,7 +71,15 @@ pub fn admit_edited_proposal(
     source: &ImportResponse,
     binding: &TrustedBinding,
 ) -> Result<ScriptContent, AdaptationProblem> {
-    check_binding(source, binding)?;
+    let admitted = check_binding(source, binding)?;
+    admit_bound_edit(json, admitted)
+}
+
+fn admit_bound_edit(
+    json: &str,
+    admitted: BoundSource<'_>,
+) -> Result<ScriptContent, AdaptationProblem> {
+    let binding = admitted.facts();
     let content = read_script(json.as_bytes()).map_err(script_problem)?;
     let script: Value = serde_json::from_slice(&content.export_bytes())
         .map_err(|_| problem("invalid_output", "/", "json"))?;

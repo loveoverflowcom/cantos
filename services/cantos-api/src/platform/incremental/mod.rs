@@ -72,6 +72,11 @@ pub struct GroupCounts {
 }
 
 impl GroupCounts {
+    /// Raw engine/adapter counts must satisfy this before entering an admitted view.
+    pub fn is_valid(self) -> bool {
+        self.flagged.iter().all(|flagged| *flagged <= self.members)
+    }
+
     pub fn is_empty(&self) -> bool {
         *self == GroupCounts::default()
     }
@@ -87,6 +92,8 @@ pub struct CountChange {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ViewError {
+    /// A flag count exceeds the number of members in the same group.
+    InvalidCounts { group: String },
     /// A retraction named counts that the view does not hold for the group.
     UnmatchedRetraction { group: String },
     /// A group would hold two count rows after the step.
@@ -144,6 +151,13 @@ fn stage(
     current: &HashMap<String, GroupCounts>,
     changes: Vec<CountChange>,
 ) -> Result<HashMap<String, Option<GroupCounts>>, ViewError> {
+    for change in &changes {
+        if !change.counts.is_valid() {
+            return Err(ViewError::InvalidCounts {
+                group: change.group.clone(),
+            });
+        }
+    }
     let (retractions, insertions): (Vec<_>, Vec<_>) = changes
         .into_iter()
         .partition(|change| change.sign == Sign::Retract);
@@ -279,11 +293,14 @@ impl CommittedPosition {
     }
 
     /// The position after applying `page`, which must start at this frontier.
-    pub fn advance(&self, page: &Page) -> Self {
-        CommittedPosition {
+    pub fn advance(&self, page: &Page) -> Result<Self, FeedError> {
+        if page.start != self.frontier {
+            return Err(FeedError::PageStartMismatch);
+        }
+        Ok(CommittedPosition {
             frontier: page.frontier,
             bootstrap: self.bootstrap.clone(),
-        }
+        })
     }
 }
 
@@ -295,6 +312,9 @@ pub enum FeedError {
     /// A row lies outside `[frontier, settled)` or out of transaction order.
     RowOutsideWindow,
     InvalidWeight,
+    InvalidLimit,
+    /// A page was planned from another position, including replay of an advancing page.
+    PageStartMismatch,
 }
 
 /// One row of the committed change feed.
@@ -304,12 +324,33 @@ pub struct FeedRow {
     pub change: MemberChange,
 }
 
-/// Whole transactions to apply as one engine step, and the frontier once they are applied.
+/// An immutable page admitted by `plan_page`, including the frontier it was planned from.
+/// This does not certify that a database returned every row or that an engine applied it.
+///
+/// ```compile_fail
+/// use cantos_api::platform::incremental::{Page, TxId};
+/// let forged = Page { changes: vec![], transactions: 0, frontier: TxId::new(9), start: TxId::new(10) };
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Page {
-    pub changes: Vec<MemberChange>,
-    pub transactions: usize,
-    pub frontier: TxId,
+    changes: Vec<MemberChange>,
+    transactions: usize,
+    frontier: TxId,
+    start: TxId,
+}
+
+impl Page {
+    pub fn changes(&self) -> &[MemberChange] {
+        &self.changes
+    }
+
+    pub fn transactions(&self) -> usize {
+        self.transactions
+    }
+
+    pub fn frontier(&self) -> TxId {
+        self.frontier
+    }
 }
 
 /// Plans the next step from the rows of at most `limit` whole transactions in
@@ -324,6 +365,9 @@ pub fn plan_page(
 ) -> Result<Page, FeedError> {
     if settled < frontier {
         return Err(FeedError::SettledBehindFrontier);
+    }
+    if limit == 0 {
+        return Err(FeedError::InvalidLimit);
     }
     let mut last: Option<TxId> = None;
     let mut transactions = 0;
@@ -347,6 +391,7 @@ pub fn plan_page(
         changes: rows.into_iter().map(|row| row.change).collect(),
         transactions,
         frontier: next,
+        start: frontier,
     })
 }
 
@@ -548,6 +593,61 @@ mod tests {
     }
 
     #[test]
+    fn impossible_count_replacement_rejects_the_whole_step() {
+        let mut view = CountView::default();
+        view.apply(vec![change(Sign::Insert, "a", counts(2, 1, 0))])
+            .unwrap();
+        let before = view.clone();
+        assert_eq!(
+            view.apply(vec![
+                change(Sign::Retract, "a", counts(2, 1, 0)),
+                change(Sign::Insert, "a", counts(1, 2, 0)),
+                change(Sign::Insert, "b", counts(1, 0, 0)),
+            ]),
+            Err(ViewError::InvalidCounts { group: "a".into() })
+        );
+        assert_eq!(view, before);
+    }
+
+    #[test]
+    fn a_zero_capacity_feed_read_cannot_establish_an_exhausted_window() {
+        assert_eq!(
+            plan_page(TxId(10), TxId(20), vec![], 0),
+            Err(FeedError::InvalidLimit)
+        );
+    }
+
+    #[test]
+    fn admitted_pages_advance_only_their_exact_source_frontier() {
+        let position = CommittedPosition::bootstrap(Snapshot::parse("10:20:").unwrap());
+        let page = plan_page(TxId(10), TxId(20), vec![row(11, "a")], 1).unwrap();
+        let advanced = position.advance(&page).unwrap();
+        assert_eq!(advanced.frontier(), TxId(12));
+        assert_eq!(advanced.bootstrap_snapshot(), position.bootstrap_snapshot());
+        assert_eq!(advanced.advance(&page), Err(FeedError::PageStartMismatch));
+        let foreign = plan_page(TxId(9), TxId(10), vec![], 1).unwrap();
+        assert_eq!(
+            position.advance(&foreign),
+            Err(FeedError::PageStartMismatch)
+        );
+        let idle = plan_page(TxId(12), TxId(12), vec![], 1).unwrap();
+        assert_eq!(advanced.advance(&idle).unwrap(), advanced);
+    }
+
+    #[test]
+    fn impossible_count_insertions_cannot_seed_an_admitted_view() {
+        for raw in [counts(0, 1, 0), counts(0, 0, 1), counts(1, 0, 2)] {
+            let mut view = CountView::default();
+            assert_eq!(
+                view.apply(vec![change(Sign::Insert, "a", raw)]),
+                Err(ViewError::InvalidCounts { group: "a".into() }),
+            );
+            assert_eq!(view, CountView::default());
+        }
+        assert!(counts(u64::MAX, u64::MAX, u64::MAX).is_valid());
+    }
+
+    #[test]
     fn snapshots_are_parsed_and_inconsistent_ones_refused() {
         let snapshot = Snapshot::parse("100:105:101,103").unwrap();
         assert_eq!((snapshot.xmin(), snapshot.xmax()), (TxId(100), TxId(105)));
@@ -569,11 +669,11 @@ mod tests {
     #[test]
     fn an_exhausted_window_advances_the_frontier_to_the_settled_bound() {
         let page = plan_page(TxId(10), TxId(20), vec![row(11, "x"), row(11, "y")], 3).unwrap();
-        assert_eq!((page.transactions, page.frontier), (1, TxId(20)));
-        assert_eq!(page.changes.len(), 2);
+        assert_eq!((page.transactions(), page.frontier()), (1, TxId(20)));
+        assert_eq!(page.changes().len(), 2);
         let idle = plan_page(TxId(10), TxId(20), vec![], 3).unwrap();
-        assert_eq!((idle.transactions, idle.frontier), (0, TxId(20)));
-        assert!(idle.changes.is_empty());
+        assert_eq!((idle.transactions(), idle.frontier()), (0, TxId(20)));
+        assert!(idle.changes().is_empty());
     }
 
     #[test]
@@ -585,7 +685,7 @@ mod tests {
             2,
         )
         .unwrap();
-        assert_eq!((page.transactions, page.frontier), (2, TxId(13)));
+        assert_eq!((page.transactions(), page.frontier()), (2, TxId(13)));
     }
 
     #[test]
@@ -679,6 +779,45 @@ mod tests {
             }
         }
         changes
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 256, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_013), ..ProptestConfig::default() })]
+        #[test]
+        fn admitted_pages_match_a_sorted_set_frontier_oracle(
+            first in any::<u64>(), second in any::<u64>(),
+            txids in proptest::collection::vec(any::<u64>(), 0..9), limit in 1_usize..9,
+        ) {
+            let start = first.min(second);
+            let settled = first.max(second);
+            let mut txids: Vec<_> = txids.into_iter()
+                .filter(|id| *id >= start && *id < settled).collect();
+            txids.sort_unstable();
+            let distinct: std::collections::BTreeSet<_> = txids.iter().copied().collect();
+            let rows = txids.iter().map(|id| row(*id, "a")).collect();
+            let actual = plan_page(TxId(start), TxId(settled), rows, limit);
+            if distinct.len() > limit {
+                prop_assert_eq!(actual, Err(FeedError::RowOutsideWindow));
+            } else {
+                let page = actual.unwrap();
+                let next = if distinct.len() == limit {
+                    *distinct.last().unwrap() as u128 + 1
+                } else { settled as u128 };
+                prop_assert_eq!(page.frontier().get() as u128, next);
+                prop_assert_eq!(page.transactions(), distinct.len());
+                prop_assert_eq!(page.changes().len(), txids.len());
+                prop_assert!(start <= page.frontier().get() && page.frontier().get() <= settled);
+                let position = CommittedPosition::bootstrap(
+                    Snapshot::parse(&format!("{start}:{start}:")).unwrap(),
+                );
+                let advanced = position.advance(&page).unwrap();
+                prop_assert_eq!(advanced.frontier(), page.frontier());
+                prop_assert_eq!(advanced.bootstrap_snapshot(), position.bootstrap_snapshot());
+                if page.frontier() != position.frontier() {
+                    prop_assert_eq!(advanced.advance(&page), Err(FeedError::PageStartMismatch));
+                }
+            }
+        }
     }
 
     proptest! {

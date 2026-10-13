@@ -34,11 +34,23 @@ pub enum ProbePhase {
     Failed(Failure),
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Probe requests must be issued through `begin`, never fabricated by callers.
+///
+/// ```compile_fail
+/// use cantos_theatre::live::{ProbePhase, ProbeState};
+/// let unissued = ProbeState { generation: 1, phase: ProbePhase::Pending };
+/// ```
 pub struct ProbeState {
-    pub generation: u64,
-    pub phase: ProbePhase,
+    generation: u64,
+    phase: ProbePhase,
 }
 impl ProbeState {
+    pub const fn generation(self) -> u64 {
+        self.generation
+    }
+    pub const fn phase(self) -> ProbePhase {
+        self.phase
+    }
     pub fn begin(self) -> Option<Self> {
         Some(Self {
             generation: self.generation.checked_add(1)?,
@@ -128,6 +140,78 @@ mod tests {
             .begin(),
             None
         );
+    }
+
+    #[test]
+    fn completion_matrix_accepts_only_current_pending_terminal_replies() {
+        let phases = [
+            ProbePhase::Idle,
+            ProbePhase::Pending,
+            ProbePhase::Unsupported(Unsupported::ListenerApiNotImplemented),
+            ProbePhase::Failed(Failure::Transport),
+            ProbePhase::Failed(Failure::Protocol),
+            ProbePhase::Failed(Failure::Unauthenticated),
+            ProbePhase::Failed(Failure::Forbidden),
+            ProbePhase::Failed(Failure::Unavailable),
+        ];
+        for generation in [0, 1, 2, u64::MAX - 1, u64::MAX] {
+            for answered in [0, 1, 2, u64::MAX - 1, u64::MAX] {
+                for phase in phases {
+                    for reply in phases {
+                        let state = ProbeState { generation, phase };
+                        // Authored transition table: no implementation helper is the oracle.
+                        let terminal = !matches!(reply, ProbePhase::Idle | ProbePhase::Pending);
+                        let expected =
+                            if generation == answered && phase == ProbePhase::Pending && terminal {
+                                ProbeState {
+                                    generation,
+                                    phase: reply,
+                                }
+                            } else {
+                                state
+                            };
+                        assert_eq!(state.finish(answered, reply), expected);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn both_probe_commands_refuse_exhaustion_without_changing_any_fact() {
+        for phase in [
+            ProbePhase::Idle,
+            ProbePhase::Pending,
+            ProbePhase::Unsupported(Unsupported::ListenerApiNotImplemented),
+            ProbePhase::Failed(Failure::Transport),
+        ] {
+            let exhausted = ProbeState {
+                generation: u64::MAX,
+                phase,
+            };
+            assert_eq!(exhausted.begin(), None);
+            assert_eq!(exhausted.cancel(), None);
+            assert_eq!(exhausted.generation(), u64::MAX);
+            assert_eq!(exhausted.phase(), phase);
+            let almost = ProbeState {
+                generation: u64::MAX - 1,
+                phase,
+            };
+            assert_eq!(
+                almost.begin(),
+                Some(ProbeState {
+                    generation: u64::MAX,
+                    phase: ProbePhase::Pending
+                })
+            );
+            assert_eq!(
+                almost.cancel(),
+                Some(ProbeState {
+                    generation: u64::MAX,
+                    phase: ProbePhase::Idle
+                })
+            );
+        }
     }
 }
 

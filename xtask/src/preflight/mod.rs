@@ -10,13 +10,14 @@ use anyhow::Result;
 
 use crate::{
     command::Runner,
-    gate::{self, GateKind},
-    pipeline,
+    gate::{self, Gate, GateKind},
+    kani, pipeline,
     tools::ToolProbe,
     workspace::Workspace,
 };
 
 pub struct PreflightOptions {
+    pub kani: bool,
     pub base: String,
     pub changed_only: bool,
     pub skip: BTreeSet<GateKind>,
@@ -42,7 +43,7 @@ pub fn run(
         Some(_) => graph::PackageGraph::load(workspace.root())?,
         None => graph::PackageGraph::default(),
     };
-    let selection = select::select(changed.as_deref(), &graph);
+    let selection = select::select_with_kani(changed.as_deref(), &graph, options.kani);
     match &selection.broadened {
         Some(reason) => println!("  impact:        every gate ({reason})"),
         None if selection.affected.is_empty() => println!("  impact:        no Cargo package"),
@@ -71,6 +72,16 @@ pub fn run(
         return Ok(ExitCode::SUCCESS);
     }
 
+    if selection
+        .gates
+        .iter()
+        .any(|gate| matches!(gate, Gate::Kani(_)))
+        && !options.skip.contains(&GateKind::Kani)
+    {
+        if let Err(error) = kani::prepare_configuration(workspace, &mut steps) {
+            return Ok(kani::configuration_refusal("preflight", &steps, error));
+        }
+    }
     let mut report = pipeline::execute("preflight", &steps, tools, runner);
     for note in &selection.notes {
         report.note(note.clone());

@@ -15,15 +15,15 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
         <Show when=move || latest.get().is_some()>
             <section class="theatre-continue" aria-labelledby="theatre-discover-continue">
                 <div><p id="theatre-discover-continue" class="theatre-eyebrow">{move || ctx.text(Key::ContinueHeading)}</p>
-                    <h2 lang="vi-VN">{move || latest.get().and_then(|progress| ctx.episode(progress.snapshot.source.episode()).map(|episode| episode.title)).unwrap_or_default()}</h2>
-                    <p class="theatre-muted" lang="vi-VN">{move || latest.get().map(|progress| ctx.work(progress.snapshot.source.episode().work).title).unwrap_or_default()}</p>
+                    <h2 lang="vi-VN">{move || latest.get().and_then(|progress| ctx.episode(progress.snapshot.source().episode()).map(|episode| episode.title)).unwrap_or_default()}</h2>
+                    <p class="theatre-muted" lang="vi-VN">{move || latest.get().map(|progress| ctx.work(progress.snapshot.source().episode().work).title).unwrap_or_default()}</p>
                     <p class="theatre-muted">{move || ctx.text(Key::ResumeSampleHelp)}</p>
                 </div>
-                <span class="theatre-time">{move || latest.get().map(|progress| clock(progress.snapshot.position_ms / 1000)).unwrap_or_default()}</span>
+                <span class="theatre-time">{move || latest.get().map(|progress| clock(progress.snapshot.position_ms() / 1000)).unwrap_or_default()}</span>
                 <button type="button" class="theatre-action"
                     aria-label=move || latest.get().map(|progress| ctx.format(Key::ResumeSampleName, &[
-                        ("title", ctx.episode(progress.snapshot.source.episode()).map(|episode| episode.title).unwrap_or_default().to_owned()),
-                        ("time", clock(progress.snapshot.position_ms / 1000)),
+                        ("title", ctx.episode(progress.snapshot.source().episode()).map(|episode| episode.title).unwrap_or_default().to_owned()),
+                        ("time", clock(progress.snapshot.position_ms() / 1000)),
                     ])).unwrap_or_default()
                     on:click=move |_| ctx.continue_progress()><span class="cui-control-label">{move || ctx.text(Key::ResumeSample)}</span></button>
             </section>
@@ -49,7 +49,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
             .get()
             .recent()
             .into_iter()
-            .map(|progress| progress.snapshot.source.episode())
+            .map(|progress| progress.snapshot.source().episode())
             .collect::<Vec<_>>()
     };
     let saved_works = move || {
@@ -155,7 +155,7 @@ fn ListeningRow(
         ctx.progress
             .get()
             .find(id)
-            .map(|progress| progress.snapshot.position_ms / 1000)
+            .map(|progress| progress.snapshot.position_ms() / 1000)
             .unwrap_or_default()
     };
     view! {

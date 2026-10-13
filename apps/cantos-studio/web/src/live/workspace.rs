@@ -60,7 +60,7 @@ impl Dispatch {
         let Some((sending, ticket)) = self.state.get_untracked().retry() else {
             return;
         };
-        let Some(command) = sending.pending.clone() else {
+        let Some(command) = sending.pending().cloned() else {
             return;
         };
         self.run(sending, ticket, command);
@@ -72,10 +72,9 @@ impl Dispatch {
             return;
         };
         self.abort.set_value(Some(controller.clone()));
-        let acknowledged_command = if sending.is_reconciling() {
-            sending.pending.clone().unwrap_or_else(|| command.clone())
-        } else {
-            command.clone()
+        // A receipt read executes a different command while completing the original intent.
+        let Some(acknowledged_command) = sending.pending().cloned() else {
+            return;
         };
         self.state.set(sending);
         spawn_local(async move {
@@ -97,14 +96,16 @@ impl Dispatch {
                 {
                     self.session_denied.run(error.clone());
                 }
-                let acknowledged = self.state.with_untracked(|s| {
-                    if s.phase == Phase::Ready {
-                        s.result.clone().ok_or(ClientError::Transport)
-                    } else {
-                        Err(s.error.clone().unwrap_or(ClientError::Transport))
-                    }
-                });
-                self.complete.run((acknowledged_command, acknowledged));
+                let acknowledged = self
+                    .state
+                    .try_with_untracked(|s| {
+                        s.completion()
+                            .map(|result| result.cloned().map_err(Clone::clone))
+                    })
+                    .flatten();
+                if let Some(acknowledged) = acknowledged {
+                    self.complete.run((acknowledged_command, acknowledged));
+                }
             }
         });
     }
@@ -336,12 +337,12 @@ pub fn ContentWorkspace(
                 });
             }
         }
-        if !active.get() && state.with_untracked(|s| s.phase == Phase::Pending) {
+        if !active.get() && state.with_untracked(|s| s.phase() == Phase::Pending) {
             dispatch.cancel();
         }
     });
     Effect::new(move |_| {
-        activity.set(file_busy.get() || state.with(|s| s.phase == Phase::Pending))
+        activity.set(file_busy.get() || state.with(|s| s.phase() == Phase::Pending))
     });
     on_cleanup(move || {
         dispatch.abort();
@@ -351,7 +352,7 @@ pub fn ContentWorkspace(
         session_pending.get()
             || actor.get().is_empty()
             || file_busy.get()
-            || state.with(|s| s.phase == Phase::Pending || s.pending.is_some())
+            || state.with(|s| s.phase() == Phase::Pending || s.pending().is_some())
     });
     let pick_work = Callback::new(move |id: String| {
         if blocked.get_untracked() {
@@ -430,11 +431,11 @@ pub fn ContentWorkspace(
     view! {<section id="workspace-content" aria-labelledby="live-title" on:input=move |_|dirty.set(true) on:change=move |_|dirty.set(true)>
         <h2 id="live-title">{move ||text(Key::Pane,english.get())}</h2><p>{move ||text(Key::Help,english.get())}</p>
         <p role="status">{move ||if file_error.get(){if english.get(){"Could not read the file; check size and try again."}else{"Không đọc được tệp; kiểm tra kích thước và thử lại."}}else{""}}</p>
-        <div class="live-status" role="status" aria-live="polite"><p>{move ||state.with(|s|text(match s.phase {Phase::Idle=>Key::Idle,Phase::Pending=>Key::Pending,Phase::Ready=>Key::Ready,Phase::Failed=>Key::Failed,Phase::Ambiguous=>Key::Ambiguous},english.get()))}</p>
-            {move ||state.with(|s|s.error.as_ref().map(|error|error_message(error,english.get())).unwrap_or_default())}
+        <div class="live-status" role="status" aria-live="polite"><p>{move ||state.with(|s|text(match s.phase() {Phase::Idle=>Key::Idle,Phase::Pending=>Key::Pending,Phase::Ready=>Key::Ready,Phase::Failed=>Key::Failed,Phase::Ambiguous=>Key::Ambiguous},english.get()))}</p>
+            {move ||state.with(|s|s.error().map(|error|error_message(error,english.get())).unwrap_or_default())}
             <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,english.get())}else{""}}</p>
-            <ul>{move ||state.with(|s|match &s.error {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}).into_iter().map(|issue|view! {<li><code>{issue.path}</code>" · "{issue.rule}</li>}).collect_view()}</ul>
-            <div class="toolbar"><ActionButton id="live-cancel" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase!=Phase::Pending)) on_press=Callback::new(move |_|dispatch.cancel())>{move ||text(Key::Cancel,english.get())}</ActionButton>
+            <ul>{move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}).into_iter().map(|issue|view! {<li><code>{issue.path}</code>" · "{issue.rule}</li>}).collect_view()}</ul>
+            <div class="toolbar"><ActionButton id="live-cancel" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|dispatch.cancel())>{move ||text(Key::Cancel,english.get())}</ActionButton>
             <ActionButton id="live-reconcile" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|dispatch.reconcile())>{move ||if english.get(){"Reconcile exact private receipt"}else{"Đối chiếu đúng biên nhận riêng tư"}}</ActionButton>
             <ActionButton id="live-retry" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_retry())) on_press=Callback::new(move |_|dispatch.retry())>{move ||text(Key::Retry,english.get())}</ActionButton></div>
         </div>
@@ -516,6 +517,12 @@ fn error_message(error: &ClientError, en: bool) -> String {
             "Connection interrupted or timed out."
         } else {
             "Kết nối bị gián đoạn hoặc hết thời gian."
+        }
+        .into(),
+        ClientError::ReplyMismatch => if en {
+            "Unexpected response; no acknowledgement."
+        } else {
+            "Phản hồi không hợp lệ; chưa có xác nhận."
         }
         .into(),
         ClientError::Protocol { status } => format!(

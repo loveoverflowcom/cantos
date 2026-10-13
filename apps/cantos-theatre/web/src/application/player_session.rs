@@ -1,6 +1,6 @@
 //! Root-owned imperative shell. Pure transitions commit before fake effects execute.
 use super::ports::MediaPort;
-use crate::core::playback::{self, Effect, Event, PlayerState, ResumeSnapshot, Status};
+use crate::core::playback::{self, Effect, Event, PlayerState, Status, ValidatedResumeSnapshot};
 use leptos::prelude::*;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -17,7 +17,7 @@ pub struct PlayerView {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PlayerFeedback {
-    pub resume_offered: Option<ResumeSnapshot>,
+    pub resume_offered: Option<ValidatedResumeSnapshot>,
     pub rejection: Option<playback::Rejection>,
 }
 #[derive(Clone, Copy)]
@@ -63,22 +63,9 @@ impl PlayerSession {
             self.writer.set(transition.state);
             for effect in transition.effects {
                 match &effect {
-                    Effect::OfferResume {
-                        source,
-                        position_ms,
-                    } => {
-                        let speed_permille = self
-                            .state
-                            .get_untracked()
-                            .session()
-                            .map(|session| session.speed_permille())
-                            .unwrap_or(1000);
+                    Effect::OfferResume { .. } => {
                         self.feedback_writer.set(PlayerFeedback {
-                            resume_offered: Some(ResumeSnapshot {
-                                source: *source,
-                                position_ms: *position_ms,
-                                speed_permille,
-                            }),
+                            resume_offered: self.snapshot(),
                             rejection: None,
                         });
                     }
@@ -101,15 +88,17 @@ impl PlayerSession {
             }
         }
     }
-    pub fn snapshot(self) -> Option<ResumeSnapshot> {
+    pub fn snapshot(self) -> Option<ValidatedResumeSnapshot> {
         self.state
             .get_untracked()
             .session()
-            .map(|session| session.snapshot())
+            .map(|session| session.validated_snapshot())
     }
     /// Restore always advances generation; Reset never reuses callback identities.
-    pub fn restore(self, snapshot: ResumeSnapshot) {
-        self.dispatch(Event::RestoreRequested { snapshot });
+    pub fn restore(self, snapshot: ValidatedResumeSnapshot) {
+        self.dispatch(Event::RestoreRequested {
+            snapshot: snapshot.raw(),
+        });
     }
 }
 #[cfg(test)]
@@ -118,7 +107,7 @@ mod tests {
     use crate::{
         core::{
             ids::{EpisodeId, WorkId},
-            playback::{Intent, Source},
+            playback::{Intent, ResumeSnapshot, Source},
         },
         infrastructure::fake_media::FakeMedia,
     };
@@ -128,8 +117,8 @@ mod tests {
             Vec::new()
         }
     }
-    fn sample() -> ResumeSnapshot {
-        ResumeSnapshot {
+    fn sample() -> ValidatedResumeSnapshot {
+        ValidatedResumeSnapshot::try_from(ResumeSnapshot {
             source: Source::new(
                 EpisodeId {
                     work: WorkId::Mountain,
@@ -140,7 +129,8 @@ mod tests {
             .unwrap(),
             position_ms: 768000,
             speed_permille: 1000,
-        }
+        })
+        .unwrap()
     }
     #[test]
     fn delayed_old_started_cannot_override_a_new_pause_or_reset() {
@@ -176,6 +166,94 @@ mod tests {
                 session.feedback.get_untracked().resume_offered,
                 Some(sample())
             );
+        });
+    }
+
+    #[test]
+    fn admitted_restore_preserves_speed_and_ignores_every_old_engine_observation() {
+        Owner::new().with(|| {
+            let session = PlayerSession::new(DeferredFake);
+            session.restore(sample());
+            let old = session.state.get_untracked().identity().unwrap();
+            let admitted = ValidatedResumeSnapshot::try_from(ResumeSnapshot {
+                source: sample().source(),
+                position_ms: 30_000,
+                speed_permille: 1500,
+            })
+            .unwrap();
+            session.restore(admitted);
+            let restored = session.state.get_untracked();
+            let feedback = session.feedback.get_untracked();
+            assert_eq!(restored.generation(), old.generation + 1);
+            assert_eq!(session.snapshot(), Some(admitted));
+            assert_eq!(
+                restored.status(),
+                Status::Paused(playback::PauseCause::ColdRestore)
+            );
+            assert_eq!(
+                restored.session().unwrap().engine(),
+                playback::Engine::Preparing
+            );
+            assert_eq!(feedback.resume_offered, Some(admitted));
+            for event in [
+                Event::EngineReady { identity: old },
+                Event::EngineStarted { identity: old },
+                Event::EnginePaused { identity: old },
+                Event::EngineBuffering { identity: old },
+                Event::EnginePosition {
+                    identity: old,
+                    position_ms: u32::MAX,
+                },
+                Event::EngineEnded { identity: old },
+            ] {
+                session.dispatch(event);
+                assert_eq!(session.state.get_untracked(), restored);
+                assert_eq!(session.feedback.get_untracked(), feedback);
+            }
+        });
+    }
+
+    struct RecordingMedia(std::rc::Rc<RefCell<Vec<Effect>>>);
+    impl MediaPort for RecordingMedia {
+        fn execute(&mut self, effect: &Effect) -> Vec<Event> {
+            self.0.borrow_mut().push(effect.clone());
+            Vec::new()
+        }
+    }
+
+    #[test]
+    fn raw_restore_rejection_leaves_the_session_and_media_effects_unchanged() {
+        Owner::new().with(|| {
+            let effects = std::rc::Rc::new(RefCell::new(Vec::new()));
+            let session = PlayerSession::new(RecordingMedia(effects.clone()));
+            session.restore(sample());
+            let before = session.state.get_untracked();
+            let issued = effects.borrow().clone();
+            for (position_ms, speed_permille, reason) in [
+                (
+                    sample().source().duration_ms() + 1,
+                    1000,
+                    playback::Rejection::OutOfBounds,
+                ),
+                (30_000, 999, playback::Rejection::UnsupportedSpeed),
+            ] {
+                session.dispatch(Event::RestoreRequested {
+                    snapshot: ResumeSnapshot {
+                        source: sample().source(),
+                        position_ms,
+                        speed_permille,
+                    },
+                });
+                assert_eq!(session.state.get_untracked(), before);
+                assert_eq!(*effects.borrow(), issued);
+                assert_eq!(
+                    session.feedback.get_untracked(),
+                    PlayerFeedback {
+                        resume_offered: None,
+                        rejection: Some(reason)
+                    }
+                );
+            }
         });
     }
 }

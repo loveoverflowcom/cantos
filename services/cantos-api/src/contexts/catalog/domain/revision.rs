@@ -68,3 +68,46 @@ mod tests {
         }
     }
 }
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::{CatalogError, Revision};
+
+    /// Proposition: admission is exactly 1..=i64::MAX; every admitted non-maximal revision
+    /// has its exact storage-bounded successor, and the maximal one fails without wrapping.
+    /// Domain: the full symbolic u64. Assumptions/stubs: none. Unwind: 2; no business loop.
+    /// Calls the production Revision::{new,get,next}, not an arithmetic substitute.
+    #[kani::proof]
+    #[kani::unwind(2)]
+    fn catalog_revision_admission_and_successor() {
+        let value: u64 = kani::any();
+        match Revision::new(value) {
+            Ok(revision) => {
+                assert!(value > 0 && value <= i64::MAX as u64);
+                assert_eq!(revision.get(), value);
+                match revision.next() {
+                    Ok(next) => {
+                        assert!(value < i64::MAX as u64);
+                        assert_eq!(u128::from(next.get()), u128::from(value) + 1);
+                        assert!(next.get() > 0 && next.get() <= i64::MAX as u64);
+                    }
+                    Err(CatalogError::RevisionLimit) => assert_eq!(value, i64::MAX as u64),
+                    Err(_) => assert!(false, "unexpected successor error"),
+                }
+            }
+            Err(CatalogError::InvalidRevision) => {
+                assert!(value == 0 || value > i64::MAX as u64);
+            }
+            Err(_) => assert!(false, "unexpected admission error"),
+        }
+        kani::cover!(value == 0, "zero rejected");
+        kani::cover!(value == 1, "first accepted revision");
+        kani::cover!(value == i64::MAX as u64 - 1, "last successful successor");
+        kani::cover!(value == i64::MAX as u64, "storage limit rejected successor");
+        kani::cover!(
+            value == i64::MAX as u64 + 1,
+            "above storage domain rejected"
+        );
+        kani::cover!(value == u64::MAX, "full machine-width maximum rejected");
+    }
+}

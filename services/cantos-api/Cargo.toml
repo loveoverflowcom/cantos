@@ -40,3 +40,7 @@ proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 [[bin]]
 name = "validate-script"
 path = "src/bin/validate-script.rs"
+
+[lints.rust]
+# Kani injects its crate only for cfg(kani); ordinary Rust/WASM builds retain no proof dependency.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
