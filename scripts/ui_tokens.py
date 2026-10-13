@@ -56,6 +56,7 @@ REDUCED_ROLES = {
     "motion.feedback.duration", "motion.navigation.duration",
     "motion.emphasis.duration",
 }
+WEB_PREFIX = "--cantos-web-"  # renderer-local roles the Leptos template may declare itself
 DEFAULT_SCOPE = ":where(.cantos-ui)"
 SYSTEM_DARK_SCOPE = '.cantos-ui:not([data-theme="light"]):not([data-theme="dark"])'
 
@@ -408,7 +409,12 @@ def _foundation(source, template):
     rendered = re.sub(r"\{\{([^{}]+)\}\}", replace, template)
     if "{{" in rendered or "}}" in rendered:
         raise ValueError("foundation template: malformed placeholder")
-    defined = {variable(role) for role in source["tokens"] | source["themes"]["light"] | source["aliases"]}
+    canonical = {variable(role) for role in source["tokens"] | source["themes"]["light"] | source["aliases"]}
+    declared = set(re.findall(r"(?<![\w-])(--cantos-[a-z0-9-]+)\s*:", rendered))
+    shadowing = {name for name in declared if not name.startswith(WEB_PREFIX) or name in canonical}
+    if shadowing:
+        raise ValueError(f"foundation template: may declare only new {WEB_PREFIX}* roles, not {', '.join(sorted(shadowing))}")
+    defined = canonical | declared
     used = set(re.findall(r"var\(\s*(--cantos-[a-z0-9-]+)", rendered))
     if not used <= defined:
         raise ValueError(f"foundation template: undefined CSS roles {', '.join(sorted(used - defined))}")

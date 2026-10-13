@@ -1,6 +1,19 @@
-/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971 template-sha256:79381e9debb39c3c267aaf861cc7f70fece7c2e1b34ce12c7bf75181fb9c64b6
+/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971 template-sha256:755f7a5e576d1c648f5b41b5e58cee0d3fd687e5838b7a8a425ca7af717cb8e7
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
+/* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
+   scale tuned for CMP density; Web keeps the soft, expressive corners it shipped with in v0.2.0
+   (24/12/18/24). Web components read only these roles, never --cantos-shape-{control,reading,
+   field,container,overlay}, so a shared CMP shape change cannot shrink Web again. Full/pill stays
+   the shared --cantos-shape-pill. Editing a value here needs a Web visual review and touches neither
+   the canonical source nor any CMP output. The generator accepts only --cantos-web-* custom
+   properties declared by this template and refuses any that shadow a canonical role. */
+:where(.cantos-ui) {
+  --cantos-web-shape-control: 1.5rem;
+  --cantos-web-shape-reading: 0.75rem;
+  --cantos-web-shape-container: 1.125rem;
+  --cantos-web-shape-overlay: 1.5rem;
+}
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
    Padding on the control leaves room for accents/descenders; never clip the label.
    Browsers without text-box support retain the token line-height fallback. */
@@ -43,7 +56,7 @@
   max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
   border: 0;
-  border-radius: var(--cantos-shape-control);
+  border-radius: var(--cantos-web-shape-control);
   background: var(--cantos-color-primary);
   color: var(--cantos-color-on-primary);
   font-family: var(--cantos-type-family-ui);
@@ -119,10 +132,10 @@
 :where(.cantos-ui) .cui-container { inline-size: 100%; margin-inline: auto; padding-inline: var(--cantos-space-md); }
 :where(.cantos-ui) .cui-container[data-width="reading"] { max-inline-size: 75ch; }
 :where(.cantos-ui) .cui-container[data-width="wide"] { max-inline-size: 76rem; }
-:where(.cantos-ui) .cui-surface { background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-container); padding: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-surface { background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); }
 :where(.cantos-ui) .cui-surface[data-tone="container"] { background: var(--cantos-color-surface-container); }
 :where(.cantos-ui) .cui-surface[data-tone="high"] { background: var(--cantos-color-surface-container-high); }
-:where(.cantos-ui) .cui-surface[data-tone="reading"] { border-radius: var(--cantos-shape-reading); font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
+:where(.cantos-ui) .cui-surface[data-tone="reading"] { border-radius: var(--cantos-web-shape-reading); font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
 :where(.cantos-ui) .cui-surface[data-inset="none"] { padding: 0; }
 :where(.cantos-ui) .cui-surface[data-inset="xs"] { padding: var(--cantos-space-xs); }
 :where(.cantos-ui) .cui-surface[data-inset="sm"] { padding: var(--cantos-space-sm); }
@@ -151,8 +164,8 @@
   overflow-wrap: anywhere;
   color: var(--cantos-color-on-surface);
 }
-:where(.cantos-ui) .cui-badge { display: inline-flex; align-items: center; padding: var(--cantos-space-xs) var(--cantos-space-sm); border-radius: var(--cantos-shape-reading); font-size: var(--cantos-type-metadata-size); }
-:where(.cantos-ui) .cui-status { padding: var(--cantos-space-inset); border-radius: var(--cantos-shape-reading); }
+:where(.cantos-ui) .cui-badge { display: inline-flex; align-items: center; padding: var(--cantos-space-xs) var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); font-size: var(--cantos-type-metadata-size); }
+:where(.cantos-ui) .cui-status { padding: var(--cantos-space-inset); border-radius: var(--cantos-web-shape-reading); }
 :where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="neutral"] { background: var(--cantos-color-surface-container); }
 :where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="info"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
 :where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="success"] { background: var(--cantos-color-success-container); color: var(--cantos-color-success); }
@@ -160,7 +173,7 @@
 :where(.cantos-ui) :where(.cui-badge, .cui-status)[data-tone="error"] { background: var(--cantos-color-error-container); color: var(--cantos-color-error); }
 :where(.cantos-ui) :where(.cui-status-content, .cui-empty-state > div, .cui-error-state > div) { min-inline-size: 0; }
 :where(.cantos-ui) .cui-empty-state { padding: var(--cantos-space-md); }
-:where(.cantos-ui) .cui-error-state { padding: var(--cantos-space-md); background: var(--cantos-color-error-container); color: var(--cantos-color-error); border-radius: var(--cantos-shape-reading); }
+:where(.cantos-ui) .cui-error-state { padding: var(--cantos-space-md); background: var(--cantos-color-error-container); color: var(--cantos-color-error); border-radius: var(--cantos-web-shape-reading); }
 :where(.cantos-ui) .cui-state-title { margin-block: 0 var(--cantos-space-sm); font-weight: var(--cantos-type-label-weight); }
 :where(.cantos-ui) .cui-loading-mark { display: block; flex-shrink: 0; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); border: var(--cantos-size-focus-width) dotted currentColor; border-radius: var(--cantos-shape-pill); box-sizing: border-box; }
 :where(.cantos-ui) .cui-avatar {
@@ -245,7 +258,7 @@
 :where(.cantos-ui) .cui-nav-item {
   min-inline-size: var(--cantos-size-control);
   padding: var(--cantos-space-sm) var(--cantos-space-inset);
-  border-radius: var(--cantos-shape-control);
+  border-radius: var(--cantos-web-shape-control);
   color: var(--cantos-color-on-surface);
   text-decoration: none;
   transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
@@ -353,7 +366,7 @@
   max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
   border: 0;
-  border-radius: var(--cantos-shape-field);
+  border-radius: var(--cantos-web-shape-reading);
   background: var(--cantos-color-surface-container-high);
   color: var(--cantos-color-on-surface);
   font: inherit;
@@ -421,7 +434,7 @@
 }
 :where(.cantos-ui) .cui-field-error {
   padding: var(--cantos-space-xs) var(--cantos-space-sm);
-  border-radius: var(--cantos-shape-field);
+  border-radius: var(--cantos-web-shape-reading);
   color: var(--cantos-color-error);
   background: var(--cantos-color-error-container);
 }
@@ -511,7 +524,7 @@
   margin: auto;
   padding: var(--cantos-space-md);
   border: 0;
-  border-radius: var(--cantos-shape-overlay);
+  border-radius: var(--cantos-web-shape-overlay);
   background: var(--cantos-color-surface);
   color: var(--cantos-color-on-surface);
   font-family: var(--cantos-type-family-ui);
@@ -640,7 +653,7 @@
   gap: var(--cantos-space-xs);
   padding: var(--cantos-space-xs) var(--cantos-space-sm);
   background: var(--cantos-color-surface-container);
-  border-radius: var(--cantos-shape-reading);
+  border-radius: var(--cantos-web-shape-reading);
 }
 :where(.cantos-ui) .cui-gallery-page article {
   display: grid;

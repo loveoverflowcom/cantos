@@ -44,7 +44,10 @@ exists once in the shared Full adapter. The shared token gallery constructs shap
 from each declared token to display the catalog; it is not a production container policy.
 Material default geometry for radio, switch and navigation is deliberate native anatomy.
 
-Existing semantic role values change, so shared Web action/navigation corners become 8,
+> **Superseded for Web:** this change also shrank Leptos corners because Web read the same
+> roles. The [Web shape mapping](web-shape-mapping.md) restores them; the CMP values below stand.
+
+Existing semantic role values change; at the time, shared Web action/navigation corners became 8,
 containers 16 and overlays 20. Both renderer outputs and catalog inventory were regenerated;
 shape.field remains a direct alias of shape.reading. No token family outside shape changed,
 and existing spacing values, density overrides, colors, typography and motion are untouched.
