@@ -356,13 +356,60 @@ async fn revocation_and_audit_are_atomic_replayable_and_append_only_under_runtim
         .await
         .unwrap()
         .get::<_, bool>(0));
+    let protected_queries = [
+        (
+            "admin_audit",
+            "SELECT row_to_json(a)::text FROM admin_audit a ORDER BY id",
+        ),
+        (
+            "admin_operations",
+            "SELECT row_to_json(o)::text FROM admin_operations o ORDER BY actor_id,operation_id",
+        ),
+        (
+            "admin_access_revocations",
+            "SELECT row_to_json(r)::text FROM admin_access_revocations r ORDER BY actor_id",
+        ),
+    ];
+    let mut protected_before = Vec::new();
+    for &(_, query) in &protected_queries {
+        protected_before.push(
+            h.db.query(query, &[])
+                .await
+                .unwrap()
+                .iter()
+                .map(|row| row.get::<_, String>(0))
+                .collect::<Vec<_>>(),
+        );
+    }
+    // Include the receipt child of the audit FK: audit-only TRUNCATE refuses earlier with
+    // 0A000 and never exercises admin_immutable's P0001 append-only trigger.
     for sql in [
         "UPDATE admin_audit SET outcome='denied'",
         "DELETE FROM admin_audit",
-        "TRUNCATE admin_audit",
+        "TRUNCATE admin_audit,admin_operations",
+        "UPDATE admin_operations SET target_actor_id='third'",
+        "DELETE FROM admin_operations",
+        "TRUNCATE admin_operations",
         "UPDATE admin_access_revocations SET revoked_at=clock_timestamp()",
+        "DELETE FROM admin_access_revocations",
+        "TRUNCATE admin_access_revocations",
     ] {
-        assert!(h.db.batch_execute(sql).await.is_err());
+        let error = h.db.batch_execute(sql).await.unwrap_err();
+        assert_eq!(
+            error.code().map(|code| code.code()),
+            Some("P0001"),
+            "admin_immutable must reject the statement itself: {sql}: {error}",
+        );
+        for ((table, query), expected) in protected_queries.iter().zip(&protected_before) {
+            let after =
+                h.db.query(*query, &[])
+                    .await
+                    .unwrap()
+                    .iter()
+                    .map(|row| row.get::<_, String>(0))
+                    .collect::<Vec<_>>();
+            assert_eq!(&after, expected, "{table} changed after refusing {sql}");
+        }
     }
     let mut runtime = h.config.clone();
     runtime.user("cantos_app");
