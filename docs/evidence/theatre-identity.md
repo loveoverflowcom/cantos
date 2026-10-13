@@ -184,3 +184,101 @@ and a raw expired-binder replay, both preserve observed B. The captured fresh C 
 revoked before its held cookie response can regain admission. Roots serialize; they confer no
 actor-wide or permanent retired-session cancellation authority. Source execution is assigned
 to the parent lane.
+
+## Independent integrated acceptance — 13 October 2026
+
+This ledger supersedes the provisional campaign statuses above for implementation source
+`2a1a98546a04420638626ff6d05bbce550fb1235`, tree
+`2e8178a6607dd212acd6d657c36d5ade486ad13c`. The historical implementation failures and logs
+remain evidence of their own snapshots. Actual Web runtime used clean source
+`0a4ee8fad30373a9f51f2117a5c731b066b3f7ea`, tree
+`bcde33a85907aa291ed69d38c7ef140c0065f989`; the subsequent commit changes only a PostgreSQL
+test oracle, with production/UI bytes unchanged.
+
+Evidence root: `/private/tmp/cantos-identity-campaign/`. Final manifest
+`pr101-acceptance-manifest.json` records **16 files**, SHA256
+`e507afad65f29c01f9959b36f52de564171cce26ea0de27bda5e80fa2c216591`.
+The earlier provisional manifest is preserved and is not the final acceptance record.
+
+| Named scope | Observed result | Retained log in evidence root |
+| --- | --- | --- |
+| Fourth full local preflight | **FAIL overall: 16 PASS, 1 PostgreSQL FAIL**; the registry immutability oracle omitted the new Theatre flow FK graph | `theatre-preflight-integrated-fourth.log` |
+| Corrected current full PostgreSQL verification | **PASS**: 15 Theatre Web, 6 native, 18 Studio OIDC tests, registry and all inherited PostgreSQL/restart/socket suites | `theatre-postgres-integrated-oracle-fixed.log` |
+| Final test-only `preflight --changed-only --base 0a4ee8f` | **PASS: 8 selected gates, no skips**: repository, rust-format, cantos-api lint/tests, DBSP, WAV reference, audio inspection and PostgreSQL | `theatre-preflight-final-test-only.log` |
+| Integrated Rust workspace | **PASS** lint/tests, including 107 Theatre Web unit tests and the 4 canonical account tests | `theatre-rust-integrated-first.log` |
+| Web WASM lint/build | **PASS** all 4 named Web gates: shared Studio/Theatre lint, both app builds and UI preview | `theatre-web-integrated-first.log` |
+| Reference/preview/CMP gates | **PASS** in the fourth full run: Script IR reference, Protobuf reference, CMP UI preview and Theatre CMP demo | `theatre-preflight-integrated-fourth.log` |
+| Mutation | **PASS**: 9 killed, 0 survived, 0 timeout, 0 unviable; no new native formal-proof claim | `theatre-preflight-integrated-fourth.log` |
+| Android SDK compile | **PASS — Theatre mock Android build**: 61 tasks executed, 52 seconds; shared protocol and Android adapters compiled | `theatre-android-integrated-final.log` |
+| iOS simulator framework | **UNSUPPORTED**: required Kotlin/Native 2.2.20 lacks executable `bin/konanc`; no alternate version or download substituted | `theatre-ios-build-availability.log` |
+| Actual Theatre Web runtime | **14 PASS, 0 FAIL, 2 INCONCLUSIVE, 7 NOT_RUN**; all 12 captured PNGs opened, inspected and SHA-verified | `theatre-ui-runtime/report.md`, `checks.json`, `image-inspections.json` |
+
+This is **not a single 17-green-gate invocation**. Commit `2a1a985` expands only the inherited
+TRUNCATE oracle's FK graph and retains its expected immutability error `55000`; it does not
+weaken a production constraint or ignore a failure. The corrected full PostgreSQL verification
+and final selected preflight establish the current test result separately from the retained
+fourth-run failure.
+
+The scoped prior guarded-production-kernel experiment also remains a named **FAIL**:
+`theatre-guest-flow-kernel-fail-before.log` observes late callback 303 where 401 is required.
+It reverted only the cancellation kernel under the current signed-mock fixture, not an original
+whole-head snapshot. Fixed code was restored by hash before acceptance; the current 15-test Web
+suite passes the pending callback, held successful receipt, fresh-binder expiry, A/B isolation
+and attributed remote-revocation retry regressions.
+
+### Actual browser scope
+
+`theatre-ui-runtime/report.md` SHA256 is
+`572c57bd2b156a6b10542918a52aaf24fa1b026f44aa0cdc78668788e11eb9af`.
+The real built Web/Axum/disposable-PostgreSQL journey used an ephemeral ES256 provider over
+actual discovery/JWKS/token/introspection/revocation HTTP. Trusted provider A/B chooser actions
+redirected to the actual callback, exercising nonce/PKCE, exact registry issuance and BFF cookie
+admission. Continue/Saved/History reads were actual authenticated empty-Library responses;
+there was no synthetic publication/audio/private-entry seed or forged DOM/auth/network body.
+
+Named observations include stable exact issuer/subject mapping, held A bootstrap during B
+cookie rotation, the actual 409 private-request fence and bounded B rebootstrap, provider 503
+with unavailable UI/recovery, delayed A 401 cleanup preserving B with 409, and local logout 204
+with remote revocation **pending** followed by fresh official A login. Remote completion is
+not inferred from that pending response. Trusted skip-link/Enter focus, Vietnamese text and
+1440×900 light, 390×844 dark and 320×800 light layouts were observed. No localStorage keys or
+fixture secrets appeared in the exported sanitized ledger. The run used 27 trusted actions,
+12 PNGs and 10 minutes 4 seconds; zero runtime exceptions were recorded.
+
+Native-select driver behavior and effective OS text enlargement remain **INCONCLUSIVE**.
+The 7 **NOT_RUN** groups include 200% browser zoom, legitimate nonempty Library/public
+audio/playback, a separate late-Library-success-after-logout journey, explicit mock-player
+interactions, live-provider production acceptance, native device/system-browser/secure-store/
+screen-reader/IME acceptance, and actual local 900-second expiry/SQL actor-disable runtime.
+Provider inactivity was exercised and remains distinct from clock expiry or SQL disable.
+The initial task-provider CSP fixture error and its exact callback-origin repair are retained
+in the report; no browser security or TLS bypass occurred.
+
+### Implemented code and remaining activation gates
+
+The native path now implements fixed public-client discovery/PKCE exchange, real ID/access
+signature and purpose witnesses, current introspection, exact registry issuance, separate opaque
+sessions, fresh resource admission, local-first durable revocation, typed common consumers and
+OS adapters. Studio's latest fences and cookie inventory, the shared OIDC proof boundary,
+JSON-default/opt-in Protobuf and legacy MessagePack were preserved during the normal merge.
+Migrations 0018/0020/0021 stay byte-identical; the pre-Admin registry has 22 entries, including
+0024 Theatre and 0025 Studio final-time changes.
+
+The Android INTERNET/callback manifest and dependent MainActivity/Application source activation
+are **still unapplied** after automatic approval review rejected the source proposal as a
+network-settings change. Exact records remain at `/tmp/cantos-native-android-manifest-proposal.md`
+and `/tmp/cantos-native-auto-review-rejection-record.md`; direct human exception is pending.
+Android SDK PASS does not establish an activated auth host, OS browser/store behavior or device
+acceptance. iOS source wiring is not an iOS build PASS. PR101 remains draft pending this source
+blocker; this handoff does not complete the whole mobile client.
+
+Live Kanidm/client registration, provider/device/secure-store lifecycle, native playback,
+accessibility and production activation remain **NOT_RUN/closed**. Durable outbox, guest import,
+explicit cross-client linking, backend at-rest bearer protection, backup/retention and controlled
+pending-revocation recovery keep their separate owners/gates. Equal client-specific subject
+strings never authorize automatic issuer merging. No live account/grant/credential/TLS/network
+mutation or provider container launch was performed.
+
+All task-owned API/provider/runtime-PG and retained `--keep` verification-PG processes were
+stopped; their databases, WAL and unique fixture/evidence data were preserved. Stop records are
+included in the final manifest. Only the inspector's own disposable Chrome profile was removed.
