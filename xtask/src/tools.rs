@@ -417,7 +417,12 @@ mod tests {
 
     #[test]
     fn gradle_versions_are_bounded_and_preview_versions_are_rejected() {
-        for version in ["Gradle 8.13", "Gradle 8.14.1", "Gradle 8.14.2", "Gradle 8.14.3"] {
+        for version in [
+            "Gradle 8.13",
+            "Gradle 8.14.1",
+            "Gradle 8.14.2",
+            "Gradle 8.14.3",
+        ] {
             assert!(gradle_version_supported(version), "{version}");
         }
         for version in [
