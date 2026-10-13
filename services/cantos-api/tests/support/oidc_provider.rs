@@ -161,18 +161,6 @@ impl MockProvider {
     pub fn issuer(&self) -> String {
         format!("{}/oauth2/openid/{}", self.data.origin, self.data.client_id)
     }
-    pub fn pause_code(&self, code: &str) -> Arc<TokenPause> {
-        let pause = Arc::new(TokenPause {
-            entered: tokio::sync::Notify::new(),
-            release: tokio::sync::Notify::new(),
-        });
-        self.data
-            .token_pauses
-            .lock()
-            .unwrap()
-            .insert(code.into(), pause.clone());
-        pause
-    }
     pub fn issue(
         &self,
         url: &str,
