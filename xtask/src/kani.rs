@@ -33,15 +33,17 @@ pub enum Kernel {
     SubmissionWindow,
     PublicationCommit,
     ListenerAccess,
+    ListenerReconcile,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::CatalogRevision,
         Self::WavPayload,
         Self::SubmissionWindow,
         Self::PublicationCommit,
         Self::ListenerAccess,
+        Self::ListenerReconcile,
     ];
 
     pub fn name(self) -> &'static str {
@@ -51,6 +53,7 @@ impl Kernel {
             Self::SubmissionWindow => "submission-window",
             Self::PublicationCommit => "publication-commit",
             Self::ListenerAccess => "listener-access",
+            Self::ListenerReconcile => "listener-reconcile",
         }
     }
 
@@ -61,6 +64,7 @@ impl Kernel {
             Self::SubmissionWindow => "contexts::media::domain::lifecycle::kani_proofs::submission_window_admission_and_membership",
             Self::PublicationCommit => "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
             Self::ListenerAccess => "contexts::media::domain::listening::kani_proofs::listener_keyset_and_access_window",
+            Self::ListenerReconcile => "contexts::listening::domain::reconcile::kani_proofs::progress_reconciliation_never_blindly_overwrites_or_wraps",
         }
     }
 
@@ -75,6 +79,9 @@ impl Kernel {
                 "services/cantos-api/src/contexts/media/domain/publication.rs"
             }
             Self::ListenerAccess => "services/cantos-api/src/contexts/media/domain/listening.rs",
+            Self::ListenerReconcile => {
+                "services/cantos-api/src/contexts/listening/domain/reconcile.rs"
+            }
         }
     }
 
@@ -85,6 +92,7 @@ impl Kernel {
             Self::SubmissionWindow => 8,
             Self::PublicationCommit => 6,
             Self::ListenerAccess => 5,
+            Self::ListenerReconcile => 7,
         }
     }
 
@@ -100,6 +108,7 @@ impl Kernel {
             Self::WavPayload => Vec::new(),
             Self::PublicationCommit => vec![format!("{}.assertion.1", self.harness())],
             Self::ListenerAccess => Vec::new(),
+            Self::ListenerReconcile => Vec::new(),
         }
     }
 
@@ -172,6 +181,11 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
             || path.starts_with("packages/contracts/schema/")
         {
             selected.extend(Kernel::ALL);
+        }
+        if path == "services/cantos-api/src/contexts/listening/mod.rs"
+            || path.starts_with("services/cantos-api/src/contexts/listening/domain/")
+        {
+            selected.insert(Kernel::ListenerReconcile);
         }
         for kernel in Kernel::ALL {
             if path == kernel.source() {

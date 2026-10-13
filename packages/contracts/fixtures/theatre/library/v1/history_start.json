@@ -1,0 +1,19 @@
+{
+  "operation": {
+    "operation_id": "00000000-0000-4000-8000-00000000000a",
+    "device_id": "00000000-0000-4000-8000-00000000000b",
+    "device_sequence": 1,
+    "device_reported_at_ms": null
+  },
+  "audio": {
+    "work_id": "00000000-0000-4000-8000-000000000001",
+    "unit_id": "00000000-0000-4000-8000-000000000002",
+    "publication_id": "00000000-0000-4000-8000-000000000003",
+    "rendition_id": "00000000-0000-4000-8000-000000000004",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "duration_ms": 60000
+  },
+  "engine_session_id": "00000000-0000-4000-8000-00000000000c",
+  "event": "playback_started",
+  "history_epoch": 0
+}

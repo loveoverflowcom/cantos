@@ -1,0 +1,660 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/theatre/library/1.0.0",
+  "title": "Listener Library and Progress 1.0.0",
+  "$defs": {
+    "Operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "device_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "device_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "device_reported_at_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "operation_id",
+        "device_id",
+        "device_sequence",
+        "device_reported_at_ms"
+      ]
+    },
+    "AudioIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "unit_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "publication_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "rendition_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "work_id",
+        "unit_id",
+        "publication_id",
+        "rendition_id",
+        "sha256",
+        "duration_ms"
+      ]
+    },
+    "ProgressKind": {
+      "type": "string",
+      "enum": [
+        "checkpoint",
+        "explicit_seek",
+        "restart",
+        "resolve_here",
+        "resolve_other",
+        "mark_completed"
+      ]
+    },
+    "Completion": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed"
+      ]
+    },
+    "ProgressWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "audio": {
+          "$ref": "#/$defs/AudioIdentity"
+        },
+        "base_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "position_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "kind": {
+          "$ref": "#/$defs/ProgressKind"
+        }
+      },
+      "required": [
+        "operation",
+        "audio",
+        "base_revision",
+        "position_ms",
+        "kind"
+      ]
+    },
+    "ProgressRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/$defs/AudioIdentity"
+        },
+        "position_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "completion": {
+          "$ref": "#/$defs/Completion"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "accepted_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "listener_order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "written_by": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "$ref": "#/$defs/ProgressKind"
+        }
+      },
+      "required": [
+        "audio",
+        "position_ms",
+        "completion",
+        "revision",
+        "accepted_at_ms",
+        "listener_order",
+        "written_by",
+        "kind"
+      ]
+    },
+    "SavedWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "base_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation",
+        "base_revision",
+        "saved"
+      ]
+    },
+    "SavedRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "saved": {
+          "type": "boolean"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "listener_order": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "accepted_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "work_id",
+        "saved",
+        "revision",
+        "listener_order",
+        "accepted_at_ms"
+      ]
+    },
+    "HistoryStart": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "audio": {
+          "$ref": "#/$defs/AudioIdentity"
+        },
+        "engine_session_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "playback_started"
+          ]
+        },
+        "history_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "operation",
+        "audio",
+        "engine_session_id",
+        "event",
+        "history_epoch"
+      ]
+    },
+    "HistoryClear": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "base_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "history_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "confirmation": {
+          "type": "string",
+          "enum": [
+            "clear_history"
+          ]
+        }
+      },
+      "required": [
+        "operation",
+        "base_revision",
+        "history_epoch",
+        "confirmation"
+      ]
+    },
+    "HistoryState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "revision",
+        "epoch"
+      ]
+    },
+    "ResumeStatus": {
+      "type": "string",
+      "enum": [
+        "exact_available",
+        "release_replaced",
+        "access_unavailable"
+      ]
+    },
+    "ContinueItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "progress": {
+          "$ref": "#/$defs/ProgressRecord"
+        },
+        "resume": {
+          "$ref": "#/$defs/ResumeStatus"
+        }
+      },
+      "required": [
+        "progress",
+        "resume"
+      ]
+    },
+    "SavedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "saved": {
+          "$ref": "#/$defs/SavedRecord"
+        }
+      },
+      "required": [
+        "saved"
+      ]
+    },
+    "HistoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/$defs/AudioIdentity"
+        },
+        "started_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "listener_order": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProgressRecord"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resume": {
+          "$ref": "#/$defs/ResumeStatus"
+        }
+      },
+      "required": [
+        "audio",
+        "started_at_ms",
+        "listener_order",
+        "progress",
+        "resume"
+      ]
+    },
+    "ContinuePage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/ContinueItem"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ]
+    },
+    "SavedPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/SavedItem"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "items",
+        "next_cursor"
+      ]
+    },
+    "HistoryPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/HistoryState"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/HistoryItem"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "items",
+        "next_cursor"
+      ]
+    },
+    "MutationState": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resource": {
+              "type": "string",
+              "enum": [
+                "progress"
+              ]
+            },
+            "current": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProgressRecord"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "resource",
+            "current"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resource": {
+              "type": "string",
+              "enum": [
+                "saved"
+              ]
+            },
+            "current": {
+              "$ref": "#/$defs/SavedRecord"
+            }
+          },
+          "required": [
+            "resource",
+            "current"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resource": {
+              "type": "string",
+              "enum": [
+                "history"
+              ]
+            },
+            "current": {
+              "$ref": "#/$defs/HistoryState"
+            }
+          },
+          "required": [
+            "resource",
+            "current"
+          ]
+        }
+      ]
+    },
+    "Receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "already_current",
+            "revision_conflict",
+            "history_epoch_conflict"
+          ]
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "listener_chooses",
+                "keep_server"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/MutationState"
+        }
+      },
+      "required": [
+        "operation_id",
+        "outcome",
+        "resolution",
+        "state"
+      ]
+    },
+    "LibraryError": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "invalid_position",
+            "invalid_cursor",
+            "unauthenticated",
+            "not_found",
+            "idempotency_key_reused",
+            "stale_device_sequence",
+            "revision_exhausted",
+            "unavailable",
+            "corrupt_state"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "retryable"
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/ProgressWrite"
+    },
+    {
+      "$ref": "#/$defs/SavedWrite"
+    },
+    {
+      "$ref": "#/$defs/HistoryStart"
+    },
+    {
+      "$ref": "#/$defs/HistoryClear"
+    },
+    {
+      "$ref": "#/$defs/ContinuePage"
+    },
+    {
+      "$ref": "#/$defs/SavedPage"
+    },
+    {
+      "$ref": "#/$defs/HistoryPage"
+    },
+    {
+      "$ref": "#/$defs/Receipt"
+    },
+    {
+      "$ref": "#/$defs/LibraryError"
+    },
+    {
+      "$ref": "#/$defs/ProgressRecord"
+    },
+    {
+      "$ref": "#/$defs/SavedRecord"
+    }
+  ]
+}

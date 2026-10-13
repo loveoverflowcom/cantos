@@ -76,6 +76,29 @@ Bookmark writes use stable IDs and operation IDs. Preserve explicit deletion int
 
 When publication audio changes, retain prior progress/bookmarks keyed to the original revision. Resume the prior revision if access allows; otherwise explain that audio changed and let the listener choose a new starting point. A future mapping by stable dialogue/scene identity is optional and must be validated before automatic migration.
 
+## Library/Progress core contract
+
+The [Listener Library/Progress v1 core](../../packages/contracts/listener-library-v1.md) adds
+account-scoped saved Work registers, release-pinned progress and acknowledged-start history.
+Continue derives one latest progress register per Work; it does not own a second position store.
+Current Web/CMP mocks remain unconnected and provide no durable account-sync evidence.
+
+The core uses conservative explicit policies: checkpoint/seek-to-end never completes a listen;
+only `mark_completed` at the end does. Completed state survives a later seek; `restart` at zero
+resets it. Delayed stale checkpoints following an explicit seek/restart/resolution/completion
+keep server state. Other divergent stale values require listener choice. A changed publication,
+even byte-identical, is never substituted or position-migrated automatically. Until retained
+release access is accepted, only an exact currently eligible release can be offered for resume;
+all stored user state survives loss of access.
+
+History is latest acknowledged actual engine start per Work, including completed items.
+Clear requires explicit confirmation of its current revision/epoch and only removes history.
+The epoch rejects delayed pre-clear starts; session tombstones prevent duplicate callbacks from
+recreating cleared history. It does not remove progress, saved Works, bookmarks or downloads.
+#34 still owns guest/sign-in policy: this slice requires an account for durable state and adds
+no guest import or automatic merge. Production issuer verification and Web/Android/iOS real
+engine/account-switch acceptance remain separate prerequisites.
+
 ## UI and accessibility
 
 Use the [shared UI specification](../design/ui-system.md) for vocabulary, semantic theme roles, density, state treatment, and motion. Leptos and CMP map the same design intent into their own components. CMP framework support for expressive components and motion must be verified for the selected version and every target.

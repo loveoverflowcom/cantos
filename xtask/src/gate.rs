@@ -545,6 +545,7 @@ mod tests {
                 Status::NotRun,
                 Status::NotRun,
                 Status::NotRun,
+                Status::NotRun,
                 Status::NotRun
             ]
         );
