@@ -70,3 +70,6 @@
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |
 
 These documents specify intended behavior, unless a section explicitly provides implementation evidence. Update the owning document instead of copying the same rule into multiple competing specifications. Use [templates](../templates/README.md) for subsequent decisions and production records.
+
+- [Theatre Discovery/Playback evidence](evidence/theatre-discovery.md) and
+  [Library/Progress handoff](work-plan/discovery-library-handoff.md).

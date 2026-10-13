@@ -164,3 +164,12 @@ then publication before Theatre playback. Next runtime acceptance needs an opera
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
 lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.

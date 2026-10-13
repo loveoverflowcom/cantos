@@ -517,12 +517,17 @@ def dependency_error(path, owner, domain, http):
         publication_error = path[:3] in {
             ("contexts", "media", "PublicationStoreError"),
             ("contexts", "media", "PublicationDependencyError"),
+            ("contexts", "media", "ListenerError"),
         } or path[:5] == ("contexts", "media", "domain", "publication", "PublicationError")
         publication_composition = path in {
             ("contexts", "media", "PublicationService"),
             ("contexts", "media", "PublicationService", "new"),
             ("contexts", "media", "PublicationService", "with_publication_delivery"),
             ("contexts", "media", "PublicationDelivery"),
+            ("contexts", "media", "ListenerService"),
+            ("contexts", "media", "ListenerService", "new"),
+            ("contexts", "media", "ListenerError"),
+            ("contexts", "media", "PlaybackDelivery"),
         }
         if http and path not in HTTP_PURE_BOUNDARIES and not (
             catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition

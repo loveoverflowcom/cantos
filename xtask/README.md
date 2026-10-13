@@ -308,17 +308,17 @@ state it in the pull request.
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly three registered API-library propositions:
-`catalog-revision`, `wav-payload` and `submission-window`. Repeat `--harness` to select a subset;
+`cargo xtask verify kani` selects exactly five registered API-library propositions:
+`catalog-revision`, `wav-payload`, `submission-window`, `publication-commit` and `listener-access`. Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/7/8) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/7/8/6/5) and reviewed unreachable checks.
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
-limits. Existing Theatre harnesses are outside this registry and have no new executed claim.
+limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all three. Unrelated documents, Web/CMP and service configuration select
+uncertain changes select all five. Unrelated documents, Web/CMP and service configuration select
 none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.

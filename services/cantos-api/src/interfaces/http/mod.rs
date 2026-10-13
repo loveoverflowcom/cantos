@@ -13,7 +13,9 @@ use cantos_contracts::{routes, ApiError, ErrorCode};
 use tower_http::services::ServeDir;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
-use crate::contexts::media::{PublicationDelivery, PublicationService};
+use crate::contexts::media::{
+    ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
+};
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
@@ -44,6 +46,27 @@ pub fn router_with_publication_delivery(
 }
 
 fn router_with_publication(state: AppState, dist: &str, publication: PublicationService) -> Router {
+    let listener = ListenerService::new(state.store.clone());
+    router_with_services(state, dist, publication, listener)
+}
+
+/// Trusted public-delivery host composition. Default host remains fail-closed.
+pub fn router_with_theatre_delivery(
+    state: AppState,
+    dist: &str,
+    delivery: std::sync::Arc<dyn PlaybackDelivery>,
+) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    let listener = ListenerService::new(state.store.clone()).with_playback_delivery(delivery);
+    router_with_services(state, dist, publication, listener)
+}
+
+fn router_with_services(
+    state: AppState,
+    dist: &str,
+    publication: PublicationService,
+    listener: ListenerService,
+) -> Router {
     // Surfaces are separate route groups with their own permission context; shared code is the
     // middleware below and the domain/store modules, never a handler.
     let api = Router::new()
@@ -69,7 +92,9 @@ fn router_with_publication(state: AppState, dist: &str, publication: Publication
     } else {
         host.fallback_service(ServeDir::new(dist))
     };
-    host.with_state(state).layer(axum::Extension(publication))
+    host.with_state(state)
+        .layer(axum::Extension(publication))
+        .layer(axum::Extension(listener))
 }
 
 async fn not_found() -> Response {
@@ -110,11 +135,20 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
         .get(header::ORIGIN)
         .and_then(|h| h.to_str().ok())
         == Some(state.web_origin.as_str());
-    let mut response = if !read && !valid_origin {
+    let original_path = request
+        .extensions()
+        .get::<axum::extract::OriginalUri>()
+        .map_or(request.uri().path(), |uri| uri.0.path());
+    let theatre_request = original_path.starts_with("/api/v1/theatre/");
+    let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
+    let mut response = if !read && !valid_origin && !anonymous_playback {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {
             Ok(response) => response,
+            Err(_) if theatre_request => {
+                theatre::error(crate::contexts::media::ListenerError::Unavailable)
+            }
             Err(_) => failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
         }
     };

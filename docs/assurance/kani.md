@@ -153,8 +153,8 @@ cargo xtask verify kani --harness catalog-revision --harness wav-payload
 cargo xtask preflight --changed-only --base origin/develop --kani
 ```
 
-Omission selects exactly three registered API-library harnesses; repeated typed
-selectors choose a subset. Existing Theatre harnesses are unregistered/NOT_RUN.
+Omission now selects five registered API-library harnesses; repeated typed
+selectors choose a subset. Historical Web mock harnesses remain unregistered/NOT_RUN.
 Ordinary builds, `verify rust`, full preflight without `--kani`, CI and merged
 service lifecycle commands do not execute model checking. Selection and outcome
 rules are in [the xtask command contract](../../xtask/README.md#optional-targeted-kani-proofs).
@@ -287,3 +287,15 @@ No assumption/stub or meaningful input exclusion is used. Source/hash/raw-output
 the sole approved closed-enum unreachable error branch are recorded in that evidence.
 This does not prove the entire readiness evaluator, SQL concurrency or storage/authorization.
 The earlier three-kernel execution above remains historical evidence with its original inputs.
+
+## Listener order and access-window kernel
+
+Discovery adds the fifth opt-in proposition, `listener-access`. Actual final command
+`cargo xtask verify kani --harness listener-access` executed
+`contexts::media::domain::listening::kani_proofs::listener_keyset_and_access_window`: 27 checks,
+five satisfied covers, unwind2, full-width i64 clocks and u128 identity tie-breakers, no
+assumptions/stubs/unreachable exclusions, unchanged merged lock. The production
+`after_work`/`access_window_valid` kernels are used by the real listener boundary. This proves
+strict order/local expiry only, not all eligibility, cursor randomness, PG, grants or delivery.
+See [the exact source/artifact ledger](../evidence/theatre-discovery-results.json) and
+[scope/gaps](../evidence/theatre-discovery.md). Earlier three/four-kernel results stay historical.

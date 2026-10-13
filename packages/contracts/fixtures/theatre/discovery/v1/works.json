@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "work_id": "10000000-0000-4000-8000-000000000001",
+      "kind": "story",
+      "title": "Ánh đèn cuối sân khấu",
+      "description": "Một lời hẹn chưa bao giờ nói ra.",
+      "language": "vi-VN",
+      "first_published_at_ms": 5000
+    }
+  ],
+  "next_cursor": null
+}
