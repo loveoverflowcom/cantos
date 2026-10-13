@@ -62,8 +62,27 @@ v0.2.2 standardizes the existing shape roles instead of adding a mobile-only tok
 `CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
 slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock
 Material buttons opt into small/medium explicitly because their default Full shape bypasses
-Material theme slots. This changes shared Web action/container/overlay corners to 8/16/20 too;
-spacing, fonts, colors and motion values remain unchanged. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
+Material theme slots. The shared scale is CMP's: Web does **not** consume it (see below), so it
+changes no Web corner; spacing, fonts, colors and motion values remain unchanged. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
+### Web shape mapping
+
+Leptos keeps the soft corners it shipped with in v0.2.0 through four renderer-local roles
+declared once, in the [stylesheet template](../leptos/foundation.css.in), not in `tokens.json`:
+
+| Web role | Value | Historical shared role | Use |
+| --- | --- | --- | --- |
+| `--cantos-web-shape-control` | 24 (1.5rem) | `shape.control` | buttons, navigation selection, chips as actions |
+| `--cantos-web-shape-reading` | 12 (0.75rem) | `shape.reading` / `shape.field` | text fields, notices, badges, reading surfaces |
+| `--cantos-web-shape-container` | 18 (1.125rem) | `shape.container` | story/continue cards, covers, panels |
+| `--cantos-web-shape-overlay` | 24 (1.5rem) | `shape.overlay` | featured container, mini-player, dialogs |
+
+Web CSS reads only these roles plus the shared `shape.pill`; it never reads the shared
+`shape.{control,reading,field,container,overlay}` custom properties, so the CMP scale can change
+without moving a Web corner. The generator refuses a template custom property outside
+`--cantos-web-*` or one that shadows a canonical role, and `scripts/test_ui_tokens.py`
+(`WebShapeIndependence`) pins the values and the no-direct-use rule. CMP outputs never mention
+these roles. Values are logical-unit equivalents of the historical v0.2.0 numbers, not new design.
+
 600/840 logical-unit medium/expanded breakpoints are foundation decisions, not copied app
 layout thresholds. They guide composition, while actual pane constraints belong to app owners.
 CSS media queries cannot consume custom properties: the generator substitutes named breakpoint
