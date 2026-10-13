@@ -59,6 +59,9 @@ struct AudioHarness {
 }
 impl AudioHarness {
     async fn new(recording: bool, profile: &str) -> Self {
+        Self::new_visibility(recording, profile, false).await
+    }
+    async fn new_visibility(recording: bool, profile: &str, public: bool) -> Self {
         let mut h = Harness::new().await;
         h.admin.batch_execute("GRANT SELECT,INSERT ON audio_submissions,audio_submission_revocations,audio_renditions,audio_reviews,audio_release_candidates TO cantos_app;").await.unwrap();
         let root = PrivateRoot::new();
@@ -71,6 +74,9 @@ impl AudioHarness {
             "unused-public-root",
         );
         let mut work_body = work_request(if recording { "podcast" } else { "novel" });
+        if public {
+            work_body["details"]["visibility"] = json!("public");
+        }
         work_body["details"]["rights_refs"] = json!(["catalog-rights"]);
         let w = h
             .json("POST", "/works", Some(ALICE), Some(work_body))

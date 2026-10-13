@@ -66,7 +66,7 @@ fn surface_bases_are_distinct_children_of_the_api_root() {
 }
 
 #[tokio::test]
-async fn reserved_theatre_and_admin_surfaces_serve_nothing_even_when_a_session_is_presented() {
+async fn unimplemented_theatre_and_admin_paths_serve_nothing_even_with_studio_session() {
     for base in [THEATRE_BASE, ADMIN_BASE] {
         for path in [
             "".to_owned(),

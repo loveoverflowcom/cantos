@@ -134,10 +134,12 @@ impl ListenerPublication {
             || m.unit_metadata_revision != f.pinned_unit.revision()
             || m.work_title != f.pinned_work.details().title
             || m.unit_title != f.pinned_unit.details().title
-            || m.language != f.pinned_work.details().language
             || d.published_by != f.pinned_work.owner_id().as_str()
             || f.current_work.id() != f.pinned_work.id()
             || f.current_unit.id() != f.pinned_unit.id()
+            || f.current_unit.work_id() != f.current_work.id()
+            || f.current_work.kind() != f.pinned_work.kind()
+            || f.current_unit.kind() != f.pinned_unit.kind()
             || f.current_work.owner_id() != f.pinned_work.owner_id()
         {
             return Err(ListenerDomainError::BindingMismatch);
@@ -190,7 +192,7 @@ impl ListenerPublication {
             },
             title: self.work.details().title.clone(),
             description: self.work.details().synopsis.clone(),
-            language: self.work.details().language.clone(),
+            language: self.release.document().manifest.language.clone(),
             first_published_at_ms,
         }
     }
@@ -394,6 +396,48 @@ mod tests {
         );
     }
     #[test]
+    fn mixed_language_work_preserves_actual_published_audio_language() {
+        use super::super::publication::{decide, AudioRelease, ReleaseId};
+        use crate::contexts::catalog::domain::{NewWork, Work};
+        let mut f = public_fixture();
+        let mut details = f.work.details().clone();
+        details.language = "en-US".into();
+        f.work = Work::new(NewWork {
+            id: f.work.id().clone(),
+            kind: f.work.kind(),
+            owner_id: f.work.owner_id().clone(),
+            details,
+            at: 1000,
+        })
+        .unwrap();
+        let r = AudioRelease::publish(
+            ReleaseId::parse("80000000-0000-4000-8000-000000000008").unwrap(),
+            &f.actor,
+            5000,
+            None,
+            decide(&f.facts()).unwrap(),
+        )
+        .unwrap();
+        let p = ListenerPublication::resolve(ListenerFacts {
+            release: &r,
+            pinned_work: &f.work,
+            pinned_unit: &f.unit,
+            current_work: &f.work,
+            current_unit: &f.unit,
+            rights: Some(&f.rights),
+            approval: Some(&f.approval),
+            active: true,
+            owner_active: true,
+            withdrawn: false,
+            submission_revoked: false,
+            now: 5000,
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(p.manifest().language, "vi-VN");
+        assert_eq!(p.summary(5000).language, "vi-VN");
+    }
+    #[test]
     fn immutable_anchor_prevents_replacement_duplicates_and_deletion_skips() {
         let initial = [(30, 1), (30, 2), (20, 3), (10, 4)];
         let first = &initial[..2];
@@ -408,6 +452,19 @@ mod tests {
     }
     proptest! {
       #[test] fn keyset_is_strict_total_order(t in 0i64..i64::MAX,i in any::<u128>(),u in 0i64..i64::MAX,j in any::<u128>()){prop_assert!(!after_work(t,i,t,i));if (t,i)!=(u,j){prop_assert_ne!(after_work(t,i,u,j),after_work(u,j,t,i));}}
+        #[test] fn stable_work_anchors_page_once_under_insert_delete_and_rendition_replacement(data in prop::collection::vec((0i64..20,any::<bool>()),1..80),limit in 1usize..10){
+            let original:Vec<_>=data.iter().enumerate().map(|(i,(t,stable))|(*t,i as u128,*stable)).collect();
+            let stable:std::collections::BTreeSet<_>=original.iter().filter(|v|v.2).map(|v|v.1).collect();
+            let mut anchor=None;let mut seen=Vec::new();let mut step=0;
+            loop{let mut visible:Vec<_>=original.iter().copied().filter(|v|v.2 || (v.1+step)%3!=0).collect();
+                // New works may land on either side; rendition replacement preserves work anchor.
+                if step<4{visible.push((step as i64,(data.len()+step as usize)as u128,false));}
+                visible.sort_by(|a,b|b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+                let page:Vec<_>=visible.into_iter().filter(|v|anchor.is_none_or(|(t,i)|after_work(v.0,v.1,t,i))).take(limit).collect();
+                if page.is_empty(){break;}for v in &page{seen.push(v.1);}let last=page.last().unwrap();anchor=Some((last.0,last.1));step+=1;if step>100{prop_assert!(false,"did not terminate");}
+            }
+            let unique:std::collections::BTreeSet<_>=seen.iter().copied().collect();prop_assert_eq!(unique.len(),seen.len());prop_assert!(stable.is_subset(&unique));
+        }
       #[test] fn expiry_is_half_open(start in any::<i64>(),end in any::<i64>(),now in any::<i64>()){prop_assert_eq!(access_window_valid(start,end,now),start>=0 && now>=start && end>now);}
     }
 }

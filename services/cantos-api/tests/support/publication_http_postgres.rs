@@ -36,8 +36,11 @@ struct PublishedFixture {
 }
 impl PublishedFixture {
     async fn new(delivery: bool) -> Self {
-        let mut a = AudioHarness::new(true, "opus-mono-24-v1").await;
-        a.h.admin.batch_execute("GRANT SELECT,INSERT ON audio_distribution_clearances,audio_publication_approvals,audio_releases,audio_release_withdrawals,audio_publication_operations,audio_publication_events,audio_publication_pointers TO cantos_app; GRANT UPDATE(active_release_id,version) ON audio_publication_pointers TO cantos_app;").await.unwrap();
+        Self::new_visibility(delivery, false).await
+    }
+    async fn new_visibility(delivery: bool, public: bool) -> Self {
+        let mut a = AudioHarness::new_visibility(true, "opus-mono-24-v1", public).await;
+        a.h.admin.batch_execute("GRANT SELECT,INSERT ON audio_distribution_clearances,audio_publication_approvals,audio_releases,audio_release_withdrawals,audio_publication_operations,audio_publication_events,audio_publication_pointers TO cantos_app; GRANT UPDATE(active_release_id,version) ON audio_publication_pointers TO cantos_app; GRANT SELECT,INSERT ON audio_listener_works,audio_listener_units,audio_listener_releases TO cantos_app; GRANT EXECUTE ON FUNCTION catalog_listener_discoverable(text,text),listener_actor_active(text) TO cantos_app;").await.unwrap();
         if delivery {
             a.h.app = router_with_publication_delivery(
                 AppState {
@@ -601,4 +604,180 @@ async fn publication_sql_failure_rolls_back_release_pointer_event_and_receipt_th
         f.counts().await,
         json!({"releases":1,"pointers":1,"operations":1,"events":1,"withdrawals":0})
     );
+}
+
+async fn theatre_call(app: Router, method: &str, path: &str) -> (StatusCode, Value) {
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(format!("/api/v1/theatre{path}"))
+                .header(axum::http::header::ORIGIN, ORIGIN)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    assert_eq!(response.headers()["cache-control"], "no-store");
+    let body =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    (status, body)
+}
+#[tokio::test]
+#[ignore = "disposable PostgreSQL and trusted media tools required"]
+async fn theatre_public_discovery_manifest_search_replacement_and_withdrawal() {
+    let f = PublishedFixture::new_visibility(true, true).await;
+    let h = &f.a.h;
+    let published = h
+        .json(
+            "POST",
+            &format!("{}/publish", f.base()),
+            Some(ALICE),
+            Some(f.publish(0, Value::Null)),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let release = &published["release"];
+    let id = release["id"].as_str().unwrap();
+    let work = release["manifest"]["work_id"].as_str().unwrap();
+    let (status, page) = theatre_call(h.app.clone(), "GET", "/works?limit=1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page["items"].as_array().unwrap().len(), 1);
+    assert_eq!(page["items"][0]["work_id"], work);
+    let anchor = page["items"][0]["first_published_at_ms"].clone();
+    let (status, search) = theatre_call(
+        h.app.clone(),
+        "GET",
+        "/search?q=%C3%81NH%20%C4%90%C3%88N&kind=podcast&language=vi-VN",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(search["items"].as_array().unwrap().len(), 1);
+    let (status, units) = theatre_call(h.app.clone(), "GET", &format!("/works/{work}/units")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(units["items"][0]["publication_id"], id);
+    assert_eq!(
+        units["items"][0]["duration_ms"],
+        release["manifest"]["media"]["duration_ms"]
+    );
+    for _ in 0..3 {
+        let (status, manifest) =
+            theatre_call(h.app.clone(), "GET", &format!("/publications/{id}")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(manifest["sha256"], release["manifest"]["media"]["sha256"]);
+        for field in [
+            "owner_id",
+            "rights_refs",
+            "candidate_id",
+            "review_evidence",
+            "object_key",
+            "delivery_object_id",
+            "url",
+        ] {
+            assert!(manifest.get(field).is_none());
+        }
+    }
+    let before = f.counts().await;
+    let (status, error) = theatre_call(
+        h.app.clone(),
+        "POST",
+        &format!("/publications/{id}/playback-authorizations"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(error["code"], "rendition_unavailable");
+    assert_eq!(f.counts().await, before);
+    let replacement = h
+        .json(
+            "POST",
+            &format!("{}/publish", f.base()),
+            Some(ALICE),
+            Some(f.publish(1, json!(id))),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let newer = replacement["release"]["id"].as_str().unwrap();
+    let (_, page) = theatre_call(h.app.clone(), "GET", "/works?limit=1").await;
+    assert_eq!(page["items"][0]["first_published_at_ms"], anchor);
+    assert_eq!(
+        theatre_call(h.app.clone(), "GET", &format!("/publications/{id}"))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    h.json("POST",&format!("/content-units/{}/publication/withdraw",f.a.unit),Some(ALICE),Some(json!({"operation_id":operation(),"release_id":newer,"expected_pointer_version":2,"reason":"Synthetic withdrawal"}))).await.success(StatusCode::OK);
+    let (_, page) = theatre_call(h.app.clone(), "GET", "/works").await;
+    assert_eq!(page["items"], json!([]));
+    assert_eq!(
+        theatre_call(h.app.clone(), "GET", &format!("/works/{work}"))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+}
+#[tokio::test]
+#[ignore = "disposable PostgreSQL and trusted media tools required"]
+async fn theatre_private_published_release_and_other_owner_remain_invisible() {
+    let f = PublishedFixture::new(true).await;
+    let h = &f.a.h;
+    let published = h
+        .json(
+            "POST",
+            &format!("{}/publish", f.base()),
+            Some(ALICE),
+            Some(f.publish(0, Value::Null)),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let id = published["release"]["id"].as_str().unwrap();
+    let (status, page) = theatre_call(h.app.clone(), "GET", "/works").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(page, json!({"items":[],"next_cursor":null}));
+    for method in ["GET", "POST"] {
+        let suffix = if method == "POST" {
+            "/playback-authorizations"
+        } else {
+            ""
+        };
+        let (status, body) = theatre_call(
+            h.app.clone(),
+            method,
+            &format!("/publications/{id}{suffix}"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body, json!({"code":"not_found","retryable":false}));
+    }
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL and trusted media tools required"]
+async fn theatre_rejects_copied_approval_snapshot_with_forged_latest_scalar_identity() {
+    let f = PublishedFixture::new_visibility(true, true).await;
+    let h = &f.a.h;
+    let published = h
+        .json(
+            "POST",
+            &format!("{}/publish", f.base()),
+            Some(ALICE),
+            Some(f.publish(0, Value::Null)),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let id = published["release"]["id"].as_str().unwrap();
+    h.json("POST", &format!("{}/publication-approvals", f.base()), Some(ALICE), Some(json!({"operation_id":operation(),"candidate_digest":f.candidate["digest"],"clearance_digest":f.clearance["digest"],"decision":"withdrawn","notes":"Synthetic current approval withdrawal"}))).await.success(StatusCode::CREATED);
+    assert_eq!(
+        theatre_call(h.app.clone(), "GET", &format!("/publications/{id}"))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    // The append-only storage boundary permits a new row, but its scalar identity must not
+    // masquerade as the old sealed approved record. This is a deliberately forged app-role row.
+    let fake = operation();
+    h.admin.execute("INSERT INTO audio_publication_approvals(id,candidate_id,owner_id,operation_id,sequence,snapshot,digest) SELECT $1,candidate_id,owner_id,$2,3,snapshot,digest FROM audio_publication_approvals WHERE candidate_id=$3 AND sequence=1", &[&fake,&operation(),&f.candidate["id"].as_str().unwrap()]).await.unwrap();
+    let (status, body) = theatre_call(h.app.clone(), "GET", &format!("/publications/{id}")).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(body, json!({"code":"unavailable","retryable":false}));
 }

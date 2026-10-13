@@ -60,6 +60,9 @@ fn id(raw: &str) -> Result<String, ListenerError> {
         .ok_or(ListenerError::InvalidRequest)
 }
 pub(super) enum ReadRequest {
+    Work {
+        work: String,
+    },
     Works {
         query: DiscoveryQuery,
         after: Option<Keyset>,
@@ -154,14 +157,7 @@ impl ListenerService {
     }
     pub async fn work(&self, work: &str) -> Result<dto::WorkSummary, ListenerError> {
         let work = id(work)?;
-        let snapshot = self
-            .read
-            .read(ReadRequest::Units {
-                work,
-                after: None,
-                limit: 1,
-            })
-            .await?;
+        let snapshot = self.read.read(ReadRequest::Work { work }).await?;
         snapshot
             .items
             .first()

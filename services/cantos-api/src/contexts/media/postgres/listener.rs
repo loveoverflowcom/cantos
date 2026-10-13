@@ -42,7 +42,6 @@ pub(super) async fn index_release(tx: &Tx<'_>, release: &AudioRelease) -> Result
         || w.owner_id().as_str() != d.published_by
         || w.details().title != m.work_title
         || u.details().title != m.unit_title
-        || w.details().language != m.language
     {
         return Err(StoreError::CorruptRevision);
     }
@@ -111,6 +110,72 @@ fn decode(
         raw(row, "approval", 8192)?,
         &c,
     ))?;
+    let sd = s.document();
+    let rd = r.document();
+    let cd = c.document();
+    let ld = release.document();
+    let md = &ld.manifest;
+    let dc = rights.document();
+    let pa = approval.document();
+    let expected = [
+        ("release_row_id", ld.id.as_str()),
+        ("release_row_unit", md.unit_id.as_str()),
+        ("release_row_owner", ld.published_by.as_str()),
+        ("release_row_candidate", md.candidate_id.as_str()),
+        ("release_row_rendition", md.rendition_id.as_str()),
+        ("release_row_manifest", md.digest.as_str()),
+        ("release_row_digest", ld.digest.as_str()),
+        ("submission_row_id", sd.id.as_str()),
+        ("submission_row_owner", sd.owner_id.as_str()),
+        ("submission_row_unit", sd.binding.unit_id.as_str()),
+        ("submission_row_brief", sd.binding.brief_id.as_str()),
+        (
+            "submission_row_brief_digest",
+            sd.binding.brief_digest.as_str(),
+        ),
+        ("submission_row_operation", sd.operation_id.as_str()),
+        ("submission_row_digest", sd.digest.as_str()),
+        ("rendition_row_id", rd.id.as_str()),
+        ("rendition_row_submission", rd.submission_id.as_str()),
+        ("rendition_row_object", rd.verified_media.sha256.as_str()),
+        ("rendition_row_digest", rd.digest.as_str()),
+        ("candidate_row_id", cd.id.as_str()),
+        ("candidate_row_rendition", cd.rendition_id.as_str()),
+        ("candidate_row_owner", cd.created_by.as_str()),
+        ("candidate_row_operation", cd.operation_id.as_str()),
+        ("candidate_row_digest", cd.digest.as_str()),
+        ("clearance_row_id", dc.id.as_str()),
+        ("clearance_row_candidate", dc.candidate_id.as_str()),
+        ("clearance_row_owner", dc.actor_id.as_str()),
+        ("clearance_row_operation", dc.request.operation_id.as_str()),
+        ("clearance_row_digest", dc.digest.as_str()),
+        ("approval_row_id", pa.id.as_str()),
+        ("approval_row_candidate", pa.candidate_id.as_str()),
+        ("approval_row_owner", pa.actor_id.as_str()),
+        ("approval_row_operation", pa.request.operation_id.as_str()),
+        ("approval_row_digest", pa.digest.as_str()),
+    ];
+    for (key, value) in expected {
+        if row
+            .try_get::<_, String>(key)
+            .map_err(|_| ListenerError::Corrupt)?
+            != value
+        {
+            return Err(ListenerError::Corrupt);
+        }
+    }
+    for (key, expected) in [
+        ("clearance_row_sequence", dc.sequence),
+        ("approval_row_sequence", pa.sequence),
+    ] {
+        if row
+            .try_get::<_, i64>(key)
+            .map_err(|_| ListenerError::Corrupt)?
+            != i64::try_from(expected).map_err(|_| ListenerError::Corrupt)?
+        {
+            return Err(ListenerError::Corrupt);
+        }
+    }
     let w = metadata.work;
     let u = metadata.unit;
     let current_w = metadata.current_work;
@@ -133,6 +198,27 @@ fn decode(
         || content.id().as_str() != m.binding.content_revision_id
     {
         return Err(ListenerError::Corrupt);
+    }
+    for (key, expected) in [
+        ("published_at", release.document().published_at),
+        ("rights_start", m.distribution_clearance.recorded_at),
+        ("rights_end", m.distribution_clearance.request.valid_until),
+        (
+            "work_revision",
+            i64::try_from(m.work_metadata_revision).map_err(|_| ListenerError::Corrupt)?,
+        ),
+        (
+            "unit_revision",
+            i64::try_from(m.unit_metadata_revision).map_err(|_| ListenerError::Corrupt)?,
+        ),
+    ] {
+        if row
+            .try_get::<_, i64>(key)
+            .map_err(|_| ListenerError::Corrupt)?
+            != expected
+        {
+            return Err(ListenerError::Corrupt);
+        }
     }
     let p = ListenerPublication::resolve(ListenerFacts {
         release: &release,
@@ -174,14 +260,20 @@ JOIN audio_releases release ON release.id=x.release_id AND release.unit_id=x.uni
 JOIN audio_release_candidates candidate ON candidate.id=release.candidate_id AND candidate.owner_id=release.owner_id
 JOIN audio_renditions rendition ON rendition.id=release.rendition_id AND rendition.id=candidate.rendition_id
 JOIN audio_submissions submission ON submission.id=rendition.submission_id AND submission.owner_id=release.owner_id AND submission.unit_id=x.unit_id
-JOIN LATERAL (SELECT snapshot,digest FROM audio_distribution_clearances WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) clearance ON clearance.digest=x.rights_digest
-JOIN LATERAL (SELECT snapshot,digest FROM audio_publication_approvals WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) approval ON approval.digest=x.approval_digest
+JOIN LATERAL (SELECT * FROM audio_distribution_clearances WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) clearance ON clearance.digest=x.rights_digest
+JOIN LATERAL (SELECT * FROM audio_publication_approvals WHERE candidate_id=candidate.id AND owner_id=release.owner_id ORDER BY sequence DESC LIMIT 1) approval ON approval.digest=x.approval_digest
 WHERE {current_filter} AND {actor_filter}
 AND x.rights_start<=$1 AND $1<x.rights_end AND x.published_at<=$1
 AND NOT EXISTS(SELECT 1 FROM audio_release_withdrawals WHERE release_id=release.id)
 AND NOT EXISTS(SELECT 1 FROM audio_submission_revocations WHERE submission_id=submission.id)
 "#;
-const COLUMNS:&str="x.*,release.owner_id,anchor.first_published_at,ordering.first_position,release.snapshot AS release,submission.snapshot AS submission,rendition.snapshot AS rendition,candidate.snapshot AS candidate,clearance.snapshot AS clearance,approval.snapshot AS approval";
+const COLUMNS:&str="x.*,release.owner_id,anchor.first_published_at,ordering.first_position,release.snapshot AS release,submission.snapshot AS submission,rendition.snapshot AS rendition,candidate.snapshot AS candidate,clearance.snapshot AS clearance,approval.snapshot AS approval,
+release.id AS release_row_id,release.unit_id AS release_row_unit,release.owner_id AS release_row_owner,release.candidate_id AS release_row_candidate,release.rendition_id AS release_row_rendition,release.manifest_digest AS release_row_manifest,release.digest AS release_row_digest,
+submission.id AS submission_row_id,submission.owner_id AS submission_row_owner,submission.unit_id AS submission_row_unit,submission.brief_id AS submission_row_brief,submission.brief_digest AS submission_row_brief_digest,submission.operation_id AS submission_row_operation,submission.digest AS submission_row_digest,
+rendition.id AS rendition_row_id,rendition.submission_id AS rendition_row_submission,rendition.object_key AS rendition_row_object,rendition.digest AS rendition_row_digest,
+candidate.id AS candidate_row_id,candidate.rendition_id AS candidate_row_rendition,candidate.owner_id AS candidate_row_owner,candidate.operation_id AS candidate_row_operation,candidate.digest AS candidate_row_digest,
+clearance.id AS clearance_row_id,clearance.candidate_id AS clearance_row_candidate,clearance.owner_id AS clearance_row_owner,clearance.operation_id AS clearance_row_operation,clearance.sequence AS clearance_row_sequence,clearance.digest AS clearance_row_digest,
+approval.id AS approval_row_id,approval.candidate_id AS approval_row_candidate,approval.owner_id AS approval_row_owner,approval.operation_id AS approval_row_operation,approval.sequence AS approval_row_sequence,approval.digest AS approval_row_digest";
 async fn batch(
     tx: &Tx<'_>,
     rows: Vec<Row>,
@@ -251,7 +343,7 @@ pub(in crate::contexts::media) async fn works(
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
         .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
-    let sql=format!("SELECT * FROM (SELECT DISTINCT ON (x.work_id) {COLUMNS} {from} AND ($2::bigint IS NULL OR anchor.first_published_at<$2 OR (anchor.first_published_at=$2 AND x.work_id>$3)) AND ($4::text IS NULL OR x.kind=$4) AND ($5::text IS NULL OR x.language=$5) AND position($6 in x.search_text)>0 ORDER BY x.work_id,x.published_at DESC,x.release_id ASC) selected ORDER BY first_published_at DESC,work_id ASC LIMIT $7");
+    let sql=format!("SELECT * FROM (SELECT DISTINCT ON (x.work_id) {COLUMNS} {from} AND ($2::bigint IS NULL OR anchor.first_published_at<$2 OR (anchor.first_published_at=$2 AND x.work_id>$3)) ORDER BY x.work_id,x.published_at DESC,x.release_id ASC) selected WHERE ($4::text IS NULL OR kind=$4) AND ($5::text IS NULL OR language=$5) AND position($6 in search_text)>0 ORDER BY first_published_at DESC,work_id ASC LIMIT $7");
     let limit = (q.limit() + 1) as i64;
     let rows = tx
         .query(
@@ -269,6 +361,21 @@ pub(in crate::contexts::media) async fn works(
         .await
         .map_err(|_| ListenerError::Unavailable)?;
     batch(tx, rows, q.limit(), true, now).await
+}
+pub(in crate::contexts::media) async fn work(
+    tx: &Tx<'_>,
+    id: &str,
+    now: i64,
+) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
+    let from = FROM
+        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
+        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+    let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=$2 ORDER BY x.published_at DESC,x.release_id ASC LIMIT 1");
+    let rows = tx
+        .query(&sql, &[&now, &id])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    batch(tx, rows, 1, false, now).await
 }
 pub(in crate::contexts::media) async fn units(
     tx: &Tx<'_>,
@@ -336,6 +443,7 @@ impl ListenerRead for PgRead {
                 .map_err(|_| ListenerError::Unavailable)?
                 .get(0);
             let (mut items, next_key) = match request {
+                ReadRequest::Work { work: id } => work(&tx, &id, now).await?,
                 ReadRequest::Works { query, after } => {
                     works(&tx, &query, after.as_ref(), now).await?
                 }
