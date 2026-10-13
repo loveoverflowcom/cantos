@@ -176,3 +176,44 @@ async fn origin_guard_covers_every_surface_for_mutations() {
         assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     }
 }
+
+#[tokio::test]
+async fn content_identity_routes_exist_only_in_current_studio_and_never_share_its_session() {
+    for (method, suffix) in [
+        ("GET", format!("/content-units/{SCRIPT}/content/head")),
+        ("GET", format!("/content-units/{SCRIPT}/content/history")),
+        (
+            "GET",
+            format!("/content-units/{SCRIPT}/content/revisions/{SCRIPT}"),
+        ),
+        ("POST", format!("/content-units/{SCRIPT}/content/revisions")),
+        ("POST", format!("/content-units/{SCRIPT}/production-briefs")),
+        (
+            "GET",
+            format!("/content-units/{SCRIPT}/production-briefs/1"),
+        ),
+        (
+            "POST",
+            format!("/content-units/{SCRIPT}/production-briefs/1/producer-grants"),
+        ),
+        (
+            "GET",
+            format!("/producer/content-units/{SCRIPT}/production-briefs/1"),
+        ),
+    ] {
+        let current = call(method, &format!("{STUDIO_BASE}{suffix}"), false, "{}").await;
+        assert_eq!(current.status, StatusCode::UNAUTHORIZED);
+        assert_eq!(current.body["code"], "unauthenticated");
+        for base in [API_BASE, THEATRE_BASE, ADMIN_BASE] {
+            for cookie in [false, true] {
+                let reply = call(method, &format!("{base}{suffix}"), cookie, "{}").await;
+                assert_eq!(
+                    reply.status,
+                    StatusCode::NOT_FOUND,
+                    "{method} {base}{suffix}"
+                );
+                assert_eq!(reply.body["code"], "not_found");
+            }
+        }
+    }
+}

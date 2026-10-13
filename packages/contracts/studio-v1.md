@@ -17,13 +17,17 @@ backend tests validate live responses with that Schema. No generated OpenAPI/Kot
 
 | Method/path under /api/v1/studio | Request / result |
 | --- | --- |
-| POST /session | SessionRequest token → SessionResponse actor_id and HttpOnly/SameSite=Strict cookie |
+| POST /session | SessionRequest token → SessionResponse actor_id and HttpOnly/SameSite=Strict cookie; retire the cookie at the other known Studio mount |
+| GET /session | Current cookie → SessionResponse actor_id; missing, duplicate, inactive, expired or revoked session returns 401; current mount only |
 | DELETE /session | Revoke token in PostgreSQL, expire cookie → 204 |
 | GET /scripts/{UUID}/head | Current authorized Revision |
 | GET /scripts/{UUID}/revisions/{positive revision} | Pinned immutable Revision, current access still required |
 | POST /scripts/{UUID}/revisions | SaveRevision → Revision; 200 for both acceptance and exact replay |
 
 All mutations require the configured exact Origin. API responses carry no-store/nosniff.
+Successful token exchange retires only the cookie at the other known Studio mount (legacy
+login also retires the current mount). Duplicate cookies remain refused. Studio confirms the
+browser cookie with GET before reporting sign-in, requiring the same actor as the exchange.
 An existing active, unexpired, unrevoked database session authenticates the actor; request
 actor headers are ignored. Tokens are exactly 64 hex characters, stored as SHA-256 hashes.
 The cookie lacks Secure only because this host deliberately supports loopback development HTTP.

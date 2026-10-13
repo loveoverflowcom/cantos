@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Fifteen skills shared by every agent runtime in this repository: eight **rule owners** and seven
+Seventeen skills shared by every agent runtime in this repository: eight **rule owners** and nine
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -26,6 +26,8 @@ task entrypoints (own a workflow and a report, never a rule):
 cantos-work-item                   ← deliver one work-plan item or issue end to end
 cantos-code-review                 ← read-only, assurance-first review of an existing change
 cantos-ui-inspector                ← report-only UI/UX inspection with reusable scenarios
+cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
+cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
 cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
 cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
 cantos-audio-produce               ← reviewed score → final audio + production evidence
@@ -55,13 +57,15 @@ Studio; inspect [the API service guide](../../services/cantos-api/README.md) and
 `services/kanidm` and shared `packages/`; read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
-requested in a future roadmap. Theatre Web is a skeleton and Theatre Mobile remains a guide;
+requested in a future roadmap. Theatre Web is a session-only UI mock; Theatre Mobile has an
+isolated memory-only Gradle CMP mock with Android/iOS hosts and common/desktop tests, without
+native audio, listener API, downloads or durable sync;
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
-representation for four Studio routes are implemented. Theatre Mobile and production execution
-remain planned. Story artifact skills
+representation for four Studio routes are implemented. Production native listening
+remains planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
 Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:
@@ -78,6 +82,9 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | The task is about… | Load |
 |---|---|
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
+| layered verification, independently verified core delivery, unavailable infrastructure or deferred acceptance | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification strategy](cantos-engineering/references/verification-strategy.md#layered-verification) and [local handoff](cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion) |
+| typed functional errors, refinement-preserving composition, cancellation, retry and boundary translation | [`cantos-engineering`](cantos-engineering/SKILL.md), then [typed errors and composition](cantos-engineering/references/typed-errors-and-composition.md); add the CMP/Web application reference only for that platform |
+| Kani for a selected high-risk pure Rust kernel, assumptions, bounds, cover and actual verification evidence | foundation [mutation/formal reference](cantos-engineering/references/mutation-and-formal.md#bounded-model-checking); no backend-wide or Kotlin UI mandate |
 | database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
 | JSON or MessagePack on a route, `Content-Type`/`Accept` negotiation, a client codec switch, codec benchmarks | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [wire codec reference](cantos-engineering/references/wire-codec.md); add the renderer skill for client code |
 | Script IR schema, stable IDs, revisions, digests, import, AI adaptation output, Narrative Forge | [`cantos-script-ir`](cantos-script-ir/SKILL.md) |
@@ -95,6 +102,16 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
 | auditing UI/UX and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
+| repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
+| repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
+
+The two focused-fix entrypoints locate the existing invariant owner and deliver minimal repairs
+with independent L1–L5 results; they add no rule owner or outward-action authority. Correct
+domain/API facts displayed incorrectly stay in UI presentation; wrong domain errors/transitions
+go to logic. Review-only tasks keep the reviewer/inspector read-only/report-only. Missing I/O can
+leave named core work independently verified, never hide an actual regression failure or establish
+database/device semantics. Wider architecture, schema/API, security, durability or redesign work
+escalates through `cantos-work-item` and its owners.
 
 The four story artifact entrypoints share [one workspace contract](../../docs/production/story-workspace.md),
 including the configured Drive root, local fallback, indexes and recovery issues. `score/` uses

@@ -1,12 +1,11 @@
 use cantos_contracts::{
-    ApiError, AudioIntentResponse, AudioIntentStatusResponse, AudioMediaMetadata, AudioReceiptResponse,
-    CreateAudioIntentRequest,
+    ApiError, AudioIntentResponse, AudioIntentStatusResponse, AudioMediaMetadata,
+    AudioReceiptResponse, CreateAudioIntentRequest,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
 
-const SCHEMA: &str =
-    include_str!("../../../packages/contracts/schema/audio-intake/v1.schema.json");
+const SCHEMA: &str = include_str!("../../../packages/contracts/schema/audio-intake/v1.schema.json");
 const REQUEST: &str =
     include_str!("../../../packages/contracts/fixtures/audio-intake/v1/intent-request.json");
 const INTENT: &str =
@@ -125,7 +124,14 @@ fn private_media_schema_bounds_duration_size_identity_and_observed_channel_rate(
             value[field] = json!(allowed);
             validator.validate(&value).unwrap();
         }
-        for invalid in [json!(0), json!(maximum + 1), json!(-1), json!(1.5), json!("1"), Value::Null] {
+        for invalid in [
+            json!(0),
+            json!(maximum + 1),
+            json!(-1),
+            json!(1.5),
+            json!("1"),
+            Value::Null,
+        ] {
             value[field] = invalid;
             assert!(!validator.is_valid(&value), "field {field}");
         }
@@ -168,9 +174,18 @@ fn schema_refuses_zero_or_unpersistable_revisions_and_noncanonical_pins_or_publi
     for (field, invalid) in [
         ("expected_revision", json!(0)),
         ("expected_revision", json!(9_223_372_036_854_775_808_u64)),
-        ("operation_id", json!("00000000-0000-4000-8000-00000000008A")),
-        ("expected_content_digest", json!(format!("sir-c1:sha256:{}", "A".repeat(64)))),
-        ("expected_content_digest", json!(format!("sir-e1:sha256:{}", "1".repeat(64)))),
+        (
+            "operation_id",
+            json!("00000000-0000-4000-8000-00000000008A"),
+        ),
+        (
+            "expected_content_digest",
+            json!(format!("sir-c1:sha256:{}", "A".repeat(64))),
+        ),
+        (
+            "expected_content_digest",
+            json!(format!("sir-e1:sha256:{}", "1".repeat(64))),
+        ),
     ] {
         let mut value: Value = serde_json::from_str(REQUEST).unwrap();
         value[field] = invalid;
@@ -200,7 +215,10 @@ fn omitted_or_null_receipt_means_only_no_accepted_receipt() {
     validator.validate(&value).unwrap();
     let decoded: AudioIntentStatusResponse = serde_json::from_value(value).unwrap();
     assert_eq!(decoded.receipt, None);
-    assert_eq!(serde_json::to_value(decoded).unwrap()["receipt"], Value::Null);
+    assert_eq!(
+        serde_json::to_value(decoded).unwrap()["receipt"],
+        Value::Null
+    );
 }
 
 #[test]

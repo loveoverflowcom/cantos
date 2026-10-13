@@ -33,6 +33,148 @@ const SCRIPT: &str =
     include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
 const ORIGINAL: &str = "\u{feff}Ánh đèn cuối sân khấu\r\nNgười kể chuyện đã trở về.\r\n";
 
+#[tokio::test]
+#[ignore = "requires xtask's disposable PostgreSQL cluster"]
+async fn session_exchange_migrates_overlapping_cookies_and_confirms_actual_access() {
+    let h = Harness::new().await;
+    async fn call(
+        app: &Router,
+        method: &str,
+        path: &str,
+        cookie: &str,
+        token: &str,
+    ) -> (StatusCode, Vec<String>, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("origin", ORIGIN)
+                    .header("content-type", "application/json")
+                    .header("cookie", cookie)
+                    .body(Body::from(if method == "POST" {
+                        json!({"token":token}).to_string()
+                    } else {
+                        String::new()
+                    }))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        let cookies = response
+            .headers()
+            .get_all("set-cookie")
+            .iter()
+            .map(|h| h.to_str().unwrap().to_owned())
+            .collect();
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            cookies,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    // Reproduce an old broad cookie alongside the current narrow cookie. Ambiguity remains denied.
+    let duplicate = format!("cantos_session={ALICE}; cantos_session={BOB}");
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/works", &duplicate, "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    for (path, own, retired, token, actor) in [
+        (
+            "/api/v1/studio/session",
+            "/api/v1/studio",
+            "/api/v1",
+            ALICE,
+            "alice",
+        ),
+        ("/api/v1/session", "/api/v1", "/api/v1/studio", BOB, "bob"),
+        (
+            "/api/v1/studio/session",
+            "/api/v1/studio",
+            "/api/v1",
+            ALICE,
+            "alice",
+        ),
+    ] {
+        let (status, cookies, body) = call(&h.app, "POST", path, &duplicate, token).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["actor_id"], actor);
+        assert!(
+            cookies.contains(&format!(
+                "cantos_session=; HttpOnly; SameSite=Strict; Path={retired}; Max-Age=0"
+            )),
+            "retired cookie must expire"
+        );
+        assert!(
+            cookies.contains(&format!(
+                "cantos_session={token}; HttpOnly; SameSite=Strict; Path={own}"
+            )),
+            "new cookie must preserve scope and protections"
+        );
+        let current = format!("cantos_session={token}");
+        let (status, _, body) = call(&h.app, "GET", "/api/v1/studio/session", &current, "").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["actor_id"], actor);
+        assert_eq!(
+            call(&h.app, "GET", "/api/v1/studio/works", &current, "")
+                .await
+                .0,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/session", "", "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        call(&h.app, "GET", "/api/v1/studio/session", &duplicate, "")
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    h.admin
+        .execute(
+            "UPDATE sessions SET revoked=true WHERE actor_id='alice'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let (status, _, body) = call(
+        &h.app,
+        "GET",
+        "/api/v1/studio/session",
+        &format!("cantos_session={ALICE}"),
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["code"], "unauthenticated");
+    h.admin
+        .execute("UPDATE sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE actor_id='bob'", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &h.app,
+            "GET",
+            "/api/v1/studio/session",
+            &format!("cantos_session={BOB}"),
+            ""
+        )
+        .await
+        .0,
+        StatusCode::UNAUTHORIZED
+    );
+}
+
 struct Harness {
     admin: Client,
     config: Config,
@@ -83,9 +225,26 @@ fn unit_request(work: &Value, title: &str) -> Value {
 }
 
 fn schema(definition: &str, body: &Value) {
-    let root: Value = serde_json::from_str(include_str!(
-        "../../../packages/contracts/schema/catalog/v1.schema.json"
-    ))
+    let root: Value = serde_json::from_str(
+        if definition == "ApiError"
+            || definition.starts_with("Audio")
+            || definition.starts_with("ReleaseCandidate")
+        {
+            include_str!("../../../packages/contracts/schema/audio-lifecycle/v1.schema.json")
+        } else if matches!(
+            definition,
+            "ProductionBriefResponse" | "ProductionBriefDocument" | "ProducerGrantResponse"
+        ) {
+            include_str!("../../../packages/contracts/schema/briefs/v1.schema.json")
+        } else if matches!(
+            definition,
+            "AppendContentResponse" | "ContentRevisionResponse" | "ContentHistoryResponse"
+        ) {
+            include_str!("../../../packages/contracts/schema/content/v1.schema.json")
+        } else {
+            include_str!("../../../packages/contracts/schema/catalog/v1.schema.json")
+        },
+    )
     .unwrap();
     let selected = json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -123,12 +282,36 @@ async fn request(
         .unwrap();
     assert_eq!(response.headers()["cache-control"], "no-store");
     assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-    assert_eq!(response.headers()["content-type"], "application/json");
+    if response.status() != StatusCode::NO_CONTENT {
+        assert_eq!(response.headers()["content-type"], "application/json");
+    }
     let status = response.status();
+    if status == StatusCode::NO_CONTENT {
+        return Reply {
+            status,
+            body: Value::Null,
+        };
+    }
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     let definition = if !status.is_success() {
         "ApiError"
+    } else if body.get("submission").is_some() {
+        "AudioSubmissionResponse"
+    } else if body.get("candidate").is_some() {
+        "ReleaseCandidateResponse"
+    } else if body.get("reviewer_id").is_some() {
+        "AudioReviewDocument"
+    } else if body.get("brief").is_some() {
+        "ProductionBriefResponse"
+    } else if body.get("permission").is_some() {
+        "ProducerGrantResponse"
+    } else if body.get("content").is_some() {
+        "AppendContentResponse"
+    } else if body.get("unit_id").is_some() {
+        "ContentRevisionResponse"
+    } else if path.contains("/content/history") {
+        "ContentHistoryResponse"
     } else if body.get("work").is_some() {
         "CatalogMutationResponse"
     } else if body.get("items").is_some() {
@@ -173,12 +356,17 @@ impl Harness {
         let admin = connect(&config).await;
         admin.batch_execute(
             "GRANT USAGE ON SCHEMA public TO cantos_app;
+             GRANT SELECT ON audio_submissions TO cantos_app;
+             GRANT SELECT,INSERT ON production_briefs,production_brief_heads,production_producer_grants,production_producer_revocations TO cantos_app;
+             GRANT UPDATE(brief_id,version) ON production_brief_heads TO cantos_app;
+             GRANT INSERT ON source_records,script_evidence TO cantos_app;
              GRANT SELECT ON actors,sessions,scripts,script_revisions,script_members,script_evidence,source_records,revision_evidence,
-             catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app;
-             GRANT INSERT ON scripts,script_revisions,revision_evidence,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app;
+             catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations,catalog_content_revisions,catalog_content_heads TO cantos_app;
+             GRANT INSERT ON scripts,script_revisions,revision_evidence,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations,catalog_content_revisions,catalog_content_heads TO cantos_app;
              GRANT UPDATE(head_revision) ON scripts TO cantos_app;
              GRANT UPDATE(revoked) ON sessions TO cantos_app;
              GRANT UPDATE(revision) ON catalog_clock TO cantos_app;
+             GRANT UPDATE(revision_id,revision) ON catalog_content_heads TO cantos_app;
              GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app;
              GRANT UPDATE(head_revision,position,lifecycle) ON catalog_units TO cantos_app;
              GRANT UPDATE(role),DELETE ON catalog_members TO cantos_app;
@@ -254,7 +442,7 @@ impl Harness {
     }
 
     async fn counts(&self) -> Value {
-        let text: String = self.admin.query_one("SELECT json_build_object('works',(SELECT count(*) FROM catalog_works),'work_revisions',(SELECT count(*) FROM catalog_work_revisions),'units',(SELECT count(*) FROM catalog_units),'unit_revisions',(SELECT count(*) FROM catalog_unit_revisions),'members',(SELECT count(*) FROM catalog_members),'operations',(SELECT count(*) FROM catalog_operations),'clock',(SELECT revision FROM catalog_clock))::text", &[]).await.unwrap().get(0);
+        let text: String = self.admin.query_one("SELECT json_build_object('works',(SELECT count(*) FROM catalog_works),'work_revisions',(SELECT count(*) FROM catalog_work_revisions),'units',(SELECT count(*) FROM catalog_units),'unit_revisions',(SELECT count(*) FROM catalog_unit_revisions),'members',(SELECT count(*) FROM catalog_members),'operations',(SELECT count(*) FROM catalog_operations),'clock',(SELECT revision FROM catalog_clock),'content_revisions',(SELECT count(*) FROM catalog_content_revisions),'content_heads',(SELECT count(*) FROM catalog_content_heads))::text", &[]).await.unwrap().get(0);
         serde_json::from_str(&text).unwrap()
     }
 
@@ -1106,9 +1294,63 @@ async fn committed_http_catalog_emits_exact_postgres_restart_oracle() {
         .await
         .success(StatusCode::CREATED);
     let uid = current["units"][0]["id"].as_str().unwrap();
+    let cw = h.create(ALICE, "story").await;
+    let cu = h.unit(&cw, "Nội dung qua khởi động lại").await;
+    let cuid = cu["units"][0]["id"].as_str().unwrap();
+    let content_path = format!("/content-units/{cuid}/content/revisions");
+    let content_body = content_request(
+        0,
+        2,
+        json!({"kind":"text","text":"Ánh đèn vẫn sáng.","source":null}),
+    );
+    let content_first = h
+        .json(
+            "POST",
+            &content_path,
+            Some(ALICE),
+            Some(content_body.clone()),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let content_second = h
+        .json(
+            "POST",
+            &content_path,
+            Some(ALICE),
+            Some(content_request(
+                1,
+                3,
+                json!({"kind":"text","text":"Ánh đèn mới.","source":null}),
+            )),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let brief_request = brief_http::brief_request(&content_second["content"], 0, false);
+    let brief_path = format!("/content-units/{cuid}/production-briefs");
+    let brief = h
+        .json(
+            "POST",
+            &brief_path,
+            Some(ALICE),
+            Some(brief_request.clone()),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let grant_request = json!({"operation_id":operation(),"id":operation(),"brief_digest":brief["brief"]["digest"],"token":"d".repeat(64),"expires_at":brief["brief"]["created_at"].as_i64().unwrap()+7200000,"capabilities":brief["brief"]["guidance"]["required_capabilities"]});
+    let grant = h
+        .json(
+            "POST",
+            &format!("{brief_path}/1/producer-grants"),
+            Some(ALICE),
+            Some(grant_request.clone()),
+        )
+        .await
+        .success(StatusCode::CREATED);
     fs::create_dir_all(EVIDENCE).unwrap();
     fs::write(format!("{EVIDENCE}/http-restart.json"),serde_json::to_vec_pretty(&json!({
         "database":h.database,"create_body":create_body,"unit_body":unit_body,
+        "content_target":{"unit_id":cuid,"request":content_body,"first":content_first,"second":content_second},
+        "brief_target":{"unit_id":cuid,"request":brief_request,"response":brief,"grant_request":grant_request,"grant":grant},
         "work_id":wid,"unit_id":uid,"original":original,"current":current,"counts":h.counts().await,
         "provenance":"Real Router/application/app-role PostgreSQL; synthetic metadata; no provider or media"
     })).unwrap()).unwrap();
@@ -1168,5 +1410,656 @@ async fn catalog_http_recovery_after_server_restart() {
         .success(StatusCode::CREATED),
         fixture["current"]
     );
+    let target = &fixture["content_target"];
+    let content_unit = target["unit_id"].as_str().unwrap();
+    let path = format!("/content-units/{content_unit}/content/revisions");
+    assert_eq!(
+        h.json(
+            "GET",
+            &format!(
+                "{path}/{}",
+                target["first"]["content"]["id"].as_str().unwrap()
+            ),
+            Some(ALICE),
+            None
+        )
+        .await
+        .success(StatusCode::OK),
+        target["first"]["content"]
+    );
+    assert_eq!(
+        h.json(
+            "GET",
+            &format!("/content-units/{content_unit}/content/head"),
+            Some(ALICE),
+            None
+        )
+        .await
+        .success(StatusCode::OK),
+        target["second"]["content"]
+    );
+    assert_eq!(
+        h.json("POST", &path, Some(ALICE), Some(target["request"].clone()))
+            .await
+            .success(StatusCode::CREATED),
+        target["first"]
+    );
     assert_eq!(h.counts().await, fixture["counts"]);
+    let brief = &fixture["brief_target"];
+    let uid = brief["unit_id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/production-briefs");
+    assert_eq!(
+        h.json("GET", &format!("{path}/1"), Some(ALICE), None)
+            .await
+            .success(StatusCode::OK),
+        brief["response"]
+    );
+    assert_eq!(
+        h.json("POST", &path, Some(ALICE), Some(brief["request"].clone()))
+            .await
+            .success(StatusCode::CREATED),
+        brief["response"]
+    );
+    assert_eq!(
+        h.json(
+            "POST",
+            &format!("{path}/1/producer-grants"),
+            Some(ALICE),
+            Some(brief["grant_request"].clone())
+        )
+        .await
+        .success(StatusCode::CREATED),
+        brief["grant"]
+    );
+    assert_eq!(
+        brief_http::producer(h.app.clone(), uid, 1, Some(&"d".repeat(64)))
+            .await
+            .success(StatusCode::OK),
+        brief["response"]["brief"]
+    );
 }
+
+fn content_request(expected: u64, work: u64, body: Value) -> Value {
+    json!({"operation_id":operation(),"id":operation(),"expected_revision":expected,"expected_work_revision":work,
+        "details":{"language":"vi-VN","body":body,"rights_refs":[],"provenance_note":"Synthetic authored/imported/recorded test content; no publication clearance"}})
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn content_categories_allow_text_and_recordings_without_script_ir_and_keep_metadata_separate()
+{
+    let h = Harness::new().await;
+    for kind in ["novel", "story", "podcast"] {
+        let w = h.create(ALICE, kind).await;
+        let catalog = h.unit(&w, "Chương hoặc tập thử nghiệm").await;
+        let uid = catalog["units"][0]["id"].as_str().unwrap();
+        let path = format!("/content-units/{uid}/content/revisions");
+        let body = if kind == "podcast" {
+            json!({"kind":"recording"})
+        } else {
+            json!({"kind":"text","text":"Người kể chuyện\r\nÁnh đèn.","source":null})
+        };
+        let submitted = content_request(0, 2, body);
+        let original_operation = submitted["operation_id"].clone();
+        let first = h
+            .json("POST", &path, Some(ALICE), Some(submitted.clone()))
+            .await
+            .success(StatusCode::CREATED);
+        assert_eq!(first["content"]["revision"], 1);
+        assert_eq!(first["work_revision"], 3);
+        assert_eq!(first["content"]["details"]["body"]["script"], Value::Null);
+        if kind != "podcast" {
+            assert_eq!(
+                first["content"]["details"]["body"]["text"],
+                "Người kể chuyện\nÁnh đèn."
+            );
+        }
+        let pinned = format!("{path}/{}", first["content"]["id"].as_str().unwrap());
+        assert_eq!(
+            h.json("GET", &pinned, Some(ALICE), None)
+                .await
+                .success(StatusCode::OK),
+            first["content"]
+        );
+        // Metadata edits and legacy link changes have no authority over managed content.
+        let patch = json!({"operation_id":operation(),"expected_revision":1,"expected_work_revision":3,"details":{"title":"Tên đã sửa","content_digest":"0".repeat(64)}});
+        let metadata = h
+            .json(
+                "PATCH",
+                &format!("/content-units/{uid}"),
+                Some(ALICE),
+                Some(patch),
+            )
+            .await
+            .success(StatusCode::OK);
+        assert_eq!(metadata["units"][0]["revision"], 2);
+        assert_eq!(
+            h.json(
+                "GET",
+                &format!("/content-units/{uid}/content/head"),
+                Some(ALICE),
+                None
+            )
+            .await
+            .success(StatusCode::OK),
+            first["content"]
+        );
+        let mut next = content_request(1, 4, first["content"]["details"]["body"].clone());
+        next["details"]["provenance_note"] = json!("Corrected caller attribution");
+        let second = h
+            .json("POST", &path, Some(ALICE), Some(next))
+            .await
+            .success(StatusCode::CREATED);
+        assert_eq!(
+            second["content"]["content_digest"],
+            first["content"]["content_digest"]
+        );
+        assert_ne!(
+            second["content"]["revision_digest"],
+            first["content"]["revision_digest"]
+        );
+        assert_ne!(second["content"]["id"], first["content"]["id"]);
+        assert_eq!(second["content"]["unit_id"], first["content"]["unit_id"]);
+        let before = h.counts().await;
+        assert_eq!(
+            h.json("POST", &path, Some(ALICE), Some(submitted.clone()))
+                .await
+                .success(StatusCode::CREATED),
+            first
+        );
+        let mut changed = submitted;
+        changed["details"]["provenance_note"] = json!("Different intent under old ID");
+        h.json("POST", &path, Some(ALICE), Some(changed))
+            .await
+            .error(StatusCode::CONFLICT, "operation_reused");
+        // A content operation cannot be reused by the old Catalog API either.
+        h.json("PATCH",&format!("/content-units/{uid}"),Some(ALICE),Some(json!({"operation_id":original_operation,"expected_revision":1,"expected_work_revision":2,"details":{"title":"Stale metadata"}}))).await.error(StatusCode::CONFLICT,"operation_reused");
+        assert_eq!(h.counts().await, before);
+        let history = h
+            .json(
+                "GET",
+                &format!("/content-units/{uid}/content/history?limit=1"),
+                Some(ALICE),
+                None,
+            )
+            .await
+            .success(StatusCode::OK);
+        assert_eq!(history["revisions"][0]["id"], first["content"]["id"]);
+        assert_eq!(history["next_after"], 1);
+        assert_eq!(history["revisions"][0]["details"], Value::Null);
+        let page = h
+            .json(
+                "GET",
+                &format!("/content-units/{uid}/content/history?after_revision=1&limit=1"),
+                Some(ALICE),
+                None,
+            )
+            .await
+            .success(StatusCode::OK);
+        assert_eq!(page["revisions"][0]["id"], second["content"]["id"]);
+        assert_eq!(page["next_after"], Value::Null);
+        h.json("DELETE",&format!("/content-units/{uid}"),Some(ALICE),Some(json!({"operation_id":operation(),"expected_revision":2,"expected_work_revision":5}))).await.success(StatusCode::OK);
+        let before = h.counts().await;
+        h.json(
+            "POST",
+            &path,
+            Some(ALICE),
+            Some(content_request(2, 6, json!({"kind":"recording"}))),
+        )
+        .await
+        .error(StatusCode::CONFLICT, "catalog_conflict");
+        assert_eq!(h.counts().await, before);
+        assert_eq!(
+            h.json("GET", &pinned, Some(ALICE), None)
+                .await
+                .success(StatusCode::OK),
+            first["content"]
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn content_authorization_replays_and_validation_never_bypass_current_access() {
+    let h = Harness::new().await;
+    let w = h.create(ALICE, "podcast").await;
+    let catalog = h.unit(&w, "Tập thử nghiệm").await;
+    let uid = catalog["units"][0]["id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/content/revisions");
+    h.member(&catalog["work"], MemberRole::Editor).await;
+    let submitted = content_request(0, 3, json!({"kind":"recording"}));
+    let first = h
+        .json("POST", &path, Some(BOB), Some(submitted.clone()))
+        .await
+        .success(StatusCode::CREATED);
+    let before = h.counts().await;
+    let mut rights = content_request(1, 4, json!({"kind":"recording"}));
+    rights["details"]["rights_refs"] = json!(["catalog-rights"]);
+    h.json("POST", &path, Some(BOB), Some(rights))
+        .await
+        .error(StatusCode::FORBIDDEN, "forbidden");
+    h.json(
+        "POST",
+        &path,
+        Some(CAROL),
+        Some(content_request(1, 4, json!({"kind":"recording"}))),
+    )
+    .await
+    .error(StatusCode::NOT_FOUND, "not_found");
+    for (key, value, code) in [
+        ("owner_id", json!("bob"), "invalid_request"),
+        (
+            "details",
+            json!({"language":"vi-VN","body":{"kind":"text","text":" \t\n"},"rights_refs":[],"provenance_note":"Synthetic"}),
+            "invalid_catalog",
+        ),
+    ] {
+        let mut invalid = content_request(1, 4, json!({"kind":"recording"}));
+        invalid[key] = value;
+        h.json("POST", &path, Some(ALICE), Some(invalid))
+            .await
+            .error(
+                if code == "invalid_request" {
+                    StatusCode::BAD_REQUEST
+                } else {
+                    StatusCode::UNPROCESSABLE_ENTITY
+                },
+                code,
+            );
+    }
+    assert_eq!(h.counts().await, before);
+    let current = h
+        .json(
+            "GET",
+            &format!("/works/{}", w["id"].as_str().unwrap()),
+            Some(ALICE),
+            None,
+        )
+        .await
+        .success(StatusCode::OK);
+    h.member(&current, MemberRole::Reader).await;
+    assert_eq!(
+        h.json(
+            "GET",
+            &format!("/content-units/{uid}/content/head"),
+            Some(BOB),
+            None
+        )
+        .await
+        .success(StatusCode::OK),
+        first["content"]
+    );
+    let before = h.counts().await;
+    h.json("POST", &path, Some(BOB), Some(submitted))
+        .await
+        .error(StatusCode::FORBIDDEN, "forbidden");
+    assert_eq!(h.counts().await, before);
+    h.admin
+        .execute(
+            "DELETE FROM catalog_members WHERE work_id=$1 AND actor_id='bob'",
+            &[&w["id"].as_str().unwrap()],
+        )
+        .await
+        .unwrap();
+    h.json(
+        "GET",
+        &format!("/content-units/{uid}/content/head"),
+        Some(BOB),
+        None,
+    )
+    .await
+    .error(StatusCode::NOT_FOUND, "not_found");
+    h.json(
+        "GET",
+        &format!("/content-units/{uid}/content/head"),
+        None,
+        None,
+    )
+    .await
+    .error(StatusCode::UNAUTHORIZED, "unauthenticated");
+    // Boundaries inherited from Catalog apply to every Content route.
+    request(
+        h.app.clone(),
+        "POST",
+        &path,
+        Some(ALICE),
+        vec![b' '; 128 * 1024 + 1],
+        ("application/json", "application/json", ORIGIN),
+    )
+    .await
+    .error(StatusCode::PAYLOAD_TOO_LARGE, "invalid_request");
+    request(
+        h.app.clone(),
+        "POST",
+        &path,
+        Some(ALICE),
+        vec![],
+        ("application/msgpack", "application/json", ORIGIN),
+    )
+    .await
+    .error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "invalid_request");
+    request(
+        h.app.clone(),
+        "GET",
+        &format!("/content-units/{uid}/content/head"),
+        Some(ALICE),
+        vec![],
+        ("application/json", "application/msgpack", ORIGIN),
+    )
+    .await
+    .error(StatusCode::NOT_ACCEPTABLE, "invalid_request");
+    request(
+        h.app.clone(),
+        "POST",
+        &path,
+        Some(ALICE),
+        serde_json::to_vec(&content_request(1, 5, json!({"kind":"recording"}))).unwrap(),
+        (
+            "application/json",
+            "application/json",
+            "https://untrusted.example",
+        ),
+    )
+    .await
+    .error(StatusCode::FORBIDDEN, "forbidden");
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn content_links_retain_authoritative_sources_and_exact_owned_script_exports() {
+    let h = Harness::new().await;
+    let checksum = format!("{:x}", Sha256::digest(ORIGINAL.as_bytes()));
+    h.admin.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice','source','content-source','Synthetic source for Content Identity')",&[]).await.unwrap();
+    h.admin.execute("INSERT INTO source_records(owner_id,id,reference,original_text,sha256) VALUES('alice','content-source','synthetic://content',$1,$2)",&[&ORIGINAL,&checksum]).await.unwrap();
+    let sid = operation();
+    let script = h
+        .store
+        .save(
+            ALICE,
+            &sid,
+            SaveRevisionRequest {
+                operation_id: operation(),
+                expected_revision: 0,
+                script_json: SCRIPT.into(),
+            },
+        )
+        .await
+        .unwrap();
+    let w = h.create(ALICE, "story").await;
+    let catalog = h.unit(&w, "Chương có nguồn").await;
+    let uid = catalog["units"][0]["id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/content/revisions");
+    let source = json!({"id":"content-source","sha256":checksum});
+    let reference = json!({"id":sid,"revision":1,"export_digest":script.export_digest});
+    let submitted = content_request(
+        0,
+        2,
+        json!({"kind":"script","script":reference,"source":source}),
+    );
+    let first = h
+        .json("POST", &path, Some(ALICE), Some(submitted.clone()))
+        .await
+        .success(StatusCode::CREATED);
+    let mut changed: Value = serde_json::from_str(SCRIPT).unwrap();
+    changed["episode"]["title"] = json!("Tên khác");
+    h.store
+        .save(
+            ALICE,
+            &sid,
+            SaveRevisionRequest {
+                operation_id: operation(),
+                expected_revision: 1,
+                script_json: serde_json::to_string(&changed).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        h.json(
+            "GET",
+            &format!("/content-units/{uid}/content/head"),
+            Some(ALICE),
+            None
+        )
+        .await
+        .success(StatusCode::OK),
+        first["content"]
+    );
+    let before = h.counts().await;
+    for body in [
+        json!({"kind":"source","source":{"id":"content-source","sha256":"0".repeat(64)}}),
+        json!({"kind":"script","script":{"id":sid,"revision":1,"export_digest":format!("sir-e1:sha256:{}","0".repeat(64))}}),
+    ] {
+        h.json(
+            "POST",
+            &path,
+            Some(ALICE),
+            Some(content_request(1, 3, body)),
+        )
+        .await
+        .error(StatusCode::UNPROCESSABLE_ENTITY, "evidence_unavailable");
+    }
+    assert_eq!(h.counts().await, before);
+    let other = h.create(BOB, "podcast").await;
+    let unit = h
+        .json(
+            "POST",
+            &format!("/works/{}/content-units", other["id"].as_str().unwrap()),
+            Some(BOB),
+            Some(unit_request(&other, "Tài khoản khác")),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    let other_path = format!(
+        "/content-units/{}/content/revisions",
+        unit["units"][0]["id"].as_str().unwrap()
+    );
+    for body in [
+        json!({"kind":"source","source":source}),
+        json!({"kind":"script","script":reference}),
+    ] {
+        h.json(
+            "POST",
+            &other_path,
+            Some(BOB),
+            Some(content_request(0, 2, body)),
+        )
+        .await
+        .error(StatusCode::UNPROCESSABLE_ENTITY, "evidence_unavailable");
+    }
+    // A valid revision ID under a different unit must reveal nothing.
+    h.json(
+        "GET",
+        &format!("{other_path}/{}", first["content"]["id"].as_str().unwrap()),
+        Some(BOB),
+        None,
+    )
+    .await
+    .error(StatusCode::NOT_FOUND, "not_found");
+    let row = h.admin.query_one("SELECT original_text,sha256 FROM source_records WHERE owner_id='alice' AND id='content-source'",&[]).await.unwrap();
+    assert_eq!(row.get::<_, String>(0), ORIGINAL);
+    assert_eq!(row.get::<_, String>(1), checksum);
+    let row = h.admin.query_one("SELECT canonical_export,export_digest FROM script_revisions WHERE script_id=$1 AND revision=1",&[&sid]).await.unwrap();
+    assert_eq!(row.get::<_, Vec<u8>>(0), script.script_json.as_bytes());
+    assert_eq!(row.get::<_, String>(1), script.export_digest);
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn content_concurrent_append_rollback_and_database_immutability_are_real_constraints() {
+    let h = Harness::new().await;
+    let w = h.create(ALICE, "story").await;
+    let catalog = h.unit(&w, "Chương thử lỗi").await;
+    let uid = catalog["units"][0]["id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/content/revisions");
+    let before = h.counts().await;
+    h.admin.batch_execute("CREATE FUNCTION content_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected failure after content insert'; END; $$; CREATE TRIGGER content_fault BEFORE INSERT ON catalog_work_revisions FOR EACH ROW WHEN(NEW.revision=3) EXECUTE FUNCTION content_fault()").await.unwrap();
+    h.json(
+        "POST",
+        &path,
+        Some(ALICE),
+        Some(content_request(0, 2, json!({"kind":"recording"}))),
+    )
+    .await
+    .error(StatusCode::SERVICE_UNAVAILABLE, "unavailable");
+    assert_eq!(h.counts().await, before);
+    h.admin
+        .batch_execute(
+            "DROP TRIGGER content_fault ON catalog_work_revisions; DROP FUNCTION content_fault()",
+        )
+        .await
+        .unwrap();
+    let mut blocker = connect(&h.config).await;
+    let tx = blocker.transaction().await.unwrap();
+    tx.query_one(
+        "SELECT revision FROM catalog_clock WHERE singleton FOR UPDATE",
+        &[],
+    )
+    .await
+    .unwrap();
+    let mut handles = Vec::new();
+    for index in 0..2 {
+        let app = h.app.clone();
+        let path = path.clone();
+        let body = serde_json::to_vec(&content_request(
+            0,
+            2,
+            json!({"kind":"text","text":format!("Bản thử {index}"),"source":null}),
+        ))
+        .unwrap();
+        handles.push(tokio::spawn(async move {
+            request(
+                app,
+                "POST",
+                &path,
+                Some(ALICE),
+                body,
+                ("application/json", "application/json", ORIGIN),
+            )
+            .await
+        }));
+        blocked(&h.admin, index + 1).await;
+    }
+    tx.commit().await.unwrap();
+    let replies = [
+        handles.remove(0).await.unwrap(),
+        handles.remove(0).await.unwrap(),
+    ];
+    assert_eq!(
+        replies
+            .iter()
+            .filter(|r| r.status == StatusCode::CREATED)
+            .count(),
+        1
+    );
+    let stale = replies
+        .iter()
+        .find(|r| r.status == StatusCode::CONFLICT)
+        .unwrap();
+    assert_eq!(stale.body["code"], "stale_revision");
+    assert_eq!(stale.body["current_revision"], 3);
+    assert_eq!(h.counts().await["content_revisions"], 1);
+    assert_eq!(h.counts().await["content_heads"], 1);
+    for sql in [
+        "UPDATE catalog_content_revisions SET snapshot=decode('00','hex')",
+        "DELETE FROM catalog_content_revisions",
+        "TRUNCATE catalog_content_revisions,catalog_content_heads CASCADE",
+    ] {
+        let error = h.admin.batch_execute(sql).await.unwrap_err();
+        assert_eq!(error.code().unwrap().code(), "55000");
+    }
+    // Even an internally recomputed but malformed snapshot cannot bypass load admission.
+    h.admin.batch_execute("ALTER TABLE catalog_content_revisions DISABLE TRIGGER catalog_content_history_immutable; UPDATE catalog_content_revisions SET snapshot=convert_to('{}','UTF8'); ALTER TABLE catalog_content_revisions ENABLE TRIGGER catalog_content_history_immutable").await.unwrap();
+    h.json(
+        "GET",
+        &format!("/content-units/{uid}/content/head"),
+        Some(ALICE),
+        None,
+    )
+    .await
+    .error(StatusCode::INTERNAL_SERVER_ERROR, "corrupt_revision");
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgres_plans() {
+    let h = Harness::new().await;
+    let w = h.create(ALICE, "story").await;
+    let catalog = h.unit(&w, "Chương đo truy vấn").await;
+    let uid = catalog["units"][0]["id"].as_str().unwrap();
+    let path = format!("/content-units/{uid}/content/revisions");
+    let mut last = Value::Null;
+    let started = Instant::now();
+    for revision in 0..100 {
+        last = h.json("POST",&path,Some(ALICE),Some(content_request(revision,revision+2,json!({"kind":"text","text":format!("Đoạn thử có dấu tiếng Việt, phiên bản {revision}."),"source":null})))).await.success(StatusCode::CREATED);
+    }
+    let write_ms = started.elapsed().as_secs_f64() * 1000.0;
+    let mut head_ms = Vec::new();
+    let mut history_ms = Vec::new();
+    for _ in 0..30 {
+        let start = Instant::now();
+        assert_eq!(
+            h.json(
+                "GET",
+                &format!("/content-units/{uid}/content/head"),
+                Some(ALICE),
+                None
+            )
+            .await
+            .success(StatusCode::OK),
+            last["content"]
+        );
+        head_ms.push(start.elapsed().as_secs_f64() * 1000.0);
+        let start = Instant::now();
+        let page = h
+            .json(
+                "GET",
+                &format!("/content-units/{uid}/content/history?after_revision=50&limit=20"),
+                Some(ALICE),
+                None,
+            )
+            .await
+            .success(StatusCode::OK);
+        history_ms.push(start.elapsed().as_secs_f64() * 1000.0);
+        assert_eq!(page["revisions"].as_array().unwrap().len(), 20);
+        assert_eq!(page["next_after"], 70);
+    }
+    let mut config = h.config.clone();
+    config.user("cantos_app");
+    let app = connect(&config).await;
+    let select = "r.id,r.unit_id,r.revision,r.snapshot,r.revision_digest,r.recorded_by,u.work_id";
+    let head_sql = format!("SELECT {select},h.revision AS head_sequence FROM catalog_content_heads h JOIN catalog_content_revisions r ON r.id=h.revision_id AND r.unit_id=h.unit_id AND r.revision=h.revision JOIN catalog_units u ON u.id=r.unit_id WHERE h.unit_id=$1");
+    let history_sql = format!("SELECT {select} FROM catalog_content_revisions r JOIN catalog_units u ON u.id=r.unit_id WHERE r.unit_id=$1 AND r.revision>$2 ORDER BY r.revision LIMIT $3");
+    // Capture the exact adapter SELECTs with the real application role. No effects or public data.
+    let head_plan: Vec<String> = app
+        .query(&format!("EXPLAIN (ANALYZE,BUFFERS) {head_sql}"), &[&uid])
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    let history_plan: Vec<String> = app
+        .query(
+            &format!("EXPLAIN (ANALYZE,BUFFERS) {history_sql}"),
+            &[&uid, &50_i64, &21_i64],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    let server: String = h
+        .admin
+        .query_one("SHOW server_version", &[])
+        .await
+        .unwrap()
+        .get(0);
+    fs::create_dir_all(EVIDENCE).unwrap();
+    fs::write(format!("{EVIDENCE}/content-read-baseline.json"),serde_json::to_vec_pretty(&json!({"postgres":server,"revision_count":100,"samples":30,"head_ms":head_ms,"history_ms":history_ms,"write_total_ms":write_ms,"head_sql":head_sql,"history_sql":history_sql,"head_plan":head_plan,"history_plan":history_plan,"scope":"Warm synthetic local Router/application/app-role PostgreSQL; not production latency or cold-cache evidence"})).unwrap()).unwrap();
+}
+
+#[path = "support/brief_http_postgres.rs"]
+mod brief_http;
+
+#[path = "support/audio_lifecycle_http_postgres.rs"]
+mod audio_lifecycle_http;

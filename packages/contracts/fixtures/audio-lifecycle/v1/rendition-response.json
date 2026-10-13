@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0.0",
+  "id": "70000000-0000-4000-8000-000000000007",
+  "submission_id": "50000000-0000-4000-8000-000000000005",
+  "submission_digest": "as-r1:sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "binding": {
+    "work_id": "10000000-0000-4000-8000-000000000001",
+    "unit_id": "20000000-0000-4000-8000-000000000002",
+    "content_revision_id": "30000000-0000-4000-8000-000000000003",
+    "content_revision_digest": "cc-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "brief_id": "40000000-0000-4000-8000-000000000004",
+    "brief_version": 1,
+    "brief_digest": "pb-r1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "profile_id": "opus-mono-24-v1"
+  },
+  "declarations": {
+    "producer": "Synthetic external producer",
+    "method": "recording",
+    "provenance": "Owned test signal; no private story or listening acceptance",
+    "rights_refs": [
+      "synthetic-rights"
+    ],
+    "quality_report": "NOT_RUN listening"
+  },
+  "verified_media": {
+    "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "byte_length": 4096,
+    "container": "ogg",
+    "codec": "opus",
+    "channels": 1,
+    "sample_rate_hz": 48000,
+    "duration_ms": 1000,
+    "audio_bitrate_bps": 24000,
+    "profile_id": "opus-mono-24-v1"
+  },
+  "admitted_at": 1000,
+  "digest": "ar-r1:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}

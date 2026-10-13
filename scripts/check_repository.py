@@ -72,9 +72,9 @@ CONTEXT_UPSTREAM = {
     "editorial": set(),
     "ingestion": {"editorial"},
     "adaptation": {"editorial", "ingestion"},
-    "production": {"editorial"},
+    "production": {"editorial", "catalog", "ingestion"},
     "catalog": {"editorial", "ingestion"},
-    "media": {"editorial"},
+    "media": {"editorial", "catalog", "production"},
 }
 DOMAIN_EXTERNAL = {
     "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
@@ -465,7 +465,7 @@ def source_paths(code, module):
 
 def table_owner(table):
     for prefix, owner in (("adaptation_", "adaptation"), ("production_", "production"),
-                          ("catalog_", "catalog"),
+                          ("catalog_", "catalog"), ("audio_", "media"),
                           ("durable_", "synthesis")):
         if table.startswith(prefix):
             return owner
@@ -494,7 +494,8 @@ def dependency_error(path, owner, domain, http):
             return "pure domain must not depend on an interface"
     if path[0] == "contexts" and len(path) >= 2:
         target = path[1]
-        if owner and target != owner and target not in CONTEXT_UPSTREAM[owner]:
+        credential_inquiry = owner == "production" and not domain and path == ("contexts", "media", "upload_token_registered")
+        if owner and target != owner and target not in CONTEXT_UPSTREAM[owner] and not credential_inquiry:
             return f"{owner} must not depend on {target}; upstream contexts are {sorted(CONTEXT_UPSTREAM[owner])}"
         if domain and (len(path) < 3 or path[2] != "domain"):
             return "pure domain must name a context's domain directly, without an adapter or facade"

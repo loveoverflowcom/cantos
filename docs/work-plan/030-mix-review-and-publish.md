@@ -6,7 +6,7 @@
 
 ## Current narrow implementation
 
-[ADR 0019](../decisions/0019-studio-private-audio-intake.md) implements owner-session,
+[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
 script-revision-bound private development intake with four explicit Opus profiles, verified
 bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
 is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or

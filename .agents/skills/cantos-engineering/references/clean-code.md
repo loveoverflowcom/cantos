@@ -59,12 +59,11 @@ pub fn decide_publication(facts: &ReleaseFacts) -> Result<PublishableRelease, Ve
 
 ## Errors
 
-- Rust: one error enum per module boundary (`thiserror` is a candidate), with structured data in
-  variants. No `anyhow` or string errors in the domain; reserve them for binaries and top-level
-  glue. No `unwrap`/`expect` outside tests and proven-infallible constants (explain those).
-- Kotlin: sealed interfaces or `Result` for expected failures; exceptions only for programmer
-  errors and platform boundaries; no `!!`.
-- Never swallow an error. Logging and continuing is a decision that must be stated and tested.
+Follow [typed errors and composition](typed-errors-and-composition.md), the canonical owner.
+Use structured, context-owned Rust errors and Kotlin sealed outcomes or adopted typed
+`Either`/`Raise`; Kotlin `Result` alone carries `Throwable`, not a closed domain error type.
+Prefer `?`/exhaustive branches and named mappings over nesting. Keep exception containment and
+diagnostic effects at concrete outer boundaries; never erase a failure to simplify syntax.
 
 ## Comments and docs
 

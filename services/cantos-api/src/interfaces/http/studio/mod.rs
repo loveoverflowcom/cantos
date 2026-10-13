@@ -22,7 +22,10 @@ use crate::platform::postgres::StoreError;
 
 mod adaptations;
 mod audio_intake;
+mod audio_lifecycle;
+mod briefs;
 mod catalog;
+mod content;
 mod imports;
 mod production;
 
@@ -40,6 +43,13 @@ impl Mount {
         match self {
             Mount::Current => routes::STUDIO_BASE,
             Mount::Legacy => routes::API_BASE,
+        }
+    }
+
+    fn other_cookie_path(self) -> &'static str {
+        match self {
+            Mount::Current => routes::API_BASE,
+            Mount::Legacy => routes::STUDIO_BASE,
         }
     }
 }
@@ -61,8 +71,11 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
             .merge(catalog::routes())
             // New Catalog/intake routes have no deprecated aliases.
             .merge(audio_intake::routes())
+            .merge(audio_lifecycle::owner_routes())
             .route_layer(middleware::from_fn_with_state(state, authenticated))
-            .route("/session", post(login).delete(logout)),
+            .merge(briefs::producer_routes())
+            .merge(audio_lifecycle::producer_routes())
+            .route("/session", post(login).get(current_session).delete(logout)),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(legacy_login).delete(legacy_logout))
@@ -86,6 +99,18 @@ async fn login(
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
     start_session(state, body, Mount::Current).await
+}
+
+/// Confirm the cookie that the browser actually sends, independently of a token exchange.
+async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let token = match cookie_token(&headers) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
+    };
+    match state.store.authenticate(&token).await {
+        Ok(actor_id) => Json(SessionResponse { actor_id }).into_response(),
+        Err(error) => error_response(error),
+    }
 }
 
 async fn legacy_login(
@@ -125,7 +150,17 @@ async fn start_session(
             );
             match HeaderValue::from_str(&cookie) {
                 Ok(value) => {
-                    response.headers_mut().insert(header::SET_COOKIE, value);
+                    // Retire only the other known Studio mount. Otherwise a browser sends both
+                    // same-name cookies at /studio and the fail-closed parser rejects the session.
+                    let retired = format!(
+                        "cantos_session=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
+                        mount.other_cookie_path()
+                    );
+                    let Ok(retired) = HeaderValue::from_str(&retired) else {
+                        return error_response(StoreError::InvalidRequest);
+                    };
+                    response.headers_mut().append(header::SET_COOKIE, value);
+                    response.headers_mut().append(header::SET_COOKIE, retired);
                     response
                 }
                 Err(_) => error_response(StoreError::InvalidRequest),
@@ -296,5 +331,22 @@ async fn source(
     match state.store.source(&token, &script, &source).await {
         Ok(source) => Json(source).into_response(),
         Err(error) => error_response(error),
+    }
+}
+
+/// Shared Studio transport boundary: malformed route parameters use ApiError JSON.
+pub(super) struct StudioPath<T>(pub(super) T);
+impl<S: Send + Sync, T: serde::de::DeserializeOwned + Send> axum::extract::FromRequestParts<S>
+    for StudioPath<T>
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Response> {
+        Path::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Path(value)| Self(value))
+            .map_err(|_| error_response(StoreError::InvalidRequest))
     }
 }

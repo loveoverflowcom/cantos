@@ -1,6 +1,15 @@
 use serde::Deserialize;
 
 /// Immutable validated content. No Deserialize, Default, setters or public fields.
+/// Every external entry path must call the versioned reader, including stored bytes.
+/// ```compile_fail,E0277
+/// use cantos_api::script_ir::ScriptContent;
+/// let script = serde_json::from_str::<ScriptContent>("{}");
+/// ```
+/// ```compile_fail,E0277
+/// use cantos_api::script_ir::ScriptContent;
+/// let script: ScriptContent = Default::default();
+/// ```
 #[derive(Debug, Clone)]
 pub struct ScriptContent {
     pub(super) work: Work,

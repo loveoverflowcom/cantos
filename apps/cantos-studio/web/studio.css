@@ -154,3 +154,13 @@ body { margin: 0; }
 }
 
 .studio-shell .production-unsupported { display: block; margin-block-start: calc(var(--cantos-space-sm) / 2); padding: var(--cantos-space-sm); background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); border-radius: var(--cantos-shape-reading); font-weight: 400; overflow-wrap: anywhere; }
+
+/* App-local content workspace: tonal containment, no decorative section borders. */
+.studio-shell .live-section, .studio-shell .live-status { margin-block: var(--cantos-space-section); padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-shape-container); }
+.studio-shell .live-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: var(--cantos-space-md); }
+.studio-shell .live-field { min-width: 0; }
+.studio-shell .live-field input, .studio-shell .live-field select { width: 100%; }
+.studio-shell .live-field textarea { min-height: 7rem; }
+.studio-shell .live-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.studio-shell .live-list small { display: block; color: inherit; }
+.studio-shell #workspace-content pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

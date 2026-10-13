@@ -19,8 +19,8 @@ existing code without changing behavior, migrations or wire contracts; the
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
 Support here defines product scope, not implementation evidence. Theatre Web is a session-only
-UI mock with no API/audio integration and
-Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or API. Studio Mobile is only a scope notice: never a workspace
+UI mock selectable explicitly beside a real unsupported API probe and
+Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or live listener resources; a common/JVM HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
@@ -38,7 +38,9 @@ apps/
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
-  kanidm/                  Identity provider deployment/config only; no code              CONFIG ONLY
+  manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
+  postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
+  kanidm/                  Opt-in Podman identity evaluation; no integration/code          CONFIG ONLY
 packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
@@ -104,7 +106,8 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog
-  API; external audio intake and publication remain planned ([API contexts](api-contexts.md)).
+  API, plus immutable Production Brief export and scoped development read grants; external
+  audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API will validate tokens issued by it once identity work starts;
@@ -165,7 +168,9 @@ cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
 
-Kanidm has no build or run command: see services/kanidm/README.md for its example config.
+PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
+from native `run` and disposable database verification. See [services](../../services/README.md).
+Configured infrastructure is not a deployed identity provider or OIDC integration.
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that

@@ -21,9 +21,9 @@ pub(crate) fn Discover(ctx: TheatreContext) -> impl IntoView {
                     <p class="theatre-muted">{move || ctx.text(Key::ContentLanguage)}</p>
                     <div class="theatre-actions">
                         <button type="button" class="theatre-action" on:click=move |_| ctx.open_episode(EpisodeId { work: WorkId::Mountain, index: 0 })>
-                            {icon("play_arrow")}{move || ctx.text(Key::Begin)}
+                            {icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(Key::Begin)}</span>
                         </button>
-                        <a class="theatre-text-link" href=Route::Work(WorkId::Mountain).hash()>{move || ctx.text(Key::AboutWork)}</a>
+                        <a class="theatre-text-link" href=Route::Work(WorkId::Mountain).hash()><span class="cui-control-label">{move || ctx.text(Key::AboutWork)}</span></a>
                     </div>
                 </div>
                 <div class="theatre-feature-cover"><Cover ctx=ctx id=WorkId::Mountain/></div>

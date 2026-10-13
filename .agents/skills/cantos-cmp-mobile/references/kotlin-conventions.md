@@ -1,202 +1,283 @@
 # Kotlin and Compose conventions
 
-> **Scope.** Handwritten Kotlin in the Cantos Theatre CMP app: composable APIs, state ownership,
-> immutable values, `StateFlow` updates, effects and lifetimes, closed state types, errors,
-> coroutines, secrets in values and formatting. Use while writing or reviewing any Kotlin.
-> Generated sources (API client, tokens, resources) follow their generator, not these rules.
+> **Scope.** Handwritten Theatre Kotlin: domain types, pure transformations, state ownership,
+> effects, coroutines and Compose contracts. Generated code follows its generator; its mapping
+> into domain values still follows these rules.
 
-General style lives in the foundation's
-[clean-code](../../cantos-engineering/references/clean-code.md#kotlin-and-compose) and
-[immutability](../../cantos-engineering/references/immutability.md#value-semantics-in-kotlin)
-references; ownership lives in [cmp-architecture.md](cmp-architecture.md). Each rule below has
-one canonical definition here. **MUST** protects a stated contract; **SHOULD** admits a reasoned
-local alternative recorded in the PR. Enforcement is **manual** everywhere today: no Kotlin
-compiler settings, formatter or linter exist in the repository yet.
+These are Kotlin applications of the foundation's
+[type barriers](../../cantos-engineering/references/types-as-proofs.md),
+[functional core](../../cantos-engineering/references/functional-core.md) and
+[immutability](../../cantos-engineering/references/immutability.md).
+Error classification, propagation, cancellation and boundary containment are owned by
+[typed errors and composition](../../cantos-engineering/references/typed-errors-and-composition.md).
+**MUST** is a review requirement; **SHOULD** permits a reasoned local alternative; **MAY** is
+optional. Record an exception's scope, invariant, reason, compensating evidence and owner in the
+PR. An exception never silently weakens a contract or changes production scope.
 
-Snippets are illustrative and proposed, not existing code.
+Enforcement today: Kotlin 2.2.20 compiles the isolated mock; compiler exhaustiveness/visibility
+and existing tests cover specific claims. Import restrictions and broader rules are
+review-enforced. No Detekt/ktlint, compile-negative harness or Kotlin property/mutation runner
+is configured. See [testing](cmp-testing.md) and [dependency evaluation](cmp-tooling.md).
+Examples are illustrative unless explicitly identified as current code.
+
+## TYPE-01 — strong domain identities
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST where confusing identities or units can cause a defect |
+| Rule / rationale | Distinguish `WorkId`, `EpisodeId` and `PublicationId`; consider `PlaybackPosition`, `PlaybackDuration`, `PlaybackSpeed` and `Generation` when they carry a real invariant. Prefer `@JvmInline value class` where appropriate; common declarations can target Native despite the annotation name. |
+| Good / counterexample | `fun open(id: EpisodeId)` vs. `fun open(id: String)` accepting a work key; `typealias EpisodeId = String` provides no barrier |
+| Oracle / enforcement | Compiler rejects swapped identity types; review conversions and target/interop constraints; VER-01 |
+| Exception | Raw DTO fields and diagnostic fixture keys may remain primitives until boundary mapping. No wrappers without a meaningful distinction or invariant. |
+
+```kotlin
+@JvmInline value class EpisodeId(val value: String)
+@JvmInline value class PublicationId(val value: String)
+fun openEpisode(id: EpisodeId) = id.value
+// Forbidden: openEpisode(PublicationId("release-1"))
+```
+
+This proves identity separation only, not syntax or authorization. Validate from an owning contract.
+
+## TYPE-02 — refined values and relations
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST when consumers rely on an invariant |
+| Rule / rationale | Choose the smallest value class, private class, validated aggregate, sealed ADT or evidence value. Validate related fields together: nonnegative position alone cannot prove `position <= source.duration`. Only a verifier constructs `VerifiedDownload`, bound to the exact bytes/checksum and account/publication facts checked. |
+| Good / counterexample | Current `PlaybackSession` checks position against its source in `init`; new caller-facing factories return a typed refusal before construction vs. independent positive position/duration wrappers assumed to prove their relation |
+| Oracle / enforcement | Factory partitions, boundary/overflow and preservation tests, including decoding/restoration; VER-02 |
+| Exception | Explicit raw requests may contain invalid values for transactional reducer rejection. No exception for a value advertised as verified. |
+
+```kotlin
+// Illustrative factory using the current mock's exact permille set.
+sealed interface SpeedResult {
+    data class Accepted(val speed: PlaybackSpeed) : SpeedResult
+    data class Unsupported(val permille: Int) : SpeedResult
+}
+@JvmInline
+value class PlaybackSpeed private constructor(val permille: Int) {
+    companion object {
+        fun of(raw: Int): SpeedResult = when (raw) {
+            750, 1000, 1250, 1500, 2000 -> SpeedResult.Accepted(PlaybackSpeed(raw))
+            else -> SpeedResult.Unsupported(raw)
+        }
+    }
+}
+// Counterexample: data class PlaybackSpeed(val factor: Double) accepts NaN and any speed.
+```
+
+The set belongs to the [mock corpus](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md),
+not a selected production policy. Current generation is Uint32-bounded with checked exhaustion,
+never wraparound. Kotlin has no native dependent types or general refinement proofs; factories
+establish runtime predicates, and visibility protects their provenance.
+
+## TYPE-03 — construction and visibility
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for refined types/evidence; SHOULD use narrow visibility elsewhere |
+| Rule / rationale | Prefer `private` details, `internal` module APIs, public APIs for actual consumers. Audit constructors, `copy()`, deserialization, API mapping, persistence restoration, defaults, fixture builders and unsafe/unchecked casts. Immutable does not mean valid. |
+| Good / counterexample | Current `@ConsistentCopyVisibility data class PlaybackSource private constructor(...)` with validating `of` vs. private construction bypassed by public `copy(durationMs = -1)` |
+| Oracle / enforcement | Compile attempts outside the allowed scope; inspect copy visibility on pinned Kotlin 2.2.20; test every runtime entry path |
+| Exception | Narrow trusted restoration needs documented producer obligations and paired tests; it cannot forge authorization or verification evidence. |
+
+[Kotlin's copy-visibility documentation](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-consistent-copy-visibility/)
+describes a phased migration: check the pinned compiler, not an approximate current-doc timeline.
+The annotation controls visibility, **not validation**; allowed copies still need `init` checks
+for programmer defects or invariant-preserving operations. Expected invalid caller input goes
+through a typed factory, never a throwing `copy`/`init` as control flow. A plain private-constructor
+class avoids generated copy where simpler. Serialization into an evidence value must not bypass
+its factory.
+
+## TYPE-04 — closed algebraic data types
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for closed event/state/result/error vocabularies |
+| Rule / rationale | Use `sealed interface` / `sealed class`, `data object` singleton and `data class` payload cases; finite payload-free enums are appropriate too. Exhaustive `when` expressions have no catch-all `else`. New variants force decisions, UI projections and tests to be reconsidered. |
+| Good / counterexample | `when (intent) { PlaybackIntent.Play -> ...; is PlaybackIntent.Pause -> ... }` vs. `else -> showPlaying()` hiding a new state |
+| Oracle / enforcement | Compiler exhaustiveness plus review of reducers, labels, accessibility projections and generators |
+| Exception | Map external open protocol values at the adapter, including an explicit `Unknown(raw)` when compatibility requires it. Do not invent domain variants to silence the compiler. |
+
+## TYPE-05 — typed expected failures
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for expected business failures in reducers/controllers/adapters |
+| Rule / rationale | Apply foundation ERR-01–07 with existing sealed outcomes, typed `Either<Error, Value>`, justified Arrow `Raise` or command rejection. No nullable error sentinel, `!!`, unchecked cast or throwable-driven domain flow. `kotlin.Result` alone fixes the error channel to `Throwable`. |
+| Good / counterexample | `PlaybackTransition(state, listOf(PlaybackEffect.Rejected(PlaybackRejection.OutOfBounds)))` vs. `throw IllegalArgumentException("bad seek")` for caller input |
+| Oracle / enforcement | Assert unchanged complete state and exact rejection/effects; boundary error/cancellation tests; VER-02/05/06 |
+| Exception | Contain foreign calls that only throw at the concrete adapter, and unexpected faults at the outer host per ERR-04/05. Internal defect assertions/fixture fail-fast do not replace typed validation. Legacy nullable factories are refusal-only APIs, not nullable error protocols for new APIs. |
+
+Preserve `PlaybackTransition(nextState, effects)` and transactional rejection. Existing
+`PlaybackSource.of`/`PlaybackIdentity.of` return nullable validated values; improving them needs
+targeted consumer/corpus review, not an Arrow migration. Existing mock controller catches and
+`MockEngineUnavailable` are implementation observations, not a production recovery policy or
+permission to add catch blocks throughout application code. New port APIs expose typed outcomes;
+their concrete adapters contain foreign exceptions. Retry/UI projections exhaustively handle
+each sealed error case and never inspect exception messages. Verify cancellation at that seam.
+
+## FP-01 — pure functional core
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for durable domain decisions |
+| Rule / rationale | `State × Event → Transition<NextState, Effects>` is deterministic. No Compose, Android/iOS frameworks, network, database, clocks, randomness, global mutable state, media calls, logging or blocking work. Supply facts as inputs; application code interprets effects. |
+| Good / counterexample | Current `reducePlayback(state, event): PlaybackTransition` vs. `fun reduce(...) { engine.start(...); Clock.System.now() }` |
+| Oracle / enforcement | Import/signature review and equal-input/exact-transition tests; VER-01/02 |
+| Exception | Thin CRUD/adapters need no artificial reducer. Encapsulated local mutation is pure if it escapes only as a fresh value. |
+
+## FP-02 — immutable state
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for reducer inputs/outputs, exposed UI state and accepted records |
+| Rule / rationale | Prefer `val` and invariant-preserving replacement. Read-only `List` does not guarantee deep immutability: snapshot inputs, retain no writable aliases, use immutable elements. Evaluate persistent collections for concrete correctness/structural-sharing benefits. |
+| Good / counterexample | `state.copy(episodes = input.toList())` with immutable elements/no writable alias vs. `State(inputMutableList)` then `inputMutableList.clear()` |
+| Oracle / enforcement | Mutate original inputs after construction and assert state unchanged; audit nested elements/copies/casts; VER-02 |
+| Exception | Local builders returning detached snapshots are fine. Persistent collections need [target/compiler checks](cmp-tooling.md) and do not make mutable elements immutable. |
+
+The current reducer emits fresh `emptyList()`/`listOf()` effect snapshots; no library is needed
+just to replace these small lists.
+
+## FP-03 — named functional composition
+
+| Field | Contract |
+|---|---|
+| Level / scope | SHOULD for transformations/validation composition |
+| Rule / rationale | Small named functions preserve invariant → implementation → test traceability. Use available typed `map`, `fold`, `flatMap`/bind when clearer; direct `when` is often better. Dependent steps short-circuit; independent validation accumulation must be explicit. Stdlib `Result` and project sealed outcomes do not automatically supply typed-error `flatMap`/`zip`. |
+| Good / counterexample | `episodes.map(::toRow)` or `outcome.fold(::showFailure, ::showValue)` vs. nested `let/run/apply` concealing rejection or a custom monad for one branch |
+| Oracle / enforcement | Review can locate decisions and independent oracles without mentally executing a chain |
+| Exception | Prefer a loop/branch for clearer order or early rejection. No mandatory optics, higher-kinded abstraction or generic MVI/effect framework. |
+
+### Composed factories preserve their refinement
+
+```kotlin
+// Illustrative, dependency-free continuation of TYPE-02's SpeedResult/PlaybackSpeed.
+// The input is already bounded by that factory; addition cannot overflow Int here.
+fun increaseSpeed(raw: Int): SpeedResult = when (val initial = PlaybackSpeed.of(raw)) {
+    is SpeedResult.Accepted -> PlaybackSpeed.of(initial.speed.permille + 250)
+    is SpeedResult.Unsupported -> initial
+}
+```
+
+`1000` yields validated `1250`; `2000` refuses unsupported `2250`; `999` stops at the first
+factory. No accepted value is forged by `copy` or unwrapping. Apply the same pattern to
+cross-field aggregates and decoding: use only validated success values in dependent stages.
+Accumulating independent field errors is a different operation; do not invent secondary
+findings from values that failed to construct. Existing state/rejection/effect contracts remain
+unchanged until a separately reviewed implementation changes their consumers.
+
+Arrow evaluation is in [cmp-tooling](cmp-tooling.md#arrow-eitherraise-decision).
+If adopted, `mapLeft`/`withError` translates at an owning boundary and `bind` composes exact
+typed failures. Do not use `Either.catch` as a blanket wrapper for pure/domain code or mistake
+`either { ... }` for exception containment. No custom generic monad framework is needed.
+
+## FP-04 — separate publication of state from effect execution
+
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for state transforms/asynchronous effects |
+| Rule / rationale | `StateFlow.update` may retry: no network/storage/media command, ID generation, logging or enqueue inside. Complex state machines should use one serialized event owner with ordered effect interpretation. Every effect needs owner, cancellation policy, identity and stale-result handling. |
+| Good / counterexample | Pure `_state.update { it.copy(speed = speed) }`; current event loop publishes state then queues effects to a separate worker vs. `_state.update { engine.start(command); it }` |
+| Oracle / enforcement | Contention/deterministic controller tests assert ordered commands; delayed acknowledgements cannot block later Pause/Seek; VER-05 |
+| Exception | None for effects in retryable lambdas. Single writers may assign `.value = next`. Simple UI state needs no event-loop framework. |
+
+Current playback has **two loops**, events/effects, plus an observation collector. Commands return
+without waiting for readiness; fenced observations acknowledge them separately. Reduction
+blocked on acknowledgement can prevent a later command from progressing. Atomic publication
+does not make external delivery exactly once.
 
 ## KT-API — composable contract
 
 | Field | Contract |
 |---|---|
-| Level / scope | SHOULD for every layout-emitting composable; MUST preserve caller-visible geometry, focus and semantics when changing an existing one |
-| Rule / rationale | Required parameters first, then `modifier: Modifier = Modifier` as the first optional parameter, applied **once** at the root; events are `onX` callbacks carrying values (`onPlay(EpisodeId)`); slots are named for their purpose. Callers own layout and input; a modifier applied twice or to a child silently moves hit areas and semantics. |
-| Good / counterexample | `Row(modifier = modifier.fillMaxWidth())` at the root vs. ignoring `modifier`, applying it to an inner `Icon`, or passing the whole controller into a row |
-| Oracle / enforcement | Call-site review; `semantics-tested` bounds and touch-target assertions on the production component; Compose Rules is a candidate linter, not installed |
-| Exception | A private helper scoped to one parent may follow that parent's layout contract |
-
-```kotlin
-@Composable
-fun EpisodeRow(
-    episode: EpisodeRowState,
-    onPlay: (EpisodeId) -> Unit,
-    onDownload: (EpisodeId) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier = modifier.fillMaxWidth()) {
-        // title "Một lời hẹn", duration, availability, actions
-    }
-}
-```
+| Level / scope | SHOULD for layout composables; MUST preserve geometry/focus/semantics on changes |
+| Rule / rationale | Required parameters first; `modifier: Modifier = Modifier` first optional parameter, applied once at root. Values in, typed `onX` intents out; named slots. |
+| Good / counterexample | `Row(modifier = modifier.fillMaxWidth())` vs. ignoring modifier or passing a controller into a row |
+| Oracle / enforcement | Call-site review and production-composable semantics/bounds tests; lint remains a candidate |
+| Exception | Private helpers may follow their parent's explicit layout contract |
 
 ## KT-STATE — one mutable authority, projections for the rest
 
 | Field | Contract |
 |---|---|
-| Level / scope | MUST for application and screen state; SHOULD for reusable components (values in, events out) |
-| Rule / rationale | Each fact has one writable owner at its lifetime. Cheap derived facts (`canResume`, `isDownloaded`, mini-player visibility) are pure functions of the owner's state, not separate flows synchronized by an effect, which drift under reordering. Facts that can be true **at the same time** stay separate: a refresh failure must not erase the list being read, and buffering while the listener intends to play is not "paused". |
-| Good / counterexample | `LibraryUiState(episodes, refresh, append, offline)` vs. `Loading | Success | Error` replacing the visible list with an error screen on a failed refresh |
-| Oracle / enforcement | Reducer tests asserting every concurrent combination the screen can observe; manual review for mirrored flags |
-| Exception | Menu, focus, scroll, text-field and pressed state stay in the composable or a plain remembered holder; no reducer for a boolean |
-
-```kotlin
-// Counterexample: one flag-shaped enum for facts that coexist.
-sealed interface LibraryUiState {
-    data object Loading : LibraryUiState
-    data class Success(val episodes: List<EpisodeRowState>) : LibraryUiState
-    data class Error(val error: LibraryError) : LibraryUiState
-}
-
-// Better: independent facts, each with its own closed type.
-data class LibraryUiState(
-    val episodes: ImmutableList<EpisodeRowState>, // candidate library, see KT-VALUES
-    val refresh: RefreshStatus,
-    val append: AppendStatus,
-    val offline: Boolean,
-)
-```
+| Level / scope | MUST for application/screen state; SHOULD for reusable components |
+| Rule / rationale | One writable owner at its lifetime; expose `StateFlow` via `asStateFlow()`. Derive cheap facts instead of mirroring mutable flows. Coexisting facts remain independent: cached rows, refresh and a refresh failure may coexist. |
+| Good / counterexample | `val canResume get() = state.session != null` vs. mirrored `MutableStateFlow(canResume)`; `CatalogState(lastKnownInventory, refresh)` vs. error erasing usable rows |
+| Oracle / enforcement | Ownership inventory, observable-combination and reset/account-switch tests |
+| Exception | Menu/scroll/focus/pressed/text-field state may remain local; no reducer for trivial booleans |
 
 ## KT-VALUES — immutable values, honestly
 
-| Field | Contract |
-|---|---|
-| Level / scope | MUST for state exposed to UI, reducer inputs/outputs and persisted local records |
-| Rule / rationale | `val` properties, `data class` updated with `copy`, transformations return new values. A read-only `List` is a **view**, not deep immutability: if the producer keeps the `MutableList`, the UI sees mutations Compose never observed. Never pass a mutable collection into UI state. `kotlinx.collections.immutable` (`ImmutableList`, `persistentListOf`) is a candidate when its stability and structural sharing pay off; record the reason when adopting it. |
-| Good / counterexample | `state.copy(episodes = episodes + row)` vs. `state.episodes as MutableList` then `add(row)` |
-| Oracle / enforcement | Review for `Mutable*` escaping a function; a test that mutates the input after the call and asserts the returned state is unchanged |
-| Exception | Local `mutableListOf()` inside a function that returns a snapshot; purity is about effects, not about never writing `var` |
-
-Validated values are proof barriers ([types-as-proofs.md](../../cantos-engineering/references/types-as-proofs.md)).
-Prefer a value class with a private constructor and a fallible factory:
-
-```kotlin
-@JvmInline
-value class PlaybackSpeed private constructor(val percent: Int) {
-    companion object {
-        private val Allowed = setOf(75, 100, 125, 150, 175, 200) // product choice, proposed
-
-        fun ofPercent(percent: Int): PlaybackSpeed? =
-            if (percent in Allowed) PlaybackSpeed(percent) else null
-    }
-}
-```
-
-Integer percent keeps equality and serialization exact; a `Double` factor does not. A
-`data class` with a private constructor may still expose a public `copy` that skips validation,
-depending on the Kotlin version and `@ConsistentCopyVisibility`; verify the pinned compiler or use
-a value class or plain class. Route decoded API values through the same factory and prove it with
-an invalid-payload test ([boundary-hardening.md](../../cantos-engineering/references/boundary-hardening.md)).
+Compatibility anchor: [FP-02](#fp-02--immutable-state) owns this rule; construction is
+[TYPE-02/03](#type-02--refined-values-and-relations). No separate copy-based validity rule.
 
 ## KT-UPDATE — retry-safe state transforms
 
-| Field | Contract |
-|---|---|
-| Level / scope | MUST for every `MutableStateFlow.update { }` lambda |
-| Rule / rationale | `update` re-runs the lambda when another writer won the compare-and-set. The lambda is pure and deterministic: no engine call, no persistence, no `trySend`, no clock or ID generation inside. |
-| Good / counterexample | `_state.update { it.copy(speed = speed) }` then `engine.setSpeed(speed)` vs. calling the engine and saving a checkpoint inside the lambda — under contention the engine is told twice and two checkpoints are written |
-| Oracle / enforcement | Review; a contention test with two concurrent writers asserting effect counts |
-| Exception | None inside the lambda. A serialized single writer may assign `.value = next` |
-
-For the playback controller, prefer a **serialized event loop**: UI intents and engine events go
-into one channel consumed by one coroutine that applies the pure reducer, publishes the new
-state and then interprets the effects in order. That gives one writer and a deterministic effect
-order without compare-and-set retries. Atomic state does not make an external effect exactly-once.
+Compatibility anchor: [FP-04](#fp-04--separate-publication-of-state-from-effect-execution) owns this rule.
 
 ## KT-LIFETIME — effects have an owner, keys and cleanup
 
 | Field | Contract |
 |---|---|
-| Level / scope | MUST for requests, subscriptions, platform listeners and timers that span composition, route, account or process lifetimes |
-| Rule / rationale | Name the owner, the restart keys and the cleanup. Every async result carries the identity it was requested for (account scope, request generation, publication) and is **rejected** when that identity is no longer current — a late page for the previous account, a refreshed URL for the previous episode. Cancellation cannot undo an external write; important outcomes are acknowledged durably at their owner, not through a one-shot event. |
-| Good / counterexample | `LaunchedEffect(episodeId)` loading details, with the result checked against the current `episodeId`; `DisposableEffect` removing a listener vs. registering a listener in the composable body or relying on a `SharedFlow` emission nobody may be collecting |
-| Oracle / enforcement | Controlled late-response, account-switch, double-tap and disposal tests with a test dispatcher; device evidence for OS callbacks |
-| Exception | Transient UI requests (focus, snackbar) may use shell effects without persistence |
+| Level / scope | MUST for requests/listeners/timers/subscriptions spanning a lifetime |
+| Rule / rationale | Name process/account/route/composition owner, restart keys and cleanup. Results carry account/request/source/generation identity checked on arrival. Reset/logout/account switch fences outstanding work; cancellation cannot undo external writes. |
+| Good / counterexample | `LaunchedEffect(episodeId)` plus current-identity check and `DisposableEffect` cleanup vs. listener registration in a composable body |
+| Oracle / enforcement | Delayed-response, disposal, rapid-input/reset tests; OS callbacks need native evidence too |
+| Exception | Transient focus/snackbar effects need no persistence; important operations need durable acknowledgement at their owner |
 
-Use `rememberUpdatedState` when a long-lived effect must call the latest callback without
-restarting. Choose lifecycle-aware collection (`collectAsStateWithLifecycle` from the KMP
-lifecycle artifacts is a candidate) only after checking the pinned artifact supports every target.
+Use `rememberUpdatedState` for the latest callback in a long-lived effect. Lifecycle-aware
+collection and Swift coroutine interop require pinned target checks.
 
 ## KT-CLOSED — sealed types and exhaustive `when`
 
-| Field | Contract |
-|---|---|
-| Level / scope | MUST for closed state, event and error sets |
-| Rule / rationale | Model closed sets as `sealed interface` with `data object` / `data class` members, and match them with an exhaustive `when` **without `else`**. Adding `DownloadState.Revoked` must break the build at every renderer, label and accessibility description; `else ->` turns that into a silent default. |
-| Good / counterexample | an exhaustive `when (state)` naming `NotDownloaded`, `Transferring`, `Verifying`, `Available` and `Failed` vs. the same `when` ending in `else -> strings.unknown` |
-| Oracle / enforcement | Compiler exhaustiveness for sealed subjects (`statically-checked` once the build exists); review for `else` on sealed subjects |
-| Exception | Open sets (HTTP status codes, unknown server enum values) need a deliberate fallback; map them to a sealed `Unknown(code)` at the adapter, once |
+Compatibility anchor: [TYPE-04](#type-04--closed-algebraic-data-types) owns this rule.
 
 ## KT-ERRORS — expected failures are values
 
-| Field | Contract |
-|---|---|
-| Level / scope | MUST for adapters, controllers and reducers |
-| Rule / rationale | Expected failures (offline, access expired, forbidden, storage full, checksum mismatch) are sealed values the reducer can match. `kotlin.Result` erases the error to `Throwable`, so prefer a sealed outcome; an Either library is a candidate only with an ADR. Exceptions are for programmer errors and are mapped at the platform boundary. No `!!`. Raw exception messages never reach UI or logs: platform errors often embed the request URL. |
-| Good / counterexample | `DeliveryFailure.AccessExpired` driving a bounded refresh vs. `catch (e: Exception) { showError(e.message) }` |
-| Oracle / enforcement | Tests assert the exact variant, never only "is failure"; review for `!!` and `runCatching` |
-| Exception | Test code may use `!!` or `requireNotNull` to fail fast on fixture mistakes |
-
-```kotlin
-suspend fun fetchEpisode(id: EpisodeId): CatalogOutcome =
-    try {
-        CatalogOutcome.Found(client.getEpisode(id.value).toEpisode())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        CatalogOutcome.Failed(e.toCatalogFailure())
-    }
-```
-
-`runCatching` around a suspend call swallows `CancellationException`, so a cancelled screen keeps
-working and may commit a stale result. Rethrow it, as above.
+Compatibility anchor: [TYPE-05](#type-05--typed-expected-failures) owns this rule.
 
 ## KT-CONCURRENCY — structured, injected, controllable
 
 | Field | Contract |
 |---|---|
-| Level / scope | MUST for coroutines in application and adapter code |
-| Rule / rationale | Every coroutine belongs to a scope owned by a named lifetime: the process scope created at the composition root (with a `SupervisorJob`), the account scope cancelled on logout or switch, the route scope, the composition. No `GlobalScope`, no `runBlocking` on the main thread. Inject the dispatcher used for blocking work and the clock or `TimeSource`, so tests run on virtual time. Monotonic time drives sleep timers, backoff and lease-like waits; wall-clock time is context only. |
-| Good / counterexample | `class DownloadQueue(scope: CoroutineScope, io: CoroutineDispatcher, clock: Clock)` vs. `GlobalScope.launch(Dispatchers.IO) { … System.currentTimeMillis() … }` |
-| Oracle / enforcement | `runTest` with `StandardTestDispatcher` and virtual time advancing the sleep timer and retry schedule; review for unscoped launches |
-| Exception | The composition root may reference platform dispatchers directly when constructing the graph |
+| Level / scope | MUST for application/adapter coroutines |
+| Rule / rationale | Every coroutine has a named lifetime owner; cancellation propagates. No `GlobalScope`, main-thread `runBlocking` or swallowed cancellation. Inject dispatchers/time. Monotonic time drives waits; wall-clock time is contextual. Supervision isolates siblings, not failure handling. |
+| Good / counterexample | `scope.launch(CoroutineName("theatre-playback-events")) { ... }` owned by `AppContainer` vs. `GlobalScope.launch { ... }` surviving logout |
+| Oracle / enforcement | `runTest`, injected scheduler, cancel/close/reset/late-callback assertions; single-thread virtual tests alone do not establish multi-writer thread safety |
+| Exception | Composition roots choose platform jobs/dispatchers; blocking platform calls use an appropriate injected dispatcher, never pure functions |
 
-`kotlin.time.Clock` (newer stdlib) and `kotlinx-datetime` are candidates for wall-clock time;
-verify which one the pinned Kotlin version provides.
+Rapid inputs preserve specified effect ordering/idempotence. See
+[architecture guarantees](cmp-architecture.md#concurrency-guarantees).
 
 ## KT-SECRETS — values that must not print
 
 | Field | Contract |
 |---|---|
-| Level / scope | MUST for tokens, signed URLs, cookies and credential material |
-| Rule / rationale | A `data class` `toString()` prints every field into logs, crash reports and test output. Wrap secrets in a value class whose `toString()` redacts, keep them out of navigation arguments, saved state and analytics, and log identities and reason codes instead (`publication_id`, `AccessExpired`). |
-| Good / counterexample | `value class SignedMediaUrl(private val raw: String) { override fun toString() = "SignedMediaUrl(redacted)" }` vs. `Log.d(TAG, "loading $url")` |
-| Oracle / enforcement | A sentinel-secret test: run the flow with a fake token and URL, capture logs and saved state, assert the sentinel never appears |
-| Exception | None in shipped builds; local debugging uses fake credentials |
+| Level / scope | MUST for tokens/signed URLs/cookies/credentials |
+| Rule / rationale | Generated `data class.toString()` exposes fields; redact, exclude secrets from navigation/saved state/analytics, log IDs and reason codes. |
+| Good / counterexample | `override fun toString() = "SignedMediaUrl(redacted)"` vs. `println("loading $url")` |
+| Oracle / enforcement | Sentinel-secret tests over logs/saved state; review generated representations |
+| Exception | None in shipped output; debug with fake credentials |
 
 ## KT-STYLE — readable, mechanically formatted
 
 | Field | Contract |
 |---|---|
 | Level / scope | SHOULD for touched handwritten Kotlin |
-| Rule / rationale | Official Kotlin style, explicit imports (no wildcards), trailing commas, one argument per line once a call wraps, named arguments for booleans and same-typed parameters, modifiers chained one per line. Readability beats line count; no semicolons or clever scope-function chains to make a file look shorter. |
-| Good / counterexample | `EpisodeRow(episode = row, onPlay = onPlay, modifier = Modifier.padding(…))` vs. `EpisodeRow(row, {}, {}, Modifier.padding(…), true)` |
-| Oracle / enforcement | ktlint, detekt and Compose Rules are **candidates, not installed**; choose one formatter and one small rule set in an ADR, run them on the actual source sets, and never let two engines enforce the same Compose rule |
-| Exception | Do not mass-reformat existing code inside a behavior change; report formatter-touched files you did not edit |
+| Rule / rationale | Official Kotlin style, explicit imports, trailing commas, named same-type/boolean arguments, readable wrapped calls. |
+| Good / counterexample | `EpisodeRow(episode = row, onPlay = onPlay)` vs. `EpisodeRow(row, {}, {}, true)` |
+| Oracle / enforcement | Manual review today; [tooling evaluation](cmp-tooling.md) precedes any formatter/linter gate |
+| Exception | No mass reformat in a behavior change; report unrelated formatter touches |
 
 ## KT-STABILITY — measure before annotating
 
-`@Immutable` and `@Stable` are promises to the Compose compiler, not performance switches.
-Annotating a type that wraps a mutable collection makes skipped recomposition show stale data.
-Prefer genuinely immutable values; claim a performance improvement only with before/after
-measurements on a named device and build. Strong skipping behavior depends on the pinned Compose
-compiler; verify it instead of assuming.
+| Field | Contract |
+|---|---|
+| Level / scope | MUST for `@Immutable`/`@Stable` promises; SHOULD measure performance changes |
+| Rule / rationale | Annotations promise stability to Compose; they cannot make mutable graphs immutable or prove speedups. Check pinned compiler behavior. |
+| Good / counterexample | `@Immutable data class Title(val text: String)` vs. `@Immutable data class Rows(val items: MutableList<Row>)` |
+| Oracle / enforcement | Audit complete object graph; device/build-specific before/after measurements for performance claims |
+| Exception | Omit annotation when the promise is unestablished; no knowingly false promises |

@@ -30,8 +30,8 @@ manages releases. All apps speak versioned API contracts; no model credentials e
 | Ingestion | Safely preserve imported source and extraction receipts | Create speech |
 | Adaptation | Frozen context and externally authored proposal acceptance | LLM inference |
 | Production | Versioned planning-only voice/performance/rights/budget metadata | Dispatch providers |
-| Media | Pure inspection rules; revision-bound owner-session private development intake | TTS, mixing, encoding or implicit publication |
-| Future catalog | Work/novel/story/podcast, chapter/episode hierarchy | Force Script IR on a recording |
+| Media | Pure byte inspection and private development intake | TTS, mixing, encoding |
+| Catalog (implemented) | Work/unit metadata and separate immutable ContentRevision, optional exact ScriptRef | Force Script IR on a recording or duplicate original sources |
 | Future publication | Rights/QC approval, immutable release manifest | Trust unverified uploads |
 | Theatre | Listener-visible releases and playback progress | Production work |
 
@@ -47,10 +47,10 @@ staging and immutable checked objects, then a public/CDN delivery path for appro
 Never assume a Postgres transaction and object-store PUT are atomic. Use checked finalize plus
 bounded reconciliation/cleanup. Prevent replay conflicts via exact operation IDs/digests.
 
-The narrow [development intake](../decisions/0019-studio-private-audio-intake.md) uses private
+The narrow [development intake](../decisions/0020-studio-private-audio-intake.md) uses private
 immutable filesystem objects outside PostgreSQL until production storage is implemented.
 Metadata acceptance follows actual object verification and reauthorization; private orphans may
-remain after rollback. No S3/CDN or scoped external-producer implementation is implied.
+remain after rollback. The [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds exact scoped upload and private review; no S3/CDN/publication is implied.
 
 Historical migrations 0007–0009 for TTS jobs and speech clips stay intact for checksum/
 upgrade compatibility. They are not part of the new write model. Do not drop legacy tables
@@ -70,7 +70,7 @@ Bind every request to actor, work, content unit, frozen brief and rights scope.
 ## Media interoperability
 
 Audio format profiles are versioned. The development intake adopts four explicit Ogg/Opus mono
-20/24/32/40 kbps nominal envelopes with no default under [ADR 0019](../decisions/0019-studio-private-audio-intake.md).
+20/24/32/40 kbps nominal envelopes with no default under [ADR 0020](../decisions/0020-studio-private-audio-intake.md).
 This narrow admission does not settle playback/listening interoperability; AAC remains outside
 that intake rather than an implemented fallback. The server may inspect bytes and record measured
 facts, but audio mastering/encoding and listening reviews are external/editorial work.
@@ -78,8 +78,7 @@ Theatre playback only reads accepted published files.
 
 ## Verification
 
-Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. The new Work/Audio
-catalog/scoped-producer contracts are **proposed**; the owner-session development intake is
-implemented separately and its required Rust/PostgreSQL runtime evidence is **NOT_RUN** here.
+Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. Work/unit metadata and [Content Identity](../../packages/contracts/content-v1.md) are implemented
+as authenticated Studio APIs. Brief and private Audio Lifecycle are implemented; public release/delivery remains proposed.
 Read [external handoff contract](../../packages/contracts/external-audio-handoff-v1.md) before
 adding a route and write adversarial/replay/owner-isolation tests as part of its implementation.

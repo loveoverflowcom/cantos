@@ -60,17 +60,20 @@ Canonical skills live in [`.agents/skills/`](.agents/skills/README.md) and are s
 - [`cantos-engineering`](.agents/skills/cantos-engineering/SKILL.md) for any domain, backend, persistence, contract, test or verification change. It owns the required order, decoupling, immutability, functional core, the evidence vocabulary and the completion report.
 - Domain owners: [`cantos-script-ir`](.agents/skills/cantos-script-ir/SKILL.md), [`cantos-production-pipeline`](.agents/skills/cantos-production-pipeline/SKILL.md), [`cantos-publication`](.agents/skills/cantos-publication/SKILL.md), [`cantos-listening`](.agents/skills/cantos-listening/SKILL.md).
 - UI: [`cantos-ui-design`](.agents/skills/cantos-ui-design/SKILL.md) (Material 3 Expressive and shared UI policy) with [`cantos-leptos-web`](.agents/skills/cantos-leptos-web/SKILL.md) or [`cantos-cmp-mobile`](.agents/skills/cantos-cmp-mobile/SKILL.md).
-- Task entrypoints: [`cantos-work-item`](.agents/skills/cantos-work-item/SKILL.md) to deliver a work-plan item, [`cantos-code-review`](.agents/skills/cantos-code-review/SKILL.md) for a read-only review, [`cantos-ui-inspector`](.agents/skills/cantos-ui-inspector/SKILL.md) for a report-only UI audit.
+- Task entrypoints: [`cantos-work-item`](.agents/skills/cantos-work-item/SKILL.md) to deliver a work-plan item, [`cantos-code-review`](.agents/skills/cantos-code-review/SKILL.md) for a read-only review, [`cantos-ui-inspector`](.agents/skills/cantos-ui-inspector/SKILL.md) for a report-only UI audit, [`cantos-ui-fix`](.agents/skills/cantos-ui-fix/SKILL.md) for one bounded UI repair, [`cantos-logic-fix`](.agents/skills/cantos-logic-fix/SKILL.md) for one bounded invariant/logic repair. Both fix entrypoints compose existing owners, use minimal changes and independent layered evidence; neither adds rules or permission. Review/inspection does not authorize fixing.
 - Story artifact workflows: [`cantos-story-ingest`](.agents/skills/cantos-story-ingest/SKILL.md), [`cantos-radio-adapt`](.agents/skills/cantos-radio-adapt/SKILL.md), [`cantos-audio-produce`](.agents/skills/cantos-audio-produce/SKILL.md) and [`cantos-story-audit`](.agents/skills/cantos-story-audit/SKILL.md) share the [Drive/local workspace contract](docs/production/story-workspace.md). They preserve raw sources, maintain `score/name_map.yml`, coordinate immutable score/audio revisions and recover blocked synchronization through local records and GitHub issues. **Only external agents run audio rendering**, never the Cantos backend. Keep all story data outside Git.
 
 Skills own working method; `docs/` owns product rules. Keep one copy of each skill and update it rather than adding per-runtime instructions.
 
 ## Verification
 
-Complete implementation handoff and open a PR after the applicable local tests, mocked integration
-tests and verification checks pass. Do not wait for GitHub Actions to finish or require green
-remote CI before reporting completion. Follow the foundation's [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
-for evidence, unavailable tools and the docs-only fallback; production acceptance keeps its own gates.
+Follow the foundation's [layered verification order](.agents/skills/cantos-engineering/references/verification-strategy.md#layered-verification)
+and [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
+verify the pure core first and deliver independently verified layers through requested
+commit/push/PR actions. Missing infrastructure does not hold passed core work pending; report
+each layer's evidence, deferred acceptance, blocker and actual failure separately. Do not wait
+for remote CI. Required checks and production acceptance retain their gates; use the existing
+docs-only fallback when applicable.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
@@ -95,8 +98,21 @@ On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python un
 Static Compose UI capture goes through `cargo xtask compose-preview <cantos-theatre|ui-system-cmp>`;
 read the [CMP preview workflow](.agents/skills/cantos-cmp-mobile/references/compose-preview.md).
 It needs a real mobile Gradle project and Android Studio Quail 2+ with that project open, but no
-emulator or phone. Theatre Mobile remains a guide, so its capture is `UNSUPPORTED`;
+emulator or phone. Theatre Mobile's isolated mock has Gradle Android preview wrappers;
+capture requires the official CLI and a ready synced IDE, otherwise it is `UNSUPPORTED`.
 Studio Mobile is excluded. The shared `ui-system-cmp` library has an Android preview host. Open the PNG and assert the observed semantics before claiming inspected/tested
 evidence; host rendering does not replace Android/iOS runtime or screen-reader gates.
 
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.
+
+## Service runtime ownership
+
+A service is a runnable process or independently managed infrastructure, not necessarily a Rust
+crate. Follow [the service inventory](services/README.md) and
+[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
+Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
+registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
+Podman, initialize/start a machine or change its connection without explicit consent. Manage
+only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
+TLS and data outside Git, and distinguish configuration from observed runtime and integration.

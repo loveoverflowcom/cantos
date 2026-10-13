@@ -3,8 +3,8 @@ name: cantos-engineering
 description: >-
   Engineering foundation for Cantos (Rust, Axum, PostgreSQL, Leptos, Compose Multiplatform).
   Invariant-first workflow, decoupled module boundaries, immutable values and revisions, types
-  as proof barriers, functional core with imperative shell, clean readable syntax, cheapest
-  adequate test evidence, PostgreSQL read performance and conditional DBSP evaluation,
+  as proof barriers, functional core with imperative shell, clean readable syntax,
+  layered verification and progressive delivery, PostgreSQL read performance and conditional DBSP evaluation,
   one evidence vocabulary and a mandatory residual-risk report. Use for
   any domain, backend, persistence, contract, test, refactoring or verification change.
 ---
@@ -20,44 +20,39 @@ vocabulary and report; none of them redefines these.
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
   document, the work-plan item and the code you will touch. Product rules live in
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
-- **Repository reality.** Script IR, Axum/PostgreSQL revisions/editorial/import/adaptation,
-  casting/frozen inputs, local/Google TTS probes, bounded development-only local/fake workers and
-  Leptos Studio exist. Theatre Web is a skeleton; Theatre Mobile, commercial dispatch, full production
-  and delivery remain planned. Inspect commands; see [local execution](references/local-execution.md).
+- **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
+  audio lifecycle slices, and Leptos Studio exist. Theatre Web is a session-only mock; Theatre
+  Mobile has a Gradle CMP mock with Android/iOS hosts and pure playback/controller tests.
+  Production listener API, native audio and delivery remain planned. Backend TTS/workers were
+  removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
+  Inspect commands; see [local execution](references/local-execution.md).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with
   native playback, S3-compatible storage. A new crate, service, trait, dependency or framework
-  needs a concrete consumer and a stated reason ([decision 0001](../../../docs/decisions/0001-modular-monolith.md)).
+  needs a concrete consumer and a stated reason ([decision 0001](../../../docs/decisions/0001-modular-monolith.md)); runtime work follows [service-runtime](references/service-runtime.md).
 
 ## The required order
 
-```text
-read the owning doc, the work item and the code
-        ↓
-name the invariant and its failure mode
-        ↓
-choose the owner and the boundary (decouple)
-        ↓
-make invalid states unrepresentable; make settled facts immutable
-        ↓
-extract the functional core from the imperative shell
-        ↓
-choose the cheapest adequate evidence (for a bug: a failing test first)
-        ↓
-implement in small, named, readable steps
-        ↓
-run the focused test, then proportionate broader checks
-        ↓
-format and lint
-        ↓
-report the exact evidence level and the residual risk
-```
+Read the owning doc, work item and code, then follow **Layered Verification + Progressive
+Delivery**. Verify the pure core before implementing or verifying the I/O shell:
 
-Skipping a step is a decision you must state. "No core extracted: this adapter only maps types"
-is a fine answer; silence is not.
+| Order | Obligation |
+|---|---|
+| L1 — Abstraction & Architecture | name the invariant/failure mode, module owner and inward dependency direction; review DDD boundaries, SOLID and justified ports |
+| L2 — Domain, Types & Error Handling | immutable values, fallible constructors, closed outcomes, pure decisions and atomic rejection |
+| L3 — Unit & Property Verification | exact semantic regressions and applicable laws, focused tests, format, lint and static checks without infrastructure |
+| L4 — Application & I/O Adapters | only after L1–L3 pass: use cases, ports, effects and typed error mappings exercised with deterministic fakes |
+| L5 — DB, API & Integration | real constraints, transactions, HTTP/auth contracts, storage/platform integration and scoped E2E/runtime acceptance |
+
+The [verification strategy](references/verification-strategy.md#layered-verification) owns the
+layer obligations and independent gate ledger. State inapplicable steps; adapter-only work with
+no domain rule may proceed directly to L4, with a reason. For a bug, reproduce failure first.
+The [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion) owns
+commit/push/PR eligibility: deliver independently verified layers when requested, explicitly
+defer infrastructure acceptance and report exact evidence and residual risk.
 
 ### Database-backed GET, read and fetch work
 
@@ -77,21 +72,18 @@ if it is false. Keep a working ledger while implementing:
 | Claim / invariant | Failure mode | Cheapest oracle | Evidence level |
 |---|---|---|---|
 
-The [business-rule invariants](../../../docs/product/business-rules.md#product-invariants-to-verify)
-are the first ledger seeds for any production, publication or listening change: one changed line
-regenerates only that line and its dependent mixes; a dead worker resumes without duplicate
-accepted output; a lost provider response is reconciled before a repeat; stale approval blocks
-publication; an incomplete upload is never listener-visible; repeated play costs nothing; late
-offline progress never blindly overwrites newer progress.
-
-Every added test maps to a claim. Every changed high-impact claim gets evidence or an explicit gap.
+Use the current [business rules](../../../docs/product/business-rules.md#product-invariants-to-verify)
+with ADR 0018: exact immutable content/brief bindings, scoped/revocable producer access,
+duplicate upload/lost-finalize reconciliation, actual-byte integrity, stale approval blocking,
+private incomplete uploads, playback without production and revision-aware offline progress.
+Provider attempts/regeneration belong to external producers, never a new backend worker.
 
 ## 2. Decouple by ownership
 
 ```text
 pure domain values and rules   ←  application (permissions, transitions, gates)
         ↑                              ↑
-   adapters (PostgreSQL, S3, TTS, adaptation AI, audio tools)   ←  HTTP handlers, workers, UI
+   adapters (PostgreSQL, private storage, read-only inspection)   ←  HTTP handlers, UI
 ```
 
 Dependencies point toward pure domain values. Script IR and domain rules never import Axum,
@@ -110,7 +102,8 @@ wire path cannot forge what the constructor rejects.
 
 Settled facts are immutable. An accepted script revision, frozen production inputs, a provider
 attempt, an accepted artifact, a QC result, an approval and a release manifest are written once;
-a correction creates a new revision, run, artifact or release and preserves history. In code,
+a correction creates a new revision, artifact or release and preserves history. External producer
+attempt history belongs to its producer. In code,
 transformations take values and return new values; mutation stays local, private and invisible
 until the function returns.
 
@@ -119,10 +112,12 @@ until the function returns.
 [`boundary-hardening.md`](references/boundary-hardening.md) when a value crosses serde, SQL rows,
 fixtures, AI output or a migration.
 
+Load [typed errors and composition](references/typed-errors-and-composition.md) for fallible flow and containment at concrete outer boundaries.
+
 ## 4. Functional core, imperative shell
 
 ```text
-world: HTTP · PostgreSQL · S3 · TTS · adaptation AI · audio tools · clock · IDs · randomness
+world: HTTP · PostgreSQL · private storage · read-only audio tools · clock · IDs · randomness
                          ↓
                   imperative shell        resolves facts, executes effects, retries
                          ↓
@@ -135,10 +130,10 @@ world: HTTP · PostgreSQL · S3 · TTS · adaptation AI · audio tools · clock 
 
 When a durable decision sits inside a handler, worker loop, adapter, Leptos component or Kotlin
 screen, extract it before reaching for mocks. Cantos decisions that belong in the core include
-validating a script revision, planning partial regeneration, computing a speech fingerprint,
-classifying a provider failure into a retry decision, deciding whether a release may publish and
-reconciling listener progress. Each must be callable from a plain `#[test]` with no async runtime,
-database or provider.
+validating a script revision, binding a production brief, classifying an intake/replay decision,
+deciding whether a release may publish and reconciling listener progress. Each must be callable
+from a plain unit test with no async runtime, database or provider. Kotlin uses the same method;
+`reducePlayback` is the current pure-core example.
 
 Do not force this on thin CRUD or an adapter that only maps types.
 
@@ -227,10 +222,10 @@ verifier output; report only what a tool actually printed.
 | UI change | the renderer skill's evidence loop: driven flow, inspected captures, viewports, themes, Vietnamese text, focus, text scaling |
 | Phase exit | the work plan's [review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence) with live and mocked evidence labeled separately |
 
-For implementation handoff and PR creation, use the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion):
-applicable local tests, mocked integration and verification checks pass; no waiting for GitHub CI.
-Real local infrastructure is still needed for claims a mock cannot establish. Production and
-phase-exit acceptance remain separate. Docs-only work gets no invented integration requirement.
+For handoff, follow the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion)
+and report [independent gates](references/verification-strategy.md#independent-verification-gates).
+Core verification is independent of integration acceptance; a layer's acceptance never establishes
+production or phase-exit acceptance of the whole feature. Docs-only work needs no integration test.
 
 Repository-level checks go through [`cargo xtask`](../../../xtask/README.md); scripts are its
 primitives. Report each gate as xtask printed it (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`, which
@@ -260,6 +255,9 @@ Evidence level:            <from § 6>
 Evidence:                  test / property / tool → pass | fail
 Command:                   <exact, reproducible>
 Provenance:                <source revision, fixtures, live vs mocked, artifacts>
+Layer gates / verified scope: <independent status, evidence level and covered claims per layer>
+Deferred acceptance:       <unrun DB/API/I/O checks; reason; prerequisites, command, criteria, owner>
+Execution blockers / failures: <environment or dependency gap vs actual failed check>
 Edge classes covered:
 Not covered / residual risk:
 ```
@@ -275,6 +273,8 @@ A report with an empty residual-risk line is a report nobody can act on.
 | moving a decision out of a handler, worker loop, component or screen, with before/after recipes | [`extraction-recipes.md`](references/extraction-recipes.md) |
 | immutable revisions, append-only records, value semantics in Rust and Kotlin | [`immutability.md`](references/immutability.md) |
 | making an invalid state or identity unrepresentable | [`types-as-proofs.md`](references/types-as-proofs.md) |
+| expected/domain/validation errors, infrastructure failures, unexpected faults, typed composition, cancellation, retry and translation | [`typed-errors-and-composition.md`](references/typed-errors-and-composition.md) |
+| Kotlin identities/factories/ADTs, pure reducers, ownership, SOLID or concurrency verification | [CMP Kotlin rules](../cantos-cmp-mobile/references/kotlin-conventions.md), [architecture](../cantos-cmp-mobile/references/cmp-architecture.md), [testing](../cantos-cmp-mobile/references/cmp-testing.md); load all three for a Kotlin decision |
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
 | PostgreSQL transactions, constraints, concurrency control, migrations, test databases | [`persistence.md`](references/persistence.md) |
 | database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, CDC, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::platform::ids::canonical_uuid;
 
 use super::ids::token_id_valid;
-use super::CatalogError;
+use super::{revision::Revision, CatalogError};
 
 pub const TITLE_MAX_BYTES: usize = 512;
 pub const DESCRIPTION_MAX_BYTES: usize = 16_384;
@@ -214,7 +214,7 @@ impl SourceRef {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ScriptRef {
     id: String,
-    revision: u64,
+    revision: Revision,
     export_digest: String,
 }
 
@@ -226,6 +226,7 @@ impl ScriptRef {
         {
             return Err(error);
         }
+        let revision = Revision::new(revision)?;
         Ok(Self {
             id,
             revision,
@@ -255,7 +256,7 @@ impl ScriptRef {
     }
 
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.revision.get()
     }
 
     pub fn export_digest(&self) -> &str {
@@ -325,7 +326,7 @@ fn text_errors(
     errors
 }
 
-fn validate_language(value: &str) -> Result<(), CatalogError> {
+pub(super) fn validate_language(value: &str) -> Result<(), CatalogError> {
     // Accept a bounded common BCP-47 form without silently changing its spelling. This is
     // a language tag, not an assertion that a specific narrator or asset supports it.
     if value.len() > LANGUAGE_MAX_BYTES {
@@ -355,10 +356,7 @@ fn sha256_valid(value: &str) -> bool {
 }
 
 pub(super) fn validate_revision(revision: u64) -> Result<(), CatalogError> {
-    if revision == 0 || revision > i64::MAX as u64 {
-        return Err(CatalogError::InvalidRevision);
-    }
-    Ok(())
+    Revision::new(revision).map(|_| ())
 }
 
 pub(super) fn validate_timestamps(created_at: i64, updated_at: i64) -> Result<(), CatalogError> {
@@ -372,22 +370,19 @@ pub(super) fn validate_timestamps(created_at: i64, updated_at: i64) -> Result<()
 }
 
 pub(super) fn next_revision(
-    current: u64,
+    current: Revision,
     expected: u64,
     updated_at: i64,
     at: i64,
-) -> Result<u64, CatalogError> {
-    if current != expected {
+) -> Result<Revision, CatalogError> {
+    if current.get() != expected {
         return Err(CatalogError::RevisionConflict {
-            current_revision: current,
+            current_revision: current.get(),
             expected_revision: expected,
         });
     }
     validate_timestamps(updated_at, at)?;
-    if current == i64::MAX as u64 {
-        return Err(CatalogError::RevisionLimit);
-    }
-    Ok(current + 1)
+    current.next()
 }
 
 pub(super) fn validate_unit_kind(

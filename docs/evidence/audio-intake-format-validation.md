@@ -1,5 +1,7 @@
 # Private Studio audio intake: scope and local evidence
 
+> Historical PR69 authoring evidence. The Mac integration reruns its executable tests; see [Audio Lifecycle evidence](audio-lifecycle.md). Original NOT_RUN results below remain attributable to that original environment.
+
 - Date: 2026-10-12.
 - Starting revision: `024065a72245e713d846f50fa9dcdb1b373b89a3`, freshly fetched `origin/develop`
   after the external-production refactor (PR #65).

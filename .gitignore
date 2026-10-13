@@ -23,3 +23,10 @@ __pycache__/
 *.aac
 *.ogg
 *.opus
+
+# Service examples are public; actual local config, TLS and identity data are private.
+/services/*/env.local
+/services/kanidm/server.toml
+/services/*/data/
+*.pem
+*.key

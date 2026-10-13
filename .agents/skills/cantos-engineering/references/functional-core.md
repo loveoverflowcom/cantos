@@ -8,6 +8,13 @@
 
 ## The shape
 
+For Kotlin, [FP-01–04](../../cantos-cmp-mobile/references/kotlin-conventions.md) owns the language
+examples; [CMP architecture](../../cantos-cmp-mobile/references/cmp-architecture.md) owns SOLID,
+layer mapping and effect ownership. The current `reducePlayback` returns state/ordered effects,
+including unchanged-state rejection; its controller interprets them in a separate ordered worker.
+Provider-oriented examples below apply to external producer workflows under ADR 0018, never
+authorization to restore backend synthesis jobs.
+
 ```text
 raw input → parse → validate → typed facts
                                    │
@@ -25,8 +32,20 @@ resolution, retry classification, cost arithmetic, fingerprints and planning.
 The **shell** owns HTTP, PostgreSQL, object storage, providers, audio tools, clocks, randomness,
 ID generation, environment, logging, lease heartbeats and the execution of effects.
 
+[Typed errors and composition](typed-errors-and-composition.md) owns fallible flow: exact
+expected outcomes in the core, typed failures through application/ports, and foreign exception
+containment at concrete outer boundaries. An error value alone does not make an effectful
+pipeline pure or atomic.
+
 The test is simple: a domain rule is callable from a plain `#[test]` with no async runtime,
 database, provider, fixture server or mock.
+
+For new behavior, complete [L1–L3](verification-strategy.md#layered-verification) before wiring
+the shell: types and pure decisions, then exact unit/table/regression tests and applicable laws.
+Kotlin uses plain `commonTest` decisions; Leptos keeps the same rules outside components. An
+existing-shell extraction first preserves behavior with characterization tests below. Missing
+infrastructure never requires moving a rule into an adapter; use the
+[local handoff policy](local-execution.md#local-handoff-and-pr-completion) to deliver its verified core.
 
 ## Pass facts, not services
 
@@ -148,3 +167,4 @@ independent axis makes a regression harder to localize.
 - I/O happens only after the core returns.
 - No framework, SQL or provider type appears in the core's signature or imports.
 - Tests assert behavior and laws, not mock call counts.
+- Core tests ran before new I/O wiring; shell/DB acceptance is recorded separately.

@@ -138,8 +138,8 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
             </Select>
             <p class="theatre-muted">{move || ctx.text(Key::ResetHelp)}</p>
             <div class="theatre-actions">
-                <button type="button" class="theatre-action" on:click=move |_| ctx.reset_demo()>{move || ctx.text(Key::Reset)}</button>
-                <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.clear_library()>{move || ctx.text(Key::ClearLibrary)}</button>
+                <button type="button" class="theatre-action" on:click=move |_| ctx.reset_demo()><span class="cui-control-label">{move || ctx.text(Key::Reset)}</span></button>
+                <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.clear_library()><span class="cui-control-label">{move || ctx.text(Key::ClearLibrary)}</span></button>
                 <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
             </div>
         </section>
@@ -162,7 +162,7 @@ fn Account(ctx: TheatreContext) -> impl IntoView {
 #[component]
 pub(crate) fn Recovery(ctx: TheatreContext, title: Key, help: Key) -> impl IntoView {
     view! {
-        <EmptyState title=ctx.text(title).to_owned()>
+        <EmptyState title=messages::text(title, ctx.locale.get_untracked()).to_owned()>
             <p>{move || ctx.text(help)}</p>
             <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
         </EmptyState>
@@ -257,4 +257,49 @@ mod tests {
             );
         });
     }
+}
+
+/// The live boundary never creates the mock catalog or fake root media engine.
+#[component]
+pub fn LiveBoundary() -> impl IntoView {
+    use crate::live::{Failure, ProbePhase, ProbeState};
+    let state = RwSignal::new(ProbeState::default());
+    let english = RwSignal::new(false);
+    #[cfg(target_arch = "wasm32")]
+    let abort = StoredValue::new_local(None::<web_sys::AbortController>);
+    #[cfg(target_arch = "wasm32")]
+    on_cleanup(move || {
+        abort.update_value(|c| {
+            if let Some(c) = c.take() {
+                c.abort();
+            }
+        })
+    });
+    view! {<UiRoot class="theatre-shell"><Container width=ContainerWidth::Reading>
+        <main class="theatre-main" lang=move ||if english.get(){"en"}else{"vi-VN"}>
+            <h1>"Cantos"</h1><button class="cui-button" type="button" on:click=move |_|english.update(|e| *e = !*e)>"Tiếng Việt / English"</button>
+            <p>{move ||if english.get(){"Published audio and listener identity are not available on this API yet."}else{"API hiện chưa có âm thanh đã phát hành và phiên người nghe."}}</p>
+            <p role="status" aria-live="polite">{move ||match state.get().phase {
+                ProbePhase::Idle=>if english.get(){"Live mode: no request sent."}else{"Chế độ thật: chưa gửi yêu cầu."},
+                ProbePhase::Pending=>if english.get(){"Checking the listener boundary…"}else{"Đang kiểm tra ranh giới người nghe…"},
+                ProbePhase::Unsupported(_)=>if english.get(){"Unsupported: listener API not implemented. Playback, downloads and progress remain unavailable."}else{"Chưa hỗ trợ: API người nghe chưa triển khai. Phát, tải và đồng bộ tiến độ chưa khả dụng."},
+                ProbePhase::Failed(Failure::Unauthenticated|Failure::Forbidden)=>if english.get(){"Listener access refused. A Studio session cannot authorize listening."}else{"Quyền người nghe bị từ chối. Phiên Studio không cấp quyền nghe."},
+                ProbePhase::Failed(_)=>if english.get(){"Cannot verify the API boundary. No demo results were substituted."}else{"Chưa xác minh được ranh giới API. Không thay bằng dữ liệu minh họa."},
+            }}</p>
+            <button class="cui-button" type="button" on:click=move |_| {
+                #[cfg(target_arch="wasm32")]
+                {abort.update_value(|c| {if let Some(c)=c.take() {c.abort();}});
+                if let (Some(next),Ok(controller))=(state.get_untracked().begin(),web_sys::AbortController::new()) {
+                    abort.set_value(Some(controller.clone()));state.set(next);
+                    leptos::task::spawn_local(async move {let phase=crate::live::browser::probe(controller).await;let _=state.try_update(|s|*s=s.finish(next.generation,phase));});
+                }}
+            }>{move ||if english.get(){"Check API availability"}else{"Kiểm tra khả năng API"}}</button>
+            <button class="cui-button" type="button" on:click=move |_| {
+                #[cfg(target_arch="wasm32")]
+                abort.update_value(|c| {if let Some(c)=c.take() {c.abort();}});
+                state.update(|s| {if let Some(next)=s.cancel() {*s=next;}});
+            }>{move ||if english.get(){"Cancel"}else{"Hủy"}}</button>
+            <p><a href="?mode=mock">{move ||if english.get(){"Open isolated mock preview"}else{"Mở bản xem thử minh họa riêng"}}</a></p>
+        </main>
+    </Container></UiRoot>}
 }

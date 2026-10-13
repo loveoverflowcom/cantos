@@ -112,8 +112,8 @@ mod unix {
             }
             let root_name = names.pop().ok_or(StoreError::InvalidRequest)?;
             let slash = CString::new("/").map_err(|_| StoreError::InvalidRequest)?;
-            let mut parent = open_directory(libc::AT_FDCWD, &slash)
-                .map_err(|_| StoreError::Unavailable)?;
+            let mut parent =
+                open_directory(libc::AT_FDCWD, &slash).map_err(|_| StoreError::Unavailable)?;
             for name in names {
                 parent = open_directory(parent.as_raw_fd(), &name)
                     .map_err(|_| StoreError::InvalidRequest)?;
@@ -148,7 +148,8 @@ mod unix {
             }
             self.check_directories()?;
             let key = sha256.to_owned();
-            let object_name = CString::new(key.as_str()).map_err(|_| StoreError::CorruptRevision)?;
+            let object_name =
+                CString::new(key.as_str()).map_err(|_| StoreError::CorruptRevision)?;
             let pending_name = CString::new(format!(".pending-{}", uuid::Uuid::new_v4()))
                 .map_err(|_| StoreError::Unavailable)?;
             let mut pending = open_file(
@@ -179,8 +180,7 @@ mod unix {
                         0,
                     )
                 };
-                if published != 0
-                    && io::Error::last_os_error().raw_os_error() != Some(libc::EEXIST)
+                if published != 0 && io::Error::last_os_error().raw_os_error() != Some(libc::EEXIST)
                 {
                     return Err(StoreError::Unavailable);
                 }
@@ -235,7 +235,9 @@ mod unix {
             let mut length = 0_u64;
             let mut buffer = [0_u8; 16 * 1024];
             loop {
-                let read = file.read(&mut buffer).map_err(|_| StoreError::Unavailable)?;
+                let read = file
+                    .read(&mut buffer)
+                    .map_err(|_| StoreError::Unavailable)?;
                 if read == 0 {
                     break;
                 }
@@ -288,7 +290,10 @@ mod unix {
             let name = CString::new("objects").map_err(|_| StoreError::Unavailable)?;
             let current = open_directory(self.root.as_raw_fd(), &name)
                 .map_err(|_| StoreError::Unavailable)?;
-            let pinned = self.objects.metadata().map_err(|_| StoreError::Unavailable)?;
+            let pinned = self
+                .objects
+                .metadata()
+                .map_err(|_| StoreError::Unavailable)?;
             let current = current.metadata().map_err(|_| StoreError::Unavailable)?;
             if pinned.dev() != current.dev() || pinned.ino() != current.ino() {
                 return Err(StoreError::Unavailable);
@@ -326,9 +331,7 @@ mod unix {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 // SAFETY: parent and the NUL-terminated child name are valid for this call.
                 let created = unsafe { libc::mkdirat(parent.as_raw_fd(), name.as_ptr(), 0o700) };
-                if created != 0
-                    && io::Error::last_os_error().raw_os_error() != Some(libc::EEXIST)
-                {
+                if created != 0 && io::Error::last_os_error().raw_os_error() != Some(libc::EEXIST) {
                     return Err(StoreError::Unavailable);
                 }
                 let directory = open_directory(parent.as_raw_fd(), name)
@@ -356,7 +359,7 @@ mod unix {
                 parent,
                 name.as_ptr(),
                 flags | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
-                mode,
+                libc::c_uint::from(mode),
             )
         };
         if descriptor < 0 {
@@ -432,7 +435,10 @@ mod unix {
                 .unwrap();
             let inode = fs::metadata(scratch.object(&expected)).unwrap().ino();
             assert_eq!(first.object_key, expected);
-            assert_eq!(fs::read(scratch.object(&expected)).unwrap().as_slice(), &bytes[..]);
+            assert_eq!(
+                fs::read(scratch.object(&expected)).unwrap().as_slice(),
+                &bytes[..]
+            );
             assert_eq!(fs::metadata(&scratch.0).unwrap().mode() & 0o7777, 0o700);
             assert_eq!(
                 fs::metadata(scratch.0.join("objects")).unwrap().mode() & 0o7777,
@@ -448,7 +454,10 @@ mod unix {
                 .persist_bytes(bytes, &expected, bytes.len() as u64)
                 .unwrap();
             assert_eq!(first.object_key, second.object_key);
-            assert_eq!(fs::metadata(scratch.object(&expected)).unwrap().ino(), inode);
+            assert_eq!(
+                fs::metadata(scratch.object(&expected)).unwrap().ino(),
+                inode
+            );
             assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 1);
             restarted
                 .verify(&expected, &expected, bytes.len() as u64, None)
@@ -601,7 +610,11 @@ mod unix {
         fn replacing_the_objects_directory_cannot_redirect_pinned_storage() {
             let scratch = Scratch::new();
             let storage = scratch.storage();
-            fs::rename(scratch.0.join("objects"), scratch.0.join("original-objects")).unwrap();
+            fs::rename(
+                scratch.0.join("objects"),
+                scratch.0.join("original-objects"),
+            )
+            .unwrap();
             fs::create_dir(scratch.0.join("objects")).unwrap();
             fs::set_permissions(scratch.0.join("objects"), Permissions::from_mode(0o700)).unwrap();
             assert!(matches!(
@@ -610,7 +623,9 @@ mod unix {
             ));
             assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 0);
             assert_eq!(
-                fs::read_dir(scratch.0.join("original-objects")).unwrap().count(),
+                fs::read_dir(scratch.0.join("original-objects"))
+                    .unwrap()
+                    .count(),
                 0
             );
         }

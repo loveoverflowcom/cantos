@@ -11,7 +11,7 @@ use leptos::prelude::*;
 #[component]
 pub(crate) fn WorkDetail(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     view! {
-        <a class="theatre-back" href="#discover">{icon("arrow_back")}{move || ctx.text(Key::BackDiscover)}</a>
+        <a class="theatre-back" href="#discover">{icon("arrow_back")}<span class="cui-control-label">{move || ctx.text(Key::BackDiscover)}</span></a>
         <Show when=move || ctx.catalog.scenario() == Scenario::Ready fallback=move || view! { <CatalogState ctx=ctx/> }>
             <section class="theatre-work-intro">
                 <Cover ctx=ctx id=id/>
@@ -56,7 +56,7 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
                     aria-label=move || ctx.format(Key::PlayName, &[("title", episode.title.to_owned())])
                     aria-describedby=(!episode.available).then(|| format!("unavailable-{}-{}", id.work.slug(), id.index))
                     on:click=move |_| ctx.open_episode(id)>
-                    {icon("play_arrow")}{move || ctx.text(if episode.available { Key::Begin } else { Key::Unavailable })}
+                    {icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(if episode.available { Key::Begin } else { Key::Unavailable })}</span>
                 </button>
                 {episode.available.then(|| view! {
                     <div class="theatre-queue-action">
@@ -65,7 +65,7 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
                             aria-label=move || ctx.format(Key::QueueName, &[("title", episode.title.to_owned())])
                             aria-describedby=format!("queue-reason-{}-{}", id.work.slug(), id.index)
                             on:click=move |_| ctx.enqueue(id)>
-                            {icon("add")}{move || ctx.text(Key::QueueAdd)}
+                            {icon("add")}<span class="cui-control-label">{move || ctx.text(Key::QueueAdd)}</span>
                         </button>
                         <p id=format!("queue-reason-{}-{}", id.work.slug(), id.index) class="theatre-muted"
                             hidden=move || (!ctx.queue.with(|state| state.items.contains(&id)) && ctx.player.view.get().is_none_or(|player| player.episode != id))>

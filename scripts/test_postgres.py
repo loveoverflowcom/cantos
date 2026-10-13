@@ -9,6 +9,8 @@ import hashlib
 import io
 import json
 import os
+import re
+from urllib.parse import urlsplit
 from pathlib import Path
 import shutil
 import socket
@@ -89,6 +91,38 @@ def free_port():
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
+
+
+def reap_completed_databases(env, cluster_url, retained):
+    """After a suite exits, discard only its completed DBs in this runner's fresh cluster.
+
+    Main constructs cluster_url after initdb; no inherited URL is used. Keep the exact
+    restart fixtures until socket/restart assertions finish. Never force-close connections.
+    """
+    parsed = urlsplit(cluster_url)
+    if (parsed.scheme != "postgresql" or parsed.hostname != "127.0.0.1"
+            or parsed.username != "cantos_test_admin" or parsed.password is not None
+            or parsed.path != "/postgres" or parsed.port is None or parsed.query or parsed.fragment):
+        raise ValueError("completed cleanup requires this disposable cluster's admin URL")
+    command = ["psql", "-X", cluster_url, "-v", "ON_ERROR_STOP=1", "-At", "-c"]
+    result = subprocess.run(command + ["SELECT datname FROM pg_database"], env=env,
+                            text=True, capture_output=True, check=True, timeout=10)
+    candidates = [name for name in result.stdout.splitlines()
+                  if name.startswith("cantos_test_") and name not in retained]
+    if any(not re.fullmatch(r"cantos_test_[a-z0-9_]+", name) for name in candidates):
+        raise ValueError("unsafe disposable database name")
+    for name in candidates:
+        subprocess.run(command + [f'DROP DATABASE "{name}"'], env=env, text=True,
+                       capture_output=True, check=True, timeout=10)
+    print(f"Released {len(candidates)} completed disposable test databases", flush=True)
+
+
+def retained_restart_databases():
+    """Names only: credentials and source bodies never enter cleanup output."""
+    paths = (EVIDENCE / "restart.json", EDITOR_EVIDENCE / "editor-api-journey.json",
+             CATALOG_EVIDENCE / "restart.json", CATALOG_EVIDENCE / "http-restart.json",
+             CATALOG_EVIDENCE / "audio-restart.json")
+    return {json.loads(path.read_text())["database"] for path in paths if path.exists()}
 
 
 def isolated_environment():
@@ -428,14 +462,17 @@ def editor_recovery(env, port, app_url, fixture):
     return snapshot
 
 
-def catalog_http(port, path, method="GET", payload=None, expected_status=200):
+def catalog_http(port, path, method="GET", payload=None, expected_status=200, producer_token=None):
     """Actual socket requests against the catalog's own synthetic app-role database."""
+    headers = {"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json", "Accept": "application/json"}
+    if producer_token is None:
+        headers["Cookie"] = "cantos_session=" + "a" * 64
+    else:
+        headers["Authorization"] = "Bearer " + producer_token
     request = urllib.request.Request(
         f"http://127.0.0.1:{port}/api/v1/studio{path}", method=method,
         data=None if payload is None else json.dumps(payload, ensure_ascii=False).encode(),
-        headers={"Cookie": "cantos_session=" + "a" * 64,
-                 "Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/json",
-                 "Accept": "application/json"})
+        headers=headers)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=5) as response:
         assert response.status == expected_status
@@ -462,6 +499,49 @@ def catalog_recovery(port, fixture):
     assert result["unit"] == fixture["current"]["units"][0]
     assert result["create_replay"] == fixture["original"]
     assert result["unit_replay"] == fixture["current"]
+    content = fixture["content_target"]
+    unit = content["unit_id"]
+    path = f"/content-units/{unit}/content/revisions"
+    result["content_head"] = catalog_http(port, f"/content-units/{unit}/content/head")
+    result["content_pinned"] = catalog_http(port, f"{path}/{content['first']['content']['id']}")
+    result["content_replay"] = catalog_http(port, path, "POST", content["request"], 201)
+    assert result["content_head"] == content["second"]["content"]
+    assert result["content_pinned"] == content["first"]["content"]
+    assert result["content_replay"] == content["first"]
+    brief = fixture["brief_target"]
+    path = f"/content-units/{brief['unit_id']}/production-briefs"
+    result["brief_read"] = catalog_http(port, f"{path}/1")
+    result["brief_replay"] = catalog_http(port, path, "POST", brief["request"], 201)
+    result["grant_replay"] = catalog_http(port, f"{path}/1/producer-grants", "POST", brief["grant_request"], 201)
+    result["producer_instructions"] = catalog_http(port, f"/producer/content-units/{brief['unit_id']}/production-briefs/1", producer_token=brief["grant_request"]["token"])
+    assert result["brief_read"] == brief["response"] == result["brief_replay"]
+    assert result["grant_replay"] == brief["grant"]
+    assert result["producer_instructions"] == brief["response"]["brief"]
+    return result
+
+
+def audio_recovery(port, fixture):
+    unit, submission = fixture["unit"], fixture["request"]["id"]
+    base = f"/content-units/{unit}/audio-submissions"
+    result = {
+        "status": catalog_http(port, f"{base}/{submission}"),
+        "prepare_replay": catalog_http(port, base, "POST", fixture["request"], 201),
+        "producer_status": catalog_http(port, f"/producer/audio-submissions/{submission}", producer_token=fixture["upload_token"]),
+        "candidate": catalog_http(port, f"{base}/{submission}/release-candidates", "POST", fixture["candidate_request"], 201),
+    }
+    assert result["status"] == result["prepare_replay"] == result["producer_status"] == fixture["status"]
+    assert result["candidate"] == fixture["candidate"]
+    rendition = fixture["rendition"]
+    path = Path(fixture["root"]) / "objects" / rendition["verified_media"]["sha256"]
+    actual = path.read_bytes()
+    assert len(actual) == rendition["verified_media"]["byte_length"]
+    assert hashlib.sha256(actual).hexdigest() == rendition["verified_media"]["sha256"]
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/studio/producer/audio-submissions/{submission}/bytes", data=actual, method="PUT", headers={"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/octet-stream", "Accept": "application/json", "Authorization": "Bearer " + fixture["upload_token"]})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=15) as response:
+        assert response.status == 200
+        result["upload_replay"] = json.load(response)
+    assert result["upload_replay"] == rendition
     return result
 
 
@@ -512,6 +592,7 @@ def main():
     host = None
     editor_host = None
     catalog_host = None
+    audio_host = None
     try:
         run(["initdb", "-D", str(data), "--username=cantos_test_admin", "--auth=trust", "--no-locale", "--encoding=UTF8"], env=env, output=cluster / "initdb.log")
         # Bound retained WAL on low-disk development hosts without relaxing durability.
@@ -524,16 +605,24 @@ def main():
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
         run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "adaptations_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "adaptation-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "production_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "production-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "audio_intake_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "audio-intake-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
         fixture = json.loads((EVIDENCE / "restart.json").read_text())
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
         catalog = json.loads((CATALOG_EVIDENCE / "http-restart.json").read_text())
+        audio = json.loads((CATALOG_EVIDENCE / "audio-restart.json").read_text())
         migration_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}"
         run(["psql", "-X", migration_url, "-v", "ON_ERROR_STOP=1", "-c",
              "GRANT INSERT ON source_records,script_evidence TO cantos_app; "
@@ -549,6 +638,7 @@ def main():
         editor_env = dict(env, DATABASE_URL=editor_app_url)
         catalog_app_url = f"postgresql://cantos_app@127.0.0.1:{port}/{catalog['database']}"
         catalog_env = dict(env, DATABASE_URL=catalog_app_url)
+        audio_env = dict(env, DATABASE_URL=f"postgresql://cantos_app@127.0.0.1:{port}/{audio['database']}", CANTOS_AUDIO_ROOT=audio["root"])
         with (EVIDENCE / "host.log").open("w") as log, (EDITOR_EVIDENCE / "host.log").open("w") as editor_log, (CATALOG_EVIDENCE / "http-host.log").open("w") as catalog_log:
             http_port = free_port()
             host = start_host(env, http_port, log, fixture)
@@ -556,6 +646,9 @@ def main():
             editor_host = start_host(editor_env, editor_http_port, editor_log, editor_probe(editor))
             catalog_http_port = free_port()
             catalog_host = start_host(catalog_env, catalog_http_port, catalog_log, catalog, readiness=catalog_probe)
+            audio_http_port = free_port()
+            audio_host = start_host(audio_env, audio_http_port, catalog_log, audio, readiness=lambda p, f: audio_recovery(p, f))
+            audio_before = audio_recovery(audio_http_port, audio)
             catalog_before = catalog_recovery(catalog_http_port, catalog)
             editor_before = editor_recovery(editor_env, editor_http_port, editor_app_url, editor)
             assert http(http_port, fixture, "POST") == fixture["response"]
@@ -581,6 +674,9 @@ def main():
             catalog_host.kill()
             catalog_host.wait(timeout=5)
             catalog_host = None
+            audio_host.kill()
+            audio_host.wait(timeout=5)
+            audio_host = None
             run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-m", "fast", "-w", "restart"], env=env)
             run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
             print("PASS: Catalog PostgreSQL restart + exact work/unit snapshots + migration replay + original-operation replay + independent row counts")
@@ -593,6 +689,11 @@ def main():
             host = start_host(env, http_port, log, fixture)
             editor_host = start_host(editor_env, editor_http_port, editor_log, editor_probe(editor))
             catalog_host = start_host(catalog_env, catalog_http_port, catalog_log, catalog, readiness=catalog_probe)
+            audio_host = start_host(audio_env, audio_http_port, catalog_log, audio, readiness=lambda p, f: audio_recovery(p, f))
+            audio_after = audio_recovery(audio_http_port, audio)
+            assert audio_before == audio_after
+            (CATALOG_EVIDENCE / "audio-server-restart.json").write_text(json.dumps({"provenance": audio["provenance"], "before": audio_before, "after": audio_after, "checks": "real socket HTTP; killed API host; PostgreSQL restart; exact original-operation prepare/PUT/candidate replay; private byte SHA-256 readback"}, ensure_ascii=False, indent=2) + "\n")
+            print("PASS: Audio Lifecycle actual socket HTTP + API kill + PostgreSQL restart + exact immutable receipts/reviews/candidates + original PUT replay + actual private byte integrity")
             catalog_after = catalog_recovery(catalog_http_port, catalog)
             assert catalog_after == catalog_before
             (CATALOG_EVIDENCE / "http-server-restart.json").write_text(json.dumps({
@@ -628,13 +729,17 @@ def main():
             print("PASS: original TXT/DOCX/failed-input bytes and SHA-256 + HTTP kill + PostgreSQL restart + immutable receipt replay")
             print("PASS: HTTP process kill + PostgreSQL restart + migration replay + exact export/actor/time + same-operation replay")
             print("PASS: MessagePack head/replay decoded by the independent oracle equal the JSON revision; 406 stays a JSON error")
-        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "script": fixture["script"]}, indent=2) + "\n")
+        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "catalog_app_url": catalog_app_url,
+            "audio_app_url": audio_env["DATABASE_URL"], "audio_root": audio["root"], "script": fixture["script"]}, indent=2) + "\n")
         (EDITOR_EVIDENCE / "run.json").write_text(json.dumps({
             "cluster": str(cluster), "data": str(data), "port": port,
             "app_url": editor_app_url, "script": editor["script"],
             "run_id": editor["context"]["id"], "source_id": editor["source"]["id"],
             "token": editor["token"], "retained": args.keep}, indent=2) + "\n")
     finally:
+        if audio_host is not None:
+            audio_host.kill()
+            audio_host.wait(timeout=5)
         if host is not None:
             host.kill()
             host.wait(timeout=5)

@@ -448,6 +448,9 @@ pub fn unit_page(
     })
 }
 
+/// Pure admission/representation for the separate content lifecycle.
+pub use super::content::wire as content;
+
 #[cfg(test)]
 mod tests {
     use super::*;

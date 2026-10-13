@@ -1,8 +1,9 @@
 # Cantos Theatre Web mock
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a session-only listener mock; users see **Cantos**. Compilation and runtime verification remain
-incomplete. No production listening issue or UI-system qualification is completed by this PR.
+a session-only listener mock; users see **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
+names the local build, reducer/fake-port tests and integrated-browser observations. No production
+listening issue or UI-system qualification is completed by this foundation.
 
 ## Scope and honest behavior
 
@@ -23,7 +24,10 @@ incomplete. No production listening issue or UI-system qualification is complete
 - Vietnamese/English typed resources, `vi-VN` content, system/light/dark presentation,
   localized speed/duration, native accessible links/buttons/search/range controls.
 - Loading/empty/error catalog scenarios use a deterministic fake port. Loading remains pending
-  until Show sample data; Retry requests local samples only. Older response generations are ignored.
+  until Show sample data; Retry requests local samples only. Only the newest issued pending
+  request can settle; unissued, older/future and duplicate terminal callbacks are ignored. Refresh
+  advances the checked generation. Recovery returns focus to main; clearing search returns it to
+  the search field.
 
 No API, authentication, network client, real audio/download, timer, sync, disk/account persistence,
 billing, provider, backend or publication code is integrated. Unsupported actions stay disabled
@@ -60,8 +64,9 @@ The independent Rust and Kotlin reducers share **data**, not runtime code:
 Its schema/index and seven hand-authored vectors specify full state, derived status and ordered
 effects for play/pause, buffering, interruption, stale responses, restore, preparation races and
 invalid controls. The native Rust harness embeds the exact corpus, rejects unknown versions,
-fields/tags and bounds, and compares every step to the authored expectations. Test-source presence
-is not a passing result; Rust/WASM execution is still NOT_RUN here.
+fields/tags and bounds, and compares every step to the authored expectations. Rust native replay
+passed in PR 02. The WASM app compiled and ran in the browser; the vector test harness was not run
+on WASM, and Kotlin was not tested in this PR.
 
 Every callback must match source identity and monotonically checked generation. Play, pause,
 seek, source change, restore and interruption boundaries invalidate old work. Prepare/Start effects
@@ -90,7 +95,8 @@ color styling are retained. Shared imports `UiRoot`, `Container`, `Surface`, `St
 HTML and existing canonical tokens, not new reusable shared primitives. No token, preview catalog,
 qualification, admission baseline or exemption is changed. The shared catalog remains **0/29
 qualified**; new reusable adoption still requires [both-preview admission](../../../packages/ui-system/shared/README.md#preview-registration-and-adoption).
-No actual app pixels, keyboard behavior, text zoom or assistive-technology result is claimed.
+PR 02 adds inspected app captures and keyboard/focus observations at named viewports/themes.
+200% zoom, assistive technology, motion and exact-reference fidelity remain unverified.
 
 ## Build, run and checks
 
@@ -113,15 +119,17 @@ and `verify rust`: pure reducers, exact shared-vector replay, fake ports, stale 
 player across routes, resources and Leptos native string-render compositions. `serde_json` is a
 test-only dependency at already-locked 1.0.145. No alternative test/run orchestrator is introduced.
 
-**This cloud executor has no Cargo/rustc/rustfmt/Trunk.** No toolchain was installed. Required
-xtask commands cannot start; compile/format/Clippy/native tests/WASM/build/run/browser results
-remain NOT_RUN. Source/schema/catalog/link diagnostics do not satisfy those gates. See the
-[execution record and review limits](../../../docs/evidence/theatre-web-mock.md).
+The [initial cloud execution record](../../../docs/evidence/theatre-web-mock.md) retains its
+historical tool limitations and later pre-merge run. PR 02 uses the existing local Rust 1.87.0 and
+Trunk 0.21.14 toolchains; see its [current evidence and remaining limits](../../../docs/evidence/theatre-web-pr02.md).
+The full contracts suite is `UNSUPPORTED` on this host because ffmpeg/ffprobe are absent; no
+listener API, fixture corpus or media-inspection code is changed.
 
-## Manual browser scenarios still required
+## Browser scenarios
 
-After the required gates pass, inspect the real app at 1440×1000, 1024×768 and 390/320 CSS px,
-light/dark, both locales and 200% text zoom:
+Repeat these scenarios when the affected behavior changes. PR 02 exercised the subset recorded
+in its evidence at 1440×1000, 1024×768, 390×844 and 320×800, light/dark and both locales.
+200% text zoom and assistive technology still require separate observations:
 
 1. Discovery → work → sample → Player → Library → Back/Forward. The same root player identity
    and position survive navigation. Opening a different sample records progress and selects it paused.
@@ -145,3 +153,16 @@ light/dark, both locales and 200% text zoom:
 Real audio, release/media-version pinning, reload persistence, CDN delivery, progress reconciliation
 and Android/iOS/background/native-engine acceptance remain future work. This mock closes no
 production or UI-system acceptance gate.
+
+## Explicit live and mock modes
+
+The default entrypoint mounts a live capability boundary. It never constructs the synthetic
+catalog or fake player. **Check API availability** performs a real same-origin, cookie-free GET
+against `/api/v1/theatre` through the local Trunk proxy to the existing API on8080. A JSON404
+`not_found` renders unsupported; other statuses, invalid responses and connection failures
+render errors. Cancelling or superseding a check fences its late response.
+
+Open `?mode=mock` explicitly for the existing isolated UI preview. An unknown mode never falls
+back to mock success. No Studio session, producer token, private submission or draft is available
+to either listener mode. There is no catalog, manifest, progress or media route to connect, so
+this transport probe is **not live Theatre playback integration**.

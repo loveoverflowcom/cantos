@@ -1,6 +1,8 @@
 use serde::Serialize;
 
-use super::metadata::{next_revision, validate_revision, validate_timestamps};
+use super::revision::Revision;
+
+use super::metadata::{next_revision, validate_timestamps};
 use super::{CatalogError, Lifecycle, OwnerId, WorkDetails, WorkId, WorkKind};
 
 /// Caller-supplied creation facts. The application derives `owner_id` from authentication.
@@ -26,6 +28,17 @@ pub struct StoredWork {
 }
 
 /// Immutable snapshot of a work revision. Identity, owner and category never change.
+/// Raw storage facts must pass `from_stored`; serde cannot bypass admission.
+/// ```compile_fail,E0277
+/// use cantos_api::contexts::catalog::domain::Work;
+/// let forged = serde_json::from_str::<Work>("{}");
+/// ```
+/// ```compile_fail,E0616
+/// use cantos_api::contexts::catalog::domain::{Work, WorkId};
+/// fn overwrite_identity(work: &mut Work) {
+///     work.id = WorkId::parse("00000000-0000-0000-0000-000000000001").unwrap();
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Work {
     id: WorkId,
@@ -33,7 +46,7 @@ pub struct Work {
     owner_id: OwnerId,
     details: WorkDetails,
     lifecycle: Lifecycle,
-    revision: u64,
+    revision: Revision,
     created_at: i64,
     updated_at: i64,
 }
@@ -54,7 +67,7 @@ impl Work {
 
     pub fn from_stored(input: StoredWork) -> Result<Self, CatalogError> {
         input.details.validate()?;
-        validate_revision(input.revision)?;
+        let revision = Revision::new(input.revision)?;
         validate_timestamps(input.created_at, input.updated_at)?;
         Ok(Self {
             id: input.id,
@@ -62,7 +75,7 @@ impl Work {
             owner_id: input.owner_id,
             details: input.details,
             lifecycle: input.lifecycle,
-            revision: input.revision,
+            revision,
             created_at: input.created_at,
             updated_at: input.updated_at,
         })
@@ -84,7 +97,7 @@ impl Work {
         self.lifecycle
     }
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.revision.get()
     }
     pub fn created_at(&self) -> i64 {
         self.created_at

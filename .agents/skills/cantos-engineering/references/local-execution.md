@@ -47,16 +47,23 @@ required gate that remains unrun on the residual-risk line.
 
 ## Local handoff and PR completion
 
-The default implementation handoff is complete when the applicable local checks pass with no
-reported failures. Open the requested PR and return its link and local evidence immediately;
-GitHub Actions need not finish. Do not poll, wait for, dispatch or re-run remote workflows to
-complete this handoff. This is a working rule, not a change to GitHub merge protection.
+Use the foundation's [L1–L5 order](verification-strategy.md#layered-verification) and
+[independent gate ledger](verification-strategy.md#independent-verification-gates).
+**Core verification pass does not depend on integration acceptance.** When the user requests
+commit/push/PR work, deliver L1–L3 once their applicable obligations pass, even if L4–L5 cannot
+run. Do not keep independently verified code pending because PostgreSQL, Podman or another
+container runtime, an API server, emulator or integration environment is missing. Do not
+require installing or starting the full stack to accept a pure-domain change.
+
+Open the requested PR and return its link and local evidence without waiting for GitHub
+Actions. Do not poll, wait for, dispatch or re-run remote workflows to supply missing local
+evidence. Required tests, merge protection, CI and production acceptance retain their gates.
 
 | Change or claim | Local evidence |
 |---|---|
-| behavior change | focused deterministic regression, then the applicable module tests and changed-only preflight |
+| pure-domain behavior change | L1–L3 obligations, focused deterministic regression, applicable module tests/static checks and changed-only preflight; no infrastructure prerequisite |
 | flow spanning application modules or an external adapter | production code exercised together with deterministic mocks/fakes at external boundaries; report `mock-integration-tested` and name the doubles |
-| PostgreSQL constraints, SQL, transactions, migrations or concurrent writes | disposable real local PostgreSQL checks; mocks cannot establish database semantics |
+| PostgreSQL constraints, SQL, transactions, migrations or concurrent writes | disposable real local PostgreSQL checks to accept those semantics; an unavailable run permits a requested PR only with that verification explicitly incomplete |
 | documents or skills only | repository verification and changed-only preflight; no application or integration test required |
 
 For mocked integration, exercise the real handler/application/adapter code and assert observable
@@ -66,10 +73,33 @@ storage or production environment is required for routine implementation handoff
 for real provider, device, publication or phase-exit acceptance stays with that capability's owner;
 record it as deferred acceptance rather than claiming it from mocks.
 
-`FAIL` blocks a clean handoff: fix it or report the failure. `NOT_RUN`, `UNSUPPORTED` and zero
-selected tests do not satisfy a required check. If a required local check cannot run, report the
-blocker and deliver the requested PR with verification explicitly incomplete; do not wait for CI
-to supply evidence. Use `--skip` only with the reason stated, never to hide a failure.
+### Progressive commit, push and PR
+
+- Keep commits cohesive around reviewable, independently verified layers. Passing L1–L3 is
+  sufficient for requested core commit/push/PR delivery while I/O acceptance remains pending.
+  L4 results may be delivered as mocked evidence without a real API; adapter/SQL changes whose
+  real checks cannot run may also be handed off for review with verification incomplete.
+- `FAIL` blocks a clean handoff and a core-verified claim for the affected scope: fix it or
+  report the actual failure. Never disguise it as an environment gap or use `--skip` to hide it.
+  `NOT_RUN`, `UNSUPPORTED` and zero selected tests do not satisfy required checks.
+- Run all applicable checks that can run. xtask prechecks all selected prerequisites, so one
+  missing tool can leave independent gates `NOT_RUN`. Record that original summary, then use
+  a reasoned `--skip <gate>` or an existing focused suite to run the available gates. Keep the
+  skipped gate `NOT_RUN` and retain the blocker; a successful exit is not full acceptance.
+- List every outstanding check in the PR with why it is missing (environment, dependency or
+  outside this PR's scope), prerequisites, exact command, acceptance criteria, residual risk
+  and next owner. If no owner is assigned, state `unassigned — assignment required before
+  acceptance`; do not invent an assignee. Use a PR checklist; create no follow-up issue unless
+  the user requests one.
+- Incomplete code must not expose an unsafe production behavior or API. Keep it unreachable
+  or behind existing fail-closed gates and explain the activation/rollout boundary. Never
+  bypass required tests, relax branch protection or change CI to manufacture a green result.
+
+The handoff may say `CORE_VERIFIED / IO_ACCEPTANCE_PENDING` **only for a named scope whose
+L1–L3 obligations passed**. This is implementation progress, not a new evidence level, xtask
+status, merge authorization or production-ready claim. Do not apply it to unverified SQL
+transaction semantics. A passed layer never accepts the whole feature; DB/API/runtime and
+production/phase-exit acceptance stay explicit until actually exercised.
 
 ### Docs-only fallback when xtask cannot start
 

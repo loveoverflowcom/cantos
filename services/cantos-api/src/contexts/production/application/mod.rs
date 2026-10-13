@@ -15,6 +15,7 @@ use crate::platform::postgres::{
 };
 
 mod approve;
+pub(super) mod briefs;
 mod casting;
 mod freeze;
 
@@ -151,3 +152,6 @@ pub(super) async fn snapshot(
         eligibility,
     })
 }
+
+pub(crate) use briefs::audio_brief;
+pub(crate) use briefs::producer_token_registered;

@@ -19,3 +19,9 @@ pub const STUDIO_CONTENT_UNITS: &str = "/api/v1/studio/works/{work_id}/content-u
 pub const STUDIO_CONTENT_UNITS_REORDER: &str =
     "/api/v1/studio/works/{work_id}/content-units/reorder";
 pub const STUDIO_CONTENT_UNIT: &str = "/api/v1/studio/content-units/{unit_id}";
+pub const STUDIO_CONTENT_HEAD: &str = "/api/v1/studio/content-units/{unit_id}/content/head";
+pub const STUDIO_CONTENT_REVISIONS: &str =
+    "/api/v1/studio/content-units/{unit_id}/content/revisions";
+pub const STUDIO_CONTENT_REVISION: &str =
+    "/api/v1/studio/content-units/{unit_id}/content/revisions/{revision_id}";
+pub const STUDIO_CONTENT_HISTORY: &str = "/api/v1/studio/content-units/{unit_id}/content/history";

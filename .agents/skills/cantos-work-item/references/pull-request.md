@@ -1,6 +1,7 @@
 # Commit and pull request
 
-> **Scope.** What happens after the slice is implemented and verified, **only when the user asks**
+> **Scope.** What happens when a slice is ready for review under the foundation's local handoff
+> policy, **only when the user asks**
 > to commit, push or open a PR: the pre-commit audit, the commit, the push, the PR body built from
 > [`.github/pull_request_template.md`](../../../../.github/pull_request_template.md), evidence
 > labels and what to do after the PR opens. The template and
@@ -15,9 +16,13 @@ Run in this order; stop at the first failure and fix or report it.
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
 | 2. format, lint, test | the formatter (check mode), linter and focused tests of each touched toolchain, as the foundation's [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion) requires; commands discovered from the manifests, never assumed | "green tests" with unformatted code |
-| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`); use only the documented [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start) if Cargo/Rust is unavailable | broken links, skill structure, whitespace, unselected gates |
+| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`); record missing prerequisites and run independent gates under [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr); use only the documented [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start) if Cargo/Rust is unavailable | broken links, skill structure, whitespace, unselected gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
+
+An unavailable I/O gate does not stop independently verified work from reaching steps 4–5;
+apply the foundation's policy and retain the incomplete verification in the PR. An actual
+failure must be fixed or reported, never converted to a pass.
 
 Never in a commit, even in a fixture or a test:
 
@@ -64,6 +69,8 @@ labels that `gh label list` shows exist.
 | **Scope — Deferred or excluded** | the boundary's "does not deliver" line, item by item | the boundary statement | omitted, so reviewers assume completeness |
 | **Scope — Related decisions** | ADR or brief paths with status `proposed` or `accepted by …` | decision records | citing an unaccepted ADR as settled |
 | **Verification** | each check that actually ran, its exact command and result; checks not run, with the reason | tool output | "all tests pass" with no command; listing a check that never ran |
+| **Verification — layer gates / verified scope** | independent status and actual evidence level for each affected layer/claim; named doubles vs real infrastructure | [foundation ledger](../../cantos-engineering/references/verification-strategy.md#independent-verification-gates) | using a passed unit suite to mark DB/API acceptance passed |
+| **Deferred acceptance** | each missing check, reason (environment/dependency/outside scope), prerequisites, exact next command, acceptance criteria, next owner and residual risk | foundation ledger and local handoff | omitting a blocked PostgreSQL run or creating an unrequested follow-up issue |
 | **Compatibility and production impact** | the five questions below, or `N/A` with a reason | the ledger and owner skills | `N/A` for a change that alters a fingerprint input |
 | **Review checklist** | tick only what is true now | — | ticking "acceptance criteria are met" for a partial slice |
 

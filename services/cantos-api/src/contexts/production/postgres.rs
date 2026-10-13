@@ -460,3 +460,4 @@ pub(super) async fn insert_approval(tx: &Tx<'_>, new: NewApproval<'_>) -> Result
     tx.execute("INSERT INTO production_approvals(id,snapshot_id,script_id,operation_id,approved_by,input_digest,request_bytes) VALUES($1,$2,$3,$4,$5,$6,$7)", &[&new.id,&new.snapshot,&new.script,&new.operation,&new.actor,&new.input_digest,&new.request_bytes]).await?;
     Ok(())
 }
+pub(super) mod briefs;

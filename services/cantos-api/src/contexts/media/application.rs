@@ -38,9 +38,13 @@ async fn owner(
 }
 
 async fn bound_revision(tx: &Tx<'_>, intent: &AudioIntentResponse) -> Result<(), StoreError> {
-    let revision = find_revision(tx, &intent.script_id, checked_number(intent.script_revision)?)
-        .await?
-        .ok_or(StoreError::CorruptRevision)?;
+    let revision = find_revision(
+        tx,
+        &intent.script_id,
+        checked_number(intent.script_revision)?,
+    )
+    .await?
+    .ok_or(StoreError::CorruptRevision)?;
     if revision.content_digest != intent.content_digest {
         return Err(StoreError::CorruptRevision);
     }
@@ -54,7 +58,7 @@ fn current(intent: &AudioIntentResponse, head: u64) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn storage(store: &Store) -> Result<AudioStorage, StoreError> {
+pub(super) fn storage(store: &Store) -> Result<AudioStorage, StoreError> {
     AudioStorage::new(store.audio_root.as_deref().ok_or(StoreError::Unavailable)?)
 }
 
@@ -123,8 +127,7 @@ impl Store {
         storage(self)?;
         let script = normalized_uuid(script)?;
         let operation = normalized_uuid(&request.operation_id)?;
-        let revision = checked_number(request.expected_revision)?;
-        if revision < 1 {
+        if checked_number(request.expected_revision)? < 1 {
             return Err(StoreError::InvalidRequest);
         }
         let profile = DeliveryProfile::from_id(&request.profile_id).ok_or_else(|| {
@@ -173,10 +176,7 @@ impl Store {
         let result = postgres::insert_intent(
             &tx,
             &actor,
-            &script,
-            revision,
-            &pinned.content_digest,
-            profile.id(),
+            requested,
             &operation,
             &Uuid::new_v4().to_string(),
         )
@@ -256,20 +256,9 @@ impl Store {
         tx.commit().await?;
         drop(client);
 
-        let profile = DeliveryProfile::from_id(&intent.profile_id)
-            .ok_or(StoreError::CorruptRevision)?;
-        let permit = INSPECTION_LANES
-            .try_acquire()
-            .map_err(|_| StoreError::Unavailable)?;
-        let (media, stored) = tokio::task::spawn_blocking(move || {
-            let _permit = permit;
-            let verified = inspect_audio(&bytes, profile).map_err(rejected)?;
-            let media = media(&verified);
-            let stored = objects.persist(&verified)?;
-            Ok::<_, StoreError>((media, stored))
-        })
-        .await
-        .map_err(|_| StoreError::Unavailable)??;
+        let profile =
+            DeliveryProfile::from_id(&intent.profile_id).ok_or(StoreError::CorruptRevision)?;
+        let (media, stored) = inspect_and_store(objects, bytes, profile).await?;
 
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
@@ -311,4 +300,24 @@ impl Store {
         tx.commit().await?;
         Ok(receipt)
     }
+}
+
+/// One inspector/storage path shared by legacy Script intake and Content/Brief admission.
+pub(super) async fn inspect_and_store(
+    objects: AudioStorage,
+    bytes: Vec<u8>,
+    profile: DeliveryProfile,
+) -> Result<(AudioMediaMetadata, super::storage::StoredAudio), StoreError> {
+    let permit = INSPECTION_LANES
+        .try_acquire()
+        .map_err(|_| StoreError::Unavailable)?;
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let verified = inspect_audio(&bytes, profile).map_err(rejected)?;
+        let metadata = media(&verified);
+        let stored = objects.persist(&verified)?;
+        Ok((metadata, stored))
+    })
+    .await
+    .map_err(|_| StoreError::Unavailable)?
 }

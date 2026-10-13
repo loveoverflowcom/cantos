@@ -12,6 +12,10 @@ mod production;
 pub use production::*;
 mod catalog;
 pub use catalog::*;
+mod content;
+pub use content::*;
+mod briefs;
+pub use briefs::*;
 mod audio_intake;
 pub use audio_intake::*;
 pub mod admin;
@@ -151,3 +155,6 @@ pub struct SessionRequest {
 pub struct SessionResponse {
     pub actor_id: String,
 }
+
+mod audio_lifecycle;
+pub use audio_lifecycle::*;

@@ -20,8 +20,9 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
 | GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
 
-xtask does not install toolchains, provision databases, start Kanidm, call TTS or adaptation
-providers, download models, create cloud resources, publish or deploy.
+xtask does not install toolchains, initialize/start Podman Machine, change connections, call
+providers, create cloud resources, publish or deploy. Only explicit `services up` starts local
+container infrastructure; build/test/run/preflight never do.
 
 ## Commands
 
@@ -49,6 +50,11 @@ cargo xtask verify postgres [--keep]
 cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
+cargo xtask services list|validate|status
+cargo xtask services [--instance NAME] up postgresql|kanidm [--timeout-seconds 60]
+cargo xtask services [--instance NAME] up --all
+cargo xtask services [--instance NAME] logs postgresql|kanidm
+cargo xtask services [--instance NAME] down postgresql|kanidm|--all
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 ```
@@ -106,6 +112,57 @@ The Trunk development proxy is a convenience. The browser walkthroughs recorded 
 `docs/evidence/` used the API serving `apps/cantos-studio/web/dist` same-origin; do not cite a
 `trunk serve` session as that evidence.
 
+### Explicit local service infrastructure
+
+[Services](../services/README.md) and [ADR 0021](../docs/decisions/0021-podman-service-runtime.md)
+are the ownership contract. `list` and `validate` require no Podman, secret, TLS or container.
+Repository/CI gates call `validate` using the existing xtask executable path through Cargo;
+there is no separate orchestration script or new workflow. Validation covers schema/version,
+runtimes, dependencies/cycles, official patch image pins, ports, fixed mounts/health argv and
+public Kanidm/environment examples. It does not run upstream `configtest` or prove TLS validity.
+
+`up` manages container infrastructure only. Native API lifecycle stays under `run`; external
+storage is inventory-only. `up --all` includes required PostgreSQL and excludes optional Kanidm.
+`down --all` stops any already-owned Kanidm and PostgreSQL containers. Secrets/configuration
+are exported explicitly using the service `env.example` guides; no dotenv file is loaded.
+`--instance` precedes the action, defaults to `local` and scopes resource names/labels. Use a
+unique instance and unused port for task fixtures; defaults are shared across worktrees.
+
+Linux commands force local rootless Podman. macOS requires an existing default loopback SSH
+connection to a running rootless Podman Machine. The command pins the existing connection name
+for this invocation, ignores remote/cloud environment overrides and observes rootless state
+before effects. It does not install Podman, attach/change a connection, initialize or start a
+machine. Missing runtime/connection, rootful or remote/cloud targets are `UNSUPPORTED`.
+
+The Podman server must support the documented named-volume `nocreate` option. Older releases
+such as 5.8 lack it; an explicit invalid-option result is `UNSUPPORTED` with no automatic update.
+The [current Podman volume contract](https://docs.podman.io/en/latest/markdown/podman-run.1.html)
+allows this safety fence; actual version compatibility is unverified on this host.
+
+Startup validates private caller-owned inputs outside Git, inspects ownership and image labels,
+creates/reuses only the expected persistent volume, and checks configuration signatures.
+Kanidm `configtest` uses network-disabled temporary data. Server creation is stopped first:
+its returned ID, actual mount and volume labels are rechecked before starting that ID.
+This container reference prevents ordinary removal of its volume. `nocreate` prevents a
+missing volume from silently becoming empty data. No `--replace`, prune, migration, deletion or
+security-label mutation is performed. On enforcing SELinux, operator-prepared input labels
+must already permit container read access; xtask never relabels files or disables isolation.
+
+Every Podman call has a 60s bound (connection/info 10s), at most 4 MiB per captured output stream,
+private temporary logs and an owned CLI process group. Readiness after start has one 1–300s
+budget covering all inspections/probes (default 60s), with 5s container health checks. Ctrl-C,
+SIGTERM and SIGHUP persist cancellation across calls and stop only the owned CLI group.
+Remote interruption/timeouts can leave created/running state: inspect status/logs before retry;
+xtask never deletes retained data or guesses that an ambiguous operation did not happen.
+
+`status` reports inspected state/health/exit code and ABSENT only after the documented exists
+result. Native/external entries are `NOT_RUN`/NOT_OBSERVED. `logs` reads at most 200 lines from
+both streams of an inspected owned ID. `down` verifies stop on that same ID and retains its
+container/volume. Names alone never authorize effects or log reads. Drift fails closed; review
+recreation/upgrades separately. Ownership labels are an operational guard, not isolation from a
+same-user administrator: do not concurrently edit connection definitions, forge labels or force
+remove containers/volumes. Backups and production deployment remain operator-owned.
+
 ### Package-local UI-system previews
 
 `ui-preview leptos` and `ui-preview cmp` are independent playgrounds for the shared UI system.
@@ -149,7 +206,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 
 | Gate | Commands | Needs |
 | --- | --- | --- |
-| `repository` | `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | python3, git |
+| `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
@@ -230,8 +287,9 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
-- Documents, templates, skills and issue forms need only the always-on gates. `services/kanidm`
-  are noted as having no executable gate. The Studio Mobile scope notice is documentation only.
+- Documents, templates, skills and issue forms need only the always-on gates. The service
+  manifest, PostgreSQL/Kanidm examples and configuration docs are statically validated by
+  `repository`; no Podman or runtime input is required. The Studio Mobile scope notice is documentation only.
   Theatre mock Kotlin/Gradle/native host inputs select `theatre-cmp-demo`; its docs are documents.
 - Shared Cargo inputs (`Cargo.toml`, `Cargo.lock`, `.cargo/`, toolchain/format/lint files),
   verification tooling (`xtask/`, `.github/workflows/`), an
@@ -319,6 +377,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `preflight/` | Git change collection, the Cargo package graph and pure selection |
 | `doctor.rs` | read-only environment report |
+| `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
 Plans are values: tests assert exact commands with a recording runner and fake tools, while
@@ -358,3 +417,11 @@ component qualification. It is outside CI until a Gradle lane is separately prov
 only stored owned process groups for cleanup. The supervisor keeps exited leaders unreaped
 until their group has been signalled, preventing descendant leaks without stale-PGID lookup.
 Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/README.md).
+
+The retained local fixture can now select its existing test context with
+`CANTOS_TEST_CONTEXT=editorial|catalog|audio` on `run cantos-studio --web --test-cluster`.
+Editorial is the default. Audio selects the fresh runner's exact AudioLifecycle database and
+private root; it does not provision identity/storage or use an inherited database URL.
+PostgreSQL verification now discards completed suite databases only after their tests pass,
+retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
+disk consumption without removing any test or weakening PostgreSQL durability settings.

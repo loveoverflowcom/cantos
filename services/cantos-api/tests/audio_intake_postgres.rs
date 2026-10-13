@@ -379,7 +379,10 @@ async fn intent_is_explicit_revision_bound_and_exact_operation_replays_original_
     assert_eq!(intent.operation_id, request.operation_id);
     assert_eq!(
         intent.status_path,
-        format!("/api/v1/studio/scripts/{}/audio-intents/{}", h.script, intent.id)
+        format!(
+            "/api/v1/studio/scripts/{}/audio-intents/{}",
+            h.script, intent.id
+        )
     );
     assert_eq!(intent.upload_path, format!("{}/bytes", intent.status_path));
     assert_eq!(
@@ -394,7 +397,9 @@ async fn intent_is_explicit_revision_bound_and_exact_operation_replays_original_
         match change {
             "profile" => changed.profile_id = "opus-mono-24-v1".into(),
             "revision" => changed.expected_revision = 2,
-            "digest" => changed.expected_content_digest = format!("sir-c1:sha256:{}", "0".repeat(64)),
+            "digest" => {
+                changed.expected_content_digest = format!("sir-c1:sha256:{}", "0".repeat(64))
+            }
             _ => unreachable!(),
         }
         assert!(matches!(
@@ -408,9 +413,7 @@ async fn intent_is_explicit_revision_bound_and_exact_operation_replays_original_
         .await
         .unwrap();
     assert!(matches!(
-        h.store
-            .create_audio_intent(ALICE, &other, request)
-            .await,
+        h.store.create_audio_intent(ALICE, &other, request).await,
         Err(StoreError::OperationReused)
     ));
     let pending = h
@@ -485,14 +488,20 @@ async fn only_current_owner_can_create_read_or_upload_and_intent_scope_cannot_cr
     let h = Harness::new().await;
     let intent = h.intent().await;
     let path = format!("/api/v1/studio/scripts/{}/audio-intents", h.script);
-    for (token, expected) in [(None, StatusCode::UNAUTHORIZED), (Some(BOB), StatusCode::NOT_FOUND)] {
+    for (token, expected) in [
+        (None, StatusCode::UNAUTHORIZED),
+        (Some(BOB), StatusCode::NOT_FOUND),
+    ] {
         assert_eq!(
             h.json("POST", &path, token, Some(json!(h.intent_request())))
                 .await
                 .0,
             expected
         );
-        assert_eq!(h.json("GET", &intent.status_path, token, None).await.0, expected);
+        assert_eq!(
+            h.json("GET", &intent.status_path, token, None).await.0,
+            expected
+        );
         assert_eq!(h.upload(&intent, token, opus()).await.0, expected);
     }
     for role in ["reader", "editor"] {
@@ -514,7 +523,10 @@ async fn only_current_owner_can_create_read_or_upload_and_intent_scope_cannot_cr
             h.json("GET", &intent.status_path, Some(BOB), None).await.0,
             StatusCode::FORBIDDEN
         );
-        assert_eq!(h.upload(&intent, Some(BOB), opus()).await.0, StatusCode::FORBIDDEN);
+        assert_eq!(
+            h.upload(&intent, Some(BOB), opus()).await.0,
+            StatusCode::FORBIDDEN
+        );
     }
     for (token, owner) in [(ALICE, "alice"), (BOB, "bob")] {
         let other = Uuid::new_v4().to_string();
@@ -523,12 +535,22 @@ async fn only_current_owner_can_create_read_or_upload_and_intent_scope_cannot_cr
             .await
             .unwrap();
         let wrong = format!("/api/v1/studio/scripts/{other}/audio-intents/{}", intent.id);
-        assert_eq!(h.json("GET", &wrong, Some(token), None).await.0, StatusCode::NOT_FOUND, "{owner}");
+        assert_eq!(
+            h.json("GET", &wrong, Some(token), None).await.0,
+            StatusCode::NOT_FOUND,
+            "{owner}"
+        );
         assert_eq!(
             h.request(
-                "PUT", &format!("{wrong}/bytes"), Some(session_cookie(token)),
-                Some(ORIGIN), Some("application/octet-stream"), opus(),
-            ).await.0,
+                "PUT",
+                &format!("{wrong}/bytes"),
+                Some(session_cookie(token)),
+                Some(ORIGIN),
+                Some("application/octet-stream"),
+                opus(),
+            )
+            .await
+            .0,
             StatusCode::NOT_FOUND
         );
     }
@@ -541,37 +563,72 @@ async fn http_keeps_same_origin_cookie_binary_and_current_studio_surface_boundar
     let h = Harness::new().await;
     let intent = h.intent().await;
     for origin in [None, Some("https://untrusted.invalid")] {
-        let (status, body) = h.request(
-            "PUT", &intent.upload_path, Some(session_cookie(ALICE)), origin,
-            Some("application/octet-stream"), opus(),
-        ).await;
+        let (status, body) = h
+            .request(
+                "PUT",
+                &intent.upload_path,
+                Some(session_cookie(ALICE)),
+                origin,
+                Some("application/octet-stream"),
+                opus(),
+            )
+            .await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(body["code"], "forbidden");
     }
     let duplicate = format!("cantos_session={ALICE}; cantos_session={BOB}");
     assert_eq!(
-        h.request("PUT", &intent.upload_path, Some(duplicate), Some(ORIGIN),
-            Some("application/octet-stream"), opus()).await.0,
+        h.request(
+            "PUT",
+            &intent.upload_path,
+            Some(duplicate),
+            Some(ORIGIN),
+            Some("application/octet-stream"),
+            opus()
+        )
+        .await
+        .0,
         StatusCode::UNAUTHORIZED
     );
     for content_type in [None, Some("application/json"), Some("audio/ogg")] {
         assert_eq!(
-            h.request("PUT", &intent.upload_path, Some(session_cookie(ALICE)), Some(ORIGIN),
-                content_type, opus()).await.0,
+            h.request(
+                "PUT",
+                &intent.upload_path,
+                Some(session_cookie(ALICE)),
+                Some(ORIGIN),
+                content_type,
+                opus()
+            )
+            .await
+            .0,
             StatusCode::UNSUPPORTED_MEDIA_TYPE
         );
     }
     for prefix in ["/api/v1", "/api/v1/theatre", "/api/v1/admin"] {
         let path = format!("{prefix}/scripts/{}/audio-intents", h.script);
         assert_eq!(
-            h.json("POST", &path, Some(ALICE), Some(json!(h.intent_request()))).await.0,
+            h.json("POST", &path, Some(ALICE), Some(json!(h.intent_request())))
+                .await
+                .0,
             StatusCode::NOT_FOUND
         );
         let path = format!("{path}/{}", intent.id);
-        assert_eq!(h.json("GET", &path, Some(ALICE), None).await.0, StatusCode::NOT_FOUND);
         assert_eq!(
-            h.request("PUT", &format!("{path}/bytes"), Some(session_cookie(ALICE)),
-                Some(ORIGIN), Some("application/octet-stream"), opus()).await.0,
+            h.json("GET", &path, Some(ALICE), None).await.0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            h.request(
+                "PUT",
+                &format!("{path}/bytes"),
+                Some(session_cookie(ALICE)),
+                Some(ORIGIN),
+                Some("application/octet-stream"),
+                opus()
+            )
+            .await
+            .0,
             StatusCode::NOT_FOUND
         );
     }
@@ -594,7 +651,10 @@ async fn accepted_receipt_contains_observed_media_and_one_private_object_with_no
     assert_eq!(receipt.profile_id, PROFILE);
     assert_eq!(receipt.operation_id, intent.operation_id);
     assert_eq!(receipt.accepted_by, "alice");
-    assert_eq!(receipt.media.sha256, format!("{:x}", Sha256::digest(&bytes)));
+    assert_eq!(
+        receipt.media.sha256,
+        format!("{:x}", Sha256::digest(&bytes))
+    );
     assert_eq!(receipt.media.byte_length, bytes.len() as u64);
     assert_eq!(receipt.media.container, "ogg");
     assert_eq!(receipt.media.codec, "opus");
@@ -603,22 +663,41 @@ async fn accepted_receipt_contains_observed_media_and_one_private_object_with_no
     assert!((990..=1_030).contains(&receipt.media.duration_ms));
     assert!((1..=24_000).contains(&receipt.media.audio_bitrate_bps));
     assert_eq!(receipt.media.profile_id, PROFILE);
-    for key in ["object_key", "path", "playback_url", "download_url", "published"] {
+    for key in [
+        "object_key",
+        "path",
+        "playback_url",
+        "download_url",
+        "published",
+    ] {
         assert!(body.get(key).is_none(), "private receipt leaked {key}");
-        assert!(body["media"].get(key).is_none(), "private media leaked {key}");
+        assert!(
+            body["media"].get(key).is_none(),
+            "private media leaked {key}"
+        );
     }
-    let row = h.admin.query_one(
-        "SELECT object_key,receipt_bytes FROM audio_intake_receipts WHERE intent_id=$1",
-        &[&intent.id],
-    ).await.unwrap();
+    let row = h
+        .admin
+        .query_one(
+            "SELECT object_key,receipt_bytes FROM audio_intake_receipts WHERE intent_id=$1",
+            &[&intent.id],
+        )
+        .await
+        .unwrap();
     assert_eq!(row.get::<_, String>(0), receipt.media.sha256);
-    assert_eq!(row.get::<_, Vec<u8>>(1), serde_json::to_vec(&receipt).unwrap());
+    assert_eq!(
+        row.get::<_, Vec<u8>>(1),
+        serde_json::to_vec(&receipt).unwrap()
+    );
     let object = h.root.0.join("objects").join(&receipt.media.sha256);
     assert_eq!(fs::read(&object).unwrap(), bytes);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(fs::metadata(&object).unwrap().permissions().mode() & 0o777, 0o400);
+        assert_eq!(
+            fs::metadata(&object).unwrap().permissions().mode() & 0o777,
+            0o400
+        );
     }
     let (status, pending) = h.json("GET", &intent.status_path, Some(ALICE), None).await;
     assert_eq!(status, StatusCode::OK);
@@ -640,7 +719,12 @@ async fn same_bytes_replay_exact_receipt_and_changed_valid_media_conflicts_witho
     let (status, body) = h.upload(&intent, Some(ALICE), changed).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["code"], "operation_reused");
-    assert_eq!(h.json("GET", &intent.status_path, Some(ALICE), None).await.1["receipt"], first.1);
+    assert_eq!(
+        h.json("GET", &intent.status_path, Some(ALICE), None)
+            .await
+            .1["receipt"],
+        first.1
+    );
     assert_eq!(h.counts().await, (1, 1));
 }
 
@@ -664,12 +748,21 @@ async fn rejected_media_and_body_limit_leave_intent_pending_with_no_accepted_row
         assert_eq!(h.counts().await, (1, 0));
     }
     assert_eq!(
-        h.upload(&intent, Some(ALICE), vec![0; MAX_BYTES + 1]).await.0,
+        h.upload(&intent, Some(ALICE), vec![0; MAX_BYTES + 1])
+            .await
+            .0,
         StatusCode::PAYLOAD_TOO_LARGE
     );
-    assert!(h.json("GET", &intent.status_path, Some(ALICE), None).await.1["receipt"].is_null());
+    assert!(h
+        .json("GET", &intent.status_path, Some(ALICE), None)
+        .await
+        .1["receipt"]
+        .is_null());
     assert_eq!(h.counts().await, (1, 0));
-    assert_eq!(h.upload(&intent, Some(ALICE), valid).await.0, StatusCode::OK);
+    assert_eq!(
+        h.upload(&intent, Some(ALICE), valid).await.0,
+        StatusCode::OK
+    );
 }
 
 #[tokio::test]
@@ -678,25 +771,47 @@ async fn lost_http_response_reconciles_and_fresh_store_replays_durable_receipt()
     let h = Harness::new().await;
     let intent = h.intent().await;
     let bytes = opus();
-    let response = h.app.clone().oneshot(
-        Request::builder().method("PUT").uri(intent.upload_path.as_str())
-            .header("origin", ORIGIN).header("cookie", session_cookie(ALICE))
-            .header("content-type", "application/octet-stream")
-            .body(Body::from(bytes.clone())).unwrap(),
-    ).await.unwrap();
+    let response = h
+        .app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(intent.upload_path.as_str())
+                .header("origin", ORIGIN)
+                .header("cookie", session_cookie(ALICE))
+                .header("content-type", "application/octet-stream")
+                .body(Body::from(bytes.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     // Deliberately discard the committed response before consuming its receipt body.
     drop(response);
     let restarted = h.restart();
-    let status = restarted.load_audio_intent(ALICE, &h.script, &intent.id).await.unwrap();
+    let status = restarted
+        .load_audio_intent(ALICE, &h.script, &intent.id)
+        .await
+        .unwrap();
     let durable = status.receipt.unwrap();
     assert_eq!(status.intent, intent);
     assert_eq!(
-        restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes).await.unwrap(),
+        restarted
+            .upload_audio_intent(ALICE, &h.script, &intent.id, bytes)
+            .await
+            .unwrap(),
         durable
     );
-    let row = h.admin.query_one("SELECT receipt_bytes FROM audio_intake_receipts", &[]).await.unwrap();
-    assert_eq!(row.get::<_, Vec<u8>>(0), serde_json::to_vec(&durable).unwrap());
+    let row = h
+        .admin
+        .query_one("SELECT receipt_bytes FROM audio_intake_receipts", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        row.get::<_, Vec<u8>>(0),
+        serde_json::to_vec(&durable).unwrap()
+    );
     assert_eq!(h.counts().await, (1, 1));
 }
 
@@ -716,7 +831,10 @@ async fn new_script_revision_blocks_pending_acceptance_and_preserves_historical_
     assert_eq!(original.0, StatusCode::OK);
     let mut changed: Value = serde_json::from_str(SCRIPT).unwrap();
     changed["work"]["title"] = json!("Ánh đèn mới của bản thảo tổng hợp");
-    h.store.save(ALICE, &h.script, revision_request(1, changed.to_string())).await.unwrap();
+    h.store
+        .save(ALICE, &h.script, revision_request(1, changed.to_string()))
+        .await
+        .unwrap();
     let (status, body) = h.upload(&pending, Some(ALICE), bytes.clone()).await;
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(body["code"], "stale_revision");
@@ -728,8 +846,16 @@ async fn new_script_revision_blocks_pending_acceptance_and_preserves_historical_
             .unwrap(),
         pending
     );
-    assert_eq!(h.upload(&accepted, Some(ALICE), bytes).await.0, StatusCode::CONFLICT);
-    assert_eq!(h.json("GET", &accepted.status_path, Some(ALICE), None).await.1["receipt"], original.1);
+    assert_eq!(
+        h.upload(&accepted, Some(ALICE), bytes).await.0,
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        h.json("GET", &accepted.status_path, Some(ALICE), None)
+            .await
+            .1["receipt"],
+        original.1
+    );
     assert_eq!(h.counts().await, (2, 1));
 }
 
@@ -806,11 +932,8 @@ async fn owner_deactivation_after_inspection_is_rechecked_before_receipt_commit(
     let script = h.script.clone();
     let id = intent.id.clone();
     let bytes = opus();
-    let uploading = tokio::spawn(async move {
-        store
-            .upload_audio_intent(ALICE, &script, &id, bytes)
-            .await
-    });
+    let uploading =
+        tokio::spawn(async move { store.upload_audio_intent(ALICE, &script, &id, bytes).await });
     wait_for_query_lock(
         &h.admin,
         "SELECT owner_id,head_revision FROM scripts%FOR UPDATE",
@@ -845,7 +968,8 @@ async fn concurrent_duplicate_intents_and_bytes_commit_one_original_immutable_re
     let h = Harness::new().await;
     let request = h.intent_request();
     let (left, right) = tokio::join!(
-        h.store.create_audio_intent(ALICE, &h.script, request.clone()),
+        h.store
+            .create_audio_intent(ALICE, &h.script, request.clone()),
         h.store.create_audio_intent(ALICE, &h.script, request),
     );
     let intent = left.unwrap();
@@ -854,31 +978,50 @@ async fn concurrent_duplicate_intents_and_bytes_commit_one_original_immutable_re
     h.hold_receipt_insert().await;
     let mut guard = connect(&h.config).await;
     let tx = guard.transaction().await.unwrap();
-    tx.query_one("SELECT pg_advisory_xact_lock($1)", &[&RECEIPT_LOCK]).await.unwrap();
+    tx.query_one("SELECT pg_advisory_xact_lock($1)", &[&RECEIPT_LOCK])
+        .await
+        .unwrap();
     let bytes = opus();
     let store = h.store.clone();
     let script = h.script.clone();
     let id = intent.id.clone();
     let first_bytes = bytes.clone();
-    let first = tokio::spawn(async move { store.upload_audio_intent(ALICE, &script, &id, first_bytes).await });
+    let first = tokio::spawn(async move {
+        store
+            .upload_audio_intent(ALICE, &script, &id, first_bytes)
+            .await
+    });
     wait_for_receipt_insert(&h.admin).await;
     let store = h.store.clone();
     let script = h.script.clone();
     let id = intent.id.clone();
-    let second = tokio::spawn(async move { store.upload_audio_intent(ALICE, &script, &id, bytes).await });
+    let second =
+        tokio::spawn(async move { store.upload_audio_intent(ALICE, &script, &id, bytes).await });
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            let waiting: i64 = h.admin.query_one(
-                "SELECT count(*) FROM pg_stat_activity
+            let waiting: i64 = h
+                .admin
+                .query_one(
+                    "SELECT count(*) FROM pg_stat_activity
                  WHERE application_name='cantos-audio-intake-test'
                    AND datname=current_database() AND wait_event_type='Lock'",
-                &[],
-            ).await.unwrap().get(0);
-            if waiting >= 2 { break; }
-            assert!(!second.is_finished(), "duplicate completed before first acceptance committed");
+                    &[],
+                )
+                .await
+                .unwrap()
+                .get(0);
+            if waiting >= 2 {
+                break;
+            }
+            assert!(
+                !second.is_finished(),
+                "duplicate completed before first acceptance committed"
+            );
             tokio::task::yield_now().await;
         }
-    }).await.unwrap();
+    })
+    .await
+    .unwrap();
     assert!(!first.is_finished());
     tx.commit().await.unwrap();
     let first = first.await.unwrap().unwrap();
@@ -892,20 +1035,43 @@ async fn receipt_insert_rollback_keeps_pending_intent_and_restart_retry_accepts_
     let h = Harness::new().await;
     let intent = h.intent().await;
     let bytes = opus();
-    h.admin.batch_execute(
-        "CREATE TRIGGER inject_audio_receipt_failure BEFORE INSERT ON audio_intake_receipts
+    h.admin
+        .batch_execute(
+            "CREATE TRIGGER inject_audio_receipt_failure BEFORE INSERT ON audio_intake_receipts
          FOR EACH ROW EXECUTE FUNCTION reject_settled_change()",
-    ).await.unwrap();
+        )
+        .await
+        .unwrap();
     assert!(matches!(
-        h.store.upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone()).await,
+        h.store
+            .upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone())
+            .await,
         Err(StoreError::Unavailable)
     ));
     assert_eq!(h.counts().await, (1, 0));
-    assert!(h.restart().load_audio_intent(ALICE, &h.script, &intent.id).await.unwrap().receipt.is_none());
-    h.admin.batch_execute("DROP TRIGGER inject_audio_receipt_failure ON audio_intake_receipts").await.unwrap();
+    assert!(h
+        .restart()
+        .load_audio_intent(ALICE, &h.script, &intent.id)
+        .await
+        .unwrap()
+        .receipt
+        .is_none());
+    h.admin
+        .batch_execute("DROP TRIGGER inject_audio_receipt_failure ON audio_intake_receipts")
+        .await
+        .unwrap();
     let restarted = h.restart();
-    let receipt = restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone()).await.unwrap();
-    assert_eq!(restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes).await.unwrap(), receipt);
+    let receipt = restarted
+        .upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        restarted
+            .upload_audio_intent(ALICE, &h.script, &intent.id, bytes)
+            .await
+            .unwrap(),
+        receipt
+    );
     assert_eq!(h.counts().await, (1, 1));
 }
 
@@ -917,23 +1083,51 @@ async fn terminated_database_transaction_cannot_commit_acceptance_and_restart_ca
     h.hold_receipt_insert().await;
     let mut guard = connect(&h.config).await;
     let tx = guard.transaction().await.unwrap();
-    tx.query_one("SELECT pg_advisory_xact_lock($1)", &[&RECEIPT_LOCK]).await.unwrap();
+    tx.query_one("SELECT pg_advisory_xact_lock($1)", &[&RECEIPT_LOCK])
+        .await
+        .unwrap();
     let bytes = opus();
     let store = h.store.clone();
     let script = h.script.clone();
     let id = intent.id.clone();
     let upload_bytes = bytes.clone();
-    let uploading = tokio::spawn(async move { store.upload_audio_intent(ALICE, &script, &id, upload_bytes).await });
+    let uploading = tokio::spawn(async move {
+        store
+            .upload_audio_intent(ALICE, &script, &id, upload_bytes)
+            .await
+    });
     let pid = wait_for_receipt_insert(&h.admin).await;
-    let terminated: bool = h.admin.query_one("SELECT pg_terminate_backend($1)", &[&pid]).await.unwrap().get(0);
+    let terminated: bool = h
+        .admin
+        .query_one("SELECT pg_terminate_backend($1)", &[&pid])
+        .await
+        .unwrap()
+        .get(0);
     assert!(terminated);
-    assert!(matches!(uploading.await.unwrap(), Err(StoreError::Unavailable)));
+    assert!(matches!(
+        uploading.await.unwrap(),
+        Err(StoreError::Unavailable)
+    ));
     tx.commit().await.unwrap();
     assert_eq!(h.counts().await, (1, 0));
     let restarted = h.restart();
-    assert!(restarted.load_audio_intent(ALICE, &h.script, &intent.id).await.unwrap().receipt.is_none());
-    let receipt = restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone()).await.unwrap();
-    assert_eq!(restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes).await.unwrap(), receipt);
+    assert!(restarted
+        .load_audio_intent(ALICE, &h.script, &intent.id)
+        .await
+        .unwrap()
+        .receipt
+        .is_none());
+    let receipt = restarted
+        .upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        restarted
+            .upload_audio_intent(ALICE, &h.script, &intent.id, bytes)
+            .await
+            .unwrap(),
+        receipt
+    );
     assert_eq!(h.counts().await, (1, 1));
 }
 
@@ -942,24 +1136,53 @@ async fn terminated_database_transaction_cannot_commit_acceptance_and_restart_ca
 async fn settled_intents_and_receipts_reject_update_delete_truncate_even_for_test_admin() {
     let h = Harness::new().await;
     let intent = h.intent().await;
-    h.store.upload_audio_intent(ALICE, &h.script, &intent.id, opus()).await.unwrap();
+    h.store
+        .upload_audio_intent(ALICE, &h.script, &intent.id, opus())
+        .await
+        .unwrap();
     let mut app_config = h.config.clone();
     app_config.user("cantos_app");
     let app = connect(&app_config).await;
     for table in ["audio_upload_intents", "audio_intake_receipts"] {
         for privilege in ["UPDATE", "DELETE", "TRUNCATE"] {
-            let granted: bool = h.admin.query_one(
-                "SELECT has_table_privilege('cantos_app',$1,$2)", &[&table, &privilege],
-            ).await.unwrap().get(0);
-            assert!(!granted, "application unexpectedly has {privilege} on {table}");
+            let granted: bool = h
+                .admin
+                .query_one(
+                    "SELECT has_table_privilege('cantos_app',$1,$2)",
+                    &[&table, &privilege],
+                )
+                .await
+                .unwrap()
+                .get(0);
+            assert!(
+                !granted,
+                "application unexpectedly has {privilege} on {table}"
+            );
         }
         for sql in [
             format!("UPDATE {table} SET profile_id='opus-mono-24-v1'"),
             format!("DELETE FROM {table}"),
             format!("TRUNCATE {table} CASCADE"),
         ] {
-            assert_eq!(h.admin.batch_execute(&sql).await.unwrap_err().code().unwrap().code(), "55000");
-            assert_eq!(app.batch_execute(&sql).await.unwrap_err().code().unwrap().code(), "42501");
+            assert_eq!(
+                h.admin
+                    .batch_execute(&sql)
+                    .await
+                    .unwrap_err()
+                    .code()
+                    .unwrap()
+                    .code(),
+                "55000"
+            );
+            assert_eq!(
+                app.batch_execute(&sql)
+                    .await
+                    .unwrap_err()
+                    .code()
+                    .unwrap()
+                    .code(),
+                "42501"
+            );
         }
     }
     assert_eq!(h.counts().await, (1, 1));
@@ -972,23 +1195,35 @@ async fn database_binding_and_receipt_digest_are_independent_integrity_barriers(
     let id = Uuid::new_v4().to_string();
     let operation = Uuid::new_v4().to_string();
     let wrong_digest = format!("sir-c1:sha256:{}", "0".repeat(64));
-    let error = h.admin.execute(
-        "INSERT INTO audio_upload_intents(id,script_id,script_revision,content_digest,
+    let error = h
+        .admin
+        .execute(
+            "INSERT INTO audio_upload_intents(id,script_id,script_revision,content_digest,
              profile_id,operation_id,created_by) VALUES($1,$2,1,$3,$4,$5,'alice')",
-        &[&id, &h.script, &wrong_digest, &PROFILE, &operation],
-    ).await.unwrap_err();
+            &[&id, &h.script, &wrong_digest, &PROFILE, &operation],
+        )
+        .await
+        .unwrap_err();
     assert_eq!(error.code().unwrap().code(), "23514");
     assert_eq!(h.counts().await, (0, 0));
     let intent = h.intent().await;
-    h.store.upload_audio_intent(ALICE, &h.script, &intent.id, opus()).await.unwrap();
+    h.store
+        .upload_audio_intent(ALICE, &h.script, &intent.id, opus())
+        .await
+        .unwrap();
     // Only the disposable administrator bypasses the trigger to simulate disk/row corruption.
-    h.admin.batch_execute(
-        "ALTER TABLE audio_intake_receipts DISABLE TRIGGER audio_receipts_immutable;
+    h.admin
+        .batch_execute(
+            "ALTER TABLE audio_intake_receipts DISABLE TRIGGER audio_receipts_immutable;
          UPDATE audio_intake_receipts SET receipt_bytes='{}'::bytea;
          ALTER TABLE audio_intake_receipts ENABLE TRIGGER audio_receipts_immutable;",
-    ).await.unwrap();
+        )
+        .await
+        .unwrap();
     assert!(matches!(
-        h.restart().load_audio_intent(ALICE, &h.script, &intent.id).await,
+        h.restart()
+            .load_audio_intent(ALICE, &h.script, &intent.id)
+            .await,
         Err(StoreError::CorruptRevision)
     ));
     let (status, body) = h.json("GET", &intent.status_path, Some(ALICE), None).await;
@@ -999,11 +1234,16 @@ async fn database_binding_and_receipt_digest_are_independent_integrity_barriers(
 
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL cluster and ffmpeg required"]
-async fn tampered_private_object_blocks_status_and_replay_instead_of_claiming_verified_acceptance() {
+async fn tampered_private_object_blocks_status_and_replay_instead_of_claiming_verified_acceptance()
+{
     let h = Harness::new().await;
     let intent = h.intent().await;
     let bytes = opus();
-    let receipt = h.store.upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone()).await.unwrap();
+    let receipt = h
+        .store
+        .upload_audio_intent(ALICE, &h.script, &intent.id, bytes.clone())
+        .await
+        .unwrap();
     let object = h.root.0.join("objects").join(&receipt.media.sha256);
     #[cfg(unix)]
     {
@@ -1020,16 +1260,22 @@ async fn tampered_private_object_blocks_status_and_replay_instead_of_claiming_ve
     }
     let restarted = h.restart();
     assert!(matches!(
-        restarted.load_audio_intent(ALICE, &h.script, &intent.id).await,
+        restarted
+            .load_audio_intent(ALICE, &h.script, &intent.id)
+            .await,
         Err(StoreError::CorruptRevision)
     ));
     assert!(matches!(
-        restarted.upload_audio_intent(ALICE, &h.script, &intent.id, bytes).await,
+        restarted
+            .upload_audio_intent(ALICE, &h.script, &intent.id, bytes)
+            .await,
         Err(StoreError::CorruptRevision)
     ));
     fs::remove_file(&object).unwrap();
     assert!(matches!(
-        restarted.load_audio_intent(ALICE, &h.script, &intent.id).await,
+        restarted
+            .load_audio_intent(ALICE, &h.script, &intent.id)
+            .await,
         Err(StoreError::CorruptRevision)
     ));
     assert_eq!(h.counts().await, (1, 1));

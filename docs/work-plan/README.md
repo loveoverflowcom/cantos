@@ -25,23 +25,46 @@ and HTTP evidence are recorded separately in [session 1](../evidence/studio-cata
 and [session 2](../evidence/studio-catalog-api.md). Keep #66 open for responsive and keyboard
 Studio Web acceptance; GitHub owns execution status.
 
-## Implemented development intake, verification incomplete
+The [Content Identity slice](../decisions/0019-content-identity.md) adds immutable content beneath
+Catalog metadata. Its [handoff to Production Brief](content-identity-production-brief-handoff.md)
+keeps the next backend boundary narrow: exact content/guidance revision pinning and independent
+producer access, before linking intake/publication. Catalog Web acceptance remains separately
+scoped; this sequence does not close #66 or #64. The [Brief v1 backend](../../packages/contracts/production-brief-v1.md)
+provides exact snapshots and read grants; [session3 handoff](production-brief-audio-lifecycle-handoff.md)
+keeps intake linkage, review/release and later live client integration in separate boundaries.
+## Private audio admission and next review boundary
 
-[ADR 0019](../decisions/0019-studio-private-audio-intake.md) and the
-[Studio owner intake contract](../../packages/contracts/studio-audio-intake-v1.md) record the
-narrow implemented slice: explicit four-profile Opus policy, current accepted script revision
-and digest pins, separate immutable intent, actual byte inspection, private filesystem objects
-and immutable receipt/status/retry behavior. It reuses Studio owner sessions and adds no public
-media route or producer credential. Rust/xtask/disposable-PostgreSQL runtime checks are
-**NOT_RUN** here; authored tests do not establish deployability or complete step 3 above.
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) reuses attributed PR69
+intake and binds verified private bytes to exact Content/Brief/profile/rights declarations.
+Named append-only reviews and private candidates expose current blockers; public publication
+always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
+[frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
-Next remains Catalog Web acceptance, then immutable catalog-bound briefs and separate scoped
-producer access. Production S3 storage, provenance/rights/QC review, release/delivery and
-reference-aware orphan cleanup retain their owning slices.
-[#51](https://github.com/loveoverflowcom/cantos/issues/51) listening/interoperability is not settled
-by admitting an Opus envelope.
+The [live client boundary](live-client-api-matrix.md) connects the bounded Studio forms and
+keeps Theatre capabilities unsupported until a reviewed listener/publication contract exists.
+Remaining Studio controls and responsive/keyboard/user acceptance stay with #66; transport
+checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, secure
+identity/storage and stronger rights/QC policy,
+then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
+separate. No listening/interoperability is settled by admitting an Opus envelope.
+
+The [PR73 browser follow-up](../evidence/live-client-browser-acceptance.md) exercised the real
+bounded Studio flow and retains its historical partial/FAIL acceptance. The
+[bounded correction/recheck record](../evidence/live-client-finding-fixes.md) owns the later
+default-kind, existing-profile session and chip-contrast evidence. Next within #66, prioritize
+pending-write/concurrent identity cases, then full accessibility acceptance; keep missing
+browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
+backend sequence above is unchanged.
 
 ## Existing foundations to retain
+
+The [domain assurance hardening](../assurance/domain-invariants.md) inventories
+and strengthens existing boundaries in [Draft PR75](https://github.com/loveoverflowcom/cantos/pull/75).
+Phase 1 covers contracts, shared UI and Catalog/ingestion/Script IR. Next, audit
+editorial/production and media/incremental before bounded production-kernel Kani
+verification; the final phase covers client state and the opt-in verifier workflow.
+GitHub owns execution status. This correctness work does not complete broader
+Studio acceptance, rights/QC, publication or listener implementation.
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
@@ -56,9 +79,16 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
 - [020 — external production instructions and audio handoff](020-cast-and-generate-dialogue.md).
 - [030 — external master intake, QC and release](030-mix-review-and-publish.md).
 - [040 — Theatre Web](040-theatre-web-listening.md). The session-only
-  [Web mock](../evidence/theatre-web-mock.md) completes neither 040 nor its issues.
+  [Web mock](../evidence/theatre-web-mock.md) and [PR 02 local/browser validation](../evidence/theatre-web-pr02.md)
+  establish the mock foundation only, including shared Web control-label alignment. Retain it while implementing publication and the authorized
+  listener API first; neither completes 040 nor its issues.
 - [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
+
+The [CMP engineering skills audit](../evidence/cmp-engineering-skills.md) strengthens typed
+functional Kotlin, layer/ownership review and reproducible verification guidance. This is
+documentation maintenance; it changes neither the recommended implementation order nor 050's
+native acceptance status.
 - [GitHub execution map](project-planning.md) and [audio drama craft](audio-drama-quality.md)
   support these, without authorizing TTS inside Cantos.
 
@@ -74,3 +104,15 @@ are separate evidence levels.
 A missing upload/storage/identity backend is **not** satisfied by a schema-only proposal.
 Acceptance requires real, authorized upload, retry, wrong-scope, tampering and publication
 failure tests.
+
+## Local service runtime support
+
+[Draft PR77](https://github.com/loveoverflowcom/cantos/pull/77) owns the Podman-first runtime
+change ([ADR 0021](../decisions/0021-podman-service-runtime.md),
+[evidence](../evidence/podman-service-runtime.md)); GitHub owns execution status. It adds a
+bounded local infrastructure option while preserving native verification. It does not move the
+product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
+then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
+rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
+lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.

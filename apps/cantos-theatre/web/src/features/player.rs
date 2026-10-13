@@ -28,7 +28,7 @@ pub(crate) fn TransportAction(
         <button type="button" class="theatre-action theatre-transport" data-compact=compact
             on:click=move |_| ctx.toggle_transport() aria-describedby="theatre-demo-notice">
             {move || icon(if ctx.player.view.get().is_some_and(|player| player.intent == Intent::Play) { "pause" } else { "play_arrow" })}
-            <span>{move || ctx.text(if ctx.player.view.get().is_some_and(|player| player.intent == Intent::Play) { Key::Pause }
+            <span class="cui-control-label">{move || ctx.text(if ctx.player.view.get().is_some_and(|player| player.intent == Intent::Play) { Key::Pause }
                 else if ctx.player.view.get().is_some_and(|player| player.transport == Status::Ended && player.position == player.duration) { Key::Replay } else { Key::Play })}</span>
         </button>
     }
@@ -45,7 +45,7 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
                     <p class="theatre-eyebrow">{move || ctx.text(Key::DemoBadge)}</p>
                     <h2 lang="vi-VN">{move || ctx.player.view.get().and_then(|player| ctx.episode(player.episode).map(|episode| episode.title)).unwrap_or_default()}</h2>
                     <a class="theatre-text-link" lang="vi-VN" href=move || ctx.player.view.get().map(|player| Route::Work(player.episode.work).hash()).unwrap_or_else(|| Route::Discover.hash())>
-                        {move || ctx.player.view.get().map(|player| ctx.work(player.episode.work).title).unwrap_or_default()}
+                        <span class="cui-control-label">{move || ctx.player.view.get().map(|player| ctx.work(player.episode.work).title).unwrap_or_default()}</span>
                     </a>
                     <p role="status" aria-atomic="true">{move || ctx.player.view.get().map(|player| ctx.text(messages::status_key(player.transport))).unwrap_or_default()}</p>
                     <Show when=move || ctx.player.feedback.get().rejection.is_some()>
@@ -62,16 +62,16 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
                     <p class="theatre-time">{move || position_label(ctx)}</p>
                     <p id="theatre-timeline-help" class="theatre-muted">{move || ctx.text(Key::TimelineHelp)}</p>
                     <div class="theatre-actions">
-                        <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.playback(Event::SkipRequested { delta_ms: -15000 })>{icon("replay")}{move || ctx.text(Key::Back15)}</button>
+                        <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.playback(Event::SkipRequested { delta_ms: -15000 })>{icon("replay")}<span class="cui-control-label">{move || ctx.text(Key::Back15)}</span></button>
                         <TransportAction ctx=ctx/>
-                        <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.playback(Event::SkipRequested { delta_ms: 15000 })>{icon("rotate_right")}{move || ctx.text(Key::Forward15)}</button>
+                        <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.playback(Event::SkipRequested { delta_ms: 15000 })>{icon("rotate_right")}<span class="cui-control-label">{move || ctx.text(Key::Forward15)}</span></button>
                     </div>
                     <div class="theatre-actions">
                         <button type="button" class="theatre-action theatre-action-text" on:click=move |_| ctx.add_bookmark()>
-                            {icon("bookmark_border")}{move || if ctx.player.state.with(|state| state.session().is_some_and(|player| ctx.library.with(|library| library.bookmarks.contains(&Bookmark { episode: player.source().episode(), position_ms: player.position_ms() })))) { ctx.text(Key::BookmarkAdded) } else { ctx.text(Key::AddBookmark) }}
+                            {icon("bookmark_border")}<span class="cui-control-label">{move || if ctx.player.state.with(|state| state.session().is_some_and(|player| ctx.library.with(|library| library.bookmarks.contains(&Bookmark { episode: player.source().episode(), position_ms: player.position_ms() })))) { ctx.text(Key::BookmarkAdded) } else { ctx.text(Key::AddBookmark) }}</span>
                         </button>
-                        <a class="theatre-text-link" href="#queue">{icon("queue_music")}{move || ctx.text(Key::Queue)}</a>
-                        <a class="theatre-text-link" href="#settings">{icon("settings")}{move || ctx.text(Key::Settings)}</a>
+                        <a class="theatre-text-link" href="#queue">{icon("queue_music")}<span class="cui-control-label">{move || ctx.text(Key::Queue)}</span></a>
+                        <a class="theatre-text-link" href="#settings">{icon("settings")}<span class="cui-control-label">{move || ctx.text(Key::Settings)}</span></a>
                     </div>
                     <dl class="theatre-player-facts"><div><dt>{move || ctx.text(Key::Speed)}</dt><dd>{move || messages::speed_label(ctx.locale.get(), ctx.player.view.get().map(|player| player.speed).unwrap_or(100))}</dd></div></dl>
                     <details class="theatre-demo-tools">
@@ -81,19 +81,19 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
                             <button type="button" class="theatre-action theatre-action-tonal"
                                 aria-describedby="theatre-engine-help"
                                 disabled=move || ctx.player.view.get().is_none_or(|player| player.intent != Intent::Play)
-                                on:click=move |_| ctx.mock_buffer()>{move || ctx.text(Key::MockBuffer)}</button>
+                                on:click=move |_| ctx.mock_buffer()><span class="cui-control-label">{move || ctx.text(Key::MockBuffer)}</span></button>
                             <button type="button" class="theatre-action theatre-action-tonal"
                                 aria-describedby="theatre-engine-help"
                                 disabled=move || ctx.player.view.get().is_none_or(|player| player.intent != Intent::Play)
-                                on:click=move |_| ctx.mock_started()>{move || ctx.text(Key::MockReady)}</button>
+                                on:click=move |_| ctx.mock_started()><span class="cui-control-label">{move || ctx.text(Key::MockReady)}</span></button>
                             <button type="button" class="theatre-action theatre-action-tonal"
-                                on:click=move |_| ctx.playback(Event::InterruptionBegan)>{move || ctx.text(Key::MockInterrupt)}</button>
+                                on:click=move |_| ctx.playback(Event::InterruptionBegan)><span class="cui-control-label">{move || ctx.text(Key::MockInterrupt)}</span></button>
                             <button type="button" class="theatre-action theatre-action-tonal"
-                                on:click=move |_| ctx.playback(Event::InterruptionEnded { resume_allowed: false })>{move || ctx.text(Key::MockEndInterrupt)}</button>
+                                on:click=move |_| ctx.playback(Event::InterruptionEnded { resume_allowed: false })><span class="cui-control-label">{move || ctx.text(Key::MockEndInterrupt)}</span></button>
                             <button type="button" class="theatre-action theatre-action-tonal"
-                                on:click=move |_| ctx.mock_ended()>{move || ctx.text(Key::MockEnd)}</button>
+                                on:click=move |_| ctx.mock_ended()><span class="cui-control-label">{move || ctx.text(Key::MockEnd)}</span></button>
                             <button type="button" class="theatre-action theatre-action-tonal"
-                                on:click=move |_| ctx.restore_position()>{move || ctx.text(Key::MockRestore)}</button>
+                                on:click=move |_| ctx.restore_position()><span class="cui-control-label">{move || ctx.text(Key::MockRestore)}</span></button>
                         </div>
                     </details>
                     <UnsupportedAction ctx=ctx label=Key::Download/>

@@ -20,7 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Caller-owned generation enters through authenticated context/submission tools.
     let mut store = Store::new(config).map_err(|_| "database pool unavailable")?;
     if let Some(root) = env::var_os("CANTOS_AUDIO_ROOT") {
-        store = store.with_audio_storage(std::path::Path::new(&root))
+        store = store
+            .with_audio_storage(std::path::Path::new(&root))
             .map_err(|_| "invalid private development audio storage root")?;
     }
     let dist = env::var("CANTOS_WEB_DIST").unwrap_or_else(|_| "apps/cantos-studio/web/dist".into());

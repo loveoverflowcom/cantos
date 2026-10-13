@@ -55,7 +55,9 @@ pub(super) async fn by_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<AudioIntentResponse>, StoreError> {
-    let query = format!("SELECT {INTENT_COLUMNS} FROM audio_upload_intents WHERE created_by=$1 AND operation_id=$2");
+    let query = format!(
+        "SELECT {INTENT_COLUMNS} FROM audio_upload_intents WHERE created_by=$1 AND operation_id=$2"
+    );
     tx.query_opt(&query, &[&actor, &operation])
         .await?
         .as_ref()
@@ -80,16 +82,22 @@ pub(super) async fn find_intent(
 pub(super) async fn insert_intent(
     tx: &Tx<'_>,
     actor: &str,
-    script: &str,
-    revision: i64,
-    digest: &str,
-    profile: &str,
+    binding: super::domain::intake::IntentBinding<'_>,
     operation: &str,
     id: &str,
 ) -> Result<AudioIntentResponse, StoreError> {
+    let script = binding.script_id;
+    let revision = crate::platform::postgres::checked_number(binding.revision)?;
+    let digest = binding.content_digest;
+    let profile = binding.profile_id;
     let query = format!("INSERT INTO audio_upload_intents(id,script_id,script_revision,content_digest,profile_id,operation_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING {INTENT_COLUMNS}");
     let row = tx
-        .query_one(&query, &[&id, &script, &revision, &digest, &profile, &operation, &actor])
+        .query_one(
+            &query,
+            &[
+                &id, &script, &revision, &digest, &profile, &operation, &actor,
+            ],
+        )
         .await
         .map_err(|error| {
             if error.code() == Some(&SqlState::UNIQUE_VIOLATION) {
@@ -132,8 +140,8 @@ pub(super) async fn receipt(
     let receipt: AudioReceiptResponse =
         serde_json::from_slice(&bytes).map_err(|_| StoreError::CorruptRevision)?;
     let object_key: String = row.get("object_key");
-    let profile = DeliveryProfile::from_id(&receipt.profile_id)
-        .ok_or(StoreError::CorruptRevision)?;
+    let profile =
+        DeliveryProfile::from_id(&receipt.profile_id).ok_or(StoreError::CorruptRevision)?;
     if serde_json::to_vec(&receipt).map_err(|_| StoreError::CorruptRevision)? != bytes
         || normalized_uuid(&receipt.id).map_err(|_| StoreError::CorruptRevision)? != receipt.id
         || receipt.id != row.get::<_, String>("id")
@@ -155,9 +163,11 @@ pub(super) async fn receipt(
         || receipt.media.profile_id != intent.profile_id
         || receipt.media.sha256 != object_key
         || receipt.media.sha256.len() != 64
-        || !receipt.media.sha256.bytes().all(|byte| {
-            byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
-        })
+        || !receipt
+            .media
+            .sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         || receipt.media.container != profile.container()
         || receipt.media.codec != profile.codec()
         || receipt.media.audio_bitrate_bps == 0
@@ -184,7 +194,10 @@ pub(super) async fn insert_receipt(
 ) -> Result<(), StoreError> {
     let bytes = serde_json::to_vec(receipt).map_err(|_| StoreError::CorruptRevision)?;
     let digest = receipt_digest(&bytes);
-    let revision = i64::try_from(receipt.script_revision).map_err(|_| StoreError::CorruptRevision)?;
+    let revision =
+        i64::try_from(receipt.script_revision).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute("INSERT INTO audio_intake_receipts(id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,accepted_at,object_key,receipt_bytes,receipt_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10,$11,$12)", &[&receipt.id, &receipt.intent_id, &receipt.script_id, &revision, &receipt.content_digest, &receipt.profile_id, &receipt.operation_id, &receipt.accepted_by, &receipt.accepted_at, &object_key, &bytes, &digest]).await?;
     Ok(())
 }
+
+pub(super) mod lifecycle;

@@ -24,16 +24,18 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 manuscript intake, host-created adaptation proposal submission/review, reference casting/rights
 planning and a read-only WAV inspector. Studio Catalog implements work/content-unit domain rules,
 authorized transactional application use cases, PostgreSQL revision persistence and JSON HTTP
-routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md). A narrow
-[Studio owner audio intake](packages/contracts/studio-audio-intake-v1.md) now has code for explicit
-revision/profile-pinned intents, actual Opus-byte inspection, private filesystem objects and
-immutable receipts. Intake is development-only; its Rust/PostgreSQL runtime verification is
-**NOT_RUN** in this environment. Scoped external-producer handoff, production briefs, live S3
-storage and published listener releases remain unimplemented.
-Studio Web is implemented against the earlier editorial flow; its catalog/audio handoff UX is
-still planned. Theatre Web is a session-only
-[UI mock](docs/evidence/theatre-web-mock.md) without API or audio, and Theatre Mobile has an isolated
-[CMP mock](apps/cantos-theatre/mobile/README.md) without native audio or API.
+routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v1.md).
+[Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
+revisions with separate metadata/content sequences and full revision pinning.
+[Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
+and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Public publication/delivery remains unimplemented.
+Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
+private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
+distinguishes connected forms from deferred controls and user acceptance. Theatre Web defaults
+to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
+selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
+[CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
+there is no live listener resource, native audio or publication/delivery integration.
 
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
 No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.
@@ -50,18 +52,18 @@ Studio: verify object and metadata → human/editorial approval → immutable re
 Theatre: discover → stream/download → resume
 ```
 
-General catalog-bound briefs and scoped producer submissions remain proposal contracts.
-The separate [development intake decision](docs/decisions/0019-studio-private-audio-intake.md)
-uses only the existing script owner’s Studio session. Third-party producers must never reuse it.
-No general handoff route should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
+Production Brief export/read grants and private Audio Lifecycle are implemented for the development host. Public releases remain proposals.
+No live routes should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
 
 ## Repository
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
-- `services/kanidm`: proposed identity configuration, not yet integrated.
-- `packages/contracts`: versioned Script IR and existing wire contracts; future external-audio handoff.
+- `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
+- `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
+- `services/kanidm`: optional local identity evaluation configuration, not yet integrated.
+- `packages/contracts`: versioned Script IR, Catalog/Content/Brief and private Audio Lifecycle contracts; public release remains proposed.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.
 - `xtask`: canonical repository verification and local development commands.
@@ -92,8 +94,8 @@ Start with the [product brief](docs/product/brief.md), [business rules](docs/pro
 
 Source, translation, voice, music and effects permissions are scoped claims that must be
 reviewed. External uploads remain private and are **never** implicitly published. Store immutable
-release manifests and deliver approved audio over object storage/CDN; low-bandwidth Opus/AAC
-profile decisions are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues/64).
+release manifests and deliver approved audio over object storage/CDN; explicit Opus mono20/24/32/40-v1 Brief profiles and further playback/quality
+acceptance are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues/64).
 
 Cantos has no selected repository software license. Repository visibility does not grant a right
 to redistribute narrative or voice material.

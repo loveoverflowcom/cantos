@@ -3,9 +3,9 @@ name: cantos-cmp-mobile
 description: >-
   Builds and reviews the Cantos Theatre Kotlin Compose Multiplatform app for Android and iOS:
   feature-first CMP packages, one process-wide media session behind platform-native playback
-  adapters, pure Kotlin reducers over immutable state, staged and verified offline downloads, a
-  durable progress outbox, Material 3 Expressive theming from shared tokens and per-platform
-  device evidence. Use for CMP, Compose, Kotlin, apps/cantos-theatre/mobile, mini or full player, background
+  adapters, validated domain types, sealed ADTs, pure reducers, explicit effects, structured
+  concurrency and reproducible verification. Guides future downloads/outbox and native acceptance
+  beyond the implemented memory-only mock. Use for CMP, Compose, Kotlin, apps/cantos-theatre/mobile, mini or full player, background
   audio, lock-screen or notification controls, audio focus, interruptions, sleep timer,
   downloads, offline listening, TalkBack/VoiceOver, Android/iOS lifecycle work, emulator-free
   Compose preview capture, Android CLI render-compose-preview or PNG/semantics inspection.
@@ -33,20 +33,22 @@ when this skill and a document disagree, the document wins and the conflict is r
 
 ## Repository reality
 
-- `apps/cantos-theatre/mobile/` (Theatre) contains a README only. It is the sole supported mobile
-  product. Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
-  Studio is web-only; do not implement, scaffold, build or maintain Studio Mobile unless explicitly
-  requested in a future roadmap. Shared libraries may serve Theatre Mobile and Studio Web. No production
-  mobile Kotlin consumer exists yet. There is no app Gradle build, Xcode project, app KMP module
-  or device runner. The UI-system package has separate concrete JVM desktop and Android Studio
-  host-preview consumers; neither establishes mobile app behavior. The `cargo xtask compose-preview`
-  Theatre target remains `UNSUPPORTED`, while `ui-system-cmp` selects the real isolated Android
-  library in `packages/ui-system/cmp/android-preview`. Capture additionally requires Android Studio
-  Quail 2+ open and ready; see [Compose preview](references/compose-preview.md). Discover app
-  `settings.gradle.kts`, `gradle/libs.versions.toml`, the Xcode project and CI workflows before
-  citing an app command; proposed mobile commands remain proposals until Theatre implements them.
-- Every library named here (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
-  WorkManager, kotest, Roborazzi …) is a **candidate**. Adopting one needs the ADR listed in
+- `apps/cantos-theatre/mobile/` contains an isolated memory-only CMP mock: shared Gradle module,
+  Android host, SwiftUI/Xcode host and JVM diagnostics. Its pure playback reducer, independent
+  controllers, narrow ports and mock adapters are real code. It has no listener API/auth,
+  native audio, downloads or durable sync/persistence; production `--mobile` remains
+  `UNSUPPORTED`. The sole mobile product is Theatre; Studio is Web-only under the
+  [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
+  Shared libraries may serve Theatre Mobile and Studio Web.
+- Discover commands from the [mock guide](../../../apps/cantos-theatre/mobile/README.md#local-commands)
+  and [xtask](../../../xtask/README.md#theatre-demo). `theatre-demo verify` runs common/desktop
+  tests, Android build makes a mock APK and iOS build only links a simulator framework.
+  Neither linking nor host tests establish native runtime evidence. Both Theatre mock and
+  `ui-system-cmp` have real Android preview wrappers; capture additionally needs CLI/Quail 2+
+  readiness. No native runtime test gate exists.
+- Unadopted libraries (Media3, AVFoundation wrappers, Ktor, SQLDelight, Room KMP,
+  WorkManager, Kotest, Roborazzi …) remain **candidates**. Check the actual Gradle pins; do not
+  describe existing coroutines/test dependencies as proposals. Adoption needs the ADR listed in
   [mobile.md § Implementation decisions](../../../docs/architecture/mobile.md#implementation-decisions-to-record),
   written with [`templates/adr.md`](../../../templates/adr.md), and a pinned version checked
   against official documentation **for every target** — Android support does not imply
@@ -86,6 +88,16 @@ that drifts into them instead of silently implementing it.
 
 ## Non-negotiables on mobile
 
+For Kotlin/domain/controller changes, **MUST** load
+[Kotlin rules](references/kotlin-conventions.md) (TYPE-01–05, FP-01–04, KT ownership/lifetimes),
+[architecture](references/cmp-architecture.md) (ARC boundaries, SOLID) and
+[testing](references/cmp-testing.md) (VER-01–08). They are the canonical Kotlin definitions;
+legacy KT anchors route to them. For dependency decisions also load
+[tooling evaluation](references/cmp-tooling.md). Review mode uses the same references read-only.
+For fallible flow, also load the foundation's
+[typed errors and composition](../cantos-engineering/references/typed-errors-and-composition.md);
+Kotlin rules below apply its taxonomy, containment and cancellation policy.
+
 - **Decoupling.** `commonMain` application code depends on narrow ports, never on Media3,
   AVFoundation, Ktor engines, SQL drivers or Android/UIKit types. Adapters live in `androidMain`
   / `iosMain` or Swift and are injected at the composition root. The API client is generated from
@@ -93,7 +105,8 @@ that drifts into them instead of silently implementing it.
   Forge types. → [cmp-architecture.md](references/cmp-architecture.md)
 - **One media session owner per process.** Screens attach to it; navigation never creates or
   destroys an engine. No WebView audio, ever.
-- **Immutability.** UI and application state are `val` values replaced through `copy`; a
+- **Immutability.** UI/application state uses invariant-preserving value replacement; `copy`
+  is not automatically safe. Future accepted records such as a
   verified download record, an outbox operation and a playback checkpoint are written once and
   superseded, never edited in place. → [kotlin-conventions.md](references/kotlin-conventions.md)
 - **Functional core.** Playback intent, interruption handling, sleep timer, resume prompt,
@@ -101,9 +114,11 @@ that drifts into them instead of silently implementing it.
   effects as data; adapters interpret them.
   → [native-playback.md](references/native-playback.md),
   [downloads-and-local-state.md](references/downloads-and-local-state.md)
-- **Types as proof barriers.** Value classes for `EpisodeId`/`PublicationId`; evidence types
-  (`VerifiedDownload`) constructible only by the verifier; sealed errors with exhaustive `when`;
-  no `!!`.
+- **Types as proof barriers.** Distinct meaningful identities, validated factories/aggregates,
+  closed ADTs and typed errors; audit constructor/copy/decoding bypasses. Preserve current
+  transactional playback rejection and vectors; compose typed failures without losing
+  refinements. Arrow Either/Raise remains an evaluated candidate, subject to target checks and
+  an adoption ADR, with no dependency added for syntax alone. No native refinement-proof claim.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
@@ -122,7 +137,9 @@ steps. Skipping a step is a decision you state, as the foundation requires.
    [`playback-semantics.md`](../cantos-listening/references/playback-semantics.md)). Read the
    actual code and call sites. Write the invariant and failure mode in one sentence and seed the
    ledger from the [mobile acceptance matrix](../../../docs/architecture/mobile.md#future-acceptance-matrix).
-   For a decomposition, record the before/after ownership, dependency and lifetime graph first
+   Pin the actual mock/production boundary, toolchain and relevant TYPE/FP/ARC/VER IDs;
+   record rule → enforcement/test and remaining gaps. For a decomposition, record the before/after
+   ownership, dependency and lifetime graph first
    ([cmp-architecture.md § Decomposition record](references/cmp-architecture.md#decomposition-record)).
 2. **Choose state and API ownership.** One mutable authority per fact, at its real lifetime:
    process (media session, download queue, outbox), account session, route, composable.
@@ -174,6 +191,7 @@ steps. Skipping a step is a decision you state, as the foundation requires.
 | download staging and verification, local metadata store, account scoping, revocation, progress outbox, background execution | [`downloads-and-local-state.md`](references/downloads-and-local-state.md) |
 | generated Kotlin theme, Material 3 Expressive in CMP, dynamic color, typography, touch targets, semantics, insets, back, reduced motion, resources | [`cmp-design-system.md`](references/cmp-design-system.md) |
 | choosing CMP evidence, renderers, device runs, blocked gates, acceptance matrix, clocks and dispatchers | [`cmp-testing.md`](references/cmp-testing.md) |
+| Arrow, Kotest Property, persistent collections, Konform, Turbine, Lincheck, Detekt/ktlint/Compose Rules compatibility and adoption cost | [`cmp-tooling.md`](references/cmp-tooling.md) |
 | Android CLI/Quail 2+ setup, emulator-free PNG and semantics capture, preview inspection, JVM alternative | [`compose-preview.md`](references/compose-preview.md) |
 
 Load foundation references through the foundation router; the ones mobile work reaches most are

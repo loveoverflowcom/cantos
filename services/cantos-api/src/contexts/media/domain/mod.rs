@@ -3,3 +3,5 @@ pub mod wav_inspection;
 
 pub mod audio_profile;
 pub mod intake;
+
+pub mod lifecycle;

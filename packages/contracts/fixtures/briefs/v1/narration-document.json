@@ -1,0 +1,59 @@
+{
+  "schema_version": "1",
+  "id": "40000000-0000-4000-8000-000000000004",
+  "version": 1,
+  "work": {
+    "id": "10000000-0000-4000-8000-000000000001",
+    "owner_id": "alice",
+    "kind": "novel",
+    "title": "Ánh đèn cuối sân khấu",
+    "rights_refs": [],
+    "rights_digest": "pb-rights1:sha256:754929fc9a1c480cb7d6ba9ccb8daefd2e60ecc2b94baf55e2ff6b77443a52cd"
+  },
+  "content": {
+    "id": "30000000-0000-4000-8000-000000000003",
+    "work_id": "10000000-0000-4000-8000-000000000001",
+    "unit_id": "20000000-0000-4000-8000-000000000002",
+    "revision": 1,
+    "details": {
+      "language": "vi-VN",
+      "body": {
+        "kind": "text",
+        "text": "Người kể đã trở về.",
+        "source": null
+      },
+      "rights_refs": [],
+      "provenance_note": "Original synthetic test prose."
+    },
+    "content_digest": "cc-c1:sha256:06a82fb70d598d7dc1b30f20e988b72e3194caaedef8bc3f4f6bceba0d2e3f61",
+    "recorded_by": "alice",
+    "recorded_at": 1000,
+    "revision_digest": "cc-r1:sha256:aa9ebf51bdb0eb7e29951121ad827e1cc2c30675f6fdb9735cb79f06d31062ba"
+  },
+  "instructions": {
+    "kind": "text",
+    "text": "Người kể đã trở về."
+  },
+  "guidance": {
+    "editorial": {
+      "mode": "narration",
+      "notes": "Đọc rõ, giữ hơi thở tự nhiên."
+    },
+    "voice": null,
+    "sound_design": null,
+    "required_capabilities": [
+      "narration",
+      "ogg_opus_mono"
+    ],
+    "delivery": {
+      "profile_id": "opus-mono-24-v1",
+      "permitted_use": "Private production review only.",
+      "attribution": "Original synthetic fixture.",
+      "naming": "chapter-01.ogg",
+      "qa_instructions": "Compare every paragraph; record measured and listened evidence separately."
+    }
+  },
+  "created_by": "alice",
+  "created_at": 2000,
+  "digest": "pb-r1:sha256:c3b45fe14e00f32690e972d5bad2d83bcfea6870bea17c47ed2733049b8f5c9c"
+}

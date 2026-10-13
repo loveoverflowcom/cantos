@@ -67,8 +67,10 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 ## Repository reality
 
 Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, the Leptos
-Studio, a Theatre Web skeleton, `cargo xtask` and Python oracles. Theatre Mobile is a guide
-without a Gradle app; Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
+Studio, a session-only Theatre Web mock, `cargo xtask` and Python oracles. Theatre Mobile has an
+isolated memory-only Gradle CMP mock, Android/iOS hosts and common/desktop tests; no native audio,
+listener API, downloads or durable sync. Host tests/linking are not device verification.
+Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
 targets against the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope). Discover manifests and runners before saying a check exists,
 could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review
 docs, templates, skills and scripts with lens A (policy under review, against the policy trusted
@@ -104,6 +106,7 @@ Skipping a pass is a decision to state, not silence.
 |---|---|---|
 | any change with a durable claim | § 1 invariant ledger | [foundation § 1](../cantos-engineering/SKILL.md#1-name-the-invariant-before-writing-code), [business-rule invariants](../../../docs/product/business-rules.md#product-invariants-to-verify) |
 | newtype, ID, witness, enum replacing flags; `Deserialize`, row decoding, `Default`, `From`; fixtures; AI or provider output decoding; migrations | § 2 types and construction paths | [types-as-proofs](../cantos-engineering/references/types-as-proofs.md), [boundary-hardening](../cantos-engineering/references/boundary-hardening.md) |
+| expected-error ADT, propagation/accumulation, catch/panic, cancellation, retry or HTTP/UI error projection | § 2, § 3 and § 9 | [typed errors and composition](../cantos-engineering/references/typed-errors-and-composition.md); platform applications when relevant |
 | a new import or manifest dependency; a decision inside a handler, worker, component or screen; a new trait, crate or module; one rule in Rust and Leptos or Kotlin | § 3 decoupling and functional boundaries | [decoupling](../cantos-engineering/references/decoupling.md), [functional-core](../cantos-engineering/references/functional-core.md) |
 | `UPDATE`/`DELETE`/upsert on revision, attempt, artifact, QC, approval or manifest data; "latest" lookups; fingerprint, digest or cache-key code; object keys | § 4 immutability, revisions, cache keys | [immutability](../cantos-engineering/references/immutability.md), [`cantos-script-ir`](../cantos-script-ir/SKILL.md), [fingerprints](../cantos-production-pipeline/references/fingerprints-and-invalidation.md) |
 | job claim, lease, heartbeat, retry, provider call, budget, cancellation, outbox | § 5 production durability | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
@@ -112,8 +115,16 @@ Skipping a pass is a decision to state, not silence.
 | `Content-Type`/`Accept` handling, `cantos_contracts::wire`, a client codec switch, serde attributes of a negotiated DTO, MessagePack goldens | § 2, § 3 and § 9 | [wire codec](../cantos-engineering/references/wire-codec.md) |
 | Leptos views, CSS, Compose UI, tokens, strings, motion, UI evidence | § 8 UI | [`cantos-ui-design`](../cantos-ui-design/SKILL.md) and the renderer skill |
 | tests, fixtures, golden files, generators, mutation config, CI workflows | § 9 tests and evidence | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
+| Kani harness, assumption, bound, cover, stub or formal-verification claim | § 9 and § 11 freshness | [Kani obligations and actual execution](../cantos-engineering/references/mutation-and-formal.md#bounded-model-checking) |
 | database-backed GET/read/fetch, query/index changes, DBSP/CDC or writes feeding read models | § 9 tests and evidence, plus the applicable domain pass | [read-performance acceptance](../cantos-engineering/references/postgresql-read-performance.md#review-and-acceptance) |
 | `AGENTS.md`, skills, docs that own rules, templates, check scripts | lens A policy under review, then § 9 | [diff-review § 3](../cantos-engineering/references/diff-review.md#3-the-five-lenses) |
+
+For **any handwritten Kotlin change**, including a model/controller with no UI diff, load all
+three canonical references: [TYPE/FP/KT](../cantos-cmp-mobile/references/kotlin-conventions.md),
+[ARC/SOLID and reviewer checklist](../cantos-cmp-mobile/references/cmp-architecture.md#reviewer-checklist),
+and [VER-01–08](../cantos-cmp-mobile/references/cmp-testing.md#verification-rules).
+Use them in passes 2–3 and 9; add pass 8 for visible changes. Cite the rule ID/owner rather than
+creating a second Kotlin checklist in the review report.
 
 Passes 10 and 11 apply to every review that cites or produces evidence.
 

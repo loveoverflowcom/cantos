@@ -2,7 +2,7 @@
 
 > Current [ADR 0018](../../docs/decisions/0018-external-audio-production.md):
 > [external-audio-handoff-v1](external-audio-handoff-v1.md) is a **proposed**, not implemented,
-> API contract. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
+> API contract with its [Production Brief v1](production-brief-v1.md) subset implemented. Durable TTS/receipt/speech-reuse contracts below document historical experiments;
 > they are **not live server capabilities** after the 2026-10-12 refactor.
 
 The separate [Studio owner audio intake v1](studio-audio-intake-v1.md) is implemented for
@@ -28,6 +28,15 @@ pages, atomic reorder and retry receipts. Its [schema](schema/catalog/v1.schema.
 Catalog visibility grants no public delivery; optional immutable source/Script IR links grant
 neither rights clearance nor publication. The deprecated alias and reserved surface groups gain
 no Catalog routes, and Studio Web Catalog UX remains a separate acceptance slice.
+
+The [Content Identity v1 contract](content-v1.md) adds separate immutable content revisions,
+normalized text or exact source/Script IR bindings, recording-only units, full revision digests,
+owner-bound evidence, atomic retries and bounded history. Metadata/content counters are distinct;
+legacy Catalog links do not move managed content. It adds no brief, accepted audio or publication.
+
+The [Production Brief v1 contract](production-brief-v1.md) exports immutable Catalog content,
+rights/guidance/profile pins and independent expiring read permissions. It produces no audio
+and grants no upload/review/publication authority.
 
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,
@@ -240,3 +249,5 @@ See [contract evidence](../../docs/evidence/script-ir-contract.md) and
 [revision evidence](../../docs/evidence/script-revision-persistence.md). Studio v1 uses hand-authored
 DTOs checked against the same Schema/fixtures in both native and browser-consumer tests; it is
 not generated OpenAPI. Future generated bindings must name their source and generation command.
+
+[Private Audio Lifecycle v1](audio-lifecycle-v1.md) implements Content/Brief-bound admission, independently scoped upload, append-only review and private candidate readiness. Public publication remains unavailable.

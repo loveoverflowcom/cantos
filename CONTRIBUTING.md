@@ -53,10 +53,11 @@ Attach the relevant reference and before/after evidence to design work. Cover ke
 ## Verification
 
 Implementation handoff and PR creation use the foundation's [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
-applicable local tests, mocked integration tests and verification checks must pass. GitHub Actions
-completion is not an agent handoff prerequisite; do not wait or poll for remote CI. Keep mocked
-and real evidence separate, and report unavailable checks without calling them passed. This
-does not change repository merge protection or production, publication and phase-exit acceptance.
+verify the pure core first, record independent layer results and deliver verified layers when
+requested even if infrastructure acceptance is pending. Record deferred checks with their
+reason, next command, criteria and owner; keep mocked and real evidence separate. Do not wait
+or poll for GitHub Actions. Required checks, repository merge protection and production,
+publication and phase-exit acceptance keep their existing meaning.
 
 Repository-level build, run and verification commands go through [`cargo xtask`](xtask/README.md).
 Scripts in `scripts/` and raw Cargo/Trunk commands are its primitives; do not add a parallel
@@ -77,3 +78,15 @@ unsupported gate in the pull request. On affected macOS temporary-path setups, r
 `TMPDIR=/private/tmp`.
 
 For runtime changes, run the relevant stack-specific checks once the corresponding implementation and tooling exist. Include meaningful integration evidence for job retry/resume, partial regeneration, publishing, streaming, and native background playback when those behaviors change. Record any environment limitations instead of claiming an unrun check passed.
+
+## Service runtime ownership
+
+A service is a runnable process or independently managed infrastructure, not necessarily a Rust
+crate. Follow [the service inventory](services/README.md) and
+[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
+Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
+registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
+Podman, initialize/start a machine or change its connection without explicit consent. Manage
+only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
+TLS and data outside Git, and distinguish configuration from observed runtime and integration.

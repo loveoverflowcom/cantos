@@ -8,3 +8,6 @@ pub mod domain;
 mod postgres;
 
 pub use domain::*;
+
+pub(crate) use application::audio_brief;
+pub(crate) use application::producer_token_registered;

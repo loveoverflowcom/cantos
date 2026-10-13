@@ -138,7 +138,10 @@ fn nullable_receipt_absence_never_creates_acceptance_and_serializes_explicitly()
     value.as_object_mut().unwrap().remove("receipt");
     let decoded: AudioIntentStatusResponse = serde_json::from_value(value).unwrap();
     assert_eq!(decoded.receipt, None);
-    assert_eq!(serde_json::to_value(decoded).unwrap()["receipt"], Value::Null);
+    assert_eq!(
+        serde_json::to_value(decoded).unwrap()["receipt"],
+        Value::Null
+    );
 }
 
 #[test]

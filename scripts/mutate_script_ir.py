@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_CONTRACT_TESTS = 15
+EXPECTED_CONTRACT_TESTS = 16
 MUTANTS = (
     (
         "duplicate identity admitted",

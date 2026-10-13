@@ -1676,7 +1676,7 @@ async fn migrations_0010_and_0011_upgrade_0009_and_preserve_existing_bytes_and_c
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
-async fn migration_0010_fills_gap_after_0011_and_preserves_catalog_bytes_and_checksums() {
+async fn migration_0010_fills_gap_after_0011_through_0013_and_preserves_bytes_and_checksums() {
     verify_combined_migration_upgrade(true).await;
 }
 
@@ -1702,15 +1702,20 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
             .unwrap();
     }
     if catalog_already_applied {
-        let sql = include_str!("../migrations/0011_catalog.sql");
-        admin.batch_execute(sql).await.unwrap();
-        admin
-            .execute(
-                "INSERT INTO cantos_migrations VALUES(11,$1)",
-                &[&Sha256::digest(sql.as_bytes()).to_vec()],
-            )
-            .await
-            .unwrap();
+        for (version, sql) in [
+            (11, include_str!("../migrations/0011_catalog.sql")),
+            (12, include_str!("../migrations/0012_content_identity.sql")),
+            (13, include_str!("../migrations/0013_production_briefs.sql")),
+        ] {
+            admin.batch_execute(sql).await.unwrap();
+            admin
+                .execute(
+                    "INSERT INTO cantos_migrations VALUES($1,$2)",
+                    &[&version, &Sha256::digest(sql.as_bytes()).to_vec()],
+                )
+                .await
+                .unwrap();
+        }
     }
     // Seed old surfaces through their existing authority before audio migration 0010 exists.
     admin.batch_execute("INSERT INTO actors(id) VALUES('alice'); GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,scripts,script_revisions,script_members,script_evidence,revision_evidence TO cantos_app; GRANT INSERT ON scripts,script_revisions,revision_evidence TO cantos_app; GRANT UPDATE(head_revision) ON scripts TO cantos_app;
@@ -1744,9 +1749,9 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(versions, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    assert_eq!(versions, (1..=14).collect::<Vec<_>>());
     let preserved_versions = if catalog_already_applied {
-        "version<>10"
+        "version<=13 AND version<>10"
     } else {
         "version<=9"
     };
