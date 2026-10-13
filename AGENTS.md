@@ -67,10 +67,13 @@ Skills own working method; `docs/` owns product rules. Keep one copy of each ski
 
 ## Verification
 
-Complete implementation handoff and open a PR after the applicable local tests, mocked integration
-tests and verification checks pass. Do not wait for GitHub Actions to finish or require green
-remote CI before reporting completion. Follow the foundation's [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
-for evidence, unavailable tools and the docs-only fallback; production acceptance keeps its own gates.
+Follow the foundation's [layered verification order](.agents/skills/cantos-engineering/references/verification-strategy.md#layered-verification)
+and [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
+verify the pure core first and deliver independently verified layers through requested
+commit/push/PR actions. Missing infrastructure does not hold passed core work pending; report
+each layer's evidence, deferred acceptance, blocker and actual failure separately. Do not wait
+for remote CI. Required checks and production acceptance retain their gates; use the existing
+docs-only fallback when applicable.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 

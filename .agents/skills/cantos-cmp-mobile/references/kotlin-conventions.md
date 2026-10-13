@@ -8,6 +8,8 @@ These are Kotlin applications of the foundation's
 [type barriers](../../cantos-engineering/references/types-as-proofs.md),
 [functional core](../../cantos-engineering/references/functional-core.md) and
 [immutability](../../cantos-engineering/references/immutability.md).
+Error classification, propagation, cancellation and boundary containment are owned by
+[typed errors and composition](../../cantos-engineering/references/typed-errors-and-composition.md).
 **MUST** is a review requirement; **SHOULD** permits a reasoned local alternative; **MAY** is
 optional. Record an exception's scope, invariant, reason, compensating evidence and owner in the
 PR. An exception never silently weakens a contract or changes production scope.
@@ -43,7 +45,7 @@ This proves identity separation only, not syntax or authorization. Validate from
 |---|---|
 | Level / scope | MUST when consumers rely on an invariant |
 | Rule / rationale | Choose the smallest value class, private class, validated aggregate, sealed ADT or evidence value. Validate related fields together: nonnegative position alone cannot prove `position <= source.duration`. Only a verifier constructs `VerifiedDownload`, bound to the exact bytes/checksum and account/publication facts checked. |
-| Good / counterexample | Current `PlaybackSession` checks position against its source in `init` vs. independent positive position/duration wrappers assumed to prove their relation |
+| Good / counterexample | Current `PlaybackSession` checks position against its source in `init`; new caller-facing factories return a typed refusal before construction vs. independent positive position/duration wrappers assumed to prove their relation |
 | Oracle / enforcement | Factory partitions, boundary/overflow and preservation tests, including decoding/restoration; VER-02 |
 | Exception | Explicit raw requests may contain invalid values for transactional reducer rejection. No exception for a value advertised as verified. |
 
@@ -83,8 +85,10 @@ establish runtime predicates, and visibility protects their provenance.
 [Kotlin's copy-visibility documentation](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin/-consistent-copy-visibility/)
 describes a phased migration: check the pinned compiler, not an approximate current-doc timeline.
 The annotation controls visibility, **not validation**; allowed copies still need `init` checks
-or invariant-preserving operations. A plain private-constructor class avoids generated copy
-where simpler. Serialization into an evidence value must not bypass its factory.
+for programmer defects or invariant-preserving operations. Expected invalid caller input goes
+through a typed factory, never a throwing `copy`/`init` as control flow. A plain private-constructor
+class avoids generated copy where simpler. Serialization into an evidence value must not bypass
+its factory.
 
 ## TYPE-04 — closed algebraic data types
 
@@ -101,18 +105,18 @@ where simpler. Serialization into an evidence value must not bypass its factory.
 | Field | Contract |
 |---|---|
 | Level / scope | MUST for expected business failures in reducers/controllers/adapters |
-| Rule / rationale | Use existing sealed outcomes, typed `Either<Error, Value>`, justified Arrow `Raise` or command rejection. No nullable error sentinel, `!!`, unchecked cast or throwable-driven domain flow. `kotlin.Result` alone erases the domain error to `Throwable`. |
+| Rule / rationale | Apply foundation ERR-01–07 with existing sealed outcomes, typed `Either<Error, Value>`, justified Arrow `Raise` or command rejection. No nullable error sentinel, `!!`, unchecked cast or throwable-driven domain flow. `kotlin.Result` alone fixes the error channel to `Throwable`. |
 | Good / counterexample | `PlaybackTransition(state, listOf(PlaybackEffect.Rejected(PlaybackRejection.OutOfBounds)))` vs. `throw IllegalArgumentException("bad seek")` for caller input |
 | Oracle / enforcement | Assert unchanged complete state and exact rejection/effects; boundary error/cancellation tests; VER-02/05/06 |
-| Exception | Programmer defects/unexpected platform failures may throw; map at the boundary. Fixtures may fail fast with `requireNotNull`. Legacy nullable factories are refusal-only APIs, not nullable error protocols for new APIs. |
+| Exception | Contain foreign calls that only throw at the concrete adapter, and unexpected faults at the outer host per ERR-04/05. Internal defect assertions/fixture fail-fast do not replace typed validation. Legacy nullable factories are refusal-only APIs, not nullable error protocols for new APIs. |
 
 Preserve `PlaybackTransition(nextState, effects)` and transactional rejection. Existing
 `PlaybackSource.of`/`PlaybackIdentity.of` return nullable validated values; improving them needs
-targeted consumer/corpus review, not an Arrow migration. No broad `catch(Exception)` throughout
-application logic. A final platform containment boundary may catch unexpected failures only
-after rethrowing `CancellationException` and mapping to a safe typed outcome. The current mock
-controller maps to `MockEngineUnavailable`; that establishes no production recovery policy.
-Never display raw exception messages or signed URLs.
+targeted consumer/corpus review, not an Arrow migration. Existing mock controller catches and
+`MockEngineUnavailable` are implementation observations, not a production recovery policy or
+permission to add catch blocks throughout application code. New port APIs expose typed outcomes;
+their concrete adapters contain foreign exceptions. Retry/UI projections exhaustively handle
+each sealed error case and never inspect exception messages. Verify cancellation at that seam.
 
 ## FP-01 — pure functional core
 
@@ -142,10 +146,33 @@ just to replace these small lists.
 | Field | Contract |
 |---|---|
 | Level / scope | SHOULD for transformations/validation composition |
-| Rule / rationale | Small named functions preserve invariant → implementation → test traceability. Use `map`, `fold`, `flatMap`, `zip` when clearer; direct `when` is often better. |
+| Rule / rationale | Small named functions preserve invariant → implementation → test traceability. Use available typed `map`, `fold`, `flatMap`/bind when clearer; direct `when` is often better. Dependent steps short-circuit; independent validation accumulation must be explicit. Stdlib `Result` and project sealed outcomes do not automatically supply typed-error `flatMap`/`zip`. |
 | Good / counterexample | `episodes.map(::toRow)` or `outcome.fold(::showFailure, ::showValue)` vs. nested `let/run/apply` concealing rejection or a custom monad for one branch |
 | Oracle / enforcement | Review can locate decisions and independent oracles without mentally executing a chain |
 | Exception | Prefer a loop/branch for clearer order or early rejection. No mandatory optics, higher-kinded abstraction or generic MVI/effect framework. |
+
+### Composed factories preserve their refinement
+
+```kotlin
+// Illustrative, dependency-free continuation of TYPE-02's SpeedResult/PlaybackSpeed.
+// The input is already bounded by that factory; addition cannot overflow Int here.
+fun increaseSpeed(raw: Int): SpeedResult = when (val initial = PlaybackSpeed.of(raw)) {
+    is SpeedResult.Accepted -> PlaybackSpeed.of(initial.speed.permille + 250)
+    is SpeedResult.Unsupported -> initial
+}
+```
+
+`1000` yields validated `1250`; `2000` refuses unsupported `2250`; `999` stops at the first
+factory. No accepted value is forged by `copy` or unwrapping. Apply the same pattern to
+cross-field aggregates and decoding: use only validated success values in dependent stages.
+Accumulating independent field errors is a different operation; do not invent secondary
+findings from values that failed to construct. Existing state/rejection/effect contracts remain
+unchanged until a separately reviewed implementation changes their consumers.
+
+Arrow evaluation is in [cmp-tooling](cmp-tooling.md#arrow-eitherraise-decision).
+If adopted, `mapLeft`/`withError` translates at an owning boundary and `bind` composes exact
+typed failures. Do not use `Either.catch` as a blanket wrapper for pure/domain code or mistake
+`either { ... }` for exception containment. No custom generic monad framework is needed.
 
 ## FP-04 — separate publication of state from effect execution
 
