@@ -539,7 +539,7 @@ mod tests {
                 .iter()
                 .map(|outcome| outcome.status)
                 .collect::<Vec<_>>(),
-            [Status::Fail, Status::NotRun, Status::NotRun]
+            [Status::Fail, Status::NotRun, Status::NotRun, Status::NotRun]
         );
         assert_eq!(runner.commands.len(), 1);
     }

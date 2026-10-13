@@ -158,3 +158,6 @@ pub struct SessionResponse {
 
 mod audio_lifecycle;
 pub use audio_lifecycle::*;
+
+mod publication;
+pub use publication::*;
