@@ -66,7 +66,7 @@ Material theme slots. The shared scale is CMP's: Web does **not** consume it (se
 changes no Web corner; spacing, fonts, colors and motion values remain unchanged. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
 ### Web shape mapping
 
-Leptos keeps the soft corners it shipped with in v0.2.0 through four renderer-local roles
+Leptos keeps the soft corners it shipped with in v0.2.0 through five renderer-local roles
 declared once, in the [stylesheet template](../leptos/foundation.css.in), not in `tokens.json`:
 
 | Web role | Value | Historical shared role | Use |
@@ -75,6 +75,7 @@ declared once, in the [stylesheet template](../leptos/foundation.css.in), not in
 | `--cantos-web-shape-reading` | 12 (0.75rem) | `shape.reading` / `shape.field` | text fields, notices, badges, reading surfaces |
 | `--cantos-web-shape-container` | 18 (1.125rem) | `shape.container` | story/continue cards, covers, panels |
 | `--cantos-web-shape-overlay` | 24 (1.5rem) | `shape.overlay` | featured container, mini-player, dialogs |
+| `--cantos-web-shape-panel` | 24 (1.5rem) | none (Web v2 base panel) | primary page panels that hold nested cards, covers or rows (Theatre continue-listening, account identity); nested items keep `container` |
 
 Web CSS reads only these roles plus the shared `shape.pill`; it never reads the shared
 `shape.{control,reading,field,container,overlay}` custom properties, so the CMP scale can change
