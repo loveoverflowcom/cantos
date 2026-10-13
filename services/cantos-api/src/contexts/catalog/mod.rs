@@ -12,3 +12,7 @@ pub use application::wire;
 pub use application::{
     CatalogCommand, CatalogCursor, CatalogOutcome, CatalogPage, CatalogStoreError, MemberRole,
 };
+
+pub(crate) use postgres::{
+    listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
+};

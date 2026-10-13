@@ -169,6 +169,14 @@ impl ListenerPublication {
             unit: f.pinned_unit.clone(),
         }))
     }
+    pub fn valid_at(&self, now: i64) -> bool {
+        let d = self.release.document();
+        access_window_valid(
+            d.published_at,
+            d.manifest.distribution_clearance.request.valid_until,
+            now,
+        )
+    }
     pub fn release(&self) -> &AudioRelease {
         &self.release
     }
