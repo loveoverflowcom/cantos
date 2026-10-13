@@ -655,6 +655,9 @@
     },
     {
       "$ref": "#/$defs/SavedRecord"
+    },
+    {
+      "$ref": "#/$defs/MutationState"
     }
   ]
 }

@@ -352,3 +352,5 @@ mod listener;
 pub(crate) use listener::{
     listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
 };
+
+pub(crate) use listener::lock_listener_catalog;

@@ -103,3 +103,10 @@ pub(crate) async fn listener_metadata(
 /// SQL-owned current-public metadata prefilter; never sufficient publication authority.
 pub(crate) const LISTENER_CURRENT_FILTER: &str =
     "catalog_listener_discoverable(x.work_id,x.unit_id)";
+
+/// Share the existing Catalog/Media write fence when admitting a new listener-owned identity.
+/// This is not Studio authorization; it prevents concurrent metadata/rights/pointer replacement.
+pub(crate) async fn lock_listener_catalog(tx: &Tx<'_>) -> Result<(), StoreError> {
+    super::lock_clock(tx, crate::platform::postgres::LockMode::Share).await?;
+    Ok(())
+}

@@ -4,6 +4,7 @@ use crate::{
     platform::ids::canonical_uuid,
 };
 use cantos_contracts::listener_library as dto;
+pub(crate) mod projection;
 pub mod reconcile;
 pub use reconcile::{classify, successor, Admission};
 

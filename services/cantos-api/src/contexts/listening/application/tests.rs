@@ -156,63 +156,113 @@ impl LibraryRepository for MemoryRepository {
                 ReadRequest::Page {
                     kind,
                     limit,
-                    anchor: _,
+                    anchor,
                 } => {
+                    let epoch = state
+                        .history_state
+                        .unwrap_or(HistoryState::restore(0, 0).unwrap())
+                        .raw()
+                        .epoch;
+                    if kind == PageKind::History
+                        && anchor.as_ref().is_some_and(|a| a.history_epoch != epoch)
+                    {
+                        return Err(LibraryError::InvalidCursor);
+                    }
+                    let upper = anchor.as_ref().map_or(state.order, |a| a.upper_order);
+                    let mut keys: Vec<(u64, String)> = match kind {
+                        PageKind::Saved => state
+                            .saved
+                            .values()
+                            .filter(|v| v.raw().saved)
+                            .map(|v| (v.raw().listener_order, v.raw().work_id.clone()))
+                            .collect(),
+                        PageKind::Continue => super::super::domain::projection::continue_records(
+                            state.progress.values().cloned(),
+                        )
+                        .into_iter()
+                        .map(|v| (v.raw().listener_order, v.raw().audio.work_id.clone()))
+                        .collect(),
+                        PageKind::History => state
+                            .history
+                            .iter()
+                            .map(|(work, (_, order))| (*order, work.clone()))
+                            .collect(),
+                    };
+                    keys.retain(|(order, work)| {
+                        *order <= upper
+                            && anchor.as_ref().is_none_or(|a| {
+                                *order < a.after_order
+                                    || (*order == a.after_order && work > &a.after_work)
+                            })
+                    });
+                    keys.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+                    let more = keys.len() > limit;
+                    keys.truncate(limit);
+                    let next = if more {
+                        keys.last().map(|(order, work)| PageAnchor {
+                            upper_order: upper,
+                            after_order: *order,
+                            after_work: work.clone(),
+                            history_epoch: epoch,
+                        })
+                    } else {
+                        None
+                    };
+                    let resume = if w.withdrawn {
+                        dto::ResumeStatus::AccessUnavailable
+                    } else {
+                        dto::ResumeStatus::ExactAvailable
+                    };
                     let data = match kind {
                         PageKind::Saved => PageData::Saved(
-                            state
-                                .saved
-                                .values()
-                                .filter(|v| v.raw().saved)
-                                .take(limit)
-                                .map(|v| dto::SavedItem {
-                                    saved: v.raw().clone(),
+                            keys.iter()
+                                .map(|(_, work)| dto::SavedItem {
+                                    saved: state.saved[work].raw().clone(),
                                 })
                                 .collect(),
                         ),
-                        PageKind::Continue => PageData::Continue(
-                            state
-                                .progress
-                                .values()
-                                .filter(|v| v.raw().completion == dto::Completion::InProgress)
-                                .take(limit)
-                                .map(|v| dto::ContinueItem {
-                                    progress: v.raw().clone(),
-                                    resume: if w.withdrawn {
-                                        dto::ResumeStatus::AccessUnavailable
-                                    } else {
-                                        dto::ResumeStatus::ExactAvailable
-                                    },
-                                })
-                                .collect(),
-                        ),
+                        PageKind::Continue => {
+                            let latest = super::super::domain::projection::continue_records(
+                                state.progress.values().cloned(),
+                            );
+                            PageData::Continue(
+                                keys.iter()
+                                    .map(|(_, work)| dto::ContinueItem {
+                                        progress: latest
+                                            .iter()
+                                            .find(|r| &r.raw().audio.work_id == work)
+                                            .unwrap()
+                                            .raw()
+                                            .clone(),
+                                        resume,
+                                    })
+                                    .collect(),
+                            )
+                        }
                         PageKind::History => PageData::History {
                             state: state
                                 .history_state
                                 .unwrap_or(HistoryState::restore(0, 0).unwrap())
                                 .raw(),
-                            items: state
-                                .history
-                                .values()
-                                .take(limit)
-                                .map(|(audio, order)| dto::HistoryItem {
-                                    audio: audio.clone(),
-                                    started_at_ms: 1000,
-                                    listener_order: *order,
-                                    progress: state
-                                        .progress
-                                        .get(&audio.publication_id)
-                                        .map(|v| v.raw().clone()),
-                                    resume: if w.withdrawn {
-                                        dto::ResumeStatus::AccessUnavailable
-                                    } else {
-                                        dto::ResumeStatus::ExactAvailable
-                                    },
+                            items: keys
+                                .iter()
+                                .map(|(order, work)| {
+                                    let (audio, _) = &state.history[work];
+                                    dto::HistoryItem {
+                                        audio: audio.clone(),
+                                        started_at_ms: 1000,
+                                        listener_order: *order,
+                                        progress: state
+                                            .progress
+                                            .get(&audio.publication_id)
+                                            .map(|v| v.raw().clone()),
+                                        resume,
+                                    }
                                 })
                                 .collect(),
                         },
                     };
-                    ReadResult::Page(PageSnapshot { data, next: None })
+                    ReadResult::Page(PageSnapshot { data, next })
                 }
             })
         })
@@ -525,4 +575,115 @@ async fn uncertain_precommit_failure_never_commits_effect_or_receipt_and_retry_i
 #[test]
 fn exact_audio_identity_constructor_preserves_full_timing_binding() {
     assert_eq!(AudioIdentity::new(&audio()).unwrap().raw(), audio());
+}
+
+#[tokio::test]
+async fn continue_never_resurrects_old_unfinished_release_and_keysets_are_account_bound() {
+    let repo = MemoryRepository::default();
+    let svc = service(&repo);
+    let a = principal("alice");
+    svc.put_progress(&a, &uid(3), write(1, 0, 100, dto::ProgressKind::Checkpoint))
+        .await
+        .unwrap();
+    let mut completed = write(2, 0, 60000, dto::ProgressKind::MarkCompleted);
+    completed.audio.publication_id = uid(30);
+    completed.audio.rendition_id = uid(31);
+    svc.put_progress(&a, &uid(30), completed).await.unwrap();
+    assert!(svc
+        .continue_listening(&a, 20, None)
+        .await
+        .unwrap()
+        .items
+        .is_empty());
+    for n in 10..14 {
+        svc.set_saved(
+            &a,
+            &uid(n),
+            dto::SavedWrite {
+                operation: intent(n),
+                base_revision: 0,
+                saved: true,
+            },
+        )
+        .await
+        .unwrap();
+    }
+    let first = svc.saved_works(&a, 1, None).await.unwrap();
+    assert_eq!(first.items[0].saved.work_id, uid(13));
+    let token = first.next_cursor.unwrap();
+    assert_eq!(
+        svc.saved_works(&principal("bob"), 1, Some(&token))
+            .await
+            .err(),
+        Some(LibraryError::InvalidCursor)
+    );
+    assert_eq!(
+        svc.history(&a, 1, Some(&token)).await.err(),
+        Some(LibraryError::InvalidCursor)
+    );
+    assert_eq!(
+        svc.saved_works(&a, 2, Some(&token)).await.err(),
+        Some(LibraryError::InvalidCursor)
+    );
+    svc.set_saved(
+        &a,
+        &uid(12),
+        dto::SavedWrite {
+            operation: intent(20),
+            base_revision: 1,
+            saved: false,
+        },
+    )
+    .await
+    .unwrap();
+    svc.set_saved(
+        &a,
+        &uid(14),
+        dto::SavedWrite {
+            operation: intent(21),
+            base_revision: 0,
+            saved: true,
+        },
+    )
+    .await
+    .unwrap();
+    let second = svc.saved_works(&a, 1, Some(&token)).await.unwrap();
+    assert_eq!(second.items[0].saved.work_id, uid(11));
+    let third = svc
+        .saved_works(&a, 1, second.next_cursor.as_deref())
+        .await
+        .unwrap();
+    assert_eq!(third.items[0].saved.work_id, uid(10));
+    assert!(third.next_cursor.is_none());
+    assert_eq!(
+        service(&repo).saved_works(&a, 1, Some(&token)).await.err(),
+        Some(LibraryError::InvalidCursor)
+    );
+}
+
+proptest::proptest! {
+    #[test]
+    fn saved_protocol_schedule_matches_independent_desire_revision_oracle(events in proptest::collection::vec((proptest::bool::ANY,proptest::bool::ANY,proptest::bool::ANY,proptest::bool::ANY),1..65)) {
+        let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            let repo=MemoryRepository::default(); let svc=service(&repo); let a=principal("alice");
+            let (mut revision,mut desired)=(0_u64, false);
+            for (index,(want,stale,device,rollback)) in events.into_iter().enumerate() {
+                let n=index as u64+1; let mut operation=intent(n); operation.device_id=uid(if device {90}else{91});
+                let base=if stale {revision.saturating_sub(1)}else{revision};
+                let command=dto::SavedWrite {operation,base_revision:base,saved:want};
+                repo.0.lock().unwrap().fail_before_commit=rollback;
+                let result=svc.set_saved(&a,&uid(1),command.clone()).await;
+                if rollback { assert_eq!(result,Err(LibraryError::Unavailable)); }
+                else {
+                    let outcome=if want==desired {dto::WriteOutcome::AlreadyCurrent} else if base!=revision {dto::WriteOutcome::RevisionConflict}else{desired=want;revision+=1;dto::WriteOutcome::Accepted};
+                    let receipt=result.unwrap(); assert_eq!(receipt.outcome,outcome);
+                    assert_eq!(svc.set_saved(&a,&uid(1),command).await,Ok(receipt));
+                }
+                let current=svc.saved(&a,&uid(1)).await.unwrap(); assert_eq!((current.revision,current.saved),(revision,desired));
+                assert_eq!(svc.saved(&principal("bob"),&uid(1)).await.unwrap().revision,0);
+                repo.0.lock().unwrap().fail_before_commit=false;
+            }
+        });
+    }
 }

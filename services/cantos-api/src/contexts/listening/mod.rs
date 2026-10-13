@@ -6,3 +6,5 @@ pub mod auth;
 mod application;
 mod cursor;
 pub use application::{LibraryError, LibraryService};
+
+mod postgres;

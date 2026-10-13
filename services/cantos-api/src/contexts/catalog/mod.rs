@@ -16,3 +16,5 @@ pub use application::{
 pub(crate) use postgres::{
     listener_metadata, ListenerMetadata, ListenerMetadataRequest, LISTENER_CURRENT_FILTER,
 };
+
+pub(crate) use postgres::lock_listener_catalog;

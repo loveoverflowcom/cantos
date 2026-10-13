@@ -876,4 +876,4 @@ async fn audio_read_baseline_uses_current_owner_app_role_and_exact_bounded_point
 }
 
 #[path = "publication_http_postgres.rs"]
-mod publication_http;
+pub(crate) mod publication_http;

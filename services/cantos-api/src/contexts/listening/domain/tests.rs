@@ -223,7 +223,7 @@ fn desired_saved_state_retains_false_revision_and_refuses_delayed_divergence() {
         reconcile_saved(&removed, &c, 400, Revision::new(3).unwrap()),
         Ok(SavedOutcome::Conflict(removed.clone()))
     );
-    assert_eq!(saved.raw().saved, true);
+    assert!(saved.raw().saved);
 }
 #[test]
 fn history_epoch_and_seen_sessions_prevent_stale_acknowledgement_after_clear() {

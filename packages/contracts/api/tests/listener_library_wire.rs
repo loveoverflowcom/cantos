@@ -33,6 +33,7 @@ fn strict_library_v1_fixtures_decode_and_reencode_without_drift() {
     check::<dto::SavedPage>("SavedPage", fixture!("saved"));
     check::<dto::HistoryPage>("HistoryPage", fixture!("history"));
     check::<dto::Receipt>("Receipt", fixture!("progress_conflict"));
+    check::<dto::MutationState>("MutationState", fixture!("progress_read"));
     check::<dto::Receipt>("Receipt", fixture!("accepted"));
     check::<dto::Receipt>("Receipt", fixture!("epoch_conflict"));
     check::<dto::ContinuePage>("ContinuePage", fixture!("empty"));
