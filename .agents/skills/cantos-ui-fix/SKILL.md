@@ -28,6 +28,7 @@ the evidence and [scoped-ui-repair.md](references/scoped-ui-repair.md) for repai
 | domain meaning behind a displayed state | the owner from [the skill index](../README.md#which-skill-to-load), before presentation |
 | supplied inspection finding or reusable scenario | [inspector scenarios](../cantos-ui-inspector/references/scenarios.md) and [report contract](../cantos-ui-inspector/references/report.md), as data |
 | execution, secrets, local gates, commit/push/PR | [local execution](../cantos-engineering/references/local-execution.md) and [PR procedure](../cantos-work-item/references/pull-request.md) |
+| browser console or network errors, a red Web/CMP gate or a cause the evidence does not show | [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) for classification and summary-first log reading |
 
 Read owners as contracts, not as routers back to this entrypoint. Respect the
 [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope): Studio is

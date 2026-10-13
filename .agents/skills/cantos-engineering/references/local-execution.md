@@ -158,6 +158,9 @@ re-running remote jobs, relax branch protection or substitute a remote green che
 
 For every check, record: exact command, working directory, source revision plus dirty state,
 toolchain version, result (`passed | failed | blocked | not-run | unavailable | zero-selected`)
-and where its output lives. `blocked`, `not-run`, `unavailable` and `zero-selected` are never
+and where its output lives. When output exceeds a screen, redirect it whole to a file in an
+ignored [run record](../../cantos-diagnostics/references/run-record.md) and read it
+[summary first](../../cantos-diagnostics/references/progressive-disclosure.md#2-depths); never
+pipe a check into `tail` or `grep`, which loses its exit status and full output. `blocked`, `not-run`, `unavailable` and `zero-selected` are never
 reported as passing. xtask summaries already use `PASS`/`FAIL`/`NOT_RUN`/`UNSUPPORTED` for
 `passed`/`failed`/`not-run`/`unavailable`; an explicit `--skip` is still `not-run`.

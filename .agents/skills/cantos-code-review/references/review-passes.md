@@ -110,7 +110,8 @@ candidate tools are [evaluated, not installed](../../cantos-cmp-mobile/reference
 [functional-core](../../cantos-engineering/references/functional-core.md),
 [provider-adapters](../../cantos-production-pipeline/references/provider-adapters.md),
 [narrative-forge-adapter](../../cantos-script-ir/references/narrative-forge-adapter.md),
-[http-api-boundary](../../cantos-engineering/references/http-api-boundary.md).
+[http-api-boundary](../../cantos-engineering/references/http-api-boundary.md),
+[structured-observability](../../cantos-engineering/references/structured-observability.md).
 
 - **Import edges.** Does a domain or Script IR module import Axum, an SQL client, Leptos, Compose,
   a provider SDK or a Narrative Forge type? Check manifests and `use` edges, not a diagram: data
@@ -130,6 +131,11 @@ candidate tools are [evaluated, not installed](../../cantos-cmp-mobile/reference
   transaction where the owner requires it.
 - **Structure.** A trait with one implementation plus a mock is not a port; a new crate, module
   or service needs a named consumer ([decision 0001](../../../../docs/decisions/0001-modular-monolith.md)).
+- **Diagnostic output.** A logger, `println!`, `eprintln!`, `dbg!` or console call inside a domain,
+  Script IR or reducer module; a token, URL, manuscript or dialogue text in an event or panic
+  message; caller validation logged as `ERROR`; a raised default level or a leftover
+  `CANTOS_DIAG` marker; a logging or telemetry dependency without a named consumer. Apply the
+  [review questions](../../cantos-engineering/references/structured-observability.md#review-questions).
 - **Representation.** A codec choice reaching the domain or store, a representation refusal or
   encoding failure possible after the store call, a non-JSON error body or a client that falls
   back to another codec after a failure; ask the
@@ -345,6 +351,9 @@ supplies no database correctness or performance evidence.
 - **Weakened evidence:** relaxed assertions, raised tolerances, a fixture in `packages/contracts/` edited
   to match the new behavior instead of a new fixture added beside the old one, a golden file
   regenerated from the new output.
+- **Rerun until green:** a check reported only by its passing rerun; the earlier `FAIL`, its
+  signature and the [flaky classification](../../cantos-diagnostics/references/failure-triage.md#1-classify-before-you-patch)
+  must appear. A pre-existing or environment failure explained away as `PASS` is the same gap.
 - **Mislabeled evidence:** an in-memory store or fake provider reported as real `integration-tested`
   evidence; a fake synthesizer reported as `provider-live-tested`. A production flow with named
   external doubles can be `mock-integration-tested`; check the real code and asserted outcomes.

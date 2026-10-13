@@ -5,7 +5,7 @@ description: >-
   Invariant-first workflow, decoupled module boundaries, immutable values and revisions, types
   as proof barriers, functional core with imperative shell, clean readable syntax,
   layered verification and progressive delivery, PostgreSQL read performance and conditional DBSP evaluation,
-  one evidence vocabulary and a mandatory residual-risk report. Use for
+  structured runtime events, one evidence vocabulary and a mandatory residual-risk report. Use for
   any domain, backend, persistence, contract, test, refactoring or verification change.
 ---
 
@@ -103,9 +103,8 @@ wire path cannot forge what the constructor rejects.
 Settled facts are immutable. An accepted script revision, frozen production inputs, a provider
 attempt, an accepted artifact, a QC result, an approval and a release manifest are written once;
 a correction creates a new revision, artifact or release and preserves history. External producer
-attempt history belongs to its producer. In code,
-transformations take values and return new values; mutation stays local, private and invisible
-until the function returns.
+attempt history belongs to its producer. In code, transformations take values and return new
+values; mutation stays local, private and invisible until the function returns.
 
 → [`types-as-proofs.md`](references/types-as-proofs.md),
 [`immutability.md`](references/immutability.md),
@@ -133,9 +132,9 @@ screen, extract it before reaching for mocks. Cantos decisions that belong in th
 validating a script revision, binding a production brief, classifying an intake/replay decision,
 deciding whether a release may publish and reconciling listener progress. Each must be callable
 from a plain unit test with no async runtime, database or provider. Kotlin uses the same method;
-`reducePlayback` is the current pure-core example.
-
-Do not force this on thin CRUD or an adapter that only maps types.
+`reducePlayback` is the current pure-core example. Do not force this on thin CRUD or an adapter
+that only maps types. Logging is a shell effect too: the core returns typed outcomes and the
+shell emits [structured events](references/structured-observability.md) from them.
 
 → [`functional-core.md`](references/functional-core.md)
 
@@ -286,6 +285,7 @@ A report with an empty residual-risk line is a report nobody can act on.
 | assertion strength, or a small kernel worth bounded model checking | [`mutation-and-formal.md`](references/mutation-and-formal.md) |
 | a parser or decoder of bytes nobody on the team controls: DOCX/Markdown import, AI output, provider bodies, manifests, audio | [`fuzzing.md`](references/fuzzing.md) |
 | running checks, resource limits, remote CI, secrets, what may be executed | [`local-execution.md`](references/local-execution.md) |
+| emitting or reviewing logs, diagnostic events, levels, redaction, correlation IDs or telemetry | [`structured-observability.md`](references/structured-observability.md); investigating a failure or log goes through [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) |
 | reviewing an existing PR, range, patch or local diff | [`diff-review.md`](references/diff-review.md), entered through [`cantos-code-review`](../cantos-code-review/SKILL.md) |
 
 ## Compose with
