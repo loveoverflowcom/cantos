@@ -189,7 +189,7 @@ launch does not prove window readiness or complete process cleanup. Record actua
 observations separately.
 
 CMP requires a real package-local Gradle project (both settings and build files), an installed
-Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
+Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 (8.14.3 preferred; matches the wrappers) and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
 `--no-daemon` and `-Dorg.gradle.java.installations.auto-download=false`: the JDK must already be
 available. Gradle resolves declared project dependencies normally. xtask never invokes a
 downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
@@ -198,7 +198,7 @@ The Theatre `--mobile` surface remains reserved and is separate from this deskto
 Shared CMP previews do not create a Studio mobile client.
 
 `ui-preview cmp android-build` compiles `compileDebugKotlinAndroid` in the isolated
-`packages/ui-system/cmp/android-preview` library with the same installed Gradle 8.14.3/JDK
+`packages/ui-system/cmp/android-preview` library with the same installed Gradle/JDK
 checks. That project consumes the shared CMP source and requires a locally configured Android
 SDK. The command starts no IDE, emulator, app or device process. Its build is optional and
 separate from the desktop build/test gate, so desktop users do not acquire an Android SDK
@@ -472,7 +472,7 @@ cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:asse
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
 
-Build/verify/run require installed Gradle 8.14.3 and a full JDK 17+. Android checks an existing
+Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
 absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
 iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
 then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.
