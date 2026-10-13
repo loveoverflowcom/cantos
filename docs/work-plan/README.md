@@ -60,7 +60,7 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
 - [030 — external master intake, QC and release](030-mix-review-and-publish.md).
 - [040 — Theatre Web](040-theatre-web-listening.md). The session-only
   [Web mock](../evidence/theatre-web-mock.md) and [PR 02 local/browser validation](../evidence/theatre-web-pr02.md)
-  establish the mock foundation only. Retain it while implementing publication and the authorized
+  establish the mock foundation only, including shared Web control-label alignment. Retain it while implementing publication and the authorized
   listener API first; neither completes 040 nor its issues.
 - [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.

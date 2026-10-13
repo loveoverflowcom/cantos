@@ -27,6 +27,32 @@ No listener API, publication, production job or no-production-work database test
 
 ## Local checks
 
+### Control-label alignment follow-up
+
+The screenshot-reported vertical offset came from centering the full label line box, whose font
+leading is asymmetric. The shared Leptos `cui-control-label` now trims to cap/alphabetic font
+metrics in supporting browsers; unsupported browsers retain token line-height. Button separates
+its optional decorative icon from label children, and FilterChip uses the same label anatomy.
+Theatre's app-owned native actions/chips consume this hook. No pixel translation, fixed text
+height, clipping, font download, shared token change or CMP renderer change was introduced.
+
+`render-inspected` / `interaction-tested`: the Codex in-app browser rendered the gallery and
+Theatre at the default desktop viewport and 320×800; the gallery also ran at 390×844. Observations
+cover light/dark, compact/comfortable gallery density, English transport and wrapped Vietnamese labels. The measured 48px Theatre
+transport had matching icon/button centers and label center within 0.01px; the previous 21px
+line box became a 9.86px cap/baseline box at 14px font size. Inspected Vietnamese accents and
+descenders remained visible, wrapped gallery chip/button labels grew with content, and the
+gallery had no horizontal overflow at narrow widths. Tab retained the visible 3px focus outline;
+the primary action incremented its callback count, and simulated play changed to Pause simulation.
+No screen-reader, 200% zoom, other-browser or native-mobile result is claimed for this follow-up.
+Local captures are ignored: `button-alignment-light-en.jpg`, `button-gallery-narrow-focus.jpg`
+and `button-gallery-dark-320.jpg`, plus `button-theatre-dark-320.jpg`, under the same artifact directory below.
+
+Follow-up `cargo xtask verify rust` and `cargo xtask verify web`: PASS all their gates.
+`cargo xtask preflight --changed-only`: PASS repository, rust-format, scoped native
+lint/tests for Studio/Theatre/UI, both Web lint/builds and UI preview. No gate skipped and no
+GitHub CI checked.
+
 Host: macOS; existing Rust/Cargo 1.87.0, Trunk 0.21.14, Python 3.14.8 and wasm32 target.
 Commands run from the repository root with `RUSTUP_TOOLCHAIN=1.87.0`; Python-heavy commands
 also use `PATH=/opt/homebrew/bin:$PATH TMPDIR=/private/tmp`, and native suites use

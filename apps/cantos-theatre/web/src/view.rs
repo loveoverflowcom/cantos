@@ -138,8 +138,8 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
             </Select>
             <p class="theatre-muted">{move || ctx.text(Key::ResetHelp)}</p>
             <div class="theatre-actions">
-                <button type="button" class="theatre-action" on:click=move |_| ctx.reset_demo()>{move || ctx.text(Key::Reset)}</button>
-                <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.clear_library()>{move || ctx.text(Key::ClearLibrary)}</button>
+                <button type="button" class="theatre-action" on:click=move |_| ctx.reset_demo()><span class="cui-control-label">{move || ctx.text(Key::Reset)}</span></button>
+                <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| ctx.clear_library()><span class="cui-control-label">{move || ctx.text(Key::ClearLibrary)}</span></button>
                 <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
             </div>
         </section>

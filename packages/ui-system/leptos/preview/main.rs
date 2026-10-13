@@ -168,8 +168,8 @@ pub fn Gallery(
                                     <option value="loading">"Đang chờ — có giải thích"</option>
                                 </Select>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
-                                    <Button id="gallery-primary" state=action_state on_press=press>
-                                        <Icon name=IconName::Add/>"Hành động chính mẫu"
+                                    <Button id="gallery-primary" state=action_state on_press=press icon=IconName::Add>
+                                        "Hành động chính mẫu"
                                     </Button>
                                     <Button id="gallery-tonal" variant=ButtonVariant::Tonal state=action_state on_press=press>"Nút tonal"</Button>
                                     <Button id="gallery-secondary" variant=ButtonVariant::Secondary state=action_state on_press=press>"Nút phụ có viền"</Button>

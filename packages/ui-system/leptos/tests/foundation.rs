@@ -19,8 +19,8 @@ fn disabled_action_cannot_hide_its_reason_and_text_is_escaped() {
     let reason = DisabledReason::new("Cần duyệt <b>đúng phiên bản</b>").unwrap();
     let html = view! {
         <UiRoot theme=Theme::Dark density=Density::Comfortable>
-            <Button id="preview" variant=ButtonVariant::Tonal state=ButtonState::Disabled(reason)>
-                <Icon name=IconName::Check/>"Duyệt bản diễn Sơn Hà Ký"
+            <Button id="preview" variant=ButtonVariant::Tonal state=ButtonState::Disabled(reason) icon=IconName::Check>
+                "Duyệt bản diễn Sơn Hà Ký"
             </Button>
         </UiRoot>
     }

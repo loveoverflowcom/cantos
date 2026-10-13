@@ -1,4 +1,13 @@
 /* Component-owned styles. All selectors stay inside the theme boundary. */
+/* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
+   Padding on the control leaves room for accents/descenders; never clip the label.
+   Browsers without text-box support retain the token line-height fallback. */
+:where(.cantos-ui) .cui-control-label {
+  display: block;
+  min-inline-size: 0;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
 :where(.cantos-ui) {
   color: var(--cantos-color-on-surface);
   background: var(--cantos-color-background);

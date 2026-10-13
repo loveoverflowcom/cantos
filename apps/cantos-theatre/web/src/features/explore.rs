@@ -44,7 +44,7 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
         <div class="theatre-filters" role="group" aria-label=move || ctx.text(Key::Filters)>
             {[Genre::All, Genre::Fantasy, Genre::Memory, Genre::Dream].into_iter().map(move |choice| view! {
                 <button type="button" class="theatre-chip" aria-pressed=move || (genre.get() == choice).to_string()
-                    on:click=move |_| genre.set(choice)>{move || ctx.text(messages::genre_key(choice))}</button>
+                    on:click=move |_| genre.set(choice)><span class="cui-control-label">{move || ctx.text(messages::genre_key(choice))}</span></button>
             }).collect_view()}
         </div>
         <Show when=move || ctx.catalog.scenario() == Scenario::Ready fallback=move || view! { <CatalogState ctx=ctx/> }>
@@ -54,7 +54,7 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
                     <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| {
                         query.set(String::new()); genre.set(Genre::All);
                         platform::focus_input(search);
-                    }>{move || ctx.text(Key::ClearSearch)}</button>
+                    }><span class="cui-control-label">{move || ctx.text(Key::ClearSearch)}</span></button>
                 </section>
             }>
                 <div class="theatre-shelf">

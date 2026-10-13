@@ -72,7 +72,7 @@ pub(crate) fn SaveAction(ctx: TheatreContext, id: WorkId) -> impl IntoView {
             aria-label=move || ctx.format(Key::SaveName, &[("title", ctx.work(id).title.to_owned())])
             on:click=move |_| { ctx.toggle_saved(id); if ctx.route.get_untracked() == Route::Library { platform::focus_main(ctx.main); } }>
             {icon("bookmark_border")}
-            {move || ctx.text(Key::Save)}
+            <span class="cui-control-label">{move || ctx.text(Key::Save)}</span>
         </button>
     }
 }
@@ -112,7 +112,7 @@ pub(crate) fn CatalogState(ctx: TheatreContext) -> impl IntoView {
                 // Recovery removes this button; keep keyboard focus in the persistent landmark.
                 platform::focus_main(ctx.main);
             }>
-                {move || if ctx.catalog.scenario() == Scenario::Error { ctx.text(Key::Retry) } else { ctx.text(Key::LoadDemo) }}
+                <span class="cui-control-label">{move || if ctx.catalog.scenario() == Scenario::Error { ctx.text(Key::Retry) } else { ctx.text(Key::LoadDemo) }}</span>
             </button>
         </section>
     }
@@ -129,7 +129,7 @@ pub(crate) fn UnsupportedAction(ctx: TheatreContext, label: Key) -> impl IntoVie
     };
     view! {
         <div class="theatre-unsupported">
-            <button type="button" class="theatre-action theatre-action-tonal" disabled aria-describedby=reason_id>{move || ctx.text(label)}</button>
+            <button type="button" class="theatre-action theatre-action-tonal" disabled aria-describedby=reason_id><span class="cui-control-label">{move || ctx.text(label)}</span></button>
             <p id=reason_id class="theatre-muted">{move || ctx.text(Key::Unsupported)}</p>
         </div>
     }

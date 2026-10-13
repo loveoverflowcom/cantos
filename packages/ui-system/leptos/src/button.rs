@@ -122,12 +122,14 @@ pub(crate) fn description_ids(extra: &str, reason_id: Option<&str>) -> Option<St
 }
 
 /// Native non-submit action. Caller supplies a unique stable ID and visible localized children.
-/// Children may compose decorative Icons. State/effects remain owned by the caller.
+/// Children provide the label; use `icon` for a decorative leading icon outside its text box.
+/// State/effects remain owned by the caller.
 #[component]
 pub fn Button(
     #[prop(into)] id: String,
     children: Children,
     #[prop(optional)] variant: ButtonVariant,
+    #[prop(optional)] icon: Option<IconName>,
     #[prop(into, default = ButtonState::Enabled.into())] state: Signal<ButtonState>,
     #[prop(optional)] on_press: Option<Callback<MouseEvent>>,
     #[prop(into, default = String::new().into())] class: Signal<String>,
@@ -169,7 +171,8 @@ pub fn Button(
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>
-                {children()}
+                {icon.map(|name| view! { <Icon name=name/> })}
+                <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()
                 role=move || state.get().is_busy().then_some("status")>

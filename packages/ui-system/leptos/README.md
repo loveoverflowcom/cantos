@@ -9,7 +9,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | API | Contract |
 | --- | --- |
 | `UiRoot` | Reactive `Theme` and `Density`; one scoped boundary, optional class and children |
-| `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive `ButtonState`, `on_press`, children |
+| `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive `ButtonState`, `on_press`, label children and optional decorative `icon` |
 | `IconButton` | Same action state with an official `IconName` and nonempty `AccessibleName`; label remains in accessible text |
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
 | `FilterChip` | Controlled `selected`, native `aria-pressed`, `on_change(bool)`; blocked/loading reason |
@@ -85,6 +85,13 @@ are committed and must not be hand-edited. All selectors are scoped by `.cantos-
 come from canonical v0.2.0 roles. No per-component dark palette, font download or artwork is bundled.
 System/local font fallbacks remain explicit. Layout measures (75ch/76rem and dialog maximum) are
 renderer geometry; spacing, colors, type, shape, targets, density and focus use shared tokens.
+
+Button and FilterChip labels use the shared `cui-control-label` anatomy hook. Supporting browsers
+center the font's cap-to-baseline box with `text-box-trim`, keeping icons in their own flex item;
+other browsers retain the token line-height. Token padding and visible overflow preserve Vietnamese
+accents and descenders, including wrapped labels. App-owned native actions can use the same label
+span without adopting a component. Use Button's `icon` prop for a leading icon and keep composed
+label markup inside its children. This Web-only geometry change leaves CMP typography unchanged.
 
 The [development gallery](preview.html) shows every component with long Vietnamese text. Its
 discovery catalogue consumes the [shared component registrations](../shared/preview-catalog.json)
