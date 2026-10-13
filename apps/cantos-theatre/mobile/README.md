@@ -165,3 +165,11 @@ app-owned mock state; catalog scenarios and reset are under the separate Demo to
 The simulated timer performs no countdown. The [asset provenance](shared/src/commonMain/composeResources/files/provenance.json)
 records exact hashes and the remaining production artwork-rights review. Native runtime,
 TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JVM evidence.
+
+## Portable Protobuf fixture harness
+
+The isolated `commonMain` transport adapter and `commonTest` fixtures exercise the four existing
+Studio pilot wire contracts under [ADR 0023](../../../docs/decisions/0023-versioned-protobuf-wire.md).
+This adds no Theatre endpoint, Studio Mobile client, authentication or player integration.
+The [compatibility evidence](docs/protobuf-compatibility.md) records exact version pins, independent
+byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/Android/iOS limits.

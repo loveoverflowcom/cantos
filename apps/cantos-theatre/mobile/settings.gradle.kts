@@ -7,6 +7,7 @@ pluginManagement {
     plugins {
         kotlin("multiplatform") version "2.2.20"
         kotlin("android") version "2.2.20"
+        kotlin("plugin.serialization") version "2.2.20"
         id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"
         id("org.jetbrains.compose") version "1.9.0"
     }
