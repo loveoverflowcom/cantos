@@ -18,6 +18,7 @@ pub struct LibraryState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LibraryEvent {
     ToggleSaved(WorkId),
+    SetSaved { work: WorkId, saved: bool },
     AddBookmark(Bookmark),
     RemoveBookmark(Bookmark),
     Clear,
@@ -46,6 +47,13 @@ pub fn reduce(mut state: LibraryState, event: LibraryEvent) -> LibraryState {
                 state.saved.push(SavedWork { work });
             }
         }
+        LibraryEvent::SetSaved { work, saved } => {
+            if saved && !state.is_saved(work) {
+                state.saved.push(SavedWork { work });
+            } else if !saved {
+                state.saved.retain(|item| item.work != work);
+            }
+        }
         LibraryEvent::AddBookmark(mark) => {
             if !state.bookmarks.contains(&mark) {
                 state.bookmarks.push(mark);
@@ -59,6 +67,31 @@ pub fn reduce(mut state: LibraryState, event: LibraryEvent) -> LibraryState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn desired_save_intent_is_repeat_safe_and_preserves_bookmarks() {
+        let mark = Bookmark {
+            episode: EpisodeId {
+                work: WorkId::River,
+                index: 0,
+            },
+            position_ms: 6000,
+        };
+        let initial = reduce(LibraryState::demo(), LibraryEvent::AddBookmark(mark));
+        let save = LibraryEvent::SetSaved {
+            work: WorkId::River,
+            saved: true,
+        };
+        let saved = reduce(initial.clone(), save);
+        assert_eq!(reduce(saved.clone(), save), saved);
+        assert_eq!(saved.bookmarks, [mark]);
+        let remove = LibraryEvent::SetSaved {
+            work: WorkId::River,
+            saved: false,
+        };
+        let removed = reduce(saved, remove);
+        assert_eq!(removed, initial);
+        assert_eq!(reduce(removed.clone(), remove), removed);
+    }
     #[test]
     fn saved_work_is_not_a_bookmark_and_bookmarks_are_repeat_safe() {
         let mark = Bookmark {

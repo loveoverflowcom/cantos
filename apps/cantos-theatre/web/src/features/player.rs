@@ -1,5 +1,5 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use super::common::*;
+use super::{common::*, library::BookmarkRow};
 use crate::{
     app::{context::TheatreContext, routes::Route},
     core::{
@@ -98,6 +98,15 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
                     </details>
                     <UnsupportedAction ctx=ctx label=Key::Download/>
                     <UnsupportedAction ctx=ctx label=Key::Timer/>
+                    <Show when=move || !ctx.library.get().bookmarks.is_empty()>
+                        <details class="theatre-demo-tools">
+                            <summary>{move || ctx.text(Key::Bookmarks)}</summary>
+                            <ul class="theatre-bookmarks">
+                                <For each=move || ctx.library.get().bookmarks key=|mark| (mark.episode, mark.position_ms)
+                                    children=move |mark| view! { <BookmarkRow ctx=ctx mark=mark/> }/>
+                            </ul>
+                        </details>
+                    </Show>
                 </div>
             </section>
         </Show>

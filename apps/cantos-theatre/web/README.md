@@ -4,16 +4,29 @@ The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM
 a session-only listener mock; users see **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
 listening issue or UI-system qualification is completed by this foundation.
+The [library MVP record](../../../docs/evidence/theatre-web-library-mvp.md) scopes the
+[#35](https://github.com/loveoverflowcom/cantos/issues/35) follow-up to this Web mock; CMP and
+acceptance against real listener data remain separate.
 
 ## Scope and honest behavior
 
-- Hash-routed discovery, local search, three synthetic work/episode lists, library, full/compact
-  mock player, queue, settings, unavailable-account and unknown-route recovery.
+- Two primary navigation destinations: **Khám phá** (Discover) and **Của tôi** (My library).
+  Search and filters belong to Khám phá; account opens through the avatar. Work details,
+  full/compact mock player, queue, settings and unknown-route recovery remain hash-routed
+  secondary views. The account view explains that authentication/synchronization is unavailable.
+- Của tôi presents **Nghe tiếp**, **Đã lưu** and **Lịch sử** directly, with no nested library tabs.
+  Save/unsave acts on a work and is independent of playback position. There is no separate
+  favorite/star list in this MVP. History previews three recent works and links to a secondary
+  all-history view. Point bookmarks remain secondary mock-player tools.
 - Deterministic Vietnamese titles/synopses, a long title and an unavailable sample episode.
   Sample availability is not publication, rights or backend authorization.
-- Separate saved works, point bookmarks and explicit session progress. Saving a story never
-  creates a bookmark, playback position or download. Clearing library contents leaves the root
-  player and queue intact. Reload loses every session fact.
+- Separate saved works, point bookmarks, explicit session progress and fake playback history.
+  History records a matching accepted fake start, keeping the latest sample episode per work
+  in recency order; page visits, saves and manual seeks alone do not add history. It is not a
+  real audio or completion record.
+  Clearing history requires confirmation and preserves progress, saved works, the root player
+  and queue. The existing separate demo Reset/clear-library controls still clear their broader
+  local sample state. Reload loses every session fact.
 - A single root-owned `PlayerSession` persists across route changes. Play dispatches intention;
   only a matching **fake-engine** `EngineStarted` confirms **simulated** running. There is no
   audio, media element or playback clock. Seeking/skipping changes manual position, preserving
@@ -42,11 +55,11 @@ in-memory cold-restore exercise is not reload/session persistence.
 | `src/app/routes.rs` | Typed hash routes; no player construction |
 | `src/core/ids.rs`, `catalog.rs` | Synthetic typed keys and catalog read models; no publication authority |
 | `src/core/playback/` | Framework-free immutable state, events, ordered effects and `reduce(state, event) -> Transition` |
-| `src/core/listening/` | Separate saved-work/bookmark, progress and queue facts/rules |
+| `src/core/listening/` | Separate saved-work/bookmark, progress, simulated history and queue facts/rules |
 | `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
 | `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
-| `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter/tab signals |
+| `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery/account |
 | `src/messages.rs`, `platform.rs` | Typed locale resources; fallible browser navigation/title/focus only |
 | `src/styles/theatre.css`, `assets/icons/` | Canonical-token layout; pinned licensed official Material Icons |
@@ -96,7 +109,8 @@ HTML and existing canonical tokens, not new reusable shared primitives. No token
 qualification, admission baseline or exemption is changed. The shared catalog remains **0/29
 qualified**; new reusable adoption still requires [both-preview admission](../../../packages/ui-system/shared/README.md#preview-registration-and-adoption).
 PR 02 adds inspected app captures and keyboard/focus observations at named viewports/themes.
-200% zoom, assistive technology, motion and exact-reference fidelity remain unverified.
+The library MVP has its own [observations and limitations](../../../docs/evidence/theatre-web-library-mvp.md);
+earlier captures do not establish its changed navigation or library behavior.
 
 ## Build, run and checks
 
@@ -131,7 +145,7 @@ Repeat these scenarios when the affected behavior changes. PR 02 exercised the s
 in its evidence at 1440×1000, 1024×768, 390×844 and 320×800, light/dark and both locales.
 200% text zoom and assistive technology still require separate observations:
 
-1. Discovery → work → sample → Player → Library → Back/Forward. The same root player identity
+1. Khám phá → work → sample → Player → Của tôi → Back/Forward. The same root player identity
    and position survive navigation. Opening a different sample records progress and selects it paused.
 2. Use Skip to main content; confirm focus without a route change. Check focus rings and that the
    mini-player does not hide focused controls at narrow/zoomed widths.
@@ -140,10 +154,13 @@ in its evidence at 1440×1000, 1024×768, 390×844 and 320×800, light/dark and 
    or clock movement is expected.
 4. Start an interruption; pause during it; end with no automatic resume. Restore the current
    in-memory snapshot; it stays paused until explicit Play. Repeated restore/Reset advances identity.
-5. Add the same bookmark/queue item twice; remove focused and last rows; verify focus/recovery.
-   Resume a bookmark exactly. Repeat Continue without alternating to an older progress record.
-6. Change catalog scenarios, retry and clear filters. Player/library remain intact. Clear library
-   contents while the player/queue survive, then Reset. Search/filter/tab state belongs to its screen.
+5. Save/unsave a work from its detail and Của tôi; verify both surfaces agree. Simulate playback,
+   then open Của tôi and inspect Nghe tiếp, Đã lưu and Lịch sử without changing sub-tabs.
+   Repeat Continue without alternating to an older progress record. Add the same bookmark/queue
+   item twice; remove focused and last rows; verify focus/recovery and exact bookmark resume.
+6. Change catalog scenarios, retry and clear filters. Player/library remain intact. Open history
+   clear confirmation, cancel once and confirm once; verify only history disappears and progress, saved works,
+   player and queue survive. Search/filter and confirmation state belongs to its screen.
 7. After Reset, stale bookmark clicks and older engine acknowledgements must not reopen a removed
    bookmark, navigate on a rejected action or revive old progress. Continue uses the current seed;
    an empty Continue/Next remains a no-op. These Reset paths have synchronous fake ports.

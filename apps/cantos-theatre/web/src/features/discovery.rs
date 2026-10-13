@@ -1,5 +1,5 @@
 //! App-private semantic HTML compositions, not new shared UI primitives.
-use super::{common::*, library::ContinueCard};
+use super::{common::*, explore::Explore, library::ContinueCard};
 use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
@@ -29,10 +29,7 @@ pub(crate) fn Discover(ctx: TheatreContext) -> impl IntoView {
                 <div class="theatre-feature-cover"><Cover ctx=ctx id=WorkId::Mountain/></div>
             </section>
             <ContinueCard ctx=ctx/>
-            <section aria-labelledby="theatre-shelf-heading">
-                <h2 id="theatre-shelf-heading" class="theatre-section-heading">{move || ctx.text(Key::StoryShelf)}</h2>
-                <div class="theatre-shelf"><For each=move || ctx.catalog.state.get().ids() key=|id| *id children=move |id| view! { <WorkCard ctx=ctx id=id/> }/></div>
-            </section>
+            <Explore ctx=ctx embedded=true/>
         </Show>
     }
 }

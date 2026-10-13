@@ -10,7 +10,7 @@ use crate::{
 use leptos::prelude::*;
 
 #[component]
-pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
+pub(crate) fn Explore(ctx: TheatreContext, #[prop(optional)] embedded: bool) -> impl IntoView {
     let query = RwSignal::new(String::new());
     let genre = RwSignal::new(Genre::All);
     let search = NodeRef::<leptos::html::Input>::new();
@@ -33,7 +33,9 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
             .collect::<Vec<_>>()
     });
     view! {
-        <PageHeading ctx=ctx title=Key::Explore/>
+        {(!embedded).then(|| view! { <PageHeading ctx=ctx title=Key::Explore/> })}
+        <section aria-labelledby="theatre-shelf-heading">
+        <h2 id="theatre-shelf-heading" class="theatre-section-heading">{move || ctx.text(Key::StoryShelf)}</h2>
         <div class="theatre-search-field">
             <label for="theatre-search">{move || ctx.text(Key::SearchLabel)}</label>
             <input id="theatre-search" node_ref=search type="search" class="theatre-input" aria-describedby="theatre-search-help"
@@ -62,5 +64,6 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
                 </div>
             </Show>
         </Show>
+        </section>
     }
 }
