@@ -1,4 +1,4 @@
-//! Size and wall-clock comparison of the JSON and MessagePack representations on Cantos payloads.
+//! Size and wall-clock comparison of JSON, MessagePack and pilot Protobuf representations on Cantos payloads.
 //!
 //! A reporting harness, not a statistical benchmark. Sizes (raw and gzip level 6) are exact and
 //! deterministic. Times are the median of seven rounds of a fixed iteration count on one
@@ -15,7 +15,8 @@ use std::{fmt::Debug, hint::black_box, io::Write, path::PathBuf, time::Instant};
 
 use cantos_api::script_ir::read_script;
 use cantos_contracts::{
-    wire::{decode, encode, WireFormat},
+    protobuf::ProtobufDto,
+    wire::{decode, decode_pilot, encode, encode_pilot, WireFormat},
     HistoryResponse, ReviewResponse, RevisionResponse, RevisionSummary, SaveRevisionRequest,
     ValidateScriptRequest,
 };
@@ -154,6 +155,7 @@ struct Case {
     kind: &'static str,
     json: Vec<u8>,
     msgpack: Vec<u8>,
+    protobuf: Option<Vec<u8>>,
 }
 
 fn case<T: Serialize>(label: impl Into<String>, kind: &'static str, value: &T) -> Case {
@@ -162,7 +164,18 @@ fn case<T: Serialize>(label: impl Into<String>, kind: &'static str, value: &T) -
         kind,
         json: encode(WireFormat::Json, value).unwrap(),
         msgpack: encode(WireFormat::MessagePack, value).unwrap(),
+        protobuf: None,
     }
+}
+
+fn pilot_case<T: Serialize + ProtobufDto>(
+    label: impl Into<String>,
+    kind: &'static str,
+    value: &T,
+) -> Case {
+    let mut case = case(label, kind, value);
+    case.protobuf = Some(encode_pilot(WireFormat::Protobuf, value).unwrap());
+    case
 }
 
 const SCRIPT_TARGETS: [(&str, usize); 4] = [
@@ -179,17 +192,17 @@ fn cases() -> Vec<Case> {
     ];
     for (label, target) in SCRIPT_TARGETS {
         let script = script_of_at_least(target);
-        cases.push(case(
+        cases.push(pilot_case(
             format!("Revision, IR {label}"),
             "revision",
             &revision(&script),
         ));
-        cases.push(case(
+        cases.push(pilot_case(
             format!("SaveRevision, IR {label}"),
             "save",
             &save(&script),
         ));
-        cases.push(case(
+        cases.push(pilot_case(
             format!("ValidateScript, IR {label}"),
             "validate",
             &ValidateScriptRequest {
@@ -214,6 +227,29 @@ fn msgpack_is_never_larger_than_json_and_strictly_smaller_once_script_text_is_ca
             // Script IR text is JSON inside a JSON string: every quote and backslash is escaped
             // again in JSON and carried raw in MessagePack.
             assert!(case.msgpack.len() < case.json.len(), "{}", case.label);
+        }
+    }
+}
+
+#[test]
+fn protobuf_size_and_roundtrip_are_measured_only_for_schema_pilot_dtos() {
+    for case in cases().into_iter().filter(|case| case.protobuf.is_some()) {
+        assert!(
+            case.protobuf.as_ref().unwrap().len() < case.json.len(),
+            "{}",
+            case.label
+        );
+        match case.kind {
+            "revision" => {
+                assert_protobuf_roundtrip::<RevisionResponse>(&case);
+            }
+            "save" => {
+                assert_protobuf_roundtrip::<SaveRevisionRequest>(&case);
+            }
+            "validate" => {
+                assert_protobuf_roundtrip::<ValidateScriptRequest>(&case);
+            }
+            other => panic!("unexpected pilot {other}"),
         }
     }
 }
@@ -256,6 +292,36 @@ where
         }),
         measure(rounds, iterations, || {
             black_box(decode::<T>(WireFormat::MessagePack, black_box(&case.msgpack)).unwrap());
+        }),
+    ]
+}
+
+fn assert_protobuf_roundtrip<T>(case: &Case) -> T
+where
+    T: Serialize + DeserializeOwned + ProtobufDto + PartialEq + Debug,
+{
+    let value: T = decode(WireFormat::Json, &case.json).unwrap();
+    let bytes = case.protobuf.as_ref().unwrap();
+    assert_eq!(
+        decode_pilot::<T>(WireFormat::Protobuf, bytes).unwrap(),
+        value
+    );
+    value
+}
+
+fn protobuf_timings<T>(case: &Case) -> [(f64, f64, f64); 2]
+where
+    T: Serialize + DeserializeOwned + ProtobufDto + PartialEq + Debug,
+{
+    let value = assert_protobuf_roundtrip::<T>(case);
+    let bytes = case.protobuf.as_ref().unwrap();
+    let iterations = (4_000_000 / case.json.len()).clamp(20, 50_000);
+    [
+        measure(7, iterations, || {
+            black_box(encode_pilot(WireFormat::Protobuf, black_box(&value)).unwrap());
+        }),
+        measure(7, iterations, || {
+            black_box(decode_pilot::<T>(WireFormat::Protobuf, black_box(bytes)).unwrap());
         }),
     ]
 }
@@ -322,6 +388,76 @@ fn report_wire_codec_costs() {
             micros(msgpack_encode),
             micros(json_decode),
             micros(msgpack_decode)
+        );
+    }
+}
+
+#[test]
+#[ignore = "reporting harness; run explicitly with --release -- --ignored --nocapture"]
+fn report_protobuf_pilot_costs_against_json_and_legacy_msgpack() {
+    let output = std::env::var_os("CANTOS_WIRE_PAYLOADS").map(PathBuf::from);
+    println!("Native one-machine reporting only; no heap/allocation, browser, CMP or request-latency claim.");
+    println!("Payload | JSON B | MessagePack B | Protobuf B | JSON gzip B | MessagePack gzip B | Protobuf gzip B");
+    let cases: Vec<_> = cases()
+        .into_iter()
+        .filter(|case| case.protobuf.is_some())
+        .collect();
+    for case in &cases {
+        let protobuf = case.protobuf.as_ref().unwrap();
+        println!(
+            "{} | {} | {} | {} | {} | {} | {}",
+            case.label,
+            case.json.len(),
+            case.msgpack.len(),
+            protobuf.len(),
+            gzip(&case.json),
+            gzip(&case.msgpack),
+            gzip(protobuf)
+        );
+        if let Some(directory) = &output {
+            std::fs::create_dir_all(directory).unwrap();
+            let stem = case.label.replace([' ', ',', '/'], "_");
+            for (extension, bytes) in [
+                ("json", &case.json),
+                ("msgpack", &case.msgpack),
+                ("protobuf", protobuf),
+            ] {
+                std::fs::write(
+                    directory.join(format!("{}.{stem}.{extension}", case.kind)),
+                    bytes,
+                )
+                .unwrap();
+            }
+        }
+    }
+    println!("Microseconds/op, median of 7 rounds (min-max), JSON encode | MessagePack encode | Protobuf encode | JSON decode | MessagePack decode | Protobuf decode");
+    for case in &cases {
+        let (baseline, protobuf) = match case.kind {
+            "revision" => (
+                timings::<RevisionResponse>(case),
+                protobuf_timings::<RevisionResponse>(case),
+            ),
+            "save" => (
+                timings::<SaveRevisionRequest>(case),
+                protobuf_timings::<SaveRevisionRequest>(case),
+            ),
+            "validate" => (
+                timings::<ValidateScriptRequest>(case),
+                protobuf_timings::<ValidateScriptRequest>(case),
+            ),
+            other => unreachable!("{other}"),
+        };
+        let [je, me, jd, md] = baseline;
+        let [pe, pd] = protobuf;
+        println!(
+            "{} | {} | {} | {} | {} | {} | {}",
+            case.label,
+            micros(je),
+            micros(me),
+            micros(pe),
+            micros(jd),
+            micros(md),
+            micros(pd)
         );
     }
 }
