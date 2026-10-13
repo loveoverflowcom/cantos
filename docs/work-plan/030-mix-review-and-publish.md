@@ -7,11 +7,21 @@
 ## Current narrow implementation
 
 [ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
-script-revision-bound private development intake with four explicit Opus profiles, verified
-bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
-is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or
-QC/release/storage-delivery acceptance criteria below. Production S3, scoped producer grants,
-rights/listening review, publication and reference-aware orphan retention remain separate work.
+script-revision-bound private intake with four explicit Opus profiles and immutable receipts.
+[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound
+submissions, scoped upload permissions, admitted renditions, named review and private candidates.
+[Private storage](../architecture/object-storage.md) adds filesystem/S3 adapters, durable original
+targets and owner-authorized exact preview. The [read contract](../../packages/contracts/private-content-reads-v1.md)
+and [storage evidence](../evidence/provider-independent-storage.md) identify actual behavior and
+verification separately. Real-provider policies/performance, stronger rights/listening review,
+approved publication and reference-aware retention remain their own acceptance boundaries.
+
+Media owns private storage and preview; Publication must own approved immutable manifests and
+atomic active-release changes. Prioritize actual private-provider acceptance and exact review
+bindings before deployment, then #11's manifest/isolation/retention decisions. A private object,
+candidate or preview grant is never a publication witness. One wholly private bucket is enough
+for intake; future delivery needs reviewed policy/physical isolation and must not widen access
+to private drafts.
 
 ## Why
 

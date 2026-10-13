@@ -40,11 +40,30 @@ Named append-only reviews and private candidates expose current blockers; public
 always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
 [frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
+[Provider-independent private storage](../architecture/object-storage.md) adds durable original
+target metadata, filesystem/S3 adapters and exact owner-authorized audio preview while retaining
+Catalog/Editorial/Ingestion readers. Its [implementation evidence](../evidence/provider-independent-storage.md)
+separates local and mocked results from real-provider acceptance. It does not complete #10's
+deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
+write target moves no existing objects.
+
+Recommended backend follow-ups preserve that order:
+
+| Order | Capability owner | Outcome and dependency |
+| --- | --- | --- |
+| 1 | Media/storage; operator deployment boundary (#10) | Accept private policies, conditional writes, version-pinned grants, Range/CORS/expiry and measured capacity on the chosen provider; declarations/mocks cannot establish production behavior |
+| 2 | Media review and rights owners (#9) | Bind named listening/rights/QC findings to exact admitted bytes and revisions; format admission is not approval |
+| 3 | Publication (#11) | Implement approved immutable manifests and atomic replacement/retention, consuming exact verified locations and current approvals; keep private intake isolated |
+| 4 | Listening (#12), then Theatre clients (#13/#14) | Define separate listener identity/access and publication-bound reads before real discovery/playback; never reuse private Studio handlers |
+
+These owners identify architectural responsibility, not assignees. GitHub owns assignment and
+execution status; provider/migration/publication acceptance remains separate from this slice.
+
 The [live client boundary](live-client-api-matrix.md) connects the bounded Studio forms and
 keeps Theatre capabilities unsupported until a reviewed listener/publication contract exists.
 Remaining Studio controls and responsive/keyboard/user acceptance stay with #66; transport
-checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, secure
-identity/storage and stronger rights/QC policy,
+checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, production
+identity/storage acceptance and stronger rights/QC policy,
 then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
 separate. No listening/interoperability is settled by admitting an Opus envelope.
 
@@ -70,8 +89,10 @@ or speculative wrappers. GitHub owns publication/review status.
 
 Implementation delivery and named core evidence do not complete broader Studio
 acceptance, rights/QC, publication or listener implementation. Real PostgreSQL
-acceptance remains unrun after denied disposable startup; the full Rust gate still
-fails in upstream service fixtures, with the original port flake retained separately.
+acceptance in that earlier assurance record remains unrun after denied disposable startup;
+its full Rust gate fails in upstream service fixtures, with the original port flake retained
+separately. Later storage/read verification belongs to its own
+[evidence record](../evidence/provider-independent-storage.md).
 Next owners must resolve/recheck those environments without weakening private-input
 guards, then perform the existing browser/IME/cookie/conflict and listener acceptance.
 No broader product feature or CMP refactor is introduced by this assurance work.

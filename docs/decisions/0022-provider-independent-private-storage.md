@@ -1,6 +1,7 @@
 # ADR 0022 — Provider-independent private asset storage
 
-- Status: proposed; implementation and production/provider acceptance remain separate.
+- Status: proposed for maintainer acceptance; the bounded implementation is described below,
+  with production/provider acceptance separate.
 - Date: 2026-10-13.
 - Decision owner: Cantos maintainers.
 - Related: [ADR 0018](0018-external-audio-production.md),
@@ -14,9 +15,9 @@
 
 ## Context
 
-Media already accepts bounded, inspected Ogg/Opus bytes into private filesystem objects and
-immutable PostgreSQL receipts. It has no S3 adapter or owner audio byte-read route at this
-audit baseline. Existing objects use digest basenames, owned private directory descriptors,
+The preceding filesystem-only baseline accepts bounded, inspected Ogg/Opus bytes into private
+objects and immutable PostgreSQL receipts. It has no S3 adapter or owner audio byte-read route.
+Existing objects use digest basenames, owned private directory descriptors,
 atomic non-overwriting links, synchronized read-only files and actual-byte verification before
 metadata acceptance. A failed metadata commit can leave a private orphan; deleting shared
 objects on rollback would break other receipts.
@@ -34,9 +35,10 @@ provider that ignores create preconditions cannot preserve immutable acceptance.
 
 ## Decision
 
-1. Add a narrow private storage port inside Media with filesystem, generic S3-compatible and
-   deterministic fake implementations. Its operations serve existing immutable intake,
-   verification and authorized reads. Add no service, crate, generic repository, TTS engine,
+1. Implement Media's narrow `PrivateStorage` port with filesystem, generic S3-compatible and
+   deterministic test-double implementations: `put_if_absent`, `verify`, `open_verified` and
+   optional `temporary_read`. Actual S3 GET bytes establish integrity; no HEAD port is added.
+   Add no service, crate, generic repository, TTS engine,
    transcoder, mixer, publication promotion or speculative multipart/migration machinery.
 2. Keep Catalog manuscript text, Ingestion originals and Editorial Script IR exports in their
    existing PostgreSQL stores. A future genuinely large artifact gains an exact revision-bound
@@ -45,22 +47,28 @@ provider that ignores create preconditions cannot preserve immutable acceptance.
    exhaustive outcomes. Only matching actual SHA-256/length plus existing audio admission may
    yield an accepted rendition. Object keys are internal and server-derived; public IDs remain
    independent of provider, endpoint, bucket and path.
-4. Persist an opaque stable target ID and immutable private location for every asset. Preserve
-   legacy receipt/rendition bodies and digests through additive location metadata bound to an
-   explicit legacy filesystem target. New writes use the configured active target; historical
+4. Persist stable private target metadata through migration0015 on receipts/renditions, outside
+   their immutable snapshot bodies/digests. Existing rows map to `legacy-filesystem`; new
+   writes supply the configured target. Historical
    reads use their recorded target, never a mutable default. Unavailable targets fail closed.
-5. Select adapters in the composition root using checked non-secret TOML and external secret
-   injection. Validate unknown/inconsistent fields, active target, required secrets, HTTPS,
+5. Keep the concrete `Store`/aggregate `StoreError` in `src/composition.rs`, joining pool and
+   Media registry. Platform retains compatibility reexports with no Media import. Select
+   adapters using checked non-secret TOML and external secret injection. Validate
+   unknown/inconsistent fields, active target, every configured target's required secrets, HTTPS,
    addressing, bounded timeouts and declared capabilities before use. Startup performs no live
    writes or provider-acceptance probe. Configuration failure has no fallback.
 6. Require atomic conditional single-object creation for S3 writes; never substitute a
-   `HEAD`-then-unconditional-`PUT` race. Reconcile existing/ambiguous writes by exact readback
-   before acceptance/retry. Preserve no transaction during object I/O, byte-before-receipt
+   `HEAD`-then-unconditional-`PUT` race. PUT success/duplicate412 requires exact readback.
+   Conflict409/timeout returns typed failure without an automatic retry loop; the existing
+   durable intent/submission scopes an eligible identical conditional retry. Preserve no
+   transaction during object I/O, byte-before-receipt
    ordering, final authorization and private orphan behavior from ADR 0020.
-7. Add owner-authorized exact audio reads with separate metadata and binary delivery. Local
-   development uses protected bounded streaming; compatible S3 targets may mint short-lived
-   scoped read grants after backend authorization. Signed URLs are bearer secrets, never
-   persistent identity or logged values. Provider Range/status/header contracts remain checked.
+7. Implement owner-authorized exact audio reads through Media's application facade, with
+   separate metadata/binary delivery and authorization recheck after storage work. Filesystem
+   delivery retains its verified inode; S3 delivery pins by version or strong opaque ETag.
+   Direct 60-second S3 grants require actual-byte verification and a usable version ID;
+   otherwise refreshable access redirects to protected API streaming. Signed URLs are bearer
+   secrets, never persistent identity or logged values. Range/status/header contracts stay checked.
 8. Support one wholly private bucket for intake. Private and publication classes stay logically
    distinct. Future publication needs reviewed physical/policy isolation and immutable approval
    manifests; a one-bucket limit never justifies public access to private drafts. Keep Theatre
@@ -70,14 +78,18 @@ provider that ignores create preconditions cannot preserve immutable acceptance.
    This slice implements durable original locations, not that migration engine.
 
 The detailed [storage contract](../architecture/object-storage.md) owns the capability/security
-matrix and deferred provider acceptance. Existing content identities, profile limits, rights
+matrix, configuration schema and deferred provider acceptance. The
+[private-read contract](../../packages/contracts/private-content-reads-v1.md) owns the exact
+implemented routes. Existing content identities, profile limits, rights
 claims and review/publication blockers remain unchanged.
 
 ## Transport and dependency choice
 
-Use the versions already present in the lockfile: `reqwest =0.12.15` for bounded HTTPS transport,
+The adapter pins `reqwest =0.12.15` for bounded HTTPS transport,
 `hmac =0.12.1` with existing `sha2 =0.10.9` for narrow SigV4 signing, and `chrono =0.4.45` for
-UTC signature timestamps. Keep them adapter-local. Pin direct dependencies when added; use
+UTC signature timestamps. Checked TOML uses `toml =1.1.8`; bounded streams reuse pinned
+`bytes`, `futures-util`, `tokio-util` and `url` from the service manifest. Keep transport/signing
+dependencies outside domain modules; use
 rustls TLS, explicit no-redirect/no-proxy behavior and no response decompression. Do not add
 an AWS SDK or vendor branch to the domain. A manually maintained narrow signer reduces SDK
 surface but makes canonical-request and signature vector coverage an explicit responsibility;
@@ -93,7 +105,8 @@ them. Version documentation for [reqwest 0.12.15](https://docs.rs/reqwest/0.12.1
 [hmac 0.12.1](https://docs.rs/hmac/0.12.1/hmac/),
 [sha2 0.10.9](https://docs.rs/sha2/0.10.9/sha2/) and
 [chrono 0.4.45](https://docs.rs/chrono/0.4.45/chrono/) accompanies the pinned implementation;
-compilation and controlled signing/HTTP tests must establish actual integration behavior.
+the separate [evidence record](../evidence/provider-independent-storage.md) records actual
+compilation and controlled signing/HTTP results.
 
 ## Alternatives
 
@@ -113,6 +126,9 @@ retain historical targets and their data, guard target configuration changes, ke
 privilege secrets outside Git and manage storage costs/retention. Missing objects or a provider
 outage can make an accepted asset temporarily unavailable without changing its immutable
 identity. There is no distributed database/object transaction or automatic orphan collector.
+Changing the write default moves no data. A rollback to the older filesystem-only reader after
+S3 writes cannot read those new locations; compatibility of local rows alone does not make that
+application rollback safe.
 
 Validate L1 ownership/dependencies, L2/L3 pure barriers/ranges/integrity, L4 production
 orchestration with deterministic storage and controlled HTTP responses, then L5 disposable
@@ -120,6 +136,6 @@ PostgreSQL, real API/auth and actual filesystem. Real Long Vân/R2/B2 or disposa
 storage acceptance requires explicit operator authorization; until run it is `NOT_RUN`.
 Mocks do not establish provider privacy, throughput, CDN behavior or production streaming.
 
-Revisit for a larger artifact/multipart consumer, temporary credentials, a provider that cannot
+Revisit for a larger artifact/multipart consumer, credential rotation, a provider that cannot
 honor required conditional creation, publication isolation/CDN/retention decisions, or measured
 transport/performance needs. No config-only switch may be described as a data migration.

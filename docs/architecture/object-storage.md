@@ -1,32 +1,30 @@
 # Private object storage and exact content reads
 
-This document defines the implementation boundary for provider-independent private storage.
-The audit baseline is the existing development filesystem intake. The S3 adapter, target
-registry and private audio reads described below are an implementation plan until the PR's
-code and separate evidence record establish them. No live provider or publication acceptance
-is implied. See [ADR 0022](../decisions/0022-provider-independent-private-storage.md).
+Media implements provider-independent private storage with filesystem and generic S3-compatible
+adapters, durable target selection and owner-authorized audio reads. This document describes
+the code boundary; the separate [evidence record](../evidence/provider-independent-storage.md)
+owns commands and actual results. No live-provider, publication or production-streaming
+acceptance is implied. See [ADR 0022](../decisions/0022-provider-independent-private-storage.md)
+and [Private content reads v1](../../packages/contracts/private-content-reads-v1.md).
 
 ## Content authorities
 
-Storage answers where exact bytes can be found; it does not decide which content revision,
-submission, approval or publication is authoritative.
+Storage answers where exact bytes can be found; it does not decide which revision, submission,
+approval or publication is authoritative.
 
 | Content | Authority and current persistence | Retrieval boundary |
 | --- | --- | --- |
-| Work and content-unit metadata, ordering and owner | Catalog; existing PostgreSQL aggregates and history | Existing authorized Catalog application queries and cursor contracts |
-| Canonical manuscript text | Catalog `ContentRevision`; bounded `ManuscriptText` (65,536 UTF-8 bytes) in PostgreSQL | Exact authorized unit/revision lookup; a head is a separate explicit request |
-| Original manuscript file and import receipt | Ingestion; bounded immutable original bytes and checksum in PostgreSQL | Ingestion owner read; linked source access remains an independently authorized operation |
-| Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in PostgreSQL | Editorial exact script/revision read, authorized afresh |
-| Verified audio rendition and admission receipt | Media; immutable PostgreSQL metadata and private filesystem bytes at the audit baseline | Media owner authorization, then exact asset location and byte verification |
-| Published text/audio projection | Publication, when implemented | Only an approved immutable manifest and separate listener authorization |
+| Work/content-unit metadata, ordering and owner | Catalog; existing PostgreSQL aggregates/history | Existing authorized Catalog queries and cursor contracts |
+| Canonical manuscript text | Catalog `ContentRevision`; bounded `ManuscriptText` (65,536 UTF-8 bytes) in PostgreSQL | Exact authorized unit/revision lookup; a head is a separate request |
+| Original manuscript file and import receipt | Ingestion; bounded immutable original bytes and checksum in PostgreSQL | Independently authorized Ingestion owner read |
+| Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in PostgreSQL | Exact authorized script/revision read |
+| Verified audio rendition and admission receipt | Media; immutable PostgreSQL metadata and bytes at the recorded private filesystem/S3 target | Media owner authorization, exact location and byte verification |
+| Published text/audio projection | Publication, when implemented | Approved immutable manifest plus separate listener authorization |
 
-Keep the existing bounded text, source and Script IR records in PostgreSQL. Moving them into
-object storage for symmetry would add I/O and migration risk without an actual large-artifact
-consumer. A later large original/export may gain a private immutable location reference through
-its owning context; it must not duplicate Catalog, Ingestion or Editorial authority. Neither
-the current Catalog navigation links nor a caller-declared checksum replace a pinned revision.
-
-See [Content Identity](../decisions/0019-content-identity.md),
+Bounded text, sources and Script IR stay in PostgreSQL. A later large original/export may gain
+a private revision-bound location through its owning context; it must not duplicate Catalog,
+Ingestion or Editorial authority. Catalog navigation links and caller-declared checksums do
+not replace pinned revisions. See [Content Identity](../decisions/0019-content-identity.md),
 [API contexts](api-contexts.md) and [Script IR](script-ir.md).
 
 ## Dependency boundary
@@ -35,179 +33,227 @@ See [Content Identity](../decisions/0019-content-identity.md),
 flowchart BT
     HTTP[Studio HTTP boundary] --> App[Media application use cases]
     App --> Domain[Pure identities, integrity and access decisions]
-    App --> Port[Private storage port]
+    App --> Port[PrivateStorage port]
     FS[Owned private filesystem adapter] --> Port
     S3[Generic S3-compatible adapter] --> Port
     Port --> Domain
     PG[Media PostgreSQL adapter] --> Domain
 ```
 
-Arrows denote dependencies, not delivery flow. The application coordinates authoritative
-context facts, authorization, storage effects and metadata commits. Pure values and decisions
-contain no endpoint, URL, bucket, credential, SDK, HTTP response or PostgreSQL client. Provider
-selection and credentials belong to the composition root and adapter. Keep the port in the
-existing Media boundary because private audio intake and preview are its concrete consumers;
-introduce no crate, service or generic repository framework.
+Arrows denote dependencies. Domain values contain no endpoint, URL, bucket, credential, SDK,
+HTTP response or PostgreSQL client. Media owns this port because private audio intake and
+preview are its concrete consumers; there is no new crate, service or generic repository.
 
-The narrow capability set is immutable conditional creation, byte verification and exact
-bounded reads. Adapter `HEAD`/`GET` and scoped presigning support those consumers; they are not
-general-purpose domain repositories. There is no listing, deletion, ACL update, bucket-policy
-update, publication promotion, multipart upload or migration engine in this boundary. Direct
-temporary uploads require their own admission/finalize consumer and are deferred.
+The concrete `Store` and aggregate `StoreError` are owned by `src/composition.rs`. This handle
+joins the PostgreSQL pool and Media's registry for owning application use cases.
+`platform/postgres` retains compatibility reexports and connection/session plumbing, with no
+Media import. The Media read application facade owns authorization, storage effects and the
+authorization recheck; HTTP never selects providers or arbitrary internal locations.
+
+`PrivateStorage` exposes `put_if_absent`, `verify`, `open_verified` and optional
+`temporary_read`. S3 verification hashes an actual bounded `GET` body. There is no `HEAD`
+port operation or provider `HEAD` request in this adapter. Listing, deletion, ACL/bucket-policy
+updates, publication promotion, direct temporary uploads, multipart and migration orchestration
+have no implementation in this boundary.
 
 ## Immutable location and integrity
 
-1. Internal object keys come from admitted content digests or server-minted immutable identities,
-   never filenames, titles, request paths or an arbitrary client object key. Fallible private
-   types reject invalid target IDs, keys, digest encodings and lengths on every restore path.
-2. Actual bytes must match the expected SHA-256 and exact length before acceptance. An object
-   store's successful `PUT`, caller metadata or S3 ETag is insufficient proof. Preserve the
-   existing audio-format inspection; a storage proof alone does not admit an audio rendition.
-3. An accepted object's bytes and receipt stay immutable. Equal retries reconcile the original
-   accepted result; a different payload under the same identity is a typed conflict/corruption
-   outcome and must never replace it. Rejected, partial or ambiguous objects are private.
-4. Metadata commits follow object I/O and reauthorization. No PostgreSQL transaction stays open
-   during upload, hash readback or lengthy inspection. A failed transaction may leave a private
-   orphan but no accepted receipt. Rollback never deletes a shared content-addressed object.
-5. Persist an opaque stable storage target ID with each admitted asset's private location.
-   Public content identity remains the existing Work/Unit/ContentRevision/Script/Rendition ID
-   and digest; it contains no provider name, bucket, key or URL.
-6. Historic reads resolve the persisted target, even when a different target receives new
-   writes. A missing target is unavailable and never falls back to the active write target.
-   Changing a target ID's endpoint, bucket or filesystem root can misroute all its historical
-   records and therefore requires a controlled migration, not ordinary provider switching.
+- `ObjectKey` admits exactly 64 lowercase SHA-256 hex characters. New writes derive it from
+  actual bytes, never a filename, title or client key. S3 adds `private/audio/`; filesystem
+  retains `objects/<digest>`. `ObjectIntegrity` checks canonical SHA-256 and 1 byte through 32 MiB;
+  `PrivateObjectRef` binds the exact target/key/integrity and requires key == digest.
+- A successful PUT, caller metadata or S3 ETag cannot prove integrity. Actual readback SHA-256
+  and length must match; existing audio-format inspection is still required for admission.
+- Accepted bytes, receipts and rendition snapshots remain immutable. Equal retries reconcile
+  the original result; conflicting bytes never replace it. Rejected, partial and ambiguous
+  objects remain private.
+- Inspection and object I/O finish outside metadata transactions. Final acceptance rechecks
+  authorization and pinned facts. Transaction failure may leave a private orphan and no
+  receipt. Rollback never deletes a shared content-addressed object.
+- New writes use the active target; historical reads resolve the recorded target. Missing
+  targets are unavailable, with no default fallback. Target IDs are private location metadata,
+  separate from public Work/Unit/ContentRevision/Script/Rendition identities.
 
-Legacy filesystem receipts and rendition snapshots have their own immutable digests. Preserve
-them rather than rewriting their serialized bodies or checksums to add storage fields. Additive
-Media location metadata must map those records to an explicit stable legacy filesystem target;
-it cannot infer their location from the current write default. Retain the existing filesystem
-key layout so accepted historical bytes remain readable.
+Migration `0015_media_storage_targets.sql` adds `storage_target_id` outside immutable snapshot
+bodies, on `audio_intake_receipts` and `audio_renditions`. Existing records receive
+`legacy-filesystem`; new writes supply their target explicitly. Snapshot bytes/digests and
+legacy basenames remain unchanged. Keep that target bound to the original root after switching
+new writes. The default permits the preceding filesystem-only version to write compatible
+local rows, but that older version cannot read new S3 locations; rollback after remote writes
+needs compatible readers.
 
-## Adapter contract and failure behavior
+## Adapter behavior
 
-The filesystem implementation retains owned 0700 directories, pinned directory descriptors,
-no symlink traversal, server-derived digest basenames, read-only 0400 files, synchronized staged
-bytes and atomic non-overwriting publication. Exact verification reopens and hashes the bounded
-object and checks the selected inode has not changed. Range reads seek and stream bounded
-chunks; they do not buffer an entire object to serve a small interval. Unix filesystem support
-does not imply a supported native adapter on every operating system.
+Filesystem retains owned 0700 directories, pinned directory descriptors, no symlink traversal,
+0400 files, synchronized staging and atomic non-overwriting links. Delivery hashes the bounded
+object, verifies the named inode and retains the same open handle while seeking/streaming.
+It never verifies, closes and reopens a mutable name. Chunks are at most 16 KiB; a small range
+still requires full-object hashing, but no full-object memory buffer. Native filesystem
+support remains Unix-only.
 
-The generic S3 implementation uses a configured HTTPS endpoint, region, bucket and explicit
-path-style or virtual-hosted addressing. Credentials are resolved from named secret inputs.
-Transport has bounded connection/request timeouts, no automatic redirect to a different host,
-no implicit environment proxy, and no response decompression that could change audio bytes.
-The initial scope is bounded single-object operations within existing intake limits.
+S3 uses configurable HTTPS, region, bucket and explicit path-style or virtual-hosted addressing.
+The adapter receives credentials from composition, with connection/request deadlines, no
+redirects, no implicit environment proxy and no response decompression. Its scope is bounded
+single-object operations within the existing audio envelope.
 
-Conditional creation requires a declared compatible `If-None-Match: *` operation. A provider
-without that capability is ineligible for writes. Never emulate it by `HEAD` followed by an
-unconditional `PUT`: another writer can win between the two. A `412` existing-object response
-requires exact byte verification; a `409` conditional conflict or transport timeout can be
-ambiguous, so recovery resolves the immutable key and verifies bytes before a safe conditional
-retry. No second metadata acceptance is inferred from an external success status.
+The active S3 write target must declare `conditional_put = true`. PUT uses
+`If-None-Match: *`; `200` or duplicate `412` is followed by full byte verification. A `409`
+conflict or timeout returns a typed failure and may leave a private object; there is no automatic
+retry loop. The existing durable intent/submission remains the reconciliation scope. A caller
+can repeat the same eligible intent/payload and conditional key; bytes must verify before a
+receipt commits. There is no unsafe HEAD-then-unconditional-PUT emulation.
 
-Configuration declares required capabilities; declaration is an operator assertion, not a
-live acceptance test. Startup validates the schema and required capability combination without
-network writes. Runtime responses must still satisfy exact status, length and range contracts.
-Unsupported operations, mismatches, missing objects, access denial, timeout, cancellation and
-outage propagate through closed typed outcomes and sanitized HTTP errors. Never log a secret,
-signed URL, internal object key, private root or provider response body.
+For API delivery, S3 first hashes a full GET, then pins the delivered request by usable version
+ID or strong opaque ETag with `If-Match`. The response must confirm that pin. Without either
+validator it fails unavailable. Full delivered bodies are checked again at stream end.
+A provider ETag is a transport validator, never the accepted checksum. Range delivery requires
+declared support and exact `206`, length and Content-Range; it has no unsafe fallback.
 
-## Configuration and provider switching
+## Checked configuration and switching
 
-The intended explicit path is `CANTOS_STORAGE_CONFIG`, pointing at a non-secret TOML topology;
-`services/cantos-api/config/storage.example.toml` will document the implemented schema.
-Reject unknown fields, duplicate/inconsistent target declarations, missing active target,
-invalid paths/endpoints, missing secret inputs and unavailable required capabilities. There is
-no silent provider fallback. Keep the existing development filesystem setting compatible or
-document the explicit transition when the parser lands; do not invent a production deployment
-from the loopback-only development host.
+`CANTOS_STORAGE_CONFIG` is an absolute path to a non-secret TOML topology. The
+[example](../../services/cantos-api/config/storage.example.toml) and
+[API guide](../../services/cantos-api/README.md#private-audio-storage) describe setup.
+The existing `CANTOS_AUDIO_ROOT` setting selects `legacy-filesystem`. Setting both is a
+startup error. Leaving both unset preserves existing editorial/static behavior and makes
+private audio storage unavailable. Either storage setting disables same-process static serving;
+the loopback/development-session host is not a production isolation policy.
 
-An operator keeps all historical targets configured for reads while selecting one active
-target for new writes. For example, after changing new writes from a Long Vân target to an R2
-target, the earlier asset's location still names its Long Vân target. Configuration changes
-neither copy nor migrate bytes. Credentials, session tokens, signed grants and live endpoint
-values stay outside Git. External storage belongs to the service inventory as operator-managed
-infrastructure; build, test and run never provision it. Follow
-[ADR 0021](../decisions/0021-podman-service-runtime.md) for an explicitly authorized disposable
-Podman test service. No Docker Compose or automatic Podman machine startup is introduced.
+| Configuration | Checked behavior |
+| --- | --- |
+| Document | `version = 1`; at most 65,536 bytes and 16 targets; unknown fields rejected |
+| Target ID | 1–63 lowercase ASCII characters; starts with a letter, then letters/digits/hyphens; no trailing hyphen |
+| Topology | Nonempty targets; active target present; no fallback after errors |
+| Filesystem | Absolute private root plus owned-directory/traversal checks |
+| S3 origin | HTTPS only; no userinfo/query/fragment/path; virtual-hosted addressing rejects IP endpoints |
+| Timeouts | Connect 1–60,000 ms; request 1–300,000 ms; connect <= request |
+| Secrets | Distinct uppercase environment-variable names for access/secret and optional session token; required values for every configured target resolved at startup |
+| Capabilities | Active S3 target requires conditional PUT; presigned reads also require range reads |
 
-Future migration is a separate controlled process: **copy → verify actual bytes and SHA-256 →
-register ready replica/location → controlled read switch → retention and rollback**. Retain
-the old readable location until the retention decision permits removal. This PR needs only
-the durable original location, not replica scheduling, cleanup or a migration engine.
+Filesystem example:
 
-## Authorized reads and delivery
+```toml
+version = 1
+[storage]
+active_write_target = "legacy-filesystem"
+[storage.targets.legacy-filesystem]
+driver = "filesystem"
+private_root = "/var/lib/cantos/private"
+```
 
-Catalog and Editorial already expose exact Studio reads. Reuse their authorization and history
-queries rather than copying tables or adding a second catalog. An exact content read resolves
-the unit's parent Work, current access and the requested ContentRevision; an exact ScriptRef
-resolves the referenced immutable Editorial revision/export digest. An absent historical
-revision must never be replaced with the head. Content permission does not automatically grant
-access to every script, source or rights record it references.
+New S3 writes with historical local reads retained:
 
-Private audio preview requires a current owner authorization for the exact admitted rendition,
-then its persisted storage target/key, byte length, SHA-256 and versioned audio profile. An
-accepted structural inspection is not rights clearance, named listening, publication approval
-or a listener entitlement. Producer upload credentials and Studio cookies remain distinct.
+```toml
+version = 1
+[storage]
+active_write_target = "remote-private"
+[storage.targets.legacy-filesystem]
+driver = "filesystem"
+private_root = "/var/lib/cantos/private" # keep the original location
+[storage.targets.remote-private]
+driver = "s3"
+endpoint = "https://storage.example.invalid"
+region = "auto"
+private_bucket = "private-audio"
+force_path_style = true
+access_key_env = "CANTOS_S3_ACCESS_KEY_ID"
+secret_key_env = "CANTOS_S3_SECRET_ACCESS_KEY"
+# session_token_env = "CANTOS_S3_SESSION_TOKEN"
+connect_timeout_ms = 3000
+request_timeout_ms = 10000
+conditional_put = true
+range_reads = true
+presigned_reads = false
+```
 
-Binary delivery is separate from JSON/MessagePack metadata. A protected local stream is suitable
-for development. A compatible S3 provider may return a short-lived scoped `GET` grant after
-authorization; clients refresh through the authorized backend instead of retaining a permanent
-private-bucket URL. A grant is a bearer secret that may reveal its scoped endpoint/key to the
-authorized holder; it is never a public content identity, persisted receipt or logged value.
-Revocation blocks new grants, while already issued grants remain usable until expiry according
-to provider policy. Proxy streaming remains available where the direct-grant capability is
-absent; an absent conditional-write capability has no unsafe fallback.
+These examples declare topology, not acceptance or provisioning. Secret values stay outside Git
+in operator-managed injection. Keep all historical targets configured for reads when changing
+the write target. Changing an existing target's endpoint, bucket or root can misroute its old
+records and requires a controlled migration. Configuration alone copies no bytes.
 
-Full delivery uses `200`; a satisfiable single byte range uses `206` with exact `Content-Range`
-and interval `Content-Length`; an unsatisfiable range uses `416` with
-`Content-Range: bytes */<length>`. Pure range normalization rejects malformed input and checks
-overflow. Document the supported single-range/conditional request subset in the implemented
-read contract. Audio is not compressed in transit. Use the immutable SHA-256 as the API
-checksum/ETag identity, never substitute an S3 ETag for it. Cancellation releases bounded
-stream resources; admission's blocking inspection permit remains owned until work actually
-finishes, as in the current intake.
+Future migration remains **copy → verify actual bytes/hash → register ready replica/location →
+controlled read switch → retention/rollback**. This slice stores original locations only.
+No replica engine or orphan collector is implemented. External providers are inventory-only;
+build/test/run never provision them. Disposable Podman acceptance requires explicit operator
+authorization under [ADR 0021](../decisions/0021-podman-service-runtime.md).
 
-Theatre's router remains unavailable. Publication manifest authority and listener access are
-dependencies of [#11](https://github.com/loveoverflowcom/cantos/issues/11) and
-[#12](https://github.com/loveoverflowcom/cantos/issues/12), respectively. A future versioned
-publication read projection may expose approved asset IDs/checksums and optional approved
-text; it must not expose private Script IR, source/rights records, storage target IDs or keys.
-Do not manufacture a publication, public object or entitlement to exercise it. No Theatre
-request may reuse a Studio cookie/handler or invoke production.
+## Authorized content and audio reads
+
+Catalog, Editorial and Ingestion exact readers are reused. A ContentRevision read resolves
+the unit's parent Work, current access and exact revision. A ScriptRef read resolves its exact
+Editorial revision/export digest. No missing historical revision is replaced by a head, and
+access to Content does not automatically grant access to every source, script or rights record.
+
+Under `/api/v1/studio`, Media adds:
+
+| Method/path | Authorized identity |
+| --- | --- |
+| GET/HEAD `/scripts/{script}/audio-intents/{intent}/bytes` | Immutable receipt of this exact owner intent |
+| GET/HEAD `/content-units/{unit}/audio-submissions/{submission}/renditions/{rendition}/bytes` | Exact admitted rendition and its submission/unit |
+| GET `/scripts/{script}/audio-intents/{intent}/read-access` | Refreshable access to the same accepted object |
+| GET `/content-units/{unit}/audio-submissions/{submission}/renditions/{rendition}/read-access` | Refreshable access to the explicit rendition |
+
+Media resolves ownership/location before I/O, then rechecks the current session/owner and exact
+location before returning a stream or grant. Producer upload credentials grant no preview access.
+Accepted format inspection implies neither rights clearance, named listening nor publication.
+
+Binary responses remain separate from JSON/MessagePack metadata. Full GET is `200`; a
+satisfiable single closed/open/suffix range is `206` with exact interval length/Content-Range;
+an unsatisfiable range is `416` with `bytes */<length>`. Malformed/multiple/overflow byte ranges
+are `400`. Unknown units and mismatching If-Range use full delivery; HEAD ignores Range and
+has no body. The [read contract](../../packages/contracts/private-content-reads-v1.md) owns
+the supported conditional subset and safe error responses.
+
+The API ETag is accepted SHA-256; responses are `audio/ogg`, uncompressed and `no-store`.
+Streams enforce exact length, a 60-second wall-clock bound and four request lanes. Registry
+operations separately have four lanes, retained through returned streams until completion/drop.
+Cancellation drops the stream/transport; blocking filesystem work retains its own permit until
+finished. Failures before headers produce typed HTTP errors; failures afterward abort the body
+and cannot replace the sent status. No cancelled request deletes an object.
+
+`/read-access` returns `303` to a 60-second scoped S3 GET grant only when capability is
+declared and actual-byte verification yields a usable version ID. Otherwise it returns `303`
+to protected API bytes. Refresh through this owner-authorized route. Grants are bearer secrets,
+never persisted/logged or used as identity; they may reveal a scoped key to the authorized
+holder. Revocation blocks new grants; issued grants may remain usable until expiry. Range,
+CORS and actual expiry require provider acceptance.
+
+Theatre remains unavailable until [#11](https://github.com/loveoverflowcom/cantos/issues/11)
+supplies an approved immutable manifest and
+[#12](https://github.com/loveoverflowcom/cantos/issues/12) supplies separate listener access.
+The proposed publication read projection is documented but never constructed/served here.
+Approved text is an explicit projection; private Script IR/source/rights and internal storage
+locations do not cross it. Theatre cannot reuse Studio cookies/handlers or invoke production.
 
 ## Provider capability and security matrix
 
-| Capability | Filesystem development adapter | Generic S3-compatible target | Provider acceptance requirement |
+| Capability | Filesystem development | Generic S3-compatible | Acceptance obligation |
 | --- | --- | --- | --- |
-| Immutable create | Atomic non-overwriting link of synchronized bytes | Conditional single `PUT`; absent declaration fails closed | Conflicting and concurrent writes preserve original bytes; no ignored precondition |
-| Integrity | Exact readback SHA-256, length and inode checks | Exact bounded `GET` readback SHA-256 and length | Corruption, truncation and metadata/body disagreement rejected |
-| Exact lookup | Persisted target and validated digest basename | Persisted target and validated internal key | Changing active write target leaves historical reads on original target |
-| Byte ranges | Protected seek/stream | Exact single-range `GET` or scoped direct grant | First/middle/final/suffix ranges; `206`, headers and `416` behavior |
-| Temporary grant | Protected Studio API read, no presigned URL | Optional declared compatible presigned `GET` | Unauthenticated and expired requests denied; grant refresh and expiry observed |
-| Privacy | Owned private root; same-process static serving disabled | Operator-managed private bucket; least-privilege credentials | Anonymous GET/list denied; logs and error bodies contain no secrets |
-| One-bucket intake | One private root | One wholly private bucket is sufficient | No public ACL, CDN origin or policy widening on private intake |
-| Publication delivery | Not implemented | Not implied by S3 compatibility or private intake | Separate approved-manifest/identity/policy/CDN boundary after #11/#12 |
+| Immutable create | Synchronized atomic non-overwriting link | Conditional PUT; absent capability rejects active writes | Concurrent/conflicting writes preserve bytes; preconditions are honored |
+| Integrity | SHA-256/length/inode checks | Bounded full GET SHA-256/length | Corruption, truncation and metadata/body disagreement rejected |
+| Historical lookup | Recorded target and digest basename | Recorded target and fixed private key prefix | Switching active writes leaves old reads on their original target |
+| API read pin | Exact verified open inode | Version or strong opaque ETag; otherwise unavailable | Replacement races fail closed; ETag is not a checksum |
+| Range | Protected seek/stream | Declared exact ranged GET | First/middle/final/suffix, `206`, headers and `416` |
+| Temporary grant | Protected API only | Declared presign plus usable version ID; otherwise protected API | Version pin, scoping, refresh, anonymous/expired denial |
+| Privacy | Owned private root; API-only development host | Operator-managed private bucket/least-privilege secrets | Anonymous GET/list denied; error/log redaction checked |
+| One-bucket intake | One private root | One wholly private bucket suffices | No public ACL/CDN origin or policy widening on private intake |
+| Publication | Unimplemented | Not implied by private S3 intake | Separate manifest/identity/isolation/CDN boundary after #11/#12 |
 
-Long Vân, R2 and B2 are configuration targets, not domain variants. Their claimed compatibility
-does not prove identical conditional-write, presigning, Range, CORS or privacy behavior. No
-vendor is live-accepted by this document. If a one-bucket plan cannot isolate future publication
-delivery from private objects using reviewed policy, it cannot host that publication model;
-retain private-only intake or choose separate delivery storage. Never loosen private access to
-compensate for a bucket limit.
+Long Vân, R2 and B2 are configuration targets, not domain variants. This slice has no live
+acceptance for any of them. A one-bucket plan that cannot isolate future publication policy
+from private drafts cannot host that publication model; retain private-only intake or choose
+separate delivery storage. Never loosen private access for a bucket limit.
 
 ## Verification and deferred acceptance
 
-Keep an independent L1–L5 evidence ledger in the PR/evidence record. L1 covers authority and
-inward dependencies; L2/L3 cover immutable identities, integrity/access decisions and ranges
-without infrastructure; L4 exercises production orchestration with named fake storage or
-controlled S3 responses; L5 covers disposable PostgreSQL, real HTTP/auth and actual filesystem
-boundaries. Mocks do not prove real provider durability, privacy, throughput or streaming.
+The independent [L1–L5 ledger](../evidence/provider-independent-storage.md) separates domain,
+named fake-registry orchestration, controlled S3 HTTP boundaries, real PostgreSQL/HTTP and actual
+filesystem evidence. Mocked responses establish no vendor durability, privacy or performance.
 
-Provider acceptance requires explicit operator authorization and credentials, plus a disposable
-owned key namespace. Record provider/account class, endpoint configuration, fixture digest,
-commands, response observations and cleanup/retention ownership outside Git. Check `HEAD`,
-full `GET`, conditional upload/replay/conflict, actual-byte integrity, Range `206`/`416`,
-presigned expiry/scoping, CORS for the intended browser origin, connection concurrency,
-cancellation/timeouts, latency and throughput. A later CDN requires its own delivery-path
-checks. Every unrun item is `NOT_RUN`; a provider declaration or mocked response is not a pass.
+Live provider acceptance needs explicit operator authorization/credentials and disposable owned
+keys. Record account/endpoint class, fixture digest, observations and retention/cleanup owner
+outside Git. Check manual HEAD (a provider probe, not a port operation), full GET, conditional
+upload/replay/conflict, actual bytes, Range `206`/`416`, version-pinned presign expiry/scoping,
+CORS, connection concurrency, cancellation/timeouts, latency and throughput. A CDN needs its own
+delivery-path acceptance. Every unrun item remains `NOT_RUN`; declarations and mocks are not
+live passes.

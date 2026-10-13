@@ -162,3 +162,7 @@ fn verification_error(error: StorageError) -> StoreError {
         | StorageError::UnsupportedCapability(_) => StoreError::Storage(error),
     }
 }
+
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod tests;

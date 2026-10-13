@@ -37,6 +37,13 @@ selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
 there is no live listener resource, native audio or publication/delivery integration.
 
+[Private object storage](docs/architecture/object-storage.md) implements filesystem and generic
+S3-compatible adapters, durable original targets and [exact owner-authorized audio reads](packages/contracts/private-content-reads-v1.md).
+Changing the write target preserves historical location resolution and moves no bytes.
+Canonical text, imports and Script IR stay in their existing PostgreSQL stores. Private previews
+and scoped grants supply no listener/publication access; real-provider and deployment acceptance
+remain separate in the [evidence record](docs/evidence/provider-independent-storage.md).
+
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
 No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.
 
