@@ -329,7 +329,8 @@ pub fn ProductionInputs(
             <p id="production-pending-help">{move || text(Key::PendingHelp, english.get())}</p>
             <dl class="source-identity"><dt>{move || text(Key::Actor, english.get())}</dt><dd>{move || state.with(|s| s.pending.as_ref().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
                 <dt>{move || text(Key::Operation, english.get())}</dt><dd><code>{move || state.with(|s| s.pending.as_ref().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
-            <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || !state.with(Production::can_retry) on:click=move |_| { if session_pending.get_untracked() {return;} if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
+            <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || !state.with(Production::can_retry) on:click=move |_| { if session_pending.get_untracked() { return; }
+                if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
         </section></Show>
         <Show when=move || state.with(|s| s.form.is_some())><div class="production-layout">
             <section class="production-settings" aria-labelledby="casting-title"><h3 id="casting-title">{move || text(Key::Settings, english.get())}</h3>

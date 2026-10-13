@@ -17,7 +17,7 @@ use web_sys::{AbortController, Window};
 
 use crate::session::{current_attempt, SessionFence};
 use crate::wire::{self, REVISION_CODEC};
-use leptos::prelude::Callback;
+use leptos::prelude::{Callable, Callback};
 use std::cell::Cell;
 
 pub const SESSION_HEADER: &str = "x-cantos-studio-session";
@@ -68,7 +68,7 @@ impl Drop for RequestDeadline {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct StudioHttp {
     session: Option<ClientSession>,
     on_denial: Option<Callback<ApiError>>,

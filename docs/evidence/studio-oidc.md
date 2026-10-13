@@ -214,6 +214,26 @@ separation, overflow refusal and safe guarded legacy/development-cookie recovery
 cleanup preserves pending guest flows; explicit logout is disabled until cookie confirmation.
 These new protocol regressions remain NOT_RUN here until root executes the final tree.
 
+The root then executed the actual late-effect cancellation regression: a SHARE ROW EXCLUSIVE
+table lock allowed the prior SELECT FOR UPDATE checks but delayed the cancellation UPDATE until
+the private binder expired. `studio-cancel-late-effect-fail-before-wired.log` recorded FAIL
+(204 instead of required 401). The full pre-final-clock source/test SHA256 manifest is preserved
+under `studio-cancellation-before-final-clock/` in the campaign directory. The repair rechecks
+supplied binder and active-session expiry after every local write and awaits transaction rollback
+before refusal; provider I/O remains after that commit boundary. Fresh reruns belong to root's
+integrated ledger; this subagent still claims no new execution PASS.
+
+The root's fresh integrated `cargo xtask verify postgres --keep` rerun now reports **PASS**:
+all 18 Studio OIDC PostgreSQL/HTTP cases and inherited HTTP/restart/Protobuf/MessagePack fixtures
+passed. Raw log: `/private/tmp/cantos-identity-campaign/studio-postgres-integrated-fixed.log`.
+The first integrated run (17/18 Studio) remains preserved: its receipt-lock observer read
+`pg_stat_activity` through the same transaction holding the lock, so the initial current-query
+snapshot stayed cached. Both lock regressions now use a separate autocommit observer while
+retaining the exact production query/lock-stage assertions; this follows the documented
+[PostgreSQL17 statistics behavior](https://www.postgresql.org/docs/17/monitoring-stats.html).
+No production failure was ignored. WASM lint/build, final canonical preflight and actual browser
+interaction remain pending root's separate gates; live-provider evidence remains NOT_RUN.
+
 ## Residual risk / deferred acceptance
 
 Live Kanidm/TLS/client/grants/credentials and browser behavior remain NOT_RUN. Provider disable

@@ -129,6 +129,17 @@ impl Harness {
             .unwrap()
             .get(0)
     }
+    async fn observer(&self) -> Client {
+        let mut config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
+        let db: String = self
+            .admin
+            .query_one("SELECT current_database()", &[])
+            .await
+            .unwrap()
+            .get(0);
+        config.dbname(&db);
+        connect(&config).await
+    }
 }
 
 #[tokio::test]
@@ -1368,6 +1379,9 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
         "cantos_session={a}; {}={binder}",
         h.oidc().flow_cookie_name(&state).unwrap()
     );
+    // pg_stat_activity current-query data is transaction-cached. Observe through a separate
+    // autocommit client rather than the transaction retaining B's lock.
+    let observer = h.observer().await;
     let tx = h.admin.transaction().await.unwrap();
     tx.query_one(
         "SELECT token_hash FROM studio_oidc_sessions WHERE token_hash=$1 FOR UPDATE",
@@ -1391,7 +1405,7 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
     });
     tokio::time::timeout(std::time::Duration::from_secs(5),async {
         loop {
-            let blocked:bool=tx.query_one("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT token_hash FROM studio_oidc_sessions WHERE token_hash=%')",&[]).await.unwrap().get(0);
+            let blocked:bool=observer.query_one("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT token_hash FROM studio_oidc_sessions WHERE token_hash=%')",&[]).await.unwrap().get(0);
             if blocked {break;}
             tokio::task::yield_now().await;
         }
@@ -1419,6 +1433,92 @@ async fn private_binder_expiry_while_receipt_lock_waits_cannot_revoke_observed_b
         .unwrap()
         .get(0);
     assert!(!cancelled);
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL"]
+async fn private_binder_expiry_during_cancellation_effect_wait_rolls_back_every_effect() {
+    let mut h = Harness::new().await;
+    let (a, _) = h.login(None).await;
+    let expected = h.store.studio_session_id(&a).await.unwrap().unwrap();
+    let (state, binder, code) = h.start(Some(&a)).await;
+    let issued = h
+        .oidc()
+        .callback(&h.store, &state, &binder, &code)
+        .await
+        .unwrap();
+    let b = issued
+        .cookie
+        .split(';')
+        .next()
+        .unwrap()
+        .split_once('=')
+        .unwrap()
+        .1
+        .to_owned();
+    let source = cantos_api::platform::postgres::token_hash(&state);
+    h.admin.execute("UPDATE studio_oidc_flows SET expires_at=clock_timestamp()+interval '3 seconds' WHERE state_hash=$1",&[&source]).await.unwrap();
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "/nonexistent",
+    );
+    let cookie = format!(
+        "cantos_session={a}; {}={binder}",
+        h.oidc().flow_cookie_name(&state).unwrap()
+    );
+    let observer = h.observer().await;
+    let tx = h.admin.transaction().await.unwrap();
+    // ROW SHARE from SELECT FOR UPDATE is allowed, but the later ROW EXCLUSIVE effect lock
+    // must wait. This reaches beyond the earlier post-receipt-lock expiry observation.
+    tx.batch_execute("LOCK TABLE studio_oidc_flows IN SHARE ROW EXCLUSIVE MODE")
+        .await
+        .unwrap();
+    let logout = tokio::spawn(async move {
+        app.oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/studio/session")
+                .header(header::COOKIE, cookie)
+                .header(header::ORIGIN, "http://127.0.0.1:8080")
+                .header("x-cantos-studio-session", expected)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(5),async {
+        loop {
+            let blocked:bool=observer.query_one("SELECT EXISTS(SELECT 1 FROM pg_locks l JOIN pg_stat_activity a USING(pid) WHERE l.relation='studio_oidc_flows'::regclass AND NOT l.granted AND l.mode='RowExclusiveLock' AND a.query LIKE 'UPDATE studio_oidc_flows SET cancelled=%')",&[]).await.unwrap().get(0);
+            if blocked {break;}
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("logout must wait at the first cancellation UPDATE, after the earlier expiry check");
+    tokio::time::timeout(std::time::Duration::from_secs(4),async {
+        loop {
+            let expired:bool=tx.query_one("SELECT expires_at<=clock_timestamp() FROM studio_oidc_flows WHERE state_hash=$1",&[&source]).await.unwrap().get(0);
+            if expired {break;}
+            tokio::task::yield_now().await;
+        }
+    }).await.unwrap();
+    tx.commit().await.unwrap();
+    let response = logout.await.unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "expired cancellation proof must refuse after all effect waits"
+    );
+    assert!(!response.headers().contains_key(header::SET_COOKIE));
+    assert!(h.store.authenticate(&b).await.is_ok());
+    assert_eq!(h.mock.data.revoke_calls.load(Ordering::SeqCst), 0);
+    let row=h.admin.query_one("SELECT f.cancelled,s.revoked,o.revocation_pending,o.revoked_by_token_hash IS NULL FROM studio_oidc_flows f JOIN studio_oidc_sessions o ON o.source_state_hash=f.state_hash JOIN sessions s USING(token_hash) WHERE f.state_hash=$1",&[&source]).await.unwrap();
+    assert!(!row.get::<_, bool>(0));
+    assert!(!row.get::<_, bool>(1));
+    assert!(!row.get::<_, bool>(2));
+    assert!(row.get::<_, bool>(3));
 }
 
 #[tokio::test]

@@ -243,6 +243,34 @@ impl Store {
         } else {
             RevocationCredential::None
         };
+        // Effects acquire table/constraint locks as well as the row locks above. Every write
+        // remains speculative until a final clock observation; an expired cancellation proof
+        // must roll back flow/session/receipt attribution before a definitive refusal is sent.
+        let mut expired = false;
+        if let Some(inventory) = inventory {
+            let supplied = inventory
+                .flows
+                .iter()
+                .map(|flow| flow.state_hash.clone())
+                .collect::<Vec<_>>();
+            expired=tx.query_one("SELECT EXISTS(SELECT 1 FROM studio_oidc_flows WHERE state_hash=ANY($1::bytea[]) AND expires_at<=clock_timestamp())",&[&supplied]).await.map_err(unavailable)?.get(0);
+        }
+        if cancel_inventory {
+            if let Some(current) = current_hash.as_ref() {
+                expired |= tx
+                    .query_one(
+                        "SELECT expires_at<=clock_timestamp() FROM sessions WHERE token_hash=$1",
+                        &[current],
+                    )
+                    .await
+                    .map_err(unavailable)?
+                    .get::<_, bool>(0);
+            }
+        }
+        if expired {
+            tx.rollback().await.map_err(unavailable)?;
+            return Err(AuthError::State);
+        }
         tx.commit().await.map_err(unavailable)?;
         Ok(
             if cancelled_receipts && matches!(access, RevocationCredential::None) {

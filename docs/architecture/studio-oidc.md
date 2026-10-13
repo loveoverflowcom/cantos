@@ -164,7 +164,10 @@ stale-only cleanup mode. An active expected session cancels its validated bounde
 revokes its issued sessions, including a callback committed before cookie acknowledgement.
 An inert A cannot cancel a fresh anonymous B flow. Cancelling a pending/issued rotation from A
 requires that captured private binder, rechecked against source/lineage and server expiry after
-every lock wait; missing or expired binders leave observed B active. Attributed retries include
+every lock wait. A final clock check after all cancellation effects rolls back the transaction
+if a supplied binder or the active session authorizing inventory cancellation expired; the
+rollback completes before a definitive refusal. Missing or expired binders leave observed B
+active. Attributed retries include
 only already revoked pending rows, never newly active B. The operation commits local revocation
 first, then attempts the current provider credential, reporting
 `Cantos-Provider-Revocation: completed|pending`. Guarded current-UI requests emit no global cookie
