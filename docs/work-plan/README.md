@@ -58,6 +58,12 @@ backend sequence above is unchanged.
 
 ## Existing foundations to retain
 
+The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
+and adds exact external keys with explicit operator registration/linking. Next identity boundary:
+[Studio OIDC, then separate Theatre identity](identity-authentication-handoff.md), before durable
+listener library/progress. Registry lookup grants no surface authority; operator-prepared
+provider/client/TLS acceptance remains separate from local core/database evidence.
+
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
 existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
 merged ordered steps 1–4; the user-approved follow-on

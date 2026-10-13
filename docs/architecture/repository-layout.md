@@ -120,6 +120,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API will validate tokens issued by it once identity work starts;
   nothing in this repository reimplements an identity provider.
+  The [internal actor registry](identity-registry.md) now owns exact external bindings under
+  `platform/identity`, preserving existing actors and development sessions; it does not verify
+  provider claims, add OIDC login or grant Theatre/Admin authority.
 
 ## What is shared, and what is not
 

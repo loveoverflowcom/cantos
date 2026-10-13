@@ -57,6 +57,10 @@ No live routes should be inferred from [the proposed contract](packages/contract
 
 ## Repository
 
+The [internal actor registry](docs/architecture/identity-registry.md) adds exact external identity
+bindings and explicit operator operations, retaining legacy actors/ownership. OIDC login and
+separate Theatre/Admin identity remain successor work; see [evidence](docs/evidence/identity-registry.md).
+
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
