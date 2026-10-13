@@ -51,9 +51,11 @@ proof expiry while waiting for required audit; unsafe non-JSON extractor/method 
 final-clock failure audit/outcome classification. Each gets a named production regression. Parent's
 full Ultra campaign review is separate and has not run in this session.
 
-## Actual gate ledger
+## Pre-Protobuf integration gate ledger
 
-All commands below use the environment above, worktree root and unchanged Admin inputs. Input
+All commands below ran before the fresh Protobuf merge, against the Admin feature snapshot
+committed as`4a33f1833f9e1943d254cfe8578190f218131bfe`/tree`7be8a8f9bb4556680af3ea663d08d4a8aee2d2bd`.
+They use the environment above, worktree root and unchanged Admin inputs. Input
 manifest `/private/tmp/cantos-admin-evidence/tested-admin-inputs.json` SHA256
 `a379cfd9e6fa1cbf6af212aa0754f062017201f3d3a4b17f5dca1d62eb58e62a` pins Admin code, crypto,
 HTTP, migration, test/contract sources and the PG runner. It was hash-rechecked after execution;
@@ -134,3 +136,11 @@ Final observed free disk: 4393058304 bytes (about4.1GiB).
 Raw evidence manifest `/private/tmp/cantos-admin-evidence/evidence-sha256.json` SHA256
 `8cd10ab59bf3b1c6579e2a844c7297174b80edf91ebdb954f25698a3112e01f8` hashes original/final gate logs,
 review, cleanup and pinned Admin inputs. PostgreSQL clusters/evidence and unique fixtures stay intact.
+
+## Post-Protobuf integration
+
+Fresh develop`b28b87856b30c78c2921aa1134ac657b0584ebd7` is normal-merged at
+`fc0fe1869895a68c1668dbb3d48bea077279484c`; Protobuf wire/runner/selector code is inherited
+unchanged. Admin still uses plain JSON; no Admin/Studio/Theatre auth semantics are altered.
+Studio ADR0024 disambiguates the inherited0023 against Protobuf0023. Prior gate PASS rows above
+are pinned to their pre-integration snapshot; fresh integrated results are recorded separately.

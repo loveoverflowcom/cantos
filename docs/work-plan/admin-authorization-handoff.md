@@ -64,3 +64,14 @@ independent Storage0015 remains its owner. No historical migration or checksum i
 Next owner: parent Ultra for combined code review/merge decisions; provider/production/device
 acceptance remains unassigned until explicitly authorized. GitHub owns execution/merge status;
 this file owns recommended sequence and rationale.
+
+## Fresh Protobuf integration checkpoint
+
+At parent request, develop`b28b87856b30c78c2921aa1134ac657b0584ebd7` (merged PR102) was freshly
+fetched and normal-merged at`fc0fe1869895a68c1668dbb3d48bea077279484c`. Admin feature checkpoint
+is`4a33f1833f9e1943d254cfe8578190f218131bfe`/tree`7be8a8f9bb4556680af3ea663d08d4a8aee2d2bd`.
+Additive README/work-queue conflicts retain both scopes; published Protobuf interfaces, runner and
+selector are preserved. JSON stays default; Admin remains plain JSON and its verifier/policy/audit
+modules are byte-identical through this integration. Inherited Studio ADR moves to0024, keeping
+Protobuf0023. The prior complete available gate results belong to4a33; post-integration results
+are recorded separately in the evidence/PR. No prior PASS is relabeled as a fresh integration run.

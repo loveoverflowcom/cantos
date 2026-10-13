@@ -76,7 +76,7 @@ Sources: [upstream configuration](https://kanidm.github.io/kanidm/stable/server_
 
 ## Studio OIDC operator boundary
 
-[ADR0023](../../docs/decisions/0023-studio-oidc-bff.md) and the
+[ADR0023](../../docs/decisions/0024-studio-oidc-bff.md) and the
 [credential/session architecture](../../docs/architecture/studio-oidc.md) record exact policy.
 This directory still contains no identity-provider code. The API integration never starts Kanidm,
 recovers admin, creates grants/credentials, persists a secret or changes TLS/network permissions.
