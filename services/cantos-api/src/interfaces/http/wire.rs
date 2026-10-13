@@ -116,6 +116,7 @@ impl MediaRange {
         let mut protobuf_type = essence.clone();
         let mut quality_seen = false;
         let mut invalid_parameters = false;
+        let mut invalid_quality = false;
         for parameter in parts {
             let Some((name, value)) = parameter.split_once('=') else {
                 if protobuf {
@@ -127,7 +128,11 @@ impl MediaRange {
             if name.trim().eq_ignore_ascii_case("q") {
                 invalid_parameters |= protobuf && quality_seen;
                 quality_seen = true;
-                quality = parse_quality(value.trim())?;
+                match parse_quality(value.trim()) {
+                    Some(parsed) => quality = parsed,
+                    None if protobuf => invalid_quality = true,
+                    None => return None,
+                }
             } else if protobuf {
                 protobuf_type.push(';');
                 protobuf_type.push_str(parameter);
@@ -140,6 +145,10 @@ impl MediaRange {
                 || WireFormat::from_content_type(&protobuf_type) != Some(WireFormat::Protobuf))
         {
             quality = 0;
+        } else if invalid_quality {
+            // A lone malformed q keeps the historical ignored-range behavior. Complete
+            // protobuf parameter inspection first, so it cannot hide an explicit exclusion.
+            return None;
         }
         Some(Self {
             kind: kind.to_owned(),
@@ -583,6 +592,41 @@ mod tests {
     }
 
     #[test]
+    fn malformed_quality_cannot_hide_an_explicit_protobuf_exclusion() {
+        for range in [
+            "application/protobuf;version=2;q=bad",
+            "application/protobuf;encoding=json;q=2",
+            "application/protobuf;version=1;version=1;q=bad",
+            "application/protobuf;q=0;q=bad",
+            "application/x-protobuf;q=bad;q=0",
+            "application/protobuf;unknown=x;q=bad",
+            "application/protobuf+json;q=bad",
+            "application/x-protobuf+json;q=2",
+        ] {
+            assert_eq!(response_format(Some(range)), Err(NotAcceptable), "{range}");
+            let excluded = format!("{range},application/json;q=0,application/msgpack;q=0,*/*");
+            assert_eq!(
+                response_format(Some(&excluded)),
+                Err(NotAcceptable),
+                "{range}"
+            );
+            let json_allowed =
+                format!("{range},application/json;q=0.5,application/msgpack;q=0,*/*");
+            assert_eq!(
+                response_format(Some(&json_allowed)),
+                Ok(WireFormat::Json),
+                "{range}"
+            );
+        }
+        // Preserve the baseline's tolerance for a lone malformed quality with no other
+        // unsupported protobuf parameter or duplicate. JSON/MessagePack handling is unchanged.
+        assert_eq!(
+            response_format(Some("application/protobuf;q=2")),
+            Ok(WireFormat::Json)
+        );
+    }
+
+    #[test]
     fn repeated_accept_fields_form_one_list() {
         let mut headers = HeaderMap::new();
         headers.append(
@@ -652,6 +696,33 @@ mod tests {
 
     fn api_error(bytes: &[u8]) -> ApiError {
         serde_json::from_slice(bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn malformed_quality_with_unsupported_protobuf_version_refuses_before_handler() {
+        let (router, calls) = probe(64 * 1024);
+        let request = save_request();
+        let (status, headers, bytes) = send(
+            &router,
+            Some("application/protobuf"),
+            Some("application/protobuf;version=2;q=bad,application/json;q=0,application/msgpack;q=0,*/*"),
+            wire::encode_pilot(WireFormat::Protobuf, &request).unwrap(),
+        ).await;
+        assert_eq!(status, StatusCode::NOT_ACCEPTABLE);
+        assert_eq!(headers[header::CONTENT_TYPE], "application/json");
+        assert_eq!(headers[header::VARY], "accept");
+        assert_eq!(
+            api_error(&bytes),
+            ApiError {
+                code: ErrorCode::InvalidRequest,
+                current_revision: None,
+                issues: vec![FieldIssue {
+                    path: "accept".into(),
+                    rule: "not_acceptable".into()
+                }],
+            }
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
