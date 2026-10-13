@@ -1,7 +1,7 @@
 //! Local component diagnostics. Values and callbacks here never call a Cantos service.
 
 use cantos_ui::{
-    AccessibleName, Announcement, Badge, Button, ButtonState, ButtonVariant, Checkbox, ChoiceState,
+    AccessibleName, Announcement, Avatar, AvatarInitialMode, AvatarSize, Badge, Button, ButtonState, ButtonVariant, Checkbox, ChoiceState,
     Container, ContainerWidth, Density, Dialog, DisabledReason, EmptyState, ErrorState, FieldError,
     FieldHelp, FieldLabel, FieldState, FilterChip, Grid, GridColumns, Icon, IconButton, IconName,
     Link, LinkHref, LoadingState, NumberField, Radio, RangeField, Select, Space, Stack,
@@ -287,7 +287,19 @@ pub fn Gallery(
                         <section id="gallery-feedback" class="cui-gallery-family" data-sample-family="feedback" aria-labelledby="gallery-feedback-heading"
                             hidden=move || !catalog::family_matches("feedback", catalog_family.get(), &catalog_query.get())>
                             <Stack>
-                                <h2 id="gallery-feedback-heading">"Badge, status, tải, rỗng và lỗi"</h2>
+                                <h2 id="gallery-feedback-heading">"Avatar, badge, status, tải, rỗng và lỗi"</h2>
+                                <div data-preview-scenario="single pair small large empty accessible blocked-url">
+                                    <Stack direction=StackDirection::Horizontal gap=Space::Sm>
+                                        <Avatar display_name="Nguyễn Thị Ánh" stable_id="user-42".to_owned()/>
+                                        <Avatar display_name="Nguyễn Thị Ánh" stable_id="user-42".to_owned()
+                                            initials=AvatarInitialMode::Pair size=AvatarSize::Large
+                                            accessible_name=name("Ảnh đại diện của Nguyễn Thị Ánh")/>
+                                        <Avatar display_name="  " size=AvatarSize::Small/>
+                                        <Avatar display_name="Bạch Tiểu Thuần"
+                                            image_url=Signal::derive(|| "javascript:invalid".to_owned())/>
+                                    </Stack>
+                                    <p class="cui-gallery-note">"Avatar fallback offline: chữ đơn, hai chữ, rỗng và nguồn ảnh không hợp lệ. Ảnh thật do host cấp URL."</p>
+                                </div>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
                                     <Badge>"Trung tính"</Badge>
                                     <Badge tone=StatusTone::Info>"Thông tin"</Badge>

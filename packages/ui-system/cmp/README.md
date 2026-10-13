@@ -255,3 +255,14 @@ Before application adoption, run the pinned Compose build and desktop tests; ins
 compact/comfortable, wide/narrow, Vietnamese 2× text; drive callbacks, disabled reasons,
 read-only selection, menu close, dialog Escape/return-focus and keyboard order. Mobile callers
 still need Android/iOS-specific evidence and app-owned native adapters.
+
+## Avatar (shared UI system)
+
+`Avatar(displayName, stableId?, image?, size?, initials?, accessibleName?)` renders a
+circle locally. Default is one capitalized initial, `Pair` uses first and last meaningful
+name words, and a missing name displays `?`. FNV-1a of a stable account ID selects one
+of four accessible semantic theme-token pairs. Supply a decoded `ImageBitmap` from the
+host; if fetching/decoding fails, pass null. The primitive never does I/O or stores an
+avatar image. Decorative by default; provide localized `AccessibleName` when the
+avatar stands alone. Desktop and Android previews are demonstrations, not visual or
+screen-reader acceptance. A small avatar has no implied interactive touch target.

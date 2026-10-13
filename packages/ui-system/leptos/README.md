@@ -186,3 +186,15 @@ retained Dialog input specimens remain native HTML. CMP in-place Tab selection/n
 navigation and HTML anchors are explicitly different. No existing Web library API or app import
 changes. See [session 2 evidence](../../../docs/evidence/cmp-ui-system-session2.md) for the 48
 executed package tests, real Safari observations and incomplete acceptance matrix.
+
+## Avatar (shared UI system)
+
+`Avatar` uses the same name-to-initial and FNV-1a identity-color contract as CMP.
+Optional `image_url` accepts a caller-provided HTTPS or same-origin root-relative URL;
+unsafe schemes are rejected and the browser's image error reveals the initials. Changes
+to the URL clear the prior failure state. It does not call Cantos services or generate an
+image. The avatar is decorative by default and receives image semantics only when a
+nonblank typed `AccessibleName` is supplied. Keep interaction in a separate enclosing
+button/link; this primitive itself never navigates or submits. The gallery illustrates
+fallback, sizes and themes, while real browser error/focus/assistive-technology acceptance
+remains a separate check.
