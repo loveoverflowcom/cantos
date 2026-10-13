@@ -397,6 +397,28 @@
       }
     },
     {
+      "id": "avatar",
+      "name": "Avatar",
+      "family": "feedback",
+      "states": [
+        "single",
+        "pair",
+        "small",
+        "large",
+        "empty",
+        "accessible",
+        "blocked-url"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "Both renderer fixtures added; browser image failure, visuals and assistive technology acceptance pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Native common renderer and named Android/desktop previews added; device visuals and TalkBack/VoiceOver acceptance pending."
+      }
+    },
+    {
       "id": "status",
       "name": "Status",
       "family": "feedback",
