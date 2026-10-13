@@ -24,6 +24,11 @@ impl ButtonVariant {
     }
 }
 
+/// A blocked action cannot be constructed from a raw/blank string without admission.
+/// ```compile_fail,E0423
+/// use cantos_ui::DisabledReason;
+/// let reason = DisabledReason(String::new());
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DisabledReason(String);
 
@@ -46,6 +51,10 @@ impl DisabledReason {
 }
 
 /// A localized accessible name for a control that has no visible text label.
+/// ```compile_fail,E0277
+/// use cantos_ui::AccessibleName;
+/// let name: AccessibleName = Default::default();
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccessibleName(String);
 
@@ -80,11 +89,17 @@ pub enum ButtonState {
 impl ButtonState {
     /// Shared by native disabled attributes and event dispatch, including synthetic events.
     pub const fn can_press(&self) -> bool {
-        matches!(self, Self::Enabled)
+        match self {
+            Self::Enabled => true,
+            Self::Disabled(_) | Self::Loading(_) => false,
+        }
     }
 
     pub const fn is_busy(&self) -> bool {
-        matches!(self, Self::Loading(_))
+        match self {
+            Self::Loading(_) => true,
+            Self::Enabled | Self::Disabled(_) => false,
+        }
     }
 
     pub const fn reason(&self) -> Option<&DisabledReason> {

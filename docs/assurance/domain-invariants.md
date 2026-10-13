@@ -181,3 +181,19 @@ An initial test expectation classified a JSON prefix cut inside a Vietnamese
 UTF-8 sequence as Truncated. The executed decoder correctly reports InvalidUtf8
 before JSON parsing. The final test distinguishes these exact error classes;
 no decoder behavior was changed to satisfy the test.
+
+## Phase 1: shared UI checkpoint
+
+U1/U2 now use exhaustive matches for action/input, disabled, busy and read-only
+permissions. Adding a control state requires handling each production projection;
+text fields and textareas use the same read-only projection. Public component
+parameters, consumer call sites, raw editing values and composition callbacks are
+unchanged. No domain rule, rendering proof, token/style or localization was added.
+
+`cargo test --locked -p cantos-ui` passed 53 tests (including two new full-state
+matrix tests and two compile-fail checks for private/non-default nonempty text).
+Package clippy with warnings denied passed. Existing native string-render tests
+and the new text-state matrix cover HTML associations/state projections; they
+are not live DOM, browser interaction, pixels or screen-reader evidence. No
+rendered behavior was intentionally changed. Broader WASM verification is running
+and is not yet credited as PASS.

@@ -15,15 +15,32 @@ pub enum FieldState {
 
 impl FieldState {
     pub const fn accepts_input(&self) -> bool {
-        matches!(self, Self::Editable)
+        match self {
+            Self::Editable => true,
+            Self::ReadOnly | Self::Disabled(_) | Self::Loading(_) => false,
+        }
     }
 
     pub const fn is_disabled(&self) -> bool {
-        matches!(self, Self::Disabled(_) | Self::Loading(_))
+        match self {
+            Self::Disabled(_) | Self::Loading(_) => true,
+            Self::Editable | Self::ReadOnly => false,
+        }
     }
 
     pub const fn is_loading(&self) -> bool {
-        matches!(self, Self::Loading(_))
+        match self {
+            Self::Loading(_) => true,
+            Self::Editable | Self::ReadOnly | Self::Disabled(_) => false,
+        }
+    }
+
+    /// Native text selection/copy remains available; this is not disabled input.
+    pub const fn is_read_only(&self) -> bool {
+        match self {
+            Self::ReadOnly => true,
+            Self::Editable | Self::Disabled(_) | Self::Loading(_) => false,
+        }
     }
 
     pub const fn as_str(&self) -> &'static str {
@@ -54,11 +71,17 @@ pub enum ChoiceState {
 
 impl ChoiceState {
     pub const fn accepts_input(&self) -> bool {
-        matches!(self, Self::Enabled)
+        match self {
+            Self::Enabled => true,
+            Self::Disabled(_) | Self::Loading(_) => false,
+        }
     }
 
     pub const fn is_loading(&self) -> bool {
-        matches!(self, Self::Loading(_))
+        match self {
+            Self::Loading(_) => true,
+            Self::Enabled | Self::Disabled(_) => false,
+        }
     }
 
     pub const fn as_str(&self) -> &'static str {
@@ -257,7 +280,7 @@ fn InputField(
             <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
                 placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
                 value=move || value.get() prop:value=move || value.get()
-                readonly=move || matches!(state.get(), FieldState::ReadOnly)
+                readonly=move || state.get().is_read_only()
                 disabled=move || state.get().is_disabled()
                 aria-busy=move || state.get().is_loading().to_string()
                 aria-invalid=move || has_text(&error.get()).to_string()
@@ -365,7 +388,7 @@ pub fn TextArea(
             <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
             <textarea id=id.clone() class="cui-field-control cui-textarea" name=name required=required
                 placeholder=placeholder rows=rows prop:value=move || value.get()
-                readonly=move || matches!(state.get(), FieldState::ReadOnly)
+                readonly=move || state.get().is_read_only()
                 disabled=move || state.get().is_disabled()
                 aria-busy=move || state.get().is_loading().to_string()
                 aria-invalid=move || has_text(&error.get()).to_string()
