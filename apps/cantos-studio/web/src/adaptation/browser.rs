@@ -18,6 +18,7 @@ use leptos::{prelude::*, task::spawn_local};
 use std::sync::Arc;
 
 fn dispatch(state: RwSignal<AdaptationReview>, api: StudioHttp, intent: AdaptationIntent) {
+    let api = api.snapshot();
     spawn_local(async move {
         let result = api.accept_adaptation(&intent.run_id, &intent.request).await;
         let _ = state.try_update(|review| {
@@ -39,6 +40,7 @@ fn read_run(state: RwSignal<AdaptationReview>, api: StudioHttp, activity: RwSign
     let actor = reading.actor.clone();
     let ticket = reading.ticket;
     state.set(reading);
+    let api = api.snapshot();
     spawn_local(async move {
         let result = api.read_adaptation(&id).await;
         let _ = state.try_update(|review| {
@@ -56,6 +58,7 @@ pub fn ScriptAdaptation(
     english: RwSignal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
+    session_pending: Signal<bool>,
 ) -> impl IntoView {
     let state = RwSignal::new(AdaptationReview::default());
     let preview = RwSignal::new(ValidationPreview::default());
@@ -71,7 +74,8 @@ pub fn ScriptAdaptation(
     let stored = Memo::new(move |_| state.with(|review| review.stored.clone()));
     let input_revision = Memo::new(move |_| state.with(|review| review.input_revision.clone()));
     let accepted = Memo::new(move |_| state.with(|review| review.accepted.clone()));
-    let blocked = move || state.with(AdaptationReview::blocked) || activity.get();
+    let blocked =
+        move || session_pending.get() || state.with(AdaptationReview::blocked) || activity.get();
     let draft = Signal::derive(move || {
         state.with(|review| {
             if review.draft_actor == review.actor {
@@ -82,7 +86,8 @@ pub fn ScriptAdaptation(
         })
     });
     let accept_blocked = move || {
-        activity.get()
+        session_pending.get()
+            || activity.get()
             || state.with(|review| !review.can_accept())
             || !preview.with(|p| p.is_current(&actor.get(), &draft.get()))
     };
@@ -107,22 +112,22 @@ pub fn ScriptAdaptation(
             <p id="adaptation-reason" class="help">{move || state.with(|review| if review.pending.is_some() { copy().pending } else { "" })}</p>
             <Show when=move || state.with(|review| review.pending.is_some())>
                 <p class="identity">{move || copy().operation}<output>{move || state.with(|review| review.pending.as_ref().map(|intent| intent.operation_id().to_owned()).unwrap_or_default())}</output></p>
-                <button class="cui-button" data-variant="secondary" type="button" aria-describedby="adaptation-reason" disabled=move || activity.get() || state.with(|review| !review.can_retry()) on:click=move |_| {
-                    if activity.get_untracked() { return; }
+                <button class="cui-button" data-variant="secondary" type="button" aria-describedby="adaptation-reason" disabled=move || session_pending.get() || activity.get() || state.with(|review| !review.can_retry()) on:click=move |_| {
+                    if session_pending.get_untracked() || activity.get_untracked() { return; }
                     if let Some((sending, intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state, api, intent); }
                 }>{move || copy().retry}</button>
             </Show>
-            <form class="adaptation-reopen" on:submit=move |event| { event.prevent_default(); if !activity.get_untracked() { read_run(state, api, activity); } }>
+            <form class="adaptation-reopen" on:submit=move |event| { event.prevent_default(); if !session_pending.get_untracked() && !activity.get_untracked() { read_run(state, api, activity); } }>
                 <label for="adaptation-run-id">{move || copy().run_id}</label>
                 <div class="toolbar">
                     <input class="cui-field-control" id="adaptation-run-id" maxlength="36" disabled=move || blocked() || state.with(|review| review.draft_changed) autocomplete="off" spellcheck="false"
                         prop:value=move || state.with(|review| review.run_id.clone())
                         on:input=move |event| state.update(|review| *review = review.select_run(event_target_value(&event))) />
-                    <button class="cui-button" data-variant="secondary" type="submit" disabled=move || activity.get() || state.with(|review| !review.can_read()) aria-describedby="adaptation-new-help">{move || copy().open}</button>
+                    <button class="cui-button" data-variant="secondary" type="submit" disabled=move || session_pending.get() || activity.get() || state.with(|review| !review.can_read()) aria-describedby="adaptation-new-help">{move || copy().open}</button>
                 </div>
             </form>
             <div class="toolbar">
-                <button class="cui-button" data-variant="secondary" type="button" disabled=move || activity.get() || state.with(|review| !review.can_read()) on:click=move |_| { if !activity.get_untracked() { read_run(state, api, activity); } }>{move || copy().refresh}</button>
+                <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || activity.get() || state.with(|review| !review.can_read()) on:click=move |_| { if !session_pending.get_untracked() && !activity.get_untracked() { read_run(state, api, activity); } }>{move || copy().refresh}</button>
                 <button class="cui-button" data-variant="secondary" type="button" disabled=blocked aria-describedby="adaptation-new-help" on:click=move |_| {
                     if blocked() || (state.with_untracked(|review| review.draft_changed) && !confirm_discard(english.get_untracked())) { return; }
                     state.update(|review| *review = review.new_run()); preview.set(ValidationPreview::default()); issues.set(vec![]);
@@ -182,7 +187,8 @@ pub fn ScriptAdaptation(
                             let actor = reading.actor.clone(); let ticket = reading.ticket;
                             let (script_id, version) = revision.with_value(|revision| (revision.script_id.clone(), revision.revision));
                             state.set(reading);
-                            spawn_local(async move {
+                            let api = api.snapshot();
+    spawn_local(async move {
                                 let result = api.read_revision(&script_id, version).await;
                                 let _ = state.try_update(|review| *review = match result {
                                     Ok(revision) => review.accepted_loaded_with_buffer(ticket, &actor, revision, activity.get_untracked()),

@@ -71,9 +71,14 @@ Studio audit manifests do not themselves authorize Theatre playback.
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
-and adds exact external keys with explicit operator registration/linking. Next identity boundary:
-[Studio OIDC, then separate Theatre identity](identity-authentication-handoff.md), before durable
-listener library/progress. Registry lookup grants no surface authority; operator-prepared
+and adds exact external keys with explicit operator registration/linking. The bounded
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
+before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
@@ -168,7 +173,7 @@ bounded local infrastructure option while preserving native verification. It doe
 product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
 then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
-lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
 
 ## Public discovery before account-owned listening state

@@ -1,8 +1,9 @@
 # Actor identity registry
 
 PR1 implements provider-neutral internal identity management in the existing modular backend.
-Authentication remains operator-issued development sessions; OIDC, Theatre and Admin credentials
-are separate successor work. This registry never creates an `ActorContext` or verifies claims.
+This registry never creates an `ActorContext` or verifies claims. The separate opt-in
+[Studio OIDC boundary](studio-oidc.md) now owns credential/session verification; development
+sessions remain available when it is disabled. Theatre and Admin credentials remain separate work.
 
 ## Ownership and consumers
 
@@ -14,8 +15,8 @@ session row decoding also validate `ActorId`. The architecture checker enforces 
 and prevents business contexts reading the registry table.
 
 No new service, crate, gateway, directory or provider SDK is introduced. A verifier port without
-a concrete consumer would add an unearned abstraction; PR2 should introduce verification together
-with its real OIDC consumer and test double.
+a concrete consumer would add an unearned abstraction; The separate [Studio OIDC slice](studio-oidc.md) introduces verification with its real
+BFF consumer and signed HTTP mock, while the general registry stays provider neutral.
 
 ## Identity contract
 

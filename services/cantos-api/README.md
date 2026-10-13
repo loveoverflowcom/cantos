@@ -40,7 +40,11 @@ or in-backend mixing should remain.
 
 The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
-It authenticates no provider and adds no HTTP identity endpoint.
+The registry itself authenticates no provider. The separate opt-in
+[Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
+callbacks and hashed Studio sessions on the current route group.
+[OIDC evidence](../../docs/evidence/studio-oidc.md) distinguishes signed mocks/real PostgreSQL
+from unrun Kanidm/browser/production acceptance.
 [Evidence](../../docs/evidence/identity-registry.md) and
 [OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
 
@@ -78,10 +82,12 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14,16–19/count18. Standalone publication0016 does not depend on independently
-reserved storage0015. Discovery0017, Identity0018 and Library/Progress0019 are additive;
-Identity0018 grants no HTTP-role registry access. Production Brief migration0013 is additive;
-upgrade/replay tests preserve
+versions1–14,16–20,25 (20 migrations); private storage0015 remains separate.
+Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
+Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
+credential issuance and session/browser-flow fences, with operator-applied narrow grants in
+services/kanidm. Identity0018 alone grants no HTTP-role registry access. Production Brief
+migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads

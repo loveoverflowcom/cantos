@@ -9,7 +9,7 @@ use crate::{
     platform::postgres::StoreError,
 };
 use axum::{
-    extract::Extension,
+    extract::{Extension, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -120,11 +120,12 @@ fn result<T: serde::Serialize>(
     }
 }
 async fn readiness(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath((unit, candidate)): StudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };
@@ -136,12 +137,13 @@ async fn readiness(
     )
 }
 async fn rights(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath((unit, candidate)): StudioPath<(String, String)>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::RecordDistributionRightsRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };
@@ -153,12 +155,13 @@ async fn rights(
     )
 }
 async fn approve(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath((unit, candidate)): StudioPath<(String, String)>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::RecordPublicationApprovalRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };
@@ -170,12 +173,13 @@ async fn approve(
     )
 }
 async fn publish(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath((unit, candidate)): StudioPath<(String, String)>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::PublishAudioReleaseRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };
@@ -187,11 +191,12 @@ async fn publish(
     )
 }
 async fn active(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath(unit): StudioPath<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };
@@ -201,12 +206,13 @@ async fn active(
     )
 }
 async fn withdraw(
+    State(state): State<AppState>,
     Extension(publication): Extension<PublicationService>,
     StudioPath(unit): StudioPath<String>,
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::WithdrawAudioReleaseRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return storage_error(e),
     };

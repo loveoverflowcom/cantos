@@ -56,7 +56,7 @@ async fn prepare(
         }
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -75,7 +75,7 @@ async fn status(
     AudioPath((script, intent)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -113,7 +113,7 @@ async fn upload(
         }
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };

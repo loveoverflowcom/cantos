@@ -99,6 +99,7 @@ TABLE_OWNER = {
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
     "actor_external_identities": "platform",
+    "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
@@ -580,7 +581,7 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
-        domain = domain or relative == Path("platform/identity/domain.rs")
+        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/studio_oidc/core.rs")}
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")

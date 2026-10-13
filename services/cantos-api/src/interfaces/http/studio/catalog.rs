@@ -138,7 +138,7 @@ async fn mutate(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -248,7 +248,7 @@ async fn get_work(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -273,7 +273,7 @@ async fn get_unit(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -336,7 +336,7 @@ async fn list_works(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -388,7 +388,7 @@ async fn list_units(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -446,7 +446,7 @@ async fn history(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
