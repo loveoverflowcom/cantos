@@ -2,7 +2,7 @@
 //!
 //! The pure decisions over header text come first and are tested without a server. The two
 //! extractors and [`respond`] only move bytes. Extractors run before the handler body, so a
-//! refused `Content-Type`, `Accept` or MessagePack body is answered before the store is touched:
+//! refused `Content-Type`, `Accept` or binary body is answered before the store is touched:
 //! a representation failure can never follow a committed write. Errors stay JSON `ApiError`s
 //! with the existing codes for every client.
 use axum::{
@@ -13,7 +13,8 @@ use axum::{
     Json,
 };
 use cantos_contracts::{
-    wire::{self, WireFormat, MSGPACK_MEDIA_TYPE},
+    protobuf::ProtobufDto,
+    wire::{self, WireFormat},
     ApiError, ErrorCode, FieldIssue,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -25,7 +26,7 @@ use crate::platform::postgres::StoreError;
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct UnsupportedMediaType;
 
-/// `Accept` listed media ranges, and none of them allows JSON or MessagePack.
+/// `Accept` listed media ranges, and none of them allows a supported representation.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct NotAcceptable;
 
@@ -41,15 +42,14 @@ pub(super) fn request_format(
     }
 }
 
-/// The response representation. JSON is the default whenever the client expresses no strict
-/// preference: no header, wildcards, equal qualities or an unparseable header. MessagePack is
-/// chosen only when its quality is strictly higher than JSON's (RFC 9110 § 12.5.1: the most
-/// specific matching range sets each quality).
+/// JSON wins absent, ambiguous and equal preferences. Protobuf wins a strict binary
+/// preference, including an equal binary-only tie with legacy MessagePack. The most specific
+/// matching media range sets each quality (RFC 9110 § 12.5.1).
 pub(super) fn response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
     select_response_format(accept, true)
 }
 
-/// Catalog currently offers only JSON; a higher MessagePack preference does not exclude
+/// Catalog currently offers only JSON; a higher binary preference does not exclude
 /// JSON when the client still allows it. Keep the existing header parser and quality rules.
 pub(super) fn json_response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
     select_response_format(accept, false)
@@ -57,7 +57,7 @@ pub(super) fn json_response_format(accept: Option<&str>) -> Result<WireFormat, N
 
 fn select_response_format(
     accept: Option<&str>,
-    message_pack: bool,
+    pilot_binary: bool,
 ) -> Result<WireFormat, NotAcceptable> {
     let ranges: Vec<MediaRange> = accept
         .into_iter()
@@ -68,13 +68,20 @@ fn select_response_format(
         return Ok(WireFormat::Json);
     }
     let json = quality(&ranges, "json");
-    let msgpack = if message_pack {
+    let msgpack = if pilot_binary {
         quality(&ranges, "msgpack")
     } else {
         0
     };
-    if json == 0 && msgpack == 0 {
+    let protobuf = if pilot_binary {
+        quality(&ranges, "protobuf")
+    } else {
+        0
+    };
+    if json == 0 && msgpack == 0 && protobuf == 0 {
         Err(NotAcceptable)
+    } else if protobuf > json && protobuf >= msgpack {
+        Ok(WireFormat::Protobuf)
     } else if msgpack > json {
         Ok(WireFormat::MessagePack)
     } else {
@@ -101,11 +108,47 @@ impl MediaRange {
             return None;
         }
         let mut quality = 1000;
+        let protobuf = kind == "application"
+            && matches!(
+                subtype,
+                "protobuf" | "x-protobuf" | "protobuf+json" | "x-protobuf+json"
+            );
+        let mut protobuf_type = essence.clone();
+        let mut quality_seen = false;
+        let mut invalid_parameters = false;
+        let mut invalid_quality = false;
         for parameter in parts {
-            let (name, value) = parameter.split_once('=')?;
+            let Some((name, value)) = parameter.split_once('=') else {
+                if protobuf {
+                    invalid_parameters = true;
+                    continue;
+                }
+                return None;
+            };
             if name.trim().eq_ignore_ascii_case("q") {
-                quality = parse_quality(value.trim())?;
+                invalid_parameters |= protobuf && quality_seen;
+                quality_seen = true;
+                match parse_quality(value.trim()) {
+                    Some(parsed) => quality = parsed,
+                    None if protobuf => invalid_quality = true,
+                    None => return None,
+                }
+            } else if protobuf {
+                protobuf_type.push(';');
+                protobuf_type.push_str(parameter);
             }
+        }
+        // Keep an invalid protobuf range as an explicit exclusion. Otherwise a wildcard
+        // could resurrect a version or encoding the client explicitly asked us to refuse.
+        if protobuf
+            && (invalid_parameters
+                || WireFormat::from_content_type(&protobuf_type) != Some(WireFormat::Protobuf))
+        {
+            quality = 0;
+        } else if invalid_quality {
+            // A lone malformed q keeps the historical ignored-range behavior. Complete
+            // protobuf parameter inspection first, so it cannot hide an explicit exclusion.
+            return None;
         }
         Some(Self {
             kind: kind.to_owned(),
@@ -119,6 +162,11 @@ impl MediaRange {
         match (self.kind.as_str(), self.subtype.as_str()) {
             ("*", "*") => Some(1),
             ("application", "*") => Some(2),
+            ("application", "x-protobuf" | "protobuf+json" | "x-protobuf+json")
+                if subtype == "protobuf" =>
+            {
+                Some(3)
+            }
             ("application", named) if named == subtype => Some(3),
             _ => None,
         }
@@ -197,12 +245,12 @@ pub(super) fn accept_header(headers: &HeaderMap) -> Option<String> {
     (!values.is_empty()).then(|| values.join(","))
 }
 
-/// A request DTO decoded from JSON or MessagePack before the handler runs.
+/// A pilot DTO decoded from JSON, legacy MessagePack or Protobuf before the handler runs.
 pub(super) struct WireBody<T>(pub(super) T);
 
 impl<T, S> FromRequest<S> for WireBody<T>
 where
-    T: DeserializeOwned + Send,
+    T: DeserializeOwned + ProtobufDto + Send,
     S: Send + Sync,
 {
     type Rejection = Response;
@@ -223,11 +271,11 @@ where
                 .await
                 .map(|Json(value)| Self(value))
                 .map_err(|_| invalid()),
-            Ok(WireFormat::MessagePack) => {
+            Ok(format @ (WireFormat::MessagePack | WireFormat::Protobuf)) => {
                 let bytes = Bytes::from_request(request, state)
                     .await
                     .map_err(|_| invalid())?;
-                wire::decode(WireFormat::MessagePack, &bytes)
+                wire::decode_pilot(format, &bytes)
                     .map(Self)
                     .map_err(|_| invalid())
             }
@@ -237,22 +285,24 @@ where
 
 /// A successful result in the negotiated representation. JSON goes through `axum::Json`, the
 /// same bytes these routes returned before negotiation existed.
-pub(super) fn respond<T: Serialize>(format: WireFormat, value: T) -> Response {
+pub(super) fn respond<T: Serialize + ProtobufDto>(format: WireFormat, value: T) -> Response {
     let response = match format {
         WireFormat::Json => Json(value).into_response(),
-        WireFormat::MessagePack => match wire::encode(WireFormat::MessagePack, &value) {
-            Ok(body) => (
-                [(
-                    header::CONTENT_TYPE,
-                    HeaderValue::from_static(MSGPACK_MEDIA_TYPE),
-                )],
-                body,
-            )
-                .into_response(),
-            // The write may already be committed, so this must stay an ambiguous outcome that
-            // the client reconciles with the same operation, never a definitive failure.
-            Err(_) => return error_response(StoreError::Unavailable),
-        },
+        WireFormat::MessagePack | WireFormat::Protobuf => {
+            match wire::encode_pilot(format, &value) {
+                Ok(body) => (
+                    [(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static(format.media_type()),
+                    )],
+                    body,
+                )
+                    .into_response(),
+                // The write may already be committed, so this must stay an ambiguous outcome that
+                // the client reconciles with the same operation, never a definitive failure.
+                Err(_) => return vary_on_accept(error_response(StoreError::Unavailable)),
+            }
+        }
     };
     vary_on_accept(response)
 }
@@ -321,7 +371,7 @@ mod tests {
 
     #[test]
     fn accept_keeps_json_unless_msgpack_is_strictly_preferred() {
-        use WireFormat::{Json as J, MessagePack as M};
+        use WireFormat::{Json as J, MessagePack as M, Protobuf as P};
         for (accept, expected) in [
             (None, Ok(J)),
             (Some(""), Ok(J)),
@@ -345,7 +395,7 @@ mod tests {
             ),
             (Some("application/msgpack, */*;q=0.1"), Ok(M)),
             // The most specific range wins for each representation.
-            (Some("application/json;q=0, */*"), Ok(M)),
+            (Some("application/json;q=0, */*"), Ok(P)),
             (Some("application/msgpack;q=0, */*"), Ok(J)),
             (
                 Some("application/*;q=0.5, application/msgpack;q=0.4"),
@@ -378,6 +428,147 @@ mod tests {
     }
 
     #[test]
+    fn protobuf_headers_follow_the_frozen_parameter_and_quality_policy() {
+        use WireFormat::{Json as J, MessagePack as M, Protobuf as P};
+        for (header, expected) in [
+            ("application/protobuf", Ok(P)),
+            (
+                " APPLICATION/X-PROTOBUF ; ENCODING=\"Binary\"; VERSION=\"1\" ",
+                Ok(P),
+            ),
+            (
+                "application/protobuf; charset=utf-8",
+                Err(UnsupportedMediaType),
+            ),
+            ("application/protobuf; version=2", Err(UnsupportedMediaType)),
+            (
+                "application/protobuf; encoding=json",
+                Err(UnsupportedMediaType),
+            ),
+            (
+                "application/protobuf; version=1; version=1",
+                Err(UnsupportedMediaType),
+            ),
+            ("application/protobuf; q=1", Err(UnsupportedMediaType)),
+            ("application/protobuf+json", Err(UnsupportedMediaType)),
+        ] {
+            assert_eq!(request_format(Some(header)), expected, "{header}");
+        }
+        for (header, expected) in [
+            ("application/protobuf", Ok(P)),
+            (
+                "application/x-protobuf; encoding=\"binary\"; version=1",
+                Ok(P),
+            ),
+            ("application/protobuf,application/json", Ok(J)),
+            ("application/msgpack,application/protobuf", Ok(P)),
+            (
+                "application/protobuf;q=0.4,application/msgpack;q=0.8",
+                Ok(M),
+            ),
+            ("application/protobuf;q=0.8,application/json;q=0.7", Ok(P)),
+            ("application/protobuf;q=0,*/*", Ok(J)),
+            ("application/x-protobuf;q=0,application/json;q=0,*/*", Ok(M)),
+            (
+                "application/protobuf;q=0,application/json;q=0,application/msgpack;q=0,*/*",
+                Err(NotAcceptable),
+            ),
+            ("application/protobuf;version=2", Err(NotAcceptable)),
+            ("application/protobuf;encoding=json", Err(NotAcceptable)),
+            ("application/protobuf;charset=binary", Err(NotAcceptable)),
+            (
+                "application/protobuf;version=1;version=1",
+                Err(NotAcceptable),
+            ),
+            ("application/protobuf;q=1;q=1", Err(NotAcceptable)),
+            ("application/protobuf+json", Err(NotAcceptable)),
+            (
+                "application/protobuf;version=2,application/json;q=0.1",
+                Ok(J),
+            ),
+            (
+                "application/protobuf;version=2,application/json;q=0,application/msgpack;q=0,*/*",
+                Err(NotAcceptable),
+            ),
+            ("application/protobuf;q=2", Ok(J)),
+        ] {
+            assert_eq!(response_format(Some(header)), expected, "{header}");
+        }
+        for header in [
+            "application/protobuf",
+            "application/x-protobuf",
+            "application/protobuf;version=1",
+        ] {
+            assert_eq!(json_response_format(Some(header)), Err(NotAcceptable));
+        }
+        assert_eq!(
+            json_response_format(Some("application/protobuf,application/json;q=0.1")),
+            Ok(J)
+        );
+    }
+
+    #[tokio::test]
+    async fn protobuf_hostile_and_oversized_envelopes_never_reach_the_handler() {
+        let (router, calls) = probe(8 * 1024 * 1024);
+        let valid = wire::encode_pilot(WireFormat::Protobuf, &save_request()).unwrap();
+        let mut duplicate = valid.clone();
+        duplicate.extend_from_slice(&[0x08, 0x03]);
+        let mut unknown = valid.clone();
+        unknown.extend_from_slice(&[0x20, 0x00]);
+        let mut noncanonical = vec![0x08, 0x83, 0x00];
+        noncanonical.extend_from_slice(&valid[2..]);
+        for body in [
+            vec![],
+            vec![0x00],
+            vec![
+                0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02,
+            ],
+            vec![0x12, 0x01, 0xff],
+            vec![0x1a, 0xff, 0xff, 0xff, 0xff, 0x07],
+            vec![0x0a, 0x00],
+            valid[..valid.len() - 1].to_vec(),
+            duplicate,
+            unknown,
+            noncanonical,
+            vec![0; 8 * 1024 * 1024 + 1],
+        ] {
+            let (status, headers, bytes) = send(
+                &router,
+                Some("application/protobuf"),
+                Some("application/protobuf"),
+                body,
+            )
+            .await;
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(headers[header::CONTENT_TYPE], "application/json");
+            assert_eq!(
+                api_error(&bytes),
+                ApiError {
+                    code: ErrorCode::InvalidRequest,
+                    current_revision: None,
+                    issues: vec![]
+                }
+            );
+        }
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        // Refusals are final; a later explicit valid request reaches the handler exactly once.
+        let (status, headers, bytes) = send(
+            &router,
+            Some("application/x-protobuf;version=1"),
+            Some("application/x-protobuf"),
+            valid,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers[header::CONTENT_TYPE], "application/protobuf");
+        assert_eq!(
+            wire::decode_pilot::<SaveRevisionRequest>(WireFormat::Protobuf, &bytes).unwrap(),
+            save_request()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
     fn quality_values_follow_rfc_9110_syntax() {
         for (text, expected) in [
             ("0", Some(0)),
@@ -398,6 +589,41 @@ mod tests {
         ] {
             assert_eq!(parse_quality(text), expected, "{text}");
         }
+    }
+
+    #[test]
+    fn malformed_quality_cannot_hide_an_explicit_protobuf_exclusion() {
+        for range in [
+            "application/protobuf;version=2;q=bad",
+            "application/protobuf;encoding=json;q=2",
+            "application/protobuf;version=1;version=1;q=bad",
+            "application/protobuf;q=0;q=bad",
+            "application/x-protobuf;q=bad;q=0",
+            "application/protobuf;unknown=x;q=bad",
+            "application/protobuf+json;q=bad",
+            "application/x-protobuf+json;q=2",
+        ] {
+            assert_eq!(response_format(Some(range)), Err(NotAcceptable), "{range}");
+            let excluded = format!("{range},application/json;q=0,application/msgpack;q=0,*/*");
+            assert_eq!(
+                response_format(Some(&excluded)),
+                Err(NotAcceptable),
+                "{range}"
+            );
+            let json_allowed =
+                format!("{range},application/json;q=0.5,application/msgpack;q=0,*/*");
+            assert_eq!(
+                response_format(Some(&json_allowed)),
+                Ok(WireFormat::Json),
+                "{range}"
+            );
+        }
+        // Preserve the baseline's tolerance for a lone malformed quality with no other
+        // unsupported protobuf parameter or duplicate. JSON/MessagePack handling is unchanged.
+        assert_eq!(
+            response_format(Some("application/protobuf;q=2")),
+            Ok(WireFormat::Json)
+        );
     }
 
     #[test]
@@ -473,12 +699,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn malformed_quality_with_unsupported_protobuf_version_refuses_before_handler() {
+        let (router, calls) = probe(64 * 1024);
+        let request = save_request();
+        let (status, headers, bytes) = send(
+            &router,
+            Some("application/protobuf"),
+            Some("application/protobuf;version=2;q=bad,application/json;q=0,application/msgpack;q=0,*/*"),
+            wire::encode_pilot(WireFormat::Protobuf, &request).unwrap(),
+        ).await;
+        assert_eq!(status, StatusCode::NOT_ACCEPTABLE);
+        assert_eq!(headers[header::CONTENT_TYPE], "application/json");
+        assert_eq!(headers[header::VARY], "accept");
+        assert_eq!(
+            api_error(&bytes),
+            ApiError {
+                code: ErrorCode::InvalidRequest,
+                current_revision: None,
+                issues: vec![FieldIssue {
+                    path: "accept".into(),
+                    rule: "not_acceptable".into()
+                }],
+            }
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
     async fn every_request_and_response_codec_pair_carries_the_same_dto() {
         let (router, calls) = probe(1024 * 1024);
         let request = save_request();
-        for sent in [WireFormat::Json, WireFormat::MessagePack] {
-            for wanted in [WireFormat::Json, WireFormat::MessagePack] {
-                let body = wire::encode(sent, &request).unwrap();
+        for sent in [
+            WireFormat::Json,
+            WireFormat::MessagePack,
+            WireFormat::Protobuf,
+        ] {
+            for wanted in [
+                WireFormat::Json,
+                WireFormat::MessagePack,
+                WireFormat::Protobuf,
+            ] {
+                let body = wire::encode_pilot(sent, &request).unwrap();
                 let (status, headers, bytes) = send(
                     &router,
                     Some(sent.media_type()),
@@ -489,11 +750,11 @@ mod tests {
                 assert_eq!(status, StatusCode::OK);
                 assert_eq!(headers[header::CONTENT_TYPE], wanted.media_type());
                 assert_eq!(headers[header::VARY], "accept");
-                let echoed: SaveRevisionRequest = wire::decode(wanted, &bytes).unwrap();
+                let echoed: SaveRevisionRequest = wire::decode_pilot(wanted, &bytes).unwrap();
                 assert_eq!(echoed, request, "{sent:?} → {wanted:?}");
             }
         }
-        assert_eq!(calls.load(Ordering::SeqCst), 4);
+        assert_eq!(calls.load(Ordering::SeqCst), 9);
     }
 
     #[tokio::test]
@@ -542,6 +803,25 @@ mod tests {
             (Some("application/json"), None, msgpack.clone(), bad),
             // No Content-Type keeps the JSON extractor's existing refusal.
             (None, None, json, bad),
+            (
+                Some("application/protobuf;version=2"),
+                Some("application/protobuf"),
+                msgpack.clone(),
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            ),
+            (
+                Some("application/protobuf"),
+                Some("application/protobuf;version=2"),
+                msgpack.clone(),
+                StatusCode::NOT_ACCEPTABLE,
+            ),
+            // Accept refusal precedes Content-Type refusal and byte decoding.
+            (
+                Some("application/protobuf;version=2"),
+                Some("text/html"),
+                msgpack.clone(),
+                StatusCode::NOT_ACCEPTABLE,
+            ),
             (msgpack_type, None, vec![0x81; 64 * 1024 + 1], bad),
         ];
         for (content_type, accept, body, status) in cases {
@@ -572,14 +852,26 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_msgpack_encoding_is_reported_as_an_ambiguous_outcome() {
+    fn a_failed_binary_encoding_is_reported_as_an_ambiguous_outcome() {
         struct Unencodable;
         impl Serialize for Unencodable {
             fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
                 Err(serde::ser::Error::custom("synthetic failure"))
             }
         }
-        let response = respond(WireFormat::MessagePack, Unencodable);
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        impl ProtobufDto for Unencodable {
+            fn encode_protobuf(&self) -> Result<Vec<u8>, wire::EncodeError> {
+                wire::encode(WireFormat::Json, self)
+            }
+            fn decode_protobuf(_: &[u8]) -> Result<Self, wire::DecodeError> {
+                Err(wire::DecodeError::Shape)
+            }
+        }
+        for format in [WireFormat::MessagePack, WireFormat::Protobuf] {
+            let response = respond(format, Unencodable);
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            assert_eq!(response.headers()[header::VARY], "accept");
+        }
     }
 }

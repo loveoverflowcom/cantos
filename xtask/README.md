@@ -213,6 +213,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | --- | --- | --- |
 | `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
+| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle + its clippy | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
@@ -233,7 +234,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `repository` | repository |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
-| `contracts` | script-ir-reference, contract-tests, wav-reference, audio-inspection |
+| `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
 | `dbsp` | dbsp |
 | `postgres` | postgres |
@@ -292,6 +293,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
+- Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. The service
@@ -372,7 +374,7 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
+| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
 | `web` | web-lint, web-build (Studio and Theatre) |
 | `postgres` | `cargo fetch --locked`, then postgres |
 

@@ -3,43 +3,51 @@
 //! only moves these bytes and headers through `fetch`.
 //!
 //! Requests declare a representation and responses are decoded by their own `Content-Type`:
-//! errors are always JSON, and an older or intermediate server may answer JSON to a MessagePack
+//! errors are always JSON, and an older or intermediate server may answer JSON to a Protobuf
 //! request. A request is sent exactly once; no failure is retried in the other representation,
 //! because a write may already have committed (the editor reconciles its own operation).
 use cantos_contracts::{
+    protobuf::ProtobufDto,
     wire::{self, WireFormat},
     ApiError, ErrorCode,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-/// The single client switch for the negotiated routes. JSON stays the default until the
-/// measurements in `docs/evidence/messagepack-wire.md` justify MessagePack; the server serves
-/// both, so setting this back to `Json` is the whole client rollback.
+/// The single client switch for the four pilot routes. The opt-in build feature exercises the
+/// new binary path; the shipped default remains JSON until ADR 0023's compatibility, browser,
+/// PostgreSQL and measurement activation gates pass. Rebuild without the feature for rollback.
+#[cfg(not(feature = "revision-protobuf"))]
 pub const REVISION_CODEC: WireFormat = WireFormat::Json;
+#[cfg(feature = "revision-protobuf")]
+pub const REVISION_CODEC: WireFormat = WireFormat::Protobuf;
 
-/// `Accept` for a request sent with `codec`. MessagePack still admits JSON at a lower quality,
-/// so a server or route without MessagePack answers JSON instead of refusing.
+/// Binary requests also admit a JSON success at lower quality. This is server negotiation,
+/// never a second request or a client-side fallback after an uncertain write.
 pub const fn accept(codec: WireFormat) -> &'static str {
     match codec {
         WireFormat::Json => "application/json",
         WireFormat::MessagePack => "application/msgpack, application/json;q=0.5",
+        WireFormat::Protobuf => "application/protobuf, application/json;q=0.5",
     }
 }
 
 /// A request body that cannot be encoded was never sent: no write can have happened.
-// Both functions are inlined so the constant `REVISION_CODEC` prunes the unused codec branch
-// from the WASM bundle; the evidence record measures that the JSON build links no decoder.
+// Inlining lets the constant `REVISION_CODEC` prune unused binary branches. Bundle costs
+// are measured separately for the shipped JSON and explicit Protobuf pilot builds.
 #[inline(always)]
-pub fn encode_body<T: Serialize>(codec: WireFormat, value: &T) -> Result<Vec<u8>, ApiError> {
-    wire::encode(codec, value).map_err(|_| unavailable())
+pub fn encode_body<T: Serialize + ProtobufDto>(
+    codec: WireFormat,
+    value: &T,
+) -> Result<Vec<u8>, ApiError> {
+    wire::encode_pilot(codec, value).map_err(|_| unavailable())
 }
 
-/// Decodes one response by its actual `Content-Type`. MessagePack is read only when this client
-/// asked for it, so a JSON build never links the MessagePack decoder. A success that cannot be
-/// decoded is `Unavailable`: the write may have committed, so the outcome stays ambiguous and
-/// the caller reconciles the same operation instead of assuming failure.
+/// Decodes one response by its actual `Content-Type`. A binary success is read only when the
+/// client offered that binary representation, keeping unexpected responses fail-closed. A success
+/// that cannot be decoded is `Unavailable`: the write may have committed, so the outcome stays
+/// ambiguous and the caller reconciles the same operation instead of assuming failure.
 #[inline(always)]
-pub fn decode_response<T: DeserializeOwned>(
+pub fn decode_response<T: DeserializeOwned + ProtobufDto>(
     requested: WireFormat,
     ok: bool,
     content_type: Option<&str>,
@@ -55,7 +63,10 @@ pub fn decode_response<T: DeserializeOwned>(
             wire::decode(WireFormat::Json, body).map_err(|_| unavailable())
         }
         (true, Some(WireFormat::MessagePack), WireFormat::MessagePack) => {
-            wire::decode(WireFormat::MessagePack, body).map_err(|_| unavailable())
+            wire::decode_pilot(WireFormat::MessagePack, body).map_err(|_| unavailable())
+        }
+        (true, Some(WireFormat::Protobuf), WireFormat::Protobuf) => {
+            wire::decode_pilot(WireFormat::Protobuf, body).map_err(|_| unavailable())
         }
         (false, Some(WireFormat::Json), _) => {
             Err(wire::decode(WireFormat::Json, body).unwrap_or_else(|_| unavailable()))
@@ -90,8 +101,11 @@ mod tests {
     }
 
     #[test]
-    fn json_stays_the_default_and_its_request_bytes_match_the_previous_transport() {
+    fn json_rollback_request_bytes_match_the_previous_transport() {
+        #[cfg(not(feature = "revision-protobuf"))]
         assert_eq!(REVISION_CODEC, WireFormat::Json);
+        #[cfg(feature = "revision-protobuf")]
+        assert_eq!(REVISION_CODEC, WireFormat::Protobuf);
         assert_eq!(accept(WireFormat::Json), "application/json");
         let request = SaveRevisionRequest {
             expected_revision: 1,
@@ -123,7 +137,11 @@ mod tests {
         let value = revision();
         let json = wire::encode(WireFormat::Json, &value).unwrap();
         let msgpack = wire::encode(WireFormat::MessagePack, &value).unwrap();
-        for requested in [WireFormat::Json, WireFormat::MessagePack] {
+        for requested in [
+            WireFormat::Json,
+            WireFormat::MessagePack,
+            WireFormat::Protobuf,
+        ] {
             for content_type in [
                 None,
                 Some("application/json"),
@@ -148,7 +166,11 @@ mod tests {
 
     #[test]
     fn errors_are_json_whatever_was_requested() {
-        for requested in [WireFormat::Json, WireFormat::MessagePack] {
+        for requested in [
+            WireFormat::Json,
+            WireFormat::MessagePack,
+            WireFormat::Protobuf,
+        ] {
             let error = decode_response::<RevisionResponse>(
                 requested,
                 false,
@@ -241,3 +263,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "wire/protobuf_tests.rs"]
+mod protobuf_tests;

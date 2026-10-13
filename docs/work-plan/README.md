@@ -182,3 +182,13 @@ The [evidence record](../evidence/listener-library-progress.md) distinguishes pu
 checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.
