@@ -16,6 +16,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import verify_kani as verifier
@@ -669,6 +670,76 @@ class ConfigurationIdentityTest(unittest.TestCase):
                     )
 
 
+@unittest.skipUnless(PROCESS_BOUNDARY_SUPPORTED, "cleanup requires a POSIX waitid boundary")
+class DarwinGroupCleanupTest(unittest.TestCase):
+    """A denied signal is success only with exact nonexecuting owned-group evidence."""
+
+    def inspect_snapshot(self, snapshot, returncode=0):
+        def query(command, **kwargs):
+            self.assertEqual(command, ["/bin/ps", "-g", "1234", "-o", "pid=,pgid=,stat="])
+            self.assertEqual(kwargs["timeout"], 0.5)
+            self.assertEqual(kwargs["env"], {"LC_ALL": "C"})
+            self.assertEqual(kwargs["stdin"], subprocess.DEVNULL)
+            self.assertEqual(kwargs["stderr"], subprocess.DEVNULL)
+            kwargs["stdout"].write(snapshot)
+            return SimpleNamespace(returncode=returncode)
+        with patch.object(verifier.subprocess, "run", side_effect=query):
+            return verifier.darwin_group_is_only_zombies(1234)
+
+    def test_exact_group_with_zombie_leader_and_descendants_is_nonexecuting(self):
+        self.assertTrue(self.inspect_snapshot(b"1234 1234 Zs\n1235 1234 Z\n"))
+
+    def test_live_unrelated_incomplete_or_malformed_group_never_establishes_cleanup(self):
+        for snapshot in (
+            b"", b"1235 1234 Z\n", b"1234 4321 Z\n", b"1234 1234 S\n",
+            b"1234 1234 Z\n1235 1234 R\n", b"1234 1234 Z\n1235 4321 Z\n",
+            b"1234 1234 Z\n1234 1234 Z\n", b"1234 1234 Zombie\n",
+            b"1234 1234 Z extra\n", b"pid pgid stat\n", b"0 1234 Z\n",
+            b"4294967296 1234 Z\n", b"1" * 5000 + b" 1234 Z\n",
+            b"1234 1234 Z\n\xff", b"1234 1234 Z\n" + b" " * verifier.MAX_GROUP_STATUS_BYTES,
+        ):
+            with self.subTest(snapshot=snapshot[:80]):
+                self.assertFalse(self.inspect_snapshot(snapshot))
+        self.assertFalse(self.inspect_snapshot(b"1234 1234 Z\n", returncode=1))
+
+    def test_denied_unavailable_or_timed_out_inspection_fails_closed(self):
+        command = ["/bin/ps"]
+        for failure in (PermissionError("denied"), FileNotFoundError("missing"),
+                        subprocess.TimeoutExpired(command, 0.5)):
+            with self.subTest(failure=type(failure).__name__), \
+                    patch.object(verifier.subprocess, "run", side_effect=failure):
+                self.assertFalse(verifier.darwin_group_is_only_zombies(1234))
+
+    def test_live_or_unknown_group_denial_remains_an_error_without_reaping(self):
+        process = SimpleNamespace(pid=1234)  # No poll/wait: inspection must not reap.
+        for inspected in (False, True):
+            with self.subTest(inspected=inspected), \
+                    patch.object(verifier.os, "uname", return_value=SimpleNamespace(sysname="Darwin")), \
+                    patch.object(verifier.os, "killpg", side_effect=PermissionError("owned group denied")), \
+                    patch.object(verifier.os, "waitid", return_value=SimpleNamespace(si_pid=1234)) as waitid, \
+                    patch.object(verifier, "darwin_group_is_only_zombies", return_value=inspected) as inspect:
+                if inspected:
+                    verifier.stop_owned_group(process)
+                else:
+                    with self.assertRaisesRegex(PermissionError, "owned group denied"):
+                        verifier.stop_owned_group(process)
+                waitid.assert_called_once_with(os.P_PID, 1234, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                inspect.assert_called_once_with(1234)
+
+    def test_unexited_wrong_leader_and_other_host_denials_never_use_snapshot(self):
+        process = SimpleNamespace(pid=1234)
+        for host, exited in (("Darwin", None), ("Darwin", SimpleNamespace(si_pid=4321)),
+                             ("Linux", SimpleNamespace(si_pid=1234))):
+            with self.subTest(host=host, exited=exited), \
+                    patch.object(verifier.os, "uname", return_value=SimpleNamespace(sysname=host)), \
+                    patch.object(verifier.os, "killpg", side_effect=PermissionError("owned group denied")), \
+                    patch.object(verifier.os, "waitid", return_value=exited), \
+                    patch.object(verifier, "darwin_group_is_only_zombies") as inspect:
+                with self.assertRaisesRegex(PermissionError, "owned group denied"):
+                    verifier.stop_owned_group(process)
+                inspect.assert_not_called()
+
+
 @unittest.skipUnless(PROCESS_BOUNDARY_SUPPORTED, "runner requires a POSIX waitid boundary")
 class BoundedRunTest(unittest.TestCase):
     """Fault injection bounds output/time and leaves no executing owned child."""
@@ -700,6 +771,31 @@ class BoundedRunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "stdout evidence\nstderr evidence\n")
         self.assertEqual(self.output.read_text(encoding="utf-8"), result.stdout)
+
+    def test_darwin_zombie_group_denial_keeps_leader_pinned_until_cleanup(self):
+        original_waitid = os.waitid
+        original_signal = os.killpg
+        inspected = []
+        def deny_exited_group(group, signum):
+            exited = original_waitid(os.P_PID, group, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            if exited is not None:
+                raise PermissionError("Darwin zombie-only group")
+            return original_signal(group, signum)
+        def inspect_pinned_group(group):
+            exited = original_waitid(os.P_PID, group, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+            self.assertIsNotNone(exited, "leader was reaped before cleanup inspection")
+            self.assertEqual(exited.si_pid, group)
+            inspected.append(group)
+            # This fixture starts only its direct leader and never creates descendants.
+            return True
+        with patch.object(verifier.os, "uname", return_value=SimpleNamespace(sysname="Darwin")), \
+                patch.object(verifier.os, "killpg", side_effect=deny_exited_group), \
+                patch.object(verifier, "darwin_group_is_only_zombies", side_effect=inspect_pinned_group, create=True):
+            result = self.run_python("print('owned leader complete', flush=True)")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "owned leader complete\n")
+        self.assertGreater(len(inspected), 0)
+        self.assertEqual(len(set(inspected)), 1)
 
     def test_nonzero_exit_remains_visible_to_the_calling_adapter(self):
         result = self.run_python("print('failed proof output', flush=True); raise SystemExit(7)")

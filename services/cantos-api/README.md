@@ -82,10 +82,12 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14 plus0016–0021 (20 migrations); private storage0015 remains separate.
-Publication/Discovery/Library originals are inherited from develop, identity0018/Studio0020 from the published identity dependency.
-Theatre0021 adds separate flows/sessions and narrow issuer/subject issuance; no Studio credential grants Listener authority.
-[Theatre identity](../../docs/architecture/theatre-identity.md) records activation and client acceptance gaps.
+versions1–14 plus0016–0022 (21 migrations); private storage0015 remains separate.
+Standalone Publication0016 does not depend on storage0015. Publication/Discovery/Library originals
+are inherited from develop; Identity0018, Studio0020, Theatre0021 and Admin0022 are additive.
+Identity0018 alone grants no HTTP-role registry access. Studio credentials grant neither Theatre
+nor Admin authority. [Theatre identity](../../docs/architecture/theatre-identity.md) and
+[Admin authorization](../../docs/architecture/admin-authorization.md) record activation gates.
 Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in

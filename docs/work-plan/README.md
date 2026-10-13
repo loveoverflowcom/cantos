@@ -208,3 +208,14 @@ evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iO
 acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
 activation gates before expanding the wire contract. This does not reorder publication/listener
 work or change identity, rights, audio or storage scope. GitHub owns execution status.
+
+
+## Identity integration order
+
+Consume the [exact identity registry](../architecture/identity-registry.md) before credential
+issuance, then integrate Studio OIDC, Theatre Web/native identity and Admin authorization in that
+order. Preserve the [handoff](identity-authentication-handoff.md#integrated-registry-consumption)
+and additive migration checksums. Current local/mock acceptance belongs in evidence records;
+production provider/client preparation, native runtime acceptance and explicit cross-client
+identity linking remain separate prerequisites. Equal email or subject text across different
+issuers never establishes a shared actor. GitHub owns execution status.

@@ -48,7 +48,21 @@ Use operator-supplied local configuration; tests always create disposable databa
 
 See [PR1 evidence](../evidence/identity-registry.md) for local results and deferred acceptance.
 
-## PR2 implementation → PR3 / Library handoff
+
+## Integrated registry consumption
+
+Use the independently reviewed registry integration at `47f5659`, retaining exact external keys
+and existing actors/ownership. The integrated migration order is1–14,16–19; storage0015 remains a
+separate prerequisite for its own PR. Keep all prior checksums. Credential consumers must use
+fresh verified evidence and maintain separate Studio, Theatre Web/native and Admin authority.
+The registry lock/disable regression and current full local acceptance are recorded in
+[registry evidence](../evidence/identity-registry.md#independent-integrated-review). This changes
+no production/provider/device activation gate or permission to register clients/credentials.
+
+## Historical PR2 implementation → PR3 / Library handoff
+
+The following records the original PR2 dependency snapshot. Current integration uses the merged
+registry and develop Publication/Discovery/Library originals; retain their checksums.
 
 PR2 implements [Studio OIDC](../architecture/studio-oidc.md), with exact client
 `cantos-studio-web-bff`, current-only login/callback routes, private verifier witness, durable
