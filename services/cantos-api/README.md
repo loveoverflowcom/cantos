@@ -34,6 +34,12 @@ or in-backend mixing should remain.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
+The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
+`platform/identity`: typed exact keys, atomic registration and explicit operator linking.
+It authenticates no provider and adds no HTTP identity endpoint.
+[Evidence](../../docs/evidence/identity-registry.md) and
+[OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
+
 ## Planned functionality (not implemented)
 
 Studio catalog Web UI, production identity/credential delivery, S3/CDN storage, stronger rights/QC policy, publication manifests and Theatre listener API. [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
@@ -68,7 +74,9 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14/count14; Production Brief migration0013 is additive; upgrade/replay tests preserve
+versions1–14 plus0018/count15;0015–0017 belong to parallel storage/publication/discovery work.
+Identity0018 is additive and grants no HTTP-role registry access.
+Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads

@@ -1,7 +1,9 @@
 # Kanidm opt-in evaluation runtime
 
-Kanidm remains a **proposed identity provider**, with no Cantos OIDC integration, account/group
-mapping, client registration or production deployment. The API retains its development sessions;
+Kanidm remains a **proposed identity provider**, with no Cantos OIDC integration, live account/group
+synchronization, client registration or production deployment. The separate
+[actor registry](../../docs/architecture/identity-registry.md) stores explicit external bindings
+without authenticating Kanidm. The API retains its development sessions;
 this infrastructure change grants no Theatre/Admin authentication capability.
 [ADR 0021](../../docs/decisions/0021-podman-service-runtime.md) standardizes the container runtime,
 not the identity decision. [ADR 0009](../../docs/decisions/0009-monorepo-layout.md) fixes its location.

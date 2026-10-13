@@ -97,6 +97,7 @@ TABLE_OWNER = {
     "script_review_operations": "editorial", "script_evidence": "editorial",
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
+    "actor_external_identities": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
 }
@@ -489,8 +490,8 @@ def dependency_error(path, owner, domain, http):
             return "pure domain must not depend on I/O, a runtime, clock or randomness"
         if path[:2] == ("std", "io") and len(path) > 2 and path[2] in {"stdin", "stdout", "stderr"}:
             return "pure domain must not depend on console I/O"
-        if path[0] == "platform" and path[:2] != ("platform", "ids"):
-            return "pure domain may use only the pure platform::ids boundary"
+        if path[0] == "platform" and path[:2] != ("platform", "ids") and path[:3] != ("platform", "identity", "domain"):
+            return "pure domain may use only pure platform::ids or identity::domain values"
         if path[0] == "interfaces":
             return "pure domain must not depend on an interface"
     if path[0] == "contexts" and len(path) >= 2:
@@ -547,6 +548,7 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
+        domain = domain or relative == Path("platform/identity/domain.rs")
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")
