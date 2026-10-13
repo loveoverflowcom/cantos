@@ -3,6 +3,7 @@
 use sha2::{Digest, Sha256};
 
 use super::{Store, StoreError, Tx};
+use crate::platform::identity::domain::ActorId;
 
 pub fn token_hash(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
@@ -24,7 +25,10 @@ pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, Sto
         return Err(StoreError::Unauthenticated);
     }
     let row = tx.query_opt("SELECT a.id FROM sessions s JOIN actors a ON a.id=s.actor_id WHERE s.token_hash=$1 AND NOT s.revoked AND s.expires_at>clock_timestamp() AND a.active FOR SHARE OF s", &[&token_hash(token)]).await?;
-    row.map(|row| row.get(0)).ok_or(StoreError::Unauthenticated)
+    let row = row.ok_or(StoreError::Unauthenticated)?;
+    ActorId::new(row.get::<_, String>(0))
+        .map(String::from)
+        .map_err(|_| StoreError::CorruptRevision)
 }
 
 impl Store {

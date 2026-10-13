@@ -70,6 +70,12 @@ Studio audit manifests do not themselves authorize Theatre playback.
 
 ## Existing foundations to retain
 
+The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
+and adds exact external keys with explicit operator registration/linking. Next identity boundary:
+[Studio OIDC, then separate Theatre identity](identity-authentication-handoff.md), before durable
+listener library/progress. Registry lookup grants no surface authority; operator-prepared
+provider/client/TLS acceptance remains separate from local core/database evidence.
+
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
 existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
 merged ordered steps 1–4; the user-approved follow-on
@@ -192,3 +198,14 @@ evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iO
 acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
 activation gates before expanding the wire contract. This does not reorder publication/listener
 work or change identity, rights, audio or storage scope. GitHub owns execution status.
+
+
+## Identity integration order
+
+Consume the [exact identity registry](../architecture/identity-registry.md) before credential
+issuance, then integrate Studio OIDC, Theatre Web/native identity and Admin authorization in that
+order. Preserve the [handoff](identity-authentication-handoff.md#integrated-registry-consumption)
+and additive migration checksums. Current local/mock acceptance belongs in evidence records;
+production provider/client preparation, native runtime acceptance and explicit cross-client
+identity linking remain separate prerequisites. Equal email or subject text across different
+issuers never establishes a shared actor. GitHub owns execution status.
