@@ -112,6 +112,8 @@ until the function returns.
 [`boundary-hardening.md`](references/boundary-hardening.md) when a value crosses serde, SQL rows,
 fixtures, AI output or a migration.
 
+Load [typed errors and composition](references/typed-errors-and-composition.md) for fallible flow and containment at concrete outer boundaries.
+
 ## 4. Functional core, imperative shell
 
 ```text
@@ -271,6 +273,7 @@ A report with an empty residual-risk line is a report nobody can act on.
 | moving a decision out of a handler, worker loop, component or screen, with before/after recipes | [`extraction-recipes.md`](references/extraction-recipes.md) |
 | immutable revisions, append-only records, value semantics in Rust and Kotlin | [`immutability.md`](references/immutability.md) |
 | making an invalid state or identity unrepresentable | [`types-as-proofs.md`](references/types-as-proofs.md) |
+| expected/domain/validation errors, infrastructure failures, unexpected faults, typed composition, cancellation, retry and translation | [`typed-errors-and-composition.md`](references/typed-errors-and-composition.md) |
 | Kotlin identities/factories/ADTs, pure reducers, ownership, SOLID or concurrency verification | [CMP Kotlin rules](../cantos-cmp-mobile/references/kotlin-conventions.md), [architecture](../cantos-cmp-mobile/references/cmp-architecture.md), [testing](../cantos-cmp-mobile/references/cmp-testing.md); load all three for a Kotlin decision |
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
 | PostgreSQL transactions, constraints, concurrency control, migrations, test databases | [`persistence.md`](references/persistence.md) |

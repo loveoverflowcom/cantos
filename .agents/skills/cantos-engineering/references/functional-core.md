@@ -32,6 +32,11 @@ resolution, retry classification, cost arithmetic, fingerprints and planning.
 The **shell** owns HTTP, PostgreSQL, object storage, providers, audio tools, clocks, randomness,
 ID generation, environment, logging, lease heartbeats and the execution of effects.
 
+[Typed errors and composition](typed-errors-and-composition.md) owns fallible flow: exact
+expected outcomes in the core, typed failures through application/ports, and foreign exception
+containment at concrete outer boundaries. An error value alone does not make an effectful
+pipeline pure or atomic.
+
 The test is simple: a domain rule is callable from a plain `#[test]` with no async runtime,
 database, provider, fixture server or mock.
 
