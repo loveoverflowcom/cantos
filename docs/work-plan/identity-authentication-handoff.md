@@ -47,3 +47,40 @@ Use operator-supplied local configuration; tests always create disposable databa
 `cargo xtask verify postgres`. No new repository orchestration entrypoint is added.
 
 See [PR1 evidence](../evidence/identity-registry.md) for local results and deferred acceptance.
+
+## PR2 implementation → PR3 / Library handoff
+
+PR2 implements [Studio OIDC](../architecture/studio-oidc.md), with exact client
+`cantos-studio-web-bff`, current-only login/callback routes, private verifier witness, durable
+consume-before-exchange and hashed PostgreSQL sessions. It does not enable a production host.
+[Evidence](../evidence/studio-oidc.md) and [operator policy](../../services/kanidm/README.md) distinguish
+mocked HTTP/actual crypto and PostgreSQL from NOT_RUN live Kanidm/browser/TLS gates. New migration
+is **0020_studio_oidc.sql**; Library/Progress retains0019. Discovery PR93 @
+`b07ab14e5ec52ebc711ea272dfa2bcb61c09fdfd` owns0017 and is not inherited by this branch.
+StoragePR90/PublicationPR91 are not inherited either. Integrate their original SQL/checksums and
+increasing migration registry only at the coordinated combined-tree review.
+
+PR3 must define separate Listener credentials/verifier/session semantics. Reuse ActorId/exact
+external keys and registry mapping after verified credential evidence; never Studio cookie,
+StudioOidc, raw actor ID, operator bearer or caller identity headers. Kanidm pairwise subjects
+and issuer/client paths may differ across clients; linking requires explicit authenticated intent,
+not equal email. No Studio session grants private Library/Progress or Admin access.
+
+The Library owner's proposed seam is
+`contexts::listening::auth::{ListenerAuthenticator, ListenerCredentials, AuthenticatedListener,
+AuthenticationError}`. `authenticate(credentials)` returns a boxed Send future containing a
+Result of the sealed witness; `AuthenticatedListener::from_verified_actor(OwnerId)` is intended
+crate-visible for trusted adapters only, without Deserialize/public actor parsing. Default
+`DenyListenerAuthentication` refuses private account operations before PostgreSQL. LibraryService
+derives ListenerId ownership from the witness; proposed HTTP composition is
+`router_with_listener_identity(..., Arc<dyn ListenerAuthenticator>)`, preserving AppState/Studio
+composition. This seam is consistent with the current credential boundary, but PR3 must inspect
+the **exact published Library code** before implementing it. Do not build a parallel Listener
+mechanism. Issue34 has no accepted guest handoff policy; keep account-only persistence and no
+implicit guest merge. Native system-browser PKCE/OS secure storage and runtime evidence remain PR3.
+
+Session policy to preserve: current active/revoked local facts inside transaction, no failed-provider
+success fallback, explicit expiry and logout linearization, cookie source matched to configured host.
+Provider disable cannot be atomic with local writes; document its introspection observation boundary.
+Live production adoption must additionally resolve bearer at-rest protection, pending remote
+revocation recovery, retention/rate limits and provider SSO versus local/access logout semantics.

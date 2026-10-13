@@ -96,7 +96,7 @@ def source_queries():
         raise RuntimeError("revision projection changed; update the read inventory/harness")
     columns = json.loads(columns[1])
     queries = {}
-    for label, prefix in [("auth", "SELECT a.id FROM sessions"),
+    for label, prefix in [("auth", "SELECT a.id,coalesce(to_jsonb(s)->>'auth_kind','development') FROM sessions"),
                           ("member", "SELECT role FROM script_members"),
                           ("evidence", "SELECT id FROM script_evidence WHERE"),
                           ("migration", "SELECT checksum FROM cantos_migrations"),

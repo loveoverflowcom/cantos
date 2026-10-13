@@ -1,0 +1,285 @@
+//! Ephemeral signed mock. Actual HTTP + P-256 crypto, not a live Kanidm server.
+#![allow(dead_code)]
+use axum::{
+    extract::{Form, State},
+    http::{HeaderMap, StatusCode},
+    routing::{get, post},
+    Json, Router,
+};
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD as B64},
+    Engine,
+};
+use ring::{
+    rand::SystemRandom,
+    signature::{EcdsaKeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING},
+};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
+};
+pub const CLIENT_ID: &str = "cantos-studio-web-bff";
+
+pub struct Signer {
+    key: EcdsaKeyPair,
+    pub kid: String,
+}
+impl Signer {
+    pub fn new(kid: &str) -> Self {
+        let r = SystemRandom::new();
+        let p = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &r).unwrap();
+        Self {
+            key: EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, p.as_ref(), &r)
+                .unwrap(),
+            kid: kid.into(),
+        }
+    }
+    pub fn jwk(&self) -> Value {
+        let key = self.key.public_key().as_ref();
+        json!({"kid":self.kid,"kty":"EC","crv":"P-256","alg":"ES256","use":"sig","key_ops":["verify"],"x":B64.encode(&key[1..33]),"y":B64.encode(&key[33..65])})
+    }
+    pub fn sign(&self, claims: Value) -> String {
+        let message = format!(
+            "{}.{}",
+            B64.encode(serde_json::to_vec(&json!({"kid":self.kid,"alg":"ES256"})).unwrap()),
+            B64.encode(serde_json::to_vec(&claims).unwrap())
+        );
+        let sig = self
+            .key
+            .sign(&SystemRandom::new(), message.as_bytes())
+            .unwrap();
+        format!("{message}.{}", B64.encode(sig.as_ref()))
+    }
+}
+struct Code {
+    nonce: String,
+    challenge: String,
+    redirect: String,
+    subject: String,
+    change: Option<(String, Value)>,
+}
+struct Access {
+    subject: String,
+    expires: u64,
+}
+pub struct Data {
+    pub origin: String,
+    pub signer: Mutex<Signer>,
+    codes: Mutex<HashMap<String, Code>>,
+    access: Mutex<HashMap<String, Access>>,
+    pub now: std::sync::atomic::AtomicU64,
+    pub active: AtomicBool,
+    pub revoke_fail: AtomicBool,
+    pub token_fail: AtomicBool,
+    pub bad_discovery: AtomicBool,
+    pub bad_jwks: AtomicBool,
+    pub jwks_calls: AtomicUsize,
+    pub token_calls: AtomicUsize,
+    pub id_override: Mutex<Option<String>>,
+    pub last_id_token: Mutex<Option<String>>,
+    pub introspection_calls: AtomicUsize,
+}
+pub struct MockProvider {
+    pub data: Arc<Data>,
+    task: tokio::task::JoinHandle<()>,
+}
+impl MockProvider {
+    pub async fn start(now: u64) -> Self {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let data = Arc::new(Data {
+            origin,
+            signer: Mutex::new(Signer::new("first")),
+            codes: Mutex::new(HashMap::new()),
+            access: Mutex::new(HashMap::new()),
+            now: std::sync::atomic::AtomicU64::new(now),
+            active: AtomicBool::new(true),
+            revoke_fail: AtomicBool::new(false),
+            token_fail: AtomicBool::new(false),
+            bad_discovery: AtomicBool::new(false),
+            bad_jwks: AtomicBool::new(false),
+            jwks_calls: AtomicUsize::new(0),
+            token_calls: AtomicUsize::new(0),
+            id_override: Mutex::new(None),
+            last_id_token: Mutex::new(None),
+            introspection_calls: AtomicUsize::new(0),
+        });
+        let router = Router::new()
+            .route(
+                &format!("/oauth2/openid/{CLIENT_ID}/.well-known/openid-configuration"),
+                get(discovery),
+            )
+            .route("/jwks", get(jwks))
+            .route("/token", post(token))
+            .route("/introspect", post(introspect))
+            .route("/revoke", post(revoke))
+            .with_state(data.clone());
+        let task = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        Self { data, task }
+    }
+    pub fn issuer(&self) -> String {
+        format!("{}/oauth2/openid/{CLIENT_ID}", self.data.origin)
+    }
+    pub fn issue(
+        &self,
+        url: &str,
+        subject: &str,
+        change: Option<(String, Value)>,
+    ) -> (String, String) {
+        let url = reqwest::Url::parse(url).unwrap();
+        let pairs: HashMap<_, _> = url
+            .query_pairs()
+            .map(|(a, b)| (a.into_owned(), b.into_owned()))
+            .collect();
+        assert_eq!(pairs["client_id"], CLIENT_ID);
+        assert_eq!(pairs["response_type"], "code");
+        assert_eq!(pairs["scope"], "openid");
+        assert_eq!(pairs["code_challenge_method"], "S256");
+        let code = uuid::Uuid::new_v4().to_string();
+        self.data.codes.lock().unwrap().insert(
+            code.clone(),
+            Code {
+                nonce: pairs["nonce"].clone(),
+                challenge: pairs["code_challenge"].clone(),
+                redirect: pairs["redirect_uri"].clone(),
+                subject: subject.into(),
+                change,
+            },
+        );
+        (pairs["state"].clone(), code)
+    }
+    pub fn rotate(&self, kid: &str) {
+        *self.data.signer.lock().unwrap() = Signer::new(kid);
+    }
+}
+impl Drop for MockProvider {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+fn basic(headers: &HeaderMap) -> bool {
+    headers.get("authorization").is_some_and(|v| {
+        v.as_bytes()
+            == format!("Basic {}", STANDARD.encode(format!("{CLIENT_ID}:fixture"))).as_bytes()
+    })
+}
+async fn discovery(State(data): State<Arc<Data>>) -> Json<Value> {
+    let o = &data.origin;
+    Json(
+        json!({"issuer":if data.bad_discovery.load(Ordering::SeqCst){format!("{o}/wrong")}else{format!("{o}/oauth2/openid/{CLIENT_ID}")},"authorization_endpoint":format!("{o}/authorize"),"token_endpoint":format!("{o}/token"),"jwks_uri":format!("{o}/jwks"),"introspection_endpoint":format!("{o}/introspect"),"revocation_endpoint":format!("{o}/revoke"),"code_challenge_methods_supported":["S256"],"id_token_signing_alg_values_supported":["ES256"],"token_endpoint_auth_methods_supported":["client_secret_basic"],"response_types_supported":["code"]}),
+    )
+}
+async fn jwks(State(data): State<Arc<Data>>) -> (StatusCode, Json<Value>) {
+    data.jwks_calls.fetch_add(1, Ordering::SeqCst);
+    if data.bad_jwks.load(Ordering::SeqCst) {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({"keys":[data.signer.lock().unwrap().jwk()]})),
+    )
+}
+async fn token(
+    State(data): State<Arc<Data>>,
+    headers: HeaderMap,
+    Form(form): Form<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    data.token_calls.fetch_add(1, Ordering::SeqCst);
+    if !basic(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({})));
+    }
+    let code = data
+        .codes
+        .lock()
+        .unwrap()
+        .remove(form.get("code").map(String::as_str).unwrap_or(""));
+    let Some(code) = code else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_grant"})),
+        );
+    };
+    if data.token_fail.load(Ordering::SeqCst) {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
+    }
+    if form.get("redirect_uri") != Some(&code.redirect)
+        || form.get("grant_type").map(String::as_str) != Some("authorization_code")
+        || form
+            .get("code_verifier")
+            .is_none_or(|v| B64.encode(Sha256::digest(v.as_bytes())) != code.challenge)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_grant"})),
+        );
+    }
+    let now = data.now.load(Ordering::SeqCst);
+    let mut claims = json!({"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin),"aud":CLIENT_ID,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
+    if let Some((field, value)) = code.change {
+        claims[field] = value;
+    }
+    let access = uuid::Uuid::new_v4().to_string();
+    data.access.lock().unwrap().insert(
+        access.clone(),
+        Access {
+            subject: code.subject,
+            expires: now + 200,
+        },
+    );
+    let signed = data
+        .id_override
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap_or_else(|| data.signer.lock().unwrap().sign(claims));
+    *data.last_id_token.lock().unwrap() = Some(signed.clone());
+    (
+        StatusCode::OK,
+        Json(json!({"id_token":signed,"access_token":access,"token_type":"Bearer"})),
+    )
+}
+async fn introspect(
+    State(data): State<Arc<Data>>,
+    headers: HeaderMap,
+    Form(form): Form<HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    data.introspection_calls.fetch_add(1, Ordering::SeqCst);
+    if !basic(&headers) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({})));
+    }
+    let access = data.access.lock().unwrap();
+    let value = access.get(form.get("token").map(String::as_str).unwrap_or(""));
+    let Some(value) = value else {
+        return (StatusCode::OK, Json(json!({"active":false})));
+    };
+    (
+        StatusCode::OK,
+        Json(
+            json!({"active":data.active.load(Ordering::SeqCst),"sub":value.subject,"exp":value.expires,"aud":CLIENT_ID,"client_id":CLIENT_ID,"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin)}),
+        ),
+    )
+}
+async fn revoke(
+    State(data): State<Arc<Data>>,
+    headers: HeaderMap,
+    Form(form): Form<HashMap<String, String>>,
+) -> StatusCode {
+    if !basic(&headers) {
+        return StatusCode::UNAUTHORIZED;
+    }
+    if data.revoke_fail.load(Ordering::SeqCst) {
+        return StatusCode::SERVICE_UNAVAILABLE;
+    }
+    data.access
+        .lock()
+        .unwrap()
+        .remove(form.get("token").map(String::as_str).unwrap_or(""));
+    StatusCode::OK
+}

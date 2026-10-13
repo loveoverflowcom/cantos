@@ -32,7 +32,7 @@ async fn import(
         }
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -47,7 +47,7 @@ async fn load(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -62,7 +62,7 @@ async fn original(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };

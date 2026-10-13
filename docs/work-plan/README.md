@@ -59,8 +59,9 @@ backend sequence above is unchanged.
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
-and adds exact external keys with explicit operator registration/linking. Next identity boundary:
-[Studio OIDC, then separate Theatre identity](identity-authentication-handoff.md), before durable
+and adds exact external keys with explicit operator registration/linking. The bounded
+[Studio OIDC](../architecture/studio-oidc.md) slice has signed-mock/local-SQL evidence; live provider
+acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md), before durable
 listener library/progress. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
 
@@ -154,5 +155,5 @@ bounded local infrastructure option while preserving native verification. It doe
 product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
 then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
-lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.

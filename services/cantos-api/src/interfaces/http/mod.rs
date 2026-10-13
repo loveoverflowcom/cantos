@@ -59,23 +59,30 @@ async fn not_found() -> Response {
     failure(ErrorCode::NotFound, StatusCode::NOT_FOUND)
 }
 
-fn cookie_token(headers: &HeaderMap) -> Result<String, StoreError> {
-    let cookies = headers
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok())
-        .ok_or(StoreError::Unauthenticated)?;
-    let mut tokens = cookies
-        .split(';')
-        .filter_map(|part| part.trim().strip_prefix("cantos_session="));
-    let token = tokens.next().ok_or(StoreError::Unauthenticated)?;
-    if tokens.next().is_some() {
-        return Err(StoreError::Unauthenticated);
+fn cookie_token(headers: &HeaderMap, store: &Store) -> Result<String, StoreError> {
+    let name = store
+        .studio_oidc()
+        .map_or("cantos_session", |oidc| oidc.session_name());
+    cookie_token_for_name(headers, name)
+}
+
+fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, StoreError> {
+    let mut found = None;
+    for name in ["cantos_session", "__Secure-cantos_studio"] {
+        let value =
+            studio::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
+        if let Some(value) = value {
+            if name != expected || found.is_some() {
+                return Err(StoreError::Unauthenticated);
+            }
+            found = Some(value);
+        }
     }
-    Ok(token.to_owned())
+    found.ok_or(StoreError::Unauthenticated)
 }
 
 async fn authenticated(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    let result = match cookie_token(request.headers()) {
+    let result = match cookie_token(request.headers(), &state.store) {
         Ok(token) => state.store.authenticate(&token).await,
         Err(error) => Err(error),
     };
@@ -88,12 +95,16 @@ async fn authenticated(State(state): State<AppState>, request: Request, next: Ne
 async fn origin_and_cache(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let read =
         request.method() == axum::http::Method::GET || request.method() == axum::http::Method::HEAD;
+    let valid_config = state
+        .store
+        .studio_oidc()
+        .is_none_or(|oidc| oidc.web_origin() == state.web_origin);
     let valid_origin = request
         .headers()
         .get(header::ORIGIN)
         .and_then(|h| h.to_str().ok())
         == Some(state.web_origin.as_str());
-    let mut response = if !read && !valid_origin {
+    let mut response = if !valid_config || (!read && !valid_origin) {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {
@@ -107,6 +118,10 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     response.headers_mut().insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
+    );
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
     );
     response
 }

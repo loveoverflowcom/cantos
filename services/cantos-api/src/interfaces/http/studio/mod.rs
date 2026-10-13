@@ -23,6 +23,7 @@ use crate::platform::postgres::StoreError;
 mod adaptations;
 mod audio_intake;
 mod audio_lifecycle;
+pub(super) mod auth;
 mod briefs;
 mod catalog;
 mod content;
@@ -75,7 +76,8 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .merge(briefs::producer_routes())
             .merge(audio_lifecycle::producer_routes())
-            .route("/session", post(login).get(current_session).delete(logout)),
+            .route("/session", post(login).get(current_session).delete(logout))
+            .merge(auth::routes()),
         Mount::Legacy => scripts
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .route("/session", post(legacy_login).delete(legacy_logout))
@@ -103,7 +105,7 @@ async fn login(
 
 /// Confirm the cookie that the browser actually sends, independently of a token exchange.
 async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -133,6 +135,9 @@ async fn start_session(
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
     mount: Mount,
 ) -> Response {
+    if state.store.studio_oidc().is_some() {
+        return error_response(StoreError::Forbidden);
+    }
     let request = match body {
         Ok(Json(request)) => request,
         Err(_) => return error_response(StoreError::InvalidRequest),
@@ -171,7 +176,13 @@ async fn start_session(
 }
 
 async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: Mount) -> Response {
-    let result = match cookie_token(&headers) {
+    if state.store.studio_oidc().is_some() {
+        if matches!(mount, Mount::Legacy) {
+            return error_response(StoreError::Forbidden);
+        }
+        return auth::logout(state, headers).await;
+    }
+    let result = match cookie_token(&headers, &state.store) {
         Ok(token) => state.store.revoke(&token).await,
         Err(error) => Err(error),
     };
@@ -222,7 +233,7 @@ async fn read_revision(
     headers: HeaderMap,
     format: WireFormat,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -239,7 +250,7 @@ async fn save(
     headers: HeaderMap,
     WireBody(request): WireBody<SaveRevisionRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -285,7 +296,7 @@ async fn history(
         Ok(Query(query)) => query,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -309,7 +320,7 @@ async fn review(
         Ok(Json(request)) => request,
         Err(_) => return error_response(StoreError::InvalidRequest),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -324,7 +335,7 @@ async fn source(
     Path((script, source)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };

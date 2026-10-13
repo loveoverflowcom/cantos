@@ -1,0 +1,133 @@
+# PR2 Studio OIDC evidence
+
+Review boundary: opt-in Studio BFF credential/session integration in the existing development
+host. [Architecture/threat model](../architecture/studio-oidc.md),
+[ADR0023](../decisions/0023-studio-oidc-bff.md) and
+[operator policy](../../services/kanidm/README.md) separate implementation from deployment.
+No real provider/client/account/grant/TLS/container was activated or created.
+
+Base: fresh Cantos develop `df7d62fecf0023cb557a3051ae75918cedcd2610`. PR92 remains an explicit
+unmerged dependency at published `277e28c1ab3a06e3c2fae6093e3278bdece1a0bb`, tree
+`58ba323476f2a7ccc2043919acd74eb1c63454ca`; normal merge `efe16cd27581c3f71c8912f48d1622fb774de79b`
+starts branch `feat/studio-oidc` in `/private/tmp/cantos-studio-oidc`. No force push, dependency
+rewrite, PR90/91/93 integration, merge or next identity session is performed here.
+Fresh VOT develop `f3fea641a5fd226b883c4e32224ad8c97b8323f0` was read for private proof/verification/
+operator boundaries; Gateway/admin/bootstrap is not copied. Migration **0020_studio_oidc.sql**;
+0019 stays with Library/Progress, Discovery0017 stays with PR93. Original migration checksums remain.
+
+## L1–L5 and security evidence
+
+| Layer / claim | Result | Actual evidence / limits |
+| --- | --- | --- |
+| L1 architecture/threat boundary | PASS | One Studio BFF, private witness, exact client/redirect, development/loopback host, narrow SQL issuance; independent canonical review below. Static gate results recorded below. |
+| L2 pure types/errors/rules | PASS | Private non-serde witness, exact typed refusal partitions, bounded parser/P-256 key usage/expiry, proof consumed at DB issuance. |
+| L3 core/crypto | PASS | 7 tests: actual ephemeral P-256 signatures, wrong issuer/audience/azp/nonce/sub/alg/kid/key/signature, duplicate keys, missing claims, exact time boundaries; RFC7636 vector and 8000 finite expiry combinations. No Kani claim. |
+| L4 HTTP provider orchestration | PASS | Production adapter + actual loopback HTTP signed mock: PKCE/redirect enforcement, code replay, bounded key rotation/load outage, bad metadata/claims, provider inactive and fresh clock after I/O. `mock-integration-tested`, not Kanidm-live. |
+| L5 PostgreSQL/HTTP | PASS | 7 new tests through full disposable PostgreSQL17.4 gate, including independent anonymous logins and explicit shared-lock operator/OIDC registration, final actor-lock wait, competing rotations, callback concurrency/lost acknowledgements, failed exchange no redispatch, account isolation/idempotent registration, disable/expiry/revocation/logout, pending remote outage, exact HTTPS cookie namespace and disabled OIDC configuration. Actual Axum router/DB role/grants, origin/referrer/cache/cookie and reserved route checks. |
+| Live Kanidm / browser / production | NOT_RUN | Operator client/grant/secret/TLS/runtime preparation outside authorized actions; production activation stays closed. HTTP cookie assertions are not browser observations. |
+| Listener / native / Admin | NOT_RUN | Separate PR3/PR4 and Library seam; no authority supplied by Studio. |
+
+| Security edge | Held oracle |
+| --- | --- |
+| Wrong issuer/audience/azp/signature/alg/kid/key/nonce, exp/nbf/iat | Signed crypto tests call production verifier with injected time and exact error variants |
+| State/browser mismatch/replayed callback | SQL matching hashed flow/binder and atomic consume; race one winner; rejection before provider call |
+| Code replay/redirect/PKCE mismatch | Actual HTTP mock enforces one-time code/verifier/redirect; no automatic retry |
+| Lost/failed callback acknowledgement | Consume persists before HTTP; discarded successful response replays State refusal and no second session |
+| JWKS rotation/outage | Unknown-kid refresh/expiry/failure limit exercised by actual HTTP signed mock; reused-kid Signature refresh is source-reviewed |
+| Clock after network | Regression clock100→101 for newly minted token; expiry read again after introspection |
+| Identity account separation/registration | Exact PR1 key/lock, SQL PK/FK, repeat actor stable, different subject different actor; no email linking |
+| Local disable at lock wait | Actual `studio_oidc_finish` blocked on actor row, concurrent disable commit, callback refused |
+| Rotation/logout races | Two rotations from one old token yield one winner; old local session invalid, preexisting logout blocks finish |
+| Remote inactive/outage/logout | Per-request introspection refusal; local logout committed before failed remote revoke, retained pending row and controlled retry |
+| Session expiry/mode/source | min proof/access/900s; SQL expiry checks; OIDC mode rejects development login, disabled config rejects OIDC sessions |
+| Cookie/CSRF/surface isolation | HTTPS Secure/HttpOnly/Strict/host-only/Studio Path, Lax flow; reject namespace fallback/duplicates; exact Origin; no Theatre/Admin/alias OIDC routes |
+| SQL privilege scope | Actual HTTP role cannot select registry or insert actor/arbitrary session; narrow function only, no DDL/table rewrite |
+
+## Commands and provenance
+
+Environment: Rust1.87.0, `CARGO_BUILD_JOBS=2 RUST_TEST_THREADS=1 TMPDIR=/private/tmp`, existing
+real FFmpeg fixtures under `/private/tmp/cantos-audio-tools` on PATH. PostgreSQL17.4 Homebrew;
+every xtask postgres invocation created/stopped a new disposable cluster, never used an inherited
+DATABASE_URL. Checkout/main and PR1 evidence were retained. Build cache only is shared through
+`CARGO_TARGET_DIR=/private/tmp/cantos-identity-domain/target` and this worktree's `target/debug`
+link; all new evidence/cluster roots are private to this worktree. PR1 evidence was not overwritten; raw logs for every PR2 attempt are retained separately.
+
+| Command | Result | Raw local output |
+| --- | --- | --- |
+| `cargo test --locked -p cantos-api --lib platform::studio_oidc` | 7 PASS (native-local) | `/tmp/cantos-oidc-core-final.log` |
+| `cargo xtask verify postgres` | PASS (initial six-test slice); final seven-test slice also PASS via final preflight | `/tmp/cantos-oidc-postgres-final.log`, `/tmp/cantos-oidc-preflight-final.log`, `target/revision-evidence/studio-oidc-postgres-tests.log` |
+| `cargo xtask kanidm reconcile ... --dry-run` | NOT_RUN mutation, plan printed | `/tmp/cantos-oidc-kanidm-plan.log` |
+| `cargo xtask verify rust` | format/lint/tests PASS; final preflight reruns all on final source | `/tmp/cantos-oidc-rust.log`, `/tmp/cantos-oidc-preflight-final.log` |
+| `cargo xtask verify contracts` | script-ir-reference/contract-tests/wav-reference/audio-inspection PASS | `/tmp/cantos-oidc-contracts.log` |
+| `cargo xtask verify repository` | FAIL; static checks PASS, 305 Python tests retain37 Darwin errors+1fallout | `/tmp/cantos-oidc-repository-final.log` |
+| `cargo xtask preflight --changed-only` | UNSUPPORTED; compatible Gradle missing, no gate reported PASS | `/tmp/cantos-oidc-preflight.log` |
+| `cargo xtask preflight --changed-only --skip cmp-ui-preview --skip theatre-cmp-demo` | FAIL at repository; remaining non-skipped gates NOT_RUN | `/tmp/cantos-oidc-preflight-local.log` |
+| `cargo xtask preflight --changed-only --skip repository --skip cmp-ui-preview --skip theatre-cmp-demo` | PASS with3 explicitly skipped NOT_RUN gates on final source | `/tmp/cantos-oidc-preflight-final.log` |
+| `cargo xtask kanidm verify ... --dry-run` | NOT_RUN network; explicit read-only plan printed | `/tmp/cantos-oidc-kanidm-verify-plan.log` |
+
+Shared Cargo/xtask inputs conservatively select every gate. Only Gradle9.7 was found; the required
+installed8.14.3 is absent. No wrapper download/tool installation or gate-policy relaxation was
+performed. Full preflight is incomplete. The final available-gates run includes fresh retirement/
+exhaustive-mapping fixes and real cross-adapter registration locks. Earlier six-test PG/initial
+available logs remain; only the final log proves this final seven-test scope.
+
+Final available-gates summary, copied from xtask:
+
+```text
+NOT_RUN      repository                                skipped by --skip
+PASS         rust-format
+PASS         script-ir-reference
+PASS         rust-lint (workspace)
+PASS         rust-tests (workspace)
+PASS         dbsp
+PASS         wav-reference
+PASS         audio-inspection
+PASS         web-lint (cantos-studio, cantos-theatre)
+PASS         web-build (cantos-studio)
+PASS         web-build (cantos-theatre)
+PASS         ui-preview
+NOT_RUN      cmp-ui-preview                            skipped by --skip
+NOT_RUN      theatre-cmp-demo                          skipped by --skip
+PASS         mutation
+PASS         postgres
+preflight: PASS with 3 explicitly skipped (NOT_RUN) step(s)
+```
+
+The four Script IR input-file hashes and nine killed mutants are retained in the final log. This is Script IR
+mutation evidence selected conservatively, not OIDC mutation or formal proof. Web builds are
+compiled evidence only; no OIDC browser/runtime/accessibility claim is made. Kani not added:
+crypto verification and SQL races need the actual library/database oracles; finite expiry
+partitions have exhaustive examples. This makes no formal or process-crash identity claim.
+
+Initial failures retained: sandbox HTTP bind EPERM (native authorized rerun passes); compile
+errors fixed before checks; first PG run exposed old-schema `auth_kind` admission and new FK
+TRUNCATE oracle ordering. Old-schema reading now admits unchanged development rows before upgrade;
+TRUNCATE tests include referencing table and still assert immutable-trigger55000. The changed session projection also exposed a benchmark SQL extractor drift; the exact extractor
+and its projection regression were updated, eliminating those four introduced errors. No SQL
+checksum, credential gate, assertion or baseline process fixture was suppressed. Broader existing PG tests
+also pass source/history/restart/HTTP journals; they are not OIDC provider-process crash evidence.
+
+## Independent canonical review
+
+Separate read-only reviewer applied `cantos-code-review` to the own working diff and inherited
+registry contract, reading core/config/provider/application/SQL20, HTTP parsers/mounts/callers,
+PostgreSQL locks, signed mock/PG sources, xtask plan/metadata primitive. Source review caught the
+pre-network clock error (valid newly minted token refused), and exact HTTPS namespace fallback.
+The follow-up also caught legacy-cookie retirement recovery and exhaustive error-map policy;
+those fixes/HTTP assertions and accurate migration/timing docs were reread. Final assessment `no-actionable-findings` within that
+source scope. Reviewer ran `git diff --check` PASS, did not duplicate gates or claim provider/browser
+acceptance. The final source/doc review preceded the final selected-gates rerun; the final raw log now
+contains the promised fresh format/lint/unit/PG evidence.
+
+## Residual risk / deferred acceptance
+
+Live Kanidm/TLS/client/grants/credentials and browser behavior remain NOT_RUN. Provider disable
+cannot be atomic with the local transaction; active introspection is the remote linearization
+observation and already accepted work may finish. Provider SSO/global logout is not implemented;
+local logout/access revocation are explicit. Failed remote revoke and rotated old bearers retain
+pending records; operator recovery for abandoned records is not automated. Before production,
+review bearer at-rest/backup protection, secret delivery, rate/retention budgets, pending recovery
+and actual provider/session lifecycle matrix. Expired/legacy cookie recovery is logout→login.
+Full repository/preflight acceptance must report the known baseline Darwin killpg fixture honestly.
+Combined migration tree and separate Listener/native/Admin acceptance belong to their owners.
+No GitHub Actions wait or production-ready claim follows from this draft handoff.

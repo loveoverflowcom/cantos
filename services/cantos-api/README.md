@@ -36,7 +36,11 @@ or in-backend mixing should remain.
 
 The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
-It authenticates no provider and adds no HTTP identity endpoint.
+The registry itself authenticates no provider. The separate opt-in
+[Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
+callbacks and hashed Studio sessions on the current route group.
+[OIDC evidence](../../docs/evidence/studio-oidc.md) distinguishes signed mocks/real PostgreSQL
+from unrun Kanidm/browser/production acceptance.
 [Evidence](../../docs/evidence/identity-registry.md) and
 [OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
 
@@ -74,8 +78,10 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14 plus0018/count15;0015–0017 belong to parallel storage/publication/discovery work.
-Identity0018 is additive and grants no HTTP-role registry access.
+versions1–14 plus0018/0020 (16 migrations);0015–0017 belong to parallel storage/publication/discovery work.
+Identity0018 is additive and grants no HTTP-role registry access. StudioOIDC0020 adds a narrowed
+issuance function, flow/receipt tables and session kind; operator-applied least-privilege grants
+are documented in services/kanidm. Migration0019 is reserved for Library/Progress.
 Production Brief migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
