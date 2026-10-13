@@ -1,6 +1,7 @@
 # Private Work cover: the small Catalog / Media MVP
 
-Status: **proposed, implementation not started**. Planning only on 2026-10-13 UTC.
+Status: **IO_ACCEPTANCE_PENDING**. The original 2026-10-13 planning requirements are retained;
+implemented and executed scopes are recorded in the checkpoint below and its evidence ledger.
 Source request: [#104](https://github.com/loveoverflowcom/cantos/issues/104), plus the user's
 explicit instruction to select necessary MVP business fields/API/DB contracts in one planning
 session, followed by a new, separate implementation session. Do not infer implementation
@@ -626,3 +627,14 @@ blocker to report, not a reason to expand this small MVP.
 
 See the [checked primary-source reference](catalog-media-standards-reference.md) and the
 [compact new-session Ultra handoff](catalog-media-mvp-ultra-handoff.md).
+
+## Implementation checkpoint (2026-10-13)
+
+The bounded core, metadata contract/fixtures, full decoder, application orchestration and thin
+Studio adapter are implemented on refreshed develop `007ae8f`. See the
+[execution ledger](../evidence/private-work-artwork.md) for actual PASS/FAIL/NOT_RUN scopes.
+The additive 0023 source and ignored SQL acceptance tests do not establish database execution.
+The default host keeps artwork routes unmounted pending the parent's separately reviewed PR90
+integration; the current object port refuses persistence/verification rather than claiming
+mock-backed storage success. Status: **IO_ACCEPTANCE_PENDING**. Draft publication is a checkpoint,
+not completion of issue #104 or authorization to merge.
