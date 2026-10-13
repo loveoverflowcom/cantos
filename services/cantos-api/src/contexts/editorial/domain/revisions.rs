@@ -1,6 +1,42 @@
 //! Pure revision identity, retry and concurrency decisions. No HTTP, SQL, UI or clock.
 use sha2::{Digest, Sha256};
 
+/// An accepted sequence is positive and bounded by the immutable PostgreSQL row format.
+/// Raw heads still permit zero before the first append; they are not accepted revisions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct AcceptedRevision(u64);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SequenceError {
+    NonPositiveRevision,
+    InvalidPredecessor,
+}
+
+impl AcceptedRevision {
+    pub(crate) fn from_number(revision: i64) -> Result<Self, SequenceError> {
+        if revision <= 0 {
+            return Err(SequenceError::NonPositiveRevision);
+        }
+        Ok(Self(revision as u64))
+    }
+
+    pub(crate) fn from_sequence(revision: i64, expected: i64) -> Result<Self, SequenceError> {
+        let admitted = Self::from_number(revision)?;
+        if expected < 0 || expected as u64 != admitted.expected() {
+            return Err(SequenceError::InvalidPredecessor);
+        }
+        Ok(admitted)
+    }
+
+    pub(crate) fn get(self) -> u64 {
+        self.0
+    }
+
+    pub(crate) fn expected(self) -> u64 {
+        self.0 - 1
+    }
+}
+
 /// Identity of one canonical Script IR export: what an accepted revision stores and every
 /// frozen copy of it must still match.
 pub fn export_digest(bytes: &[u8]) -> String {
@@ -88,9 +124,55 @@ pub fn decide_save(
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use super::{
-        decide_review, decide_save, export_digest, PriorOperation, ReviewDecision, SaveDecision,
+        decide_review, decide_save, export_digest, AcceptedRevision, PriorOperation,
+        ReviewDecision, SaveDecision, SequenceError,
     };
+
+    #[test]
+    fn stored_accepted_sequences_reject_zero_negative_and_wrong_predecessors() {
+        for revision in [i64::MIN, -1, 0] {
+            assert_eq!(
+                AcceptedRevision::from_number(revision),
+                Err(SequenceError::NonPositiveRevision)
+            );
+        }
+        for (revision, expected) in [(1, -1), (1, 1), (2, 0), (i64::MAX, i64::MAX)] {
+            assert_eq!(
+                AcceptedRevision::from_sequence(revision, expected),
+                Err(SequenceError::InvalidPredecessor)
+            );
+        }
+        for revision in [1, 2, i64::MAX] {
+            let admitted = AcceptedRevision::from_sequence(revision, revision - 1).unwrap();
+            assert_eq!(admitted.get(), revision as u64);
+            assert_eq!(admitted.expected(), (revision - 1) as u64);
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 256, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_013), ..ProptestConfig::default() })]
+        #[test]
+        fn reconstruction_matches_an_independent_wider_sequence_oracle(
+            revision in any::<i64>(), unrelated_expected in any::<i64>(),
+            exact_predecessor in any::<bool>(),
+        ) {
+            let expected = if exact_predecessor && revision > 0 {
+                revision - 1
+            } else {
+                unrelated_expected
+            };
+            let valid = revision > 0 && i128::from(expected) + 1 == i128::from(revision);
+            let restored = AcceptedRevision::from_sequence(revision, expected);
+            prop_assert_eq!(restored.is_ok(), valid);
+            if let Ok(admitted) = restored {
+                prop_assert_eq!(u128::from(admitted.get()), revision as u128);
+                prop_assert_eq!(u128::from(admitted.expected()) + 1, revision as u128);
+            }
+        }
+    }
 
     #[test]
     fn export_digest_is_the_tagged_sha256_of_the_exact_bytes() {

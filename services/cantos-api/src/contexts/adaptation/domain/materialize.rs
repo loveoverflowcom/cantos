@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{json, Value};
 
-use super::evidence::check_binding;
+use super::evidence::{check_binding, BoundSource};
 use super::proposal::{decode, RawProposal};
 use super::{array, extracted, problem, script_problem, text, TrustedBinding};
 use crate::script_ir::read_script;
@@ -60,7 +60,17 @@ fn materialize(
     binding: &TrustedBinding,
     ids: &[String],
 ) -> Result<AdaptationProposal, AdaptationProblem> {
-    check_binding(source, binding)?;
+    let admitted = check_binding(source, binding)?;
+    materialize_bound(raw, admitted, ids)
+}
+
+fn materialize_bound(
+    raw: RawProposal,
+    admitted: BoundSource<'_>,
+    ids: &[String],
+) -> Result<AdaptationProposal, AdaptationProblem> {
+    let source = admitted.source();
+    let binding = admitted.facts();
     let extraction = extracted(source)?;
     let mut identities = ids.iter();
     let mut next_id = || {

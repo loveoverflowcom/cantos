@@ -299,3 +299,56 @@ preview and all nine killed mutants. PostgreSQL alone failed before tests with
 the same Unix-socket denial, so the rebased preflight result remains **FAIL**.
 Ignored cases, Kani, live browser/assistive-technology and audio listening earn no
 new verification credit from the rebase.
+
+## Phase 2: editorial, adaptation and production checkpoint
+
+E1 stored accepted sequences now pass through a private `AcceptedRevision`: positive signed
+PostgreSQL counters and the exact predecessor are admitted before save replay or revision
+reconstruction. Review-operation reconstruction admits a positive counter too; unchecked signed
+casts and a zero accepted revision are removed. Raw pre-first-save heads still permit zero.
+SQL queries, stored/wire fields, canonical exports and replay-before-staleness behavior remain
+unchanged. The pure constructor has fixed edge examples and a 256-case fixed-seed independent
+`i128` sequence oracle. This is `TYPE_ENFORCED`, `RUNTIME_VALIDATED` and `PROPERTY_TESTED`;
+real row corruption/concurrency evidence is still blocked by the recorded PostgreSQL startup
+failure. It is not a formal proof or a replacement for current access checks.
+
+A1 retains raw serialized `FrozenAdaptation`, `FrozenContext` and public `TrustedBinding` facts.
+The materializer and edited-proposal kernel now consume a private borrowed `BoundSource` built
+only by intrinsic source/binding admission. It pins the exact source and binding while used;
+both public entry points re-admit every reuse, including changed source ID/hash, malformed
+record IDs and namespaces. This witness proves neither authentic provenance nor source/base
+registry integrity, ownership, rights, human coverage review or current authorization. Existing
+SQL reconstruction, pinned source/base comparisons, actor/run locks and repeated authentication
+remain in place. All transport and frozen digest shapes are unchanged.
+
+P1's planning authorization witness now requires the current owner and calls the same
+`evaluate_for_owner` gate used by the application. An old-owner frozen approval cannot mint the
+witness after transfer. The witness remains a point-in-time decision over supplied facts; no
+paid dispatcher exists, and any future consumer must reload/recheck owner, rights, review,
+head, settings and time under its transaction fence. Compile-fail examples reject forged fields
+and direct Deserialize. No claim of perpetual authority is made.
+
+The production rights successor now refuses a value above `i64::MAX`, matching the actual
+storage domain. Both this limit bug and the owner-transfer disagreement were reproduced by
+failing tests before implementation; the same regressions pass after the fixes. Existing
+settings/budget estimation, historical frozen-document re-admission and approval precedence
+were audited and retained. Producer-grant maximum lifetime still depends on issuance and SQL:
+the public read-scope snapshot contains expiry but no issuance timestamp, so no invented field
+or guessed standalone lifetime rule was added.
+
+Execution on the phase-1 fresh base, Rust 1.87.0:
+
+- `cargo test --locked -p cantos-api --lib --test production --test adaptation --test brief_domain`:
+  134 unit, 22 production, 15 adaptation and 8 brief-domain tests PASS.
+- `cargo test --locked -p cantos-api --doc`: all 9 compile-fail checks PASS.
+- `cargo clippy --locked -p cantos-api --all-targets -- -D warnings`: PASS.
+- `cargo fmt --all -- --check`, `git diff --check`: PASS.
+- `cargo xtask verify repository`: PASS, including 225 Python tests.
+- Real PostgreSQL integration remains NOT_RUN after the earlier verified startup/socket denial;
+  no ignored SQL test is counted as a pass. Kani harness execution remains NOT_RUN here.
+
+Official Kani 0.68.0 and CBMC 6.11.0 were successfully installed/setup in isolated verification
+tooling. Its required nightly-2026-08-21 (rustc 1.100.0-nightly) bootstraps the installer because
+its pinned `home` dependency needs Rust 1.88; the production/default Rust selection remains
+1.87.0. Installing the verifier is not execution evidence. Commit 7 records actual harnesses,
+commands, bounds, coverage results and limitations.

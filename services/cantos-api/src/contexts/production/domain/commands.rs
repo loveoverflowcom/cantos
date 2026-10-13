@@ -61,6 +61,7 @@ pub fn decide_rights_version(
     }
     expected_version
         .checked_add(1)
+        .filter(|version| *version <= i64::MAX as u64)
         .ok_or(CommandRejection::InvalidRequest)
 }
 
@@ -213,6 +214,28 @@ mod tests {
         assert_eq!(
             decide_rights_version(Some((1, &evidence)), 1, &voice, 1),
             Err(CommandRejection::InvalidRequest)
+        );
+    }
+
+    #[test]
+    fn rights_successor_never_exceeds_the_postgres_storage_domain() {
+        let subject = ProductionRightsSubject::Evidence {
+            record_id: "voice-claim".into(),
+        };
+        for version in [i64::MAX as u64, i64::MAX as u64 + 1, u64::MAX] {
+            assert_eq!(
+                decide_rights_version(Some((version, &subject)), 1, &subject, version),
+                Err(CommandRejection::InvalidRequest)
+            );
+        }
+        assert_eq!(
+            decide_rights_version(
+                Some((i64::MAX as u64 - 1, &subject)),
+                1,
+                &subject,
+                i64::MAX as u64 - 1,
+            ),
+            Ok(i64::MAX as u64)
         );
     }
 
