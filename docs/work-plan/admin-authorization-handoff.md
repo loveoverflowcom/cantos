@@ -75,3 +75,13 @@ selector are preserved. JSON stays default; Admin remains plain JSON and its ver
 modules are byte-identical through this integration. Inherited Studio ADR moves to0024, keeping
 Protobuf0023. The prior complete available gate results belong to4a33; post-integration results
 are recorded separately in the evidence/PR. No prior PASS is relabeled as a fresh integration run.
+
+Draft [PR103](https://github.com/loveoverflowcom/cantos/pull/103) is the execution handoff. Fresh
+post-Protobuf Rust/contracts and the available preflight passed on25f78ba; the final test-only
+JWKS/introspection outage addition passed focused format/clippy and the full PostgreSQL gate
+(12 Admin initial tests plus1 actual server-restart recovery). Production Admin inputs are
+unchanged. Final repository remains FAIL on the Darwin fixture baseline (322 tests,37 EPERM
+errors and1 dependent assertion); unskipped preflight remains UNSUPPORTED for compatible Gradle.
+The PR body pins exact final SHA/tree, own/inherited commits and raw-evidence manifest. Independent
+review of both the production fixes and the final test addition reports no actionable findings;
+parent Ultra review and the explicit live/provider/native gaps above remain outstanding.

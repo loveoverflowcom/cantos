@@ -132,7 +132,7 @@ incomplete, explicitly handed to parent Ultra. No Admin UI/client/login or unblo
 is claimed.
 
 
-Final observed free disk: 4393058304 bytes (about4.1GiB).
+Pre-Protobuf observed free disk: 4393058304 bytes (about4.1GiB).
 Raw evidence manifest `/private/tmp/cantos-admin-evidence/evidence-sha256.json` SHA256
 `8cd10ab59bf3b1c6579e2a844c7297174b80edf91ebdb954f25698a3112e01f8` hashes original/final gate logs,
 review, cleanup and pinned Admin inputs. PostgreSQL clusters/evidence and unique fixtures stay intact.
@@ -144,3 +144,43 @@ Fresh develop`b28b87856b30c78c2921aa1134ac657b0584ebd7` is normal-merged at
 unchanged. Admin still uses plain JSON; no Admin/Studio/Theatre auth semantics are altered.
 Studio ADR0024 disambiguates the inherited0023 against Protobuf0023. Prior gate PASS rows above
 are pinned to their pre-integration snapshot; fresh integrated results are recorded separately.
+
+Integrated commands on the published25f78ba checkpoint:
+
+| Command | Actual result | Log |
+| --- | --- | --- |
+| `cargo xtask verify rust` | PASS format/lint/workspace tests | `rust-protobuf.log` |
+| `cargo xtask verify contracts` | PASS including protobuf-reference + Admin fixtures | `contracts-protobuf.log` |
+| `cargo xtask preflight --changed-only --skip repository --skip cmp-ui-preview --skip theatre-cmp-demo` | PASS with3 explicit NOT_RUN skips; all available gates including DBSP, protobuf-reference, Web/WASM, mutation and PostgreSQL | `preflight-protobuf-available.log` |
+| `cargo xtask verify postgres` after outage-regression addition | PASS full gate,12 Admin initial tests +1 real server-restart recovery, Theatre7/Studio7 and Protobuf cases | `postgres-outage-final.log`; mock JWKS503/introspection503 produce503 + unavailable audit and zero effects |
+| `cargo fmt --all -- --check` and focused clippy for Admin/Studio/Theatre identity PG test consumers | PASS | `outage-focused-lint.log`; clippy uses `--locked -p cantos-api --test admin_postgres --test theatre_identity_postgres --test studio_oidc_postgres -- -D warnings` |
+| Final `cargo xtask verify repository` | FAIL overall; services/architecture/links PASS;322 Python tests,37 Darwin killpg EPERM errors and1 dependent assertion | `repository-integrated-final.log`; same baseline defect, no suppression |
+| Final unskipped `cargo xtask preflight --changed-only` | UNSUPPORTED cmp-ui-preview/theatre-cmp-demo; all other selected gates NOT_RUN | `preflight-integrated-full-final.log`; compatible Gradle absent |
+
+The final test-only addition has no production code change. Its focused format/clippy checks cover
+only changed mock consumers; unchanged gates are not rerun merely for final documentation.
+Raw pre-Protobuf Admin PG logs were copied to`pre-protobuf-target-logs/` and hash-verified against
+the original manifest before the integrated runner reused target filenames. The preservation
+mapping is`pre-protobuf-preservation.json`; original evidence remains independently recoverable.
+
+Additional cleanup under exclusive Cargo build lock, after no Cargo/rustc/Gradle remained:98
+stopped pre-Protobuf PR4 executable build-cache outputs,1,826,221,296 bytes, excluding every fresh
+integrated Rust/contracts output. Exact path/size/SHA256 before removal and fresh space observations
+are in`stale-native-cleanup.json`. No raw log, PG/WAL/fixture/audio/source/ref is removed. Total
+regenerable cache recovery:9,482,778,313 bytes. Free disk after this cleanup4,187,418,624 bytes;
+latest observed after integrated gates about1.7GiB. Further unique-data cleanup is not authorized.
+
+Integrated Admin inputs SHA256 manifest`integrated-admin-inputs.json`:
+`14590d96246c67f57f1f6ca18f1cab738e54240fd730a9b931fb382d93d43141`.
+Changes from the prior manifest are only the inherited Protobuf PG runner and the final test/mock
+outage addition; production Admin/verifier/HTTP/SQL/DTO inputs remain identical. Kani/live
+Kanidm/device checks remain NOT_RUN; final Ultra and merge authority remain with parent.
+
+The independent reviewer reread the final two-file test/mock addition over the published25f78ba
+checkpoint and found no actionable defect; production inputs are unchanged. Reviewer execution
+remains NOT_RUN. Follow-up record is`independent-review-integrated.json` outside Git. Final raw
+logs and preserved earlier evidence are hashed by`integrated-evidence-sha256.json`; the final
+published SHA/tree and manifest digest are pinned in draft [PR103](https://github.com/loveoverflowcom/cantos/pull/103).
+Final observed available disk before handoff:1,789,059,072 bytes (about1.67GiB), after all gates
+stopped. Further unique-data cleanup is not authorized. No remote CI wait, final Ultra, merge or
+production acceptance was performed.

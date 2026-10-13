@@ -756,3 +756,41 @@ async fn admin_recovery_after_database_restart() {
         1
     );
 }
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+async fn jwks_and_current_introspection_outages_fail_closed_with_unavailable_audit() {
+    let mut h = Harness::new().await;
+    let token = h.token("minh");
+    h.provider.data.bad_jwks.store(true, Ordering::SeqCst);
+    assert_eq!(
+        h.request("GET", CAP, Some(&token), None, json!({})).await.0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    h.provider.data.bad_jwks.store(false, Ordering::SeqCst);
+    h.provider
+        .data
+        .introspection_fail
+        .store(true, Ordering::SeqCst);
+    // A fresh service avoids waiting for the intentional failed-metadata retry limiter.
+    h.store = h.store.clone().with_admin(
+        AdminService::new(AdminConfig::new(&h.provider.issuer(), "fixture".into()).unwrap())
+            .unwrap(),
+    );
+    assert_eq!(
+        h.request("GET", CAP, Some(&token), None, json!({})).await.0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(h.count("admin_operations").await, 0);
+    assert_eq!(h.count("admin_access_revocations").await, 0);
+    assert_eq!(
+        h.db.query_one(
+            "SELECT count(*) FROM admin_audit WHERE actor_id IS NULL AND outcome='unavailable'",
+            &[]
+        )
+        .await
+        .unwrap()
+        .get::<_, i64>(0),
+        2
+    );
+}

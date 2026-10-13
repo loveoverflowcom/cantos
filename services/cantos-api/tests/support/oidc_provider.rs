@@ -86,6 +86,7 @@ pub struct Data {
     pub id_override: Mutex<Option<String>>,
     pub last_id_token: Mutex<Option<String>>,
     pub introspection_calls: AtomicUsize,
+    pub introspection_fail: AtomicBool,
 }
 pub struct MockProvider {
     pub data: Arc<Data>,
@@ -116,6 +117,7 @@ impl MockProvider {
             id_override: Mutex::new(None),
             last_id_token: Mutex::new(None),
             introspection_calls: AtomicUsize::new(0),
+            introspection_fail: AtomicBool::new(false),
         });
         let router = Router::new()
             .route(
@@ -312,6 +314,9 @@ async fn introspect(
     data.introspection_calls.fetch_add(1, Ordering::SeqCst);
     if !basic(&headers, data.client_id) {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
+    }
+    if data.introspection_fail.load(Ordering::SeqCst) {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
     }
     let access = data.access.lock().unwrap();
     let value = access.get(form.get("token").map(String::as_str).unwrap_or(""));
