@@ -70,6 +70,7 @@ struct Access {
 }
 pub struct Data {
     pub origin: String,
+    pub client_id: &'static str,
     pub signer: Mutex<Signer>,
     codes: Mutex<HashMap<String, Code>>,
     access: Mutex<HashMap<String, Access>>,
@@ -91,10 +92,14 @@ pub struct MockProvider {
 }
 impl MockProvider {
     pub async fn start(now: u64) -> Self {
+        Self::start_for(now, CLIENT_ID).await
+    }
+    pub async fn start_for(now: u64, client_id: &'static str) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let data = Arc::new(Data {
             origin,
+            client_id,
             signer: Mutex::new(Signer::new("first")),
             codes: Mutex::new(HashMap::new()),
             access: Mutex::new(HashMap::new()),
@@ -112,7 +117,7 @@ impl MockProvider {
         });
         let router = Router::new()
             .route(
-                &format!("/oauth2/openid/{CLIENT_ID}/.well-known/openid-configuration"),
+                &format!("/oauth2/openid/{client_id}/.well-known/openid-configuration"),
                 get(discovery),
             )
             .route("/jwks", get(jwks))
@@ -126,7 +131,7 @@ impl MockProvider {
         Self { data, task }
     }
     pub fn issuer(&self) -> String {
-        format!("{}/oauth2/openid/{CLIENT_ID}", self.data.origin)
+        format!("{}/oauth2/openid/{}", self.data.origin, self.data.client_id)
     }
     pub fn issue(
         &self,
@@ -139,7 +144,7 @@ impl MockProvider {
             .query_pairs()
             .map(|(a, b)| (a.into_owned(), b.into_owned()))
             .collect();
-        assert_eq!(pairs["client_id"], CLIENT_ID);
+        assert_eq!(pairs["client_id"], self.data.client_id);
         assert_eq!(pairs["response_type"], "code");
         assert_eq!(pairs["scope"], "openid");
         assert_eq!(pairs["code_challenge_method"], "S256");
@@ -175,16 +180,17 @@ impl Drop for MockProvider {
         self.task.abort();
     }
 }
-fn basic(headers: &HeaderMap) -> bool {
+fn basic(headers: &HeaderMap, client_id: &str) -> bool {
     headers.get("authorization").is_some_and(|v| {
         v.as_bytes()
-            == format!("Basic {}", STANDARD.encode(format!("{CLIENT_ID}:fixture"))).as_bytes()
+            == format!("Basic {}", STANDARD.encode(format!("{client_id}:fixture"))).as_bytes()
     })
 }
 async fn discovery(State(data): State<Arc<Data>>) -> Json<Value> {
     let o = &data.origin;
+    let client_id = data.client_id;
     Json(
-        json!({"issuer":if data.bad_discovery.load(Ordering::SeqCst){format!("{o}/wrong")}else{format!("{o}/oauth2/openid/{CLIENT_ID}")},"authorization_endpoint":format!("{o}/authorize"),"token_endpoint":format!("{o}/token"),"jwks_uri":format!("{o}/jwks"),"introspection_endpoint":format!("{o}/introspect"),"revocation_endpoint":format!("{o}/revoke"),"code_challenge_methods_supported":["S256"],"id_token_signing_alg_values_supported":["ES256"],"token_endpoint_auth_methods_supported":["client_secret_basic"],"response_types_supported":["code"]}),
+        json!({"issuer":if data.bad_discovery.load(Ordering::SeqCst){format!("{o}/wrong")}else{format!("{o}/oauth2/openid/{client_id}")},"authorization_endpoint":format!("{o}/authorize"),"token_endpoint":format!("{o}/token"),"jwks_uri":format!("{o}/jwks"),"introspection_endpoint":format!("{o}/introspect"),"revocation_endpoint":format!("{o}/revoke"),"code_challenge_methods_supported":["S256"],"id_token_signing_alg_values_supported":["ES256"],"token_endpoint_auth_methods_supported":["client_secret_basic"],"response_types_supported":["code"]}),
     )
 }
 async fn jwks(State(data): State<Arc<Data>>) -> (StatusCode, Json<Value>) {
@@ -203,7 +209,7 @@ async fn token(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.token_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers) {
+    if !basic(&headers, data.client_id) {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let code = data
@@ -233,7 +239,7 @@ async fn token(
             Json(json!({"error":"invalid_grant"})),
         );
     }
-    let mut claims = json!({"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin),"aud":CLIENT_ID,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
+    let mut claims = json!({"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id),"aud":data.client_id,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
     if let Some((field, value)) = code.change {
         claims[field] = value;
     }
@@ -263,7 +269,7 @@ async fn introspect(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.introspection_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers) {
+    if !basic(&headers, data.client_id) {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let access = data.access.lock().unwrap();
@@ -274,7 +280,7 @@ async fn introspect(
     (
         StatusCode::OK,
         Json(
-            json!({"active":data.active.load(Ordering::SeqCst),"sub":value.subject,"exp":value.expires,"aud":CLIENT_ID,"client_id":CLIENT_ID,"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin)}),
+            json!({"active":data.active.load(Ordering::SeqCst),"sub":value.subject,"exp":value.expires,"aud":data.client_id,"client_id":data.client_id,"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id)}),
         ),
     )
 }
@@ -283,7 +289,7 @@ async fn revoke(
     headers: HeaderMap,
     Form(form): Form<HashMap<String, String>>,
 ) -> StatusCode {
-    if !basic(&headers) {
+    if !basic(&headers, data.client_id) {
         return StatusCode::UNAUTHORIZED;
     }
     if data.revoke_fail.load(Ordering::SeqCst) {
