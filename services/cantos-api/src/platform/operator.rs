@@ -3,6 +3,11 @@ use sha2::{Digest, Sha256};
 use tokio_postgres::{Client, Config, NoTls};
 use uuid::Uuid;
 
+use crate::platform::identity::{
+    domain::{ActorId, ExternalIdentityKey, LinkOutcome, Registration},
+    IdentityService, PostgresIdentityRegistry, RegistryError,
+};
+use crate::platform::postgres::Store;
 use crate::platform::postgres::{token_hash, StoreError};
 
 fn valid_id(id: &str) -> bool {
@@ -25,12 +30,37 @@ async fn connect(config: &Config) -> Result<Client, StoreError> {
 }
 
 pub async fn create_creator(config: &Config) -> Result<String, StoreError> {
-    let actor = Uuid::new_v4().to_string();
+    let actor = ActorId::new(Uuid::new_v4().to_string()).map_err(|_| StoreError::InvalidRequest)?;
     connect(config)
         .await?
-        .execute("INSERT INTO actors(id) VALUES($1)", &[&actor])
+        .execute("INSERT INTO actors(id) VALUES($1)", &[&actor.as_str()])
         .await?;
-    Ok(actor)
+    Ok(actor.into())
+}
+
+fn identity_service(
+    config: &Config,
+) -> Result<IdentityService<PostgresIdentityRegistry>, RegistryError> {
+    let store = Store::new(config.clone()).map_err(|_| RegistryError::Unavailable)?;
+    Ok(IdentityService::new(PostgresIdentityRegistry::new(store)))
+}
+
+/// Explicit operator action only; does not verify a provider claim or issue a session.
+pub async fn register_identity(
+    config: &Config,
+    key: &ExternalIdentityKey,
+) -> Result<Registration, RegistryError> {
+    let candidate = ActorId::new(Uuid::new_v4().to_string())?;
+    identity_service(config)?.register(key, &candidate).await
+}
+
+/// Requires operator DB privilege and explicit intent; never called by an HTTP handler.
+pub async fn link_identity(
+    config: &Config,
+    actor: &ActorId,
+    key: &ExternalIdentityKey,
+) -> Result<LinkOutcome, RegistryError> {
+    identity_service(config)?.link(key, actor).await
 }
 
 pub async fn issue_token(config: &Config, actor: &str, hours: u32) -> Result<String, StoreError> {
