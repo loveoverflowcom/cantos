@@ -397,13 +397,15 @@ async fn identity_constraints_immutability_rollback_and_http_role_isolation_hold
         .register(&key("issuer", "s"), &actor("a"))
         .await
         .unwrap();
+    // Include the new referencing flow table so PostgreSQL reaches the immutable trigger;
+    // omitting it refuses earlier with0A000 and does not exercise the55000 guard.
     for (sql,code) in [
         ("INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES('issuer','s','a')", "23505"),
         ("INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES('new','s','absent')", "23503"),
         ("INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES('','s','a')", "23514"),
         ("UPDATE actor_external_identities SET actor_id='a'", "55000"),
         ("DELETE FROM actor_external_identities", "55000"),
-        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions,theatre_native_sessions", "55000"),
+        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions,theatre_identity_flows,theatre_native_sessions", "55000"),
     ] {
         assert_eq!(h.admin.batch_execute(sql).await.unwrap_err().code().unwrap().code(),code);
     }
