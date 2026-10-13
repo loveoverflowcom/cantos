@@ -274,12 +274,25 @@ mod tests {
             assert!(sought.contains("Simulate play"));
             assert!(!sought.contains("Simulate from the beginning"));
             ctx.toggle_transport();
-            assert_eq!(ctx.player.snapshot().unwrap().position_ms, 30000);
+            assert_eq!(ctx.player.snapshot().unwrap().position_ms(), 30000);
             assert_eq!(
                 ctx.player.state.get_untracked().status(),
                 crate::core::playback::Status::Simulating
             );
         });
+    }
+
+    #[test]
+    fn source_guard_probe_admission_precedes_aborting_current_transport() {
+        // Source-level ordering evidence only: native tests cannot execute browser callbacks.
+        let live = include_str!("view.rs")
+            .split("\n#[component]\npub fn LiveBoundary()")
+            .nth(1)
+            .unwrap();
+        let (check, rest) = live.split_once("\"Check API availability\"").unwrap();
+        assert!(check.rfind(".begin()").unwrap() < check.rfind("abort.update_value").unwrap());
+        let (cancel, _) = rest.split_once("\"Cancel\"").unwrap();
+        assert!(cancel.find(".cancel()").unwrap() < cancel.find("abort.update_value").unwrap());
     }
 }
 
@@ -303,7 +316,7 @@ pub fn LiveBoundary() -> impl IntoView {
         <main class="theatre-main" lang=move ||if english.get(){"en"}else{"vi-VN"}>
             <h1>"Cantos"</h1><button class="cui-button" type="button" on:click=move |_|english.update(|e| *e = !*e)>"Tiếng Việt / English"</button>
             <p>{move ||if english.get(){"Published audio and listener identity are not available on this API yet."}else{"API hiện chưa có âm thanh đã phát hành và phiên người nghe."}}</p>
-            <p role="status" aria-live="polite">{move ||match state.get().phase {
+            <p role="status" aria-live="polite">{move ||match state.get().phase() {
                 ProbePhase::Idle=>if english.get(){"Live mode: no request sent."}else{"Chế độ thật: chưa gửi yêu cầu."},
                 ProbePhase::Pending=>if english.get(){"Checking the listener boundary…"}else{"Đang kiểm tra ranh giới người nghe…"},
                 ProbePhase::Unsupported(_)=>if english.get(){"Unsupported: listener API not implemented. Playback, downloads and progress remain unavailable."}else{"Chưa hỗ trợ: API người nghe chưa triển khai. Phát, tải và đồng bộ tiến độ chưa khả dụng."},
@@ -312,16 +325,32 @@ pub fn LiveBoundary() -> impl IntoView {
             }}</p>
             <button class="cui-button" type="button" on:click=move |_| {
                 #[cfg(target_arch="wasm32")]
-                {abort.update_value(|c| {if let Some(c)=c.take() {c.abort();}});
-                if let (Some(next),Ok(controller))=(state.get_untracked().begin(),web_sys::AbortController::new()) {
-                    abort.set_value(Some(controller.clone()));state.set(next);
-                    leptos::task::spawn_local(async move {let phase=crate::live::browser::probe(controller).await;let _=state.try_update(|s|*s=s.finish(next.generation,phase));});
-                }}
+                {
+                    let Some(next) = state.get_untracked().begin() else { return; };
+                    let Ok(controller) = web_sys::AbortController::new() else { return; };
+                    state.set(next);
+                    abort.update_value(|current| {
+                        if let Some(current) = current.take() {
+                            current.abort();
+                        }
+                    });
+                    abort.set_value(Some(controller.clone()));
+                    leptos::task::spawn_local(async move {
+                        let phase = crate::live::browser::probe(controller).await;
+                        let _ = state.try_update(|s| *s = s.finish(next.generation(), phase));
+                    });
+                }
             }>{move ||if english.get(){"Check API availability"}else{"Kiểm tra khả năng API"}}</button>
             <button class="cui-button" type="button" on:click=move |_| {
-                #[cfg(target_arch="wasm32")]
-                abort.update_value(|c| {if let Some(c)=c.take() {c.abort();}});
-                state.update(|s| {if let Some(next)=s.cancel() {*s=next;}});
+                if let Some(next) = state.get_untracked().cancel() {
+                    state.set(next);
+                    #[cfg(target_arch="wasm32")]
+                    abort.update_value(|current| {
+                        if let Some(current) = current.take() {
+                            current.abort();
+                        }
+                    });
+                }
             }>{move ||if english.get(){"Cancel"}else{"Hủy"}}</button>
             <p><a href="?mode=mock">{move ||if english.get(){"Open isolated mock preview"}else{"Mở bản xem thử minh họa riêng"}}</a></p>
         </main>

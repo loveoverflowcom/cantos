@@ -1,4 +1,5 @@
 //! Immutable fake-engine facts. All units are integer ms/permille; no clock, URL or I/O.
+use super::Rejection;
 use crate::core::ids::EpisodeId;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,10 +65,52 @@ pub enum Status {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Raw event/fixture input. Admission is required before retaining it as progress.
 pub struct ResumeSnapshot {
     pub source: Source,
     pub position_ms: u32,
     pub speed_permille: u16,
+}
+
+/// A position within its synthetic source and one supported mock speed.
+/// The raw event value remains separate so invalid inputs can be rejected explicitly.
+///
+/// ```compile_fail
+/// use cantos_theatre::core::playback::{ResumeSnapshot, ValidatedResumeSnapshot};
+/// fn forge(raw: ResumeSnapshot) -> ValidatedResumeSnapshot {
+///     ValidatedResumeSnapshot(raw)
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ValidatedResumeSnapshot(ResumeSnapshot);
+
+impl TryFrom<ResumeSnapshot> for ValidatedResumeSnapshot {
+    type Error = Rejection;
+
+    fn try_from(snapshot: ResumeSnapshot) -> Result<Self, Self::Error> {
+        if snapshot.position_ms > snapshot.source.duration_ms() {
+            return Err(Rejection::OutOfBounds);
+        }
+        if !supported_speed(snapshot.speed_permille) {
+            return Err(Rejection::UnsupportedSpeed);
+        }
+        Ok(Self(snapshot))
+    }
+}
+
+impl ValidatedResumeSnapshot {
+    pub const fn source(self) -> Source {
+        self.0.source
+    }
+    pub const fn position_ms(self) -> u32 {
+        self.0.position_ms
+    }
+    pub const fn speed_permille(self) -> u16 {
+        self.0.speed_permille
+    }
+    pub const fn raw(self) -> ResumeSnapshot {
+        self.0
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -105,6 +148,10 @@ impl PlaybackSession {
             position_ms: self.position_ms,
             speed_permille: self.speed_permille,
         }
+    }
+    /// Session construction and transitions preserve position and speed admission.
+    pub fn validated_snapshot(&self) -> ValidatedResumeSnapshot {
+        ValidatedResumeSnapshot(self.snapshot())
     }
 }
 

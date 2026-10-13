@@ -70,6 +70,12 @@ with `Memo`, not maintained by an effect copying state. Local progress is record
 user commands; it makes no completed-listen or synchronization claim. No global `AppStore`, shared
 runtime, FFI, state-management framework, speculative crate or empty production adapter is added.
 
+Raw `ResumeSnapshot` events remain able to carry invalid controls for explicit rejection.
+`ValidatedResumeSnapshot` admits position within the source duration and the five supported
+mock speeds; reducer loading and retained `ProgressState` consume that immutable value.
+The player shell exports admitted checkpoints and progress cannot retain a raw event value.
+This is session-only validation, with synthetic episode identity and no publication authority.
+
 ### Shared mock semantics
 
 The independent Rust and Kotlin reducers share **data**, not runtime code:
@@ -178,6 +184,11 @@ catalog or fake player. **Check API availability** performs a real same-origin, 
 against `/api/v1/theatre` through the local Trunk proxy to the existing API on8080. A JSON404
 `not_found` renders unsupported; other statuses, invalid responses and connection failures
 render errors. Cancelling or superseding a check fences its late response.
+
+Probe generation and phase are read-only outside their owner. Check and Cancel admit the checked
+generation transition before aborting the current transport; exhaustion leaves the current
+state and transport alone. Source-order tests and pure probe tests cover this boundary, while
+browser cancellation/owner-disposal acceptance remains a separate runtime check.
 
 Open `?mode=mock` explicitly for the existing isolated UI preview. An unknown mode never falls
 back to mock success. No Studio session, producer token, private submission or draft is available

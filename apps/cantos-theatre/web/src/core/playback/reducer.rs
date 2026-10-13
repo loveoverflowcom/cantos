@@ -1,7 +1,7 @@
 use super::{
     state::supported_speed, CallbackIdentity, Effect, Engine, EngineCommand, Event, Intent,
-    Interruption, PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source,
-    Transition,
+    Interruption, PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Transition,
+    ValidatedResumeSnapshot,
 };
 
 fn unchanged(state: PlayerState) -> Transition {
@@ -34,18 +34,12 @@ fn advance(mut state: PlayerState) -> Result<PlayerState, PlayerState> {
 }
 fn loaded(
     state: PlayerState,
-    source: Source,
-    position_ms: u32,
-    speed: u16,
+    snapshot: ValidatedResumeSnapshot,
     cause: PauseCause,
     restore: bool,
 ) -> Transition {
-    if position_ms > source.duration_ms() {
-        return rejected(state, Rejection::OutOfBounds);
-    }
-    if !supported_speed(speed) {
-        return rejected(state, Rejection::UnsupportedSpeed);
-    }
+    let source = snapshot.source();
+    let position_ms = snapshot.position_ms();
     let interruption = if restore {
         Interruption::None
     } else {
@@ -62,7 +56,7 @@ fn loaded(
     next.session = Some(PlaybackSession {
         source,
         position_ms,
-        speed_permille: speed,
+        speed_permille: snapshot.speed_permille(),
         intent: Intent::Pause(cause),
         engine: Engine::Preparing,
         interruption,
@@ -145,23 +139,23 @@ pub fn reduce(state: PlayerState, event: Event) -> Transition {
             {
                 return unchanged(state);
             }
-            loaded(state, source, position_ms, 1000, PauseCause::User, false)
+            let snapshot = match ValidatedResumeSnapshot::try_from(ResumeSnapshot {
+                source,
+                position_ms,
+                speed_permille: 1000,
+            }) {
+                Ok(snapshot) => snapshot,
+                Err(reason) => return rejected(state, reason),
+            };
+            loaded(state, snapshot, PauseCause::User, false)
         }
-        Event::RestoreRequested {
-            snapshot:
-                ResumeSnapshot {
-                    source,
-                    position_ms,
-                    speed_permille,
-                },
-        } => loaded(
-            state,
-            source,
-            position_ms,
-            speed_permille,
-            PauseCause::ColdRestore,
-            true,
-        ),
+        Event::RestoreRequested { snapshot } => {
+            let snapshot = match ValidatedResumeSnapshot::try_from(snapshot) {
+                Ok(snapshot) => snapshot,
+                Err(reason) => return rejected(state, reason),
+            };
+            loaded(state, snapshot, PauseCause::ColdRestore, true)
+        }
         Event::PlayRequested => {
             let Some(session) = state.session.as_ref() else {
                 return rejected(state, Rejection::NoSession);

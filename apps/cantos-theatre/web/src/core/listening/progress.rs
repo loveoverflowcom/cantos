@@ -1,10 +1,11 @@
 //! Explicit local progress facts. No completion claim, persistence or sync arbitration.
-use crate::core::{ids::EpisodeId, playback::ResumeSnapshot};
+use crate::core::{ids::EpisodeId, playback::ValidatedResumeSnapshot};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Progress {
-    pub snapshot: ResumeSnapshot,
+    pub snapshot: ValidatedResumeSnapshot,
 }
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProgressState {
     records: Vec<Progress>,
@@ -22,21 +23,29 @@ impl ProgressState {
         self.records
             .iter()
             .rev()
-            .filter(|progress| works.insert(progress.snapshot.source.episode().work))
+            .filter(|progress| works.insert(progress.snapshot.source().episode().work))
             .copied()
             .collect()
     }
-    pub fn remember(&self, snapshot: ResumeSnapshot) -> Self {
+    /// Only admitted positions/speeds can enter retained session progress.
+    ///
+    /// ```compile_fail
+    /// use cantos_theatre::core::{listening::progress::ProgressState, playback::ResumeSnapshot};
+    /// fn retain_raw(state: &ProgressState, raw: ResumeSnapshot) {
+    ///     state.remember(raw);
+    /// }
+    /// ```
+    pub fn remember(&self, snapshot: ValidatedResumeSnapshot) -> Self {
         let mut next = self.clone();
         next.records
-            .retain(|item| item.snapshot.source.episode() != snapshot.source.episode());
+            .retain(|item| item.snapshot.source().episode() != snapshot.source().episode());
         next.records.push(Progress { snapshot });
         next
     }
     pub fn find(&self, episode: EpisodeId) -> Option<Progress> {
         self.records
             .iter()
-            .find(|item| item.snapshot.source.episode() == episode)
+            .find(|item| item.snapshot.source().episode() == episode)
             .copied()
     }
 }
@@ -44,14 +53,121 @@ impl ProgressState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{ids::WorkId, playback::Source};
+    use crate::core::{
+        ids::WorkId,
+        playback::{Rejection, ResumeSnapshot, Source},
+    };
 
-    fn snapshot(work: WorkId, index: usize, position_ms: u32) -> ResumeSnapshot {
+    fn snapshot(index: usize, position_ms: u32, speed_permille: u16) -> ResumeSnapshot {
         ResumeSnapshot {
+            source: Source::new(
+                EpisodeId {
+                    work: WorkId::Mountain,
+                    index,
+                },
+                60_000,
+            )
+            .unwrap(),
+            position_ms,
+            speed_permille,
+        }
+    }
+
+    fn remember_raw(
+        state: &ProgressState,
+        raw: ResumeSnapshot,
+    ) -> Result<ProgressState, Rejection> {
+        ValidatedResumeSnapshot::try_from(raw).map(|snapshot| state.remember(snapshot))
+    }
+
+    #[test]
+    fn out_of_bounds_checkpoint_cannot_replace_valid_progress() {
+        let state = remember_raw(&ProgressState::default(), snapshot(0, 15_000, 1000)).unwrap();
+        let before = state.clone();
+        assert_eq!(
+            remember_raw(&state, snapshot(0, 60_001, 1000)),
+            Err(Rejection::OutOfBounds)
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn unsupported_speed_checkpoint_cannot_replace_valid_progress() {
+        let state = remember_raw(&ProgressState::default(), snapshot(0, 15_000, 1000)).unwrap();
+        let before = state.clone();
+        assert_eq!(
+            remember_raw(&state, snapshot(0, 15_000, 999)),
+            Err(Rejection::UnsupportedSpeed)
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn every_retained_checkpoint_matches_the_latest_explicit_fact_for_its_episode() {
+        let choices = [
+            snapshot(0, 0, 750),
+            snapshot(1, 60_000, 1250),
+            snapshot(0, 15_000, 2000),
+            snapshot(2, 30_000, 1000),
+            snapshot(1, 1, 1500),
+        ];
+        // All 5^4 command sequences, including duplicates and explicit backward seeks.
+        for sequence in 0..625 {
+            let mut ordinal = sequence;
+            let mut state = ProgressState::default();
+            let mut history = Vec::new();
+            for _ in 0..4 {
+                let raw = choices[ordinal % choices.len()];
+                ordinal /= choices.len();
+                let before = state.clone();
+                let next = remember_raw(&state, raw).unwrap();
+                assert_eq!(state, before);
+                state = next;
+                history.push(raw);
+                // Naive last-occurrence oracle, structurally distinct from retain+push.
+                let expected: Vec<_> = history
+                    .iter()
+                    .enumerate()
+                    .filter(|(at, item)| {
+                        !history[at + 1..]
+                            .iter()
+                            .any(|later| later.source.episode() == item.source.episode())
+                    })
+                    .map(|(_, item)| *item)
+                    .collect();
+                let actual: Vec<_> = state
+                    .records()
+                    .iter()
+                    .map(|item| item.snapshot.raw())
+                    .collect();
+                assert_eq!(actual, expected);
+                assert_eq!(state.latest().map(|item| item.snapshot.raw()), Some(raw));
+                assert_eq!(
+                    state
+                        .find(raw.source.episode())
+                        .map(|item| item.snapshot.raw()),
+                    Some(raw)
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use crate::core::{
+        ids::WorkId,
+        playback::{ResumeSnapshot, Source},
+    };
+
+    fn snapshot(work: WorkId, index: usize, position_ms: u32) -> ValidatedResumeSnapshot {
+        ValidatedResumeSnapshot::try_from(ResumeSnapshot {
             source: Source::new(EpisodeId { work, index }, 60_000).unwrap(),
             position_ms,
             speed_permille: 1000,
-        }
+        })
+        .unwrap()
     }
 
     #[test]
@@ -74,7 +190,7 @@ mod tests {
         );
         assert_eq!(state.records().len(), 3);
         assert_eq!(
-            state.find(river_first.source.episode()).unwrap().snapshot,
+            state.find(river_first.source().episode()).unwrap().snapshot,
             river_first
         );
     }
