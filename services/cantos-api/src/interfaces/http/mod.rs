@@ -82,14 +82,56 @@ fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, 
 }
 
 async fn authenticated(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    let result = match cookie_token(request.headers(), &state.store) {
-        Ok(token) => state.store.authenticate(&token).await,
-        Err(error) => Err(error),
+    let token = match cookie_token(request.headers(), &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
     };
-    match result {
-        Ok(_) => next.run(request).await,
-        Err(error) => error_response(error),
+    if let Err(error) = state.store.authenticate(&token).await {
+        return error_response(error);
     }
+    let session_id = match state.store.studio_session_id(&token).await {
+        Ok(id) => id,
+        Err(error) => return error_response(error),
+    };
+    let mut query_fences =
+        url::form_urlencoded::parse(request.uri().query().unwrap_or("").as_bytes())
+            .filter(|(name, _)| name == "studio_session_id");
+    let query_matches = match query_fences.next() {
+        None => true,
+        Some((_, value)) => {
+            query_fences.next().is_none() && Some(value.as_ref()) == session_id.as_deref()
+        }
+    };
+    if !query_matches || !studio_fence_matches(request.headers(), session_id.as_deref()) {
+        return studio_fenced_response(
+            failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+            session_id.as_deref(),
+        );
+    }
+    studio_fenced_response(next.run(request).await, session_id.as_deref())
+}
+
+pub(super) const STUDIO_SESSION_HEADER: &str = "x-cantos-studio-session";
+
+pub(super) fn studio_fence_matches(headers: &HeaderMap, actual: Option<&str>) -> bool {
+    let mut values = headers.get_all(STUDIO_SESSION_HEADER).iter();
+    match values.next() {
+        None => true, // Legacy explicit clients remain compatible; the current UI always fences.
+        Some(value) => {
+            values.next().is_none()
+                && value
+                    .to_str()
+                    .ok()
+                    .is_some_and(|value| Some(value) == actual)
+        }
+    }
+}
+
+pub(super) fn studio_fenced_response(mut response: Response, session_id: Option<&str>) -> Response {
+    if let Some(id) = session_id.and_then(|id| HeaderValue::from_str(id).ok()) {
+        response.headers_mut().insert(STUDIO_SESSION_HEADER, id);
+    }
+    response
 }
 
 async fn origin_and_cache(State(state): State<AppState>, request: Request, next: Next) -> Response {

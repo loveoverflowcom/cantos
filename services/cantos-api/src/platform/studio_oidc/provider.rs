@@ -201,7 +201,10 @@ impl Provider {
         let tokens: Tokens = bounded(
             self.client
                 .post(&discovery.token_endpoint)
-                .basic_auth(CLIENT_ID, Some(&self.config.secret))
+                .basic_auth(
+                    oauth_component(CLIENT_ID),
+                    Some(oauth_component(&self.config.secret)),
+                )
                 .form(&[
                     ("grant_type", "authorization_code"),
                     ("code", code),
@@ -268,7 +271,10 @@ impl Provider {
         let facts: Introspection = bounded(
             self.client
                 .post(&discovery.introspection_endpoint)
-                .basic_auth(CLIENT_ID, Some(&self.config.secret))
+                .basic_auth(
+                    oauth_component(CLIENT_ID),
+                    Some(oauth_component(&self.config.secret)),
+                )
                 .form(&[("token", token)])
                 .send()
                 .await
@@ -300,7 +306,10 @@ impl Provider {
         let response = self
             .client
             .post(&discovery.revocation_endpoint)
-            .basic_auth(CLIENT_ID, Some(&self.config.secret))
+            .basic_auth(
+                oauth_component(CLIENT_ID),
+                Some(oauth_component(&self.config.secret)),
+            )
             .form(&[("token", token), ("token_type_hint", "access_token")])
             .send()
             .await
@@ -314,6 +323,12 @@ impl Provider {
     pub async fn verify_metadata(&self, now: u64) -> Result<(), AuthError> {
         self.discovery(now).await.map(|_| ())
     }
+}
+
+// RFC6749§2.3.1 applies form encoding to each credential before the Basic encoding.
+// reqwest's generic HTTP Basic method deliberately does not perform OAuth encoding.
+fn oauth_component(value: &str) -> String {
+    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
 }
 
 async fn bounded<T: DeserializeOwned>(mut response: Response) -> Result<T, AuthError> {

@@ -60,7 +60,10 @@ backend sequence above is unchanged.
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
 and adds exact external keys with explicit operator registration/linking. The bounded
-[Studio OIDC](../architecture/studio-oidc.md) slice has signed-mock/local-SQL evidence; live provider
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. Final
+lock-wait expiry and special-character OAuth Basic regressions belong to the identity review
+campaign; its final integrated gates and browser observations must be recorded separately. Live provider
 acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
 using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
 before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared

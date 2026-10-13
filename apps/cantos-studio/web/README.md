@@ -44,10 +44,24 @@ API that is already listening. That proxy mode was not used as browser evidence.
 
 ## Interaction and ownership
 
-Sign in on each page with an operator-issued development token. It becomes a same-origin
-HttpOnly/SameSite=Strict session cookie; the form clears the token after success. Credentials
-are not kept in local storage or build-time config. No fake backend or fallback dataset exists.
-The visible mode label identifies the live development backend.
+On mount and idle browser-history restoration, Studio reads its public authentication mode and
+checks the actual same-origin cookie. In development mode, an operator-issued development token
+becomes an HttpOnly/SameSite=Strict cookie and the token form clears it after exchange. In opt-in
+OIDC mode, the provider sign-in control performs local logout to revoke the old session, then navigates
+to the provider through the Studio BFF; returning to the app triggers actual cookie confirmation.
+Explicit check-session and logout controls support expiry/recovery. Epoch-fenced replies cannot
+restore an account after logout/switch, while authoring drafts and ambiguous requests keep their
+original actor. All private workspaces hide while authentication is unconfirmed or another actor
+is observed; dirty owner drafts survive. Explicit refresh can restore retained dirty owners; idle history restoration
+defers while dirty drafts or operations remain. Immutable request UUID/epoch fences reject a cookie change across
+tabs; a missing/mismatched successful response echo preserves ambiguous operation reconciliation.
+Explicit logout requires a cookie-confirmed actor and uses bounded immutable
+flow binders to cancel pending/issued callbacks. Guarded logout leaves only a revoked inert
+cookie instead of expiry headers that could delete a newer tab's cookie; unsigned stale cleanup
+preserves another tab's pending guest flow. Credentials are never kept in local storage or build-time config. No fake backend
+or fallback dataset exists. The visible mode label identifies the live development backend.
+See the [OIDC boundary](../../../docs/architecture/studio-oidc.md) for the closed production gate;
+compiled or pure-state evidence does not establish browser/provider acceptance.
 
 The pure `authoring.rs` patches known leaves of the complete JSON value, preserving stable IDs,
 unknown metadata, provenance, rights and selected asset fields. It rejects duplicate keys,

@@ -68,6 +68,10 @@ struct Access {
     subject: String,
     expires: u64,
 }
+pub struct TokenPause {
+    pub entered: tokio::sync::Notify,
+    pub release: tokio::sync::Notify,
+}
 pub struct Data {
     pub origin: String,
     pub signer: Mutex<Signer>,
@@ -84,6 +88,9 @@ pub struct Data {
     pub id_override: Mutex<Option<String>>,
     pub last_id_token: Mutex<Option<String>>,
     pub introspection_calls: AtomicUsize,
+    pub revoke_calls: AtomicUsize,
+    pub expected_secret: Mutex<String>,
+    pub token_pauses: Mutex<HashMap<String, Arc<TokenPause>>>,
 }
 pub struct MockProvider {
     pub data: Arc<Data>,
@@ -109,6 +116,9 @@ impl MockProvider {
             id_override: Mutex::new(None),
             last_id_token: Mutex::new(None),
             introspection_calls: AtomicUsize::new(0),
+            revoke_calls: AtomicUsize::new(0),
+            expected_secret: Mutex::new("fixture".into()),
+            token_pauses: Mutex::new(HashMap::new()),
         });
         let router = Router::new()
             .route(
@@ -166,6 +176,18 @@ impl MockProvider {
             .unwrap()
             .expires = self.data.now.load(Ordering::SeqCst);
     }
+    pub fn pause_code(&self, code: &str) -> Arc<TokenPause> {
+        let pause = Arc::new(TokenPause {
+            entered: tokio::sync::Notify::new(),
+            release: tokio::sync::Notify::new(),
+        });
+        self.data
+            .token_pauses
+            .lock()
+            .unwrap()
+            .insert(code.into(), pause.clone());
+        pause
+    }
     pub fn rotate(&self, kid: &str) {
         *self.data.signer.lock().unwrap() = Signer::new(kid);
     }
@@ -175,11 +197,35 @@ impl Drop for MockProvider {
         self.task.abort();
     }
 }
-fn basic(headers: &HeaderMap) -> bool {
-    headers.get("authorization").is_some_and(|v| {
-        v.as_bytes()
-            == format!("Basic {}", STANDARD.encode(format!("{CLIENT_ID}:fixture"))).as_bytes()
-    })
+fn basic(headers: &HeaderMap, data: &Data) -> bool {
+    let Some(encoded) = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Basic "))
+    else {
+        return false;
+    };
+    let Ok(decoded) = STANDARD.decode(encoded) else {
+        return false;
+    };
+    let Ok(decoded) = String::from_utf8(decoded) else {
+        return false;
+    };
+    let Some((client, password)) = decoded.split_once(':') else {
+        return false;
+    };
+    // RFC6749 client_secret_basic decodes form encoding after Basic. This oracle exercises
+    // a protocol implementation instead of copying the production header encoder.
+    let Ok(url) = reqwest::Url::parse(&format!(
+        "https://fixture.invalid/?client={client}&secret={password}"
+    )) else {
+        return false;
+    };
+    let pairs: HashMap<_, _> = url.query_pairs().collect();
+    pairs.get("client").is_some_and(|value| value == CLIENT_ID)
+        && pairs
+            .get("secret")
+            .is_some_and(|value| value.as_ref() == data.expected_secret.lock().unwrap().as_str())
 }
 async fn discovery(State(data): State<Arc<Data>>) -> Json<Value> {
     let o = &data.origin;
@@ -203,7 +249,7 @@ async fn token(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.token_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers) {
+    if !basic(&headers, &data) {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let code = data
@@ -232,6 +278,16 @@ async fn token(
             StatusCode::BAD_REQUEST,
             Json(json!({"error":"invalid_grant"})),
         );
+    }
+    let pause = {
+        data.token_pauses
+            .lock()
+            .unwrap()
+            .remove(form.get("code").map(String::as_str).unwrap_or(""))
+    };
+    if let Some(pause) = pause {
+        pause.entered.notify_one();
+        pause.release.notified().await;
     }
     let mut claims = json!({"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin),"aud":CLIENT_ID,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
     if let Some((field, value)) = code.change {
@@ -263,7 +319,7 @@ async fn introspect(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.introspection_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers) {
+    if !basic(&headers, &data) {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let access = data.access.lock().unwrap();
@@ -283,7 +339,8 @@ async fn revoke(
     headers: HeaderMap,
     Form(form): Form<HashMap<String, String>>,
 ) -> StatusCode {
-    if !basic(&headers) {
+    data.revoke_calls.fetch_add(1, Ordering::SeqCst);
+    if !basic(&headers, &data) {
         return StatusCode::UNAUTHORIZED;
     }
     if data.revoke_fail.load(Ordering::SeqCst) {

@@ -20,6 +20,7 @@ struct ProductionTyping(
 );
 
 fn dispatch(state: RwSignal<Production>, api: StudioHttp, intent: Intent) {
+    let api = api.snapshot();
     spawn_local(async move {
         let script = &intent.context.script;
         let result = match &intent.command {
@@ -83,6 +84,7 @@ fn read_snapshot(state: RwSignal<Production>, api: StudioHttp, id: String) {
         return;
     };
     state.set(reading);
+    let api = api.snapshot();
     spawn_local(async move {
         let result = api.production_snapshot(&ticket.context.script, &id).await;
         let _ = state.try_update(|state| {
@@ -204,6 +206,7 @@ pub fn ProductionInputs(
     script_activity: RwSignal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
+    session_pending: Signal<bool>,
 ) -> impl IntoView {
     let state = RwSignal::new(Production::default());
     let composing = RwSignal::new(std::collections::BTreeSet::<String>::new());
@@ -266,7 +269,8 @@ pub fn ProductionInputs(
     });
     let script_dirty = move || editor.with(Editor::is_dirty) || script_activity.get();
     let form_blocked = move || {
-        state.with(Production::has_activity)
+        session_pending.get()
+            || state.with(Production::has_activity)
             || editor.with(|e| e.busy || e.pending.is_some())
             || script_dirty()
             || !state.with(|s| s.context.ready())
@@ -304,11 +308,13 @@ pub fn ProductionInputs(
         <dl class="source-identity"><dt>{move || text(Key::Revision, english.get())}</dt><dd><code>{move || state.with(|s| format!("{} · {}", s.context.script, s.context.revision))}</code></dd>
             <dt>{move || text(Key::ExportDigest, english.get())}</dt><dd><code>{move || state.with(|s| s.context.export_digest.clone())}</code></dd>
         </dl>
-        <button class="cui-button" data-variant="secondary" type="button" disabled=move || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
+        <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
+            if session_pending.get_untracked() {return;}
             let Some((reading, ticket)) = state.get_untracked().start_read(ReadKind::State) else { return; };
             let script = editor.with_untracked(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default());
             state.set(reading);
-            spawn_local(async move {
+            let api = api.snapshot();
+    spawn_local(async move {
                 let result = async { let catalog = api.production_catalog().await?; let stored = api.production_state(&ticket.context.script).await?; Ok::<_,ApiError>((catalog, stored)) }.await;
                 let _ = state.try_update(|s| *s = match result { Ok((catalog, stored)) => s.loaded(&ticket, catalog, stored, &script), Err(error) => s.read_failed(&ticket, error) });
             });
@@ -323,7 +329,7 @@ pub fn ProductionInputs(
             <p id="production-pending-help">{move || text(Key::PendingHelp, english.get())}</p>
             <dl class="source-identity"><dt>{move || text(Key::Actor, english.get())}</dt><dd>{move || state.with(|s| s.pending.as_ref().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
                 <dt>{move || text(Key::Operation, english.get())}</dt><dd><code>{move || state.with(|s| s.pending.as_ref().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
-            <button class="cui-button" data-variant="secondary" type="button" disabled=move || !state.with(Production::can_retry) on:click=move |_| { if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
+            <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || !state.with(Production::can_retry) on:click=move |_| { if session_pending.get_untracked() {return;} if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
         </section></Show>
         <Show when=move || state.with(|s| s.form.is_some())><div class="production-layout">
             <section class="production-settings" aria-labelledby="casting-title"><h3 id="casting-title">{move || text(Key::Settings, english.get())}</h3>
@@ -341,7 +347,8 @@ pub fn ProductionInputs(
                 <p class="help">{move || text(Key::ValidationHelp,english.get())}</p>
                 <ActionButton id="production-review" english=english blocked=Signal::derive(review_blocked) reason=BlockReason::ProductionReview variant=ButtonVariant::Tonal on_press=Callback::new(move |_| {
                     if review_blocked() { return; } let Some((reading,ticket)) = state.get_untracked().start_read(ReadKind::Preview) else { return; }; state.set(reading);
-                    spawn_local(async move { let result=api.production_preview(&ticket.context.script).await; let _=state.try_update(|s| *s=match result { Ok(preview)=>s.preview_loaded(&ticket,preview),Err(error)=>s.read_failed(&ticket,error) }); });
+                    let api = api.snapshot();
+    spawn_local(async move { let result=api.production_preview(&ticket.context.script).await; let _=state.try_update(|s| *s=match result { Ok(preview)=>s.preview_loaded(&ticket,preview),Err(error)=>s.read_failed(&ticket,error) }); });
                 })>{move || text(Key::Validate,english.get())}</ActionButton>
                 {move || state.with(|s| s.preview.clone()).map(|preview| view! { <dl class="source-identity"><dt>{move || text(Key::Digest,english.get())}</dt><dd><code>{preview.input_digest}</code></dd></dl><Estimate estimate=preview.estimate english=english /><Findings findings=preview.findings english=english /> })}
                 <p class="help">{move || text(Key::FreezeHelp,english.get())}</p>

@@ -58,6 +58,7 @@ fn read(
         return;
     };
     set_inspector(inspector, activity, reading);
+    let api = api.snapshot();
     spawn_local(async move {
         match &ticket.kind {
             ReadKind::History { after } => {
@@ -110,6 +111,7 @@ fn review(
     api: StudioHttp,
     intent: ReviewIntent,
 ) {
+    let api = api.snapshot();
     spawn_local(async move {
         let result = api.review(&intent.snapshot.script, &intent.request).await;
         update_inspector(inspector, editor, activity, |state, _| match result {

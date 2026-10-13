@@ -12,6 +12,42 @@ use core::{session_expiry, FLOW_SECONDS, SESSION_SECONDS};
 pub use core::{AuthError, CLIENT_ID};
 use provider::Provider;
 
+pub const MAX_BROWSER_FLOWS: usize = 8;
+pub(super) struct BrowserFlow {
+    pub state_hash: Vec<u8>,
+    pub browser_hash: Vec<u8>,
+}
+/// Opaque cookie possession bounds cancellation to this browser's supplied flows. It never
+/// verifies an identity or grants authority. Credentials have no Debug/serde representation.
+pub struct BrowserInventory {
+    pub(super) flows: Vec<BrowserFlow>,
+}
+impl BrowserInventory {
+    pub fn new(values: Vec<(String, String)>) -> Result<Self, AuthError> {
+        if values.len() > MAX_BROWSER_FLOWS {
+            return Err(AuthError::State);
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        let mut flows = Vec::new();
+        for (state, browser) in values {
+            if !valid_secret(&state) || !valid_secret(&browser) || !seen.insert(state.clone()) {
+                return Err(AuthError::State);
+            }
+            flows.push(BrowserFlow {
+                state_hash: crate::platform::postgres::token_hash(&state),
+                browser_hash: crate::platform::postgres::token_hash(&browser),
+            });
+        }
+        Ok(Self { flows })
+    }
+    pub fn len(&self) -> usize {
+        self.flows.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.flows.is_empty()
+    }
+}
+
 pub struct StudioOidc {
     config: OidcConfig,
     provider: Provider,
@@ -53,9 +89,19 @@ impl StudioOidc {
         store: &Store,
         previous: Option<&str>,
     ) -> Result<LoginStart, AuthError> {
-        if let Some(previous) = previous {
-            self.authenticate(store, previous).await?;
-        }
+        let previous = match previous {
+            Some(previous)
+                if valid_secret(previous)
+                    && store.oidc_known_inert(&self.config, previous).await? =>
+            {
+                None
+            }
+            Some(previous) => {
+                self.authenticate(store, previous).await?;
+                Some(previous)
+            }
+            None => None,
+        };
         let state = random_secret()?;
         let browser = random_secret()?;
         let nonce = random_secret()?;
@@ -69,7 +115,12 @@ impl StudioOidc {
             .await?;
         Ok(LoginStart {
             url,
-            cookie: self.cookie(self.flow_name(), &browser, "Lax", FLOW_SECONDS),
+            cookie: self.cookie(
+                &self.flow_cookie_name(&state)?,
+                &browser,
+                "Lax",
+                FLOW_SECONDS,
+            ),
         })
     }
 
@@ -136,18 +187,48 @@ impl StudioOidc {
         token: Option<&str>,
         browser: Option<&str>,
     ) -> Result<LogoutComplete, AuthError> {
-        let access = store.oidc_cancel_and_revoke(token, browser).await?;
+        self.logout_inner(store, token, browser, None).await
+    }
+    pub async fn logout_in_browser(
+        &self,
+        store: &Store,
+        token: &str,
+        inventory: &BrowserInventory,
+    ) -> Result<LogoutComplete, AuthError> {
+        self.logout_inner(store, Some(token), None, Some(inventory))
+            .await
+    }
+    async fn logout_inner(
+        &self,
+        store: &Store,
+        token: Option<&str>,
+        browser: Option<&str>,
+        inventory: Option<&BrowserInventory>,
+    ) -> Result<LogoutComplete, AuthError> {
+        let access = store
+            .oidc_cancel_and_revoke(&self.config, token, browser, inventory)
+            .await?;
         // Local revocation commits first. Retain durable pending evidence on remote outage.
-        let provider_revoked = match (access, token) {
-            (Some(access), Some(token)) => match self.provider.revoke(&access, now()?).await {
-                Ok(()) => {
-                    store.oidc_revocation_completed(token).await?;
-                    true
+        let mut provider_revoked = match (access, token) {
+            (postgres::RevocationCredential::Current(access), Some(token)) => {
+                match self.provider.revoke(&access, now()?).await {
+                    Ok(()) => {
+                        store.oidc_revocation_completed(token).await?;
+                        true
+                    }
+                    Err(_) => false,
                 }
-                Err(_) => false,
-            },
-            _ => true,
+            }
+            (postgres::RevocationCredential::ForeignIssuer, _) => false,
+            (postgres::RevocationCredential::PendingOnly, _) => false,
+            (postgres::RevocationCredential::None, _) => true,
+            (postgres::RevocationCredential::Current(_), None) => false,
         };
+        if provider_revoked {
+            if let Some(token) = token {
+                provider_revoked = !store.oidc_pending_siblings(token).await?;
+            }
+        }
         Ok(LogoutComplete {
             provider_revoked,
             cookies: vec![
@@ -175,6 +256,12 @@ impl StudioOidc {
         } else {
             "cantos_oidc"
         }
+    }
+    pub fn flow_cookie_name(&self, state: &str) -> Result<String, AuthError> {
+        if !valid_secret(state) {
+            return Err(AuthError::State);
+        }
+        Ok(format!("{}_{state}", self.flow_name()))
     }
     fn cookie(&self, name: &str, value: &str, same_site: &str, age: u64) -> String {
         let secure = if self.config.secure { "; Secure" } else { "" };
