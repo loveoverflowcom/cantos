@@ -299,3 +299,48 @@ assumptions/stubs/unreachable exclusions, unchanged merged lock. The production
 strict order/local expiry only, not all eligibility, cursor randomness, PG, grants or delivery.
 See [the exact source/artifact ledger](../evidence/theatre-discovery-results.json) and
 [scope/gaps](../evidence/theatre-discovery.md). Earlier three/four-kernel results stay historical.
+
+## Private Work artwork numeric admission
+
+The registered `image-bounds` harness executes the actual production
+`contexts::media::domain::image::check_image_bounds` function. Full symbolic u64 encoded
+length, u32 width/height and u8 bytes-per-pixel are compared to an independently widened
+u128 specification with literal limits: encoded 1..8,388,608; each dimension 1..4096;
+layout in {1,2,3,4,6,8}; at most 16,777,216 pixels and 67,108,864 decoded sample bytes.
+Successful results also equal the independently computed counts. There are no assumptions,
+stubs, loop-domain truncations or added unreachable allowances. Thirteen covers retain
+minimum, encoded/dimension/pixel/output maxima, exact sixteen-bit output bounds, every
+refusal partition and full machine-width maxima.
+
+Actual canonical command, executed 2026-10-13 UTC:
+
+```sh
+cargo xtask verify kani --harness image-bounds
+```
+
+The existing runner used Kani 0.68.0, CBMC 6.11.0, CaDiCaL, pinned
+nightly-2026-08-21/x86_64-unknown-linux-gnu, `--lib --no-default-features --exact`, and
+unwind 2 with normal verifier safety/unwinding checks. Result: **PASS**, one exact harness,
+0/9 failed checks, 13/13 satisfied covers, 96.4038 seconds including compilation. The raw
+verifier reports `Complete - 1 successfully verified harnesses, 0 failures, 1 total.`
+
+| Bound identity | SHA-256 / Git identity |
+| --- | --- |
+| Clean executed local source | `98f81365c6c52a9fc743d0ed846abd3b88b49798` |
+| Exact executed tree | `bc6191f638c00f1058fa4ee8a938b1feb4ead29e` |
+| Registered full source file | `3956b927e14377858fefdaf88fed6d0429a8c467e448a8f7944ed5be39195f86` |
+| Cargo.lock before and after | `be0587d1e3c4623b79a7c691a261adf6cdef48fa5b8ef95e682df965c71646a9` |
+| Full model inputs before and after | `2d5ab9bb145a7ac7a70ec7dbb62dbb35efe0802bfd0159b832a714593c425328` |
+| Approved configuration before and after | `cf0098bad897468f2d51337d289c7aa1e35d3d0363e496ee9127e3c75f902ef2` |
+| Raw verifier output | `ad4c2ce3eb68e181c4c226bd49a750a849df0951a743d64d7f1057ac7a2eb058` |
+
+Full raw output, exact tool/command metadata and before/after identities are retained in the
+ignored task record `kani-5ac1cd8ad3444b72ada2fdcaaf80345f`. Later evidence-only commits or
+Git-data publication may have different Git identities; they do not imply a fresh proof.
+Exact tree/ordered-parent mappings must remain explicit when publishing through the connector.
+
+This proposition is for the numeric admission kernel on the named 64-bit target. It does not
+establish actual decoder correctness, total RSS/CPU, byte verification, owner/session/rights,
+SQL constraints/races, storage target/version resolution, HTTP behavior, provider execution,
+32-bit/WASM arithmetic or production readiness. Those scopes retain their separate evidence
+and pending I/O acceptance in the [artwork implementation record](../evidence/private-work-artwork.md).

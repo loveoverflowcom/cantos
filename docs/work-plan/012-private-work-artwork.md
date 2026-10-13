@@ -5,8 +5,8 @@ implemented and executed scopes are recorded in the checkpoint below and its evi
 Source request: [#104](https://github.com/loveoverflowcom/cantos/issues/104), plus the user's
 explicit instruction to select necessary MVP business fields/API/DB contracts in one planning
 session, followed by a new, separate implementation session. Do not infer implementation
-authorization from the research issue alone. No product code, migration or external publication
-is made by this planning branch.
+authorization from the research issue alone. The original planning commit contained no product
+code, migration or external publication.
 
 ## 1. One reviewable outcome
 
