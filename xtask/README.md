@@ -233,6 +233,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `mutation` | mutation |
 | `dbsp` | dbsp |
 | `postgres` | postgres |
+| `kani` | explicitly selected registered `kani` kernels only; opt-in |
 
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs

@@ -109,31 +109,56 @@ violated proposition; it is not authorization for panic-driven production contro
 
 ### Actual execution and repository integration
 
-**Current status:** no Kani release is pinned and no xtask Kani gate is configured. Two
-`cfg(kani)` harnesses exist in
-[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs):
+**Current implemented scope:** `cargo xtask verify kani` registers only three
+API-library production kernels: `catalog-revision`, `wav-payload` and
+`submission-window`. Omission selects all three; repeat `--harness` for a subset.
+The fixed model pins Kani 0.68.0, bundled rustc 1.100.0-nightly (8925ea358,
+nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,
+API library/no default features, CaDiCaL and unwind 2. Actual execution, source
+identity, covers and residuals are recorded in
+[the proof ledger](../../../../docs/assurance/kani.md). Production remains Rust
+1.87.0; the verifier has no runtime dependency and no automatic install/setup.
+
+The implemented [xtask command contract](../../../../xtask/README.md#optional-targeted-kani-proofs)
+keeps Kani out of normal builds, `verify rust`, ordinary full preflight and CI.
+Explicit `preflight --kani` opts in; changed-only selection narrows registered
+kernels and broadens on uncertain/shared inputs. Missing/incompatible tools are
+UNSUPPORTED, explicit skips/stopped later gates NOT_RUN, and incomplete/zero/
+wrong harnesses, failed/undetermined checks, unsatisfied covers, unexpected
+unreachability, timeout/output cap or source/config/lock changes FAIL.
+
+The single-harness primitive is owned by xtask, not another orchestration entry.
+It invokes an existing compatible absolute bundle driver and never the installer
+proxy. Rust validates and binds exact bounded configuration bytes/existence; the
+primitive compares that approved snapshot before execution and on proof exit, including
+formerly absent Cargo-config candidates. Configuration reads stop at 1 MiB + 1
+and reject oversize input. Generic model-source hashing streams bounded-memory
+chunks without a total-size cap. Fresh logs and metadata bind source,
+Git/dirty hashes, model/configuration and unchanged Cargo.lock (this Kani release
+has no --locked option). Endpoint hashes require no concurrent mutate-and-restore
+edits; they are integrity evidence, not filesystem isolation. Always inspect the
+actual selected proof output; tool probes, parser mocks and ordinary tests are
+not model-checking evidence.
+
+Two existing `cfg(kani)` Theatre sources remain **unregistered and NOT_RUN**:
+[`live/request.rs`](../../../../apps/cantos-theatre/web/src/live/request.rs)
 `completion_requires_current_pending_generation` and
-`cancellation_never_wraps_or_accepts_previous_completion` call production `ProbeState` methods.
-They state u64 generations, representative phase classes, unwind 2 and no assumptions/stubs;
-they currently lack explicit cover goals. The existing
-[execution record](../../../../docs/evidence/live-client-integration.md#kani-boundary)
-reports Kani unavailable and both harnesses `NOT_RUN`. Neither source presence nor `cfg(kani)`
-lint allowances establish verification. This skills-only change executes neither harness and
-adds no Kani compatibility or `bounded-model-checked` claim. A future campaign must address the
-reachability/coverage gap and report the actual model and execution.
+`cancellation_never_wraps_or_accepts_previous_completion`. They call production
+ProbeState methods over u64 generations/representative phases, unwind 2 and no
+assumptions/stubs, but lack explicit cover goals. Their historical
+[unrun record](../../../../docs/evidence/live-client-integration.md#kani-boundary)
+is retained. Private fields, source presence and ordinary tests establish no
+Theatre formal claim. Any future campaign must justify reachability and execute
+its exact model; do not add speculative UI/rendering/native/backend proof lanes.
 
-For adoption, record the target/gap and exact Kani release/solver, including its supported
-compiler/toolchain and target. Cantos normal builds remain Rust **1.87.0**; Kani's own compiler
-requirements need a separate compatibility assessment, not an assumed match or a silent project
-upgrade. Do not add a runtime proof dependency or install tools just to make a documentation
-change green. Follow the existing recorded-decision rule before introducing a verifier.
-
-The upstream primitive is `cargo kani --harness <name>` (with package selection in a workspace).
-That is **not a current Cantos command**. Before repository adoption, integrate the selected
-capability through the [xtask command contract](../../../../xtask/README.md#adding-a-capability):
-declared prerequisites, scoped harness selection, gate/status reporting and deliberate preflight
-selection. Do not advertise an unimplemented `cargo xtask verify kani`, add a competing script
-entrypoint or run all backend harnesses as a default.
+For any new target, record its concrete gap/production reach, exact verifier /
+compiler / solver / target compatibility and configuration before adopting it.
+Normal Cantos builds remain Rust 1.87.0. Do not add a runtime proof dependency,
+change the production toolchain, install tools just to green a docs change or
+register every backend harness by default. Extend the existing typed xtask
+registry and gate tests rather than adding competing repository orchestration.
+The upstream cargo-kani proxy can bootstrap/install even on a version call;
+capability checks must preserve the implemented no-install bundle path.
 
 Only an **actual model-checker run** supports `bounded-model-checked`. Ordinary `cargo test`,
 compiling a `cfg(kani)` module, manual reasoning or a written harness does not. Retain output

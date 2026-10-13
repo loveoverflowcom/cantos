@@ -9,10 +9,10 @@ corrupt immutable sequence or byte admission. Kani checks those local propositio
 not SQL authority or a complete media pipeline. No production dependency, default
 Rust upgrade, migration, wire change or alternate orchestration script is introduced.
 
-This is the opt-in verifier spike requested by the assurance plan. The underlying
-primitive commands below are execution provenance, **not** an implemented Cantos
-xtask capability. Ordered commit 10 owns scoped xtask integration and prerequisite /
-status / preflight handling. Existing Theatre harnesses remain outside this campaign.
+Ordered commit 7 is the requested opt-in verifier spike. Its primitive commands
+below are historical execution provenance. Ordered commit 10 now implements the
+scoped xtask capability described in the phase3 section; commit 11 consolidates
+verified evidence. Existing Theatre harnesses remain outside this campaign.
 
 ## Executed model
 
@@ -139,5 +139,93 @@ Run `cargo xtask verify postgres` in a permitted disposable environment and acce
 only its actual migration/constraint/transaction/replay/corruption results.
 Owner: unassigned — assignment required before integration acceptance.
 No remote CI, browser, device, provider, publication or named listening result is
-claimed here. Ordered commit 10 must add the scoped verifier gate before advertising
-`cargo xtask verify kani`; ordered commit 11 owns the final consolidated ledger.
+claimed here. The implemented workflow below runs only these registered kernels;
+its success does not waive the remaining acceptance above.
+
+## Phase 3: implemented targeted workflow and fresh-develop execution
+
+Ordered commit 10 implements the scoped xtask capability; the primitive commands
+above remain historical phase2 provenance. The current public commands are:
+
+```sh
+cargo xtask verify kani
+cargo xtask verify kani --harness catalog-revision --harness wav-payload
+cargo xtask preflight --changed-only --base origin/develop --kani
+```
+
+Omission selects exactly three registered API-library harnesses; repeated typed
+selectors choose a subset. Existing Theatre harnesses are unregistered/NOT_RUN.
+Ordinary builds, `verify rust`, full preflight without `--kani`, CI and merged
+service lifecycle commands do not execute model checking. Selection and outcome
+rules are in [the xtask command contract](../../xtask/README.md#optional-targeted-kani-proofs).
+Missing/incompatible installed tools are UNSUPPORTED; explicit skips/stopped rows
+NOT_RUN; failed or incomplete proof evidence FAIL. Capability probes and mocked
+parser/process tests never establish a proof.
+
+This campaign uses the same Kani/compiler/CBMC/target/solver and symbolic integer
+model specified above, with unwind 2, no assumptions/stubs and default safety /
+unwinding checks. The actual fixed invocation for each registered fully qualified
+harness is:
+
+```sh
+"$KANI_HOME/kani-0.68.0/bin/kani-driver" kani \
+  --manifest-path "$REPO/Cargo.toml" -p cantos-api --lib --no-default-features \
+  --exact --harness "$REGISTERED_FULLY_QUALIFIED_HARNESS" --unwind 2 \
+  --solver cadical --output-format regular --target-dir "$REPO/target/assurance-kani"
+```
+
+`REPO` denotes the repository root, not an additional required environment key.
+xtask supplies each exact name from [the typed registry](../../xtask/src/kani.rs).
+KANI_HOME is resolved once to an absolute existing bundle parent. Probes and
+proofs invoke the direct bundle driver in cargo-plugin mode, never the upstream
+installer proxy, setup or download. Matching child-only toolchain/PATH does not
+change ordinary Rust 1.87.0 or the workspace default.
+
+Rust approves and hashes one bounded exact buffer per manifest/Cargo configuration
+candidate, including absent root/ancestor/Cargo-home paths. That approved identity
+is attached to each active command; Python compares the exact candidate set at
+entry, after probing, immediately before proof and on every proof outcome. Each configuration
+read consumes at most 1 MiB + 1 byte and refuses oversize input. Ambient model-
+changing compiler/flags/wrappers and implicit Kani metadata are refused. Fresh
+metadata binds Git revision/dirty/diff hashes, kernel/source/model/configuration
+inputs and Cargo.lock before/after. Kani still has no --locked switch. Proof
+execution has a 900s timeout and 4 MiB output limit with owned process-group cleanup.
+Endpoint hashes require frozen inputs: they do not isolate against concurrent
+mutate-and-restore edits, attest external dependency caches/tool binaries, or
+place a total-size bound on streamed generic model-source hashing.
+
+The final repaired workflow passed 56 focused xtask tests and 73 synthetic Python
+tests; repository 298 and all 18 skills passed. Three targeted review findings were
+repaired: approval freshness, relative bundle paths and unbounded Rust configuration
+allocation. The paired Python total configuration consumption was capped as well.
+The final read-only review found no actionable issue. Initial fake-fixture failures
+and intermediate runs remain recorded separately, not erased or called proofs.
+
+After rebasing onto develop `ef5307225abee8ee0c3e014a5bb29f5f8fa7f82e` and
+reconciling PR83 Theatre conflicts, `cargo xtask verify kani` executed all three
+again on clean local commit `cb7ad37ffabbf12e86a76bb1b80e060db265f75c`, exact tree
+`d49c32404328b1fa9557bdd871a6a22a6a2431a3`. The published checkpoint
+`f909ca7572251d3b58af751c5703e017c804ce3d` has the identical tree. Raw evidence
+is retained in ignored `artifacts/agent-runs/` under these exact basenames:
+
+| Kernel / artifact directory | Checks / satisfied covers / reviewed unreachable | raw.log SHA-256 | metadata.json SHA-256 |
+| --- | --- | --- | --- |
+| Catalog / `kani-8dc5aebd283c446c94ae304127cbf5a5` | PASS 100 / 6 / 4 | `8bc43be8fa049ed9664472b17440823368ce6c87e0f939f73ec8bb4126e910cc` | `1e34729fc73a4873401379b9b9d5a2ba4c836f1dd22b98440128652990acc0f6` |
+| WAV / `kani-5a6abaf1546142a79cc8a0988caff01f` | PASS 20 / 7 / 0 | `55c9a439bc61eaf1ae7f7d53c1131b315f1c8407fe08e315c122b0cfa999243b` | `37381acf6cf560b8a1890be3170952f1e64c1762e489c27b60efe56368ac4fb8` |
+| Window / `kani-1906acc96eb04475a3aa6dc22358d884` | PASS 10 / 8 / 1 | `9e0c09bc1a9d8e19602dd42802b3aee6d74e9bf7ad693e010ef65b4579311993` | `c70f0e92c4289f338422451165f80382f9e39796d099b184f9edf1a87f11df89` |
+
+All three retain the kernel source identities above. They each recorded equal
+start/end model-input digest
+`4b08e7bddfa82c6a38e01d74f1bc0a55e9a0f3cd58bd1f5257af2f75af84824c`,
+approved configuration digest
+`ea909bb1b2b6b869f4f9340df51560d8387a3e6404f16588deb83478e2b59287`,
+and unchanged Cargo.lock
+`8cf5d58a6be8481148dae8daf9abec112d6e4ce72740eea56bd87f23108a8e6c`.
+Model-input metadata lists the complete scanned API/contracts/schema/build inputs;
+it does not claim universal transitive tool/cache authenticity.
+
+Ordered commit 11 changes documentation/verified skill status only. Later merged
+PR85 is CMP mock/docs only, with unchanged Rust/API/contracts/manifests/lock/proof
+inputs. Those unchanged identities support retention of this exact executed model,
+not a new model-checker run merely for a documentation or unrelated CMP integration.
+Final fresh-develop/remote commit identities are in the PR and phase3 handoff.

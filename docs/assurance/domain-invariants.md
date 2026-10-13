@@ -480,3 +480,205 @@ not supersede the separately recorded full-workspace **FAIL** above.
 Two focused isolated port-test repetitions passed; its original full-suite
 failure and unconfirmed cause are still recorded. Diagnostic worktrees/processes
 were cleaned up, and no temporary instrumentation remained.
+
+## Phase 3: Studio application-state checkpoint
+
+F1/F2 now retain one private `Exchange` algebraic state (Idle, Pending, Ready,
+Failed or Ambiguous) with read-only projections, rather than independently
+writable phase/pending/result/error/uncertainty flags. Immutable command intent
+and request tickets bind completion and reconciliation. The actual production
+`Command::check_reply` admits only the identity, version, operation, byte and
+aggregate bindings that the existing DTOs expose. Wrong-target acknowledgements
+fail as typed protocol/reply mismatches; no backend authorization is duplicated.
+The Production projection retains the exact unknown operation after a later
+Forbidden or NotFound retry. Editor save findings require the pending actor,
+script and current bytes to equal the submitted snapshot before the shell
+attaches them. Newer native editing bytes are not replaced or normalized.
+
+Five named regressions failed before repair: another Work response, another
+Prepare operation receipt, unknown Production outcome followed by Forbidden,
+unknown outcome followed by NotFound, and findings arriving after newer draft
+text. All now pass. Ordinary Rust 1.87 checks passed 166 unit tests and one
+compile-fail construction barrier; focused Live 23, Editor 25 and Production 26
+also passed. Native/WASM warnings-denied Clippy, formatting, repository225 and
+all four Web gates passed. These are `TYPE_ENFORCED`, `RUNTIME_VALIDATED`, exact
+example/adapter tests and compilation evidence; no Studio Kani proof is claimed.
+
+The existing Editor/Import/Adaptation/Inspector snapshots and adequate stale
+response/actor/resource fences were audited and retained. PR73 default selection,
+owner-session versus producer-token cookie behavior and chip/raw-buffer fixes
+remain intact. Client route strings still use the existing fallible canonical
+path admission; not every DTO identifier became a statically distinct newtype.
+ContentHistory has no echoed unit, Candidate no echoed submission, Review no
+unit/submission binding, mutations no operation echo and pages no cursor echo.
+Those gaps remain request-ticket/backend obligations; no field was invented.
+
+Real out-of-order browser dispatch, cancellation/unmount, unknown-write receipt
+reconciliation, revision conflict, cookie races and live Vietnamese Telex/VNI IME
+acceptance remain NOT_RUN. Check newer native typing with delayed findings and
+unchanged submitted text with valid findings; build success is no runtime or
+accessibility result. Acknowledged Editor revision progression and malformed
+accepted-export projections remain narrower hardening opportunities under an
+unverified corrupt/misbound upstream-response assumption, not a demonstrated
+normal-path failure or new product rule.
+
+## Phase 3: Theatre listener-state checkpoint
+
+T1/T2 now retain a private immutable `ValidatedResumeSnapshot` instead of raw
+resume facts in progress. Fallible admission checks exact source, bounded
+position and supported speed, with unchanged OutOfBounds → UnsupportedSpeed →
+generation-exhaustion precedence. Reducer loading, PlayerSession exports,
+restoration, feedback and mock callers consume its read-only projections. Raw
+input events remain raw and invalid events reject atomically. Both position 60,001
+for duration 60,000 and speed 999 previously replaced valid progress; both
+regressions failed before the repair and now pass.
+
+Probe generation/phase fields are private. Its existing checked begin/cancel/
+finish methods remain the transition authority. Check/Cancel now admit and
+commit generation advancement before the shell aborts transport; exhaustion
+leaves state and transport unchanged. The external struct-literal compile-fail
+regression and source-order regression failed before repair, then passed. Source
+ordering does not establish actual browser AbortController execution.
+
+The initial checkpoint passed 66 unit tests and three compile-fail doctests.
+After integrating merged PR83, the package passes 86 unit + three compile-fail
+tests. Its two-destination navigation and combined Continue/Saved/History remain
+intact; existing position recency projection and single root player survive.
+Finite tests cover all u16 speeds × six position partitions (393,216 pairs),
+625 four-step retention sequences (2,500 transitions) against a naive
+last-occurrence oracle, and 1,600 probe completion cells. Existing 19-event
+reducer traces up to depth 3, seven playback vectors and six probe cases passed.
+These are deterministic tables/bounded-exhaustive tests, not a universal formal
+claim or random-property campaign. Native/WASM Clippy, formatting, repository225
+and four Web gates passed. DeferredFake/RecordingMedia doubles exercise existing mock
+adapter effects; no genuine engine/network/audio boundary was crossed.
+
+Listener intent remains distinct from observed fake-engine state; stale source/
+generation callbacks cannot replace newer intent. Root player construction stays
+above route leaves. Synthetic catalog/episode keys, session-only progress,
+queue/bookmark/saved-work/history separation and explicit mock versus unsupported-live
+roots remain intact. No publication identity, persistent synchronization, Theatre
+API, real browser/native audio or completed-listen feature was invented. Existing
+Theatre Kani harnesses remain unregistered/NOT_RUN; their bodies are unchanged.
+
+## Phase 3: targeted verifier checkpoint
+
+`cargo xtask verify kani` now owns three registered exact API-library kernels,
+with repeated typed `--harness` subset selection; omission selects all three.
+Only explicit `preflight --kani` opts in. Normal builds, `verify rust`, ordinary
+full preflight, CI and merged PR77 service lifecycle remain unchanged. Pure
+changed-input selection narrows kernel owners and conservatively broadens
+shared/uncertain inputs. Missing/incompatible tools are UNSUPPORTED; skips or
+stopped later rows are NOT_RUN; incomplete/zero/wrong harness evidence, failed
+checks/covers, unexpected unreachability or input/lock changes FAIL.
+
+The installed absolute Kani bundle driver is used directly in cargo-plugin mode,
+with fixed versions/model and no installer/setup, download or default toolchain
+change. Rust binds the same exact bounded configuration buffer it parses and
+hashes, including absent Cargo-config candidates. Python checks that approved
+candidate identity before probing/proof and on every outcome. Configuration
+consumption stops at 1 MiB + 1; child output is capped at 4 MiB and proof execution
+at 900 seconds. Cleanup signals only the owned process group before reaping its
+leader. Model-source hashing streams bounded-memory chunks but has no total
+source-size cap; endpoint identities assume frozen inputs and do not isolate
+against concurrent mutate-and-restore edits.
+
+Fifty-six focused xtask tests and 73 Python synthetic parser/configuration/process
+tests passed; repository verification passed 298 tests and all 18 skills. Those
+fixtures are ordinary tests, not proofs. Actual `cargo xtask verify kani` reran
+all three production harnesses after review repairs and after fresh-develop
+integration: Catalog 100 checks/6 covers, WAV 20/7, submission window 10/8, all
+PASS with lock/config/model identities unchanged. The [proof record](kani.md)
+binds raw logs, metadata, exact invocation and model/version limits. Targeted
+review findings in approval freshness, relative bundle paths and Rust read
+allocation were fixed/reviewed; paired Python total configuration consumption
+was capped too. The final targeted source review has no actionable finding.
+
+## Final six-crate invariant ledger
+
+This is the current enforcement/evidence projection. The initial inventory and
+all dated execution records above remain historical, with their original bases
+and outcomes. `TYPE_ENFORCED` means safe public construction barriers, not
+formal authority; `RUNTIME_VALIDATED` means actual production admission. Example,
+compile-fail and bounded-exhaustive tests remain distinct from random properties
+and actual model-checking. No crate receives a whole-program proof label.
+
+| Crate / owning invariants | Implemented enforcement and independently executed evidence | Residual runtime obligation / bounds |
+| --- | --- | --- |
+| `cantos-contracts` — W1–W4 | Existing strict DTO/codec decoder retained; all Content variants, integer bounds, unknown/nested fields, exact prefix/trailing-byte and PATCH distinctions tested in 61 package cases and the contract gates. Raw serde values are deliberately not domain witnesses. | HTTP size/admission/current authority remains API-owned; no widened MessagePack route scope, fuzz/formal or network claim. |
+| `cantos-ui` — U1–U5 | Private nonblank reason/name types and closed control-state enums retained; exhaustive action/field projection with complete state matrices; 53 tests including compile-fail barriers, native rendering and Web compilation. No justified new rendering abstraction. | Live DOM ID uniqueness, focus/keyboard, contrast/pixels, screen reader/reduced motion and genuine IME remain separate acceptance; no rendering Kani. |
+| `cantos-api` — C1–C5, I1/I2, S1–S3, E1/A1/P1/M1/M2/D1 | Sealed storage-bounded revisions, admitted immutable import, existing sealed Script IR, positive editorial reconstruction, consumed bound adaptation source, current-owner planning witness, storage-bounded rights successor, submission lifetime/clock/replay bindings, checked WAV range and atomic experimental count/page transitions. Compile-fail/example/fixed-seed independent properties and actual three-kernel Kani results recorded above and in [proof record](kani.md). | SQL/current ownership/rights/head/time/revocation/constraints/byte object authenticity and transactions remain rechecked at actual shells. PostgreSQL NOT_RUN after denied startup. DBSP opt-in only, no live consumer; publication always unimplemented. Only three 64-bit local kernels model-checked. |
+| `cantos-studio` — F1/F2 | Private single exchange and immutable retry provenance; real DTO-available reply binding; ambiguous operation retention through later denial; exact save-finding snapshot guard. 166 unit + one compile-fail test, five fail-before regressions, adapter fixture checks and native/WASM/Web checks. Adequate existing client validation/projections retained. | Raw projection/echo gaps and current backend auth remain explicit. Browser lifetime/cookies/receipt reconciliation/revision conflicts, Vietnamese IME/native buffer and accessibility NOT_RUN. No client authorization witness or whole-UI proof. |
+| `cantos-theatre` — T1/T2 | Private admitted resume checkpoints, private probe state, immutable checked transitions before transport abort; existing intent/engine, stale-event and root lifetime boundaries retained. 86 unit + three compile-fail tests after PR83 integration; exact fail-before checks, independent finite retention oracle, mock adapters and unchanged shared vectors. | Synthetic/session-only mock model; unsupported live boundary. Browser abort/unmount, release identity/storage/CDN/auth/audio/native/persistence NOT_RUN or unimplemented. Two existing Theatre Kani sources NOT_RUN. |
+| `xtask` — X1/X2 | Registered typed opt-in Kani gate selection and fixed model/tool compatibility, strict evidence validation, lock/input identities and owned bounded subprocess cleanup. Ordinary default full/build/CI and merged service lifecycle commands retained. 56 focused xtask + 73 Python tests PASS; repository 298 PASS. The separate full-workspace Rust gate still fails in 17 unchanged service fixtures. | Ordinary parser/pipeline tests are not proofs. Missing/incompatible prerequisites are UNSUPPORTED; skips/stopped later gates NOT_RUN. Actual workspace service-fixture failures remain unresolved; no security guard weakened or mandatory paid/proof CI lane. |
+
+## Final execution and remaining acceptance
+
+On the integrated Rust/Web source, `cargo xtask verify rust` with
+`RUST_TEST_THREADS=1` passes formatting and warnings-denied workspace Clippy,
+then **FAILS** workspace tests: 799 passed, 17 failed, 136 ignored; later doctests
+are not reached by that command. All 17 fail in unchanged upstream service
+fixtures at the same private-input/Git-ancestor guard observed and reproduced
+against clean develop in phase2. No guard, fixture root or assertion was weakened.
+The earlier phase2 full result (742 passed/18 failed/136 ignored) remains actual
+historical FAIL. Its port post-drop assertion passes this serial run and two
+focused repeats; the cause remains unconfirmed, not a proven socket denial.
+
+Independent `cargo xtask verify contracts` passes all four gates, including actual
+synthetic-byte audio cases. `cargo xtask verify dbsp` passes its optional feature
+suite and ten compile-fail checks; DBSP remains unadopted by live domain consumers.
+The integrated Web four gates, repository 298, Theatre 86+3 and actual Kani three gates pass independently.
+A separate `cargo test --workspace --doc --locked` passes all 16 compile-fail
+checks (API 10, UI 2, Studio 1, Theatre 3), after the full Rust command stopped before
+doctests. The default API scope therefore has 311 passed executable tests plus
+10 separately passed construction barriers; optional DBSP has 326 total passed,
+136 ignored. These counts are scoped, not one aggregate all-green workspace.
+
+The required final changed-only preflight explicitly opts into Kani and skips
+only PostgreSQL and the two excluded/missing-Gradle CMP gates:
+
+```sh
+RUST_TEST_THREADS=1 cargo xtask preflight --changed-only --base origin/develop \
+  --kani --skip postgres --skip cmp-ui-preview --skip theatre-cmp-demo
+```
+
+It **FAILS** at the same 17 workspace service fixtures: repository 298, rust-format,
+Script IR reference and workspace lint PASS; rust-tests FAIL. DBSP, WAV/audio,
+Web/preview, mutation and the three Kani rows are NOT_RUN in that preflight because
+execution stopped. CMP and PostgreSQL are NOT_RUN by explicit skip. The separately
+executed contracts/DBSP/Web/Kani results above remain independent PASS, never a
+rewritten preflight status. Mutation was not rerun in phase3; the unchanged Script
+IR validator retains its separately recorded phase1 campaign, not a new claim.
+
+PostgreSQL is NOT_RUN after the previously denied Unix-socket startup, including
+reviewed escalation. No alternate startup/guard bypass was attempted. CMP is
+outside this hardening scope; merged PR85 is retained upstream, with no added
+CMP implementation or runtime acceptance. Builds and mock/native string tests
+are compilation/test evidence, not new browser, pixels, IME or audio acceptance.
+
+All eleven planned implementation/audit steps are delivered in their ordered
+history; adequate audited boundaries were retained rather than given empty
+commits, phantom wrappers or new runtime rules. PR75 contains merged 1–4 and the
+user-approved follow-on [PR81](https://github.com/loveoverflowcom/cantos/pull/81)
+contains 5–11. Implementation completion does not mean all acceptance passed.
+Fresh-develop integration and exact final identities are recorded separately in
+the PR/handoff; the feature PR is not merged into develop by this task. One new
+Ultra review is queued after this phase.
+
+Only the named core/test/proof scopes earn `CORE_VERIFIED`; real SQL/API/browser/
+device acceptance remains `IO_ACCEPTANCE_PENDING`. There is no overall PASS
+while the recorded Rust gate fails or required integration is unrun. Owners for
+blocked acceptance are unassigned and must be assigned before accepting it:
+
+1. Run disposable `cargo xtask verify postgres` in an environment permitting its
+   documented socket startup; require actual migrations/constraints/current
+   authorization/transaction/replay/corruption results. Do not bypass the denial.
+2. Resolve the upstream service-fixture environment and intermittent post-drop
+   port assertion without weakening private-input guards, then rerun full Rust.
+3. Exercise actual Studio/browser async/cookie/conflict/IME scenarios and Theatre
+   probe cancellation/unmount. Real listener implementation/publication/audio/
+   native acceptance remains future product work, not this mock hardening.
+
+Remote CI was neither inspected, dispatched nor polled. No screenshot,
+production/provider acceptance, real listening, persistent access, default
+production toolchain change or backend authorization duplication is claimed.

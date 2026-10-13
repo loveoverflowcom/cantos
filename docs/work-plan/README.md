@@ -58,13 +58,23 @@ backend sequence above is unchanged.
 
 ## Existing foundations to retain
 
-The [domain assurance hardening](../assurance/domain-invariants.md) inventories
-and strengthens existing boundaries in [Draft PR75](https://github.com/loveoverflowcom/cantos/pull/75).
-Phase 1 covers contracts, shared UI and Catalog/ingestion/Script IR. Next, audit
-editorial/production and media/incremental before bounded production-kernel Kani
-verification; the final phase covers client state and the opt-in verifier workflow.
-GitHub owns execution status. This correctness work does not complete broader
-Studio acceptance, rights/QC, publication or listener implementation.
+The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
+existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
+merged ordered steps 1–4; the user-approved follow-on
+[PR81](https://github.com/loveoverflowcom/cantos/pull/81) delivers 5–11: actual
+editorial/production/media/incremental consumers, typed client state and the
+opt-in three-kernel verifier workflow. The [proof record](../assurance/kani.md)
+binds actual execution to its versions/inputs/bounds; current skills describe only
+implemented rules. Adequate audited boundaries were retained without empty commits
+or speculative wrappers. GitHub owns publication/review status.
+
+Implementation delivery and named core evidence do not complete broader Studio
+acceptance, rights/QC, publication or listener implementation. Real PostgreSQL
+acceptance remains unrun after denied disposable startup; the full Rust gate still
+fails in upstream service fixtures, with the original port flake retained separately.
+Next owners must resolve/recheck those environments without weakening private-input
+guards, then perform the existing browser/IME/cookie/conflict and listener acceptance.
+No broader product feature or CMP refactor is introduced by this assurance work.
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation
 proposal review, production metadata/rights, pure WAV inspector, shared UI system,
