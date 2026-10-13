@@ -6,6 +6,7 @@ mod ids;
 mod metadata;
 mod patch;
 mod reorder;
+mod revision;
 mod unit;
 mod work;
 

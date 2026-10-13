@@ -692,3 +692,31 @@ fn repeated_pronunciation_matches_keep_exact_diagnostics_at_the_array_bound() {
         );
     }
 }
+
+mod admission_properties {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 128, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_015), ..ProptestConfig::default() })]
+        #[test]
+        fn generated_unicode_drafts_have_one_reconstructible_canonical_identity(
+            chunks in proptest::collection::vec(prop::sample::select(vec!["Á", "A\u{301}", "Đ", "a", " ", "\n", "\r\n", "\t", "🎭", "\u{200b}", "\u{feff}"]), 0..64)
+        ) {
+            let mut raw = load("accept/two-scenes.json");
+            let text = format!("Ngày {}", chunks.concat());
+            raw["episode"]["acts"][0]["scenes"][0]["dialogues"][0]["text"] = json!(text);
+            let admitted = admit(&raw);
+            let canonical = admitted.export_bytes();
+            let restored = read_canonical_script(&canonical).unwrap();
+            prop_assert_eq!(&canonical, &restored.export_bytes());
+            prop_assert_eq!(admitted.content_digest(), restored.content_digest());
+            prop_assert_eq!(speech(&admitted), speech(&restored));
+            let decomposed = text.nfd().collect::<String>();
+            raw["episode"]["acts"][0]["scenes"][0]["dialogues"][0]["text"] = json!(decomposed);
+            let equivalent = admit(&raw);
+            prop_assert_eq!(&canonical, &equivalent.export_bytes());
+        }
+    }
+}

@@ -22,6 +22,10 @@ impl WorkId {
 }
 
 /// Immutable chapter or episode identity; cannot be substituted for a work ID.
+/// ```compile_fail,E0308
+/// use cantos_api::contexts::catalog::domain::{ContentUnitId, WorkId};
+/// let unit: ContentUnitId = WorkId::parse("00000000-0000-0000-0000-000000000001").unwrap();
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct ContentUnitId(String);
