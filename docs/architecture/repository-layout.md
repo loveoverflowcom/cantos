@@ -36,6 +36,7 @@ apps/
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
+  cantos-forge/            Producer-side CLI, outside the API runtime (package cantos-forge) FOUNDATION
 services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
@@ -62,6 +63,10 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   authenticate through Kanidm: the API still uses operator-issued development tokens.
+- **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
+  [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core and
+  a `capabilities` command. It has no workflow command, provider, network client or handoff yet,
+  and it is not a Studio or Theatre client.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 
@@ -93,7 +98,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 - `packages/` imports neither `apps/` nor `services/`. An app never imports another app, and an app
   never links `services/` code; the browser or phone talks to the API over HTTP, so no server crate
-  enters a WASM dependency graph.
+  enters a WASM dependency graph. Cantos Forge follows the same rule: a future handoff uses HTTP
+  and producer credentials, and the API never spawns or waits for Forge. `cargo test -p xtask`
+  checks that every workspace dependency edge points inward.
 - **Studio and Theatre stay separate.** Each has its own UI, routes, session and permission
   context. A listener request must never reach a Studio route and a Studio screen must not ship in
   the Theatre bundle. Enforcement stays in the backend: private drafts, voice assets and previews
@@ -138,11 +145,12 @@ Not shared, deliberately:
 
 ## Cargo workspace
 
-The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its own.
+The root `Cargo.toml` lists seven members and one `Cargo.lock`. Each builds on its own.
 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
+| `apps/cantos-forge` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |
@@ -159,6 +167,7 @@ Trunk and refuses reserved surfaces instead of simulating them.
 
 ```sh
 cargo xtask build cantos-api           # service binaries (native)
+cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web session-only mock through Trunk
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent

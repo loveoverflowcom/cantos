@@ -8,7 +8,7 @@ use clap::ValueEnum;
 
 use crate::{
     command::CommandSpec,
-    config::{App, API_PACKAGE, DBSP_FEATURE, THEATRE_MOBILE_DIR},
+    config::{App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, THEATRE_MOBILE_DIR},
     pipeline::Step,
     tools::Tool,
     workspace::Workspace,
@@ -18,12 +18,14 @@ use crate::{
 pub enum BuildTarget {
     /// The Axum/PostgreSQL backend and its CLIs (`services/cantos-api`).
     CantosApi,
+    /// Cantos Forge, the producer-side CLI (`apps/cantos-forge`); runs outside the API.
+    CantosForge,
     /// Cantos Studio, the creator product (`apps/cantos-studio`).
     CantosStudio,
     /// Cantos Theatre, the listener product (`apps/cantos-theatre`).
     #[value(alias = "cantos")]
     CantosTheatre,
-    /// The API plus every implemented Web client.
+    /// The API, the Forge CLI and every implemented Web client.
     All,
 }
 
@@ -68,6 +70,7 @@ impl Profile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
     Api,
+    Forge,
     Web(App),
 }
 
@@ -82,7 +85,7 @@ pub fn app_of(target: BuildTarget) -> Option<App> {
     match target {
         BuildTarget::CantosStudio => Some(App::Studio),
         BuildTarget::CantosTheatre => Some(App::Theatre),
-        BuildTarget::CantosApi | BuildTarget::All => None,
+        BuildTarget::CantosApi | BuildTarget::CantosForge | BuildTarget::All => None,
     }
 }
 
@@ -113,13 +116,15 @@ pub fn resolve(target: BuildTarget, surface: Option<Surface>) -> Result<Vec<Unit
     match (target, app_of(target)) {
         (_, Some(app)) => app_surface(app, surface).map(|()| vec![Unit::Web(app)]),
         (BuildTarget::CantosApi, None) if surface.is_none() => Ok(vec![Unit::Api]),
+        (BuildTarget::CantosForge, None) if surface.is_none() => Ok(vec![Unit::Forge]),
         (BuildTarget::All, None) if surface.is_none() => Ok(vec![
             Unit::Api,
+            Unit::Forge,
             Unit::Web(App::Studio),
             Unit::Web(App::Theatre),
         ]),
         _ => Err(Refusal::Usage(
-            "--web/--mobile select an app surface; cantos-api and all take no surface flag".into(),
+            "--web/--mobile select an app surface; cantos-api, cantos-forge and all take no surface flag".into(),
         )),
     }
 }
@@ -145,6 +150,13 @@ pub fn api_binaries(workspace: &Workspace, profile: Profile, bin: Option<&str>) 
     command.arg_if(profile == Profile::Release, "--release")
 }
 
+/// `cargo build --locked -p cantos-forge --bins [--release]`. Building never runs Forge.
+pub fn forge_binary(workspace: &Workspace, profile: Profile) -> CommandSpec {
+    CommandSpec::new("cargo", workspace.root())
+        .args(["build", "--locked", "-p", FORGE_PACKAGE, "--bins"])
+        .arg_if(profile == Profile::Release, "--release")
+}
+
 pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> Step {
     match unit {
         Unit::Api => Step::new(
@@ -155,6 +167,11 @@ pub fn step(workspace: &Workspace, unit: Unit, profile: Profile, dbsp: bool) -> 
                     .into_iter()
                     .flatten(),
             )],
+        ),
+        Unit::Forge => Step::new(
+            format!("build {FORGE_PACKAGE} ({})", profile.label()),
+            &[Tool::Cargo],
+            vec![forge_binary(workspace, profile)],
         ),
         Unit::Web(app) => Step::new(
             format!("build {} --web ({})", app.cli_name(), profile.label()),
@@ -234,6 +251,29 @@ mod tests {
     }
 
     #[test]
+    fn forge_builds_its_cli_with_cargo_and_takes_no_surface() {
+        assert_eq!(
+            lines(BuildTarget::CantosForge, None, Profile::Dev),
+            ["cargo build --locked -p cantos-forge --bins"]
+        );
+        assert_eq!(
+            lines(BuildTarget::CantosForge, None, Profile::Release),
+            ["cargo build --locked -p cantos-forge --bins --release"]
+        );
+        for surface in [Surface::Web, Surface::Mobile] {
+            assert!(matches!(
+                resolve(BuildTarget::CantosForge, Some(surface)),
+                Err(Refusal::Usage(message)) if message.contains("cantos-forge")
+            ));
+        }
+        let workspace = Workspace::discover().unwrap();
+        assert!(matches!(
+            plan(&workspace, BuildTarget::CantosForge, None, Profile::Dev, true),
+            Err(Refusal::Usage(message)) if message.contains("only to cantos-api")
+        ));
+    }
+
+    #[test]
     fn web_targets_build_with_trunk_in_their_own_directory() {
         assert_eq!(
             lines(
@@ -250,10 +290,15 @@ mod tests {
     }
 
     #[test]
-    fn all_builds_the_api_and_both_web_clients_but_no_mobile() {
+    fn all_builds_the_api_forge_and_both_web_clients_but_no_mobile() {
         assert_eq!(
             resolve(BuildTarget::All, None).unwrap(),
-            [Unit::Api, Unit::Web(App::Studio), Unit::Web(App::Theatre)]
+            [
+                Unit::Api,
+                Unit::Forge,
+                Unit::Web(App::Studio),
+                Unit::Web(App::Theatre)
+            ]
         );
     }
 

@@ -63,6 +63,7 @@
 | [Decision 0015](decisions/0015-api-surface-boundaries.md) | Proposed: `apps/cantos-theatre` naming and `studio`/`theatre`/`admin` API route groups |
 | [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Proposed: position-free speech fingerprint, verified clip registry and attempt-less reuse, regeneration plan |
 | [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Historical opt-in local DBSP TTS job-summary experiment (runtime adapter retired); production adoption gated |
+| [Decision 0022](decisions/0022-cantos-forge-producer-cli.md) | Proposed: Cantos Forge, a producer-side CLI outside the API runtime; API/Studio/Theatre still never execute generation |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |

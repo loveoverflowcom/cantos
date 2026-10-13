@@ -828,6 +828,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cantos-forge"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "cantos-studio"
 version = "0.1.0"
 dependencies = [

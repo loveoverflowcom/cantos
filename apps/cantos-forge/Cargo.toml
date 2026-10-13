@@ -1,0 +1,20 @@
+[package]
+name = "cantos-forge"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.87"
+publish = false
+description = "Producer-side Cantos Forge CLI: local production records outside the Cantos API runtime"
+
+[dependencies]
+clap = { version = "=4.6.7", features = ["derive"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+sha2 = "=0.10.9"
+
+[dev-dependencies]
+proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
+
+[[bin]]
+name = "cantos-forge"
+path = "src/main.rs"

@@ -54,7 +54,7 @@ pub enum Task {
     Services(crate::services::ServicesArgs),
     /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.
     ComposePreview(ComposePreviewArgs),
-    /// Build a target with Cargo (API) or Trunk (Web); dev profile unless --release.
+    /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]
         target: BuildTarget,
@@ -203,6 +203,14 @@ mod tests {
             Task::Build {
                 target: BuildTarget::CantosApi,
                 dbsp_experimental: true,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("build cantos-forge --release").unwrap(),
+            Task::Build {
+                target: BuildTarget::CantosForge,
+                release: true,
                 ..
             }
         ));

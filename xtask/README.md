@@ -29,9 +29,10 @@ container infrastructure; build/test/run/preflight never do.
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
 cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
+cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
-cargo xtask build all [--release]                  # the API and both Web clients
+cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
 cargo xtask run cantos-studio --web [--test-cluster] [--open]
@@ -63,13 +64,16 @@ cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composabl
 
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) is web-only: pass
+`cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
+([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
+xtask only builds it: no `run`, gate or CI job executes Forge, and Forge calls no provider.
+`cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
 Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
 `UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
-out-of-scope directory. `build all` covers the API and both Web clients and notes that Theatre
+out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
 Mobile and `services/kanidm` (configuration only) are not built. See the
 [platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
