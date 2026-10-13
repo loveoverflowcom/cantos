@@ -663,3 +663,62 @@ impl ReleaseCandidate {
         &self.raw
     }
 }
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::{AudioError, SubmissionWindow, MAX_SUBMISSION_LIFETIME_MS};
+
+    /// Proposition: the retained window admits exactly nonnegative creation and a positive
+    /// lifetime <=24h, including machine-width rejection edges; membership is [created,expires).
+    /// Domain: three independent full symbolic i64 timestamps. Assumptions/stubs: none.
+    /// Unwind: 2; no business loop. Calls production SubmissionWindow::{new,contains}, consumed
+    /// by submission creation/restoration, rendition restoration and transaction decisions.
+    /// This proves no current SQL clock, authorization, revocation, digest or publication fact.
+    #[kani::proof]
+    #[kani::unwind(2)]
+    fn submission_window_admission_and_membership() {
+        const SPEC_MAX_LIFETIME_MS: i128 = 86_400_000;
+        assert_eq!(i128::from(MAX_SUBMISSION_LIFETIME_MS), SPEC_MAX_LIFETIME_MS);
+        let created: i64 = kani::any();
+        let expires: i64 = kani::any();
+        let now: i64 = kani::any();
+        let duration = i128::from(expires) - i128::from(created);
+        let admissible = created >= 0 && duration > 0 && duration <= SPEC_MAX_LIFETIME_MS;
+        match SubmissionWindow::new(created, expires) {
+            Ok(window) => {
+                assert!(admissible);
+                assert_eq!(window.created_at, created);
+                assert_eq!(window.expires_at, expires);
+                assert_eq!(window.contains(now), created <= now && now < expires);
+            }
+            Err(AudioError::InvalidExpiry) => assert!(!admissible),
+            Err(_) => assert!(false, "unexpected window admission error"),
+        }
+        kani::cover!(created < 0, "negative creation rejected");
+        kani::cover!(
+            duration > i128::from(i64::MAX),
+            "subtraction overflow rejected"
+        );
+        kani::cover!(created >= 0 && duration == 0, "zero lifetime rejected");
+        kani::cover!(
+            created >= 0 && duration > SPEC_MAX_LIFETIME_MS,
+            "overlong lifetime rejected"
+        );
+        kani::cover!(
+            admissible && duration == SPEC_MAX_LIFETIME_MS,
+            "maximum lifetime accepted"
+        );
+        kani::cover!(
+            admissible && now == created,
+            "inclusive creation instant accepted"
+        );
+        kani::cover!(
+            admissible && now == expires,
+            "exclusive expiry instant rejected"
+        );
+        kani::cover!(
+            admissible && expires == i64::MAX,
+            "near maximum timestamp admitted"
+        );
+    }
+}

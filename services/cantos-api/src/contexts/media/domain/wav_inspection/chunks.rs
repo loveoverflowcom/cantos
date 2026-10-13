@@ -238,3 +238,50 @@ mod range_tests {
         }
     }
 }
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::payload_range;
+
+    /// Proposition: a range exists iff widened header/payload ends fit u64 and the actual
+    /// platform-sized buffer length, and its endpoints equal those widened byte positions.
+    /// Domain: full u64 offset, u32 payload size and target usize length. Assumptions/stubs:
+    /// none. Unwind: 2; no business loop. Calls the real kernel used by ChunkFacts::payload.
+    /// This establishes range arithmetic, not RIFF structure, PCM correctness or audio QC.
+    #[kani::proof]
+    #[kani::unwind(2)]
+    fn wav_payload_range_is_checked() {
+        let offset: u64 = kani::any();
+        let size: u32 = kani::any();
+        let length: usize = kani::any();
+        let start = u128::from(offset) + 8;
+        let end = start + u128::from(size);
+        let admissible = end <= u128::from(u64::MAX) && end <= length as u128;
+        let range = payload_range(offset, size, length);
+        assert_eq!(range.is_some(), admissible);
+        if let Some(range) = range {
+            assert_eq!(range.start as u128, start);
+            assert_eq!(range.end as u128, end);
+            assert!(range.start <= range.end && range.end <= length);
+        }
+        kani::cover!(admissible && size > 0, "nonempty accepted range");
+        kani::cover!(admissible && size == 0, "empty accepted range");
+        kani::cover!(
+            admissible && end == length as u128,
+            "exact buffer end accepted"
+        );
+        kani::cover!(start > u128::from(u64::MAX), "header overflow rejected");
+        kani::cover!(
+            start <= u128::from(u64::MAX) && end > u128::from(u64::MAX),
+            "payload overflow rejected"
+        );
+        kani::cover!(
+            end <= u128::from(u64::MAX) && end > length as u128,
+            "buffer overrun rejected"
+        );
+        kani::cover!(
+            admissible && size == u32::MAX,
+            "maximum payload admitted when it fits"
+        );
+    }
+}

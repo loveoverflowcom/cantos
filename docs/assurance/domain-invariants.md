@@ -410,3 +410,73 @@ Final commit-6 incremental/property retest: all 20 focused incremental tests PAS
 Repository verification PASS with 225 Python cases; final Rust format/diff checks PASS. Independent
 source review found no actionable defect and explicitly limited Page evidence to the starting
 frontier. PostgreSQL integration remains the separate blocked acceptance obligation.
+
+## Phase 2: bounded proof checkpoint
+
+C2 / M2 / M1 gain only the specific `KANI_VERIFIED` propositions in
+[the executed Kani record](kani.md): production Catalog revision admission/successor,
+WAV payload-range arithmetic and submission-window admission/membership.
+Kani 0.68.0 / CBMC 6.11.0 ran all three actual production kernels on full-width
+symbolic inputs, no assumptions or stubs, unwind 2 with checks enabled.
+All 21 reachability covers were satisfied; no assertion or unwinding check failed.
+Source identities, exact commands, reachable edge classes and intentional
+unreachable error branches are recorded there. This is `bounded-model-checked`,
+not a proof of transaction authority or the entire lifecycle/parser.
+
+The verifier is isolated from normal Rust 1.87.0 and introduces no runtime
+proof dependency or lock change. xtask adoption remains ordered commit 10;
+existing Theatre Kani harnesses are not executed by this checkpoint.
+SQL integration is still NOT_RUN because socket startup was denied; current
+authorization/time/rights/revocation/storage acceptance remains a shell obligation.
+
+### Delivery boundary update
+
+During phase 2, PR #75 was externally merged with only ordered commits 1–4
+(merge `a321a3fdc9dd291a8e45b44df33bc9536e991319`). A merged PR cannot accept
+additional commits. The user explicitly approved one follow-on Draft PR for
+ordered commits 5–11 and the later separate Ultra review. This supersedes the
+original single-PR delivery plan above; it changes no assurance or merge gate.
+The phase-2 handoff requires rebasing onto fresh `develop`, retaining the already
+merged phase-1 work and updated skills/service-runtime changes. The task does not merge
+the follow-on PR into `develop`.
+
+### Phase-end independent gate record
+
+The fresh-develop rebase preserves merged phase-1 work, service-runtime changes
+and the updated layered-verification / diagnostics skills. The three exact Kani
+kernels were rerun after the first rebase; the subsequent diagnostics-only base
+advance changes no Rust source, Cargo manifest/lock or proof configuration.
+[The proof record](kani.md) binds both the executed model and that comparison.
+
+`cargo xtask verify rust` actually ran after the rebase: workspace formatting and
+warnings-denied clippy **PASS**, workspace tests **FAIL** (742 passed, 18 failed,
+136 ignored; Cargo stops before later doctests). All API test executables completed
+successfully before the upstream xtask failures. Seventeen service-fixture tests
+reject the existing read-only `/tmp/.git` ancestor. One representative test on
+clean detached `develop` `782793dcee86b10211e6090b419a8e6fcba967fb` reproduces
+that exact rejection before runtime effects; the private-input guard and test
+are unchanged by this phase. This is pre-existing / environment-triggered,
+not a passing gate and not permission to weaken the private-input guard.
+The eighteenth failure is the unchanged port-ownership test's post-drop
+`port_is_free` assertion, not an observed initial-bind EPERM. Its precise cause
+is not established by that output. Focused diagnostic results remain separate;
+no later pass erases the original workspace failure.
+
+Disposable PostgreSQL integration remains NOT_RUN after the earlier denied
+socket startup. Full-workspace / upstream xtask acceptance and real SQL
+acceptance remain explicit obligations; only the named passed core/proof scopes
+are handed off as verified. Owner: unassigned — assignment required before
+acceptance. No temporary instrumentation, permission change, cache cleanup,
+container start or security-guard bypass is part of this diagnostic handoff.
+
+After the final docs-only base advance, `cargo xtask verify contracts` passed all
+four gates. `cargo xtask preflight --changed-only --base origin/develop --skip postgres`
+passed seven applicable gates: repository (225 Python tests), Rust format,
+API lint/tests (321 passed, 136 ignored including unrun SQL), optional DBSP
+(326 passed, 136 ignored), independent WAV reference and actual-byte audio
+inspection (two explicitly executed Opus cases). PostgreSQL stays **NOT_RUN**,
+explicitly skipped for the earlier denial. These independent passed scopes do
+not supersede the separately recorded full-workspace **FAIL** above.
+Two focused isolated port-test repetitions passed; its original full-suite
+failure and unconfirmed cause are still recorded. Diagnostic worktrees/processes
+were cleaned up, and no temporary instrumentation remained.
