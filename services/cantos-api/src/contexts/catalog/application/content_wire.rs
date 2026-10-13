@@ -154,3 +154,55 @@ pub fn summary(value: &ContentRevision) -> Result<dto::ContentRevisionSummary, C
         recorded_at: value.recorded_at(),
     })
 }
+
+#[cfg(test)]
+mod properties {
+    use proptest::prelude::*;
+
+    use super::*;
+    use unicode_normalization::UnicodeNormalization;
+
+    fn revision(text: &str) -> ContentRevision {
+        ContentRevision::new(ContentRevisionFacts {
+            id: ContentRevisionId::parse("00000000-0000-0000-0000-000000000001").unwrap(),
+            work_id: WorkId::parse("00000000-0000-0000-0000-000000000002").unwrap(),
+            unit_id: ContentUnitId::parse("00000000-0000-0000-0000-000000000003").unwrap(),
+            revision: 1,
+            details: ContentDetails::new(
+                "vi-VN".into(),
+                ContentBody::Text {
+                    text: ManuscriptText::new(text).unwrap(),
+                    source: None,
+                },
+                vec![],
+                "Synthetic property fixture".into(),
+            )
+            .unwrap(),
+            recorded_by: OwnerId::parse("lan").unwrap(),
+            recorded_at: 1000,
+        })
+        .unwrap()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 128, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_014), ..ProptestConfig::default() })]
+        #[test]
+        fn canonical_text_reconstruction_is_idempotent_and_nfd_invariant(
+            chunks in proptest::collection::vec(prop::sample::select(vec!["Á", "A\u{301}", "Đ", "a", " ", "\n", "\r", "\r\n", "\t", "🎭", "\u{344}"]), 0..64)
+        ) {
+            let raw = format!("Ngày {}", chunks.concat());
+            let text = ManuscriptText::new(&raw).unwrap();
+            let again = ManuscriptText::new(text.as_str()).unwrap();
+            prop_assert_eq!(&text, &again);
+            prop_assert!(!text.as_str().contains('\r'));
+            let decomposed = raw.nfd().collect::<String>();
+            let first = revision(&raw);
+            let equivalent = revision(&decomposed);
+            prop_assert_eq!(&first, &equivalent);
+            let dto = response(&first).unwrap();
+            let reconstructed = restore(dto).unwrap();
+            prop_assert_eq!(&first, &reconstructed);
+            prop_assert_eq!(first.revision_digest().unwrap(), reconstructed.revision_digest().unwrap());
+        }
+    }
+}

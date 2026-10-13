@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Fifteen skills shared by every agent runtime in this repository: eight **rule owners** and seven
+Seventeen skills shared by every agent runtime in this repository: eight **rule owners** and nine
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -26,6 +26,8 @@ task entrypoints (own a workflow and a report, never a rule):
 cantos-work-item                   ← deliver one work-plan item or issue end to end
 cantos-code-review                 ← read-only, assurance-first review of an existing change
 cantos-ui-inspector                ← report-only UI/UX inspection with reusable scenarios
+cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
+cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
 cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
 cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
 cantos-audio-produce               ← reviewed score → final audio + production evidence
@@ -100,6 +102,16 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | implementing a work-plan item or GitHub issue from plan to pull request | [`cantos-work-item`](cantos-work-item/SKILL.md) |
 | reviewing a PR, commit range, patch or local diff without editing | [`cantos-code-review`](cantos-code-review/SKILL.md) |
 | auditing UI/UX and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
+| repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
+| repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
+
+The two focused-fix entrypoints locate the existing invariant owner and deliver minimal repairs
+with independent L1–L5 results; they add no rule owner or outward-action authority. Correct
+domain/API facts displayed incorrectly stay in UI presentation; wrong domain errors/transitions
+go to logic. Review-only tasks keep the reviewer/inspector read-only/report-only. Missing I/O can
+leave named core work independently verified, never hide an actual regression failure or establish
+database/device semantics. Wider architecture, schema/API, security, durability or redesign work
+escalates through `cantos-work-item` and its owners.
 
 The four story artifact entrypoints share [one workspace contract](../../docs/production/story-workspace.md),
 including the configured Drive root, local fallback, indexes and recovery issues. `score/` uses

@@ -3,10 +3,10 @@
 use cantos_contracts::{ImportRequest, ImportResponse, SourceResponse};
 use uuid::Uuid;
 
-use super::domain::extraction::{extract, MAX_SOURCE_BYTES};
+use super::domain::extraction::extract;
 use super::domain::receipt::{
-    field_issue, legacy_source_intact, metadata_issues, original_text, receipt_digest, sha256_hex,
-    source_id_valid,
+    legacy_source_intact, original_text, receipt_digest, sha256_hex, source_id_valid,
+    AdmittedImport,
 };
 use super::postgres;
 use crate::contexts::editorial::{authorize, register_evidence, Action, EvidenceKind};
@@ -20,30 +20,23 @@ impl Store {
         token: &str,
         request: ImportRequest,
     ) -> Result<ImportResponse, StoreError> {
-        let mut issues = metadata_issues(&request.metadata);
-        if request.original_bytes.len() > MAX_SOURCE_BYTES {
-            issues.push(field_issue("/original_bytes", "byte_length"));
-        }
-        if !issues.is_empty() {
-            return Err(StoreError::InvalidRequestFields(issues));
-        }
-        let sha256 = sha256_hex(&request.original_bytes);
-        let outcome = extract(&request.original_bytes, request.metadata.format);
-        let import_digest = receipt_digest(&request.metadata, &outcome, &sha256)
+        let request =
+            AdmittedImport::try_from(request).map_err(StoreError::InvalidRequestFields)?;
+        let sha256 = sha256_hex(request.bytes());
+        let outcome = extract(request.bytes(), request.metadata().format);
+        let import_digest = receipt_digest(request.metadata(), &outcome, &sha256)
             .map_err(|_| StoreError::CorruptRevision)?;
-        let metadata_json =
-            serde_json::to_string(&request.metadata).map_err(|_| StoreError::InvalidRequest)?;
         let outcome_json = serde_json::to_string(&outcome).map_err(|_| StoreError::Unavailable)?;
-        let original_text = original_text(&request.original_bytes);
+        let original_text = original_text(request.bytes());
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
         postgres::lock_actor_imports(&tx, &actor).await?;
         authenticate(&tx, token).await?;
         if let Some((prior, bytes)) =
-            postgres::import_by_operation(&tx, &actor, &request.metadata.operation_id).await?
+            postgres::import_by_operation(&tx, &actor, &request.metadata().operation_id).await?
         {
-            if bytes != request.original_bytes || prior.metadata != request.metadata {
+            if bytes != request.bytes() || prior.metadata != *request.metadata() {
                 return Err(StoreError::OperationReused);
             }
             tx.commit().await?;
@@ -63,11 +56,9 @@ impl Store {
             postgres::NewImport {
                 actor: &actor,
                 id: &id,
-                metadata: &request.metadata,
+                input: &request,
                 original_text: original_text.as_deref(),
                 sha256: &sha256,
-                original_bytes: &request.original_bytes,
-                metadata_json: &metadata_json,
                 outcome_json: &outcome_json,
                 import_digest: &import_digest,
             },

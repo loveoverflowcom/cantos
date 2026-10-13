@@ -1,10 +1,10 @@
 //! The source registry: immutable original bytes, import metadata and extraction outcomes.
 //! Every load re-checks the bytes, metadata and outcome against the stored receipt digest.
-use cantos_contracts::{ImportMetadata, ImportResponse};
+use cantos_contracts::{ImportMetadata, ImportRequest, ImportResponse};
 use tokio_postgres::Row;
 
 use super::domain::extraction::MAX_SOURCE_BYTES;
-use super::domain::receipt::{metadata_issues, original_text, receipt_digest, sha256_hex};
+use super::domain::receipt::{original_text, receipt_digest, sha256_hex, AdmittedImport};
 use crate::platform::postgres::{StoreError, Tx};
 
 const IMPORT_COLUMNS: &str = "id,reference,imported_by,import_operation_id,import_digest,original_bytes,original_text,sha256,import_metadata::text AS import_metadata,import_outcome::text AS import_outcome,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at";
@@ -19,35 +19,42 @@ fn decode_import(row: &Row) -> Result<(ImportResponse, Vec<u8>), StoreError> {
     }
     let metadata: ImportMetadata = serde_json::from_str(&row.get::<_, String>("import_metadata"))
         .map_err(|_| StoreError::CorruptRevision)?;
-    if !metadata_issues(&metadata).is_empty()
-        || metadata.operation_id != row.get::<_, String>("import_operation_id")
+    let input = AdmittedImport::try_from(ImportRequest {
+        metadata,
+        original_bytes: bytes,
+    })
+    .map_err(|_| StoreError::CorruptRevision)?;
+    let metadata = input.metadata();
+    let bytes = input.bytes();
+    if metadata.operation_id != row.get::<_, String>("import_operation_id")
         || metadata.reference != row.get::<_, String>("reference")
     {
         return Err(StoreError::CorruptRevision);
     }
     let original_text_value: Option<String> = row.get("original_text");
-    if original_text_value != original_text(&bytes) {
+    if original_text_value != original_text(bytes) {
         return Err(StoreError::CorruptRevision);
     }
     let outcome = serde_json::from_str(&row.get::<_, String>("import_outcome"))
         .map_err(|_| StoreError::CorruptRevision)?;
-    if receipt_digest(&metadata, &outcome, &sha256).map_err(|_| StoreError::CorruptRevision)?
+    if receipt_digest(metadata, &outcome, &sha256).map_err(|_| StoreError::CorruptRevision)?
         != row.get::<_, String>("import_digest")
     {
         return Err(StoreError::CorruptRevision);
     }
+    let raw = input.into_raw();
     Ok((
         ImportResponse {
             id: row.get("id"),
             imported_by: row.get("imported_by"),
             recorded_at: row.get("recorded_at"),
             sha256,
-            byte_len: bytes.len() as u64,
-            metadata,
+            byte_len: raw.original_bytes.len() as u64,
+            metadata: raw.metadata,
             outcome,
             original_text: original_text_value,
         },
-        bytes,
+        raw.original_bytes,
     ))
 }
 
@@ -78,19 +85,20 @@ pub(super) async fn import_by_operation(
 pub(super) struct NewImport<'a> {
     pub actor: &'a str,
     pub id: &'a str,
-    pub metadata: &'a ImportMetadata,
+    pub input: &'a AdmittedImport,
     pub original_text: Option<&'a str>,
     pub sha256: &'a str,
-    pub original_bytes: &'a [u8],
-    pub metadata_json: &'a str,
     pub outcome_json: &'a str,
     pub import_digest: &'a str,
 }
 
 pub(super) async fn insert_import(tx: &Tx<'_>, new: NewImport<'_>) -> Result<(), StoreError> {
+    // Stored metadata must be the admitted input, never a second caller-supplied snapshot.
+    let metadata_json =
+        serde_json::to_string(new.input.metadata()).map_err(|_| StoreError::InvalidRequest)?;
     tx.execute(
         "INSERT INTO source_records(owner_id,id,reference,original_text,sha256,original_bytes,imported_by,import_operation_id,import_metadata,import_outcome,import_digest) VALUES($1,$2,$3,$4,$5,$6,$1,$7,$8::text::jsonb,$9::text::jsonb,$10)",
-        &[&new.actor, &new.id, &new.metadata.reference, &new.original_text, &new.sha256, &new.original_bytes, &new.metadata.operation_id, &new.metadata_json, &new.outcome_json, &new.import_digest],
+        &[&new.actor, &new.id, &new.input.metadata().reference, &new.original_text, &new.sha256, &new.input.bytes(), &new.input.metadata().operation_id, &metadata_json, &new.outcome_json, &new.import_digest],
     )
     .await?;
     Ok(())

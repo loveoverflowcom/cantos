@@ -7,8 +7,8 @@ use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
 
 use super::{
-    ids::token_id_valid, metadata::validate_language, CatalogError, ContentUnitId, OwnerId,
-    ScriptRef, SourceRef, WorkId, MAX_RIGHTS_REFS,
+    ids::token_id_valid, metadata::validate_language, revision::Revision, CatalogError,
+    ContentUnitId, OwnerId, ScriptRef, SourceRef, WorkId, MAX_RIGHTS_REFS,
 };
 use crate::platform::ids::canonical_uuid;
 
@@ -44,6 +44,15 @@ impl ContentRevisionId {
 }
 
 /// Derived text is NFC with LF line endings; preserved ingestion bytes are never normalized.
+/// Neither raw serde input nor a default can forge admitted text.
+/// ```compile_fail,E0277
+/// use cantos_api::contexts::catalog::domain::content::ManuscriptText;
+/// let text = serde_json::from_str::<ManuscriptText>("\"\"");
+/// ```
+/// ```compile_fail,E0277
+/// use cantos_api::contexts::catalog::domain::content::ManuscriptText;
+/// let text: ManuscriptText = Default::default();
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct ManuscriptText(String);
@@ -196,7 +205,7 @@ pub struct ContentRevision {
     id: ContentRevisionId,
     work_id: WorkId,
     unit_id: ContentUnitId,
-    revision: u64,
+    revision: Revision,
     details: ContentDetails,
     content_digest: ContentDigest,
     recorded_by: OwnerId,
@@ -215,9 +224,7 @@ fn fingerprint<T: Serialize>(scheme: &str, value: &T) -> Result<String, ContentE
 
 impl ContentRevision {
     pub fn new(facts: ContentRevisionFacts) -> Result<Self, ContentError> {
-        if facts.revision == 0 || facts.revision > i64::MAX as u64 {
-            return Err(ContentError::InvalidRevision);
-        }
+        let revision = Revision::new(facts.revision).map_err(|_| ContentError::InvalidRevision)?;
         if facts.recorded_at < 0 {
             return Err(ContentError::InvalidTimestamp);
         }
@@ -237,7 +244,7 @@ impl ContentRevision {
             id: facts.id,
             work_id: facts.work_id,
             unit_id: facts.unit_id,
-            revision: facts.revision,
+            revision,
             details: facts.details,
             content_digest,
             recorded_by: facts.recorded_by,
@@ -254,7 +261,7 @@ impl ContentRevision {
         &self.unit_id
     }
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.revision.get()
     }
     pub fn details(&self) -> &ContentDetails {
         &self.details

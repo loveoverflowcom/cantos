@@ -60,7 +60,7 @@ Canonical skills live in [`.agents/skills/`](.agents/skills/README.md) and are s
 - [`cantos-engineering`](.agents/skills/cantos-engineering/SKILL.md) for any domain, backend, persistence, contract, test or verification change. It owns the required order, decoupling, immutability, functional core, the evidence vocabulary and the completion report.
 - Domain owners: [`cantos-script-ir`](.agents/skills/cantos-script-ir/SKILL.md), [`cantos-production-pipeline`](.agents/skills/cantos-production-pipeline/SKILL.md), [`cantos-publication`](.agents/skills/cantos-publication/SKILL.md), [`cantos-listening`](.agents/skills/cantos-listening/SKILL.md).
 - UI: [`cantos-ui-design`](.agents/skills/cantos-ui-design/SKILL.md) (Material 3 Expressive and shared UI policy) with [`cantos-leptos-web`](.agents/skills/cantos-leptos-web/SKILL.md) or [`cantos-cmp-mobile`](.agents/skills/cantos-cmp-mobile/SKILL.md).
-- Task entrypoints: [`cantos-work-item`](.agents/skills/cantos-work-item/SKILL.md) to deliver a work-plan item, [`cantos-code-review`](.agents/skills/cantos-code-review/SKILL.md) for a read-only review, [`cantos-ui-inspector`](.agents/skills/cantos-ui-inspector/SKILL.md) for a report-only UI audit.
+- Task entrypoints: [`cantos-work-item`](.agents/skills/cantos-work-item/SKILL.md) to deliver a work-plan item, [`cantos-code-review`](.agents/skills/cantos-code-review/SKILL.md) for a read-only review, [`cantos-ui-inspector`](.agents/skills/cantos-ui-inspector/SKILL.md) for a report-only UI audit, [`cantos-ui-fix`](.agents/skills/cantos-ui-fix/SKILL.md) for one bounded UI repair, [`cantos-logic-fix`](.agents/skills/cantos-logic-fix/SKILL.md) for one bounded invariant/logic repair. Both fix entrypoints compose existing owners, use minimal changes and independent layered evidence; neither adds rules or permission. Review/inspection does not authorize fixing.
 - Story artifact workflows: [`cantos-story-ingest`](.agents/skills/cantos-story-ingest/SKILL.md), [`cantos-radio-adapt`](.agents/skills/cantos-radio-adapt/SKILL.md), [`cantos-audio-produce`](.agents/skills/cantos-audio-produce/SKILL.md) and [`cantos-story-audit`](.agents/skills/cantos-story-audit/SKILL.md) share the [Drive/local workspace contract](docs/production/story-workspace.md). They preserve raw sources, maintain `score/name_map.yml`, coordinate immutable score/audio revisions and recover blocked synchronization through local records and GitHub issues. **Only external agents run audio rendering**, never the Cantos backend. Keep all story data outside Git.
 
 Skills own working method; `docs/` owns product rules. Keep one copy of each skill and update it rather than adding per-runtime instructions.
@@ -104,3 +104,15 @@ Studio Mobile is excluded. The shared `ui-system-cmp` library has an Android pre
 evidence; host rendering does not replace Android/iOS runtime or screen-reader gates.
 
 Do not report an app build, mobile test, audio quality result or end-to-end production run unless it actually ran. Record limitations and required follow-ups with evidence.
+
+## Service runtime ownership
+
+A service is a runnable process or independently managed infrastructure, not necessarily a Rust
+crate. Follow [the service inventory](services/README.md) and
+[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
+Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
+registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
+Podman, initialize/start a machine or change its connection without explicit consent. Manage
+only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
+TLS and data outside Git, and distinguish configuration from observed runtime and integration.

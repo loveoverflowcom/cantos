@@ -16,6 +16,7 @@ mod probe;
 mod process;
 mod report;
 mod run;
+mod services;
 mod theatre_demo;
 mod tools;
 mod ui_preview;
@@ -53,6 +54,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::Build {
             target,

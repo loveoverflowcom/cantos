@@ -78,3 +78,15 @@ unsupported gate in the pull request. On affected macOS temporary-path setups, r
 `TMPDIR=/private/tmp`.
 
 For runtime changes, run the relevant stack-specific checks once the corresponding implementation and tooling exist. Include meaningful integration evidence for job retry/resume, partial regeneration, publishing, streaming, and native background playback when those behaviors change. Record any environment limitations instead of claiming an unrun check passed.
+
+## Service runtime ownership
+
+A service is a runnable process or independently managed infrastructure, not necessarily a Rust
+crate. Follow [the service inventory](services/README.md) and
+[ADR 0021](docs/decisions/0021-podman-service-runtime.md). Podman is the standard OCI runtime;
+Docker Engine/Desktop/daemon and Compose are not dependencies (`docker.io` remains an allowed
+registry). Only explicit `cargo xtask services up` starts local infrastructure. Build/test/run
+never auto-start it. Native disposable PostgreSQL verification stays independent. Never install
+Podman, initialize/start a machine or change its connection without explicit consent. Manage
+only exact Cantos-owned labeled resources; stop never deletes persistent volumes. Keep secrets,
+TLS and data outside Git, and distinguish configuration from observed runtime and integration.

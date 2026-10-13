@@ -1,8 +1,8 @@
 use serde::Serialize;
 
-use super::metadata::{
-    next_revision, validate_position, validate_revision, validate_timestamps, validate_unit_kind,
-};
+use super::revision::Revision;
+
+use super::metadata::{next_revision, validate_position, validate_timestamps, validate_unit_kind};
 use super::{
     CatalogError, ContentUnitId, ContentUnitKind, Lifecycle, UnitDetails, Work, WorkId, WorkKind,
 };
@@ -38,7 +38,7 @@ pub struct ContentUnit {
     details: UnitDetails,
     position: u32,
     lifecycle: Lifecycle,
-    revision: u64,
+    revision: Revision,
     created_at: i64,
     updated_at: i64,
 }
@@ -72,7 +72,7 @@ impl ContentUnit {
         validate_unit_kind(parent_kind, input.kind)?;
         input.details.validate()?;
         validate_position(input.position)?;
-        validate_revision(input.revision)?;
+        let revision = Revision::new(input.revision)?;
         validate_timestamps(input.created_at, input.updated_at)?;
         Ok(Self {
             id: input.id,
@@ -81,7 +81,7 @@ impl ContentUnit {
             details: input.details,
             position: input.position,
             lifecycle: input.lifecycle,
-            revision: input.revision,
+            revision,
             created_at: input.created_at,
             updated_at: input.updated_at,
         })
@@ -106,7 +106,7 @@ impl ContentUnit {
         self.lifecycle
     }
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.revision.get()
     }
     pub fn created_at(&self) -> i64 {
         self.created_at

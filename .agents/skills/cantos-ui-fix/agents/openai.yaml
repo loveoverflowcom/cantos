@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos UI Fix"
+  short_description: "Repair one bounded UI defect with scoped evidence"
+  default_prompt: "Use $cantos-ui-fix to locate this bounded UI defect from the supplied evidence, fix it through the existing owners, recheck the same scenario and report verified layers and pending visual acceptance."

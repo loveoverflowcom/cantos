@@ -1,9 +1,56 @@
 //! Rules for an import receipt: admissible metadata, the stored text projection and the digest
 //! that binds the original bytes, metadata and extraction outcome.
-use cantos_contracts::{FieldIssue, ImportMetadata, ImportOutcome};
+use cantos_contracts::{FieldIssue, ImportMetadata, ImportOutcome, ImportRequest};
 use sha2::{Digest, Sha256};
 
 use crate::platform::ids::canonical_uuid;
+
+use super::extraction::MAX_SOURCE_BYTES;
+
+/// Intrinsic metadata/size admission only. This is not an ownership, extraction,
+/// rights, receipt-integrity or current-authorization witness. Original bytes are immutable.
+/// No Deserialize, Default, public fields or unchecked conversion enters this boundary.
+#[derive(Debug)]
+pub(crate) struct AdmittedImport {
+    metadata: ImportMetadata,
+    original_bytes: Vec<u8>,
+}
+
+impl TryFrom<ImportRequest> for AdmittedImport {
+    type Error = Vec<FieldIssue>;
+
+    fn try_from(raw: ImportRequest) -> Result<Self, Self::Error> {
+        let mut issues = metadata_issues(&raw.metadata);
+        if raw.original_bytes.len() > MAX_SOURCE_BYTES {
+            issues.push(field_issue("/original_bytes", "byte_length"));
+        }
+        if !issues.is_empty() {
+            return Err(issues);
+        }
+        Ok(Self {
+            metadata: raw.metadata,
+            original_bytes: raw.original_bytes,
+        })
+    }
+}
+
+impl AdmittedImport {
+    pub(crate) fn metadata(&self) -> &ImportMetadata {
+        &self.metadata
+    }
+
+    pub(crate) fn bytes(&self) -> &[u8] {
+        &self.original_bytes
+    }
+
+    /// Dropping admission when projecting back to a raw wire response is deliberate.
+    pub(crate) fn into_raw(self) -> ImportRequest {
+        ImportRequest {
+            metadata: self.metadata,
+            original_bytes: self.original_bytes,
+        }
+    }
+}
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
@@ -139,5 +186,75 @@ mod tests {
                 field_issue("/metadata/usage_scope", "control_character"),
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use proptest::prelude::*;
+
+    use super::*;
+    use cantos_contracts::ImportFormat;
+
+    fn request(bytes: Vec<u8>) -> ImportRequest {
+        ImportRequest {
+            metadata: ImportMetadata {
+                operation_id: "00000000-0000-4000-8000-000000000001".into(),
+                file_name: "Nguồn.txt".into(),
+                format: ImportFormat::Txt,
+                reference: "Synthetic admission fixture".into(),
+                rights_holder: None,
+                permission_evidence: None,
+                usage_scope: None,
+            },
+            original_bytes: bytes,
+        }
+    }
+
+    #[test]
+    fn admission_accepts_the_byte_limit_and_preserves_failed_extraction_inputs() {
+        // Empty/malformed bytes still produce an immutable failed extraction receipt.
+        // Admitting intrinsic size/metadata must not invent parser success.
+        for bytes in [
+            vec![],
+            vec![0xff, 0, b'\r', b'\n'],
+            vec![b'a'; MAX_SOURCE_BYTES],
+        ] {
+            let raw = request(bytes);
+            let admitted = AdmittedImport::try_from(raw.clone()).unwrap();
+            assert_eq!(admitted.bytes(), raw.original_bytes);
+            assert_eq!(admitted.metadata(), &raw.metadata);
+            assert_eq!(admitted.into_raw(), raw);
+        }
+        assert_eq!(
+            AdmittedImport::try_from(request(vec![0; MAX_SOURCE_BYTES + 1])).unwrap_err(),
+            vec![field_issue("/original_bytes", "byte_length")]
+        );
+    }
+
+    #[test]
+    fn admission_collects_metadata_and_size_errors_in_the_existing_order() {
+        let mut raw = request(vec![0; MAX_SOURCE_BYTES + 1]);
+        raw.metadata.operation_id = "bad".into();
+        raw.metadata.file_name = " ".into();
+        assert_eq!(
+            AdmittedImport::try_from(raw).unwrap_err(),
+            vec![
+                field_issue("/metadata/operation_id", "canonical_uuid"),
+                field_issue("/metadata/file_name", "nonblank"),
+                field_issue("/original_bytes", "byte_length"),
+            ]
+        );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 128, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_016), ..ProptestConfig::default() })]
+        #[test]
+        fn admitted_originals_remain_byte_exact(bytes in proptest::collection::vec(any::<u8>(), 0..257)) {
+            let raw = request(bytes);
+            let admitted = AdmittedImport::try_from(raw.clone()).unwrap();
+            prop_assert_eq!(admitted.bytes(), raw.original_bytes.as_slice());
+            prop_assert_eq!(admitted.into_raw(), raw);
+        }
     }
 }
