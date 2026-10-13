@@ -25,7 +25,7 @@ pub(crate) fn ContinueCard(ctx: TheatreContext) -> impl IntoView {
                     <p class="theatre-muted" lang="vi-VN">{move || latest.get().map(|progress| ctx.work(progress.snapshot.source.episode().work).title).unwrap_or_default()}</p>
                 </div>
                 <span class="theatre-time">{move || latest.get().map(|progress| clock(progress.snapshot.position_ms / 1000)).unwrap_or_default()}</span>
-                <button type="button" class="theatre-action" on:click=move |_| ctx.continue_progress()>{move || ctx.text(Key::Continue)}</button>
+                <button type="button" class="theatre-action" on:click=move |_| ctx.continue_progress()><span class="cui-control-label">{move || ctx.text(Key::Continue)}</span></button>
             </section>
         </Show>
     }
@@ -47,7 +47,7 @@ pub(crate) fn Library(ctx: TheatreContext) -> impl IntoView {
         <div class="theatre-filters" role="group" aria-label=move || ctx.text(Key::Library)>
             {[(LibraryTab::Continue, Key::Continue), (LibraryTab::Saved, Key::Saved), (LibraryTab::Bookmarks, Key::Bookmarks)].into_iter().map(move |(choice, label)| view! {
                 <button type="button" class="theatre-chip" aria-pressed=move || (tab.get() == choice).to_string()
-                    on:click=move |_| tab.set(choice)>{move || ctx.text(label)}</button>
+                    on:click=move |_| tab.set(choice)><span class="cui-control-label">{move || ctx.text(label)}</span></button>
             }).collect_view()}
         </div>
         {move || match tab.get() {
@@ -82,11 +82,11 @@ pub(crate) fn BookmarkRow(ctx: TheatreContext, mark: Bookmark) -> impl IntoView 
             <button type="button" class="theatre-action theatre-action-tonal"
                 aria-label=move || ctx.format(Key::BookmarkName, &[("title", title.to_owned()), ("time", clock(mark.position_ms / 1000))])
                 on:click=move |_| ctx.resume_bookmark(mark)>
-                {icon("play_arrow")}{move || ctx.text(Key::Continue)}
+                {icon("play_arrow")}<span class="cui-control-label">{move || ctx.text(Key::Continue)}</span>
             </button>
             <button type="button" class="theatre-action theatre-action-text"
                 aria-label=move || ctx.format(Key::RemoveBookmarkName, &[("title", title.to_owned()), ("time", clock(mark.position_ms / 1000))])
-                on:click=move |_| { ctx.remove_bookmark(mark); platform::focus_main(ctx.main); }>{icon("delete_outline")}{move || ctx.text(Key::RemoveBookmark)}</button>
+                on:click=move |_| { ctx.remove_bookmark(mark); platform::focus_main(ctx.main); }>{icon("delete_outline")}<span class="cui-control-label">{move || ctx.text(Key::RemoveBookmark)}</span></button>
         </li>
     }
 }

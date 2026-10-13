@@ -5,6 +5,7 @@ use crate::{
     application::catalog::Scenario,
     core::catalog::Genre,
     messages::{self, Key},
+    platform,
 };
 use leptos::prelude::*;
 
@@ -12,6 +13,7 @@ use leptos::prelude::*;
 pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
     let query = RwSignal::new(String::new());
     let genre = RwSignal::new(Genre::All);
+    let search = NodeRef::<leptos::html::Input>::new();
     let matches = Memo::new(move |_| {
         let query = query.get().trim().to_lowercase();
         let genre = genre.get();
@@ -34,7 +36,7 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
         <PageHeading ctx=ctx title=Key::Explore/>
         <div class="theatre-search-field">
             <label for="theatre-search">{move || ctx.text(Key::SearchLabel)}</label>
-            <input id="theatre-search" type="search" class="theatre-input" aria-describedby="theatre-search-help"
+            <input id="theatre-search" node_ref=search type="search" class="theatre-input" aria-describedby="theatre-search-help"
                 prop:value=move || query.get()
                 on:input=move |event| query.set(event_target_value(&event))/>
             <p id="theatre-search-help" class="theatre-muted">{move || ctx.text(Key::SearchHelp)}</p>
@@ -42,7 +44,7 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
         <div class="theatre-filters" role="group" aria-label=move || ctx.text(Key::Filters)>
             {[Genre::All, Genre::Fantasy, Genre::Memory, Genre::Dream].into_iter().map(move |choice| view! {
                 <button type="button" class="theatre-chip" aria-pressed=move || (genre.get() == choice).to_string()
-                    on:click=move |_| genre.set(choice)>{move || ctx.text(messages::genre_key(choice))}</button>
+                    on:click=move |_| genre.set(choice)><span class="cui-control-label">{move || ctx.text(messages::genre_key(choice))}</span></button>
             }).collect_view()}
         </div>
         <Show when=move || ctx.catalog.scenario() == Scenario::Ready fallback=move || view! { <CatalogState ctx=ctx/> }>
@@ -51,7 +53,8 @@ pub(crate) fn Explore(ctx: TheatreContext) -> impl IntoView {
                     <h2>{move || ctx.text(Key::NoResults)}</h2><p>{move || ctx.text(Key::NoResultsHelp)}</p>
                     <button type="button" class="theatre-action theatre-action-tonal" on:click=move |_| {
                         query.set(String::new()); genre.set(Genre::All);
-                    }>{move || ctx.text(Key::ClearSearch)}</button>
+                        platform::focus_input(search);
+                    }><span class="cui-control-label">{move || ctx.text(Key::ClearSearch)}</span></button>
                 </section>
             }>
                 <div class="theatre-shelf">

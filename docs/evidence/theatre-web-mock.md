@@ -148,7 +148,7 @@ because Cargo is absent; supplemental admission/repository/hash/whitespace check
 - Media path: deterministic fake acknowledgements only; no browser/native audio or streaming.
 
 Next: run every required xtask gate on an authorized supported toolchain and fix any resulting
-compile/format/lint/test failures; then perform the [manual browser scenarios](../../apps/cantos-theatre/web/README.md#manual-browser-scenarios-still-required).
+compile/format/lint/test failures; then perform the [manual browser scenarios](../../apps/cantos-theatre/web/README.md#browser-scenarios).
 New shared components still need both-preview/runtime/accessibility admission. Real listener API,
 publication rights/release pinning, playback, reload persistence, CDN/progress synchronization and
 native/background/device gates remain separate. No production issue is closed by this mock.

@@ -2,7 +2,7 @@
 
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Density, FieldHelp, FieldLabel, FieldState, Grid,
-    GridColumns, Icon, IconName, NumberField, Select, Space, Stack, Surface, SurfaceTone, Switch,
+    GridColumns, IconName, NumberField, Select, Space, Stack, Surface, SurfaceTone, Switch,
     TextArea, TextField, Theme, UiRoot,
 };
 use leptos::{html, prelude::*};
@@ -40,8 +40,7 @@ pub fn ComposedButtonSample(#[prop(into)] state: Signal<ButtonState>) -> impl In
     view! {
         <div data-preview-scenario="composed-content">
             <Stack gap=Space::Sm>
-                <Button id="gallery-composed-button" variant=ButtonVariant::Tonal state=state on_press=Callback::new(move |_| press.run(()))>
-                    <Icon name=IconName::MenuBook/>
+                <Button id="gallery-composed-button" variant=ButtonVariant::Tonal state=state on_press=Callback::new(move |_| press.run(())) icon=IconName::MenuBook>
                     <span>"Đọc lời hẹn dưới chân Thanh Vân Sơn"</span>
                 </Button>
                 <output id="gallery-composed-button-output" class="cui-gallery-output" aria-live="off">

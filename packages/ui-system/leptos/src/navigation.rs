@@ -147,7 +147,7 @@ pub fn FilterChip(
                     }
                 }>
                 <span class="cui-chip-check" aria-hidden="true"><Icon name=IconName::Check/></span>
-                {children()}
+                <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()
                 role=move || state.get().is_busy().then_some("status")>
