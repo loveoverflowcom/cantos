@@ -229,3 +229,49 @@ PR85 is CMP mock/docs only, with unchanged Rust/API/contracts/manifests/lock/pro
 inputs. Those unchanged identities support retention of this exact executed model,
 not a new model-checker run merely for a documentation or unrelated CMP integration.
 Final fresh-develop/remote commit identities are in the PR and phase3 handoff.
+
+## Ultra review reexecution
+
+The independent review found and repaired the empty `CARGO_HOME` configuration
+identity defect described in [the review report](ultra-review.md). Rust approval
+and Python identity now use nonempty `CARGO_HOME`, otherwise nonempty `HOME/.cargo`,
+and refuse an unresolved home before probes. Both candidate filenames and absent
+files stay bound; explicit absolute/relative overrides preserve precedence.
+
+After that repair, actual `cargo xtask verify kani` executed all three production
+harnesses again on clean local commit
+`3791364cc6802642238997aa1db2551784bd051e`, tree
+`e32fb3de5347a98dd32ee4ab75665029aa94a6d6`. Published repair commit
+`3367980818be17caaffe45b30eedfd8dc3ffe76e` has exactly that tree. Metadata records
+the local commit; this is verified equal-tree binding, not a separately observed
+execution at the published commit. Fresh develop
+`909169b6fca661d5a2108298548e2a6b5616a145` is an ancestor of both.
+
+Catalog again PASS: 100 checks, 6 covers, 4 expected unreachable checks. WAV again
+PASS: 20 checks, 7 covers, no unreachable checks. Submission window again PASS:
+10 checks, 8 covers, 1 expected unreachable check. Exactly one registered harness
+ran per row; no failures or failed unwinding obligations. The three production
+kernel/harness files, manifests and lock are unchanged by this repair. The same
+64-bit model, pinned tools, unwind 2, no assumptions/stubs and default safety
+checks apply; all earlier limitations remain.
+
+The repair changes a workflow model input, so the complete model digest is now
+`0c5069d5ea2edc323cf5d060faa21b2e95dac0914763ffa96a7a423f8df35b75`.
+Approved effective configuration is
+`ea909bb1b2b6b869f4f9340df51560d8387a3e6404f16588deb83478e2b59287`.
+Before/after `Cargo.lock` remains
+`8cf5d58a6be8481148dae8daf9abec112d6e4ce72740eea56bd87f23108a8e6c`.
+Clean status and diff hashes are SHA-256 of empty bytes. The final review-evidence
+commit changes only documentation, which is outside these recorded model inputs;
+it does not imply another proof run.
+
+Artifacts are under `artifacts/agent-runs/` (ignored local evidence):
+
+| Exact artifact directory | Raw output SHA-256 | Metadata SHA-256 |
+| --- | --- | --- |
+| `kani-cc05233125e04e55b294df78a2118faf` | `2b8fa518c2ee7e5d36fc189fa9a9cee437e46ca13cedf0f7e3079466300adb3e` | `096e752c76ebeff1a515e34f272856ebb54651093a9a20b8f29a86ed193ce69c` |
+| `kani-cc9dc28e673d463db8dbae05750687cd` | `5c867f64220669500e58584b45c624370cfa5d93e1c179758560907c480e0cce` | `8d90fceb13c70aed838ef97c06f9e06d3ba69052808ca584718b36b6f9c7133c` |
+| `kani-7644846a70254b608a0e3d294af89b69` | `e3cf7ad3ab8332195d6730f5bca071c981719942486013aff022c9b5c9222cf3` | `2a755c006fde89af75205bf6946fa032835e451af9e6ab00060f52e2b52e48af` |
+
+The successful proofs do not rewrite full Rust/preflight FAIL, PostgreSQL NOT_RUN
+or browser/device IO acceptance. See the final [ledger checkpoint](domain-invariants.md#ultra-review-checkpoint).

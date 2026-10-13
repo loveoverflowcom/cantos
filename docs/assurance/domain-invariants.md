@@ -682,3 +682,39 @@ blocked acceptance are unassigned and must be assigned before accepting it:
 Remote CI was neither inspected, dispatched nor polled. No screenshot,
 production/provider acceptance, real listening, persistent access, default
 production toolchain change or backend authorization duplication is claimed.
+
+## Ultra review checkpoint
+
+The queued independent Ultra review is now complete. Its
+[committed report](ultra-review.md) covers the cumulative obligations and fresh
+develop integration. One confirmed P2 Kani configuration-home defect was fixed
+and published in `3367980818be17caaffe45b30eedfd8dc3ffe76e`, tree
+`e32fb3de5347a98dd32ee4ab75665029aa94a6d6`. Empty `CARGO_HOME` now resolves actual
+`HOME/.cargo`; unresolved homes refuse before probing. Independent review of the
+minimal four-file repair has no actionable finding. Prior dated counts/results
+above remain historical rather than silently overwritten.
+
+Fresh workflow checks pass 59 focused xtask tests and 77 Python verifier tests;
+repository verification after the fix passes 302 tests and all 18 skills.
+All three actual Kani proofs ran again on a clean equal-tree local commit:
+Catalog 100 checks / 6 covers, WAV 20 / 7, window 10 / 8, all PASS, with exact
+[raw/metadata/model/config/lock identities](kani.md#ultra-review-reexecution).
+Fresh API/client/contracts/DBSP/doc scopes and four Web gates also pass separately.
+
+Full serial `cargo xtask verify rust` on the published repair still **FAILS**:
+802 passed, 17 failed, 136 ignored. Format and workspace Clippy pass; the same
+unchanged service-fixture private-input/Git-ancestor guard prevents those 17
+tests. No guard or assertion was weakened. Later doctests are not reached by
+that command; their independent 16-case run passes. Implementation review
+completion does not establish an overall PASS or resolve required IO acceptance.
+
+Final report-only repository verification passes 302 tests / 476 text files /
+18 skills. Required changed preflight against fresh `origin/develop`, with
+`--kani --skip postgres --skip cmp-ui-preview --skip theatre-cmp-demo`, still
+FAILS at the same 17 fixtures (802 passed / 17 failed / 136 ignored). Repository,
+format, Script IR reference and workspace lint PASS; later DBSP/WAV/audio/Web/
+preview/mutation and all three Kani rows are NOT_RUN in that preflight. The
+independent successful runs above do not rewrite its result. PostgreSQL/CMP
+skips remain NOT_RUN; browser/device/audio acceptance and blocked owners remain
+as listed above.
+PR81 stays Draft/open and is not merged into develop by this review.
