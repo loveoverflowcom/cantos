@@ -1,0 +1,630 @@
+//! Real PostgreSQL + Router regressions. Ignored until the owned disposable-cluster gate runs.
+use super::*;
+use crate::{
+    contexts::{
+        catalog::domain::OwnerId,
+        listening::auth::{
+            AuthenticatedListener, AuthenticationFuture, ListenerAuthenticator, ListenerCredentials,
+        },
+        media::ListenerService,
+    },
+    interfaces::http::{router_with_listener_identity, AppState},
+    listener_postgres_test_fixture::audio_lifecycle_http::publication_http::PublishedFixture,
+};
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+    Router,
+};
+use http_body_util::BodyExt;
+use serde_json::{json, Value};
+use tower::ServiceExt;
+use uuid::Uuid;
+fn uid(v: u64) -> String {
+    format!("00000000-0000-4000-8000-{v:012x}")
+}
+fn principal(actor: &str) -> AuthenticatedListener {
+    AuthenticatedListener::from_verified_actor(OwnerId::parse(actor).unwrap())
+}
+fn intent(sequence: u64, device: u64) -> dto::Operation {
+    dto::Operation {
+        operation_id: Uuid::new_v4().to_string(),
+        device_id: uid(device),
+        device_sequence: sequence,
+        device_reported_at_ms: None,
+    }
+}
+async fn world() -> (PublishedFixture, LibraryService, dto::AudioIdentity) {
+    let f = PublishedFixture::listener_world().await;
+    let p = f.listener_publish(0, Value::Null).await;
+    let store = f.listener_handles().1;
+    let m = ListenerService::new(store.clone())
+        .manifest(p["release"]["id"].as_str().unwrap())
+        .await
+        .unwrap();
+    (f, LibraryService::new(store), audio(&m).unwrap().raw())
+}
+fn write(
+    a: &dto::AudioIdentity,
+    sequence: u64,
+    device: u64,
+    base: u64,
+    position: u64,
+    kind: dto::ProgressKind,
+) -> dto::ProgressWrite {
+    dto::ProgressWrite {
+        operation: intent(sequence, device),
+        audio: a.clone(),
+        base_revision: base,
+        position_ms: position,
+        kind,
+    }
+}
+struct SyntheticVerifiedListener;
+impl ListenerAuthenticator for SyntheticVerifiedListener {
+    fn authenticate(&self, c: ListenerCredentials) -> AuthenticationFuture {
+        let actor = match c.expose_to_verifier() {
+            "synthetic-listener-alice" => Some("alice"),
+            "synthetic-listener-bob" => Some("bob"),
+            _ => None,
+        };
+        Box::pin(async move {
+            actor
+                .map(principal)
+                .ok_or(super::super::auth::AuthenticationError::Unauthenticated)
+        })
+    }
+}
+fn app(store: Store) -> Router {
+    router_with_listener_identity(
+        AppState {
+            store,
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "unused-static-root",
+        Arc::new(SyntheticVerifiedListener),
+    )
+}
+async fn request(
+    app: &Router,
+    method: &str,
+    path: &str,
+    actor: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(format!("/api/v1/theatre{path}"))
+                .header(
+                    "authorization",
+                    format!("Bearer synthetic-listener-{actor}"),
+                )
+                .header("content-type", "application/json")
+                .body(body.map_or(Body::empty(), |v| Body::from(v.to_string())))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = r.status();
+    assert_eq!(r.headers()["cache-control"], "no-store");
+    let value = serde_json::from_slice(&r.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let root: Value = serde_json::from_str(include_str!(
+        "../../../../../../packages/contracts/schema/theatre/library/v1.schema.json"
+    ))
+    .unwrap();
+    assert!(
+        jsonschema::validator_for(&root).unwrap().is_valid(&value),
+        "{value}"
+    );
+    (status, value)
+}
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; no production issuer or physical-engine claim"]
+async fn duplicate_and_same_base_first_write_races_commit_one_revision_and_identical_receipts() {
+    let (f, service, a) = world().await;
+    let p = principal("alice");
+    let original = write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint);
+    let (left, right) = tokio::join!(
+        service.put_progress(&p, &a.publication_id, original.clone()),
+        service.put_progress(&p, &a.publication_id, original.clone())
+    );
+    assert_eq!(left, right);
+    let receipt = left.unwrap();
+    for _ in 0..8 {
+        assert_eq!(
+            service
+                .put_progress(&p, &a.publication_id, original.clone())
+                .await,
+            Ok(receipt.clone())
+        );
+    }
+    assert_eq!(
+        f.listener_handles()
+            .0
+            .query_one(
+                "SELECT count(*) FROM listener_progress WHERE listener_id='alice'",
+                &[]
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        1
+    );
+    assert_eq!(
+        f.listener_handles()
+            .0
+            .query_one(
+                "SELECT count(*) FROM listener_operations WHERE listener_id='alice'",
+                &[]
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        1
+    );
+    let restarted = LibraryService::new(f.listener_handles().1);
+    assert_eq!(
+        restarted
+            .receipt(&p, &original.operation.operation_id)
+            .await
+            .unwrap(),
+        receipt
+    );
+    let one = write(&a, 2, 90, 1, 500, dto::ProgressKind::ExplicitSeek);
+    let other = write(&a, 1, 91, 1, 1000, dto::ProgressKind::Checkpoint);
+    let (x, y) = tokio::join!(
+        service.put_progress(&p, &a.publication_id, one),
+        service.put_progress(&p, &a.publication_id, other)
+    );
+    let (x, y) = (x.unwrap(), y.unwrap());
+    assert_eq!(
+        [x.outcome, y.outcome]
+            .iter()
+            .filter(|o| **o == dto::WriteOutcome::Accepted)
+            .count(),
+        1
+    );
+    assert_eq!(
+        [x.outcome, y.outcome]
+            .iter()
+            .filter(|o| **o == dto::WriteOutcome::RevisionConflict)
+            .count(),
+        1
+    );
+    assert_eq!(
+        service
+            .progress(&p, &a.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .revision,
+        2
+    );
+    assert_eq!(
+        service
+            .progress(&principal("bob"), &a.publication_id)
+            .await
+            .unwrap(),
+        None
+    );
+}
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL and synthetic publication fixture"]
+async fn clear_preserves_progress_saved_and_sessions_and_router_is_account_isolated() {
+    let (f, service, a) = world().await;
+    let store = f.listener_handles().1;
+    let router = app(store);
+    let p = principal("alice");
+    let progress = write(
+        &a,
+        1,
+        90,
+        0,
+        a.duration_ms,
+        dto::ProgressKind::MarkCompleted,
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &format!("/progress/{}", a.publication_id),
+            "alice",
+            Some(serde_json::to_value(&progress).unwrap())
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert!(service
+        .history(&p, 20, None)
+        .await
+        .unwrap()
+        .items
+        .is_empty());
+    service
+        .set_saved(
+            &p,
+            &a.work_id,
+            dto::SavedWrite {
+                operation: intent(1, 90),
+                base_revision: 0,
+                saved: true,
+            },
+        )
+        .await
+        .unwrap();
+    let start = dto::HistoryStart {
+        operation: intent(1, 90),
+        audio: a.clone(),
+        engine_session_id: uid(99),
+        event: dto::PlaybackEvent::PlaybackStarted,
+        history_epoch: 0,
+    };
+    let r = service.playback_started(&p, start.clone()).await.unwrap();
+    assert_eq!(
+        service.history(&p, 20, None).await.unwrap().items[0]
+            .progress
+            .as_ref()
+            .unwrap()
+            .completion,
+        dto::Completion::Completed
+    );
+    service
+        .clear_history(
+            &p,
+            dto::HistoryClear {
+                operation: intent(2, 90),
+                base_revision: 1,
+                history_epoch: 0,
+                confirmation: dto::ClearConfirmation::ClearHistory,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(service.playback_started(&p, start).await.unwrap(), r);
+    assert!(service
+        .history(&p, 20, None)
+        .await
+        .unwrap()
+        .items
+        .is_empty());
+    assert!(service.saved(&p, &a.work_id).await.unwrap().saved);
+    assert_eq!(
+        service
+            .progress(&p, &a.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .completion,
+        dto::Completion::Completed
+    );
+    let (_, bob) = request(&router, "GET", "/library/history", "bob", None).await;
+    assert_eq!(bob["items"], json!([]));
+    let (_, bob) = request(
+        &router,
+        "GET",
+        &format!("/progress/{}", a.publication_id),
+        "bob",
+        None,
+    )
+    .await;
+    assert_eq!(bob, json!({"resource":"progress","current":null}));
+    let (c, s) = request(
+        &router,
+        "GET",
+        &format!("/operations/{}", progress.operation.operation_id),
+        "bob",
+        None,
+    )
+    .await;
+    assert_eq!(
+        (c, s["code"].as_str()),
+        (StatusCode::NOT_FOUND, Some("not_found"))
+    );
+}
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; injected trigger is confined to the disposable test DB"]
+async fn receipt_failure_rolls_back_progress_sequences_and_account_state_before_retry() {
+    let (f, service, a) = world().await;
+    let p = principal("alice");
+    f.listener_handles().0.batch_execute("CREATE FUNCTION listener_test_receipt_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic before receipt' USING ERRCODE='55000'; END $$; CREATE TRIGGER listener_test_receipt_failure BEFORE INSERT ON listener_operations FOR EACH ROW EXECUTE FUNCTION listener_test_receipt_failure();").await.unwrap();
+    let w = write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint);
+    assert_eq!(
+        service.put_progress(&p, &a.publication_id, w.clone()).await,
+        Err(LibraryError::Corrupt)
+    );
+    for table in [
+        "listener_progress",
+        "listener_operations",
+        "listener_device_sequences",
+        "listener_state",
+    ] {
+        assert_eq!(
+            f.listener_handles()
+                .0
+                .query_one(
+                    &format!("SELECT count(*) FROM {table} WHERE listener_id='alice'"),
+                    &[]
+                )
+                .await
+                .unwrap()
+                .get::<_, i64>(0),
+            0
+        );
+    }
+    f.listener_handles().0.batch_execute("DROP TRIGGER listener_test_receipt_failure ON listener_operations; DROP FUNCTION listener_test_receipt_failure();").await.unwrap();
+    assert_eq!(
+        service
+            .put_progress(&p, &a.publication_id, w)
+            .await
+            .unwrap()
+            .outcome,
+        dto::WriteOutcome::Accepted
+    );
+}
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; no retained-release/public-byte claim"]
+async fn replacement_and_withdrawal_retain_owned_progress_without_silent_substitution() {
+    let (f, service, a) = world().await;
+    let p = principal("alice");
+    service
+        .put_progress(
+            &p,
+            &a.publication_id,
+            write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .unwrap();
+    let replaced = f.listener_publish(1, json!(a.publication_id)).await;
+    let replacement = replaced["release"]["id"].as_str().unwrap();
+    let projected = service.continue_listening(&p, 20, None).await.unwrap();
+    assert_eq!(
+        projected.items[0].resume,
+        dto::ResumeStatus::ReleaseReplaced
+    );
+    assert_eq!(projected.items[0].progress.audio, a);
+    f.listener_withdraw(replacement, 2).await;
+    assert_eq!(
+        service
+            .continue_listening(&p, 20, None)
+            .await
+            .unwrap()
+            .items[0]
+            .resume,
+        dto::ResumeStatus::AccessUnavailable
+    );
+    assert_eq!(
+        service
+            .put_progress(
+                &p,
+                &a.publication_id,
+                write(&a, 2, 90, 1, 0, dto::ProgressKind::ExplicitSeek)
+            )
+            .await
+            .unwrap()
+            .outcome,
+        dto::WriteOutcome::Accepted
+    );
+    assert_eq!(
+        service
+            .progress(&p, &a.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .position_ms,
+        0
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; exercises real conditional Save/Unsave and first-write races"]
+async fn first_write_and_save_unsave_races_preserve_one_authority_and_old_receipts() {
+    let (f, service, a) = world().await;
+    let bob = principal("bob");
+    let (x, y) = tokio::join!(
+        service.put_progress(
+            &bob,
+            &a.publication_id,
+            write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint)
+        ),
+        service.put_progress(
+            &bob,
+            &a.publication_id,
+            write(&a, 1, 91, 0, 200, dto::ProgressKind::ExplicitSeek)
+        )
+    );
+    let outcomes = [x.unwrap().outcome, y.unwrap().outcome];
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|v| **v == dto::WriteOutcome::Accepted)
+            .count(),
+        1
+    );
+    assert_eq!(
+        outcomes
+            .iter()
+            .filter(|v| **v == dto::WriteOutcome::RevisionConflict)
+            .count(),
+        1
+    );
+    assert_eq!(
+        service
+            .progress(&bob, &a.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .revision,
+        1
+    );
+    let p = principal("alice");
+    let save = dto::SavedWrite {
+        operation: intent(1, 90),
+        base_revision: 0,
+        saved: true,
+    };
+    let remove = dto::SavedWrite {
+        operation: intent(1, 91),
+        base_revision: 0,
+        saved: false,
+    };
+    let (saved, removed) = tokio::join!(
+        service.set_saved(&p, &a.work_id, save.clone()),
+        service.set_saved(&p, &a.work_id, remove)
+    );
+    let old = saved.unwrap();
+    assert_eq!(old.outcome, dto::WriteOutcome::Accepted);
+    assert!(matches!(
+        removed.unwrap().outcome,
+        dto::WriteOutcome::AlreadyCurrent | dto::WriteOutcome::RevisionConflict
+    ));
+    assert_eq!(service.saved(&p, &a.work_id).await.unwrap().revision, 1);
+    let current = service
+        .set_saved(
+            &p,
+            &a.work_id,
+            dto::SavedWrite {
+                operation: intent(2, 90),
+                base_revision: 1,
+                saved: false,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(service.set_saved(&p, &a.work_id, save).await.unwrap(), old);
+    assert!(!service.saved(&p, &a.work_id).await.unwrap().saved);
+    assert_eq!(service.saved(&p, &a.work_id).await.unwrap().revision, 2);
+    assert_ne!(current.state, old.state);
+    assert_eq!(
+        f.listener_handles()
+            .0
+            .query_one(
+                "SELECT count(*) FROM listener_saved WHERE listener_id='alice'",
+                &[]
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        1
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; copied scalar filters must fail database checks"]
+async fn snapshot_scalar_constraints_prevent_hidden_saved_and_completion_corruption() {
+    let (f, service, a) = world().await;
+    let p = principal("alice");
+    service
+        .put_progress(
+            &p,
+            &a.publication_id,
+            write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .unwrap();
+    service
+        .set_saved(
+            &p,
+            &a.work_id,
+            dto::SavedWrite {
+                operation: intent(1, 90),
+                base_revision: 0,
+                saved: true,
+            },
+        )
+        .await
+        .unwrap();
+    for sql in [
+        "WITH changed AS (SELECT listener_id,work_id,convert_to((convert_from(snapshot,'UTF8')::jsonb || jsonb_build_object('revision',revision+1,'listener_order',listener_order+1))::text,'UTF8') AS bytes FROM listener_saved WHERE listener_id='alice') UPDATE listener_saved s SET saved=false,revision=s.revision+1,listener_order=s.listener_order+1,snapshot=c.bytes,snapshot_digest=sha256(c.bytes) FROM changed c WHERE s.listener_id=c.listener_id AND s.work_id=c.work_id",
+        "WITH changed AS (SELECT listener_id,publication_id,convert_to((convert_from(snapshot,'UTF8')::jsonb || jsonb_build_object('revision',revision+1,'listener_order',listener_order+1))::text,'UTF8') AS bytes FROM listener_progress WHERE listener_id='alice') UPDATE listener_progress p SET completion='completed',revision=p.revision+1,listener_order=p.listener_order+1,snapshot=c.bytes,snapshot_digest=sha256(c.bytes) FROM changed c WHERE p.listener_id=c.listener_id AND p.publication_id=c.publication_id",
+    ] {
+        let e=f.listener_handles().0.execute(sql,&[]).await.unwrap_err();
+        assert_eq!(e.code().map(|v|v.code()),Some("23514"));
+    }
+    assert_eq!(
+        service.saved_works(&p, 20, None).await.unwrap().items.len(),
+        1
+    );
+    assert_eq!(
+        service
+            .continue_listening(&p, 20, None)
+            .await
+            .unwrap()
+            .items
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL; latest-completed projection is tested through SQL and Router"]
+async fn latest_completed_release_suppresses_older_unfinished_work_without_erasing_either_register()
+{
+    let (f, service, a) = world().await;
+    let p = principal("alice");
+    service
+        .put_progress(
+            &p,
+            &a.publication_id,
+            write(&a, 1, 90, 0, 100, dto::ProgressKind::Checkpoint),
+        )
+        .await
+        .unwrap();
+    let next = f.listener_publish(1, json!(a.publication_id)).await;
+    let manifest = ListenerService::new(f.listener_handles().1)
+        .manifest(next["release"]["id"].as_str().unwrap())
+        .await
+        .unwrap();
+    let b = audio(&manifest).unwrap().raw();
+    service
+        .put_progress(
+            &p,
+            &b.publication_id,
+            write(
+                &b,
+                1,
+                90,
+                0,
+                b.duration_ms,
+                dto::ProgressKind::MarkCompleted,
+            ),
+        )
+        .await
+        .unwrap();
+    assert!(service
+        .continue_listening(&p, 1, None)
+        .await
+        .unwrap()
+        .items
+        .is_empty());
+    let (_, page) = request(
+        &app(f.listener_handles().1),
+        "GET",
+        "/library/continue?limit=1",
+        "alice",
+        None,
+    )
+    .await;
+    assert_eq!(page, json!({"items":[],"next_cursor":null}));
+    assert_eq!(
+        service
+            .progress(&p, &a.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .position_ms,
+        100
+    );
+    assert_eq!(
+        service
+            .progress(&p, &b.publication_id)
+            .await
+            .unwrap()
+            .unwrap()
+            .completion,
+        dto::Completion::Completed
+    );
+}

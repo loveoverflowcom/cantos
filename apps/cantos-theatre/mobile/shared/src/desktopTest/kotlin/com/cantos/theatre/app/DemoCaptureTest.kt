@@ -160,6 +160,27 @@ class DemoCaptureTest {
     }
 
     @Test
+    fun account_space_is_captured_in_dark_english_and_double_text_scale() {
+        val stack = listOf(DemoRoute.Library, DemoRoute.Account)
+        capture(
+            "jvm-dark-account-390x844", width = 390, height = 844,
+            state = DemoState(stack = stack, theme = DemoTheme.Dark),
+        )
+        capture(
+            "jvm-light-account-en-390x844", width = 390, height = 844,
+            state = DemoState(stack = stack, locale = DemoLocale.English),
+        )
+        capture(
+            "jvm-light-account-text2-320x800", width = 320, height = 800,
+            state = DemoState(stack = stack), textScale = 2f,
+        )
+        capture(
+            "jvm-light-account-text2-settings-320x800", width = 320, height = 800,
+            state = DemoState(stack = stack), textScale = 2f, scrollToTag = "settings",
+        )
+    }
+
+    @Test
     fun repair_scenarios_cover_both_themes_short_screens_and_large_text_player() {
         DemoTheme.entries.forEach { theme ->
             val label = theme.name.lowercase()

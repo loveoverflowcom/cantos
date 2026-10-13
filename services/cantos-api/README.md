@@ -31,6 +31,10 @@ or in-backend mixing should remain.
   [Scope and contract](../../packages/contracts/studio-audio-intake-v1.md),
   [ADR 0020](../../docs/decisions/0020-studio-private-audio-intake.md). Required Rust and
   disposable-PostgreSQL evidence was originally **NOT_RUN** in PR69; [Audio Lifecycle evidence](../../docs/evidence/audio-lifecycle.md) records this Mac session.
+- [Publication v1](../../packages/contracts/publication-v1.md): owner distribution decisions,
+  exact approval/readiness, immutable release snapshots, atomic CAS active pointers and withdrawal.
+  [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
+  real PostgreSQL acceptance is blocked and default public delivery is unavailable.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
 
@@ -42,7 +46,7 @@ It authenticates no provider and adds no HTTP identity endpoint.
 
 ## Planned functionality (not implemented)
 
-Studio catalog Web UI, production identity/credential delivery, S3/CDN storage, stronger rights/QC policy, publication manifests and Theatre listener API. [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
+Studio catalog Web UI, production identity/credential delivery, S3/CDN storage, stronger rights/QC policy, real publication delivery and Theatre listener API. [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
 creating routes or DTOs. A proposal is not an existing API.
 
@@ -57,8 +61,8 @@ src/
     ingestion/              # import and source preservation
     adaptation/             # external proposal acceptance
     production/             # planning-only guidance and rights
-    media/                  # private development intake/application/storage/inspection
-      domain/               # pure profile/binding rules and WAV inspection
+    media/                  # private intake, inspection, review and publication authority
+      domain/               # pure lifecycle/publication/profile rules and WAV inspection
   interfaces/http/          # Studio, reserved Theatre/Admin surfaces
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
@@ -74,9 +78,10 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14 plus0018/count15;0015–0017 belong to parallel storage/publication/discovery work.
-Identity0018 is additive and grants no HTTP-role registry access.
-Production Brief migration0013 is additive; upgrade/replay tests preserve
+versions1–14,16–19/count18. Standalone publication0016 does not depend on independently
+reserved storage0015. Discovery0017, Identity0018 and Library/Progress0019 are additive;
+Identity0018 grants no HTTP-role registry access. Production Brief migration0013 is additive;
+upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
@@ -117,3 +122,13 @@ cargo xtask preflight --changed-only
 tests, integration mocks and verification must be reported with actual results; CI need
 not finish for handoff. No test of historical TTS synthesis may be used as proof that
 external audio upload, storage or publication exists.
+
+## Theatre discovery and playback boundary
+
+The [Theatre v1 contract](../../packages/contracts/theatre-discovery-v1.md) exposes real
+public-only work/search/detail/ordered-unit/manifest reads and anonymous playback authorization
+at `/api/v1/theatre`. Media owns current eligibility; Catalog supplies exact batched snapshots
+and Platform supplies owner activity. Studio cookies grant nothing here. Migration 0017 indexes
+public releases in the existing atomic publication transaction. The default playback adapter
+is explicitly unavailable; this is not real public delivery or production acceptance.
+See [evidence](../../docs/evidence/theatre-discovery.md).

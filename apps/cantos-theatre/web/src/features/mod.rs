@@ -1,3 +1,4 @@
+pub(crate) mod account;
 pub(crate) mod common;
 pub(crate) mod discovery;
 pub(crate) mod explore;

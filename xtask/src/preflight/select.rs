@@ -149,6 +149,14 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
             return;
         }
         impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
+        if within(path, "packages/contracts/protobuf")
+            || within(path, "packages/contracts/fixtures/protobuf")
+            || within(path, "packages/contracts/api/src/protobuf")
+            || path == "packages/contracts/api/tests/protobuf_wire.rs"
+        {
+            impact.gates.insert(Gate::ProtobufReference);
+            impact.gates.insert(Gate::TheatreCmpDemo);
+        }
         if within(path, SCRIPT_IR_FIXTURES) {
             impact.gates.insert(Gate::ScriptIrReference);
         }
@@ -200,6 +208,14 @@ fn classify_script(script: &str, impact: &mut Impact) {
             impact.packages.insert(UI_PACKAGE.to_owned());
             impact.gates.insert(Gate::CmpUiPreview);
             impact.gates.insert(Gate::TheatreCmpDemo);
+        }
+        "reference_protobuf.py" => {
+            impact.gates.insert(Gate::ProtobufReference);
+            impact.gates.insert(Gate::TheatreCmpDemo);
+            impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
+        }
+        _ if within(script, "protobuf-oracle") => {
+            impact.gates.insert(Gate::ProtobufReference);
         }
         "reference_script_ir.py" => {
             impact.gates.insert(Gate::ScriptIrReference);
@@ -373,6 +389,26 @@ mod tests {
     }
 
     #[test]
+    fn protobuf_inputs_select_drift_goldens_and_both_language_consumers() {
+        for path in [
+            "packages/contracts/protobuf/studio_v1.proto",
+            "packages/contracts/fixtures/protobuf/v1/goldens.json",
+            "packages/contracts/fixtures/protobuf/v1/hostile.json",
+            "packages/contracts/api/src/protobuf/generated.rs",
+            "scripts/reference_protobuf.py",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert!(selection.gates.contains(&Gate::ProtobufReference), "{path}");
+            assert!(selection.gates.contains(&Gate::TheatreCmpDemo), "{path}");
+            assert!(selection.affected.contains(CONTRACTS_PACKAGE), "{path}");
+        }
+        let oracle = pick(&["scripts/protobuf-oracle/rust/build.rs"]);
+        assert_eq!(oracle.broadened, None);
+        assert!(oracle.gates.contains(&Gate::ProtobufReference));
+    }
+
+    #[test]
     fn primitive_scripts_select_the_gate_that_exercises_them() {
         assert_eq!(
             names(&pick(&["scripts/test_postgres.py"])),
@@ -502,7 +538,7 @@ mod tests {
                     .iter()
                     .filter(|gate| gate.kind() == crate::gate::GateKind::Kani)
                     .count(),
-                3
+                crate::kani::Kernel::ALL.len()
             );
         }
     }

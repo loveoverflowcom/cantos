@@ -6,12 +6,15 @@
 
 ## Current narrow implementation
 
-[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
-script-revision-bound private development intake with four explicit Opus profiles, verified
-bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
-is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or
-QC/release/storage-delivery acceptance criteria below. Production S3, scoped producer grants,
-rights/listening review, publication and reference-aware orphan retention remain separate work.
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) reuses private development
+intake and binds server-inspected bytes to exact Catalog Content/Brief/profile/rights declarations.
+[Publication v1](../../packages/contracts/publication-v1.md) adds authenticated owner distribution
+clearance/approval, complete blockers, immutable releases, atomic active pointers and withdrawal.
+[Core evidence](../evidence/publication-core.md) distinguishes actual passing unit/property/Kani/
+Router evidence from failed PostgreSQL startup and NOT_RUN migration/concurrency acceptance.
+Default delivery is unavailable; real public activation remains blocked. The
+[successor handoff](publication-discovery-handoff.md) keeps independent private storage PR90,
+public delivery/retention, legal/listening policy and Theatre implementation as explicit dependencies.
 
 ## Why
 

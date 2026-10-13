@@ -18,6 +18,8 @@ use serde::{
     Deserialize, Serialize,
 };
 
+pub const PROTOBUF_MEDIA_TYPE: &str = "application/protobuf";
+
 pub const JSON_MEDIA_TYPE: &str = "application/json";
 /// The only MessagePack media type Cantos reads or writes. Aliases such as
 /// `application/x-msgpack` are refused until a consumer needs one.
@@ -28,12 +30,14 @@ pub const MSGPACK_MEDIA_TYPE: &str = "application/msgpack";
 /// a bound a small hostile body could exhaust the stack (rmp-serde's own default is 1024).
 pub const MAX_MSGPACK_DEPTH: usize = 16;
 
-/// One of the two equivalent encodings of a contract DTO.
+/// Baseline encodings and the schema-reviewed Studio pilot representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WireFormat {
     Json,
     /// Named-map MessagePack.
     MessagePack,
+    /// Versioned Studio pilot only; use `encode_pilot` / `decode_pilot`.
+    Protobuf,
 }
 
 impl WireFormat {
@@ -41,14 +45,21 @@ impl WireFormat {
         match self {
             Self::Json => JSON_MEDIA_TYPE,
             Self::MessagePack => MSGPACK_MEDIA_TYPE,
+            Self::Protobuf => PROTOBUF_MEDIA_TYPE,
         }
     }
 
-    /// Classifies a `Content-Type` value, ignoring parameters and ASCII case: JSON for
-    /// `application/json` and `application/*+json`, MessagePack for exactly
-    /// `application/msgpack`, `None` for every other media type.
+    /// Classifies actual `Content-Type`: JSON and legacy MessagePack keep their baseline
+    /// rules; Protobuf accepts only reviewed RFC 9996 binary parameters and x-protobuf
+    /// alias. ProtoJSON is deliberately refused; arbitrary +json remains baseline JSON.
     pub fn from_content_type(value: &str) -> Option<Self> {
         let essence = media_type_essence(value);
+        if essence == PROTOBUF_MEDIA_TYPE || essence == "application/x-protobuf" {
+            return protobuf_parameters_valid(value).then_some(Self::Protobuf);
+        }
+        if essence == "application/protobuf+json" || essence == "application/x-protobuf+json" {
+            return None;
+        }
         if essence == MSGPACK_MEDIA_TYPE {
             Some(Self::MessagePack)
         } else if essence == JSON_MEDIA_TYPE
@@ -59,6 +70,31 @@ impl WireFormat {
             None
         }
     }
+}
+
+/// RFC 9996 binary parameters, deliberately strict for the reviewed schema pilot.
+fn protobuf_parameters_valid(value: &str) -> bool {
+    let mut encoding_seen = false;
+    let mut version_seen = false;
+    for parameter in value.split(';').skip(1) {
+        let Some((name, raw)) = parameter.split_once('=') else {
+            return false;
+        };
+        let raw = raw.trim();
+        let parameter_value = if raw.starts_with('"') && raw.ends_with('"') && raw.len() >= 2 {
+            &raw[1..raw.len() - 1]
+        } else {
+            raw
+        };
+        match name.trim().to_ascii_lowercase().as_str() {
+            "encoding" if !encoding_seen && parameter_value.eq_ignore_ascii_case("binary") => {
+                encoding_seen = true
+            }
+            "version" if !version_seen && parameter_value == "1" => version_seen = true,
+            _ => return false,
+        }
+    }
+    true
 }
 
 /// `type/subtype` in ASCII lowercase, without parameters or surrounding whitespace.
@@ -76,6 +112,8 @@ pub fn media_type_essence(value: &str) -> String {
 pub enum DecodeError {
     /// The input ended inside a value.
     Truncated,
+    /// Buffered protobuf bytes, field count or repeated issues exceeded its bound.
+    TooLarge,
     /// MessagePack nesting exceeded [`MAX_MSGPACK_DEPTH`].
     TooDeep,
     /// A complete MessagePack value was followed by more bytes.
@@ -101,6 +139,7 @@ pub fn encode<T: Serialize + ?Sized>(
     match format {
         WireFormat::Json => serde_json::to_vec(value).map_err(|_| EncodeError),
         WireFormat::MessagePack => rmp_serde::to_vec_named(value).map_err(|_| EncodeError),
+        WireFormat::Protobuf => Err(EncodeError),
     }
 }
 
@@ -111,6 +150,31 @@ pub fn decode<T: DeserializeOwned>(format: WireFormat, bytes: &[u8]) -> Result<T
     match format {
         WireFormat::Json => decode_json(bytes),
         WireFormat::MessagePack => decode_msgpack(bytes),
+        WireFormat::Protobuf => Err(DecodeError::Shape),
+    }
+}
+
+/// Only schema-reviewed pilot DTOs may use Protobuf; generic Serde helpers stay unchanged.
+#[inline]
+pub fn encode_pilot<T: Serialize + crate::protobuf::ProtobufDto + ?Sized>(
+    format: WireFormat,
+    value: &T,
+) -> Result<Vec<u8>, EncodeError> {
+    match format {
+        WireFormat::Protobuf => crate::protobuf::encode(value),
+        WireFormat::Json | WireFormat::MessagePack => encode(format, value),
+    }
+}
+
+/// Decode a pilot by the actual negotiated representation, preserving baseline JSON semantics.
+#[inline]
+pub fn decode_pilot<T: DeserializeOwned + crate::protobuf::ProtobufDto>(
+    format: WireFormat,
+    bytes: &[u8],
+) -> Result<T, DecodeError> {
+    match format {
+        WireFormat::Protobuf => crate::protobuf::decode(bytes),
+        WireFormat::Json | WireFormat::MessagePack => decode(format, bytes),
     }
 }
 
@@ -200,7 +264,11 @@ mod tests {
 
     #[test]
     fn media_types_round_trip_through_classification() {
-        for format in [WireFormat::Json, WireFormat::MessagePack] {
+        for format in [
+            WireFormat::Json,
+            WireFormat::MessagePack,
+            WireFormat::Protobuf,
+        ] {
             assert_eq!(
                 WireFormat::from_content_type(format.media_type()),
                 Some(format)

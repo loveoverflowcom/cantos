@@ -10,7 +10,8 @@ use cantos_api::{
     script_ir::read_script,
 };
 use cantos_contracts::{
-    wire::{decode, encode, WireFormat},
+    protobuf::ProtobufDto,
+    wire::{decode, decode_pilot, encode, encode_pilot, WireFormat},
     ReviewRequest, RevisionResponse, SaveRevisionRequest, ScriptValidationResponse,
     ValidateScriptRequest,
 };
@@ -176,6 +177,21 @@ impl Exchange {
         assert_eq!(self.headers["content-type"], MSGPACK);
         assert_eq!(self.headers["vary"], "accept");
         decode(WireFormat::MessagePack, &self.body).unwrap()
+    }
+
+    /// Pilot success is decoded by actual Content-Type, independently of request encoding.
+    fn pilot<T: DeserializeOwned + ProtobufDto>(&self, wanted: WireFormat) -> T {
+        assert_eq!(
+            self.status,
+            StatusCode::OK,
+            "{:?}",
+            String::from_utf8_lossy(&self.body)
+        );
+        assert_eq!(self.headers["content-type"], wanted.media_type());
+        assert_eq!(self.headers["vary"], "accept");
+        let actual =
+            WireFormat::from_content_type(self.headers["content-type"].to_str().unwrap()).unwrap();
+        decode_pilot(actual, &self.body).unwrap()
     }
 
     /// Every failure stays a JSON ApiError, whatever the request asked for.
@@ -680,7 +696,7 @@ async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_faile
             .await
             .unwrap()
             .get::<_, i64>(0),
-        15
+        18
     );
     assert_eq!(
         admin
@@ -1178,7 +1194,18 @@ async fn restart_fixture_for_process_and_database_recovery() {
     let h = Harness::new(Some("cantos_test_restart")).await;
     let script = Uuid::new_v4().to_string();
     let request = request(0);
-    let saved = h.store.save(ALICE, &script, request.clone()).await.unwrap();
+    let saved: RevisionResponse = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            &format!("/scripts/{script}/revisions"),
+            Some(ALICE),
+            (Some("application/protobuf"), Some("application/protobuf")),
+            encode_pilot(WireFormat::Protobuf, &request).unwrap(),
+        )
+        .await
+        .pilot(WireFormat::Protobuf);
+    assert_eq!(h.count(&script).await, (1, 1));
     fs::create_dir_all("../../target/revision-evidence").unwrap();
     fs::write("../../target/revision-evidence/restart.json",json!({"database":h.database,"script":script,"token":ALICE,"request":request,"response":saved}).to_string()).unwrap();
 }
@@ -1596,4 +1623,441 @@ async fn legacy_studio_paths_remain_compatible_and_sessions_stay_scoped_to_their
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{base}{path}");
         }
     }
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn protobuf_json_and_legacy_msgpack_have_identical_revision_and_validation_facts() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let writes = format!("/scripts/{script}/revisions");
+    let intent = request(0);
+    let mut original = None;
+    for sent in [
+        WireFormat::Json,
+        WireFormat::Protobuf,
+        WireFormat::MessagePack,
+    ] {
+        for wanted in [
+            WireFormat::Json,
+            WireFormat::Protobuf,
+            WireFormat::MessagePack,
+        ] {
+            let saved: RevisionResponse = h
+                .exchange(
+                    ORIGIN,
+                    "POST",
+                    &writes,
+                    Some(ALICE),
+                    (Some(sent.media_type()), Some(wanted.media_type())),
+                    encode_pilot(sent, &intent).unwrap(),
+                )
+                .await
+                .pilot(wanted);
+            if let Some(original) = &original {
+                assert_eq!(&saved, original);
+            } else {
+                original = Some(saved.clone());
+            }
+            assert_eq!(
+                saved.script_json.as_bytes(),
+                read_script(FIXTURE.as_bytes()).unwrap().export_bytes()
+            );
+            for path in [
+                format!("/scripts/{script}/head"),
+                format!("/scripts/{script}/revisions/1"),
+            ] {
+                let loaded: RevisionResponse = h
+                    .exchange(
+                        ORIGIN,
+                        "GET",
+                        &path,
+                        Some(ALICE),
+                        (None, Some(wanted.media_type())),
+                        vec![],
+                    )
+                    .await
+                    .pilot(wanted);
+                assert_eq!(loaded, saved);
+            }
+            let valid = ValidateScriptRequest {
+                script_json: saved.script_json.clone(),
+            };
+            let preview: ScriptValidationResponse = h
+                .exchange(
+                    ORIGIN,
+                    "POST",
+                    "/validation",
+                    Some(ALICE),
+                    (Some(sent.media_type()), Some(wanted.media_type())),
+                    encode_pilot(sent, &valid).unwrap(),
+                )
+                .await
+                .pilot(wanted);
+            assert_eq!(preview.issues, vec![]);
+        }
+    }
+    let invalid = ValidateScriptRequest {
+        script_json: include_str!(
+            "../../../packages/contracts/fixtures/script-ir/0.1.0/reject/multiple-faults.json"
+        )
+        .into(),
+    };
+    let (_, json_error) = h
+        .request(
+            "POST",
+            "/validation",
+            Some(ALICE),
+            Some(serde_json::to_value(&invalid).unwrap()),
+        )
+        .await;
+    let protobuf_error = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            "/validation",
+            Some(ALICE),
+            (Some("application/protobuf"), Some("application/protobuf")),
+            encode_pilot(WireFormat::Protobuf, &invalid).unwrap(),
+        )
+        .await
+        .error(StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(protobuf_error, json_error);
+    assert_eq!(h.count(&script).await, (1, 1));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn lost_json_and_protobuf_responses_replay_both_directions_without_another_write() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let writes = format!("/scripts/{script}/revisions");
+    for (base, first, replay) in [
+        (0, WireFormat::Json, WireFormat::Protobuf),
+        (1, WireFormat::Protobuf, WireFormat::Json),
+    ] {
+        let intent = request(base);
+        // Drop the first response without decoding it, simulating an ambiguous client outcome.
+        let lost = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some(first.media_type()), Some(first.media_type())),
+                encode_pilot(first, &intent).unwrap(),
+            )
+            .await;
+        assert_eq!(lost.status, StatusCode::OK);
+        drop(lost);
+        let authoritative = h.store.load(ALICE, &script, Some(base + 1)).await.unwrap();
+        let reconciled: RevisionResponse = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some(replay.media_type()), Some(replay.media_type())),
+                encode_pilot(replay, &intent).unwrap(),
+            )
+            .await
+            .pilot(replay);
+        assert_eq!(reconciled, authoritative);
+        assert_eq!(
+            h.count(&script).await,
+            ((base + 1) as i64, (base + 1) as i64)
+        );
+        let reused = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some(replay.media_type()), Some(replay.media_type())),
+                encode_pilot(replay, &changed_rights(intent)).unwrap(),
+            )
+            .await
+            .error(StatusCode::CONFLICT);
+        assert_eq!(reused["code"], "operation_reused");
+        let stale = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some(replay.media_type()), Some(replay.media_type())),
+                encode_pilot(replay, &request(base)).unwrap(),
+            )
+            .await
+            .error(StatusCode::CONFLICT);
+        assert_eq!(stale["code"], "stale_revision");
+        assert_eq!(stale["current_revision"], base + 1);
+        assert_eq!(
+            h.count(&script).await,
+            ((base + 1) as i64, (base + 1) as i64)
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn protobuf_refusals_preserve_database_state_and_do_not_expand_other_routes() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let original = h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let writes = format!("/scripts/{script}/revisions");
+    let intent = request(1);
+    let body = encode_pilot(WireFormat::Protobuf, &intent).unwrap();
+    let mut duplicate = body.clone();
+    duplicate.extend_from_slice(&[0x08, 0x01]);
+    let mut unknown = body.clone();
+    unknown.extend_from_slice(&[0x20, 0x00]);
+    for malformed in [
+        vec![],
+        body[..body.len() - 1].to_vec(),
+        duplicate,
+        unknown,
+        vec![0x00],
+        vec![0x12, 0x01, 0xff],
+        vec![0x1a, 0xff, 0xff, 0xff, 0xff, 0x07],
+        vec![0; 8 * 1024 * 1024 + 1],
+    ] {
+        let refused = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some("application/protobuf"), Some("application/protobuf")),
+                malformed,
+            )
+            .await;
+        assert_eq!(
+            refused.error(StatusCode::BAD_REQUEST),
+            json!({"code":"invalid_request","current_revision":null,"issues":[]})
+        );
+        assert_eq!(h.count(&script).await, (1, 1));
+        assert_eq!(h.store.load(ALICE, &script, None).await.unwrap(), original);
+    }
+    for content_type in [
+        "application/protobuf;version=2",
+        "application/protobuf;charset=utf-8",
+        "application/protobuf;encoding=json",
+        "application/protobuf;version=1;version=1",
+        "application/protobuf+json",
+    ] {
+        let refused = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some(content_type), Some("application/protobuf")),
+                body.clone(),
+            )
+            .await;
+        assert_eq!(
+            refused.error(StatusCode::UNSUPPORTED_MEDIA_TYPE)["issues"],
+            json!([{"path":"content-type","rule":"unsupported_media_type"}])
+        );
+        assert_eq!(h.count(&script).await, (1, 1));
+    }
+    for accept in [
+        "text/html",
+        "application/protobuf;version=2",
+        "application/protobuf;encoding=json",
+        "application/protobuf;q=0,application/json;q=0,application/msgpack;q=0,*/*",
+    ] {
+        let refused = h
+            .exchange(
+                ORIGIN,
+                "POST",
+                &writes,
+                Some(ALICE),
+                (Some("application/protobuf"), Some(accept)),
+                body.clone(),
+            )
+            .await;
+        assert_eq!(refused.headers["vary"], "accept");
+        assert_eq!(
+            refused.error(StatusCode::NOT_ACCEPTABLE)["issues"],
+            json!([{"path":"accept","rule":"not_acceptable"}])
+        );
+        assert_eq!(h.count(&script).await, (1, 1));
+    }
+    let saved: RevisionResponse = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            &writes,
+            Some(ALICE),
+            (
+                Some("application/x-protobuf;encoding=binary;version=1"),
+                Some("application/x-protobuf"),
+            ),
+            body.clone(),
+        )
+        .await
+        .pilot(WireFormat::Protobuf);
+    assert_eq!(saved.revision, 2);
+    let refused = h
+        .exchange(
+            ORIGIN,
+            "POST",
+            &format!("/scripts/{script}/reviews"),
+            Some(ALICE),
+            (Some("application/protobuf"), Some("application/protobuf")),
+            body,
+        )
+        .await;
+    assert_eq!(
+        refused.error(StatusCode::BAD_REQUEST)["code"],
+        "invalid_request"
+    );
+    assert_eq!(h.reviews(&script).await, 0);
+    let history = h
+        .exchange(
+            ORIGIN,
+            "GET",
+            &format!("/scripts/{script}/history"),
+            Some(ALICE),
+            (None, Some("application/protobuf")),
+            vec![],
+        )
+        .await;
+    assert_eq!(history.headers["content-type"], "application/json");
+    assert!(!history.headers.contains_key("vary"));
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL cluster required"]
+async fn protobuf_authorization_and_legacy_aliases_keep_existing_json_error_taxonomy() {
+    let h = Harness::new(None).await;
+    let script = Uuid::new_v4().to_string();
+    let saved = h.store.save(ALICE, &script, request(0)).await.unwrap();
+    let head = format!("/scripts/{script}/head");
+    let writes = format!("/scripts/{script}/revisions");
+    let body = encode_pilot(WireFormat::Protobuf, &request(1)).unwrap();
+    for (method, path, body) in [("GET", &head, vec![]), ("POST", &writes, body.clone())] {
+        for (token, status, code) in [
+            (None, StatusCode::UNAUTHORIZED, "unauthenticated"),
+            (Some(BOB), StatusCode::NOT_FOUND, "not_found"),
+        ] {
+            let error = h
+                .exchange(
+                    ORIGIN,
+                    method,
+                    path,
+                    token,
+                    (Some("application/protobuf"), Some("application/protobuf")),
+                    body.clone(),
+                )
+                .await
+                .error(status);
+            assert_eq!(error["code"], code);
+        }
+    }
+    let forged = h
+        .exchange(
+            "https://attacker.invalid",
+            "POST",
+            &writes,
+            Some(ALICE),
+            (Some("application/protobuf;version=2"), Some("text/html")),
+            body.clone(),
+        )
+        .await
+        .error(StatusCode::FORBIDDEN);
+    assert_eq!(forged["code"], "forbidden");
+    h.admin
+        .execute(
+            "INSERT INTO script_members VALUES($1,'bob','reader')",
+            &[&script],
+        )
+        .await
+        .unwrap();
+    let loaded: RevisionResponse = h
+        .exchange(
+            ORIGIN,
+            "GET",
+            &head,
+            Some(BOB),
+            (None, Some("application/protobuf")),
+            vec![],
+        )
+        .await
+        .pilot(WireFormat::Protobuf);
+    assert_eq!(loaded, saved);
+    assert_eq!(
+        h.exchange(
+            ORIGIN,
+            "POST",
+            &writes,
+            Some(BOB),
+            (Some("application/protobuf"), Some("application/protobuf")),
+            body
+        )
+        .await
+        .error(StatusCode::FORBIDDEN)["code"],
+        "forbidden"
+    );
+    h.admin
+        .execute("UPDATE sessions SET revoked=true WHERE actor_id='bob'", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        h.exchange(
+            ORIGIN,
+            "GET",
+            &head,
+            Some(BOB),
+            (None, Some("application/protobuf")),
+            vec![]
+        )
+        .await
+        .error(StatusCode::UNAUTHORIZED)["code"],
+        "unauthenticated"
+    );
+    for (method, path, body) in [
+        ("GET", format!("/scripts/{script}/head"), vec![]),
+        ("GET", format!("/scripts/{script}/revisions/1"), vec![]),
+        (
+            "POST",
+            writes,
+            encode_pilot(WireFormat::Protobuf, &request(1)).unwrap(),
+        ),
+        (
+            "POST",
+            "/validation".to_owned(),
+            encode_pilot(
+                WireFormat::Protobuf,
+                &ValidateScriptRequest {
+                    script_json: saved.script_json.clone(),
+                },
+            )
+            .unwrap(),
+        ),
+    ] {
+        let request = Request::builder()
+            .method(method)
+            .uri(format!("/api/v1{path}"))
+            .header("origin", ORIGIN)
+            .header("cookie", format!("cantos_session={ALICE}"))
+            .header("content-type", "application/protobuf")
+            .header("accept", "application/protobuf")
+            .body(Body::from(body))
+            .unwrap();
+        let response = h.app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["content-type"], "application/protobuf");
+        assert_eq!(response.headers()["deprecation"], "true");
+        assert_eq!(
+            response.headers()["link"],
+            "</api/v1/studio>; rel=\"successor-version\""
+        );
+        assert_eq!(response.headers()["vary"], "accept");
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    }
+    assert_eq!(h.count(&script).await, (2, 2));
 }

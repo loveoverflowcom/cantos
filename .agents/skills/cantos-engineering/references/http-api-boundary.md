@@ -11,7 +11,7 @@ manuscript import, adaptation and production-input contracts in
 [`services/cantos-api/src/interfaces/http`](../../../../services/cantos-api/src/interfaces/http/mod.rs) (`studio`, `theatre`, `admin`), each with a
 hand-authored JSON Schema, fixtures and raw DTOs in `cantos-contracts` shared by the server and the
 Studio ([contracts README](../../../../packages/contracts/README.md)). There is no OpenAPI document,
-no generated client and no listener API yet. Whether a route also carries MessagePack is owned by
+no generated client. The [Theatre Discovery/Playback v1 core](../../../../packages/contracts/theatre-discovery-v1.md) adds a strict public-only listener JSON boundary; actual PG/public delivery and generated-client acceptance are pending. Whether a route also carries MessagePack is owned by
 [`wire-codec.md`](wire-codec.md).
 
 For database-backed GET/read/fetch, load the foundation's mandatory
@@ -20,7 +20,7 @@ non-GET handlers; the HTTP verb alone does not decide DBSP suitability or freshn
 
 ## One route group per surface
 
-The host serves three groups under `/api/v1`: `studio` (implemented), `theatre` and `admin`
+The host serves three groups under `/api/v1`: `studio` (implemented), `theatre` (anonymous Discovery/Playback core, fail-closed delivery) and `admin`
 (reserved, empty, `404 not_found`). Each has its own router module in `src/interfaces/http/`, its DTO module
 in `cantos-contracts`, its own authentication and authorization, and its own `Store` methods or
 adapter; shared code is middleware, error mapping, domain modules and the PostgreSQL authority.

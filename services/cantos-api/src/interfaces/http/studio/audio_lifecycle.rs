@@ -25,6 +25,7 @@ async fn method_rejected() -> Response {
 
 pub(super) fn owner_routes() -> Router<AppState> {
     Router::new()
+        .merge(super::publication::routes())
         .route("/content-units/{unit}/audio-submissions", post(create))
         .route("/content-units/{unit}/audio-submissions/{id}", get(read))
         .route(

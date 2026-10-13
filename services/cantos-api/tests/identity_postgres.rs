@@ -1,5 +1,5 @@
 //! Disposable PostgreSQL only, enabled by cargo xtask verify postgres.
-use std::env;
+use std::{env, time::Duration};
 
 use cantos_api::{
     platform::{
@@ -300,6 +300,93 @@ async fn identity_linking_collision_and_disable_are_fail_closed() {
     );
     assert_eq!(h.counts().await, (3, 2));
     assert!(!h.service.lookup(&k).await.unwrap().unwrap().active);
+}
+
+#[tokio::test]
+#[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
+async fn identity_mutations_recheck_disable_after_actor_lock_wait() {
+    for replay_registration in [true, false] {
+        let mut h = Harness::new(false).await;
+        let bound_key = key("issuer", "bound");
+        let new_key = key("issuer", "new");
+        h.service
+            .register(&bound_key, &actor("existing"))
+            .await
+            .unwrap();
+        let observer = connect(&h.config).await;
+        let blocker: i32 = h
+            .admin
+            .query_one("SELECT pg_backend_pid()", &[])
+            .await
+            .unwrap()
+            .get(0);
+        let disable = h.admin.transaction().await.unwrap();
+        disable
+            .execute("UPDATE actors SET active=false WHERE id='existing'", &[])
+            .await
+            .unwrap();
+
+        let application_name = format!("identity-wait-{}", Uuid::new_v4().simple());
+        let mut waiting_config = h.config.clone();
+        waiting_config.application_name(&application_name);
+        let service = IdentityService::new(PostgresIdentityRegistry::new(
+            Store::new(waiting_config).unwrap(),
+        ));
+        let waiting_key = if replay_registration {
+            bound_key.clone()
+        } else {
+            new_key.clone()
+        };
+        let waiting = tokio::spawn(async move {
+            if replay_registration {
+                service
+                    .register(&waiting_key, &actor("discarded-candidate"))
+                    .await
+                    .map(|_| ())
+            } else {
+                service
+                    .link(&waiting_key, &actor("existing"))
+                    .await
+                    .map(|_| ())
+            }
+        });
+
+        // Observe the actual actor-lock interleaving before releasing the disable transaction.
+        // Separate autocommit reads avoid retaining a stale pg_stat_activity snapshot.
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let blocked: bool = observer
+                    .query_one(
+                        "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event_type='Lock' AND $2=ANY(pg_blocking_pids(pid)))",
+                        &[&application_name, &blocker],
+                    )
+                    .await
+                    .unwrap()
+                    .get(0);
+                if blocked {
+                    break;
+                }
+                assert!(
+                    !waiting.is_finished(),
+                    "registry mutation completed before waiting for the actor lock"
+                );
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("registry mutation must wait for the actor lock before its 3s lock deadline");
+
+        disable.commit().await.unwrap();
+        assert_eq!(
+            waiting.await.unwrap(),
+            Err(RegistryError::Rejected(IdentityError::ActorInactive))
+        );
+        assert_eq!(h.counts().await, (1, 1));
+        let binding = h.service.lookup(&bound_key).await.unwrap().unwrap();
+        assert_eq!(binding.id, actor("existing"));
+        assert!(!binding.active);
+        assert_eq!(h.service.lookup(&new_key).await.unwrap(), None);
+    }
 }
 
 #[tokio::test]

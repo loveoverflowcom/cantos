@@ -226,7 +226,16 @@ fn unit_request(work: &Value, title: &str) -> Value {
 
 fn schema(definition: &str, body: &Value) {
     let root: Value = serde_json::from_str(
-        if definition == "ApiError"
+        if matches!(
+            definition,
+            "PublicationReadinessResponse"
+                | "DistributionClearanceDocument"
+                | "PublicationApprovalDocument"
+                | "ActiveAudioReleaseResponse"
+                | "AudioReleaseWithdrawalResponse"
+        ) {
+            include_str!("../../../packages/contracts/schema/publication/v1.schema.json")
+        } else if definition == "ApiError"
             || definition.starts_with("Audio")
             || definition.starts_with("ReleaseCandidate")
         {
@@ -296,6 +305,20 @@ async fn request(
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     let definition = if !status.is_success() {
         "ApiError"
+    } else if body.get("withdrawn_release_id").is_some() {
+        "AudioReleaseWithdrawalResponse"
+    } else if body.get("pointer_version").is_some() {
+        if body.get("blockers").is_some() {
+            "PublicationReadinessResponse"
+        } else {
+            "ActiveAudioReleaseResponse"
+        }
+    } else if body.get("actor_id").is_some() && body.get("candidate_id").is_some() {
+        if body["request"].get("clearance_digest").is_some() {
+            "PublicationApprovalDocument"
+        } else {
+            "DistributionClearanceDocument"
+        }
     } else if body.get("submission").is_some() {
         "AudioSubmissionResponse"
     } else if body.get("candidate").is_some() {
@@ -2062,4 +2085,4 @@ async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgre
 mod brief_http;
 
 #[path = "support/audio_lifecycle_http_postgres.rs"]
-mod audio_lifecycle_http;
+pub(crate) mod audio_lifecycle_http;

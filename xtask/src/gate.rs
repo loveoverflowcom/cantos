@@ -25,6 +25,7 @@ pub enum GateKind {
     Repository,
     RustFormat,
     ScriptIrReference,
+    ProtobufReference,
     RustLint,
     RustTests,
     Dbsp,
@@ -71,6 +72,7 @@ pub enum Gate {
     Repository,
     RustFormat,
     ScriptIrReference,
+    ProtobufReference,
     RustLint(Scope),
     RustTests(Scope),
     /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
@@ -95,7 +97,7 @@ pub enum Gate {
 /// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only media
 /// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; database tests
 /// belong to `Gate::Postgres`.
-pub const API_CONTRACT_TESTS: [&str; 10] = [
+pub const API_CONTRACT_TESTS: [&str; 12] = [
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -106,6 +108,8 @@ pub const API_CONTRACT_TESTS: [&str; 10] = [
     "wav_inspection",
     "audio_intake",
     "audio_intake_contract",
+    "publication_contract",
+    "listener_library_contract",
 ];
 
 impl Gate {
@@ -114,6 +118,7 @@ impl Gate {
             Gate::Repository => GateKind::Repository,
             Gate::RustFormat => GateKind::RustFormat,
             Gate::ScriptIrReference => GateKind::ScriptIrReference,
+            Gate::ProtobufReference => GateKind::ProtobufReference,
             Gate::RustLint(_) => GateKind::RustLint,
             Gate::RustTests(_) => GateKind::RustTests,
             Gate::Dbsp => GateKind::Dbsp,
@@ -157,6 +162,7 @@ impl Gate {
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
+            Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
             Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
@@ -204,6 +210,31 @@ impl Gate {
             Gate::RustFormat => vec![cargo(&["fmt", "--all", "--", "--check"])],
             Gate::Kani(kernel) => vec![kernel.command(workspace)],
             Gate::ScriptIrReference => vec![python(&["scripts/reference_script_ir.py"])],
+            Gate::ProtobufReference => vec![
+                python(&["scripts/reference_protobuf.py"]),
+                cargo(&[
+                    "run",
+                    "--locked",
+                    "--manifest-path",
+                    "scripts/protobuf-oracle/rust/Cargo.toml",
+                    "--target-dir",
+                    "target/protobuf-oracle",
+                    "--",
+                    "packages/contracts/fixtures/protobuf/v1/goldens.json",
+                ]),
+                cargo(&[
+                    "clippy",
+                    "--locked",
+                    "--manifest-path",
+                    "scripts/protobuf-oracle/rust/Cargo.toml",
+                    "--target-dir",
+                    "target/protobuf-oracle",
+                    "--all-targets",
+                    "--",
+                    "-D",
+                    "warnings",
+                ]),
+            ],
             Gate::RustLint(scope) => vec![cargo(&["clippy"]).args(scope.cargo_args()).args([
                 "--all-targets",
                 "--locked",
@@ -293,6 +324,7 @@ pub fn full() -> Vec<Gate> {
         Gate::Repository,
         Gate::RustFormat,
         Gate::ScriptIrReference,
+        Gate::ProtobufReference,
         Gate::RustLint(Scope::Workspace),
         Gate::RustTests(Scope::Workspace),
         Gate::Dbsp,
@@ -334,6 +366,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
         ],
         VerifySuite::Contracts => vec![
             Gate::ScriptIrReference,
+            Gate::ProtobufReference,
             Gate::ContractTests,
             Gate::WavReference,
             Gate::AudioInspection,
@@ -405,6 +438,21 @@ mod tests {
             ]
         );
         assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
+    }
+
+    #[test]
+    fn protobuf_reference_checks_independent_goldens_and_exact_generated_schema() {
+        assert_eq!(lines(&Gate::ProtobufReference), [
+            "python3 scripts/reference_protobuf.py",
+            "cargo run --locked --manifest-path scripts/protobuf-oracle/rust/Cargo.toml --target-dir target/protobuf-oracle -- packages/contracts/fixtures/protobuf/v1/goldens.json",
+            "cargo clippy --locked --manifest-path scripts/protobuf-oracle/rust/Cargo.toml --target-dir target/protobuf-oracle --all-targets -- -D warnings",
+        ]);
+        assert_eq!(
+            Gate::ProtobufReference.tools(),
+            [Tool::Cargo, Tool::Python3, Tool::Clippy]
+        );
+        assert!(full().contains(&Gate::ProtobufReference));
+        assert!(verify_suite(&VerifySuite::Contracts).contains(&Gate::ProtobufReference));
     }
 
     #[test]
@@ -539,7 +587,14 @@ mod tests {
                 .iter()
                 .map(|outcome| outcome.status)
                 .collect::<Vec<_>>(),
-            [Status::Fail, Status::NotRun, Status::NotRun]
+            [
+                Status::Fail,
+                Status::NotRun,
+                Status::NotRun,
+                Status::NotRun,
+                Status::NotRun,
+                Status::NotRun
+            ]
         );
         assert_eq!(runner.commands.len(), 1);
     }

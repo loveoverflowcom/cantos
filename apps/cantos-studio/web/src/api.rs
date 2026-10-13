@@ -1,4 +1,5 @@
 //! Same-origin HTTP transport. Session credential becomes an HttpOnly cookie.
+use cantos_contracts::protobuf::ProtobufDto;
 use cantos_contracts::{
     AcceptAdaptationRequest, AdaptationReviewResponse, ApiError, ApproveProductionRequest,
     ErrorCode, FreezeProductionRequest, HistoryResponse, ImportRequest, ImportResponse,
@@ -114,7 +115,7 @@ async fn post<T: DeserializeOwned, P: Serialize>(path: &str, body: &P) -> Result
 
 /// The negotiated routes (head, pinned revision, save, validation) declare `REVISION_CODEC` and
 /// decode each response by its own `Content-Type`; every other route keeps `get`/`post` above.
-async fn negotiate<T: DeserializeOwned>(
+async fn negotiate<T: DeserializeOwned + ProtobufDto>(
     request: Request,
     deadline: RequestDeadline,
 ) -> Result<T, ApiError> {
@@ -127,7 +128,7 @@ async fn negotiate<T: DeserializeOwned>(
     wire::decode_response(REVISION_CODEC, ok, content_type.as_deref(), &body?)
 }
 
-async fn negotiated_get<T: DeserializeOwned>(path: &str) -> Result<T, ApiError> {
+async fn negotiated_get<T: DeserializeOwned + ProtobufDto>(path: &str) -> Result<T, ApiError> {
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
     let request = Request::get(path)
@@ -138,7 +139,7 @@ async fn negotiated_get<T: DeserializeOwned>(path: &str) -> Result<T, ApiError> 
     negotiate(request, deadline).await
 }
 
-async fn negotiated_post<T: DeserializeOwned, P: Serialize>(
+async fn negotiated_post<T: DeserializeOwned + ProtobufDto, P: Serialize + ProtobufDto>(
     path: &str,
     body: &P,
 ) -> Result<T, ApiError> {

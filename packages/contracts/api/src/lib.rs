@@ -19,6 +19,7 @@ pub use briefs::*;
 mod audio_intake;
 pub use audio_intake::*;
 pub mod admin;
+pub mod protobuf;
 pub mod routes;
 pub mod theatre;
 pub mod wire;
@@ -158,3 +159,8 @@ pub struct SessionResponse {
 
 mod audio_lifecycle;
 pub use audio_lifecycle::*;
+
+mod publication;
+pub use publication::*;
+
+pub mod listener_library;

@@ -12,7 +12,7 @@ use cantos_api::{
     script_ir::{read_canonical_script, read_script},
 };
 use cantos_contracts::{
-    wire::{decode, encode, WireFormat},
+    wire::{decode, decode_pilot, encode_pilot, WireFormat},
     RevisionResponse, SaveRevisionRequest, ValidateScriptRequest,
 };
 use http_body_util::BodyExt;
@@ -22,6 +22,8 @@ use tower::ServiceExt;
 
 const ORIGIN: &str = "http://127.0.0.1:8080";
 const SCRIPT: &str = "ad04abb5-bba0-4240-b211-3ed2aa179999";
+const PROTOBUF_GOLDENS: &str =
+    include_str!("../../../packages/contracts/fixtures/protobuf/v1/goldens.json");
 const GOLDENS: &str =
     include_str!("../../../packages/contracts/fixtures/studio/v1/msgpack-goldens.json");
 
@@ -40,7 +42,7 @@ fn save_body(format: WireFormat) -> Vec<u8> {
         "../../../packages/contracts/fixtures/studio/v1/save-revision.json"
     ))
     .unwrap();
-    encode(format, &request).unwrap()
+    encode_pilot(format, &request).unwrap()
 }
 
 fn validate_body(format: WireFormat) -> Vec<u8> {
@@ -48,7 +50,7 @@ fn validate_body(format: WireFormat) -> Vec<u8> {
         "../../../packages/contracts/fixtures/studio/v1/validate-script.json"
     ))
     .unwrap();
-    encode(format, &request).unwrap()
+    encode_pilot(format, &request).unwrap()
 }
 
 struct Exchange {
@@ -60,6 +62,7 @@ struct Exchange {
 }
 
 async fn call(
+    mount: &str,
     method: &str,
     path: &str,
     format: WireFormat,
@@ -69,7 +72,7 @@ async fn call(
 ) -> Exchange {
     let mut request = Request::builder()
         .method(method)
-        .uri(format!("/api/v1/studio{path}"))
+        .uri(format!("{mount}{path}"))
         .header(header::ORIGIN, origin)
         .header(header::ACCEPT, format.media_type());
     if method == "POST" {
@@ -140,26 +143,34 @@ fn negotiated_routes(format: WireFormat) -> [(&'static str, String, Vec<u8>); 4]
 }
 
 #[tokio::test]
-async fn origin_and_session_refusals_are_the_same_json_errors_for_both_representations() {
-    for format in [WireFormat::Json, WireFormat::MessagePack] {
-        for (method, path, body) in negotiated_routes(format) {
-            if method == "POST" {
-                let forged = call(
-                    method,
-                    &path,
-                    format,
-                    "https://attacker.invalid",
-                    true,
-                    body.clone(),
-                )
-                .await;
-                assert_api_error(&forged, StatusCode::FORBIDDEN, "forbidden");
+async fn origin_and_session_refusals_are_the_same_json_errors_for_all_representations() {
+    for mount in ["/api/v1/studio", "/api/v1"] {
+        for format in [
+            WireFormat::Json,
+            WireFormat::MessagePack,
+            WireFormat::Protobuf,
+        ] {
+            for (method, path, body) in negotiated_routes(format) {
+                if method == "POST" {
+                    let forged = call(
+                        mount,
+                        method,
+                        &path,
+                        format,
+                        "https://attacker.invalid",
+                        true,
+                        body.clone(),
+                    )
+                    .await;
+                    assert_api_error(&forged, StatusCode::FORBIDDEN, "forbidden");
+                }
+                let anonymous =
+                    call(mount, method, &path, format, ORIGIN, false, body.clone()).await;
+                assert_api_error(&anonymous, StatusCode::UNAUTHORIZED, "unauthenticated");
+                // A duplicated session cookie is refused before any database lookup.
+                let ambiguous = call(mount, method, &path, format, ORIGIN, true, body).await;
+                assert_api_error(&ambiguous, StatusCode::UNAUTHORIZED, "unauthenticated");
             }
-            let anonymous = call(method, &path, format, ORIGIN, false, body.clone()).await;
-            assert_api_error(&anonymous, StatusCode::UNAUTHORIZED, "unauthenticated");
-            // A duplicated session cookie is refused before any database lookup.
-            let ambiguous = call(method, &path, format, ORIGIN, true, body).await;
-            assert_api_error(&ambiguous, StatusCode::UNAUTHORIZED, "unauthenticated");
         }
     }
 }
@@ -175,6 +186,22 @@ fn golden(definition: &str) -> Vec<u8> {
         .as_str()
         .unwrap()
         .to_owned();
+    (0..hex.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).unwrap())
+        .collect()
+}
+
+fn protobuf_golden(name: &str) -> Vec<u8> {
+    let goldens: Value = serde_json::from_str(PROTOBUF_GOLDENS).unwrap();
+    let hex = goldens["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == name)
+        .unwrap()["protobuf_hex"]
+        .as_str()
+        .unwrap();
     (0..hex.len())
         .step_by(2)
         .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).unwrap())
@@ -213,7 +240,14 @@ fn a_draft_with_vietnamese_and_special_characters_admits_identically_from_either
         decode(WireFormat::MessagePack, &golden("ValidateScript")).unwrap();
     let from_json: ValidateScriptRequest =
         decode(WireFormat::Json, &validate_body(WireFormat::Json)).unwrap();
+    let from_protobuf: ValidateScriptRequest =
+        decode_pilot(WireFormat::Protobuf, &protobuf_golden("validate-script")).unwrap();
     assert_eq!(from_msgpack, from_json);
+    assert_eq!(from_protobuf, from_json);
+    assert_eq!(
+        from_protobuf.script_json.as_bytes(),
+        from_json.script_json.as_bytes()
+    );
     let text = &from_msgpack.script_json;
     for fragment in [
         "“Đi thôi!”",
@@ -231,5 +265,30 @@ fn a_draft_with_vietnamese_and_special_characters_admits_identically_from_either
             .unwrap()
             .content_digest()
             .to_string()
+    );
+}
+
+#[test]
+fn protobuf_retains_exact_canonical_export_and_digest_facts() {
+    let json: RevisionResponse = serde_json::from_str(include_str!(
+        "../../../packages/contracts/fixtures/studio/v1/revision.json"
+    ))
+    .unwrap();
+    let bytes = protobuf_golden("revision");
+    assert_eq!(encode_pilot(WireFormat::Protobuf, &json).unwrap(), bytes);
+    let decoded: RevisionResponse = decode_pilot(WireFormat::Protobuf, &bytes).unwrap();
+    assert_eq!(decoded, json);
+    assert_eq!(decoded.script_json.as_bytes(), json.script_json.as_bytes());
+    let canonical = read_canonical_script(decoded.script_json.as_bytes()).unwrap();
+    assert_eq!(
+        canonical.content_digest().to_string(),
+        decoded.content_digest
+    );
+    let mut hash = Sha256::new();
+    hash.update(b"cantos/script-export/e1\n");
+    hash.update(decoded.script_json.as_bytes());
+    assert_eq!(
+        format!("sir-e1:sha256:{:x}", hash.finalize()),
+        decoded.export_digest
     );
 }

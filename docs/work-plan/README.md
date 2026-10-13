@@ -56,6 +56,18 @@ pending-write/concurrent identity cases, then full accessibility acceptance; kee
 browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
 backend sequence above is unchanged.
 
+## Publication core and next listener boundary
+
+[Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
+clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
+minimal withdrawal over the existing candidate/intake path. [Verification](../evidence/publication-core.md)
+separates passing core/Router/proof tests from failed PostgreSQL startup and unrun delivery.
+Unconfigured delivery cannot activate. [Discovery/Playback then Library/Progress handoff](publication-discovery-handoff.md)
+defines the next two separately reviewed slices and the independent
+[private storage PR90](https://github.com/loveoverflowcom/cantos/pull/90) integration prerequisite.
+Keep #9/#10/#11 open through real storage, SQL/concurrency, listening/rights and public acceptance;
+Studio audit manifests do not themselves authorize Theatre playback.
+
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
@@ -110,7 +122,9 @@ API sequence above. GitHub owns status.
   listener API first; neither completes 040 nor its issues.
   The [#35 Web library MVP mock](../evidence/theatre-web-library-mvp.md) provides a bounded UX
   review step: Khám phá/Của tôi navigation, direct Continue/Saved/History sections and persistent
-  mock mini-player. Retain publication,
+  mock mini-player. The [library/account v2 visual pass](../evidence/theatre-web-library-account-v2.md)
+  reworks those two screens (cluster, status rows, bundled fonts/mock artwork) without new product
+  scope; its Drive reference comparison and Avatar qualification remain open. Retain publication,
   listener identity/API and real playback/synchronization prerequisites for production acceptance.
   The mock does not settle the broader product/backend decisions tracked by
   [#34](https://github.com/loveoverflowcom/cantos/issues/34) or close #35.
@@ -156,3 +170,31 @@ then publication before Theatre playback. Next runtime acceptance needs an opera
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
 lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.
+
+## Listener Library / Progress successor
+
+The [account Library/Progress v1](../../packages/contracts/listener-library-v1.md) and
+[identity/Web/CMP handoff](listener-library-progress-handoff.md) follow inherited draft PR93.
+The [evidence record](../evidence/listener-library-progress.md) distinguishes pure/use-case/Router
+checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
+no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
+remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.

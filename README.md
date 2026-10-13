@@ -105,3 +105,11 @@ acceptance are tracked in [#64](https://github.com/loveoverflowcom/cantos/issues
 
 Cantos has no selected repository software license. Repository visibility does not grant a right
 to redistribute narrative or voice material.
+
+## Public listener backend core
+
+[Theatre Discovery/Playback v1](packages/contracts/theatre-discovery-v1.md) adds anonymous
+current-public works/search/detail, ordered units and immutable manifest projections. Media
+authorization remains fail-closed with unavailable public delivery. PostgreSQL/runtime and
+Web/CMP live adapter acceptance are still required; current mock clients are unchanged.
+[Evidence and boundaries](docs/evidence/theatre-discovery.md).

@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "saved": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "saved": true,
+        "revision": 1,
+        "listener_order": 1,
+        "accepted_at_ms": 1000
+      }
+    }
+  ],
+  "next_cursor": null
+}
