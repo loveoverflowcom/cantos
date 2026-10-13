@@ -46,8 +46,9 @@ cargo xtask ui-preview cmp android-build             # compile the isolated Andr
 
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify postgres [--keep]
+cargo xtask verify kani [--harness catalog-revision|wav-payload|submission-window]...
 
-cargo xtask preflight [--changed-only] [--base REF] [--skip GATE]... [--dry-run]
+cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
 cargo xtask doctor
 cargo xtask services list|validate|status
@@ -267,7 +268,8 @@ reporting vocabulary, `PASS` is `passed`, `FAIL` is `failed`, `NOT_RUN` is `not-
 
 ### preflight
 
-`cargo xtask preflight` runs every gate. `--changed-only` compares the working tree with the merge
+`cargo xtask preflight` runs every ordinary gate; the targeted Kani campaign requires explicit
+`--kani`. `--changed-only` compares the working tree with the merge
 base of `--base` (default `origin/develop`): committed, staged, unstaged and untracked paths, with
 both ends of a rename. A missing base fails before any gate runs. `--dry-run` prints the plan.
 
@@ -298,6 +300,64 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 `--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
 `NOT_RUN`, never `PASS`. Use it, for example, for `postgres` on a machine without PostgreSQL, and
 state it in the pull request.
+
+### Optional targeted Kani proofs
+
+`cargo xtask verify kani` selects exactly three registered API-library propositions:
+`catalog-revision`, `wav-payload` and `submission-window`. Repeat `--harness` to select a subset;
+unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
+fully qualified harness names, unwind 2, expected covers (6/7/8) and reviewed unreachable checks.
+The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
+limits. Existing Theatre harnesses are outside this registry and have no new executed claim.
+
+This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
+`preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
+Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
+uncertain changes select all three. Unrelated documents, Web/CMP and service configuration select
+none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
+`--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
+never started.
+
+Prepare official Kani **0.68.0** separately with its existing matching
+`nightly-2026-08-21-x86_64-unknown-linux-gnu` toolchain and CBMC **6.11.0**, then set `KANI_HOME`
+to its bundle parent (default `$HOME/.kani`). The current compatible model is
+x86_64-unknown-linux-gnu/64-bit `usize`, bundled
+`rustc 1.100.0-nightly (8925ea358 2026-08-20)`, with CaDiCaL. Production still uses **Rust 1.87.0**.
+The shared read-only probe checks the existing bundle, compiler/host and both version lines.
+It invokes only the absolute installed driver in cargo-plugin mode, never an installer proxy,
+setup, download or global toolchain change. Missing/incompatible tools are `UNSUPPORTED` before
+proof commands. Doctor's `PASS`/runnable rows establish capability only, never proof execution.
+
+The [single-harness primitive](../scripts/verify_kani.py) uses fixed API-library/no-default-feature,
+`--exact`, unwind 2, regular output and default safety/unwinding checks. Child-only bundle/PATH/
+toolchain selection is isolated from normal builds. Ambient compiler/flag/wrapper overrides and
+implicit Kani manifest/Cargo configuration are rejected rather than weakening the model; no
+additional Python 3.11/TOML parser is required. Rust uses the already locked TOML parser.
+It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
+configuration candidates to each proof command. The primitive refuses stale approval before
+proof execution and rechecks the complete candidate set on every outcome.
+No `--locked` switch exists in this Kani release: every outcome instead records and compares
+the unchanged workspace lock. Generated verifier files stay in `target/assurance-kani`, preserving
+the earlier campaign cache.
+
+Each selected gate is a separate existing pipeline row. A successful process alone is insufficient:
+the adapter requires one matching executed harness, exactly one successful completion, complete
+positive check evidence with zero failures, all registered cover identities satisfied and only
+the reviewed unreachable assertions. Zero/wrong/extra harnesses, incomplete/undetermined output,
+unsatisfied covers, timeout (900 seconds), output above 4 MiB, changed inputs or lock mutation are
+`FAIL`; later gates are `NOT_RUN`. Bounded subprocess cleanup signals only its owned process group
+before reaping the leader.
+
+Fresh raw output and metadata are retained under ignored `artifacts/agent-runs/kani-*/` with Git
+revision and sanitized dirty/diff hashes, source/configuration identities and before/after lock
+and model digests. Model binding covers all API source, contracts API source/schema inputs,
+their manifests/build scripts, root Cargo/.cargo settings and the primitive/registry, including
+created/deleted files. Relevant ancestor/Cargo-home configuration is also bound. These endpoint
+checks require frozen inputs: concurrent mutate-and-restore writes are not filesystem isolation.
+An observed endpoint change cannot retain `PASS`. This is bounded local arithmetic/admission
+evidence, not SQL, authorization, publication, actual audio, native listening or complete-feature
+acceptance. See the exact retained
+output before making a `bounded-model-checked` claim; ordinary adapter tests do not establish one.
 
 ### ci
 

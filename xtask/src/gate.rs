@@ -11,6 +11,7 @@ use crate::{
     cli::VerifySuite,
     command::CommandSpec,
     config::{App, API_PACKAGE, DBSP_FEATURE, UI_PACKAGE, WASM_TARGET},
+    kani::{self, Kernel},
     pipeline::Step,
     theatre_demo,
     tools::Tool,
@@ -37,6 +38,7 @@ pub enum GateKind {
     TheatreCmpDemo,
     Mutation,
     Postgres,
+    Kani,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -87,6 +89,7 @@ pub enum Gate {
     Postgres {
         keep: bool,
     },
+    Kani(Kernel),
 }
 
 /// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only media
@@ -124,6 +127,7 @@ impl Gate {
             Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
             Gate::Mutation => GateKind::Mutation,
             Gate::Postgres { .. } => GateKind::Postgres,
+            Gate::Kani(_) => GateKind::Kani,
         }
     }
 
@@ -142,6 +146,7 @@ impl Gate {
                 format!("{kind} ({})", names.join(", "))
             }
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
+            Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
             _ => kind,
         }
     }
@@ -150,6 +155,7 @@ impl Gate {
         match self {
             Gate::Repository => vec![Tool::Cargo, Tool::Python3, Tool::Git],
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
+            Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
@@ -196,6 +202,7 @@ impl Gate {
                 CommandSpec::new("git", root).args(["diff", "--cached", "--check"]),
             ],
             Gate::RustFormat => vec![cargo(&["fmt", "--all", "--", "--check"])],
+            Gate::Kani(kernel) => vec![kernel.command(workspace)],
             Gate::ScriptIrReference => vec![python(&["scripts/reference_script_ir.py"])],
             Gate::RustLint(scope) => vec![cargo(&["clippy"]).args(scope.cargo_args()).args([
                 "--all-targets",
@@ -305,6 +312,14 @@ pub fn full() -> Vec<Gate> {
 /// The gates behind one `cargo xtask verify <suite>` command.
 pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
+        VerifySuite::Kani { harness } => {
+            let kernels: BTreeSet<_> = if harness.is_empty() {
+                kani::Kernel::ALL.into()
+            } else {
+                harness.iter().copied().collect()
+            };
+            kernels.into_iter().map(Gate::Kani).collect()
+        }
         VerifySuite::Repository => vec![Gate::Repository],
         VerifySuite::Rust => vec![
             Gate::RustFormat,
@@ -462,6 +477,74 @@ mod tests {
     }
 
     #[test]
+    fn kani_is_registered_targeted_and_absent_from_ordinary_gates() {
+        let suite = VerifySuite::Kani {
+            harness: Vec::new(),
+        };
+        assert_eq!(verify_suite(&suite), Kernel::ALL.map(Gate::Kani));
+        assert_eq!(
+            verify_suite(&VerifySuite::Kani {
+                harness: vec![Kernel::WavPayload, Kernel::WavPayload]
+            }),
+            [Gate::Kani(Kernel::WavPayload)]
+        );
+        assert!(!full().iter().any(|gate| gate.kind() == GateKind::Kani));
+        assert!(!verify_suite(&VerifySuite::Rust)
+            .iter()
+            .any(|gate| gate.kind() == GateKind::Kani));
+        for kernel in Kernel::ALL {
+            let gate = Gate::Kani(kernel);
+            assert_eq!(
+                gate.tools(),
+                [Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani]
+            );
+            assert_eq!(gate.name(), format!("kani ({})", kernel.name()));
+            let command = &gate.commands(&workspace())[0];
+            assert_eq!(command.args[0], kani::SCRIPT);
+            assert!(command
+                .args
+                .windows(2)
+                .any(|args| args == ["--harness", kernel.harness()]));
+            assert!(command
+                .args
+                .windows(2)
+                .any(|args| args == ["--unwind", "2"]));
+        }
+    }
+
+    #[test]
+    fn kani_prerequisite_and_failure_use_unchanged_pipeline_statuses() {
+        use crate::{
+            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
+        };
+        let steps = steps(&Kernel::ALL.map(Gate::Kani), &workspace());
+        for missing in [Tool::Kani, Tool::Git] {
+            let mut runner = RecordingRunner::default();
+            let unavailable =
+                pipeline::execute("kani", &steps, &FakeTools::without(&[missing]), &mut runner);
+            assert!(runner.commands.is_empty());
+            assert!(unavailable
+                .outcomes
+                .iter()
+                .all(|outcome| outcome.status == Status::Unsupported));
+        }
+        let mut runner = RecordingRunner {
+            fail_on: Some(Kernel::CatalogRevision.harness().into()),
+            ..Default::default()
+        };
+        let failure = pipeline::execute("kani", &steps, &FakeTools::all(), &mut runner);
+        assert_eq!(
+            failure
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.status)
+                .collect::<Vec<_>>(),
+            [Status::Fail, Status::NotRun, Status::NotRun]
+        );
+        assert_eq!(runner.commands.len(), 1);
+    }
+
+    #[test]
     fn every_referenced_script_and_test_target_exists() {
         let workspace = workspace();
         for gate in full()
@@ -485,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    fn full_selection_is_in_execution_order_and_covers_every_kind_but_focused_tests() {
+    fn full_selection_is_ordered_and_excludes_only_focused_tests_and_optional_kani() {
         let gates = full();
         let mut sorted = gates.clone();
         sorted.sort();
@@ -495,7 +578,7 @@ mod tests {
         // Workspace tests already run every focused contract test target.
         assert_eq!(
             all.difference(&kinds).copied().collect::<Vec<_>>(),
-            [GateKind::ContractTests]
+            [GateKind::ContractTests, GateKind::Kani]
         );
     }
 
