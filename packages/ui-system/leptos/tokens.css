@@ -1,14 +1,26 @@
-/* Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
+/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
   --cantos-breakpoint-expanded: 52.5rem;
   --cantos-breakpoint-medium: 37.5rem;
   --cantos-color-accent: #886638;
+  --cantos-color-avatar-clay: #f2dfd3;
+  --cantos-color-avatar-gold: #f3e3c3;
+  --cantos-color-avatar-lavender: #e6d9f1;
+  --cantos-color-avatar-rose: #f6dde0;
+  --cantos-color-avatar-sage: #dbe8dc;
+  --cantos-color-avatar-sky: #d9e5f2;
   --cantos-color-background: #f7f3eb;
   --cantos-color-error: #a33436;
   --cantos-color-error-container: #fce3dd;
   --cantos-color-focus: #744b98;
+  --cantos-color-on-avatar-clay: #553222;
+  --cantos-color-on-avatar-gold: #4d3712;
+  --cantos-color-on-avatar-lavender: #3d2b4d;
+  --cantos-color-on-avatar-rose: #5a2a33;
+  --cantos-color-on-avatar-sage: #24402f;
+  --cantos-color-on-avatar-sky: #1f3a52;
   --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #ffffff;
   --cantos-color-on-primary-container: #332340;
@@ -40,6 +52,9 @@
   --cantos-shape-pill: 62.4375rem;
   --cantos-shape-reading: 0.75rem;
   --cantos-shape-thumbnail: 0.625rem;
+  --cantos-size-avatar-large: 4rem;
+  --cantos-size-avatar-medium: 2.5rem;
+  --cantos-size-avatar-small: 2rem;
   --cantos-size-border: 0.0625rem;
   --cantos-size-control: 2.75rem;
   --cantos-size-focus-offset: 0.25rem;
@@ -86,10 +101,22 @@
   .cantos-ui:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;
     --cantos-color-accent: #d9b57d;
+    --cantos-color-avatar-clay: #573a2c;
+    --cantos-color-avatar-gold: #54432a;
+    --cantos-color-avatar-lavender: #4d3a5e;
+    --cantos-color-avatar-rose: #5a3239;
+    --cantos-color-avatar-sage: #2f4a3a;
+    --cantos-color-avatar-sky: #2b4157;
     --cantos-color-background: #211d25;
     --cantos-color-error: #ffb3a9;
     --cantos-color-error-container: #4d2627;
     --cantos-color-focus: #e0b8fc;
+    --cantos-color-on-avatar-clay: #f7dfd1;
+    --cantos-color-on-avatar-gold: #f8e6c4;
+    --cantos-color-on-avatar-lavender: #f0defe;
+    --cantos-color-on-avatar-rose: #fbdde2;
+    --cantos-color-on-avatar-sage: #d6ecdb;
+    --cantos-color-on-avatar-sky: #d8e8f8;
     --cantos-color-on-player-surface: #f7eef9;
     --cantos-color-on-primary: #352044;
     --cantos-color-on-primary-container: #f0defe;
@@ -114,10 +141,22 @@
 .cantos-ui[data-theme="light"] {
   color-scheme: light;
   --cantos-color-accent: #886638;
+  --cantos-color-avatar-clay: #f2dfd3;
+  --cantos-color-avatar-gold: #f3e3c3;
+  --cantos-color-avatar-lavender: #e6d9f1;
+  --cantos-color-avatar-rose: #f6dde0;
+  --cantos-color-avatar-sage: #dbe8dc;
+  --cantos-color-avatar-sky: #d9e5f2;
   --cantos-color-background: #f7f3eb;
   --cantos-color-error: #a33436;
   --cantos-color-error-container: #fce3dd;
   --cantos-color-focus: #744b98;
+  --cantos-color-on-avatar-clay: #553222;
+  --cantos-color-on-avatar-gold: #4d3712;
+  --cantos-color-on-avatar-lavender: #3d2b4d;
+  --cantos-color-on-avatar-rose: #5a2a33;
+  --cantos-color-on-avatar-sage: #24402f;
+  --cantos-color-on-avatar-sky: #1f3a52;
   --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #ffffff;
   --cantos-color-on-primary-container: #332340;
@@ -141,10 +180,22 @@
 .cantos-ui[data-theme="dark"] {
   color-scheme: dark;
   --cantos-color-accent: #d9b57d;
+  --cantos-color-avatar-clay: #573a2c;
+  --cantos-color-avatar-gold: #54432a;
+  --cantos-color-avatar-lavender: #4d3a5e;
+  --cantos-color-avatar-rose: #5a3239;
+  --cantos-color-avatar-sage: #2f4a3a;
+  --cantos-color-avatar-sky: #2b4157;
   --cantos-color-background: #211d25;
   --cantos-color-error: #ffb3a9;
   --cantos-color-error-container: #4d2627;
   --cantos-color-focus: #e0b8fc;
+  --cantos-color-on-avatar-clay: #f7dfd1;
+  --cantos-color-on-avatar-gold: #f8e6c4;
+  --cantos-color-on-avatar-lavender: #f0defe;
+  --cantos-color-on-avatar-rose: #fbdde2;
+  --cantos-color-on-avatar-sage: #d6ecdb;
+  --cantos-color-on-avatar-sky: #d8e8f8;
   --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #352044;
   --cantos-color-on-primary-container: #f0defe;
