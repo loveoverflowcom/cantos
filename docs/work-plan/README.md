@@ -48,6 +48,14 @@ identity/storage and stronger rights/QC policy,
 then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
 separate. No listening/interoperability is settled by admitting an Opus envelope.
 
+The [PR73 browser follow-up](../evidence/live-client-browser-acceptance.md) exercised the real
+bounded Studio flow but records partial/FAIL acceptance. Next within #66: correct the visible
+default work kind versus submitted kind, investigate successful sign-in followed by 401 in an
+existing Safari profile, then repair Catalog chip metadata contrast. These are proposed
+corrections/rechecks, not completed work or new execution tasks. Keep the missing header,
+timing/identity and full accessibility cases explicit; the recommended publication/Theatre
+backend sequence above is unchanged.
+
 ## Existing foundations to retain
 
 Script IR validation/revision persistence, manuscript import, host-generated adaptation

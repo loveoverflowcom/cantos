@@ -90,7 +90,7 @@ pure Rust generation guards only, never Kotlin, Fetch, network, credentials, med
 On an approved configured Kani environment, run `cargo kani -p cantos-theatre --harness <name>`;
 retain verifier version/output and rerun ordinary tests if the harness changes.
 
-## Runtime, design and user acceptance
+## Initial runtime attempt, design and user acceptance
 
 `CANTOS_TEST_CONTEXT=audio cargo xtask run cantos-studio --web --test-cluster` built and started
 only the owned local API and Trunk processes against the retained disposable fixture. Trunk
@@ -111,6 +111,13 @@ API changed. App-local forms reuse established Studio actions and semantic nativ
 no new unqualified shared import site was added. Localization: vi-VN/en resources and mapped
 status/error copy; actual font rendering not observed. Motion: no new motion; runtime not observed.
 Visual/reference fidelity and accessibility findings remain pending the unlocked browser workflow.
+
+The [2026-10-13 unlocked-Mac browser follow-up](live-client-browser-acceptance.md) subsequently
+ran real Studio/Safari/API/PostgreSQL flows and inspected 16 native captures. It supersedes the
+initial browser NOT_RUN statement only for its named checks. Acceptance remains partial/FAIL:
+default work kind, existing-profile session and metadata contrast findings are open; browser
+headers, remaining timing/identity cases, CMP interaction and Kani are not accepted. The follow-up
+changes evidence/planning only and deliberately applies no application fix.
 
 Independent review at the implementation checkpoint reports `no-actionable-findings`; its ledger
 and scope are in the [review record](live-client-review.md). All grounded findings were fixed and
