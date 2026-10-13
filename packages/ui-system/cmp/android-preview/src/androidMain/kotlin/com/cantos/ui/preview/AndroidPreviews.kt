@@ -64,6 +64,7 @@ fun AndroidChoicesDarkLargePreview() {
     AndroidSamplePage(Theme.Dark, Density.Comfortable) {
         Text("Lựa chọn · Nguyễn Thị Minh Phương")
         ComponentExample(PreviewExample.Checkbox, "error", {}, Modifier)
+        ComponentExample(PreviewExample.Avatar, "initials-pair", {}, Modifier)
         ComponentExample(PreviewExample.Select, "enabled", {}, Modifier)
         ComponentExample(PreviewExample.RangeField, "stepped", {}, Modifier)
     }
@@ -80,6 +81,7 @@ fun AndroidNavigationLightWidePreview() {
         Text("Điều hướng · Ánh đèn cuối sân khấu")
         ComponentExample(PreviewExample.NavTabs, "overflow", {}, Modifier)
         ComponentExample(PreviewExample.Button, "composed-content", {}, Modifier)
+        ComponentExample(PreviewExample.Avatar, "sizes", {}, Modifier)
         ComponentExample(PreviewExample.ErrorState, "recovery-slot", {}, Modifier)
     }
 }

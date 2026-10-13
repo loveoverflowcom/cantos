@@ -15,7 +15,7 @@ class PreviewModelTest {
     fun every_registered_component_has_exactly_one_native_example() {
         val registered = PreviewCatalog.components.map { it.id }.sorted()
         val implemented = PreviewExample.entries.map { it.id }.sorted()
-        assertEquals(29, registered.size)
+        assertEquals(30, registered.size)
         assertEquals(registered, registered.distinct())
         assertEquals(registered, implemented)
         PreviewCatalog.components.forEach { component ->
@@ -75,12 +75,12 @@ class PreviewModelTest {
 
     @Test
     fun catalog_search_and_family_filter_compose_without_mutation() {
-        assertEquals(29, filterComponents("", null).size)
+        assertEquals(30, filterComponents("", null).size)
         assertEquals(listOf("icon-button"), filterComponents(" ICON-BUTTON ", "actions").map { it.id })
         assertEquals(emptyList(), filterComponents("icon-button", "fields"))
         assertEquals(listOf("text-area", "text-field"), filterComponents("text", "fields").map { it.id }.sorted())
         assertEquals(emptyList(), filterComponents("không tồn tại", null))
-        assertEquals(29, PreviewCatalog.components.size)
+        assertEquals(30, PreviewCatalog.components.size)
     }
 
     @Test
