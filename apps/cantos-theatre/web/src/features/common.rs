@@ -107,7 +107,11 @@ pub(crate) fn CatalogState(ctx: TheatreContext) -> impl IntoView {
                 Scenario::Ready => Key::DemoNotice, Scenario::Loading => Key::LoadingHelp,
                 Scenario::Empty => Key::EmptyCatalogHelp, Scenario::Error => Key::CatalogErrorHelp,
             })}</p>
-            <button type="button" class="theatre-action" on:click=move |_| ctx.catalog.load(Scenario::Ready)>
+            <button type="button" class="theatre-action" on:click=move |_| {
+                ctx.catalog.load(Scenario::Ready);
+                // Recovery removes this button; keep keyboard focus in the persistent landmark.
+                platform::focus_main(ctx.main);
+            }>
                 {move || if ctx.catalog.scenario() == Scenario::Error { ctx.text(Key::Retry) } else { ctx.text(Key::LoadDemo) }}
             </button>
         </section>

@@ -53,6 +53,16 @@ pub fn focus_main(main: NodeRef<leptos::html::Main>) {
 pub fn focus_main(_main: NodeRef<leptos::html::Main>) {}
 
 #[cfg(target_arch = "wasm32")]
+pub fn focus_input(input: NodeRef<leptos::html::Input>) {
+    if let Some(element) = input.get_untracked() {
+        let _ = element.focus();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn focus_input(_input: NodeRef<leptos::html::Input>) {}
+
+#[cfg(target_arch = "wasm32")]
 pub fn set_title(title: &str) {
     if let Some(document) = leptos::web_sys::window().and_then(|window| window.document()) {
         document.set_title(title);

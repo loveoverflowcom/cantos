@@ -79,8 +79,12 @@ impl CatalogState {
             },
         ))
     }
+    /// A request settles once; refresh/retry must issue a new generation.
     pub fn accept(&self, response: CatalogResponse) -> Self {
-        if response.generation != self.generation {
+        if self.generation == 0
+            || response.generation != self.generation
+            || !matches!(&self.outcome, CatalogOutcome::Pending)
+        {
             return self.clone();
         }
         Self {
@@ -154,25 +158,311 @@ impl CatalogSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn newer_catalog_request_discards_older_result_including_error() {
-        let (loading, old) = CatalogState::default().begin(Scenario::Ready).unwrap();
-        let (newer, current) = loading.begin(Scenario::Empty).unwrap();
-        let ready = newer.accept(CatalogResponse {
-            generation: current.generation,
-            outcome: CatalogOutcome::Empty,
-        });
-        for outcome in [
-            CatalogOutcome::Ready(WorkId::ALL.to_vec()),
+    use crate::{core::catalog::Genre, infrastructure::mock_catalog::MockCatalog};
+    use std::rc::Rc;
+
+    fn outcomes() -> [CatalogOutcome; 4] {
+        [
+            CatalogOutcome::Pending,
+            CatalogOutcome::Ready(vec![WorkId::River]),
+            CatalogOutcome::Empty,
             CatalogOutcome::Error,
-        ] {
+        ]
+    }
+
+    #[test]
+    fn no_result_is_accepted_before_the_first_request_is_issued() {
+        let idle = CatalogState::default();
+        for outcome in outcomes() {
             assert_eq!(
-                ready.accept(CatalogResponse {
-                    generation: old.generation,
-                    outcome
+                idle.accept(CatalogResponse {
+                    generation: 0,
+                    outcome,
                 }),
-                ready
+                idle
             );
         }
+    }
+
+    #[test]
+    fn each_new_request_clears_its_previous_result_and_advances_identity() {
+        for outcome in outcomes() {
+            let previous = CatalogState {
+                generation: 41,
+                outcome,
+            };
+            for scenario in [
+                Scenario::Ready,
+                Scenario::Loading,
+                Scenario::Empty,
+                Scenario::Error,
+            ] {
+                let (loading, request) = previous.begin(scenario).unwrap();
+                assert_eq!(
+                    loading,
+                    CatalogState {
+                        generation: 42,
+                        outcome: CatalogOutcome::Pending,
+                    }
+                );
+                assert_eq!(
+                    request,
+                    CatalogRequest {
+                        generation: 42,
+                        scenario,
+                    }
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn older_and_unissued_results_never_replace_pending_or_settled_catalogs() {
+        for current_outcome in outcomes() {
+            let current = CatalogState {
+                generation: 8,
+                outcome: current_outcome,
+            };
+            for generation in [0, 7, 9, u32::MAX] {
+                for outcome in outcomes() {
+                    assert_eq!(
+                        current.accept(CatalogResponse {
+                            generation,
+                            outcome,
+                        }),
+                        current
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn first_terminal_result_settles_a_request_until_a_new_request_begins() {
+        let loading = CatalogState {
+            generation: 7,
+            outcome: CatalogOutcome::Pending,
+        };
+        for outcome in [
+            CatalogOutcome::Ready(vec![WorkId::River]),
+            CatalogOutcome::Empty,
+            CatalogOutcome::Error,
+        ] {
+            let settled = loading.accept(CatalogResponse {
+                generation: 7,
+                outcome: outcome.clone(),
+            });
+            assert_eq!(
+                settled,
+                CatalogState {
+                    generation: 7,
+                    outcome,
+                }
+            );
+            for duplicate in outcomes() {
+                assert_eq!(
+                    settled.accept(CatalogResponse {
+                        generation: 7,
+                        outcome: duplicate,
+                    }),
+                    settled
+                );
+            }
+            let (retrying, request) = settled.begin(Scenario::Ready).unwrap();
+            assert_eq!(request.generation, 8);
+            assert_eq!(retrying.outcome, CatalogOutcome::Pending);
+        }
+    }
+
+    #[test]
+    fn exhausted_generation_preserves_catalog_instead_of_reusing_callback_identity() {
+        let current = CatalogState {
+            generation: u32::MAX,
+            outcome: CatalogOutcome::Ready(vec![WorkId::River]),
+        };
+        assert_eq!(current.begin(Scenario::Loading), None);
+        assert_eq!(current.generation, u32::MAX);
+        assert_eq!(current.ids(), vec![WorkId::River]);
+    }
+
+    /// A controllable read boundary: requests stay pending until the test delivers a result.
+    struct DeferredCatalog {
+        requests: Rc<RefCell<Vec<CatalogRequest>>>,
+    }
+
+    impl CatalogPort for DeferredCatalog {
+        fn work(&self, id: WorkId) -> Work {
+            MockCatalog.work(id)
+        }
+
+        fn fetch(&mut self, request: CatalogRequest) -> CatalogResponse {
+            self.requests.borrow_mut().push(request);
+            CatalogResponse {
+                generation: request.generation,
+                outcome: CatalogOutcome::Pending,
+            }
+        }
+    }
+
+    #[test]
+    fn session_commits_only_the_latest_deferred_port_result_then_retries_independently() {
+        Owner::new().with(|| {
+            let requests = Rc::new(RefCell::new(Vec::new()));
+            let session = CatalogSession::new(DeferredCatalog {
+                requests: requests.clone(),
+            });
+            session.load(Scenario::Empty);
+            assert_eq!(
+                requests.borrow().as_slice(),
+                [
+                    CatalogRequest {
+                        generation: 1,
+                        scenario: Scenario::Ready,
+                    },
+                    CatalogRequest {
+                        generation: 2,
+                        scenario: Scenario::Empty,
+                    },
+                ]
+            );
+            session.accept(CatalogResponse {
+                generation: 1,
+                outcome: CatalogOutcome::Ready(vec![WorkId::Mountain]),
+            });
+            assert_eq!(
+                session.state.get_untracked().outcome,
+                CatalogOutcome::Pending
+            );
+            session.accept(CatalogResponse {
+                generation: 2,
+                outcome: CatalogOutcome::Empty,
+            });
+            assert_eq!(session.state.get_untracked().outcome, CatalogOutcome::Empty);
+
+            session.load(Scenario::Ready);
+            session.accept(CatalogResponse {
+                generation: 2,
+                outcome: CatalogOutcome::Error,
+            });
+            assert_eq!(
+                session.state.get_untracked().outcome,
+                CatalogOutcome::Pending
+            );
+            session.accept(CatalogResponse {
+                generation: 3,
+                outcome: CatalogOutcome::Ready(vec![WorkId::Dream]),
+            });
+            session.accept(CatalogResponse {
+                generation: 1,
+                outcome: CatalogOutcome::Error,
+            });
+            assert_eq!(
+                session.state.get_untracked(),
+                CatalogState {
+                    generation: 3,
+                    outcome: CatalogOutcome::Ready(vec![WorkId::Dream]),
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn local_scenarios_stay_distinct_and_recovery_loads_samples_on_a_new_request() {
+        Owner::new().with(|| {
+            let session = CatalogSession::new(MockCatalog);
+            assert_eq!(session.state.get_untracked().generation, 1);
+            assert_eq!(session.state.get_untracked().ids(), WorkId::ALL.to_vec());
+            for (scenario, expected) in [
+                (Scenario::Loading, CatalogOutcome::Pending),
+                (Scenario::Error, CatalogOutcome::Error),
+                (Scenario::Empty, CatalogOutcome::Empty),
+                (
+                    Scenario::Ready,
+                    CatalogOutcome::Ready(vec![WorkId::Mountain, WorkId::River, WorkId::Dream]),
+                ),
+            ] {
+                let generation = session.state.get_untracked().generation + 1;
+                session.load(scenario);
+                assert_eq!(
+                    session.state.get_untracked(),
+                    CatalogState {
+                        generation,
+                        outcome: expected,
+                    }
+                );
+            }
+        });
+    }
+
+    struct InvalidDurationCatalog;
+
+    impl CatalogPort for InvalidDurationCatalog {
+        fn work(&self, id: WorkId) -> Work {
+            Work {
+                id,
+                title: "Dữ liệu thử giới hạn thời lượng",
+                genre: Genre::Memory,
+                synopsis: "Chỉ dùng để kiểm tra ranh giới dữ liệu cục bộ.",
+                episodes: &[
+                    Episode {
+                        title: "Thời lượng rỗng",
+                        duration: 0,
+                        available: true,
+                    },
+                    Episode {
+                        title: "Thời lượng vượt giới hạn",
+                        duration: u32::MAX,
+                        available: true,
+                    },
+                ],
+            }
+        }
+
+        fn fetch(&mut self, request: CatalogRequest) -> CatalogResponse {
+            CatalogResponse {
+                generation: request.generation,
+                outcome: CatalogOutcome::Pending,
+            }
+        }
+    }
+
+    #[test]
+    fn source_lookup_rejects_unavailable_missing_zero_and_overflowing_episodes() {
+        Owner::new().with(|| {
+            let session = CatalogSession::new(MockCatalog);
+            let available = EpisodeId {
+                work: WorkId::Mountain,
+                index: 0,
+            };
+            assert_eq!(session.source(available), Source::new(available, 1_480_000));
+            for index in [5, 6, usize::MAX] {
+                assert_eq!(
+                    session.source(EpisodeId {
+                        work: WorkId::Mountain,
+                        index,
+                    }),
+                    None
+                );
+            }
+            let invalid = CatalogSession::new(InvalidDurationCatalog);
+            for index in [0, 1] {
+                assert_eq!(
+                    invalid.source(EpisodeId {
+                        work: WorkId::Mountain,
+                        index,
+                    }),
+                    None
+                );
+            }
+            assert_eq!(
+                invalid
+                    .episode(EpisodeId {
+                        work: WorkId::Mountain,
+                        index: usize::MAX,
+                    })
+                    .map(|episode| episode.title),
+                None
+            );
+        });
     }
 }
