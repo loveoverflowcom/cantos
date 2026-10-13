@@ -64,6 +64,11 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   listener API first; neither completes 040 nor its issues.
 - [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
+
+The [CMP engineering skills audit](../evidence/cmp-engineering-skills.md) strengthens typed
+functional Kotlin, layer/ownership review and reproducible verification guidance. This is
+documentation maintenance; it changes neither the recommended implementation order nor 050's
+native acceptance status.
 - [GitHub execution map](project-planning.md) and [audio drama craft](audio-drama-quality.md)
   support these, without authorizing TTS inside Cantos.
 

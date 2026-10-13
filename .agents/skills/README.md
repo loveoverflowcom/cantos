@@ -55,13 +55,15 @@ Studio; inspect [the API service guide](../../services/cantos-api/README.md) and
 `services/kanidm` and shared `packages/`; read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
-requested in a future roadmap. Theatre Web is a skeleton and Theatre Mobile remains a guide;
+requested in a future roadmap. Theatre Web is a session-only UI mock; Theatre Mobile has an
+isolated memory-only Gradle CMP mock with Android/iOS hosts and common/desktop tests, without
+native audio, listener API, downloads or durable sync;
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
-representation for four Studio routes are implemented. Theatre Mobile and production execution
-remain planned. Story artifact skills
+representation for four Studio routes are implemented. Production native listening
+remains planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
 Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:

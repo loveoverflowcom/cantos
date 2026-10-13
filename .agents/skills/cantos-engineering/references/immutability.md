@@ -80,13 +80,10 @@ impl ScriptDraft {
 
 ## Value semantics in Kotlin
 
-- `data class` with `val` properties; update with `copy(...)`.
-- A read-only `List` is a view, not a guarantee: never pass a `MutableList` into UI state and
-  mutate it later. Snapshot at the boundary, or use an immutable collection library as a
-  recorded decision.
-- `MutableStateFlow.update { }` transforms are pure and may run more than once; no side effects
-  inside them.
-- Sealed interfaces for closed states; exhaustive `when` without `else`.
+Apply [FP-02/04 and TYPE-03/04](../../cantos-cmp-mobile/references/kotlin-conventions.md), the
+canonical Kotlin rules for snapshots/deep immutability, invariant-preserving copy visibility,
+retry-safe StateFlow transforms and exhaustive ADTs. `val`/`copy` alone proves neither validity
+nor deep immutability; keep one definition of the Kotlin technique.
 
 ## UI state
 

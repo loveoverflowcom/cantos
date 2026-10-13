@@ -46,6 +46,13 @@ question for the owner instead of inventing the requirement.
 
 ## 2. Types and construction paths
 
+For Kotlin, load [TYPE-01–05](../../cantos-cmp-mobile/references/kotlin-conventions.md) even
+without a UI diff. Audit strong identities, relational invariants, private/internal scope,
+`@ConsistentCopyVisibility` at the pinned compiler, allowed copies, raw DTO/storage restoration,
+defaults, fixtures and casts. Preserve existing typed playback rejection/canonical vectors.
+Use the [CMP reviewer checklist](../../cantos-cmp-mobile/references/cmp-architecture.md#reviewer-checklist)
+for the combined type/purity/dependency/ownership/concurrency/evidence pass; cite its rule owners.
+
 **Owners:** [types-as-proofs](../../cantos-engineering/references/types-as-proofs.md),
 [boundary-hardening](../../cantos-engineering/references/boundary-hardening.md),
 [schema-versioning](../../cantos-script-ir/references/schema-versioning.md),
@@ -79,6 +86,12 @@ straight into submitted content), the consequence and a boundary regression test
 exact rejection.
 
 ## 3. Decoupling and functional boundaries
+
+For Kotlin, apply [FP-01–04/KT ownership](../../cantos-cmp-mobile/references/kotlin-conventions.md)
+and [ARC-01/02, SOLID and concurrency guarantees](../../cantos-cmp-mobile/references/cmp-architecture.md).
+Review actual source sets/imports and composition-root lifetimes, not a prescribed folder tree.
+For test claims apply [VER-01–08](../../cantos-cmp-mobile/references/cmp-testing.md#verification-rules);
+candidate tools are [evaluated, not installed](../../cantos-cmp-mobile/references/cmp-tooling.md).
 
 **Owners:** [decoupling](../../cantos-engineering/references/decoupling.md),
 [functional-core](../../cantos-engineering/references/functional-core.md),

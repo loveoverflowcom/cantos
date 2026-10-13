@@ -1,6 +1,12 @@
 # Native CMP Listening Architecture
 
-Status: proposed implementation boundaries and acceptance requirements. Native libraries and minimum platform versions are not selected or pinned yet.
+Status: production listening boundaries and acceptance requirements remain proposed. The
+[isolated CMP mock](../../apps/cantos-theatre/mobile/README.md) implements shared Kotlin domain/
+application/ports/mock-adapter/presentation layers, Gradle Android and JVM hosts, and a SwiftUI/
+Xcode host. Kotlin 2.2.20 / Compose 1.9.0 / Material3 1.8.2 and mock platform build floors are
+pinned there; production native media libraries and platform support policy remain unselected.
+The mock connects no production API, native audio, downloads or durable sync. A framework link
+or JVM test does not establish iOS runtime verification.
 
 ## Scope
 

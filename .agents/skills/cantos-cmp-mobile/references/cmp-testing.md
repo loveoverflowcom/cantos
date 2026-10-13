@@ -20,22 +20,25 @@ This reference selects among them for CMP. Test technique in general lives in
 
 For a static pixel/semantics check without an emulator, use the implemented
 [`cargo xtask compose-preview` workflow](compose-preview.md). It requires an existing Android
-Gradle target, preview function and a running Android Studio Quail 2+ instance. Theatre Mobile
-is still a guide, so its capture is `UNSUPPORTED`; Studio Mobile has no target. The shared
+Gradle target, preview function and a running Android Studio Quail 2+ instance. Theatre's isolated
+mock has Android preview wrappers; missing CLI/IDE prerequisites produce `UNSUPPORTED`.
+Studio Mobile has no target. The shared
 `ui-system-cmp` Android library is a separate supported preview host. Capture-tool mocks
 prove the adapter contract, not Compose rendering. Robolectric remains a separately configured
 JVM test candidate, not an automatic fallback.
 
-No Theatre app Gradle build, test task or device runner exists. Typical Kotlin Multiplatform task shapes to
-**look for** once the build lands — not commands that exist today:
+Theatre has an isolated Gradle mock. Actual repository commands:
 
 ```text
-./gradlew :<shared>:jvmTest                     common + JVM tests on the desktop JVM
-./gradlew :<shared>:testDebugUnitTest           Android host tests (Robolectric if configured)
-./gradlew :<shared>:iosSimulatorArm64Test       Kotlin/Native tests on an iOS simulator (macOS only)
-./gradlew :<androidApp>:connectedDebugAndroidTest   instrumented tests on a device or emulator
-xcodebuild test -scheme <app> -destination '<simulator or device>'   XCTest (macOS only)
+cargo xtask theatre-demo build          # :shared:compileKotlinDesktop
+cargo xtask theatre-demo verify         # :shared:desktopTest, common + desktop tests
+cargo xtask theatre-demo android-build  # mock debug APK, not device tests
+cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
+
+The iOS command links a simulator framework; it executes neither commonTest on Native nor
+XCTest/device tests. No instrumented/Robolectric/native runtime gate is configured. Discover
+tasks before proposing a new xtask gate; the actual JVM target is `desktop`, not `jvm`.
 
 Read the build files to learn which source sets each task compiles and runs. Record selected,
 executed and skipped counts per target from the test reports. `NO-SOURCE`, `UP-TO-DATE` from a
@@ -76,29 +79,127 @@ different revision, or a filter that matched nothing is not a pass.
 - Keep the oracle independent: expected values come from the owning document or vector, never
   from calling the reducer to compute them.
 
-### Shared vectors
+## Verification rules
 
-`cantos-listening` owns the vector corpus and its location. Every Kotlin target that ships the
-reducer runs it; an unknown event kind fails the harness. Loading JSON from `commonTest` is not
-uniform across Kotlin/JVM and Kotlin/Native: generate a Kotlin source from the vectors at build
-time, or read them through a multiplatform file API with a build-provided path, and record the
-choice. Report each platform separately ("Kotlin/JVM: 48/48; iOS simulator: not run — no macOS
-host"). Vectors produced by running one implementation are a divergence check, not an oracle.
+MUST/SHOULD/MAY and exception recording follow [Kotlin conventions](kotlin-conventions.md).
+The examples here illustrate assertions, not newly installed test helpers.
 
-### Properties
+### VER-01 — compile-time and static checks
 
-kotest-property is a candidate; verify its Kotlin/Native support for the pinned version. Laws
-worth generating for:
+**MUST** for touched type/visibility/decision boundaries: compile affected targets and inspect
+sealed exhaustiveness, distinct identities, inaccessible constructors and relevant diagnostics.
+Good: `openEpisode(episodeId)`; negative probe `openEpisode(publicationId)` must fail.
+New sealed cases must expose missing `when` branches.
+**Oracle/status:** pinned Kotlin compiler diagnostics; review ARC-01 imports. No automated
+compile-negative/import harness, warning-as-error policy or Kotlin lint gate exists today.
+**Exception:** manual import review is legitimate until a real gate exists, reported as review.
+Compilation cannot establish every runtime invariant; docs-only changes need no app compile.
 
-- no `Play` engine effect without a listener `Play` event or an interruption ending while intent
-  is `Play`;
-- position stays within `[0, duration]` across seeks, speed changes and access refreshes;
-- for any interleaving of local writes, failures, duplicates and restarts, no outbox operation is
-  lost and none is sent under another account scope;
-- for any crash point and chunking, `Available` implies bytes whose checksum matches the
-  manifest.
+### VER-02 — factories, invariants and transactional rejection
 
-Keep the concrete shrunk input as a regression example; a seed alone is not a counterexample.
+**MUST** for changed refined values/commands: cover valid, invalid and boundary values, public
+operations, allowed copies, decoding, restoration, defaults and fixture construction.
+Good: `assertEquals(PlaybackTransition(before, listOf(PlaybackEffect.Rejected(reason))), actual)`.
+Counterexample: `assertTrue(actual.effects.isNotEmpty())` misses partial state/extra commands.
+**Oracle/status:** independent complete state/ordered effects in `PlaybackReducerTest` cover
+source/identity factories, session/command construction, Uint32 exhaustion, invalid seek/restore,
+supported speeds and stale callbacks.
+**Exception:** cite an existing test that fails for the changed invariant rather than duplicate it.
+Raw invalid inputs are useful; invalid settled state is not a valid generator shortcut.
+
+### VER-03 — property-based testing
+
+**SHOULD** for critical invariant families with large input/event spaces; **MAY** evaluate
+[Kotest Property](cmp-tooling.md) without replacing the test framework.
+Good illustrative law: `checkAll(eventsArb) { replayAndAssertBounds(it) }`.
+Counterexample: random events without shrinking, reproducible seeds or per-transition assertions.
+**Oracle:** independent laws; failing seed, generator/library version, iteration/trace limits and
+shrunk event trace. Promote minimized failures to ordinary regressions; a seed alone is not enough.
+**Exception/status:** deterministic tables/bounded loops may suffice for a small finite domain;
+record why. Kotest is not installed; listing laws is not an executed property suite:
+
+- Position stays in `0..source.durationMs`; generation cannot overflow and exhaustion rejects.
+- Stale source/generation callbacks yield identical state and no effects.
+- Repeated **contract-idempotent** commands yield no duplicate effects; do not generalize to
+  every command (Restore intentionally allocates a generation).
+- Explicit Pause cannot be undone by late EngineStarted; cold restore never emits StartEngine.
+- Invalid input preserves complete state and emits exactly the specified rejection.
+- Running/simulating status needs a matching accepted observation; Play alone is intent.
+  Assert the corpus's actual pause/preparation rules instead of inventing stronger guarantees.
+
+For future download/outbox capabilities also generate crash/account/duplicate sequences:
+no accepted operation lost or sent under another account; available bytes match the manifest.
+These remain proposed tests for unimplemented capabilities.
+
+### VER-04 — state-machine and bounded exploration
+
+**SHOULD** when combinations/order dominate critical behavior: build a small independent model
+from the reviewed specification and compare complete state/ordered effects after each event.
+Good: `assertEquals(model.step(event), implementation.step(event))` with independent decisions.
+Counterexample: `model.step = ::reducePlayback` or copying its branches.
+**Oracle:** generated sequences with shrinking; bounded exhaustive runs record finite states,
+source identities, position representatives, generation boundary classes, event alphabet,
+maximum trace length, explored count and environment assumptions.
+**Exception/status:** focused tables suffice if exploration adds no distinct assurance. No Kotlin
+model runner exists today. Finite exploration is not proof for every execution.
+Use `bounded-model-checked` only with an executed exhaustive/verifier result and stated model/
+bounds; random sequence sampling is `property-tested`.
+
+### VER-05 — concurrency and lifecycle
+
+**MUST** for changed ownership, async effects, cleanup or fencing: use `runTest`, injected
+scheduler/dispatcher and scripted deferred observations; assert order, not elapsed sleeps.
+Good: `player.toggleIntent(); player.toggleIntent(); advanceUntilIdle()` then exact commands/state.
+Counterexample: `delay(500); assertTrue(player.state.value != null)`.
+**Oracle/status:** `PlaybackControllerTest` covers rapid toggles/skips, ordered speed/deferred
+Start, restore fencing, bookmark capture ordering, typed mock failure and close;
+`AppContainerTest` covers cross-owner reset. Add delayed old-account/reset callbacks and
+cancellation tests where those capabilities change. Expected cancellation must propagate.
+**Exception:** JVM-only Lincheck is optional for a real shared-memory concern; single-thread
+virtual tests alone do not establish multi-writer thread safety. JVM concurrency evidence never
+substitutes for Android/iOS lifecycle/audio validation.
+
+### VER-06 — canonical differential vectors
+
+**MUST** for shared playback meaning/harness changes: preserve the canonical
+[mock specification and corpus](../../../../packages/contracts/fixtures/theatre/playback/v1/README.md).
+Good: `assertEquals(step.effects, transition.effects)` **and** complete snapshot equality.
+Counterexample: comparing only status or regenerating expected outputs from either reducer.
+**Oracle/status:** hand-authored specification outputs, independently consumed by Rust/Kotlin.
+Gradle `generatePlaybackVectors` embeds SHA-256-checked JSON bytes into commonTest Kotlin strings;
+it never generates expectations. `PlaybackVectorTest` validates seven files/51 steps and fails
+unknown versions, fields, events and inventory changes.
+**Exception:** intentional reviewed contract changes update specification/index and both consumers
+together; no fixture edits merely to make tests pass. The production listener protocol remains
+separate. Every shipping target runs the corpus; report Rust native/WASM, Kotlin/JVM, Android
+and Kotlin/Native selected/executed/skipped counts independently, including unrun targets.
+
+### VER-07 — assertion strength and mutation
+
+**SHOULD** for critical assertions where compatible tooling exists; coverage is not correctness.
+Good: removing `state.accepts(identity)` makes the stale-observation test fail.
+Counterexample: `assertNotNull(reducePlayback(...))` survives that mutation.
+**Oracle:** killed/surviving/invalid mutant inventory, executed tests and replayable inputs;
+see [mutation/formal methods](../../cantos-engineering/references/mutation-and-formal.md).
+**Exception/status:** existing mutation tooling targets Rust Script IR, **not Kotlin playback**.
+No Kotlin mutation runner is configured; require a concrete gap and compatible tool before adding
+one. Kani applies to supported Rust targets, not Kotlin/CMP directly.
+
+### VER-08 — evidence honesty
+
+**MUST** for every result: use foundation levels and name exact revision, target, runner,
+corpus hashes, source sets and counts.
+Good: "Kotlin/JVM `example-tested`/`differentially-tested`; iOS runtime `NOT_RUN`".
+Counterexample: "CMP formally proven/native audio verified" from desktop tests or a linked framework.
+**Oracle:** attributable compiler/test/verifier/device output for these exact inputs.
+**Exception:** none for fabricated evidence; missing checks remain gaps.
+
+Relevant foundation levels include `type-enforced`, `example-tested`, `property-tested`,
+`differentially-tested`, `mutation-tested`, `bounded-model-checked`, `mock-integration-tested`,
+`integration-tested` and `device-tested`. Their definitions stay in the foundation.
+Execution status is separate: xtask prints `PASS`/`FAIL`/`NOT_RUN`/`UNSUPPORTED`.
+A manually identified prerequisite gap may be `BLOCKED` (foundation `blocked`); do not invent a
+`BLOCKED` xtask status. Native audio/formal proof need corresponding executed evidence.
 
 ## Compose UI tests
 

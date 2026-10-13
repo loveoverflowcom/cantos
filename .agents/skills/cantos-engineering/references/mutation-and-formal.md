@@ -60,6 +60,9 @@ classification.
 
 ## Bounded model checking
 
+Kani does not directly verify Kotlin/CMP; apply [VER-04/07](../../cantos-cmp-mobile/references/cmp-testing.md)
+for independent bounded Kotlin models and any future Kotlin mutation tooling.
+
 Kani is a Rust candidate for proving that a pure function satisfies a proposition for all inputs
 in a declared bounded domain. Consider it only when all hold:
 

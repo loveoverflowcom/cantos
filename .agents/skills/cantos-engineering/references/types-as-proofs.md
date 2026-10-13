@@ -10,6 +10,11 @@ A private newtype with a fallible constructor is runtime-checked evidence with c
 provenance. Call it a proof *barrier*, not a proof. Reserve "proved" for a verifier that actually
 ran under a stated model ([`mutation-and-formal.md`](mutation-and-formal.md)).
 
+For Kotlin use the canonical [TYPE-01–05](../../cantos-cmp-mobile/references/kotlin-conventions.md):
+distinct identities, relational validation, private factories, copy/serialization bypass audit,
+closed ADTs and typed rejection. Kotlin provides neither dependent types nor general refinement
+proofs. Public `copy` and deserializers are construction paths, not automatic proof preservation.
+
 ## Workflow
 
 1. State the proposition in one sentence: *a `ScriptRevisionId` always refers to an immutable

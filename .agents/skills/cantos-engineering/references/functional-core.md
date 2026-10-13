@@ -8,6 +8,13 @@
 
 ## The shape
 
+For Kotlin, [FP-01–04](../../cantos-cmp-mobile/references/kotlin-conventions.md) owns the language
+examples; [CMP architecture](../../cantos-cmp-mobile/references/cmp-architecture.md) owns SOLID,
+layer mapping and effect ownership. The current `reducePlayback` returns state/ordered effects,
+including unchanged-state rejection; its controller interprets them in a separate ordered worker.
+Provider-oriented examples below apply to external producer workflows under ADR 0018, never
+authorization to restore backend synthesis jobs.
+
 ```text
 raw input → parse → validate → typed facts
                                    │
