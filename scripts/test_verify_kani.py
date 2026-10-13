@@ -634,6 +634,40 @@ class ConfigurationIdentityTest(unittest.TestCase):
             hashlib.sha256(b"[build]\njobs = 1\n").hexdigest(),
         )
 
+    def test_empty_cargo_home_binds_the_actual_default_global_configuration(self):
+        self.environment["CARGO_HOME"] = ""
+        cargo_home = self.root / "home/.cargo"
+        cargo_home.mkdir(parents=True)
+        config = cargo_home / "config.toml"
+        config.write_text("[build]\nrustflags = ['--cfg=unreviewed']\n", encoding="utf-8")
+        identity = verifier.configuration_identity(self.checkout, self.environment)
+        self.assertEqual(identity, self.expected_identity(cargo_home))
+        self.assertEqual(identity[str(config)], hashlib.sha256(config.read_bytes()).hexdigest())
+
+    def test_unresolved_platform_home_cannot_omit_global_configuration(self):
+        for cargo_home in (None, ""):
+            for home in (None, ""):
+                with self.subTest(cargo_home=cargo_home, home=home):
+                    environment = {}
+                    if cargo_home is not None:
+                        environment["CARGO_HOME"] = cargo_home
+                    if home is not None:
+                        environment["HOME"] = home
+                    with self.assertRaisesRegex(verifier.KaniError, "(?i)home|configuration"):
+                        verifier.configuration_identity(self.checkout, environment)
+
+    def test_explicit_cargo_home_preserves_absolute_and_relative_precedence(self):
+        for cargo_home in (str(self.root / "explicit-cargo"), "relative-cargo"):
+            for home in (None, "", str(self.root / "ignored-home")):
+                with self.subTest(cargo_home=cargo_home, home=home):
+                    environment = {"CARGO_HOME": cargo_home}
+                    if home is not None:
+                        environment["HOME"] = home
+                    identity = verifier.configuration_identity(self.checkout, environment)
+                    self.assertEqual(
+                        identity, self.expected_identity((self.checkout / cargo_home).absolute())
+                    )
+
 
 @unittest.skipUnless(PROCESS_BOUNDARY_SUPPORTED, "runner requires a POSIX waitid boundary")
 class BoundedRunTest(unittest.TestCase):
@@ -1007,6 +1041,21 @@ class VerifyAdapterTest(unittest.TestCase):
                     self.assertTrue(path.is_file())
                 finally:
                     path.unlink()
+
+    def test_empty_cargo_home_global_config_change_never_reaches_any_probe(self):
+        self.environment["CARGO_HOME"] = ""
+        self.environment["HOME"] = str(self.root / "fallback-home")
+        directory = Path(self.environment["HOME"]) / ".cargo"
+        directory.mkdir(parents=True)
+        config = directory / "config.toml"
+        config.write_text("[build]\njobs = 2\n", encoding="utf-8")
+        self.approve_configuration()
+        approved = json.loads(self.args.approved_config)
+        self.assertEqual(
+            approved[str(config)], hashlib.sha256(config.read_bytes()).hexdigest()
+        )
+        config.write_text("[build]\nrustflags = ['--cfg=unreviewed']\n", encoding="utf-8")
+        self.assert_configuration_refused_before_execution()
 
     def test_deleted_ancestor_and_cargo_home_candidates_after_approval_fail_before_probe(self):
         for path in self.external_configuration_candidates():

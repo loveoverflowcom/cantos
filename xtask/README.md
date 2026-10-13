@@ -337,6 +337,9 @@ additional Python 3.11/TOML parser is required. Rust uses the already locked TOM
 It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
 configuration candidates to each proof command. The primitive refuses stale approval before
 proof execution and rechecks the complete candidate set on every outcome.
+An empty `CARGO_HOME` uses `HOME/.cargo`, matching Cargo. Both layers require a nonempty
+`CARGO_HOME` or `HOME`; unresolved platform-home fallback is refused before probing so its
+global configuration cannot escape approval or freshness checks.
 No `--locked` switch exists in this Kani release: every outcome instead records and compares
 the unchanged workspace lock. Generated verifier files stay in `target/assurance-kani`, preserving
 the earlier campaign cache.

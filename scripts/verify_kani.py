@@ -256,12 +256,15 @@ def configuration_identity(root, env):
     candidates = {root / "Cargo.toml", root / "services/cantos-api/Cargo.toml"}
     for parent in (root, *root.parents):
         candidates.update(parent / ".cargo" / name for name in ("config", "config.toml"))
+    # Cargo ignores an empty CARGO_HOME; both approval layers must bind its fallback.
     home = env.get("CARGO_HOME")
-    if home is None and env.get("HOME") is not None:
-        home = str(Path(env["HOME"]) / ".cargo")
-    if home is not None:
-        cargo_home = (root / home).absolute()
-        candidates.update(cargo_home / name for name in ("config", "config.toml"))
+    if not home:
+        user_home = env.get("HOME")
+        if not user_home:
+            raise KaniError("fixed proof configuration requires nonempty CARGO_HOME or HOME")
+        home = str(Path(user_home) / ".cargo")
+    cargo_home = (root / home).absolute()
+    candidates.update(cargo_home / name for name in ("config", "config.toml"))
     identity = {}
     for path in sorted(candidates):
         try:

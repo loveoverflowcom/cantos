@@ -297,16 +297,34 @@ fn approve_configuration(path: &Path) -> Result<Option<String>> {
     Ok(Some(format!("{:x}", Sha256::digest(&bytes))))
 }
 
+fn configuration_home(
+    root: &Path,
+    cargo_home: Option<&std::ffi::OsStr>,
+    home: Option<&std::ffi::OsStr>,
+) -> Result<PathBuf> {
+    // Cargo ignores an empty CARGO_HOME. Refuse an unresolved platform-home fallback
+    // rather than approving a candidate set that omits the actual global configuration.
+    let directory = match cargo_home.filter(|home| !home.is_empty()) {
+        Some(home) => PathBuf::from(home),
+        None => PathBuf::from(
+            home.filter(|home| !home.is_empty())
+                .context("fixed proof configuration requires nonempty CARGO_HOME or HOME")?,
+        )
+        .join(".cargo"),
+    };
+    std::path::absolute(root.join(directory)).context("could not resolve proof Cargo home")
+}
+
 /// Bind approved bytes and the entire candidate-file set before prerequisite probing.
 pub fn prepare_configuration(workspace: &Workspace, steps: &mut [Step]) -> Result<()> {
     let root = workspace.root().canonicalize()?;
-    let cargo_home = std::env::var_os("CARGO_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cargo")))
-        .map(|home| std::path::absolute(root.join(home)))
-        .transpose()?;
+    let cargo_home = configuration_home(
+        &root,
+        std::env::var_os("CARGO_HOME").as_deref(),
+        std::env::var_os("HOME").as_deref(),
+    )?;
     let mut approved = BTreeMap::new();
-    for path in configuration_candidates(&root, cargo_home.as_deref()) {
+    for path in configuration_candidates(&root, Some(&cargo_home)) {
         let name = path
             .to_str()
             .context("proof configuration path is not UTF-8")?;
@@ -353,6 +371,51 @@ pub fn configuration_refusal(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn empty_cargo_home_binds_the_actual_default_global_configuration() {
+        let root = Path::new("/example/checkout");
+        assert_eq!(
+            configuration_home(
+                root,
+                Some(std::ffi::OsStr::new("")),
+                Some(std::ffi::OsStr::new("/example/home")),
+            )
+            .unwrap(),
+            PathBuf::from("/example/home/.cargo"),
+        );
+    }
+
+    #[test]
+    fn explicit_cargo_home_preserves_absolute_and_relative_precedence() {
+        let root = Path::new("/example/checkout");
+        for (cargo_home, expected) in [
+            ("/separate/cargo", "/separate/cargo"),
+            ("relative-cargo", "/example/checkout/relative-cargo"),
+        ] {
+            for home in [
+                None,
+                Some(std::ffi::OsStr::new("")),
+                Some(std::ffi::OsStr::new("/ignored")),
+            ] {
+                assert_eq!(
+                    configuration_home(root, Some(std::ffi::OsStr::new(cargo_home)), home).unwrap(),
+                    PathBuf::from(expected),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unresolved_platform_home_cannot_omit_global_configuration() {
+        for cargo_home in [None, Some(std::ffi::OsStr::new(""))] {
+            for home in [None, Some(std::ffi::OsStr::new(""))] {
+                assert!(
+                    configuration_home(Path::new("/example/checkout"), cargo_home, home).is_err()
+                );
+            }
+        }
+    }
 
     #[test]
     fn configuration_read_consumes_at_most_limit_plus_one_bytes() {
