@@ -94,6 +94,9 @@ For Kotlin/domain/controller changes, **MUST** load
 [testing](references/cmp-testing.md) (VER-01–08). They are the canonical Kotlin definitions;
 legacy KT anchors route to them. For dependency decisions also load
 [tooling evaluation](references/cmp-tooling.md). Review mode uses the same references read-only.
+For fallible flow, also load the foundation's
+[typed errors and composition](../cantos-engineering/references/typed-errors-and-composition.md);
+Kotlin rules below apply its taxonomy, containment and cancellation policy.
 
 - **Decoupling.** `commonMain` application code depends on narrow ports, never on Media3,
   AVFoundation, Ktor engines, SQL drivers or Android/UIKit types. Adapters live in `androidMain`
@@ -113,7 +116,9 @@ legacy KT anchors route to them. For dependency decisions also load
   [downloads-and-local-state.md](references/downloads-and-local-state.md)
 - **Types as proof barriers.** Distinct meaningful identities, validated factories/aggregates,
   closed ADTs and typed errors; audit constructor/copy/decoding bypasses. Preserve current
-  transactional playback rejection and vectors. No Arrow migration or native refinement-proof claim.
+  transactional playback rejection and vectors; compose typed failures without losing
+  refinements. Arrow Either/Raise remains an evaluated candidate, subject to target checks and
+  an adoption ADR, with no dependency added for syntax alone. No native refinement-proof claim.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)

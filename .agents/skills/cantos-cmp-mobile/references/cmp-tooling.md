@@ -61,6 +61,35 @@ published iOS slice or compiler version.
 
 ## Adoption record
 
+### Arrow Either/Raise decision
+
+The gap is typed composition of several genuinely fallible operations, not playback rejection
+already expressed by sealed effects. **Decision: defer adoption.** Retain exhaustive `when`
+and existing outcomes today; no Arrow artifact is pinned or compatibility-certified here.
+[Arrow's typed-error guide](https://arrow-kt.io/learn/typed-errors/) describes `Either<E, A>`
+as a value and `Raise<E>` as scoped short-circuit composition. `Either` makes port/storage of
+the outcome explicit; `Raise` may simplify a long dependent pipeline, but its scope/control
+behavior must stay internal and the boundary must expose a typed outcome.
+
+Before adding either, record the concrete pipeline, compare the current sealed alternative,
+choose an exact Arrow release, inspect published Kotlin metadata/stdlib/coroutines constraints
+and iOS device/simulator KLIBs against the baseline above, and execute compile/link/tests on
+each affected target. Require an adoption ADR using the existing [ADR template](../../../../templates/adr.md)
+and [mobile decision process](../../../../docs/architecture/mobile.md#implementation-decisions-to-record).
+Include failure translation, validation accumulation and cancellation regressions. API source
+inspection or an upstream KMP badge is not executed compatibility.
+
+The [exception guidance](https://arrow-kt.io/learn/typed-errors/working-with-typed-errors/)
+distinguishes logical failures from exceptions; the
+[`either` API](https://apidocs.arrow-kt.io/arrow-core/arrow.core.raise/either.html) rethrows
+exceptions. Preserve Raise's control signal and coroutine cancellation; check any catch helper
+at the selected release rather than copying current docs into pinned code. Prefer a library's
+typed mapping first; only throwing foreign I/O belongs inside a narrowly scoped adapter catch
+per foundation [ERR-04/05](../../cantos-engineering/references/typed-errors-and-composition.md).
+Extension-receiver Raise requires no speculative context-parameter/plugin/optics migration.
+
+### Record the actual adoption evidence
+
 Keep this in the implementation PR/ADR, not a second dependency policy:
 
 ```text

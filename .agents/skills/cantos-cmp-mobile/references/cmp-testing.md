@@ -107,6 +107,13 @@ supported speeds and stale callbacks.
 **Exception:** cite an existing test that fails for the changed invariant rather than duplicate it.
 Raw invalid inputs are useful; invalid settled state is not a valid generator shortcut.
 
+For composed factories/error projections, apply foundation
+[ERR-02/03](../../cantos-engineering/references/typed-errors-and-composition.md): assert exact
+first failure and that dependent stages do not execute, deterministic independent findings
+when accumulation is promised, and the invariant after each successful transformation.
+Exercise every sealed error in UI/retry projections; a generic “failed” assertion misses lost
+correction facts. Compiler exhaustiveness and runtime predicate tests establish different claims.
+
 ### VER-03 — property-based testing
 
 **SHOULD** for critical invariant families with large input/event spaces; **MAY** evaluate
@@ -155,6 +162,10 @@ Counterexample: `delay(500); assertTrue(player.state.value != null)`.
 Start, restore fencing, bookmark capture ordering, typed mock failure and close;
 `AppContainerTest` covers cross-owner reset. Add delayed old-account/reset callbacks and
 cancellation tests where those capabilities change. Expected cancellation must propagate.
+At a changed foreign-call containment seam, inject each documented failure and cancellation;
+assert the exact typed outcome/recovery decision and fenced late results. Cancellation propagates
+without automatic retry. A fake throwing a scripted exception tests translation, not native
+recovery or real I/O.
 **Exception:** JVM-only Lincheck is optional for a real shared-memory concern; single-thread
 virtual tests alone do not establish multi-writer thread safety. JVM concurrency evidence never
 substitutes for Android/iOS lifecycle/audio validation.
