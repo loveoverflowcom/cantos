@@ -228,7 +228,9 @@ mod tests {
             let pending = view! { <LiveAccount state locale/> }.to_html();
             assert!(pending.contains("Đang đăng xuất"));
             assert!(!pending.contains("Đăng nhập"));
-            state.write().finish_logout(cleanup, Err(AccountFailure::Unavailable));
+            state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable));
             let retry = view! { <LiveAccount state locale/> }.to_html();
             assert!(retry.contains("Hoàn tất đăng xuất"));
             assert!(!retry.contains("Đăng nhập"));

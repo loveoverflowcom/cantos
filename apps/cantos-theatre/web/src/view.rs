@@ -273,7 +273,14 @@ mod tests {
             assert!(html.contains("theatre-live-library-heading"));
             assert!(html.contains("href=\"?mode=mock\""));
             assert!(html.contains("role=\"status\""));
-            for forbidden in ["Cantos Theatre", "<audio", "<video", "session-token", "/studio", "Người giữ tiếng chuông"] {
+            for forbidden in [
+                "Cantos Theatre",
+                "<audio",
+                "<video",
+                "session-token",
+                "/studio",
+                "Người giữ tiếng chuông",
+            ] {
                 assert!(!html.contains(forbidden), "{forbidden}");
             }
         });
@@ -293,7 +300,10 @@ pub fn LiveBoundary() -> impl IntoView {
         platform::set_title(&messages::format(
             Key::PageTitle,
             locale.get(),
-            &[("page", messages::text(Key::Account, locale.get()).to_owned())],
+            &[(
+                "page",
+                messages::text(Key::Account, locale.get()).to_owned(),
+            )],
         ));
     });
     view! {

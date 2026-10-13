@@ -276,7 +276,10 @@ fn live_clock(milliseconds: u64) -> String {
 
 fn live_projection(projection: LibraryProjection, locale: Locale) -> AnyView {
     use cantos_contracts::listener_library::ResumeStatus;
-    if projection.saved.is_empty() && projection.continuing.is_empty() && projection.history.is_empty() {
+    if projection.saved.is_empty()
+        && projection.continuing.is_empty()
+        && projection.history.is_empty()
+    {
         return view! { <p>{messages::text(Key::LiveLibraryEmpty, locale)}</p> }.into_any();
     }
     let positions = projection.continuing.iter().enumerate().map(|(index, progress)| {
@@ -494,23 +497,42 @@ mod tests {
             let state = RwSignal::new(AccountViewState::default());
             let locale = RwSignal::new(Locale::English);
             let issued = state.write().begin_refresh().unwrap();
-            let scope = AccountScope::from_session("actor-a".into(), uuid::Uuid::from_u128(1).to_string()).unwrap();
-            let SessionCompletion::Authenticated(fence) = state.write().finish_session(issued, Ok(scope)).unwrap() else {
+            let scope =
+                AccountScope::from_session("actor-a".into(), uuid::Uuid::from_u128(1).to_string())
+                    .unwrap();
+            let SessionCompletion::Authenticated(fence) =
+                state.write().finish_session(issued, Ok(scope)).unwrap()
+            else {
                 panic!("verified session must own its library read")
             };
             let projection = crate::live::library::decode_projection(
-                include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/continue.json"),
-                include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/saved.json"),
-                include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/history.json"),
-            ).unwrap();
-            state.write().finish_library(&fence, Ok(projection)).unwrap();
+                include_bytes!(
+                    "../../../../../packages/contracts/fixtures/theatre/library/v1/continue.json"
+                ),
+                include_bytes!(
+                    "../../../../../packages/contracts/fixtures/theatre/library/v1/saved.json"
+                ),
+                include_bytes!(
+                    "../../../../../packages/contracts/fixtures/theatre/library/v1/history.json"
+                ),
+            )
+            .unwrap();
+            state
+                .write()
+                .finish_library(&fence, Ok(projection))
+                .unwrap();
             let populated = view! { <LiveLibrary state locale/> }.to_html();
             assert!(populated.contains("Position 0:15 of 1:00"));
             assert!(!populated.contains("<button") && !populated.contains("<audio"));
-            state.write().finish_library(&fence, Err(AccountFailure::Unavailable)).unwrap();
+            state
+                .write()
+                .finish_library(&fence, Err(AccountFailure::Unavailable))
+                .unwrap();
             let failed = view! { <LiveLibrary state locale/> }.to_html();
             assert!(failed.contains("Try refreshing again"));
-            assert!(!failed.contains("Position 0:15") && !failed.contains("no listening positions"));
+            assert!(
+                !failed.contains("Position 0:15") && !failed.contains("no listening positions")
+            );
             state.write().begin_logout().unwrap();
             let leaving = view! { <LiveLibrary state locale/> }.to_html();
             assert!(!leaving.contains("Position 0:15"));

@@ -51,17 +51,20 @@ pub async fn delete_session(intent: &CleanupIntent) -> Result<(), Failure> {
         .credentials(RequestCredentials::SameOrigin)
         .abort_signal(Some(&signal));
     let request = match intent {
-        CleanupIntent::ExpectedSession(session) => request.header("X-Cantos-Theatre-Session", session),
+        CleanupIntent::ExpectedSession(session) => {
+            request.header("X-Cantos-Theatre-Session", session)
+        }
         CleanupIntent::StaleOnly => request.header("X-Cantos-Theatre-Stale-Only", "1"),
     };
-    let response = request
-        .send()
-        .await
-        .map_err(|_| Failure::Unavailable)?;
+    let response = request.send().await.map_err(|_| Failure::Unavailable)?;
     if response.status() == 204 {
         Ok(())
-    } else if response.status() == 409 && response.headers().get("X-Cantos-Theatre-Session")
-        .is_some_and(|session| uuid::Uuid::parse_str(&session).is_ok()) {
+    } else if response.status() == 409
+        && response
+            .headers()
+            .get("X-Cantos-Theatre-Session")
+            .is_some_and(|session| uuid::Uuid::parse_str(&session).is_ok())
+    {
         Err(Failure::SessionChanged)
     } else {
         Err(Failure::Unavailable)

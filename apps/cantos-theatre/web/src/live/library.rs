@@ -78,8 +78,16 @@ pub fn decode_projection(
                 resume: item.resume,
             })
             .collect(),
-        saved: saved.items.into_iter().map(|item| item.saved.work_id).collect(),
-        history: history.items.into_iter().map(|item| item.audio.work_id).collect(),
+        saved: saved
+            .items
+            .into_iter()
+            .map(|item| item.saved.work_id)
+            .collect(),
+        history: history
+            .items
+            .into_iter()
+            .map(|item| item.audio.work_id)
+            .collect(),
         has_more,
     })
 }
@@ -110,10 +118,16 @@ pub async fn load(expected_session: &str) -> Result<LibraryProjection, AccountFa
         check_response(
             response.status(),
             response.headers().get("content-type").as_deref(),
-            response.headers().get("X-Cantos-Theatre-Session").as_deref(),
+            response
+                .headers()
+                .get("X-Cantos-Theatre-Session")
+                .as_deref(),
             expected_session,
         )?;
-        let body = response.binary().await.map_err(|_| AccountFailure::Unavailable)?;
+        let body = response
+            .binary()
+            .await
+            .map_err(|_| AccountFailure::Unavailable)?;
         if body.len() > 65_536 {
             return Err(AccountFailure::Protocol);
         }
@@ -128,9 +142,8 @@ mod tests {
     const CONTINUE: &[u8] = include_bytes!(
         "../../../../../packages/contracts/fixtures/theatre/library/v1/continue.json"
     );
-    const SAVED: &[u8] = include_bytes!(
-        "../../../../../packages/contracts/fixtures/theatre/library/v1/saved.json"
-    );
+    const SAVED: &[u8] =
+        include_bytes!("../../../../../packages/contracts/fixtures/theatre/library/v1/saved.json");
     const HISTORY: &[u8] = include_bytes!(
         "../../../../../packages/contracts/fixtures/theatre/library/v1/history.json"
     );
@@ -162,11 +175,21 @@ mod tests {
     #[test]
     fn changed_cookie_response_cannot_be_displayed_under_the_previously_verified_session() {
         assert_eq!(
-            check_response(200, Some("application/json"), Some("session-b"), "session-a"),
+            check_response(
+                200,
+                Some("application/json"),
+                Some("session-b"),
+                "session-a"
+            ),
             Err(AccountFailure::SessionChanged)
         );
         assert_eq!(
-            check_response(409, Some("application/json"), Some("session-b"), "session-a"),
+            check_response(
+                409,
+                Some("application/json"),
+                Some("session-b"),
+                "session-a"
+            ),
             Err(AccountFailure::SessionChanged)
         );
         assert_eq!(
@@ -178,7 +201,12 @@ mod tests {
             Err(AccountFailure::SignedOut)
         );
         assert_eq!(
-            check_response(200, Some("application/json; charset=utf-8"), Some("session-a"), "session-a"),
+            check_response(
+                200,
+                Some("application/json; charset=utf-8"),
+                Some("session-a"),
+                "session-a"
+            ),
             Ok(())
         );
     }
