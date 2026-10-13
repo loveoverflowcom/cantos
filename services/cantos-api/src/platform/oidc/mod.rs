@@ -6,3 +6,6 @@ pub(crate) mod provider;
 #[cfg(test)]
 #[path = "../../../tests/support/oidc_provider.rs"]
 pub(crate) mod mock;
+
+#[cfg(test)]
+mod tests;
