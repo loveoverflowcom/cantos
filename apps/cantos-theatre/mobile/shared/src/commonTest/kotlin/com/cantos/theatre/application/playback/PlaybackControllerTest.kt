@@ -7,6 +7,7 @@ import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackIntent
 import com.cantos.theatre.domain.playback.PlaybackSnapshot
 import com.cantos.theatre.domain.playback.PlaybackSource
+import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.ports.MediaEngine
 import kotlin.test.Test
@@ -123,6 +124,85 @@ class PlaybackControllerTest {
             advanceUntilIdle()
             assertEquals(1, points.size)
             assertEquals(783_000L, points.single().positionMs)
+        } finally {
+            player.close()
+        }
+    }
+
+    @Test
+    fun committed_callback_observes_a_brief_start_before_pause_and_ignores_stale_observations() = runTest {
+        val engine = MockMediaEngine(acknowledgeAutomatically = false)
+        val committed = mutableListOf<Pair<PlaybackState, PlaybackState>>()
+        val player = PlaybackController(this, engine) { before, after -> committed += before to after }
+        try {
+            player.dispatch(PlaybackEvent.SourceSelected(source, 768_000L))
+            player.dispatch(PlaybackEvent.PlayRequested)
+            advanceUntilIdle()
+            val identity = requireNotNull(player.state.value.identity)
+            player.dispatch(PlaybackEvent.EngineStarted(identity))
+            player.dispatch(PlaybackEvent.PauseRequested)
+            player.dispatch(PlaybackEvent.EngineStarted(identity))
+            advanceUntilIdle()
+            assertEquals(
+                listOf(PlaybackStatus.Paused, PlaybackStatus.Loading, PlaybackStatus.Simulating, PlaybackStatus.Paused),
+                committed.map { it.second.status },
+            )
+            assertEquals(listOf(1L, 2L, 2L, 3L), committed.map { it.second.generation })
+            assertEquals(PlaybackState(), committed.first().first)
+            assertEquals(committed.dropLast(1).map { it.second }, committed.drop(1).map { it.first })
+            assertEquals(player.state.value, committed.last().second)
+            player.close()
+            assertFalse(player.dispatch(PlaybackEvent.EngineStarted(identity)))
+            assertEquals(4, committed.size)
+        } finally {
+            player.close()
+        }
+    }
+
+    @Test
+    fun resume_resolves_a_same_source_point_after_queued_controls_and_never_starts() = runTest {
+        val engine = MockMediaEngine(acknowledgeAutomatically = false)
+        val player = PlaybackController(this, engine)
+        val accepted = mutableListOf<PlaybackState>()
+        try {
+            val stale = PlaybackSnapshot(source, 768_000L, 1000)
+            player.dispatch(PlaybackEvent.RestoreRequested(stale))
+            player.dispatch(PlaybackEvent.SeekRequested(5_123L))
+            player.dispatch(PlaybackEvent.SpeedRequested(1500))
+            player.restoreForResume(stale) { accepted += it }
+            advanceUntilIdle()
+            assertEquals(1, accepted.size)
+            assertEquals(PlaybackStatus.Paused, accepted.single().status)
+            assertEquals(PlaybackSnapshot(source, 5_123L, 1500), accepted.single().session?.snapshot())
+            assertEquals(player.state.value, accepted.single())
+            assertFalse(engine.acceptedCommands.any { it.kind == MockCommandKind.Start })
+        } finally {
+            player.close()
+        }
+    }
+
+    @Test
+    fun a_later_play_intent_fences_pending_resume_even_when_play_is_a_reducer_noop() = runTest {
+        val engine = MockMediaEngine(acknowledgeAutomatically = false)
+        val player = PlaybackController(this, engine)
+        var captured: Pair<PlaybackState, Long>? = null
+        val accepted = mutableListOf<PlaybackState>()
+        try {
+            player.dispatch(PlaybackEvent.SourceSelected(source, 768_000L))
+            player.dispatch(PlaybackEvent.PlayRequested)
+            advanceUntilIdle()
+            engine.acknowledgeStarted(requireNotNull(player.state.value.identity))
+            advanceUntilIdle()
+            player.captureState { state, revision -> captured = state to revision }
+            advanceUntilIdle()
+            val (before, revision) = requireNotNull(captured)
+            player.dispatch(PlaybackEvent.PlayRequested)
+            player.restoreForResume(requireNotNull(before.session).snapshot(), expectedRevision = revision) { accepted += it }
+            advanceUntilIdle()
+            assertEquals(before, player.state.value)
+            assertEquals(PlaybackStatus.Simulating, player.state.value.status)
+            assertEquals(emptyList(), accepted)
+            assertEquals(1, engine.acceptedCommands.count { it.kind == MockCommandKind.Start })
         } finally {
             player.close()
         }

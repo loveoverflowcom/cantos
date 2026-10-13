@@ -2,7 +2,15 @@ package com.cantos.theatre.demo
 
 enum class DemoWorkId { SonHa, DenKhua, CanhBuom }
 
-enum class DemoEpisodeId { SonHa01, SonHa02, SonHa03, DenKhua01, DenKhua02, CanhBuom01 }
+/** Fixture identities retain their work even if current catalog metadata is unavailable. */
+enum class DemoEpisodeId(val workId: DemoWorkId) {
+    SonHa01(DemoWorkId.SonHa),
+    SonHa02(DemoWorkId.SonHa),
+    SonHa03(DemoWorkId.SonHa),
+    DenKhua01(DemoWorkId.DenKhua),
+    DenKhua02(DemoWorkId.DenKhua),
+    CanhBuom01(DemoWorkId.CanhBuom),
+}
 
 val SupportedUiSpeedPercents: List<Int> get() = listOf(75, 100, 125, 150, 200)
 

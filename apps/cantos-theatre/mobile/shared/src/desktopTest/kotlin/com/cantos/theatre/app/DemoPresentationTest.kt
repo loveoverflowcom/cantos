@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -23,7 +25,8 @@ import com.cantos.theatre.demo.DemoBookmark
 import com.cantos.theatre.demo.DemoEpisode
 import com.cantos.theatre.demo.DemoEpisodeId
 import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoLibraryTab
+import com.cantos.theatre.demo.DemoProgress
+import com.cantos.theatre.demo.DemoListeningFailure
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoWork
@@ -54,7 +57,7 @@ class DemoPresentationTest {
             runOnIdle { state = state.copy(positionMs = 30_456L) }
             onNodeWithTag("bookmark").assert(hasText("Ghi dấu điểm này"))
             runOnIdle {
-                state = state.copy(stack = listOf(DemoRoute.Library), libraryTab = DemoLibraryTab.Bookmarks)
+                state = state.copy(stack = listOf(DemoRoute.Discovery, DemoRoute.Player))
             }
             onNodeWithText("Người giữ tiếng chuông · 0:30").performScrollTo().performClick()
             assertEquals<List<DemoEvent>>(listOf(DemoEvent.OpenBookmark(bookmark)), events)
@@ -166,7 +169,8 @@ class DemoPresentationTest {
             onNodeWithTag("continue").assertDoesNotExist()
             onNodeWithTag("mini-open").assertDoesNotExist()
             onNodeWithTag("nav-discovery").assertExists()
-            onNodeWithTag("nav-search").assertExists()
+            onNodeWithTag("nav-search").assertDoesNotExist()
+            onNodeWithTag("account").assertExists()
             onNodeWithTag("nav-library").assertExists()
         }
     }
@@ -207,8 +211,102 @@ class DemoPresentationTest {
             onNodeWithText("Mở tập đầu").performScrollTo().assertIsNotEnabled()
             onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertExists()
             onNodeWithTag("save-work").performScrollTo().performClick()
-            assertEquals<List<DemoEvent>>(listOf(DemoEvent.SaveWork(DemoWorkId.SonHa)), events)
+            assertEquals<List<DemoEvent>>(listOf(DemoEvent.SetSaved(DemoWorkId.SonHa, saved = true)), events)
             onNodeWithTag("save-work").assert(hasText("Lưu tác phẩm"))
+        }
+    }
+
+    @Test
+    fun save_card_repeated_callbacks_request_the_same_desired_state_and_do_not_open_details() {
+        val events = mutableListOf<DemoEvent>()
+        var state by mutableStateOf(DemoState(savedWorks = emptySet()))
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, 844.dp)) {
+                    CantosDemoPresentation(state, catalog(), { events += it })
+                }
+            }
+            onNodeWithTag("save-card-SonHa").performScrollTo().performClick().performClick()
+            assertEquals<List<DemoEvent>>(listOf(
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = true),
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = true),
+            ), events)
+            runOnIdle { state = state.copy(savedWorks = setOf(DemoWorkId.SonHa)) }
+            onNodeWithTag("save-card-SonHa").assert(hasContentDescription("Bỏ lưu tác phẩm Sơn Hà Ký"))
+                .performClick().performClick()
+            assertEquals<List<DemoEvent>>(listOf(
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = true),
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = true),
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = false),
+                DemoEvent.SetSaved(DemoWorkId.SonHa, saved = false),
+            ), events)
+        }
+    }
+
+    @Test
+    fun failed_memory_write_shows_retry_without_claiming_a_saved_work_or_hiding_the_player() {
+        val events = mutableListOf<DemoEvent>()
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, 844.dp)) {
+                    CantosDemoPresentation(
+                        DemoState(savedWorks = emptySet(), listeningFailure = DemoListeningFailure.MemoryStoreUnavailable),
+                        catalog(),
+                        { events += it },
+                    )
+                }
+            }
+            onNodeWithTag("listening-failure").assertExists()
+            onNodeWithText("Chưa lưu được thay đổi trong bộ nhớ. Dữ liệu trước đó được giữ lại.").assertExists()
+            onNodeWithTag("listening-retry").performClick()
+            assertEquals<List<DemoEvent>>(listOf(DemoEvent.RetryListening), events)
+            onNodeWithTag("save-card-SonHa").performScrollTo().assert(hasText("Lưu tác phẩm"))
+            onNodeWithTag("mini-open").assert(hasText("12:48"))
+            onNodeWithTag("listening-failure").assertExists()
+        }
+    }
+
+    @Test
+    fun unavailable_latest_episode_never_offers_an_older_episode_from_the_same_work() {
+        val latest = DemoProgress(DemoEpisodeId.SonHa03, 768)
+        val oldEpisode = DemoEpisode(DemoEpisodeId.SonHa02, DemoWorkId.SonHa, 2, "Con đường qua núi", 1640)
+        val work = requireNotNull(catalog().work(DemoWorkId.SonHa)).copy(episodes = listOf(oldEpisode))
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, 844.dp)) {
+                    CantosDemoPresentation(
+                        DemoState(
+                            stack = listOf(DemoRoute.Library),
+                            progress = listOf(DemoProgress(DemoEpisodeId.SonHa02, 50), latest),
+                            savedWorks = emptySet(),
+                        ),
+                        DemoCatalogView(listOf(work)),
+                        {},
+                    )
+                }
+            }
+            onNodeWithTag("library-continue").performScrollTo()
+            onNodeWithTag("resume-SonHa02").assertDoesNotExist()
+            onNodeWithTag("resume-SonHa03").assertDoesNotExist()
+            onNodeWithText("Thông tin hiện tại chưa đủ để mở lựa chọn này. Trở về khám phá để chọn lại.").assertExists()
+        }
+    }
+
+    @Test
+    fun diagnostic_search_and_history_roots_select_their_owning_primary_destination() {
+        var state by mutableStateOf(DemoState(stack = listOf(DemoRoute.Search)))
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, 844.dp)) {
+                    CantosDemoPresentation(state, catalog(), {})
+                }
+            }
+            onNodeWithTag("nav-discovery").assertIsSelected()
+            onNodeWithTag("nav-library").assertIsNotSelected()
+            onNodeWithTag("nav-search").assertDoesNotExist()
+            runOnIdle { state = state.copy(stack = listOf(DemoRoute.History)) }
+            onNodeWithTag("nav-discovery").assertIsNotSelected()
+            onNodeWithTag("nav-library").assertIsSelected()
         }
     }
 

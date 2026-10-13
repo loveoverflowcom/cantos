@@ -16,6 +16,7 @@ import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.adapters.mock.toWorkKey
 import com.cantos.theatre.application.catalog.CatalogState
 import com.cantos.theatre.application.catalog.CatalogStatus
+import com.cantos.theatre.application.listening.ListeningFailure
 import com.cantos.theatre.application.listening.ListeningState
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
@@ -24,6 +25,8 @@ import com.cantos.theatre.demo.DemoBookmark
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoEvent
 import com.cantos.theatre.demo.DemoLibraryTab
+import com.cantos.theatre.demo.DemoProgress
+import com.cantos.theatre.demo.DemoListeningFailure
 import com.cantos.theatre.demo.DemoLocale
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
@@ -78,6 +81,15 @@ fun CantosDemoApp(
                 timer = DemoTimer.Off
                 container.reset()
             }
+            is DemoEvent.ResumeEpisode -> if (!container.resumeEpisode(event.id.toEpisodeKey())) {
+                container.navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
+            }
+            is DemoEvent.ResumeHistoryEpisode -> if (!container.resumeHistoryEpisode(event.id.toEpisodeKey())) {
+                container.navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
+            }
+            is DemoEvent.SetSaved -> container.setSaved(event.id.toWorkKey(), event.saved)
+            DemoEvent.ClearHistory -> container.clearHistory()
+            DemoEvent.RetryListening -> container.listening.retry()
             is DemoEvent.OpenEpisode -> container.selectEpisode(event.id.toEpisodeKey())
             is DemoEvent.OpenBookmark -> container.selectBookmark(
                 event.bookmark.episodeId.toEpisodeKey(), event.bookmark.positionMs,
@@ -129,6 +141,8 @@ fun projectDemoState(
             TheatreRoute.Discovery -> DemoRoute.Discovery
             TheatreRoute.Search -> DemoRoute.Search
             TheatreRoute.Library -> DemoRoute.Library
+            TheatreRoute.Account -> DemoRoute.Account
+            TheatreRoute.History -> DemoRoute.History
             TheatreRoute.Settings -> DemoRoute.Settings
             TheatreRoute.Queue -> DemoRoute.Queue
             TheatreRoute.Player -> DemoRoute.Player
@@ -144,6 +158,20 @@ fun projectDemoState(
             bookmark.episode.toDemoEpisodeId()?.let { id ->
                 DemoBookmark(id, (bookmark.positionMs / 1000L).toInt(), bookmark.positionMs)
             }
+        },
+        progress = listening.snapshot.progress.mapNotNull { point ->
+            point.episode.toDemoEpisodeId()?.let { id ->
+                DemoProgress(id, (point.positionMs / 1000L).toInt(), point.positionMs)
+            }
+        },
+        history = listening.snapshot.history.mapNotNull { point ->
+            point.episode.toDemoEpisodeId()?.let { id ->
+                DemoProgress(id, (point.positionMs / 1000L).toInt(), point.positionMs)
+            }
+        },
+        listeningFailure = when (listening.failure) {
+            null -> null
+            ListeningFailure.MemoryStoreUnavailable -> DemoListeningFailure.MemoryStoreUnavailable
         },
         catalogMode = when (catalog.status) {
             CatalogStatus.Ready -> DemoCatalogMode.Ready

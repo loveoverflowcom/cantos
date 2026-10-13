@@ -5,6 +5,8 @@ sealed interface DemoRoute {
     data object Search : DemoRoute
     data object Library : DemoRoute
     data object Settings : DemoRoute
+    data object Account : DemoRoute
+    data object History : DemoRoute
     data object Queue : DemoRoute
     data object Player : DemoRoute
     data object Unavailable : DemoRoute
@@ -21,6 +23,8 @@ enum class DemoLocale { Vietnamese, English }
 
 enum class DemoTimer { Off, Fifteen, Thirty, EndOfEpisode }
 
+enum class DemoListeningFailure { MemoryStoreUnavailable }
+
 enum class PlaybackUiStatus { Idle, Loading, Paused, Simulating, Buffering, Ended }
 
 /** A pinned demo position. It carries no account, publication, or synchronization claim. */
@@ -35,6 +39,19 @@ data class DemoBookmark(
         }
         require(positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
             "Demo bookmark display must match its exact position"
+        }
+    }
+}
+
+/** A position-only projection. Progress and accepted-play history have distinct owners. */
+data class DemoProgress(
+    val episodeId: DemoEpisodeId,
+    val positionSeconds: Int,
+    val positionMs: Long = positionSeconds.toLong() * 1000L,
+) {
+    init {
+        require(positionSeconds >= 0 && positionMs >= 0 && positionSeconds.toLong() == positionMs / 1000L) {
+            "Demo listening display must match its exact nonnegative position"
         }
     }
 }
@@ -60,14 +77,21 @@ class DemoState(
     val playbackStatus: PlaybackUiStatus = if (simulating) PlaybackUiStatus.Simulating else PlaybackUiStatus.Paused,
     val transportRequested: Boolean = simulating,
     val positionMs: Long = positionSeconds.toLong() * 1000L,
+    progress: List<DemoProgress> = listOf(DemoProgress(selectedEpisode, positionSeconds, positionMs)),
+    history: List<DemoProgress> = emptyList(),
+    val listeningFailure: DemoListeningFailure? = null,
 ) {
     private val stackSnapshot: List<DemoRoute> = stack.toList()
     private val savedWorksSnapshot: Set<DemoWorkId> = savedWorks.toSet()
     private val bookmarksSnapshot: List<DemoBookmark> = bookmarks.toList()
+    private val progressSnapshot = progress.toList()
+    private val historySnapshot = history.toList()
 
     val stack: List<DemoRoute> get() = stackSnapshot.toList()
     val savedWorks: Set<DemoWorkId> get() = savedWorksSnapshot.toSet()
     val bookmarks: List<DemoBookmark> get() = bookmarksSnapshot.toList()
+    val progress: List<DemoProgress> get() = progressSnapshot.toList()
+    val history: List<DemoProgress> get() = historySnapshot.toList()
 
     init {
         require(stackSnapshot.isNotEmpty()) { "Demo navigation must have a root" }
@@ -100,6 +124,9 @@ class DemoState(
         playbackStatus: PlaybackUiStatus = this.playbackStatus,
         transportRequested: Boolean = this.transportRequested,
         positionMs: Long = if (positionSeconds == this.positionSeconds) this.positionMs else positionSeconds.toLong() * 1000L,
+        progress: List<DemoProgress> = this.progress,
+        history: List<DemoProgress> = this.history,
+        listeningFailure: DemoListeningFailure? = this.listeningFailure,
     ): DemoState = DemoState(
         stack = stack,
         selectedEpisode = selectedEpisode,
@@ -116,6 +143,9 @@ class DemoState(
         playbackStatus = playbackStatus,
         transportRequested = transportRequested,
         positionMs = positionMs,
+        progress = progress,
+        history = history,
+        listeningFailure = listeningFailure,
     )
 
     override fun equals(other: Any?): Boolean = other is DemoState &&
@@ -125,6 +155,9 @@ class DemoState(
         positionMs == other.positionMs &&
         savedWorksSnapshot == other.savedWorksSnapshot &&
         bookmarksSnapshot == other.bookmarksSnapshot &&
+        progressSnapshot == other.progressSnapshot &&
+        historySnapshot == other.historySnapshot &&
+        listeningFailure == other.listeningFailure &&
         libraryTab == other.libraryTab &&
         query == other.query &&
         catalogMode == other.catalogMode &&
@@ -142,6 +175,9 @@ class DemoState(
         result = 31 * result + positionMs.hashCode()
         result = 31 * result + savedWorksSnapshot.hashCode()
         result = 31 * result + bookmarksSnapshot.hashCode()
+        result = 31 * result + progressSnapshot.hashCode()
+        result = 31 * result + historySnapshot.hashCode()
+        result = 31 * result + (listeningFailure?.hashCode() ?: 0)
         result = 31 * result + libraryTab.hashCode()
         result = 31 * result + query.hashCode()
         result = 31 * result + catalogMode.hashCode()
@@ -156,7 +192,7 @@ class DemoState(
 
     override fun toString(): String = "DemoState(" +
         "stack=$stack, selectedEpisode=$selectedEpisode, positionSeconds=$positionSeconds, positionMs=$positionMs, " +
-        "savedWorks=$savedWorks, bookmarks=$bookmarks, " +
+        "savedWorks=$savedWorks, bookmarks=$bookmarks, progress=$progress, history=$history, listeningFailure=$listeningFailure, " +
         "libraryTab=$libraryTab, query=$query, catalogMode=$catalogMode, theme=$theme, " +
         "locale=$locale, speedPercent=$speedPercent, timer=$timer, " +
         "playbackStatus=$playbackStatus, transportRequested=$transportRequested)"
@@ -167,6 +203,11 @@ sealed interface DemoEvent {
     data object Back : DemoEvent
     data object Reset : DemoEvent
     data class OpenEpisode(val id: DemoEpisodeId) : DemoEvent
+    data class ResumeEpisode(val id: DemoEpisodeId) : DemoEvent
+    data class ResumeHistoryEpisode(val id: DemoEpisodeId) : DemoEvent
+    data class SetSaved(val id: DemoWorkId, val saved: Boolean) : DemoEvent
+    data object ClearHistory : DemoEvent
+    data object RetryListening : DemoEvent
     data class OpenBookmark(val bookmark: DemoBookmark) : DemoEvent
     data object ToggleSimulation : DemoEvent
     data class Seek(val deltaSeconds: Int) : DemoEvent
@@ -194,5 +235,13 @@ fun filteredWorks(state: DemoState, catalog: DemoCatalogView): List<DemoWork> {
             work.category.lowercase().contains(query) ||
             work.description.lowercase().contains(query) ||
             work.episodes.any { it.title.lowercase().contains(query) }
+    }
+}
+
+/** Core orders progress oldest first. Missing metadata never falls back to an older episode. */
+fun continuingProgress(state: DemoState): List<DemoProgress> {
+    val seen = mutableSetOf<DemoWorkId>()
+    return state.progress.asReversed().filter { point ->
+        seen.add(point.episodeId.workId)
     }
 }
