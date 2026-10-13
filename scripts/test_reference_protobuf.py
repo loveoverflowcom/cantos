@@ -26,6 +26,10 @@ class ProtobufReferenceTests(unittest.TestCase):
             self.assertEqual(actual,FIELDS[name])
             self.assertIn('reserved ',body)
 
+    def test_external_schema_is_registered_for_warm_cargo_regeneration(self):
+        build = (ROOT/'scripts/protobuf-oracle/rust/build.rs').read_text()
+        self.assertIn('println!("cargo:rerun-if-changed=../../../packages/contracts/protobuf/studio_v1.proto");', build)
+
     def test_every_reviewed_golden_matches_independent_wire_spec(self):
         corpus=json.loads((DIRECTORY/'goldens.json').read_text())
         self.assertEqual(corpus['contract'],'cantos.studio.wire.v1')
