@@ -18,8 +18,9 @@ its [frozen admission policy](../../../../packages/contracts/protobuf/README.md)
   custom defaults; repeated absence and empty intentionally map to one empty list
 - `ULong` application revisions and `Long?` wire raw bits, converted with `toLong`/`toULong`;
   no signed revision arithmetic or narrowing
-- An allocation-free envelope pre-scan before kotlinx creates strings/lists; bounds and exact
-  error categories match the frozen policy. Encode size/UTF-16 checks precede serialization.
+- A bounded envelope pre-scan before kotlinx creates message/string/list values; bounds and exact
+  error categories match the frozen policy. Encode size/UTF-16 checks precede serialization. Nullable ULong scan results can box;
+  no zero-allocation or Native allocation claim is made.
 - A closed `ProtobufResult` success/failure boundary, without networking, retries, FFI or Ktor
 
 Current DTOs have no enum, oneof, packed scalar collection, float or map. They are not invented

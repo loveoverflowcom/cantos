@@ -1,6 +1,6 @@
 package com.cantos.theatre.adapters.protobuf
 
-/** Allocation-free scan of already buffered bytes, before kotlinx constructs strings or lists. */
+/** Bounded scan of buffered bytes before kotlinx constructs message values, strings or lists. */
 internal class StrictProtobufEnvelope(private val bytes: ByteArray) {
     private var cursor = 0
     private var fields = 0

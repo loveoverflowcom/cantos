@@ -1,6 +1,6 @@
 # ADR 0023: Versioned Protobuf wire pilot with JSON rollback
 
-- Status: proposed; issue #97 implementation contract frozen for parallel review
+- Status: implemented opt-in pilot; activation and full issue #97 acceptance deferred
 - Date: 2026-10-13
 - Decision owner: repository owner (final PR review/acceptance)
 - Related issue: [#97](https://github.com/loveoverflowcom/cantos/issues/97)
@@ -19,7 +19,9 @@ Protobuf is selected for an explicit, cross-language schema at the transport edg
 a binary format is inherently faster. Actual raw/compressed bytes, encode/decode CPU, allocation,
 WASM bundle and request latency must be measured separately before enabling the pilot default.
 Minimal independent Rust/Kotlin schema evidence is recorded in
-[the freeze record](../evidence/protobuf-wire-contract-freeze.md). This is not HTTP, DB or Native acceptance.
+[the freeze record](../evidence/protobuf-wire-contract-freeze.md). The
+[integration ledger](../evidence/protobuf-wire-migration.md) retains actual measurements, review
+fixes and deferred DB/browser/Native acceptance. This is not full feature acceptance.
 
 ## Decision
 

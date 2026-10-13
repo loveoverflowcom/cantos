@@ -265,3 +265,12 @@ not generated OpenAPI. Future generated bindings must name their source and gene
 opaque keysets and a fail-closed playback authorization port. Shared DTOs and strict fixtures
 are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
 acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.
+
+## Studio Protobuf wire pilot
+
+[Versioned policy and schema](protobuf/README.md) own the four actual Studio
+revision/validation wire roots. Existing Serde DTOs, exact Script IR text and JSON errors remain
+unchanged. `cargo xtask verify contracts` checks independent Python goldens, exact generated
+prost drift and production Rust codec tests; schema/fixture changes also select common/JVM
+Kotlin tests in preflight. [The migration ledger](../../docs/evidence/protobuf-wire-migration.md)
+records deferred browser/SQL/Native acceptance, measured costs and JSON rollback.

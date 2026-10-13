@@ -14,9 +14,10 @@ fn check<M: Message + Default + PartialEq + std::fmt::Debug>(message: M, expecte
     assert_eq!(M::decode(expected).unwrap(), message);
 }
 fn main() {
+    let generated = include_str!(concat!(env!("OUT_DIR"), "/cantos.studio.wire.v1.rs"));
+    let reviewed = include_str!("../../../../packages/contracts/api/src/protobuf/generated.rs");
     assert_eq!(
-        include_str!(concat!(env!("OUT_DIR"), "/cantos.studio.wire.v1.rs")),
-        include_str!("../../../../packages/contracts/api/src/protobuf/generated.rs"),
+        generated, reviewed,
         "generated prost wire drift: regenerate from reviewed schema, never edit generated types"
     );
     let path = std::env::args().nth(1).expect("goldens path");

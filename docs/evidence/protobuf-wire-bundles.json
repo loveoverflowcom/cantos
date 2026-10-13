@@ -1,0 +1,67 @@
+{
+  "baseline_revision": "9f0368e18de867c58da31619b6be171478779e9e",
+  "current_revision": "45221436f19db8de18f10ab874e11647df28c2ee",
+  "current_tree": "405bebeda8ffcc9b689c4d0c901a15639ac8f9ba",
+  "dependency_commit": "cb3721d23d248726e23a43d429eb08c6e756578f (local8a2d1b09569818e73037aea637ff8d3bb44ed94a, same tree)",
+  "toolchain": {
+    "rust": "1.87.0",
+    "trunk": "0.21.14",
+    "wasm-bindgen": "0.2.100",
+    "wasm-opt": "version_123"
+  },
+  "profile": "cargo xtask build cantos-studio --web --release, default optimization; feature revision-protobuf only for protobuf stage",
+  "compression": "Python gzip.compress default level9, mtime0; same host",
+  "rows": [
+    {
+      "stage": "baseline",
+      "files": [
+        {
+          "file": "cantos-studio-7008412e7758a7aa.js",
+          "raw": 40337,
+          "gzip": 7453,
+          "sha256": "6f163f415933ea1e0e84d6af500b793b44dd063fdee2a162907f34e453c1b74e"
+        },
+        {
+          "file": "cantos-studio-7008412e7758a7aa_bg.wasm",
+          "raw": 4316981,
+          "gzip": 1310913,
+          "sha256": "c332e32e4b71b0fd2835251dbc54e5185b0eadfbb53271b43f9fa8a43d58d5fb"
+        }
+      ]
+    },
+    {
+      "stage": "json",
+      "files": [
+        {
+          "file": "cantos-studio-d64965e0914f732d.js",
+          "raw": 40337,
+          "gzip": 7453,
+          "sha256": "c11cd55154f255d2bfed466d3b1529abbb1c43e7a00f4b291319b553ddbbd036"
+        },
+        {
+          "file": "cantos-studio-d64965e0914f732d_bg.wasm",
+          "raw": 4318528,
+          "gzip": 1311300,
+          "sha256": "a9024512635b97106b83429d975eb9e63a29f46558c58ec10f3c65a03bc4fd2a"
+        }
+      ]
+    },
+    {
+      "stage": "protobuf",
+      "files": [
+        {
+          "file": "cantos-studio-1f1e1ff6d40bfa2.js",
+          "raw": 40337,
+          "gzip": 7453,
+          "sha256": "de963670fde2f79bc21b0983a44891527920c75aa317b1dda886599450d912f5"
+        },
+        {
+          "file": "cantos-studio-1f1e1ff6d40bfa2_bg.wasm",
+          "raw": 4337228,
+          "gzip": 1319117,
+          "sha256": "a85e75ee5d660d041fff09a7d80c335487368f768a0659c91f3377f96e164837"
+        }
+      ]
+    }
+  ]
+}
