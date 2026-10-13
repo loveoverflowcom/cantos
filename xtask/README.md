@@ -189,7 +189,7 @@ launch does not prove window readiness or complete process cleanup. Record actua
 observations separately.
 
 CMP requires a real package-local Gradle project (both settings and build files), an installed
-Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
+Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 (8.14.3 preferred; matches the wrappers) and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
 `--no-daemon` and `-Dorg.gradle.java.installations.auto-download=false`: the JDK must already be
 available. Gradle resolves declared project dependencies normally. xtask never invokes a
 downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
@@ -198,7 +198,7 @@ The Theatre `--mobile` surface remains reserved and is separate from this deskto
 Shared CMP previews do not create a Studio mobile client.
 
 `ui-preview cmp android-build` compiles `compileDebugKotlinAndroid` in the isolated
-`packages/ui-system/cmp/android-preview` library with the same installed Gradle 8.14.3/JDK
+`packages/ui-system/cmp/android-preview` library with the same installed Gradle/JDK
 checks. That project consumes the shared CMP source and requires a locally configured Android
 SDK. The command starts no IDE, emulator, app or device process. Its build is optional and
 separate from the desktop build/test gate, so desktop users do not acquire an Android SDK
@@ -308,17 +308,17 @@ state it in the pull request.
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly three registered API-library propositions:
-`catalog-revision`, `wav-payload` and `submission-window`. Repeat `--harness` to select a subset;
+`cargo xtask verify kani` selects exactly five registered API-library propositions:
+`catalog-revision`, `wav-payload`, `submission-window`, `publication-commit` and `listener-access`. Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/7/8) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/7/8/6/5) and reviewed unreachable checks.
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
-limits. Existing Theatre harnesses are outside this registry and have no new executed claim.
+limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all three. Unrelated documents, Web/CMP and service configuration select
+uncertain changes select all five. Unrelated documents, Web/CMP and service configuration select
 none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.
@@ -472,7 +472,7 @@ cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:asse
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
 
-Build/verify/run require installed Gradle 8.14.3 and a full JDK 17+. Android checks an existing
+Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
 absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
 iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
 then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.

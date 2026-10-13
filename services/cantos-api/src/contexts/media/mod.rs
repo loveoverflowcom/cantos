@@ -18,3 +18,11 @@ pub use publication_application::{PublicationService, PublicationStoreError};
 pub use publication_delivery::{
     PublicationDelivery, PublicationDeliveryFuture, PublicationDependencyError, PublicationObject,
 };
+
+mod listener_application;
+mod listener_cursor;
+mod listener_delivery;
+pub use listener_application::{ListenerError, ListenerService};
+pub use listener_delivery::{MediaGrant, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit};
+
+pub(crate) use postgres::listener::{library_public_work, library_publications};

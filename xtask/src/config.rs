@@ -7,8 +7,12 @@ use std::net::{Ipv4Addr, SocketAddr};
 pub const REQUIRED_RUST: &str = "1.87";
 /// Trunk version the web READMEs document.
 pub const TRUNK_VERSION: &str = "0.21.14";
-/// Reviewed installed Gradle version for the package-local CMP preview (no wrapper download).
+/// Gradle version the checked-in wrappers pin (`gradle-wrapper.properties`); the preferred install.
 pub const GRADLE_VERSION: &str = "8.14.3";
+/// Installed Gradle versions xtask accepts for the CMP projects (no wrapper download). Kotlin
+/// 2.2.20 / Compose 1.9 support 8.x and AGP 8.11.1 needs 8.13 or newer; Gradle 9 is excluded
+/// because AGP 8.11.1 predates it.
+pub const GRADLE_SUPPORTED_VERSIONS: &[&str] = &["8.13", "8.14.1", "8.14.2", GRADLE_VERSION];
 pub const UI_LEPTOS_DIR: &str = "packages/ui-system/leptos";
 pub const UI_CMP_DIR: &str = "packages/ui-system/cmp";
 pub const UI_CMP_ANDROID_DIR: &str = "packages/ui-system/cmp/android-preview";

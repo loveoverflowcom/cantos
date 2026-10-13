@@ -164,3 +164,21 @@ then publication before Theatre playback. Next runtime acceptance needs an opera
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
 lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.
+
+## Listener Library / Progress successor
+
+The [account Library/Progress v1](../../packages/contracts/listener-library-v1.md) and
+[identity/Web/CMP handoff](listener-library-progress-handoff.md) follow inherited draft PR93.
+The [evidence record](../evidence/listener-library-progress.md) distinguishes pure/use-case/Router
+checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
+no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
+remain fail-closed dependencies, and this draft does not complete the broad listening issues.

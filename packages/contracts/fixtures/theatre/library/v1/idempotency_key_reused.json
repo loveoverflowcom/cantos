@@ -1,0 +1,4 @@
+{
+  "code": "idempotency_key_reused",
+  "retryable": false
+}

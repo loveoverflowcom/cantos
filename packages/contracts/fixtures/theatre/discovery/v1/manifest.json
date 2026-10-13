@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "publication_id": "80000000-0000-4000-8000-000000000008",
+  "work_id": "10000000-0000-4000-8000-000000000001",
+  "unit_id": "20000000-0000-4000-8000-000000000002",
+  "rendition_id": "60000000-0000-4000-8000-000000000006",
+  "manifest_digest": "rm-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "byte_length": 100,
+  "duration_ms": 1000,
+  "container": "ogg",
+  "codec": "opus",
+  "channels": 1,
+  "sample_rate_hz": 48000,
+  "profile_id": "opus-mono-24-v1",
+  "language": "vi-VN",
+  "published_at_ms": 5000
+}

@@ -32,14 +32,18 @@ pub enum Kernel {
     WavPayload,
     SubmissionWindow,
     PublicationCommit,
+    ListenerAccess,
+    ListenerReconcile,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 6] = [
         Self::CatalogRevision,
         Self::WavPayload,
         Self::SubmissionWindow,
         Self::PublicationCommit,
+        Self::ListenerAccess,
+        Self::ListenerReconcile,
     ];
 
     pub fn name(self) -> &'static str {
@@ -48,6 +52,8 @@ impl Kernel {
             Self::WavPayload => "wav-payload",
             Self::SubmissionWindow => "submission-window",
             Self::PublicationCommit => "publication-commit",
+            Self::ListenerAccess => "listener-access",
+            Self::ListenerReconcile => "listener-reconcile",
         }
     }
 
@@ -57,6 +63,8 @@ impl Kernel {
             Self::WavPayload => "contexts::media::domain::wav_inspection::chunks::kani_proofs::wav_payload_range_is_checked",
             Self::SubmissionWindow => "contexts::media::domain::lifecycle::kani_proofs::submission_window_admission_and_membership",
             Self::PublicationCommit => "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
+            Self::ListenerAccess => "contexts::media::domain::listening::kani_proofs::listener_keyset_and_access_window",
+            Self::ListenerReconcile => "contexts::listening::domain::reconcile::kani_proofs::progress_reconciliation_never_blindly_overwrites_or_wraps",
         }
     }
 
@@ -70,6 +78,10 @@ impl Kernel {
             Self::PublicationCommit => {
                 "services/cantos-api/src/contexts/media/domain/publication.rs"
             }
+            Self::ListenerAccess => "services/cantos-api/src/contexts/media/domain/listening.rs",
+            Self::ListenerReconcile => {
+                "services/cantos-api/src/contexts/listening/domain/reconcile.rs"
+            }
         }
     }
 
@@ -79,6 +91,8 @@ impl Kernel {
             Self::WavPayload => 7,
             Self::SubmissionWindow => 8,
             Self::PublicationCommit => 6,
+            Self::ListenerAccess => 5,
+            Self::ListenerReconcile => 7,
         }
     }
 
@@ -93,6 +107,8 @@ impl Kernel {
             Self::SubmissionWindow => vec![format!("{}.assertion.3", self.harness())],
             Self::WavPayload => Vec::new(),
             Self::PublicationCommit => vec![format!("{}.assertion.1", self.harness())],
+            Self::ListenerAccess => Vec::new(),
+            Self::ListenerReconcile => Vec::new(),
         }
     }
 
@@ -166,6 +182,11 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         {
             selected.extend(Kernel::ALL);
         }
+        if path == "services/cantos-api/src/contexts/listening/mod.rs"
+            || path.starts_with("services/cantos-api/src/contexts/listening/domain/")
+        {
+            selected.insert(Kernel::ListenerReconcile);
+        }
         for kernel in Kernel::ALL {
             if path == kernel.source() {
                 selected.insert(kernel);
@@ -188,6 +209,7 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 Kernel::WavPayload,
                 Kernel::SubmissionWindow,
                 Kernel::PublicationCommit,
+                Kernel::ListenerAccess,
             ]);
         }
         if path == "services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs" {
@@ -585,7 +607,8 @@ mod tests {
             [
                 Kernel::WavPayload,
                 Kernel::SubmissionWindow,
-                Kernel::PublicationCommit
+                Kernel::PublicationCommit,
+                Kernel::ListenerAccess
             ]
         );
         for path in [

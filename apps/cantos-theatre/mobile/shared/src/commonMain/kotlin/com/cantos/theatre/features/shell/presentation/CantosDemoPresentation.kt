@@ -16,14 +16,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -55,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -207,6 +211,13 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
     },
 )
 
+private fun headerTitleKey(route: DemoRoute): CopyKey = when (route) {
+    DemoRoute.Player -> CopyKey.Player
+    DemoRoute.Account -> CopyKey.AccountSpace
+    DemoRoute.Discovery, DemoRoute.Search, DemoRoute.Library, is DemoRoute.Work, DemoRoute.Queue,
+    DemoRoute.History, DemoRoute.Settings, DemoRoute.Unavailable -> CopyKey.Brand
+}
+
 @Composable
 private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     Row(
@@ -222,8 +233,10 @@ private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -
             }
         }
         Text(
-            copy.text(if (state.route == DemoRoute.Player) CopyKey.Player else CopyKey.Brand),
-            modifier = Modifier.weight(1f).padding(horizontal = tokenDp("space.sm")),
+            copy.text(headerTitleKey(state.route)),
+            modifier = Modifier.weight(1f).padding(horizontal = tokenDp("space.sm"))
+                .then(if (state.route == DemoRoute.Account) Modifier.semantics { heading() } else Modifier)
+                .testTag("header-title"),
             style = if (state.route == DemoRoute.Player) MaterialTheme.typography.labelLarge
                 else MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary,
@@ -573,16 +586,76 @@ private fun HistoryScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
 
 @Composable
 private fun AccountScreen(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
-    SectionHeading(CopyKey.Account, copy)
-    Text(copy.text(CopyKey.AccountHelp))
-    Text(copy.text(CopyKey.LibrarySession))
-    Button(shape = MaterialTheme.shapes.medium, onClick = {}, enabled = false, modifier = Modifier.testTag("sign-in").semantics {
-        stateDescription = copy.text(CopyKey.SignInUnavailable)
-    }) { Text(copy.text(CopyKey.SignIn)) }
-    Text(copy.text(CopyKey.SignInUnavailable), style = MaterialTheme.typography.bodySmall)
-    FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }, modifier = Modifier.testTag("settings")) {
-        Icon(Icons.Outlined.Settings, null)
-        Text(copy.text(CopyKey.Settings))
+    Row(
+        Modifier.fillMaxWidth().testTag("account-profile"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
+    ) {
+        // Decorative: the guest name beside it carries the meaning.
+        Box(
+            Modifier.size(tokenDp("size.avatarLarge")).clip(CircleShape)
+                .background(tokenColor("color.avatarLavender")).testTag("account-avatar"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Outlined.Person, null, tint = tokenColor("color.onAvatarLavender"))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+            Text(
+                copy.text(CopyKey.AccountGuest),
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
+            )
+            Text(
+                copy.text(CopyKey.PersonalRhythm),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("account-preview"),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Text(copy.text(CopyKey.AccountPreviewTitle), style = MaterialTheme.typography.labelLarge)
+            Text(copy.text(CopyKey.AccountHelp), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        Button(shape = MaterialTheme.shapes.medium, onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth().testTag("sign-in").semantics {
+            stateDescription = copy.text(CopyKey.SignInUnavailable)
+        }) { Text(copy.text(CopyKey.SignIn)) }
+        Text(
+            copy.text(CopyKey.SignInUnavailable),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Surface(
+        onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) },
+        modifier = Modifier.fillMaxWidth().testTag("settings").semantics {
+            role = Role.Button
+        },
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Row(
+            Modifier.padding(tokenDp("space.md")),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
+        ) {
+            Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                Text(copy.text(CopyKey.Settings), style = MaterialTheme.typography.labelLarge)
+                Text(
+                    copy.text(CopyKey.AccountSettingsHint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+        }
     }
 }
 
