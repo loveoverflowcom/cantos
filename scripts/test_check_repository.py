@@ -408,6 +408,28 @@ fn error(e: CatalogStoreError) { match e { CatalogStoreError::Domain(CatalogErro
                     f"fn f() {{ crate::contexts::catalog::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
+    def test_publication_http_allows_only_typed_errors_and_host_composition(self):
+        self.assertEqual(self.errors("interfaces/http/studio/publication.rs", """
+use crate::contexts::media::{PublicationService, PublicationDelivery, PublicationStoreError, PublicationDependencyError};
+use crate::contexts::media::domain::publication::PublicationError;
+fn f(store: Store) { PublicationService::new(store); }
+fn error(e: PublicationStoreError) { match e { PublicationStoreError::Domain(PublicationError::InvalidTime) => {}, _ => {} } }
+"""), [])
+
+    def test_publication_http_cannot_evaluate_or_publish_domain_rules(self):
+        for symbol in ("evaluate", "decide", "AudioRelease::publish", "retained_release_eligible", "DeliveryEvidence::new"):
+            with self.subTest(symbol=symbol):
+                self.assertRejected("interfaces/http/studio/publication.rs",
+                    f"fn f() {{ crate::contexts::media::domain::publication::{symbol}(input); }}",
+                    "HTTP must delegate business decisions")
+
+    def test_platform_cannot_own_publication_delivery_port(self):
+        for symbol in ("PublicationDelivery", "PublicationService"):
+            with self.subTest(symbol=symbol):
+                self.assertRejected("platform/postgres/mod.rs",
+                    f"use crate::contexts::media::{symbol};",
+                    "platform must not depend on a business context")
+
     def test_http_cannot_import_business_policy(self):
         self.assertRejected("interfaces/http/studio/production.rs", """
 use crate::contexts::production::{domain::assess_eligibility as assess};

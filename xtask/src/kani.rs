@@ -31,13 +31,15 @@ pub enum Kernel {
     CatalogRevision,
     WavPayload,
     SubmissionWindow,
+    PublicationCommit,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 3] = [
+    pub const ALL: [Self; 4] = [
         Self::CatalogRevision,
         Self::WavPayload,
         Self::SubmissionWindow,
+        Self::PublicationCommit,
     ];
 
     pub fn name(self) -> &'static str {
@@ -45,6 +47,7 @@ impl Kernel {
             Self::CatalogRevision => "catalog-revision",
             Self::WavPayload => "wav-payload",
             Self::SubmissionWindow => "submission-window",
+            Self::PublicationCommit => "publication-commit",
         }
     }
 
@@ -53,6 +56,7 @@ impl Kernel {
             Self::CatalogRevision => "contexts::catalog::domain::revision::kani_proofs::catalog_revision_admission_and_successor",
             Self::WavPayload => "contexts::media::domain::wav_inspection::chunks::kani_proofs::wav_payload_range_is_checked",
             Self::SubmissionWindow => "contexts::media::domain::lifecycle::kani_proofs::submission_window_admission_and_membership",
+            Self::PublicationCommit => "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
         }
     }
 
@@ -63,6 +67,9 @@ impl Kernel {
                 "services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs"
             }
             Self::SubmissionWindow => "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+            Self::PublicationCommit => {
+                "services/cantos-api/src/contexts/media/domain/publication.rs"
+            }
         }
     }
 
@@ -71,6 +78,7 @@ impl Kernel {
             Self::CatalogRevision => 6,
             Self::WavPayload => 7,
             Self::SubmissionWindow => 8,
+            Self::PublicationCommit => 6,
         }
     }
 
@@ -84,6 +92,7 @@ impl Kernel {
             ],
             Self::SubmissionWindow => vec![format!("{}.assertion.3", self.harness())],
             Self::WavPayload => Vec::new(),
+            Self::PublicationCommit => vec![format!("{}.assertion.1", self.harness())],
         }
     }
 
@@ -175,7 +184,11 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
             "services/cantos-api/src/contexts/media/mod.rs"
                 | "services/cantos-api/src/contexts/media/domain/mod.rs"
         ) {
-            selected.extend([Kernel::WavPayload, Kernel::SubmissionWindow]);
+            selected.extend([
+                Kernel::WavPayload,
+                Kernel::SubmissionWindow,
+                Kernel::PublicationCommit,
+            ]);
         }
         if path == "services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs" {
             selected.insert(Kernel::WavPayload);
@@ -569,7 +582,11 @@ mod tests {
                 &["services/cantos-api/src/contexts/media/domain/mod.rs"],
                 false
             ),
-            [Kernel::WavPayload, Kernel::SubmissionWindow]
+            [
+                Kernel::WavPayload,
+                Kernel::SubmissionWindow,
+                Kernel::PublicationCommit
+            ]
         );
         for path in [
             SCRIPT,

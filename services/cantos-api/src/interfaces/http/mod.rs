@@ -13,6 +13,7 @@ use cantos_contracts::{routes, ApiError, ErrorCode};
 use tower_http::services::ServeDir;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
+use crate::contexts::media::{PublicationDelivery, PublicationService};
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
@@ -27,6 +28,22 @@ pub struct AppState {
 }
 
 pub fn router(state: AppState, dist: &str) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    router_with_publication(state, dist, publication)
+}
+
+/// Trusted host composition only. Requests cannot replace the media delivery consumer.
+pub fn router_with_publication_delivery(
+    state: AppState,
+    dist: &str,
+    delivery: std::sync::Arc<dyn PublicationDelivery>,
+) -> Router {
+    let publication =
+        PublicationService::new(state.store.clone()).with_publication_delivery(delivery);
+    router_with_publication(state, dist, publication)
+}
+
+fn router_with_publication(state: AppState, dist: &str, publication: PublicationService) -> Router {
     // Surfaces are separate route groups with their own permission context; shared code is the
     // middleware below and the domain/store modules, never a handler.
     let api = Router::new()
@@ -52,7 +69,7 @@ pub fn router(state: AppState, dist: &str) -> Router {
     } else {
         host.fallback_service(ServeDir::new(dist))
     };
-    host.with_state(state)
+    host.with_state(state).layer(axum::Extension(publication))
 }
 
 async fn not_found() -> Response {

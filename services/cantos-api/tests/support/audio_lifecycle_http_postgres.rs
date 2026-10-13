@@ -868,3 +868,6 @@ async fn audio_read_baseline_uses_current_owner_app_role_and_exact_bounded_point
     fs::create_dir_all(EVIDENCE).unwrap();
     fs::write(format!("{EVIDENCE}/audio-read-baseline.json"),serde_json::to_vec_pretty(&json!({"role":role,"postgres":a.h.admin.query_one("SHOW server_version",&[]).await.unwrap().get::<_,String>(0),"samples_ms":samples,"candidate_samples_ms":candidate_samples,"plans":plans,"object_bytes":bytes.len(),"target_p95_ms":500,"targets_are_local_workload_only":true,"dbsp":"reject: authorized bounded point reads; no hot aggregate/CDC consumer; no DBSP change","scope":"Warm local synthetic 1submission/1rendition/1review/1candidate;20status+20candidate actual Router/app-role/current-owner status reads with actual private hash verification; no production cardinality/SLO claim"})).unwrap()).unwrap();
 }
+
+#[path = "publication_http_postgres.rs"]
+mod publication_http;

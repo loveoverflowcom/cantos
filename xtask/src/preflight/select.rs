@@ -502,7 +502,7 @@ mod tests {
                     .iter()
                     .filter(|gate| gate.kind() == crate::gate::GateKind::Kani)
                     .count(),
-                3
+                crate::kani::Kernel::ALL.len()
             );
         }
     }

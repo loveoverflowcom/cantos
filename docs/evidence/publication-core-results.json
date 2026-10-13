@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "status": "CORE_VERIFIED / IO_ACCEPTANCE_PENDING",
+  "date_utc": "2026-10-13",
+  "source": {
+    "initial_base": "7f02e65c7a5acdab33f24f4ed50c27584d706fd7",
+    "integrated_develop": "bc1dbd655598b2df2526144cbb4fc735bc2f3695",
+    "preceding_local_source_commit": "e63afd4602d083c67b81f97fa63bba558259070a",
+    "preceding_published_source_commit": "534660cad31dba3f9e3fd9ef797f317c2f6918b5",
+    "preceding_exact_tree": "979b4d7d5a3a41bdf56f895045264b0c47d51060",
+    "final_source_sha256": {
+      "packages/contracts/api/src/lib.rs": "11c4d6680db1eccc34bd3f4738f4fc7b59a9ad2543868f0d7ee0cd6e6142ace6",
+      "packages/contracts/api/src/publication.rs": "6270816e5dbabed5c946e422ab4f51ccdfbc15194f2f73c78e61919b983a36b9",
+      "packages/contracts/fixtures/publication/v1/approval.json": "eeb78457992b9ab67a7be723dd944423fcf8b00fe9254babaca6880e40177808",
+      "packages/contracts/fixtures/publication/v1/clearance.json": "9c97dbc39d1497c80591aaa2db39ea0a7afcd94b767fbd5708cbf7f8ee1a6535",
+      "packages/contracts/fixtures/publication/v1/publish.json": "c5d18457f8c50bc294508861bcef12a1a438b2a698401cb934059820ea75ff7c",
+      "packages/contracts/fixtures/publication/v1/withdraw.json": "b65278d4efe442c65a7b0257085866d0da4f127e58a10112456704ebc8a4b19b",
+      "packages/contracts/schema/publication/v1.schema.json": "0a7e61e1073d0596e511e4b8760cafa3f23a351defad5bac5f0812fe891f7826",
+      "scripts/check_repository.py": "55ef12c937960d32487e734e0eacfb3a626b63fc89ddb15317604432439d3566",
+      "scripts/test_check_repository.py": "c79b3b7930f6af36693de2fe0ce5bc7e9cb89c3cbe2ff8bf5cf61fc93237941c",
+      "services/cantos-api/migrations/0016_audio_publication.sql": "b118cd7c1720cd9b1e4fb34cc9fbfdaca995a8f96f36a6b81b08b22ae8cdf02c",
+      "services/cantos-api/src/contexts/media/domain/mod.rs": "ec6b3815ce5c7fab7b7523cb5147168761adb36bf6fb74ee34407a41e2aa0f6f",
+      "services/cantos-api/src/contexts/media/domain/publication.rs": "8dbb31fc61eedfe7893ffb63a137c46b8abe6c978abc93f9fce17ab775d60393",
+      "services/cantos-api/src/contexts/media/lifecycle_application.rs": "e1f99988b809711b7ada18dcaf1059c6dd5cb948797293db6652e863872ed2db",
+      "services/cantos-api/src/contexts/media/mod.rs": "0292ba06391d91b3a43f08ea7cda65d427194ad3f1ad36d88b81aa123eeed074",
+      "services/cantos-api/src/contexts/media/postgres.rs": "c3343f156e999cfb9b4cd2aa61dd5037ad0b004eb879dd8d0c2e36b6252406bc",
+      "services/cantos-api/src/contexts/media/postgres/lifecycle.rs": "6af7fe5f7e2f90d71029cda8bc9a6a62c9796235564fa09488a3d69e66c33b52",
+      "services/cantos-api/src/contexts/media/postgres/publication.rs": "1ddb24674b1baad7c8a58dbe11d54741aec550173d1efef8dd56ebf9fa1fc7d4",
+      "services/cantos-api/src/contexts/media/publication_application.rs": "394d09e8801a0613fc623282dbbce148c84401d4a3da5dd9d79505bb7b6530d9",
+      "services/cantos-api/src/contexts/media/publication_application_tests.rs": "0c51e80a52014adb0b07e1c24d5c677705416e7ba5aa7384533c119d4951967b",
+      "services/cantos-api/src/contexts/media/publication_delivery.rs": "2ebc5a6d0eab66fc0f167ee388738ae3b0dae1e65e43ed490693a94fff2f7e54",
+      "services/cantos-api/src/contexts/media/publication_tests.rs": "607e4fab8b1ebfb66970257624d47e23b78daf68ee15c2d575774421adcc4558",
+      "services/cantos-api/src/interfaces/http/mod.rs": "c176eb60df1fcbd3c462c9d007125fa0d2ed249af29b228356a850536b2eb321",
+      "services/cantos-api/src/interfaces/http/studio/audio_lifecycle.rs": "503927c38a79534ca0f91298d425114a8525cfea83e779f898a5c1f3e1431d4d",
+      "services/cantos-api/src/interfaces/http/studio/mod.rs": "4fd4c144e9591dbd31dfbb6182252c1caba5df9446425b3635b68dcc6cd81273",
+      "services/cantos-api/src/interfaces/http/studio/publication.rs": "345c6a00bd5cc3f650fd039300737e48aab0ca69591463aeb9502db981a06b71",
+      "services/cantos-api/src/platform/postgres/migrations.rs": "f4b18847c1317bbab03e7194482bf8922afe5511390b9c4953acf220e9a3ffe5",
+      "services/cantos-api/tests/catalog_http_postgres.rs": "3e02a21c985e0c2b022ef125343186864d8db0dbb5730723293e5ef060deac74",
+      "services/cantos-api/tests/publication_contract.rs": "8925ac0b1a7510b8509d848b8ba530098086cba491bf0e6edb52023aaa0c9a1d",
+      "services/cantos-api/tests/support/audio_lifecycle_http_postgres.rs": "dec9e6a6a1a4e21d8ed4a109d4fefe2647faffaad0caef7b15e87e7486096630",
+      "services/cantos-api/tests/support/publication_http_postgres.rs": "7246b8760052b5e568e434af3a603d1280615ba11a5425b55d86daf4cd8ea8ed",
+      "xtask/src/gate.rs": "a5a82cfc7b0746247b97c8962e457c6455a3de8d7000d4fc29fc6984c99ac812",
+      "xtask/src/kani.rs": "b73bcd43c26dc2b0025d69a1568165daca56db354632be3361ca735c101ee6e4",
+      "xtask/src/preflight/select.rs": "48d1db92224c5e5c31e362b3f3303ddcef666c80d9c223f88556cd0a4e2bc08a",
+      "Cargo.lock": "8cf5d58a6be8481148dae8daf9abec112d6e4ce72740eea56bd87f23108a8e6c"
+    },
+    "final_commit_identity": "Recorded in PR body; self-referential Git identity is not embedded.",
+    "fourth_commit_code_note": "Explicit &str pointer comparison fixes opt-in DBSP-feature inference; no policy change."
+  },
+  "core_counts": {
+    "publication_domain": 19,
+    "existing_lifecycle": 1,
+    "application_fake_port": 5,
+    "http_error_mapping": 1,
+    "actual_router_contract": 2,
+    "api_compile_fail_docs": 12,
+    "kani_registry": 10,
+    "repository_python": 306
+  },
+  "commands": [
+    {
+      "command": "cargo test --locked -p cantos-api --lib publication",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l3-l4-final-merged-tests.log",
+      "raw_log_sha256": "1a9a7c873388c754fbd35e894b0cf99403ae2bcb19358067951bf12eda42ba81"
+    },
+    {
+      "command": "cargo test --locked -p cantos-api --test publication_contract",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l5-composition-http.log",
+      "raw_log_sha256": "b7b352866e99393e8559618d74db548ec3e154fe38fbbf8e3f308f85429a72cf"
+    },
+    {
+      "command": "cargo clippy --locked -p cantos-api -p cantos-contracts -p xtask --all-targets -- -D warnings",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l5-composition-clippy.log",
+      "raw_log_sha256": "8cd31985dfb61a3c8799177194e22b7deebe272a677563817143800ffcf6e2c4"
+    },
+    {
+      "command": "cargo test --locked -p cantos-api --doc",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l2-doctests-composition.log",
+      "raw_log_sha256": "dd8f037cfc6d0964c54c7e9ef51db296782cabfe02a709c21cb0687c4193f4ff"
+    },
+    {
+      "command": "cargo test --locked -p xtask kani::tests",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l3-kani-registry-composition.log",
+      "raw_log_sha256": "05134fc2004a914513caea7adab8aad688b178fbb593b8bafb438153e5fed3a7"
+    },
+    {
+      "command": "cargo xtask verify kani --harness publication-commit",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/l3-kani-final-code.log",
+      "raw_log_sha256": "5da85b5a683b9759dab97a92b8ba5796384888cf3b2e5dfe7f2b12c7639dddf1"
+    },
+    {
+      "command": "cargo xtask verify rust",
+      "result": "FAIL",
+      "raw_log": "artifacts/agent-runs/publication-core/final-verify-rust-last.log",
+      "raw_log_sha256": "ad65322da90e2b4bb8b345d4aeee5de3e6283afe564bee76bd36efa21be76f7a"
+    },
+    {
+      "command": "cargo xtask verify contracts",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/final-verify-contracts-last.log",
+      "raw_log_sha256": "29245ea130b95ac8d438b886faa7ca491c2913a547b5193c611c8da1abda45ad"
+    },
+    {
+      "command": "cargo xtask verify repository",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/final-verify-repository-merged.log",
+      "raw_log_sha256": "6f758778389f20be20133977eb602437d84025f926784890852f86ec787c950a"
+    },
+    {
+      "command": "cargo xtask verify postgres",
+      "result": "FAIL",
+      "raw_log": "artifacts/agent-runs/publication-core/l5-postgres-attempt.log",
+      "raw_log_sha256": "a8ad439c89046abbc891ec6fc843aafec686119953c5c02ae8b990f96431bae9"
+    },
+    {
+      "command": "cargo xtask preflight --changed-only --base bc1dbd655598b2df2526144cbb4fc735bc2f3695",
+      "result": "UNSUPPORTED",
+      "raw_log": "artifacts/agent-runs/publication-core/final-preflight-merged.log",
+      "raw_log_sha256": "dd121f46f0206477da3c191e7488568227d8a6515deb3172cff44207eb140e76"
+    },
+    {
+      "command": "cargo xtask verify dbsp",
+      "result": "PASS",
+      "raw_log": "artifacts/agent-runs/publication-core/final-verify-dbsp-fixed.log",
+      "raw_log_sha256": "691247abf7054012904d62446d9ab8dadc54e30fec00f6f266116efaeb9c8028"
+    }
+  ],
+  "formal": {
+    "harness": "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
+    "production_functions": [
+      "advance_pointer",
+      "rights_window_valid"
+    ],
+    "kani": "0.68.0",
+    "cbmc": "6.11.0",
+    "rustc": "1.100.0-nightly (8925ea358 2026-08-20)",
+    "target": "x86_64-unknown-linux-gnu",
+    "unwind": 2,
+    "checks": 19,
+    "covers": 6,
+    "assumptions": false,
+    "stubs": false,
+    "input_exclusions": false,
+    "scope": "Full-width integer local pointer/clock rules, not SQL/QC/authorization/storage.",
+    "artifacts": [
+      {
+        "path": "artifacts/agent-runs/kani-17cdd526b37244ea8a05e3e8f41c4133/metadata.json",
+        "sha256": "0a7f26613082a43e882ce4a1189c4f3144a4ef90bc37c94ce12c2b3dece80830"
+      },
+      {
+        "path": "artifacts/agent-runs/kani-17cdd526b37244ea8a05e3e8f41c4133/raw.log",
+        "sha256": "8b9f94412fb0c0bbde5981672f3ff6e66002814c6aa23cb62838e1f39e037f98"
+      }
+    ]
+  },
+  "retained_failures": [
+    {
+      "path": "artifacts/agent-runs/publication-core/final-verify-repository.log",
+      "sha256": "a1940d3c41b23de390f5488320b9338079f7db8504a47434a7b16158fcc22fa4"
+    },
+    {
+      "path": "artifacts/agent-runs/publication-core/final-verify-dbsp.log",
+      "sha256": "24ffdc4a4bb79ac1318604778ccdcb49d5c23d857c3f83be5dad07f39e9b3974"
+    },
+    {
+      "path": "artifacts/agent-runs/publication-core/l3-kani-final-invocation-fail.log",
+      "sha256": "98eb763d588dcdf2dc94d09324286c8c343a864395a1a315ae721f5565ac1190"
+    },
+    {
+      "path": "artifacts/agent-runs/kani-3af5cf882a7a475a81817e19f908d9a7/raw.log",
+      "sha256": "b085dbf8ff17ac0880ce6aa01959fa855d37cb32c74dd5fd1084061c2c8525e5"
+    }
+  ],
+  "integration": {
+    "postgres_startup": "FAIL: Unix socket creation EPERM after successful initdb and loopback TCP listen.",
+    "migration_and_sql_tests": "NOT_RUN",
+    "compiled_publication_pg_test_count": 8,
+    "real_public_delivery": "NOT_RUN; default UnavailableDelivery blocks activation",
+    "fixture_public_delivery": "Named mock only",
+    "provider_calls": "NOT_RUN",
+    "ci": "NOT_RUN; no remote CI waiting",
+    "storage_dependency": "https://github.com/loveoverflowcom/cantos/pull/90",
+    "storage_checkpoint_reported": "9306d22954b44aa9be390495aa0b2581c0738d22"
+  },
+  "limits": [
+    "17 pre-existing xtask private-input fixture failures under managed /tmp/.git",
+    "Full changed-only preflight refuses absent Gradle; other selected gates NOT_RUN",
+    "No PG performance baseline/plans or real crash/concurrency proof",
+    "Studio audit manifest is not a public Theatre projection",
+    "No production-ready or legal/listening quality claim"
+  ]
+}

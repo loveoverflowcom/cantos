@@ -150,7 +150,7 @@ pub enum Task {
 pub enum VerifySuite {
     /// Exact registered API bounded proofs; no normal build or CI requirement.
     Kani {
-        /// Select a registered proposition (repeatable); omission selects all three.
+        /// Select a registered proposition (repeatable); omission selects all registered kernels.
         #[arg(long, value_enum)]
         harness: Vec<Kernel>,
     },

@@ -275,3 +275,15 @@ Artifacts are under `artifacts/agent-runs/` (ignored local evidence):
 
 The successful proofs do not rewrite full Rust/preflight FAIL, PostgreSQL NOT_RUN
 or browser/device IO acceptance. See the final [ledger checkpoint](domain-invariants.md#ultra-review-checkpoint).
+
+## Publication kernel extension
+
+The [Publication core evidence](../evidence/publication-core.md#formal-scope-and-exact-inputs)
+adds the fourth registered proposition, `publication-commit`, with the same opt-in verifier
+boundary. Actual command: `cargo xtask verify kani --harness publication-commit`.
+It checks production pointer CAS/exhaustion and half-open rights time rules over full machine
+integer domains: one exact harness,19checks,6 satisfied covers, unwind2 and unchanged lock.
+No assumption/stub or meaningful input exclusion is used. Source/hash/raw-output identities and
+the sole approved closed-enum unreachable error branch are recorded in that evidence.
+This does not prove the entire readiness evaluator, SQL concurrency or storage/authorization.
+The earlier three-kernel execution above remains historical evidence with its original inputs.

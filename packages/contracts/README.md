@@ -38,6 +38,13 @@ The [Production Brief v1 contract](production-brief-v1.md) exports immutable Cat
 rights/guidance/profile pins and independent expiring read permissions. It produces no audio
 and grants no upload/review/publication authority.
 
+The [Publication v1 contract](publication-v1.md) adds current-owner distribution clearance,
+exact approval, complete readiness blockers, immutable releases, atomic active pointers and
+withdrawal receipts over private candidates. Its JSON schema/fixtures and Studio routes are
+implemented; [evidence](../../docs/evidence/publication-core.md) records verified core and pending
+PostgreSQL/public delivery acceptance. Default delivery is unavailable. Audit manifests stay
+Studio-only; no public Theatre projection or staging delivery is provided.
+
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,
 separates exact original bytes from normalized extraction, and never saves a script revision or

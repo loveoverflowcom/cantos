@@ -1,0 +1,6 @@
+{
+  "operation_id": "80000000-0000-4000-8000-000000000001",
+  "candidate_digest": "rc-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expected_pointer_version": 0,
+  "expected_active_release_id": null
+}

@@ -319,3 +319,10 @@ pub(in crate::contexts::media) async fn insert_candidate(
     .await?;
     Ok(())
 }
+
+pub(in crate::contexts::media) async fn candidate_submission(
+    tx: &Tx<'_>,
+    id: &str,
+) -> Result<Option<String>, StoreError> {
+    Ok(tx.query_opt("SELECT r.submission_id FROM audio_release_candidates c JOIN audio_renditions r ON r.id=c.rendition_id WHERE c.id=$1",&[&id]).await?.map(|r|r.get(0)))
+}
