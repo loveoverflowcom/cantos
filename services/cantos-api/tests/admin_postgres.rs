@@ -496,7 +496,13 @@ async fn actor_disable_committed_while_waiting_for_lock_is_rechecked_and_audited
         store
             .admin()
             .unwrap()
-            .revoke_access(&store, Some(&token), "other", &operation, uuid::Uuid::new_v4())
+            .revoke_access(
+                &store,
+                Some(&token),
+                "other",
+                &operation,
+                uuid::Uuid::new_v4(),
+            )
             .await
     });
     // Observe the production admission query actually waiting before disabling the actor.
@@ -527,9 +533,11 @@ async fn actor_disable_committed_while_waiting_for_lock_is_rechecked_and_audited
     assert_eq!(h.count("admin_operations").await, 0);
     assert_eq!(h.count("admin_access_revocations").await, 0);
     assert_eq!(h.count("admin_audit").await, 1);
-    let row = h
-        .db
-        .query_one("SELECT actor_id,action,target_actor_id,outcome FROM admin_audit", &[])
+    let row =
+        h.db.query_one(
+            "SELECT actor_id,action,target_actor_id,outcome FROM admin_audit",
+            &[],
+        )
         .await
         .unwrap();
     assert_eq!(row.get::<_, String>(0), "minh");
