@@ -74,7 +74,7 @@ request defaults are intentionally not domain witnesses.
 | ID / proposition | Owner and admission boundary | Failure / bypass audit | Initial enforcement; available oracle; residual obligation |
 | --- | --- | --- | --- |
 | E1: Save/review accepts exact replay or checks current revision/access; revisions never wrap | `contexts/editorial/domain/{access,revisions,evidence}.rs`, application/PostgreSQL | Raw request/SQL facts must not confer permanent authorization; replay is immutable historical fact, not new approval | `TYPE_ENFORCED` decision enums, `RUNTIME_VALIDATED`; editorial/revision PostgreSQL tests available. Transaction-time reauthentication/current evidence remain required. |
-| A1: External proposals bind exact source, request, script/revision and reviewed coverage | `contexts/adaptation/domain`, application | Raw proposal/generation DTOs are declarations; sealed frozen/materialized outputs must not be forgeable or reusable for another binding | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `adaptation.rs`, `adaptations_postgres.rs`. Inspect low-level materialization/acceptance routes in phase 2; no inference backend. |
+| A1: External proposals bind exact source, request, script/revision and reviewed coverage | `contexts/adaptation/domain`, application | Raw proposal/generation DTOs are declarations; FrozenAdaptation/FrozenContext/TrustedBinding expose fields (the first two also Deserialize), so they are not sealed provenance witnesses | `TYPE_ENFORCED` closed decision shapes, `RUNTIME_VALIDATED` application/SQL re-admission; `adaptation.rs`, `adaptations_postgres.rs`. Inspect raw frozen-context reuse at lower boundaries in phase 2; no inference backend. |
 | P1: Frozen production/brief inputs pin content, guidance, rights/profile and budget facts | `contexts/production/domain`, `application/briefs.rs::restore` | Private Guidance/ProductionBrief fields, no Deserialize/Default; restore re-admits and compares full raw snapshot/digest | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; `production.rs`, `brief_domain.rs`, PostgreSQL tests. A frozen candidate is not eternal rights/access permission or generated audio. |
 | M1: Private submission/rendition/review/candidate lifecycles require exact bindings and byte integrity | `contexts/media/domain`, lifecycle application/PostgreSQL | Sealed admitted objects restore from raw snapshots; receipt/storage/current grant facts still need transaction/byte rechecks | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; lifecycle/intake tests. Candidate remains private; `PublicDeliveryNotImplemented` always blocks publication. |
 | M2: WAV/PCM/Ogg offsets, chunk counts/durations and digests reject overflow/truncation | `contexts/media/domain/wav_inspection`, `audio_intake.rs`, domain profiles | Numeric byte positions are raw at parser edge; external metadata cannot be trusted as verification | `RUNTIME_VALIDATED`; WAV/Opus hostile bytes and checksum tests. Select pure arithmetic kernel for bounded proof; proof does not establish audio listening/quality. |
@@ -89,7 +89,7 @@ request defaults are intentionally not domain witnesses.
 | T1: Playback intent and observed mock engine state are distinct; stale session events are ignored | `apps/cantos-theatre/web/src/core/playback`, `application/player_session.rs` | Private state/validated positions; public raw events are not engine evidence | `TYPE_ENFORCED`, `RUNTIME_VALIDATED`; reducer/vector tests. This is session-only fake media, not native/browser production playback. |
 | T2: Catalog/resource identity, queue and progress remain stable across navigation/interruption | Theatre core/application, shell context | Publication/catalog strings are mock values; local session memory is not backend release authority | `RUNTIME_VALIDATED`; catalog/listening/route tests. Phase 3 audits actual code only; no invented Theatre API. |
 | X1: Changed-path gate selection is deterministic and unknown impact broadens coverage | `xtask/src/preflight/{changes,graph,select}.rs`, `gate.rs` | Raw paths map into typed gates; no Kani gate currently registered | `TYPE_ENFORCED` enums, `RUNTIME_VALIDATED`; selector/unit tests. Add an opt-in real Kani workflow in phase 3; ordinary tests must never be reported as proofs. |
-| X2: Reports distinguish PASS, FAIL, NOT_RUN and UNSUPPORTED and preserve owned-process lifetimes | `xtask/src/{report,pipeline,process,tools}.rs` | Missing tools/skipped gates/zero tests cannot silently establish acceptance | `TYPE_ENFORCED` result enums, `RUNTIME_VALIDATED`; xtask tests available. No CI polling, paid resources, or new mandatory proof lane. |
+| X2: Reports distinguish PASS, FAIL, NOT_RUN and UNSUPPORTED and preserve owned-process lifetimes | `xtask/src/{report,pipeline,process,tools}.rs` | Missing tools/failures/skipped gates are reported distinctly; a successful process with zero selected tests still needs evidence review | `TYPE_ENFORCED` result enums, `RUNTIME_VALIDATED`; xtask tests available. No CI polling, paid resources, or new mandatory proof lane. |
 
 ## Concrete residuals to revisit in phases 2 and 3
 
@@ -160,3 +160,24 @@ creating an empty commit or an abstraction without a current consumer.
 
 Subsequent commits append attributable execution results and remaining obligations
 rather than replacing this initial inventory with retrospective claims.
+
+## Phase 1: contracts checkpoint
+
+W2/W4 coverage now includes every ContentBody variant, current Content fixtures,
+raw unsigned/signed limits, negative/fractional/overflow numbers, nested unknown
+authority fields, every strict request prefix (including UTF-8 splits), trailing
+bytes and PATCH missing/clear/value across both codecs. This is codec regression
+evidence, not MessagePack route enablement or semantic admission.
+
+The existing production wire decoder/DTO shapes needed no justified behavioral
+refactor after audit; they remain unchanged. No framework/newtype was added to
+raw transport. `cargo test --locked -p cantos-contracts` passed 61 tests, including
+9 added Content cases; package clippy with warnings denied passed. `cargo xtask verify contracts` passed all four gates: Script IR reference,
+contract tests, independent WAV reference and actual-byte audio inspection
+(two ignored real codec/profile tests explicitly executed). Repository verification
+also passed. No PostgreSQL or browser integration is claimed at this checkpoint.
+
+An initial test expectation classified a JSON prefix cut inside a Vietnamese
+UTF-8 sequence as Truncated. The executed decoder correctly reports InvalidUtf8
+before JSON parsing. The final test distinguishes these exact error classes;
+no decoder behavior was changed to satisfy the test.
