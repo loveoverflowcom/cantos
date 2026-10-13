@@ -6,6 +6,11 @@ on [draft PR63](https://github.com/loveoverflowcom/cantos/pull/63). The
 [phase1 checkpoint](mock-skeleton.md) is commit `2a425a87ab20aba4061d2910bf02df62c32652e9`.
 There is one KMP shared module, no extra service/crate, no FFI and no generic MVI framework.
 
+The later [#35 library MVP record](../../../../docs/evidence/theatre-cmp-library-mvp.md)
+supersedes the navigation/library observations below: two primary destinations, three direct
+library groups and a separate accepted-play history collection. Earlier captures remain
+historical evidence for their named revisions, not evidence for this changed presentation.
+
 The reviewed refactor commit `a74c084e97f7c175c9d90fd65c189490241fb7b1` was preserved before
 integrating concurrent remote head `b0869291078ec9100f49a5dd24d1eb60a9393a01`. The latter retains
 the other owner's `b97b6610a097f9edcdb916f3e511924086f8486b` card-shape/endonym fixes and
@@ -26,7 +31,7 @@ still needs device/simulator evidence; compiled common/JVM tests prove the app w
 | --- | --- | --- |
 | `domain/publication` | synthetic Work/Episode keys and immutable catalog inventory | no approved release, asset URL, rights, API or framework dependency |
 | `domain/playback` | generation/session, intent and observed fake-engine phase | pure `reducePlayback -> PlaybackTransition(nextState, effects)` |
-| `domain/listening` | separate SavedWork, Bookmark and ProgressRecord collections | no completion inference, account, outbox or reconciliation policy |
+| `domain/listening` | separate SavedWork, Bookmark, ProgressRecord and accepted-play history collections | no completion inference, account, outbox or reconciliation policy |
 | `application/catalog` | immutable catalog StateFlow and monotonic request tags | CatalogPort replies cannot replace a newer/reset request |
 | `application/playback` | one serialized event loop and a separate ordered effect worker | only observation callbacks enter MediaEngine.events; matching source/generation required |
 | `application/listening` | one ordered memory-write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted |
@@ -34,7 +39,8 @@ still needs device/simulator evidence; compiled common/JVM tests prove the app w
 | `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports |
 
 The root derives `DemoState` for rendering; it does not own a writable aggregate mirroring the
-controllers. Query, library tab, timer selection and scroll remain screen-local. Fixture data
+controllers. Query, timer selection, confirmation and scroll remain screen-local. The legacy
+library-tab seed is diagnostic compatibility only; no library tabs are rendered. Fixture data
 is under `adapters/mock`, separate from presentation metadata and domain rules. The current
 six presentation identifiers are diagnostic fixture identifiers, not production publication IDs.
 No DownloadedAsset/offline subsystem is added without a consumer.

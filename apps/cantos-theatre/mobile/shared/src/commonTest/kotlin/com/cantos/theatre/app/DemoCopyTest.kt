@@ -71,6 +71,11 @@ class DemoCopyTest {
         val english = DemoCopy(DemoLocale.English)
         assertEquals("Khám phá", vietnamese.text(CopyKey.Discover))
         assertEquals("Discover", english.text(CopyKey.Discover))
+        assertEquals("Của tôi", vietnamese.text(CopyKey.Library))
+        assertEquals("My library", english.text(CopyKey.Library))
+        assertEquals("Nghe tiếp", vietnamese.text(CopyKey.Continuing))
+        assertEquals("Lịch sử", vietnamese.text(CopyKey.History))
+        assertEquals("Tài khoản", vietnamese.text(CopyKey.Account))
         assertEquals(
             "Tập 3 · Người giữ tiếng chuông",
             vietnamese.text(CopyKey.EpisodeLabel, "index" to "3", "title" to title),

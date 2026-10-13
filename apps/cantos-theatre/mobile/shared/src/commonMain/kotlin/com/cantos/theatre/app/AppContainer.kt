@@ -18,6 +18,7 @@ import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.application.preferences.PreferencesState
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoLocale
+import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoTheme
@@ -27,7 +28,9 @@ import com.cantos.theatre.domain.listening.ListeningSnapshot
 import com.cantos.theatre.domain.listening.ProgressRecord
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackSnapshot
+import com.cantos.theatre.domain.playback.PlaybackSource
 import com.cantos.theatre.domain.playback.PlaybackState
+import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.domain.publication.CatalogInventory
 import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
@@ -35,7 +38,6 @@ import com.cantos.theatre.ports.CatalogPort
 import com.cantos.theatre.ports.MediaEngine
 import com.cantos.theatre.ports.ProgressPort
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -43,7 +45,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 /** Composition inputs only. This immutable seed is never a writable application store. */
 data class AppStartState(
@@ -81,22 +82,18 @@ class AppContainer(
     val catalog = CatalogController(scope, catalogPort, start.inventory)
     val listening = ListeningController(scope, progressPort, start.listening)
     val preferences = PreferencesController(start.preferences)
-    val playback = PlaybackController(scope, mediaEngine)
+    val playback = PlaybackController(scope, mediaEngine, ::recordCommittedPlayback)
     private val mutableNavigation = MutableStateFlow(start.navigation)
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
     private var closed = false
     private var resetEpoch = 0L
+    private var initialRestorePending = true
     private var progressResetPending = false
-    private var minimumProgressGeneration = 0L
 
     init {
-        playback.dispatch(PlaybackEvent.RestoreRequested(start.playback))
+        // Restoring the mounted player is not a listening visit; preserve explicit empty seeds.
+        playback.restoreForReset(start.playback) { initialRestorePending = false }
         if (start.wantsSimulation) playback.dispatch(PlaybackEvent.PlayRequested)
-        scope.launch(CoroutineName("theatre-progress")) {
-            playback.state.collect { state ->
-                if (!progressResetPending && state.generation >= minimumProgressGeneration) recordProgress(state)
-            }
-        }
     }
 
     fun navigate(event: NavigationEvent) {
@@ -112,6 +109,55 @@ class AppContainer(
         if (!playback.dispatch(PlaybackEvent.PlayRequested)) return false
         navigate(NavigationEvent.OpenPlayer)
         return true
+    }
+
+    fun setSaved(work: WorkKey, saved: Boolean) {
+        if (!closed) listening.dispatch(ListeningEvent.SetSaved(work, saved))
+    }
+
+    fun clearHistory() {
+        if (!closed) listening.dispatch(ListeningEvent.ClearHistory)
+    }
+
+    /** Resolve current progress by exact episode identity and open paused, never auto-play. */
+    fun resumeEpisode(key: EpisodeKey): Boolean = requestResume(key, requireHistory = false)
+
+    /** A cleared or replaced history row cannot act as a captured resume capability. */
+    fun resumeHistoryEpisode(key: EpisodeKey): Boolean = requestResume(key, requireHistory = true)
+
+    private fun requestResume(key: EpisodeKey, requireHistory: Boolean): Boolean {
+        if (closed || progressResetPending) return false
+        val snapshot = listening.state.value.snapshot
+        if (requireHistory && snapshot.history.none { it.episode == key }) return false
+        if (!requireHistory && snapshot.progress.asReversed().firstOrNull { it.episode.work == key.work }?.episode != key) {
+            return false
+        }
+        val record = snapshot.progress.firstOrNull { it.episode == key } ?: return false
+        val episode = catalog.state.value.lastKnownInventory.episode(key) ?: return false
+        if (record.durationMs != episode.durationMs) return false
+        val source = episode.toPlaybackSource() ?: return false
+        val epoch = resetEpoch
+        return playback.captureState { _, revision ->
+            resolveResume(key, source, revision, epoch, requireHistory)
+        }
+    }
+
+    private fun resolveResume(
+        key: EpisodeKey,
+        source: PlaybackSource,
+        revision: Long,
+        epoch: Long,
+        requireHistory: Boolean,
+    ) {
+        if (closed || epoch != resetEpoch) return
+        listening.captureProgress(key, requireHistory) { record ->
+            if (closed || epoch != resetEpoch || record == null || record.durationMs != source.durationMs) {
+                return@captureProgress
+            }
+            playback.restoreForResume(PlaybackSnapshot(source, record.positionMs, 1000), expectedRevision = revision) {
+                if (!closed && epoch == resetEpoch) navigate(NavigationEvent.OpenPlayer)
+            }
+        }
     }
 
     fun bookmark() {
@@ -157,16 +203,35 @@ class AppContainer(
         if (closed) return
         check(resetEpoch < Long.MAX_VALUE) { "Mock reset epoch exhausted" }
         resetEpoch += 1L
+        val epoch = resetEpoch
         progressResetPending = true
         changeScenario?.invoke(CatalogScenario.Ready)
         catalog.reset(resetStart.inventory)
         listening.reset(resetStart.listening)
         preferences.reset()
         navigate(NavigationEvent.Reset)
-        playback.restoreForReset(resetStart.playback) { accepted ->
-            minimumProgressGeneration = accepted.generation
-            progressResetPending = false
-            recordProgress(accepted)
+        playback.restoreForReset(resetStart.playback) {
+            if (!closed && epoch == resetEpoch) {
+                progressResetPending = false
+            }
+        }
+    }
+
+    /** Observe each committed transition, including starts too brief for a conflating UI flow. */
+    private fun recordCommittedPlayback(before: PlaybackState, after: PlaybackState) {
+        if (closed || initialRestorePending || progressResetPending) return
+        if (before.session?.snapshot() != after.session?.snapshot() ||
+            before.session?.intent != after.session?.intent ||
+            after.status == PlaybackStatus.Simulating || after.status == PlaybackStatus.Ended
+        ) {
+            recordProgress(after)
+        }
+        if (before.status != PlaybackStatus.Simulating && after.status == PlaybackStatus.Simulating) {
+            val session = after.session ?: return
+            listening.dispatch(ListeningEvent.RecordStarted(ProgressRecord(
+                EpisodeKey(WorkKey(session.source.workId), session.source.episodeIndex),
+                session.positionMs, session.source.durationMs,
+            )))
         }
     }
 
@@ -207,9 +272,16 @@ private fun startState(inventory: CatalogInventory, seed: DemoState): AppStartSt
     val episode = requireNotNull(inventory.episode(key)) { "Diagnostic seed must select a known fixture" }
     val source = requireNotNull(episode.toPlaybackSource()) { "Diagnostic source must match the mock contract" }
     val position = seed.positionMs.coerceIn(0L, episode.durationMs)
+    val listening = seedListening(inventory, key, position, seed.savedWorks, seed.bookmarks)
     return AppStartState(
         inventory = inventory,
-        listening = seedListening(inventory, key, position, seed.savedWorks, seed.bookmarks),
+        listening = ListeningSnapshot(
+            savedWorks = listening.savedWorks,
+            bookmarks = listening.bookmarks,
+            progress = seed.progress.mapNotNull { it.toProgressRecord(inventory) }
+                .asReversed().distinctBy { it.episode }.asReversed(),
+            history = seed.history.mapNotNull { it.toProgressRecord(inventory) }.distinctBy { it.episode.work },
+        ),
         playback = PlaybackSnapshot(source, position, seed.speedPercent * 10),
         navigation = NavigationState(seed.stack.map { it.toTheatreRoute() }),
         preferences = PreferencesState(
@@ -220,10 +292,18 @@ private fun startState(inventory: CatalogInventory, seed: DemoState): AppStartSt
     )
 }
 
+private fun DemoProgress.toProgressRecord(inventory: CatalogInventory): ProgressRecord? {
+    val key = episodeId.toEpisodeKey()
+    val episode = inventory.episode(key) ?: return null
+    return ProgressRecord(key, positionMs.coerceIn(0L, episode.durationMs), episode.durationMs)
+}
+
 fun DemoRoute.toTheatreRoute(): TheatreRoute = when (this) {
     DemoRoute.Discovery -> TheatreRoute.Discovery
     DemoRoute.Search -> TheatreRoute.Search
     DemoRoute.Library -> TheatreRoute.Library
+    DemoRoute.History -> TheatreRoute.History
+    DemoRoute.Account -> TheatreRoute.Account
     DemoRoute.Settings -> TheatreRoute.Settings
     DemoRoute.Queue -> TheatreRoute.Queue
     DemoRoute.Player -> TheatreRoute.Player

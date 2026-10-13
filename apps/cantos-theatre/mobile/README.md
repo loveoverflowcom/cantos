@@ -8,10 +8,16 @@ or durable persistence is connected. Studio is web-only.
 
 ## Screens and behavior
 
-- Discovery, Vietnamese search, work details and episode selection.
-- Library: continuing, saved and bookmark views; empty/search/loading/error recovery.
+- Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
+  the avatar opens a secondary account screen with an explicit unavailable sign-in reason.
+- Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
+  History has a secondary full list and confirmed clear action; clearing it preserves
+  listening positions, saved works, bookmarks and the player.
+- Vietnamese search, work details and desired-state **Lưu / Bỏ lưu** actions on cards/details.
+  Resume opens the same synthetic episode at its saved position, paused. History records only
+  acknowledged simulated starts, including episodes at their end; opening a page creates none.
 - Mini/full player: bounded manual seek, duplicate-safe bookmarks and episode queue.
-- Contextual settings: light/dark, vi/en UI, speed/timer preferences, manually selected
+- Contextual settings from the account screen: light/dark, vi/en UI, speed/timer preferences, manually selected
   discovery scenarios and reset of the complete demo state.
 
 Transport explicitly **simulates** state. Time never advances on its own; timer and speed
@@ -19,6 +25,11 @@ schedule nothing. State disappears on restart. Android system Back, visible Back
 JVM Escape use the same pure navigation transitions. Play expresses intent; only a matching
 fake-engine acknowledgement confirms simulated running. Native back/insets and screen readers
 still need target evidence.
+
+The [#35 CMP library MVP record](../../../docs/evidence/theatre-cmp-library-mvp.md) scopes this
+follow-up to parity with the merged [Web mock PR #83](https://github.com/loveoverflowcom/cantos/pull/83).
+Account sync, durable Saved/history/progress, real immutable-release resume and guest/account
+policy remain with #11–#17 and #34; this mock does not complete #35.
 
 ## Structure
 

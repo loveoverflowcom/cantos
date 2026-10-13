@@ -84,12 +84,16 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   listener API first; neither completes 040 nor its issues.
   The [#35 Web library MVP mock](../evidence/theatre-web-library-mvp.md) provides a bounded UX
   review step: Khám phá/Của tôi navigation, direct Continue/Saved/History sections and persistent
-  mock mini-player. Review this presentation before its later CMP counterpart; retain publication,
+  mock mini-player. Retain publication,
   listener identity/API and real playback/synchronization prerequisites for production acceptance.
   The mock does not settle the broader product/backend decisions tracked by
   [#34](https://github.com/loveoverflowcom/cantos/issues/34) or close #35.
 - [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
+  The [#35 CMP library MVP mock](../evidence/theatre-cmp-library-mvp.md) follows the Web
+  presentation with two primary destinations and direct Continue/Saved/History sections.
+  Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
+  listener/publication and account contracts before durable sync or production acceptance.
 
 The [CMP engineering skills audit](../evidence/cmp-engineering-skills.md) strengthens typed
 functional Kotlin, layer/ownership review and reproducible verification guidance. This is
