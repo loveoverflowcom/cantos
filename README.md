@@ -57,13 +57,19 @@ No live routes should be inferred from [the proposed contract](packages/contract
 
 ## Repository
 
+The [internal actor registry](docs/architecture/identity-registry.md) adds exact external identity
+bindings and explicit operator operations, retaining legacy actors/ownership. The opt-in
+[Studio OIDC BFF](docs/architecture/studio-oidc.md) now verifies credentials and issues Studio-only
+sessions; live-provider/production and separate Theatre/Admin identity remain gated.
+See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](docs/evidence/studio-oidc.md).
+
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
-- `services/kanidm`: optional local identity evaluation configuration, not yet integrated.
+- `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief and private Audio Lifecycle contracts; public release remains proposed.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.

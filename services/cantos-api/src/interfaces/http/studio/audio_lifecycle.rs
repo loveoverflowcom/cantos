@@ -86,7 +86,7 @@ async fn create(
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateAudioSubmissionRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -103,7 +103,7 @@ async fn read(
     AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -117,7 +117,7 @@ async fn revoke(
     AudioPath((unit, id)): AudioPath<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -136,7 +136,7 @@ async fn review(
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateAudioReviewRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -154,7 +154,7 @@ async fn candidate(
     headers: HeaderMap,
     CatalogBody(request): CatalogBody<dto::CreateReleaseCandidateRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -171,7 +171,7 @@ async fn candidate_read(
     AudioPath((unit, id, candidate)): AudioPath<(String, String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };

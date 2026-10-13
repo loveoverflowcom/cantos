@@ -213,6 +213,25 @@ use std::{collections::BTreeSet, io::{Cursor, Read}};
 use crate::{script_ir::read_script, contexts::editorial::domain::EvidenceKind};
 """), [])
 
+    def test_oidc_core_is_pure_and_session_facts_are_platform_owned(self):
+        self.assertEqual(self.errors("platform/studio_oidc/core.rs", "use crate::platform::identity::domain::ExternalIdentityKey;"), [])
+        self.assertRejected("platform/studio_oidc/core.rs", "use reqwest::Client;", "pure domain must not depend on I/O")
+        self.assertRejected("platform/studio_oidc/core.rs", "use super::provider::Provider;", "pure domain may use only")
+        self.assertRejected("contexts/editorial/postgres/read.rs", 'const Q: &str = "SELECT * FROM studio_oidc_sessions";', "SQL table studio_oidc_sessions belongs to platform")
+
+    def test_identity_domain_is_pure_and_registry_table_is_platform_owned(self):
+        self.assertEqual(self.errors("platform/identity/domain.rs", """
+use serde::{Deserialize, Serialize};
+use std::fmt;
+"""), [])
+        self.assertRejected("platform/identity/domain.rs", "use tokio_postgres::Client;",
+                            "pure domain must not depend on I/O")
+        self.assertRejected("platform/identity/domain.rs", "use super::postgres::Registry;",
+                            "pure domain may use only")
+        self.assertRejected("contexts/catalog/postgres.rs",
+                            'fn query() { "SELECT * FROM actor_external_identities"; }',
+                            "SQL table actor_external_identities belongs to platform")
+
     def test_flat_domain_modules_cannot_bypass_purity_guards(self):
         for path, content, reason in (
             ("contexts/editorial/domain.rs", "use std::fs::File;",

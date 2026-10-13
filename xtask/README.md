@@ -493,3 +493,14 @@ private root; it does not provision identity/storage or use an inherited databas
 PostgreSQL verification now discards completed suite databases only after their tests pass,
 retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
 disk consumption without removing any test or weakening PostgreSQL durability settings.
+
+### Studio Kanidm operator tools
+
+`cargo xtask kanidm reconcile --issuer ISSUER --web-origin ORIGIN --group GROUP --dry-run`
+prints a typed Studio-only client/callback/openid plan. It has no mutation execution path and
+reports provider reconciliation NOT_RUN. No container, user, grants, credential or TLS bootstrap
+is started. `cargo xtask kanidm verify --issuer ISSUER --web-origin ORIGIN [--dry-run]` invokes the
+API's bounded read-only discovery/JWKS primitive only when explicitly run; dry-run starts nothing.
+Metadata PASS establishes no user login, disable/logout or production acceptance. These optional
+operator operations are outside preflight/CI; Rust tests exercise their plans and the real adapter
+against ephemeral signed HTTP mocks. See the [operator policy](../services/kanidm/README.md).

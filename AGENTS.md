@@ -75,6 +75,10 @@ each layer's evidence, deferred acceptance, blocker and actual failure separatel
 for remote CI. Required checks and production acceptance retain their gates; use the existing
 docs-only fallback when applicable.
 
+Optional Studio identity operator tools are `cargo xtask kanidm reconcile --dry-run` (plan only)
+and `cargo xtask kanidm verify` (explicit read-only discovery/JWKS, never login acceptance).
+They never bootstrap accounts, grants, secrets, Podman or TLS; live steps require operator authority.
+
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
 | Change | Required command |

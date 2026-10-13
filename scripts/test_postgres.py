@@ -604,6 +604,10 @@ def main():
         run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", server_options, "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
+        run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
+        run(["cargo", "test", "-p", "cantos-api", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "revisions_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "imports_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "import-postgres-tests.log")

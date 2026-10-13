@@ -65,7 +65,7 @@ async fn start(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -80,7 +80,7 @@ async fn load(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -100,7 +100,7 @@ async fn cancel(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -120,7 +120,7 @@ async fn accept(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -139,7 +139,7 @@ async fn create_context(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -154,7 +154,7 @@ async fn context(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -169,7 +169,7 @@ async fn review(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -189,7 +189,7 @@ async fn submit(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -213,7 +213,7 @@ async fn cancel_context(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };

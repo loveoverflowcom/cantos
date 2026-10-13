@@ -62,7 +62,8 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   It implements no native audio, listener API, background playback, downloads or durable sync.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
-  authenticate through Kanidm: the API still uses operator-issued development tokens.
+  claim live Kanidm acceptance: the API now has opt-in [Studio OIDC](studio-oidc.md) alongside
+  development tokens, with live provider/production activation gated.
 - **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
   [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
   a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
@@ -118,8 +119,11 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
-  example server config. The API will validate tokens issued by it once identity work starts;
+  example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
   nothing in this repository reimplements an identity provider.
+  The [internal actor registry](identity-registry.md) now owns exact external bindings under
+  `platform/identity`, preserving existing actors and development sessions; it does not verify
+  provider claims, add OIDC login or grant Theatre/Admin authority.
 
 ## What is shared, and what is not
 
@@ -180,7 +184,8 @@ cargo xtask verify web                 # WASM clippy and Trunk builds of both cl
 
 PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
 from native `run` and disposable database verification. See [services](../../services/README.md).
-Configured infrastructure is not a deployed identity provider or OIDC integration.
+Configured infrastructure is not a deployed identity provider. The opt-in Studio OIDC code has
+separate mocked/SQL evidence and unrun live-provider gates.
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that

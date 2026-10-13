@@ -57,7 +57,7 @@ async fn append(
         Ok(value) => value,
         Err(error) => return content_error(error),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -118,7 +118,7 @@ async fn read(
         Ok(id) => id,
         Err(error) => return content_error(error),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -170,7 +170,7 @@ async fn history(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };

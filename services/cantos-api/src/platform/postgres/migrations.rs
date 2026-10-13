@@ -4,7 +4,7 @@ use tokio_postgres::{Config, NoTls};
 
 use super::StoreError;
 
-const MIGRATIONS: [(i32, &str); 15] = [
+const MIGRATIONS: [(i32, &str); 17] = [
     (
         1,
         include_str!("../../../migrations/0001_script_revisions.sql"),
@@ -56,6 +56,8 @@ const MIGRATIONS: [(i32, &str); 15] = [
         16,
         include_str!("../../../migrations/0016_audio_publication.sql"),
     ),
+    (18, include_str!("../../../migrations/0018_actor_external_identities.sql")),
+    (20, include_str!("../../../migrations/0020_studio_oidc.sql")),
 ];
 
 /// The migration actor owns DDL; the HTTP application role has no DDL rights.
