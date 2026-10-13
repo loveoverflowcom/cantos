@@ -42,7 +42,7 @@ When the two disagree, report the difference with both sources quoted and ask wh
 
 | Rule | Failure it prevents | Good | Counterexample | Oracle · status | Exception |
 |---|---|---|---|---|---|
-| **Vertical slice with an observable outcome** | layers nobody can demonstrate; reviewers cannot check behavior | "a creator saves a script revision and reopens it after a backend restart": migration, validator, endpoint and test together | "add every MVP table", "add DTOs for all endpoints" | the boundary names a demonstration or test a reviewer can rerun · manual | a toolchain-only bootstrap PR the user asked for, claiming no behavior |
+| **Vertical slice with an observable outcome** | layers nobody can demonstrate; reviewers cannot check behavior | "a creator saves a script revision and reopens it after a backend restart": migration, validator, endpoint and test together | "add every MVP table", "add DTOs for all endpoints" | the boundary names a demonstration or test a reviewer can rerun · manual | an independently verified core with a reproducible test and explicit I/O acceptance under [local handoff](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion), or a requested toolchain-only bootstrap claiming no behavior |
 | **Contract first, with its immediate consumer** | a speculative contract the first consumer contradicts; dead fields | progress DTO, schema and fixture land with the endpoint and a reader (client code or a contract test the client issue will reuse) | OpenAPI for every future listener endpoint, no caller | every new field has a reader in the same PR · manual; contract tests proposed once schemas exist | a field reserved by an accepted ADR |
 | **Migrations carry a forward/backward plan** | new code cannot read old rows; rollback strands data; revisions lost | expand → backfill → switch readers → contract in a later PR, with an old-row fixture test | renaming a column and its readers in one step; editing an applied migration | migration test against real PostgreSQL loading pre-change rows ([persistence](../../cantos-engineering/references/persistence.md)) · manual | no shared or deployed data exists yet — state that explicitly; still never edit an applied migration |
 | **No gate-less path to a gated action** | generation or publication reachable before its checks exist | the generate endpoint lands with its budget reservation, or is not routed | "budget enforcement follows next PR" while generation is callable | review of reachable routes and UI actions · manual | test-only code paths |
@@ -51,6 +51,10 @@ When the two disagree, report the difference with both sources quoted and ask wh
 
 A slice may still be small: one acceptance criterion with its failure cases is a good PR.
 "Small" never means omitting the regression evidence or the docs update for that criterion.
+Use the foundation's [progressive delivery policy](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr)
+when an infrastructure gap prevents a full vertical demonstration; name the accepted core
+claims and deferred I/O claims separately in the review boundary. This does not waive product
+dependency acceptance or turn a passed core into a completed feature.
 
 ## The review boundary statement
 
@@ -73,6 +77,9 @@ phase-exit demonstration (for 010: import → adaptation review → edit → sav
 for the item, usually assembled after its last PR; no single slice claims it.
 
 ## Prototypes before a gate
+
+This section concerns an **unaccepted product dependency**, not a missing local execution
+environment for independent work; the latter follows the foundation's local handoff policy.
 
 [Contract-fixture experiments before a gate must be labeled as prototypes](../../../../docs/work-plan/project-planning.md#sequence-and-parallel-work).
 A prototype is allowed only when the user chooses it over waiting, and then:

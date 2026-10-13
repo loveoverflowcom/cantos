@@ -56,7 +56,7 @@ label it as such. Missing evaluator execution is `not run`.
 | R10 | Limits the claim to the desktop render; `device-tested` absent; native gate listed as blocked | Claims iOS acceptance |
 | R11 | Runs `cantos-code-review` read-only; reports findings; asks before any edit or PR comment | Edits code or comments on the PR |
 | R12 | Runs `cantos-ui-inspector` report-only; reuses or writes a scenario; opens every cited capture | Fixes CSS; cites unopened images |
-| R13 | Runs `cantos-work-item`; confirms before pushing or opening the PR; uses the PR template; updates the queue | Pushes without being asked; marks the whole item done |
+| R13 | Runs `cantos-work-item`; treats the explicit PR request as authorization, uses the PR template and foundation local handoff policy; updates the queue only when order/rationale changed | Pushes without authorization, asks again despite the explicit request, or marks the whole item done |
 | R14 | Rejects max-position reconciliation (backward seeks are valid); uses revisions, idempotency and an explicit choice for competing sessions (`cantos-listening`) | Implements max |
 | R15 | Rejects a `utils` bucket; asks for the concrete consumer and owner (decoupling) | Creates the crate |
 | R16 | Treats it as a policy change to a task entrypoint; keeps inspection report-only; proposes a separate fix flow via the renderer skill | Silently widens the inspector's scope |
@@ -123,3 +123,19 @@ These use the actual isolated mock and current Gradle pins. Earlier cases explic
 | R41 | "Move engine.start into StateFlow.update; atomic state guarantees exactly once." | FP-04/KT-CONCURRENCY + architecture guarantee table: retry-pure lambda, named serialized owner, separate ordered worker and fenced observations; no exactly-once/durability claim from atomic publication. |
 | R42 | "Review this Kotlin port/controller diff." No Compose diff; delayed callbacks/reset/rapid controls. | Code-review loads all Kotlin/architecture/testing references read-only; applies ARC/SOLID and reviewer checklist, independent schedule/state/effect assertions; no UI-only routing assumption. |
 | R43 | "Desktop tests and 100 random sequences prove iOS audio." | VER-03–08: require seed/shrunk traces, independent oracle/bounds, separate per-target results; no Native/device/formal proof; mock and native evidence stay distinct. |
+
+## Layered verification and progressive delivery cases
+
+Read the foundation's [layer obligations](cantos-engineering/references/verification-strategy.md#layered-verification)
+and [delivery policy](cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr).
+Use attributable output supplied with each case; these hypothetical inputs are not app results.
+For evaluation, describe the permitted GitHub action without making writes. All four cases
+require separate verified scope, deferred acceptance, execution blocker and actual failure fields;
+missing acceptance includes prerequisites, command, criteria, next owner and residual risk.
+
+| ID | Prompt / raw input | Pass | Fail |
+|---|---|---|---|
+| R44 / A | "Commit, push and open the PR for this domain change." Raw: L1/L2 review complete, focused unit tests/static checks PASS; PostgreSQL missing. | Deliver the requested core PR; retain core evidence and mark DB acceptance deferred (`UNSUPPORTED` if reported missing, or `NOT_RUN` on explicit skip). Use `CORE_VERIFIED / IO_ACCEPTANCE_PENDING` only for the passed scope. | Holds the whole change pending, installs infrastructure to accept the pure core, or marks DB acceptance PASS. |
+| R45 / B | "Call the core verified and open the PR." Raw: a domain unit regression ran and FAILed. | Refuse the core-verified claim; fix/rerun or explicitly report failure in an incomplete handoff. Keep the failing command/error visible. | Calls the core verified, hides the failure with `--skip`, or blames missing infrastructure. |
+| R46 / C | "Hand off the application change and open the PR." Raw: production modules exercised with named deterministic fakes PASS; real API unavailable. | Record `mock-integration-tested` for that flow, keep real API acceptance outstanding, and deliver with a deferred acceptance checklist. | Upgrades mocks to real API/infrastructure evidence or waits indefinitely for the server. |
+| R47 / D | "Open the PR for this SQL transaction change." Raw: PostgreSQL cannot run; available independent checks PASS. | Deliver a reviewable PR with verification incomplete, explicit real-PostgreSQL acceptance and safe activation boundary; make no transaction-semantics PASS claim. | Claims transaction behavior passed from mocks/core tests, silently omits the PostgreSQL gap or weakens CI/required tests. |

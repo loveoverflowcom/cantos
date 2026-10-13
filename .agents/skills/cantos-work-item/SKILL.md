@@ -101,6 +101,10 @@ gate. For each blocker, cite where acceptance is recorded.
 | acceptance cannot be read | report `unknown`, ask the user |
 | the earlier slice's real contract differs from its spec | treat the code as the fact, the spec as stale; report the conflict |
 
+A missing local DB/API/emulator is an execution blocker, not by itself an unaccepted product
+dependency. Route independent work through the foundation's
+[progressive delivery policy](../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr).
+
 ## 3. Pin the review boundary
 
 One PR delivers one reviewable outcome; internal steps of an item may span several PRs, but none
@@ -175,9 +179,14 @@ each owner's rules. Before handing off, answer each line for the slice (a senten
 ## 9. Verify by tier
 
 Run the [foundation tiers](../cantos-engineering/SKILL.md#7-verification-tiers) that apply, with the
-commands the repository actually provides. Use its [local handoff policy](../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
-local tests, mocked integration where applicable and verification checks, without waiting for
-GitHub CI. A slice that contributes to a phase exit names which
+commands the repository actually provides, in its
+[layered order](../cantos-engineering/references/verification-strategy.md#layered-verification).
+Use its [local handoff policy](../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
+to deliver independently verified layers when requested. Fill the
+[independent gate ledger](../cantos-engineering/references/verification-strategy.md#independent-verification-gates)
+and carry every deferred DB/API/I/O check into the PR and handoff with reason, prerequisites,
+exact command, acceptance criteria, next owner and residual risk. A slice that contributes to
+a phase exit names which
 part of the [phase review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence)
 it demonstrates and which part remains. Label live and mocked evidence separately
 ([shared completion evidence](../../../docs/work-plan/README.md#shared-completion-evidence)). Never
@@ -221,7 +230,7 @@ Live vs mocked:           which evidence touched real PostgreSQL, storage, provi
 Decisions:                <ADR/brief path> — proposed | accepted by <who> | none needed because …
 Docs and queue:           <paths updated> | no change because …
 Outward actions:          done with confirmation | awaiting confirmation | none
-Follow-ups:               proposed issues (not created unless confirmed), backlog candidates
+Follow-ups:               deferred acceptance checklist in PR; issues only if requested; backlog candidates
 <foundation § 9 fields: Invariant … Not covered / residual risk>
 ```
 

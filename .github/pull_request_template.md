@@ -20,12 +20,36 @@ Paste the preflight summary, plus any `cargo xtask verify` suite you ran separat
 xtask printed them (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`) and explain every skipped or
 unsupported gate. Add device or runtime checks once those implementations exist.
 
-Local tests, applicable mocked integration and verification checks are the implementation handoff
-criteria; follow the [local handoff policy](../.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion).
-Name mocked dependencies and separate their results from real local infrastructure or provider
-evidence. GitHub CI may still be pending or `not checked`; no waiting is required. If Cargo/Rust
-is unavailable for a docs-only change, list the fallback primitive results and the unavailable
-xtask/preflight commands accurately. Production and phase-exit acceptance remain separate.
+Follow the foundation's [local handoff policy](../.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
+and [independent gate ledger](../.agents/skills/cantos-engineering/references/verification-strategy.md#independent-verification-gates).
+List affected layers/claims separately; state inapplicable scope with a reason. Keep status
+(`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`) separate from the existing evidence level. Name doubles
+and distinguish mocked results from real infrastructure; include exact commands or review artifacts.
+
+| Layer / claim | Status | Evidence level / command or artifact | Verified scope / gaps |
+| --- | --- | --- | --- |
+| L1 Architecture / abstraction | | | |
+| L2 Domain / types / errors | | | |
+| L3 Unit / property / static checks | | | |
+| L4 Application / mocked orchestration | | | |
+| L5 DB / API / E2E / runtime (split as needed) | | | |
+
+Delivery progress, if applicable: `CORE_VERIFIED / IO_ACCEPTANCE_PENDING` for the named passed
+core scope only; this is not an evidence level or a production-ready claim. GitHub CI may be
+pending or `not checked`; no waiting is required. If Cargo/Rust is unavailable for docs-only
+work, list fallback primitive results and unavailable xtask/preflight commands accurately.
+
+## Deferred acceptance
+
+List unrun DB/API/I/O/runtime checks, or `None` with a reason. Distinguish execution blockers
+from actual failures. Use this checklist instead of creating an unrequested follow-up issue.
+
+| Check / layer and status | Reason: environment, dependency or outside PR scope | Prerequisites and exact next command | Acceptance criteria | Next owner / residual risk |
+| --- | --- | --- | --- | --- |
+| | | | | |
+
+Production and phase-exit acceptance remain separate. Describe how unfinished behavior stays
+unreachable or behind existing fail-closed gates in the production-impact section.
 
 ## Compatibility and production impact
 
