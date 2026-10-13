@@ -10,7 +10,8 @@ const WAVE: ChunkId = ChunkId(*b"WAVE");
 /// Recognized relatives (big-endian RIFX, 64-bit RF64/BW64) that this inspection does not read.
 const OTHER_CONTAINERS: [ChunkId; 3] = [ChunkId(*b"RIFX"), ChunkId(*b"RF64"), ChunkId(*b"BW64")];
 
-/// A complete chunk: its header at `offset` and all `size` payload bytes lie inside the file.
+/// Raw chunk facts. The walker emits complete chunks, but public fields alone are not a
+/// bounds witness; payload access re-admits their range against the actual buffer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ChunkFacts {
     pub id: ChunkId,
@@ -20,10 +21,17 @@ pub struct ChunkFacts {
 
 impl ChunkFacts {
     pub(super) fn payload(self, bytes: &[u8]) -> Option<&[u8]> {
-        let start = usize::try_from(self.offset + CHUNK_HEADER_BYTES).ok()?;
-        let end = start.checked_add(usize::try_from(self.size).ok()?)?;
-        bytes.get(start..end)
+        bytes.get(payload_range(self.offset, self.size, bytes.len())?)
     }
+}
+
+/// The actual payload-access kernel: both RIFF arithmetic and platform-sized indices are
+/// checked before slicing. No buffer allocation or RIFF-walker precondition is required.
+fn payload_range(offset: u64, size: u32, length: usize) -> Option<std::ops::Range<usize>> {
+    let start = offset.checked_add(CHUNK_HEADER_BYTES)?;
+    let end = start.checked_add(u64::from(size))?;
+    let range = usize::try_from(start).ok()?..usize::try_from(end).ok()?;
+    (range.end <= length).then_some(range)
 }
 
 #[derive(Debug, Default)]
@@ -181,4 +189,52 @@ fn riff_body(bytes: &[u8], errors: &mut Vec<StructuralError>) -> Option<RiffBody
         declared_end: riff_end,
         readable_end: riff_end.min(file_bytes),
     })
+}
+
+#[cfg(test)]
+mod range_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    #[test]
+    fn admitted_payload_ranges_pin_empty_exact_end_and_overrun_edges() {
+        assert_eq!(payload_range(0, 0, 8), Some(8..8));
+        assert_eq!(payload_range(0, 1, 9), Some(8..9));
+        assert_eq!(payload_range(0, 1, 8), None);
+        assert_eq!(payload_range(u64::MAX - 8, 1, usize::MAX), None);
+        let end = u128::from(u32::MAX) + 8;
+        let expected = if end <= usize::MAX as u128 {
+            Some(8..end as usize)
+        } else {
+            None
+        };
+        assert_eq!(payload_range(0, u32::MAX, usize::MAX), expected);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 256, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_013), ..ProptestConfig::default() })]
+        #[test]
+        fn payload_range_matches_an_independent_wider_integer_oracle(
+            offset in any::<u64>(), size in any::<u32>(), length in any::<usize>(),
+        ) {
+            let start = u128::from(offset) + 8;
+            let end = start + u128::from(size);
+            let expected = if end <= u128::from(u64::MAX) && end <= length as u128 {
+                Some(start as usize..end as usize)
+            } else { None };
+            prop_assert_eq!(payload_range(offset, size, length), expected);
+        }
+    }
+
+    #[test]
+    fn raw_chunk_offsets_are_checked_before_payload_access() {
+        for offset in [u64::MAX, u64::MAX - 7] {
+            let raw = ChunkFacts {
+                id: ChunkId::DATA,
+                offset,
+                size: 0,
+            };
+            assert_eq!(raw.payload(&[]), None);
+        }
+    }
 }

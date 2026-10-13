@@ -350,5 +350,63 @@ Execution on the phase-1 fresh base, Rust 1.87.0:
 Official Kani 0.68.0 and CBMC 6.11.0 were successfully installed/setup in isolated verification
 tooling. Its required nightly-2026-08-21 (rustc 1.100.0-nightly) bootstraps the installer because
 its pinned `home` dependency needs Rust 1.88; the production/default Rust selection remains
-1.87.0. Installing the verifier is not execution evidence. Commit 7 records actual harnesses,
+1.87.0. Installing the verifier is not execution evidence. Commit 7 will record actual harnesses,
 commands, bounds, coverage results and limitations.
+
+## Phase 2: media and numeric-kernel checkpoint
+
+M1 retains a private immutable `SubmissionWindow` with nonnegative creation, a positive lifetime
+of at most 86,400,000 ms and checked subtraction. Submission creation and SQL/raw restoration
+use its one admission boundary; rendition restoration and admission consume its inclusive-start,
+exclusive-expiry membership rule. Negative/pre-created admission clocks and replay before the
+settled admission now fail closed. A supplied settled rendition must bind the same submission
+ID/digest, exact brief/content binding and declarations before it can authorize replay. These
+lower-boundary defects were reproduced before fixes. Existing revocation/expiry/stale/digest
+precedence for previously valid facts is retained; transaction-time SQL clock, authorization,
+revocation, exact content/brief and stored-object checks remain required.
+
+M2's real WAV payload-access kernel checks header addition, payload addition, conversion to
+platform-sized indices and the actual buffer length before slicing. The previous raw-offset
+`u64::MAX` panic was reproduced directly; the normal RIFF walker already bounds its offsets,
+so this is defense-in-depth rather than a newly demonstrated hostile-file exploit. Empty,
+exact-end, one-byte overrun, maximal offsets/sizes and a 256-case fixed-seed independent `u128`
+oracle are covered. The PCM sample-width/channel products already use bounded widths and
+widened byte-rate arithmetic; no justified behavior replacement was needed there.
+
+Actual-byte `VerifiedAudio` already has private original bytes/metadata and no raw/serde
+constructor, and storage consumes it before committing a receipt. Scheme-specific SHA-256
+admission, stored canonical payload/digest comparisons and byte/hash rechecks were audited and
+retained. Raw metadata or a restored rendition alone does not certify the current private object
+or audio/listening quality. No checksum version, wire shape, stored format or migration changed.
+
+D1's raw flag counts are now validated at the engine-independent CountView staging boundary,
+with the same predicate consumed by the optional DBSP adapter. An impossible insertion or
+replacement rejects the entire step without changing the view. `Page` has private immutable
+fields admitted only by `plan_page`, retains its starting frontier, rejects zero page limits,
+and checked position advancement rejects a mismatched starting frontier or advancing-page replay.
+A compile-fail check rejects fabricated page fields. Examples and a fixed-seed sorted-set paging
+oracle cover idle/exhausted/full windows, row count, monotone frontier, retained bootstrap and
+replay refusal. A page certifies neither bootstrap identity, complete SQL/whole-transaction
+retrieval nor successful engine application. There is still no live domain consumer of this
+experimental paging/count library, and PostgreSQL remains authoritative; no feed, worker or
+production DBSP adoption was introduced.
+
+Executed on the same fresh phase-1 base, Rust 1.87.0:
+
+- API library tests: PASS, 146 tests after the final membership/paging property edits.
+- API doc tests: PASS, all 10 compile-fail checks.
+- API clippy with all targets and warnings denied: PASS.
+- `cargo xtask verify contracts`: all four gates PASS, including independent WAV/ffprobe and
+  two explicitly executed actual synthetic Opus inspection cases.
+- `cargo xtask verify dbsp`: PASS, 325 package/doc tests and 136 ignored cases. It exercises the
+  real feature-gated in-memory circuit but does not establish PostgreSQL/CDC integration.
+- Final membership generation additionally samples created/expires/expires-minus-one clocks,
+  rather than relying on independent random clocks to hit a short admitted window.
+- Real PostgreSQL integration remains blocked/NOT_RUN; no public delivery or listening result
+  is implied. Bounded Kani propositions and attributable execution will be recorded in commit 7.
+
+Final commit-6 incremental/property retest: all 20 focused incremental tests PASS with the real
+`dbsp-experimental` feature, including the final paging law and the circuit/recount oracle.
+Repository verification PASS with 225 Python cases; final Rust format/diff checks PASS. Independent
+source review found no actionable defect and explicitly limited Page evidence to the starting
+frontier. PostgreSQL integration remains the separate blocked acceptance obligation.

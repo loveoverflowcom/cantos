@@ -140,11 +140,7 @@ fn count_change(group: String, row: CountRow, weight: ZWeight) -> Result<CountCh
             u64::try_from(second).map_err(|_| invalid())?,
         ],
     };
-    if counts
-        .flagged
-        .iter()
-        .any(|flagged| *flagged > counts.members)
-    {
+    if !counts.is_valid() {
         return Err(invalid());
     }
     Ok(CountChange {

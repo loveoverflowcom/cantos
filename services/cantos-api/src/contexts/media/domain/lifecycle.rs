@@ -27,6 +27,36 @@ pub enum AudioError {
     InvalidTransition,
     Encoding,
 }
+
+const MAX_SUBMISSION_LIFETIME_MS: i64 = 86_400_000;
+
+/// Intrinsic bounded lifetime, not a capability. Current SQL time/revocation/freshness still
+/// decide whether the exact submission may be used in the transaction that commits it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SubmissionWindow {
+    created_at: i64,
+    expires_at: i64,
+}
+
+impl SubmissionWindow {
+    fn new(created_at: i64, expires_at: i64) -> Result<Self, AudioError> {
+        let lifetime = expires_at.checked_sub(created_at);
+        if created_at < 0
+            || lifetime
+                .is_none_or(|duration| duration <= 0 || duration > MAX_SUBMISSION_LIFETIME_MS)
+        {
+            return Err(AudioError::InvalidExpiry);
+        }
+        Ok(Self {
+            created_at,
+            expires_at,
+        })
+    }
+
+    fn contains(self, now: i64) -> bool {
+        self.created_at <= now && now < self.expires_at
+    }
+}
 macro_rules! identity {
     ($name:ident) => {
         #[derive(Clone, Debug, PartialEq, Eq)]
@@ -161,6 +191,7 @@ impl Binding {
 pub struct AudioSubmission {
     id: AudioSubmissionId,
     binding: Binding,
+    window: SubmissionWindow,
     raw: dto::AudioSubmissionDocument,
 }
 impl AudioSubmission {
@@ -190,9 +221,7 @@ impl AudioSubmission {
         {
             return Err(AudioError::InvalidDeclaration);
         }
-        if now < 0 || request.expires_at <= now || request.expires_at - now > 86_400_000 {
-            return Err(AudioError::InvalidExpiry);
-        }
+        SubmissionWindow::new(now, request.expires_at)?;
         let mut raw = dto::AudioSubmissionDocument {
             schema_version: "1".into(),
             id: request.id.clone(),
@@ -232,12 +261,7 @@ impl AudioSubmission {
         if raw.expected_byte_length == 0 || raw.expected_byte_length > 32 * 1024 * 1024 {
             return Err(AudioError::InvalidSize);
         }
-        if raw.created_at < 0
-            || raw.expires_at <= raw.created_at
-            || raw.expires_at - raw.created_at > 86_400_000
-        {
-            return Err(AudioError::InvalidExpiry);
-        }
+        let window = SubmissionWindow::new(raw.created_at, raw.expires_at)?;
         if raw.upload_path != format!("/api/v1/studio/producer/audio-submissions/{}/bytes", raw.id)
         {
             return Err(AudioError::BindingMismatch);
@@ -247,7 +271,12 @@ impl AudioSubmission {
         if digest("as-r1", &check)? != raw.digest {
             return Err(AudioError::InvalidDigest);
         }
-        Ok(Self { id, binding, raw })
+        Ok(Self {
+            id,
+            binding,
+            window,
+            raw,
+        })
     }
     pub fn id(&self) -> &AudioSubmissionId {
         &self.id
@@ -299,8 +328,7 @@ impl AudioRendition {
             || raw.submission_digest != s.digest
             || raw.binding != s.binding
             || raw.declarations != s.declarations
-            || raw.admitted_at < s.created_at
-            || raw.admitted_at >= s.expires_at
+            || !submission.window.contains(raw.admitted_at)
             || m.sha256 != s.expected_sha256
             || m.byte_length != s.expected_byte_length
             || m.container != p.container()
@@ -346,8 +374,11 @@ pub fn decide_admission(
     if revoked {
         return Err(AudioError::PermissionRevoked);
     }
-    if now >= submission.document().expires_at {
+    if now >= submission.window.expires_at {
         return Err(AudioError::PermissionExpired);
+    }
+    if !submission.window.contains(now) {
+        return Err(AudioError::InvalidExpiry);
     }
     if !current {
         return Err(AudioError::StaleBrief);
@@ -361,11 +392,24 @@ pub fn decide_admission(
             AudioError::DigestMismatch
         });
     }
-    Ok(if settled.is_some() {
-        AdmissionDecision::Replay
-    } else {
-        AdmissionDecision::Inspect
-    })
+    match settled {
+        Some(rendition) => {
+            let prior = rendition.document();
+            let expected = submission.document();
+            if prior.submission_id != expected.id
+                || prior.submission_digest != expected.digest
+                || prior.binding != expected.binding
+                || prior.declarations != expected.declarations
+            {
+                return Err(AudioError::BindingMismatch);
+            }
+            if now < prior.admitted_at {
+                return Err(AudioError::InvalidExpiry);
+            }
+            Ok(AdmissionDecision::Replay)
+        }
+        None => Ok(AdmissionDecision::Inspect),
+    }
 }
 pub fn submission_state(
     now: i64,
