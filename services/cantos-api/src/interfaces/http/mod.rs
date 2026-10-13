@@ -23,8 +23,10 @@ use crate::contexts::media::{
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
+mod cookies;
 mod studio;
 mod theatre;
+mod theatre_auth;
 mod theatre_library;
 mod wire;
 
@@ -72,13 +74,17 @@ fn router_with_services(
     publication: PublicationService,
     listener: ListenerService,
 ) -> Router {
-    router_with_identity_services(
-        state,
-        dist,
-        publication,
-        listener,
-        std::sync::Arc::new(DenyListenerAuthentication),
-    )
+    let authenticator: std::sync::Arc<dyn ListenerAuthenticator> =
+        if state.store.theatre_identity().is_some() {
+            std::sync::Arc::new(
+                crate::contexts::listening::auth::TheatreListenerAuthenticator::new(
+                    state.store.clone(),
+                ),
+            )
+        } else {
+            std::sync::Arc::new(DenyListenerAuthentication)
+        };
+    router_with_identity_services(state, dist, publication, listener, authenticator)
 }
 
 /// Trusted host composition. A real issuer adapter must authenticate before it mints a principal.
@@ -109,7 +115,15 @@ fn router_with_identity_services(
         )
         .nest(
             "/theatre",
-            theatre::routes().merge(theatre_library::routes()),
+            theatre::routes()
+                .merge(theatre_auth::routes(
+                    state.store.theatre_identity().is_some(),
+                ))
+                .merge(theatre_library::routes())
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    theatre_auth::bff_identity,
+                )),
         )
         .nest("/admin", admin::routes())
         // Deprecated pre-split Studio paths (`/api/v1/scripts/...`); same handlers as `/studio`.
@@ -139,23 +153,30 @@ async fn not_found() -> Response {
     failure(ErrorCode::NotFound, StatusCode::NOT_FOUND)
 }
 
-fn cookie_token(headers: &HeaderMap) -> Result<String, StoreError> {
-    let cookies = headers
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok())
-        .ok_or(StoreError::Unauthenticated)?;
-    let mut tokens = cookies
-        .split(';')
-        .filter_map(|part| part.trim().strip_prefix("cantos_session="));
-    let token = tokens.next().ok_or(StoreError::Unauthenticated)?;
-    if tokens.next().is_some() {
-        return Err(StoreError::Unauthenticated);
+fn cookie_token(headers: &HeaderMap, store: &Store) -> Result<String, StoreError> {
+    let name = store
+        .studio_oidc()
+        .map_or("cantos_session", |oidc| oidc.session_name());
+    cookie_token_for_name(headers, name)
+}
+
+fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, StoreError> {
+    let mut found = None;
+    for name in ["cantos_session", "__Secure-cantos_studio"] {
+        let value =
+            studio::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
+        if let Some(value) = value {
+            if name != expected || found.is_some() {
+                return Err(StoreError::Unauthenticated);
+            }
+            found = Some(value);
+        }
     }
-    Ok(token.to_owned())
+    found.ok_or(StoreError::Unauthenticated)
 }
 
 async fn authenticated(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    let result = match cookie_token(request.headers()) {
+    let result = match cookie_token(request.headers(), &state.store) {
         Ok(token) => state.store.authenticate(&token).await,
         Err(error) => Err(error),
     };
@@ -168,6 +189,10 @@ async fn authenticated(State(state): State<AppState>, request: Request, next: Ne
 async fn origin_and_cache(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let read =
         request.method() == axum::http::Method::GET || request.method() == axum::http::Method::HEAD;
+    let valid_config = state
+        .store
+        .studio_oidc()
+        .is_none_or(|oidc| oidc.web_origin() == state.web_origin);
     let valid_origin = request
         .headers()
         .get(header::ORIGIN)
@@ -180,7 +205,9 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
-    let mut response = if !read && !valid_origin && !anonymous_playback && !bearer_mutation {
+    let mut response = if !valid_config
+        || (!read && !valid_origin && !anonymous_playback && !bearer_mutation)
+    {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {
@@ -197,6 +224,10 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     response.headers_mut().insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
+    );
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
     );
     response
 }

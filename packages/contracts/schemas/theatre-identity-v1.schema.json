@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.local/contracts/theatre-identity-v1.schema.json",
+  "title": "Theatre Identity v1 session display and fence facts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actor_id", "session_id"],
+  "properties": {
+    "actor_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "session_id": {"type": "string", "format": "uuid"}
+  }
+}

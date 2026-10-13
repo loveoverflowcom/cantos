@@ -63,6 +63,9 @@ impl From<tokio_postgres::Error> for StoreError {
 pub struct Store {
     pool: Pool,
     pub(crate) audio_root: Option<std::path::PathBuf>,
+    pub(crate) theatre_identity:
+        Option<std::sync::Arc<crate::platform::theatre_identity::TheatreIdentity>>,
+    pub(crate) studio_oidc: Option<std::sync::Arc<crate::platform::studio_oidc::StudioOidc>>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.
@@ -120,6 +123,8 @@ impl Store {
         Ok(Self {
             pool,
             audio_root: None,
+            studio_oidc: None,
+            theatre_identity: None,
         })
     }
 

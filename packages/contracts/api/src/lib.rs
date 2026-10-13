@@ -163,3 +163,5 @@ mod publication;
 pub use publication::*;
 
 pub mod listener_library;
+
+pub mod theatre_identity;

@@ -65,7 +65,7 @@ async fn state(
     Path(script): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -85,7 +85,7 @@ async fn save_settings(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -109,7 +109,7 @@ async fn save_rights(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -128,7 +128,7 @@ async fn preview(
     Path(script): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -148,7 +148,7 @@ async fn freeze(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -167,7 +167,7 @@ async fn snapshot(
     Path((script, snapshot)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -186,7 +186,7 @@ async fn eligibility(
     Path((script, snapshot)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
@@ -210,7 +210,7 @@ async fn approve(
         Ok(value) => value,
         Err(status) => return failure(ErrorCode::InvalidRequest, status),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };

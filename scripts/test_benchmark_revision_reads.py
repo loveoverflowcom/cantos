@@ -52,6 +52,7 @@ class BenchmarkTests(unittest.TestCase):
     def test_extracted_sql_keeps_access_locks_and_complete_projection(self):
         queries = bench.source_queries()
         self.assertIn("AND NOT s.revoked", queries["auth"])
+        self.assertIn("coalesce(to_jsonb(s)->>'auth_kind','development')", queries["auth"])
         self.assertIn("FOR SHARE OF s", queries["auth"])
         self.assertIn("AND actor_id=$2", queries["member"])
         self.assertTrue(queries["head_lock"].endswith("FOR SHARE"))

@@ -70,6 +70,14 @@ Studio audit manifests do not themselves authorize Theatre playback.
 
 ## Existing foundations to retain
 
+The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
+and adds exact external keys with explicit operator registration/linking. The bounded
+[Studio OIDC](../architecture/studio-oidc.md) slice has signed-mock/local-SQL evidence; live provider
+acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
+before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
+provider/client/TLS acceptance remains separate from local core/database evidence.
+
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
 existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
 merged ordered steps 1–4; the user-approved follow-on
@@ -162,7 +170,7 @@ bounded local infrastructure option while preserving native verification. It doe
 product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
 then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
-lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
 
 ## Public discovery before account-owned listening state
@@ -182,3 +190,10 @@ The [evidence record](../evidence/listener-library-progress.md) distinguishes pu
 checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
+published registry/Studio dependencies and the now-merged Listener Library seam. Its separate
+Web BFF and account fencing precede actual Web Library sync; CMP protocol/OS-adapter groundwork
+precedes native token/resource IO and device acceptance. Admin0022 and the parent Ultra combined
+review remain next in the identity sequence. GitHub PRs own execution/merge status; this ordering
+does not accept live providers, native playback or guest-import policy.

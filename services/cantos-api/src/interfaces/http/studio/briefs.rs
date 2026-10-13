@@ -65,7 +65,7 @@ async fn create(
     let Ok(Path(unit)) = path else {
         return error_response(StoreError::InvalidRequest);
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -86,7 +86,7 @@ async fn read(
     let Ok(Path((unit, version))) = path else {
         return error_response(StoreError::InvalidRequest);
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -104,7 +104,7 @@ async fn grant(
     let Ok(Path((unit, version))) = path else {
         return error_response(StoreError::InvalidRequest);
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };
@@ -125,7 +125,7 @@ async fn revoke(
     let Ok(Path((unit, grant))) = path else {
         return error_response(StoreError::InvalidRequest);
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(v) => v,
         Err(e) => return error_response(e),
     };

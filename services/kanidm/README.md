@@ -1,7 +1,11 @@
 # Kanidm opt-in evaluation runtime
 
-Kanidm remains a **proposed identity provider**, with no Cantos OIDC integration, account/group
-mapping, client registration or production deployment. The API retains its development sessions;
+Kanidm remains a **proposed production identity provider**. The API now implements an opt-in
+[Studio OIDC BFF](../../docs/architecture/studio-oidc.md), with signed mocked-provider/local-SQL
+evidence. Live account/group synchronization, client registration, Kanidm login and production
+deployment remain NOT_RUN. The separate
+[actor registry](../../docs/architecture/identity-registry.md) stores explicit external bindings
+without authenticating Kanidm. The API retains development sessions when OIDC is disabled;
 this infrastructure change grants no Theatre/Admin authentication capability.
 [ADR 0021](../../docs/decisions/0021-podman-service-runtime.md) standardizes the container runtime,
 not the identity decision. [ADR 0009](../../docs/decisions/0009-monorepo-layout.md) fixes its location.
@@ -69,3 +73,94 @@ OAuth2 scopes and production recovery need a separate ADR/work item.
 Sources: [upstream configuration](https://kanidm.github.io/kanidm/stable/server_configuration.html),
 [pinned CLI options](https://github.com/kanidm/kanidm/blob/v1.10.5/server/daemon/src/opt.rs),
 [pinned health implementation](https://github.com/kanidm/kanidm/blob/v1.10.5/server/daemon/src/main.rs).
+
+## Studio OIDC operator boundary
+
+[ADR0023](../../docs/decisions/0023-studio-oidc-bff.md) and the
+[credential/session architecture](../../docs/architecture/studio-oidc.md) record exact policy.
+This directory still contains no identity-provider code. The API integration never starts Kanidm,
+recovers admin, creates grants/credentials, persists a secret or changes TLS/network permissions.
+
+```sh
+cargo xtask kanidm reconcile --issuer https://idm.example/oauth2/openid/cantos-studio-web-bff \
+  --web-origin https://studio.example --group cantos_creators --dry-run
+cargo xtask kanidm verify --issuer https://idm.example/oauth2/openid/cantos-studio-web-bff \
+  --web-origin https://studio.example --dry-run
+```
+
+Reconcile prints argument arrays for operator review only, always `NOT_RUN` mutation. It does
+not execute a shell or fetch a credential. Compare current provider configuration before using
+that plan; it does not automatically repair an existing client or prove exact redirects/scopes.
+The optional executed `verify` explicitly reads discovery/JWKS through the real API adapter,
+without client authentication/user data. Success proves metadata shape/keys only; login, disable,
+logout and production remain NOT_RUN. It uses normal TLS validation and refuses cross-origin
+endpoints, redirects, remote HTTP and credentials embedded in URLs.
+
+Before any live activation the operator must separately authorize and prepare the confidential
+client, exactly one reviewed Studio callback, an appropriate creator group/openid scope mapping,
+S256 enforcement, ES256 signing, trusted TLS and server-side secret delivery. Never reuse this
+client for Theatre or Admin, disable PKCE, enable legacy signing, bypass certificate warnings or
+silently enroll users. See [official Kanidm OAuth2 policy](https://kanidm.github.io/kanidm/stable/integrations/oauth2.html).
+
+Opt-in local server configuration is `CANTOS_STUDIO_OIDC_ISSUER`, operator-delivered
+`CANTOS_STUDIO_OIDC_SECRET` and exact `CANTOS_WEB_ORIGIN`. Secrets never belong in Git, command
+arguments, browser storage or logs. The host still requires development/loopback/local PostgreSQL;
+there is no production activation flag. Visit `/api/v1/studio/auth/login`; the existing Studio
+current-session check can discover the cookie after the callback. The token-entry UI is unchanged;
+in OIDC mode development-token POST login is forbidden. If an old/expired cookie blocks login,
+use same-origin DELETE `/api/v1/studio/session` before starting again.
+
+After migration0020, the operator may review/apply these narrow database grants to the existing
+HTTP role. No role/user is provisioned by migration or tooling:
+
+```sql
+GRANT SELECT ON actors,sessions,studio_oidc_sessions TO cantos_app;
+GRANT UPDATE ON sessions TO cantos_app;
+GRANT SELECT,INSERT,UPDATE ON studio_oidc_flows TO cantos_app;
+GRANT UPDATE(revocation_pending) ON studio_oidc_sessions TO cantos_app;
+GRANT EXECUTE ON FUNCTION
+  studio_oidc_finish(bytea,text,text,text,text,bytea,bytea,text,bigint),
+  production_lock_actor(text) TO cantos_app;
+```
+
+No direct registry read/write, actors INSERT/UPDATE, sessions INSERT or DDL is granted.
+The callback's private verifier witness is the credential gate; the trusted runtime SQL capability
+is not exposed to a browser. Private provider access tokens are retained for introspection and
+revoke; this local slice stores them as text. Review encryption/backup permissions, retention,
+rate limits and pending-revocation recovery before any production deployment.
+
+Logout commits local revocation before attempting provider revocation, then clears current and
+known legacy Studio cookies in the returned response. Inspect
+`Cantos-Provider-Revocation: completed|pending` and the retained pending row; an unavailable provider
+never restores local authority. Provider SSO/global logout is not implemented. A controlled retry
+with the same token can finish pending access revocation; abandoned rotation/logout records need
+an operator recovery policy before production. Do not clear evidence to make a run appear clean.
+
+Live acceptance checklist (all currently NOT_RUN): real login and exact client redirects; wrong
+issuer/audience/nonce/alg/signature; key rotation/outage; account disable and token revocation;
+local logout versus provider SSO; HTTPS browser cookie scope/namespace/CSRF; production secret/TLS
+and revocation recovery policy. Mocked results must never be relabeled Kanidm-live evidence.
+
+## Theatre identity PR3 (operator preparation remains separate)
+
+The opt-in development host accepts `CANTOS_THEATRE_OIDC_ISSUER` and
+`CANTOS_THEATRE_OIDC_SECRET` only as an explicit pair, independent of Studio. Issuer must end in
+`/oauth2/openid/cantos-theatre-web-bff`; scope is only `openid` and callback is the exact configured
+Web origin plus `/api/v1/theatre/auth/callback`. No live registration, grant, secret, account,
+container, certificate or network change is performed by implementation/tests. The current xtask
+Kanidm reconciliation plan remains Studio-specific; no Theatre live provisioning is implied.
+
+For an operator-reviewed Theatre deployment, runtime needs SELECT on `actors`,
+`theatre_identity_sessions`; SELECT/INSERT/UPDATE on `theatre_identity_flows`;
+UPDATE(revoked,revocation_pending) on `theatre_identity_sessions`; EXECUTE on
+`theatre_identity_finish(bytea,text,text,text,text,bytea,bytea,text,bigint)`,
+`listener_actor_active(text)` and `listener_lock_actor(text)`, plus the existing explicitly reviewed
+Library/Progress grants. It receives no registry SELECT or actor/session INSERT privilege.
+These are documentation/test grants, not an executed persistent role configuration.
+
+Native `cantos-theatre-native` remains public-client groundwork with exact callback
+`com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Native token exchange,
+resource verification, registry integration, host callback mounting and approved client/scopes
+remain deferred. Do not issue Web BFF sessions as native bearer tokens. See
+[Theatre architecture](../../docs/architecture/theatre-identity.md) and
+[handoff](../../docs/work-plan/theatre-identity-handoff.md).

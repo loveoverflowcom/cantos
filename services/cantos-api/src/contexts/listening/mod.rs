@@ -8,3 +8,5 @@ mod cursor;
 pub use application::{LibraryError, LibraryService};
 
 mod postgres;
+
+mod theatre_identity;

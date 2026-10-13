@@ -586,7 +586,10 @@ async fn publication_sql_failure_rolls_back_release_pointer_event_and_receipt_th
                 Some(request.clone()),
             )
             .await;
-    assert_eq!(response.status, StatusCode::INTERNAL_SERVER_ERROR);
+    // The unchanged StoreError driver conversion classifies a SQL infrastructure failure as
+    // Unavailable. Assert that existing safe wire policy plus the atomic rollback below.
+    assert_eq!(response.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(response.body["code"], "unavailable");
     assert_eq!(f.counts().await, before);
     f.a.h.admin.batch_execute("DROP TRIGGER fixture_failure ON audio_publication_events; DROP FUNCTION fixture_reject_publication_event();").await.unwrap();
     let published =

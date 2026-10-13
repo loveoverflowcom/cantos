@@ -794,6 +794,7 @@ name = "cantos-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "cantos-contracts",
  "dbsp",
  "deadpool-postgres",
@@ -804,6 +805,8 @@ dependencies = [
  "libc",
  "proptest",
  "quick-xml 0.38.4",
+ "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -865,6 +868,7 @@ dependencies = [
  "gloo-net",
  "leptos",
  "serde_json",
+ "uuid",
  "web-sys",
 ]
 
@@ -2346,6 +2350,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
+ "webpki-roots 1.0.9",
 ]
 
 [[package]]
@@ -4108,6 +4113,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+ "webpki-roots 0.26.11",
  "windows-registry",
 ]
 
@@ -6080,6 +6086,7 @@ dependencies = [
  "sha2 0.10.9",
  "signal-hook",
  "toml",
+ "url",
 ]
 
 [[package]]
