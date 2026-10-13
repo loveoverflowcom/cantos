@@ -265,3 +265,7 @@ not generated OpenAPI. Future generated bindings must name their source and gene
 opaque keysets and a fail-closed playback authorization port. Shared DTOs and strict fixtures
 are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
 acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.
+
+[Admin v1](admin-v1.md) defines the dedicated backend capability/revocation responses and
+append-only-audit policy boundary. It has shared Rust DTOs, schema and synthetic fixtures; no
+Admin UI/client or live Kanidm acceptance is implied.

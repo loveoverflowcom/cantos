@@ -127,6 +127,34 @@ pub(crate) fn verify_for_client(
     nonce: &str,
     now: u64,
 ) -> Result<VerifiedIdentity, AuthError> {
+    let payload = verify_signature(token, keys)?;
+    let claims: Claims = serde_json::from_slice(&payload).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
+        return Err(AuthError::Audience);
+    }
+    // No ambient clock/leeway. A callback proof must have been minted in the flow's lifetime.
+    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
+        return Err(AuthError::NotYetValid);
+    }
+    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
+        return Err(AuthError::Nonce);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedIdentity {
+        key,
+        expires: claims.exp,
+        digest: Sha256::digest(token).to_vec(),
+    })
+}
+
+/// Shared crypto only: callers still validate their own credential purpose and claims.
+pub(crate) fn verify_signature(token: &str, keys: &JwkSet) -> Result<Vec<u8>, AuthError> {
     let kid = token_kid(token)?;
     let parts: Vec<_> = token.split('.').collect();
     if parts.len() != 3 {
@@ -157,30 +185,7 @@ pub(crate) fn verify_for_client(
     UnparsedPublicKey::new(&ECDSA_P256_SHA256_FIXED, public)
         .verify(message.as_bytes(), &signature)
         .map_err(|_| AuthError::Signature)?;
-    let claims: Claims =
-        serde_json::from_slice(&segment(parts[1], 12_000)?).map_err(|_| AuthError::InvalidToken)?;
-    if claims.iss != issuer {
-        return Err(AuthError::Issuer);
-    }
-    if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
-        return Err(AuthError::Audience);
-    }
-    // No ambient clock/leeway. A callback proof must have been minted in the flow's lifetime.
-    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
-        return Err(AuthError::Expired);
-    }
-    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
-        return Err(AuthError::NotYetValid);
-    }
-    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
-        return Err(AuthError::Nonce);
-    }
-    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
-    Ok(VerifiedIdentity {
-        key,
-        expires: claims.exp,
-        digest: Sha256::digest(token).to_vec(),
-    })
+    segment(parts[1], 12_000)
 }
 
 fn constant_time_equal(a: &[u8], b: &[u8]) -> bool {

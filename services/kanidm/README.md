@@ -164,3 +164,27 @@ resource verification, registry integration, host callback mounting and approved
 remain deferred. Do not issue Web BFF sessions as native bearer tokens. See
 [Theatre architecture](../../docs/architecture/theatre-identity.md) and
 [handoff](../../docs/work-plan/theatre-identity-handoff.md).
+
+## Admin resource contract (opt-in; no live acceptance)
+
+Admin uses a **separate** fixed `cantos-admin-api` resource client and exact issuer, not Studio,
+Theatre, `idm_admins`, an operator token or a producer grant. The
+[policy](../../docs/architecture/admin-authorization.md) requires both a signed dedicated
+`cantos_admin_groups` claim and a current authenticated introspection observation of that same
+claim. Allowed values map only to `auditor` and `identity_operator`. Missing/unknown/stale/current
+role removal fails closed; local Admin block is authoritative regardless of the provider.
+
+A default provider configuration is **not sufficient**: no live evidence establishes custom
+claim freshness in Kanidm introspection. This PR implements the actual verifier and refusal path,
+not an OAuth client/claim/grant bootstrap or end-to-end login. Do not enable it by merely copying a
+sample secret/claim map or treating token-time groups as current membership. An authorized provider
+acceptance task must establish real current-group removal, disable, expiry, wrong issuer/audience/
+keys and rotation before activation; otherwise leave Admin unavailable. No live credentials or
+security settings are created by this slice.
+
+For an operator-prepared local test deployment only, migration0022 requires explicit EXECUTE on
+`admin_identity_facts(text,text,text)`, `admin_append_audit(uuid,text,text,text,text,uuid)`,
+`admin_operation(text,uuid)` and `admin_revoke_access(text,uuid,text,uuid)` to the runtime role.
+Do not grant direct INSERT/UPDATE/DELETE/TRUNCATE or SELECT on Admin tables or the registry. These
+functions are privileged effects, not an authentication mechanism. Audit outage denies success;
+there is no local block deletion/unblock routine. This documentation grants no account rights.

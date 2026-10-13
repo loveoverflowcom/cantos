@@ -115,3 +115,8 @@ current-public works/search/detail, ordered units and immutable manifest project
 authorization remains fail-closed with unavailable public delivery. PostgreSQL/runtime and
 Web/CMP live adapter acceptance are still required; current mock clients are unchanged.
 [Evidence and boundaries](docs/evidence/theatre-discovery.md).
+
+The opt-in [Admin authorization and audit](docs/architecture/admin-authorization.md) backend
+adds independent capability inspection and local Admin-access revocation with atomic append-only
+audit. The exact issuer/group/introspection contract and live Kanidm acceptance remain gated;
+this grants no Studio/Theatre resource right, Admin UI or production activation.

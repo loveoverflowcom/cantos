@@ -233,6 +233,16 @@ use std::fmt;
                             'fn query() { "SELECT * FROM actor_external_identities"; }',
                             "SQL table actor_external_identities belongs to platform")
 
+    def test_admin_domain_is_pure_and_audit_tables_are_platform_owned(self):
+        self.assertRejected("platform/admin/domain.rs", "use tokio_postgres::Client;",
+                            "pure domain must not depend on I/O")
+        self.assertRejected("platform/admin/domain.rs", "use super::provider::AdminProvider;",
+                            "pure domain may use only")
+        for table in ("admin_audit", "admin_operations", "admin_access_revocations"):
+            self.assertRejected("contexts/catalog/postgres.rs",
+                                f'fn query() {{ "SELECT * FROM {table}"; }}',
+                                f"SQL table {table} belongs to platform")
+
     def test_flat_domain_modules_cannot_bypass_purity_guards(self):
         for path, content, reason in (
             ("contexts/editorial/domain.rs", "use std::fs::File;",

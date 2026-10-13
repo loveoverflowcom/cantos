@@ -53,6 +53,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some() {
         return Err("Theatre secret requires explicit issuer".into());
     }
+    if let Ok(issuer) = env::var("CANTOS_ADMIN_OIDC_ISSUER") {
+        let secret = env::var("CANTOS_ADMIN_OIDC_SECRET")
+            .map_err(|_| "Admin requires its dedicated introspection secret")?;
+        let config = cantos_api::platform::admin::AdminConfig::new(&issuer, secret)
+            .map_err(|_| "invalid Admin configuration")?;
+        let admin = cantos_api::platform::admin::AdminService::new(config)
+            .map_err(|_| "invalid Admin client")?;
+        store = store.with_admin(admin);
+    } else if env::var_os("CANTOS_ADMIN_OIDC_SECRET").is_some() {
+        return Err("Admin secret requires explicit issuer".into());
+    }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");

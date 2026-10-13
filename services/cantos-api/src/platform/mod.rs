@@ -1,4 +1,5 @@
 //! Cross-cutting technical plumbing and actor identity; content rules belong to contexts.
+pub mod admin;
 pub mod identity;
 pub mod ids;
 pub mod incremental;

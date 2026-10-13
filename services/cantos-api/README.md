@@ -36,7 +36,7 @@ or in-backend mixing should remain.
   [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
   real PostgreSQL acceptance is blocked and default public delivery is unavailable.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
-  and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
+  and `/api/v1/admin/*` with an opt-in [Admin capability/revocation and audit](../../docs/architecture/admin-authorization.md) slice. Pre-split Studio aliases remain deprecated.
 
 The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
@@ -67,7 +67,7 @@ src/
     production/             # planning-only guidance and rights
     media/                  # private intake, inspection, review and publication authority
       domain/               # pure lifecycle/publication/profile rules and WAV inspection
-  interfaces/http/          # Studio, reserved Theatre/Admin surfaces
+  interfaces/http/          # Separate Studio, Theatre and Admin surfaces
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
@@ -137,3 +137,14 @@ and Platform supplies owner activity. Studio cookies grant nothing here. Migrati
 public releases in the existing atomic publication transaction. The default playback adapter
 is explicitly unavailable; this is not real public delivery or production acceptance.
 See [evidence](../../docs/evidence/theatre-discovery.md).
+
+## Admin authorization and audit
+
+The [Admin policy](../../docs/architecture/admin-authorization.md) and
+[v1 contract](../../packages/contracts/admin-v1.md) define dedicated resource credentials,
+current system-group observation, exact registry actor and append-only atomic audit. Optional
+`CANTOS_ADMIN_OIDC_ISSUER` / `CANTOS_ADMIN_OIDC_SECRET` configure only the fixed Admin client;
+no Studio/Theatre/producer credential grants access. Missing config yields503 unavailable.
+Operator-applied function grants remain separate; see [Kanidm guide](../kanidm/README.md).
+There is no Admin UI, login client, role-grant/unblock endpoint or resource ACL bypass. Live
+Kanidm/custom current-group contract is NOT_RUN/unaccepted. Existing local-only host policy stays.

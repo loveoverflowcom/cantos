@@ -39,7 +39,7 @@ enforces the allowed context edges.
 | --- | --- | --- |
 | `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; owner-session development intake | Partially implemented |
 | `/api/v1/theatre/*` | Listener discovery/playback/progress | Public Discovery/Playback core implemented; delivery, identity and progress acceptance pending |
-| `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
+| `/api/v1/admin/*` | Separate platform authorization and audit | Opt-in [capability/revocation slice](admin-authorization.md); live provider acceptance pending |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
 | Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; publication absent |
 

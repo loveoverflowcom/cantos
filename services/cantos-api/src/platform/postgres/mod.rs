@@ -61,6 +61,7 @@ impl From<tokio_postgres::Error> for StoreError {
 /// inherent methods from its own `application` module.
 #[derive(Clone)]
 pub struct Store {
+    pub(crate) admin: Option<std::sync::Arc<crate::platform::admin::AdminService>>,
     pool: Pool,
     pub(crate) audio_root: Option<std::path::PathBuf>,
     pub(crate) theatre_identity:
@@ -123,6 +124,7 @@ impl Store {
         Ok(Self {
             pool,
             audio_root: None,
+            admin: None,
             studio_oidc: None,
             theatre_identity: None,
         })
