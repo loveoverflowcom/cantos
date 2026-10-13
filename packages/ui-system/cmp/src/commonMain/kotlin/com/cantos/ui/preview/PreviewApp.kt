@@ -42,6 +42,9 @@ import com.cantos.ui.SelectOption
 import com.cantos.ui.Space
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.Badge
+import com.cantos.ui.Avatar
+import com.cantos.ui.AvatarInitialMode
+import com.cantos.ui.AvatarSize
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
@@ -491,6 +494,28 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             TextField("Tên tác phẩm", title, { title = it }, state = fieldState, error = error)
         }
         PreviewExample.Badge -> Badge(feedback, modifier, tone)
+        PreviewExample.Avatar -> Column(modifier,
+            verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            val name = when (state) {
+                "empty" -> "   "
+                "small" -> "Bạch Tiểu Thuần"
+                else -> "Nguyễn Thị Ánh"
+            }
+            Avatar(
+                displayName = name,
+                stableId = "user-42",
+                size = when (state) {
+                    "small" -> AvatarSize.Small
+                    "large" -> AvatarSize.Large
+                    else -> AvatarSize.Medium
+                },
+                initials = if (state == "pair") AvatarInitialMode.Pair else AvatarInitialMode.Single,
+                accessibleName = if (state == "accessible") {
+                    AccessibleName.of("Ảnh đại diện của Nguyễn Thị Ánh")
+                } else null,
+            )
+            FieldHelp("Ảnh thật: màn hình gọi truyền ImageBitmap đã giải mã; lỗi tải chuyển về null.")
+        }
         PreviewExample.Status -> Status(feedback, modifier, tone, announce = state == "announcement")
         PreviewExample.LoadingState -> LoadingState("Đang nạp danh sách bản nháp. Lựa chọn hiện tại vẫn được giữ lại.", modifier,
             announcement = if (state == "announcement") Announcement.Polite else Announcement.Off)

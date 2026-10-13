@@ -24,6 +24,7 @@ enum class PreviewExample(val id: String) {
     FieldHelp("field-help"),
     FieldError("field-error"),
     Badge("badge"),
+    Avatar("avatar"),
     Status("status"),
     LoadingState("loading-state"),
     EmptyState("empty-state"),
