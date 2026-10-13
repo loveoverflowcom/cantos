@@ -20,6 +20,62 @@
 | moving a decision out of a handler, loop or component so it can be tested | [`extraction-recipes.md`](extraction-recipes.md) |
 | rendered appearance or interaction | the renderer skill's testing reference |
 
+## Layered verification
+
+Apply the foundation's [required order](../SKILL.md#the-required-order) to each changed claim.
+Choose the cheapest adequate oracle within each layer; these layers organize work and do not
+replace the evidence vocabulary or add a runner.
+
+| Layer | Design, implement and verify |
+|---|---|
+| L1 — Abstraction & Architecture | identify the module owner, invariant and failure mode; review DDD bounded contexts, SOLID responsibilities, functional core/shell and import/manifests pointing inward. Domain imports no PostgreSQL client, Axum, Leptos, Compose or platform SDK. Add a trait/port/abstraction only for a concrete consumer and real boundary ([decoupling](decoupling.md)). |
+| L2 — Domain, Types & Error Handling | model immutable facts with newtypes, closed enums or Kotlin sealed types, fallible constructors and exhaustive matching; make invalid states unrepresentable where practical. Pure functions return `Result` or a typed success/rejection outcome; test propagation of exact errors, invariant-preserving transitions and complete unchanged state on rejection ([types](types-as-proofs.md), [functional core](functional-core.md)). |
+| L3 — Unit & Property Verification | write core unit tests before DB/API wiring: ordinary Rust `#[test]`, Kotlin `commonTest` where applicable, and plain Rust decisions outside Leptos. Use exact table-driven/regression assertions and property/state-machine tests where the input space warrants them; run focused tests, format, lint and applicable static checks. Pure domain tests need no database, network, container, emulator or async runtime. Discover configured commands; report missing format/lint tooling honestly. |
+| L4 — Application & I/O Adapters | after L1–L3 pass, implement use cases, narrow ports and adapters. Exercise production orchestration with deterministic fakes, including typed error mapping, ordered effect execution and rejection behavior. Distinguish an isolated fake test from production modules exercised together; name every double. Adapter-only type mapping with no domain rule may start here if that exception is recorded. |
+| L5 — DB, API & Integration | run real PostgreSQL migrations/constraints/transactions/concurrency checks, HTTP request/response/DTO/authorization/error contracts, storage/network/platform integration, scoped E2E and runtime acceptance. A handler tested with a fake store is L4 evidence for that contract, never proof of real database/service semantics. Required L5 checks stay required when unavailable. |
+
+Keep independent runnable core tests even when the shell cannot start. Formatting, linting and
+static checks apply to the touched toolchain; a missing mobile tool or emulator does not erase
+Rust/JVM results, and a JVM run does not establish Native/device acceptance. Thin CRUD need not
+gain a speculative domain layer. Docs-only work follows the existing repository gates.
+
+## Independent verification gates
+
+Use one row per distinct claim scope, splitting error handling, mocked orchestration and real
+infrastructure when their evidence differs. Record layer, status, evidence level, exact command
+or review artifact, covered scope and gaps. The following is an **illustrative** ledger, not
+results from this repository:
+
+| Layer / claim scope | Status | Evidence held |
+|---|---|---|
+| L1 Architecture / abstraction | PASS | documented owner/dependency review |
+| L2 Domain / type safety | PASS | type-enforced construction paths, with named compiler output |
+| L2 Error handling | PASS | example-tested exact errors and unchanged rejected state |
+| L3 Unit / property tests | PASS | example-tested / property-tested, named executed suites |
+| L4 Application / mocked tests | NOT_RUN | none; orchestration not exercised |
+| L5 Database integration | UNSUPPORTED | none; PostgreSQL tools missing |
+| L5 API integration | NOT_RUN | none; real server not exercised |
+| L5 E2E / runtime | NOT_RUN | none; runtime flow not driven |
+
+`PASS` covers only the stated obligations actually satisfied. A manual architecture review is
+`documented` evidence; it is not a compiler/static check. Preserve xtask's printed statuses;
+an explicit `--skip` is `NOT_RUN` even when the reason is a missing prerequisite. A missing tool
+reported by xtask is `UNSUPPORTED`; a selected gate not reached is `NOT_RUN`. A failed test or
+command is `FAIL`. Zero selected tests cannot satisfy a gate. Inapplicable scope is stated with
+a reason, never promoted to `PASS`. No `NOT_RUN`, `UNSUPPORTED` or `FAIL` becomes `PASS` because
+another layer passed, mocks passed or a PR opened.
+
+Keep four report fields distinct:
+
+- **Verified scope:** exact claims and layers supported by actual evidence.
+- **Deferred acceptance:** required DB/API/I/O/runtime checks still outstanding, with the
+  prerequisites, reproducible command, acceptance criteria, residual risk and next owner.
+- **Execution blocker:** missing environment/tool/dependency that prevented execution.
+- **Actual failure:** a check ran or failed to start with an error; name it and fix or report it.
+
+Delivery decisions belong to [local handoff](local-execution.md#local-handoff-and-pr-completion).
+An infrastructure gap does not invalidate passed core evidence or waive required acceptance.
+
 ## Start with a ledger
 
 | Claim / invariant | Failure mode | Cheapest oracle | Test level |
@@ -119,9 +175,10 @@ design, so do not adopt them speculatively.
 ## Mocked and live evidence are different rows
 
 Routine implementation handoff uses the [local handoff policy](local-execution.md#local-handoff-and-pr-completion):
-local regression tests, mocked integration where a flow crosses modules, and applicable verification
-checks. Do not wait for GitHub CI. Mocked integration is adequate for orchestration and contract
-behavior against doubles; database semantics and real-provider acceptance require their own evidence.
+record local regression tests, mocked integration where a flow crosses modules and applicable
+checks in independent rows. Deliver verified layers when requested and defer unavailable
+infrastructure acceptance explicitly. Mocked integration supports orchestration and contracts
+against doubles; database semantics and real-provider acceptance require their own evidence.
 
 The work plan requires labeling them separately
 ([work plan § Shared completion evidence](../../../../docs/work-plan/README.md#shared-completion-evidence)).

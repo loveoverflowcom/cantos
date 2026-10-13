@@ -53,10 +53,11 @@ Attach the relevant reference and before/after evidence to design work. Cover ke
 ## Verification
 
 Implementation handoff and PR creation use the foundation's [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
-applicable local tests, mocked integration tests and verification checks must pass. GitHub Actions
-completion is not an agent handoff prerequisite; do not wait or poll for remote CI. Keep mocked
-and real evidence separate, and report unavailable checks without calling them passed. This
-does not change repository merge protection or production, publication and phase-exit acceptance.
+verify the pure core first, record independent layer results and deliver verified layers when
+requested even if infrastructure acceptance is pending. Record deferred checks with their
+reason, next command, criteria and owner; keep mocked and real evidence separate. Do not wait
+or poll for GitHub Actions. Required checks, repository merge protection and production,
+publication and phase-exit acceptance keep their existing meaning.
 
 Repository-level build, run and verification commands go through [`cargo xtask`](xtask/README.md).
 Scripts in `scripts/` and raw Cargo/Trunk commands are its primitives; do not add a parallel

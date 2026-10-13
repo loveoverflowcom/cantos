@@ -3,8 +3,8 @@ name: cantos-engineering
 description: >-
   Engineering foundation for Cantos (Rust, Axum, PostgreSQL, Leptos, Compose Multiplatform).
   Invariant-first workflow, decoupled module boundaries, immutable values and revisions, types
-  as proof barriers, functional core with imperative shell, clean readable syntax, cheapest
-  adequate test evidence, PostgreSQL read performance and conditional DBSP evaluation,
+  as proof barriers, functional core with imperative shell, clean readable syntax,
+  layered verification and progressive delivery, PostgreSQL read performance and conditional DBSP evaluation,
   one evidence vocabulary and a mandatory residual-risk report. Use for
   any domain, backend, persistence, contract, test, refactoring or verification change.
 ---
@@ -36,29 +36,23 @@ vocabulary and report; none of them redefines these.
 
 ## The required order
 
-```text
-read the owning doc, the work item and the code
-        ↓
-name the invariant and its failure mode
-        ↓
-choose the owner and the boundary (decouple)
-        ↓
-make invalid states unrepresentable; make settled facts immutable
-        ↓
-extract the functional core from the imperative shell
-        ↓
-choose the cheapest adequate evidence (for a bug: a failing test first)
-        ↓
-implement in small, named, readable steps
-        ↓
-run the focused test, then proportionate broader checks
-        ↓
-format and lint
-        ↓
-report the exact evidence level and the residual risk
-```
+Read the owning doc, work item and code, then follow **Layered Verification + Progressive
+Delivery**. Verify the pure core before implementing or verifying the I/O shell:
 
-State skipped steps; "No core extracted: this adapter only maps types" is sufficient.
+| Order | Obligation |
+|---|---|
+| L1 — Abstraction & Architecture | name the invariant/failure mode, module owner and inward dependency direction; review DDD boundaries, SOLID and justified ports |
+| L2 — Domain, Types & Error Handling | immutable values, fallible constructors, closed outcomes, pure decisions and atomic rejection |
+| L3 — Unit & Property Verification | exact semantic regressions and applicable laws, focused tests, format, lint and static checks without infrastructure |
+| L4 — Application & I/O Adapters | only after L1–L3 pass: use cases, ports, effects and typed error mappings exercised with deterministic fakes |
+| L5 — DB, API & Integration | real constraints, transactions, HTTP/auth contracts, storage/platform integration and scoped E2E/runtime acceptance |
+
+The [verification strategy](references/verification-strategy.md#layered-verification) owns the
+layer obligations and independent gate ledger. State inapplicable steps; adapter-only work with
+no domain rule may proceed directly to L4, with a reason. For a bug, reproduce failure first.
+The [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion) owns
+commit/push/PR eligibility: deliver independently verified layers when requested, explicitly
+defer infrastructure acceptance and report exact evidence and residual risk.
 
 ### Database-backed GET, read and fetch work
 
@@ -226,10 +220,10 @@ verifier output; report only what a tool actually printed.
 | UI change | the renderer skill's evidence loop: driven flow, inspected captures, viewports, themes, Vietnamese text, focus, text scaling |
 | Phase exit | the work plan's [review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence) with live and mocked evidence labeled separately |
 
-For implementation handoff and PR creation, use the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion):
-applicable local tests, mocked integration and verification checks pass; no waiting for GitHub CI.
-Real local infrastructure is still needed for claims a mock cannot establish. Production and
-phase-exit acceptance remain separate. Docs-only work gets no invented integration requirement.
+For handoff, follow the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion)
+and report [independent gates](references/verification-strategy.md#independent-verification-gates).
+Core verification is independent of integration acceptance; a layer's acceptance never establishes
+production or phase-exit acceptance of the whole feature. Docs-only work needs no integration test.
 
 Repository-level checks go through [`cargo xtask`](../../../xtask/README.md); scripts are its
 primitives. Report each gate as xtask printed it (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`, which
@@ -259,6 +253,9 @@ Evidence level:            <from § 6>
 Evidence:                  test / property / tool → pass | fail
 Command:                   <exact, reproducible>
 Provenance:                <source revision, fixtures, live vs mocked, artifacts>
+Layer gates / verified scope: <independent status, evidence level and covered claims per layer>
+Deferred acceptance:       <unrun DB/API/I/O checks; reason; prerequisites, command, criteria, owner>
+Execution blockers / failures: <environment or dependency gap vs actual failed check>
 Edge classes covered:
 Not covered / residual risk:
 ```
