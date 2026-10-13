@@ -4,11 +4,10 @@
   "status": "DOMAIN_USE_CASE_ROUTER_VERIFIED / REAL_ACCOUNT_SQL_CLIENT_ACCEPTANCE_PENDING",
   "source": {
     "initial_develop": "df7d62fecf0023cb557a3051ae75918cedcd2610",
-    "integrated_develop": "3623afd3ddcac64752df2fc54811a748c3fa39e9",
+    "integrated_develop": "389c5cb2760ec31b20f5dc816670e9914455313e",
     "inherited_pr93": "b07ab14e5ec52ebc711ea272dfa2bcb61c09fdfd",
     "listener_source_local_commit": "b6ba15d61291dd7016892c7cb9def14573eea4af",
     "listener_source_tree": "cb9dd88741a148f4e75f4c39d15b4a8ebabb06aa",
-    "develop_integration_local_commit": "7c1ac4cb7e417b68e0a7b0e7479dcca9002312cc",
     "final_source_sha256": {
       "packages/contracts/api/src/lib.rs": "5957f81dd5eaeafd19582c522b1b3847f644af992102ced782a2a4f3c3c7164c",
       "packages/contracts/api/src/listener_library.rs": "166edc7222246016bd25018161eeacd817ac281b94a87e30f23ecf920e653f77",
@@ -88,7 +87,10 @@
     ],
     "published_develop_merge": "f4a746b870932b9a14420ab079e4448d7f433b2a",
     "published_develop_merge_tree": "8cd2c6036bf57b4f5f4fec9f8e1613ccfca8e05b",
-    "draft_pr": "https://github.com/loveoverflowcom/cantos/pull/95"
+    "draft_pr": "https://github.com/loveoverflowcom/cantos/pull/95",
+    "initial_develop_integration_local_commit": "7c1ac4cb7e417b68e0a7b0e7479dcca9002312cc",
+    "additional_develop_integration": "389c5cb2760ec31b20f5dc816670e9914455313e",
+    "additional_develop_scope": "PR96 Web-only Library/Account visual changes; existing mock reducers remain, no Library backend source or Kani model input changed"
   },
   "gates": {
     "listener_core_use_case_cursor": {
@@ -135,7 +137,8 @@
         "services::tests::stop_targets_inspected_id_and_preserves_container_and_volume",
         "services::tests::supported_nocreate_refusal_is_a_failure_instead_of_an_upgrade_instruction",
         "services::tests::unsupported_nocreate_and_configtest_failure_leave_owned_volume_for_recovery"
-      ]
+      ],
+      "final_after_pr96_repair": "FAIL: format/lint PASS; API210passed/53ignored, Theatre Web91passed; xtask130passed/17samefailures"
     },
     "changed_only_preflight": {
       "status": "UNSUPPORTED",
@@ -149,7 +152,16 @@
     "read_performance": "NOT_RUN",
     "web_cmp_actual_account_playback": "NOT_RUN",
     "production_listener_issuer": "NOT_IMPLEMENTED",
-    "repository_final_docs": "PASS"
+    "repository_final_docs": "PASS",
+    "web_after_integration_repair": {
+      "status": "PASS",
+      "wasm_clippy": "PASS",
+      "studio_build": "PASS",
+      "theatre_build": "PASS",
+      "ui_preview": "PASS",
+      "actual_browser_native_player_account_acceptance": "NOT_RUN"
+    },
+    "repository_after_latest_develop": "PASS"
   },
   "kani": {
     "status": "PASS",
@@ -406,7 +418,13 @@
     "final-preflight.log": "8f6451826766de10d77cc2b1ed0c54f4c3f6d0a528eddd4e36414769752c76bb",
     "final-preflight-plan.log": "91ae5fd6bab95e4fd36849eb4d841d270a2a0436e0498bf8bbfc281164ab669b",
     "l3-xtask.log": "57102df24d7811766cb91048143ac9da2aa574a641578d870bbf291cc29e484c",
-    "final-docs-repository.log": "03e3781ec8247097cd65df7d3d6d838801408b447c863989c206e13bc40f416a"
+    "final-docs-repository.log": "03e3781ec8247097cd65df7d3d6d838801408b447c863989c206e13bc40f416a",
+    "final-rust-after-pr96.log": "f505f04ca0e335d940b28e034f2c902020f5e9c95fcf81429e5a826064cc51fe",
+    "final-rust-repaired-pr96.log": "4d762a5f35830c35e421a6012d0923a808fd1fe69cd751499a5ec883985cec24",
+    "final-preflight-after-pr96.log": "72148eaa69b2d63d4f96299bff6b59a912d083eefdcd08e4077f23c34ac25cb0",
+    "recursion-repair-fresh-fetch.log": "1e54b4454f9ab375e5570ccfe47127727c4b1d9bf9270de5b8bbb23ac850779b",
+    "final-web-repaired-pr96.log": "8f322a88771abb8751116e33b031054a97f5eaed4ec30c772d5a7c15689f7efa",
+    "final-repository-after-pr96.log": "cb4e59b37a3d851097af30993a4f283cfe042a3f948e71e972aa6022ee9e704e"
   },
   "review": {
     "status": "no actionable production-source findings in final read-only recheck",
@@ -419,5 +437,16 @@
       "owned PostgreSQL runner URL"
     ],
     "test_recommendation_fixed": "scalar regression updates revision/order snapshot/digest consistently while corrupting only saved/completion"
+  },
+  "integration_repair": {
+    "develop_checked": "389c5cb2760ec31b20f5dc816670e9914455313e",
+    "reason": "inherited PR96 account view generated Leptos layouts overflowed Rust1.87 default query depth130; compiler suggested256",
+    "source": "apps/cantos-theatre/web/src/lib.rs",
+    "source_sha256": "770611558ca08de7fadf4001260c1e0e30286acf8314cd41540069ff020dafed",
+    "change": "two lines: documented recursion_limit256 only; no UI redesign or Library domain change",
+    "native_tests": "PASS91 after repair",
+    "fail_before_log": "final-rust-after-pr96.log",
+    "full_rust_after_repair": "FAIL only same17 private-input fixtures; format/lint PASS",
+    "wasm_and_builds": "PASS via cargo xtask verify web; no browser/account acceptance"
   }
 }

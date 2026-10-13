@@ -12,12 +12,14 @@ Fresh develop `df7d62fecf0023cb557a3051ae75918cedcd2610` plus exact inherited
 [PR93](https://github.com/loveoverflowcom/cantos/pull/93) head
 `b07ab14e5ec52ebc711ea272dfa2bcb61c09fdfd` / tree
 `e3a596a9563fb4538cdb0e7bbf25f2162bc2209b`, including PR91 Publication.
-A fresh check found develop advance to `3623afd3ddcac64752df2fc54811a748c3fa39e9`
-(PR94 Web shapes), incorporated by a normal feature merge. PR91/93 were not merged by this session.
+Fresh checks found develop advances to `3623afd3ddcac64752df2fc54811a748c3fa39e9`
+(PR94 Web shapes) and `389c5cb2760ec31b20f5dc816670e9914455313e` (PR96 Web Library/Account
+visuals), incorporated by normal feature merges. The latter still uses the session-only mock
+reducers and has no account transport; no v2 API/navigation expansion is added by this backend. PR91/93 were not merged by this session.
 Private Storage PR90 is independent. Identity mapping PR92 is not a dependency and does not authenticate.
 
 The four own logical commits are contracts/refined core; application/named fake; PostgreSQL/Axum;
-and this evidence/recovery handoff. There is also the normal develop integration merge. Git-data
+and this evidence/recovery handoff. Two normal develop integration merges preserve the already-develop UI work. Git-data
 publication preserves exact blobs, modes, trees and inherited parents; published commit hashes may
 change because connector commit metadata differs. The final PR and fetched head/tree own remote
 identity, while the result file retains local source identities and proof hashes.
@@ -78,7 +80,7 @@ Local raw logs remain in `artifacts/agent-runs/library/`; hashes are committed i
   exact production `classify`/checked successor, full u64/boolean inputs, unwind2, independent
   partition oracle, 131 checks / 7 satisfied covers, lock unchanged. Proof ran on clean local
   source commit `b6ba15d61291dd7016892c7cb9def14573eea4af`; all model-input hashes remain identical
-  after the CSS/Python-only develop integration and documentation commit. No assumptions/stubs,
+  after the Web-only develop integrations and documentation changes. No assumptions/stubs,
   unchecked arithmetic or unreachable whitelist weakens this harness. It does not prove SQL,
   identity, unbounded reconciliation schedules or physical playback.
 - `cargo xtask preflight --changed-only --base origin/develop`: **UNSUPPORTED** because installed
@@ -87,6 +89,18 @@ Local raw logs remain in `artifacts/agent-runs/library/`; hashes are committed i
 - `cargo xtask verify postgres`: **NOT_RUN this session**. Earlier cluster startup reached `/tmp`
   Unix-socket EPERM and was denied; no retry, alternate socket or bypass was attempted. Inherited
   failed startup evidence is retained. SQL runtime/constraints/plans/throughput are unaccepted.
+
+## Latest develop integration repair
+
+The final PR96 merge recheck found a **new inherited source compile failure**, separate from the
+17 known fixtures: Leptos account view layout-query depth130 on Rust1.87. The fail-before
+`final-rust-after-pr96.log` is retained and hashed. A fresh develop check found no correction.
+The integration adds only two lines in Theatre Web `lib.rs`: a comment and the compiler-suggested
+`recursion_limit=256`. No component, behavior, navigation or Library domain was changed.
+Independent review confirmed the minimal diff and the generated-layout diagnosis. Repaired full
+Rust compiles/runs API210 passed/53 ignored and Theatre Web91 passed, then fails on the exact
+original17 xtask fixture names; format/lint remain PASS. `cargo xtask verify web` also passes WASM clippy, Studio/Theatre Trunk builds and the
+UI-system preview build; this is compile/build evidence, not browser/account/native acceptance. All194 Kani model inputs and58 Library source hashes remain unchanged.
 
 ## Remaining acceptance
 

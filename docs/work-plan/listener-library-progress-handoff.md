@@ -6,6 +6,12 @@ with **Nghe tiếp**, **Đã lưu**, **Lịch sử gần đây**. Current Web/CM
 this slice does not turn their stores into account-sync acceptance. See [contract](../../packages/contracts/listener-library-v1.md)
 and [evidence](../evidence/listener-library-progress.md).
 
+The final develop recheck includes PR96 Web Library/Account visual changes. Its current
+`TheatreContext` still calls mock `toggle_saved` and session-only progress/history reducers;
+the account view is not a verified identity or sync adapter. Those inherited visual screens do
+not broaden this backend MVP contract. Web consumers still need dynamic UUID/source binding
+and intent-based transport rather than using enum/demo IDs or toggles as server commands.
+
 ## Implemented server boundary
 
 | Capability | Versioned API | Remaining production acceptance |

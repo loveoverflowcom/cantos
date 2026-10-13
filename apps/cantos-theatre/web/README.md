@@ -13,7 +13,7 @@ acceptance against real listener data remain separate.
 - Two primary navigation destinations: **Khám phá** (Discover) and **Của tôi** (My library).
   Search and filters belong to Khám phá; account opens through the avatar. Work details,
   full/compact mock player, queue, settings and unknown-route recovery remain hash-routed
-  secondary views. The account view explains that authentication/synchronization is unavailable.
+  secondary views. The account view shows a guest identity, states that sign-in and sync are not integrated and that data lives only in this session, and links to listening settings and Của tôi; it draws no conflict choice because the mock has no conflict model.
 - Của tôi presents **Nghe tiếp**, **Đã lưu** and **Lịch sử** directly, with no nested library tabs.
   Save/unsave acts on a work and is independent of playback position. There is no separate
   favorite/star list in this MVP. History previews three recent works and links to a secondary
@@ -60,7 +60,7 @@ in-memory cold-restore exercise is not reload/session persistence.
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
 | `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
-| `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery/account |
+| `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery |
 | `src/messages.rs`, `platform.rs` | Typed locale resources; fallible browser navigation/title/focus only |
 | `src/styles/theatre.css`, `assets/icons/` | Canonical-token layout; pinned licensed official Material Icons |
 
@@ -105,8 +105,9 @@ public releases through a frontend reducer; backend publication authorization re
 The [Web reference](https://drive.google.com/file/d/1UEMLvfNdorz4P9qZgfoVkp2HwQV_Ipwt/view)
 and [handoff](https://drive.google.com/file/d/1d2LA4MxQmcW02gUJElz9RseBWV0sAAah/view) were read in
 the initial mock phase; their board and original artwork were visually inspected. They are design
-references, not changed-app browser screenshots. Typographic covers and system font fallbacks are
-explicit substitutes; reference artwork/fonts are not redistributed. There is no font/icon CDN.
+references, not changed-app browser screenshots. Noto Sans/Serif (OFL, Vietnamese subset) and the two mock paintings are bundled as Web-sized derivatives with
+[provenance](assets/provenance.json); works without a painting keep the typographic cover. Artwork usage rights are
+unverified. There is no font/icon CDN. See the [library/account v2 record](../../../docs/evidence/theatre-web-library-account-v2.md).
 
 Paper/purple v0.2.0 roles, tonal grouping, responsive rail and existing focus/reduced-motion/forced-
 color styling are retained. Shared imports `UiRoot`, `Container`, `Surface`, `Stack`, `Select` and
