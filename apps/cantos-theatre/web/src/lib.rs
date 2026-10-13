@@ -1,4 +1,4 @@
-// PR96 generated Leptos view layouts exceed Rust 1.87 query depth.
+// PR96 generated Leptos view layouts exceed Rust 1.87's default query depth.
 #![recursion_limit = "256"]
 
 //! Cantos listener Web: a same-origin account boundary and an explicitly isolated media mock.

@@ -42,6 +42,17 @@ pub(crate) async fn authenticate(tx: &Tx<'_>, token: &str) -> Result<String, Sto
 }
 
 impl Store {
+    /// Public correlation only; knowing this UUID never authenticates a caller.
+    pub async fn studio_session_id(&self, token: &str) -> Result<Option<String>, StoreError> {
+        let client = self.connection().await?;
+        let row = client
+            .query_opt(
+                "SELECT to_jsonb(s)->>'session_id' FROM sessions s WHERE token_hash=$1",
+                &[&token_hash(token)],
+            )
+            .await?;
+        Ok(row.and_then(|row| row.get(0)))
+    }
     pub async fn authenticate(&self, token: &str) -> Result<String, StoreError> {
         if let Some(oidc) = self.studio_oidc() {
             oidc.authenticate(self, token)

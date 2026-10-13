@@ -105,19 +105,23 @@ silently enroll users. See [official Kanidm OAuth2 policy](https://kanidm.github
 Opt-in local server configuration is `CANTOS_STUDIO_OIDC_ISSUER`, operator-delivered
 `CANTOS_STUDIO_OIDC_SECRET` and exact `CANTOS_WEB_ORIGIN`. Secrets never belong in Git, command
 arguments, browser storage or logs. The host still requires development/loopback/local PostgreSQL;
-there is no production activation flag. Visit `/api/v1/studio/auth/login`; the existing Studio
-current-session check can discover the cookie after the callback. The token-entry UI is unchanged;
-in OIDC mode development-token POST login is forbidden. If an old/expired cookie blocks login,
-use same-origin DELETE `/api/v1/studio/session` before starting again.
+there is no production activation flag. Studio reads the bounded current-mount
+`/api/v1/studio/auth/configuration`, confirms the actual cookie with GET `/api/v1/studio/session`,
+and shows the provider sign-in control in OIDC mode. That control performs same-origin DELETE
+`/api/v1/studio/session` before navigating, so expired/legacy cookies can recover. Development
+mode retains the token-entry form; OIDC mode forbids development-token POST login. The configuration
+DTO contains only the mode and cannot mint authority. Direct operators may still visit the login
+route after explicit local logout. Migration0025 repairs final expiry checks after SQL lock waits and adds scoped browser revocation
+attribution without changing0020's checksum; the narrow column grant below is required.
 
-After migration0020, the operator may review/apply these narrow database grants to the existing
+After migrations0020 and0025, the operator may review/apply these narrow database grants to the existing
 HTTP role. No role/user is provisioned by migration or tooling:
 
 ```sql
 GRANT SELECT ON actors,sessions,studio_oidc_sessions TO cantos_app;
 GRANT UPDATE ON sessions TO cantos_app;
 GRANT SELECT,INSERT,UPDATE ON studio_oidc_flows TO cantos_app;
-GRANT UPDATE(revocation_pending) ON studio_oidc_sessions TO cantos_app;
+GRANT UPDATE(revocation_pending,revoked_by_token_hash) ON studio_oidc_sessions TO cantos_app;
 GRANT EXECUTE ON FUNCTION
   studio_oidc_finish(bytea,text,text,text,text,bytea,bytea,text,bigint),
   production_lock_actor(text) TO cantos_app;

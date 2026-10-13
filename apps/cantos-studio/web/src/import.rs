@@ -48,6 +48,8 @@ pub struct ImportIntent {
 #[derive(Clone, Debug)]
 pub struct ImportEditor {
     pub actor: String,
+    draft_actor: String,
+    acknowledged: Option<ImportIntent>,
     pub metadata: ImportMetadata,
     pub bytes: Option<Vec<u8>>,
     pub source_id: String,
@@ -64,6 +66,8 @@ impl Default for ImportEditor {
     fn default() -> Self {
         Self {
             actor: String::new(),
+            draft_actor: String::new(),
+            acknowledged: None,
             metadata: ImportMetadata {
                 operation_id: String::new(),
                 file_name: String::new(),
@@ -88,7 +92,36 @@ impl Default for ImportEditor {
 
 impl ImportEditor {
     pub fn blocked(&self) -> bool {
-        self.busy || self.pending.is_some()
+        self.busy || self.pending.is_some() || !self.can_edit()
+    }
+
+    pub fn can_edit(&self) -> bool {
+        self.draft_actor.is_empty() || self.draft_actor == self.actor
+    }
+
+    pub fn visible_metadata(&self) -> Option<&ImportMetadata> {
+        self.can_edit().then_some(&self.metadata)
+    }
+
+    pub fn has_unsaved(&self) -> bool {
+        if self.pending.is_some() {
+            return true;
+        }
+        if let Some(accepted) = &self.acknowledged {
+            let mut metadata = self.metadata.clone();
+            // Operation identity belongs to a submission, not to the retained draft bytes.
+            metadata.operation_id.clear();
+            return accepted.actor != self.draft_actor
+                || metadata != accepted.request.metadata
+                || self.bytes.as_deref() != Some(accepted.request.original_bytes.as_slice());
+        }
+        self.bytes.is_some()
+            || !self.metadata.reference.is_empty()
+            || !self.metadata.file_name.is_empty()
+            || self.metadata.format != ImportFormat::Txt
+            || self.metadata.rights_holder.is_some()
+            || self.metadata.permission_evidence.is_some()
+            || self.metadata.usage_scope.is_some()
     }
 
     /// Account changes hide the prior account's response and invalidate outstanding reads.
@@ -97,13 +130,25 @@ impl ImportEditor {
         if self.actor == actor {
             return self.clone();
         }
+        if !self.has_unsaved() && (self.draft_actor.is_empty() || self.draft_actor != actor) {
+            // Acknowledged/read-only payload is safely available on the server. A new account
+            // starts with an empty local workspace; it never inherits another actor's metadata.
+            return Self {
+                actor,
+                ticket: self.ticket.saturating_add(1),
+                ..Self::default()
+            };
+        }
         let mut next = self.clone();
         next.actor = actor;
+        if next.draft_actor.is_empty() && !next.actor.is_empty() {
+            next.draft_actor = next.actor.clone();
+        }
         next.stored = None;
         next.issues.clear();
         next.ticket = self.ticket.saturating_add(1);
         next.busy = false;
-        next.status = if next.pending.is_some() {
+        next.status = if next.pending.is_some() || !next.can_edit() {
             ImportStatus::Error(ErrorCode::Forbidden)
         } else if next.bytes.is_some() {
             ImportStatus::Ready
@@ -118,6 +163,7 @@ impl ImportEditor {
             return self.clone();
         }
         let mut next = self.clone();
+        next.draft_actor = self.actor.clone();
         edit(&mut next.metadata);
         next.issues.clear();
         next.metadata.operation_id.clear();
@@ -134,6 +180,7 @@ impl ImportEditor {
             return None;
         }
         let mut next = self.clone();
+        next.draft_actor = self.actor.clone();
         next.ticket = self.ticket.checked_add(1)?;
         next.metadata.file_name = file_name;
         next.metadata.operation_id.clear();
@@ -224,6 +271,9 @@ impl ImportEditor {
         next.pending = None;
         next.ambiguous = false;
         next.busy = false;
+        let mut accepted = intent.clone();
+        accepted.request.metadata.operation_id.clear();
+        next.acknowledged = Some(accepted);
         if self.actor == intent.actor {
             next.source_id = response.id.clone();
             next.stored = Some(response);
@@ -262,6 +312,7 @@ impl ImportEditor {
         }
         let mut next = self.clone();
         next.source_id = source_id;
+        next.draft_actor = self.actor.clone();
         next.stored = None;
         next.issues.clear();
         next.ticket = self.ticket.saturating_add(1);
@@ -342,6 +393,95 @@ mod tests {
         loaded.edit_metadata(|metadata| {
             metadata.reference = "Synthetic chapter written for testing".into()
         })
+    }
+
+    #[test]
+    fn unsubmitted_private_bytes_and_rights_remain_bound_to_account_a() {
+        let a = ready().edit_metadata(|metadata| {
+            metadata.rights_holder = Some("Private owner A".into());
+            metadata.permission_evidence = Some("Private agreement A".into());
+        });
+        let out = a.signed_in_as(String::new());
+        let b = out.signed_in_as("bob".into());
+        assert_eq!(b.visible_metadata(), None);
+        assert!(!b.can_edit());
+        assert!(b.start_import("forged B operation".into()).is_none());
+        assert!(b.start_file("B.txt".into(), 3).is_none());
+        let unchanged = b.edit_metadata(|metadata| metadata.rights_holder = Some("bob".into()));
+        assert_eq!(unchanged.metadata, a.metadata);
+        assert_eq!(unchanged.bytes, a.bytes);
+        let returned = b.signed_in_as("alice".into());
+        assert_eq!(returned.visible_metadata(), Some(&a.metadata));
+        assert_eq!(returned.bytes, a.bytes);
+        assert_eq!(
+            returned.start_import("A operation".into()).unwrap().1.actor,
+            "alice"
+        );
+    }
+
+    #[test]
+    fn acknowledged_import_is_clean_and_new_account_starts_without_private_payload() {
+        let (saving, intent) = ready().start_import("accepted operation".into()).unwrap();
+        let stored = saving.imported(&intent, response(&intent));
+        assert!(!stored.has_unsaved());
+        assert_eq!(stored.bytes, saving.bytes);
+        assert!(stored.stored.is_some());
+        let b = stored.signed_in_as("bob".into());
+        assert_eq!(b.actor, "bob");
+        assert!(b.can_edit());
+        assert!(b.bytes.is_none());
+        assert!(b.stored.is_none());
+        assert!(b.metadata.reference.is_empty());
+        assert!(b.metadata.file_name.is_empty());
+        assert!(b.source_id.is_empty());
+        assert!(!b.has_unsaved());
+        assert!(b.start_file("B.txt".into(), 3).is_some());
+    }
+
+    #[test]
+    fn metadata_changed_after_acknowledgement_remains_private_until_original_actor_returns() {
+        let (saving, intent) = ready().start_import("accepted operation".into()).unwrap();
+        let stored = saving.imported(&intent, response(&intent));
+        let edited = stored.edit_metadata(|metadata| {
+            metadata.permission_evidence = Some("New private agreement A".into());
+        });
+        assert!(edited.has_unsaved());
+        let b = edited.signed_in_as("bob".into());
+        assert!(!b.can_edit());
+        assert_eq!(b.visible_metadata(), None);
+        assert!(b.start_import("B operation".into()).is_none());
+        let returned = b.signed_in_as("alice".into());
+        assert_eq!(returned.bytes, edited.bytes);
+        assert_eq!(returned.metadata, edited.metadata);
+        assert!(returned.has_unsaved());
+    }
+
+    #[test]
+    fn same_length_replacement_bytes_do_not_reuse_an_acknowledged_clean_draft() {
+        let (saving, intent) = ready().start_import("accepted operation".into()).unwrap();
+        let stored = saving.imported(&intent, response(&intent));
+        let reading = stored
+            .start_file(stored.metadata.file_name.clone(), 20)
+            .unwrap();
+        let mut changed = intent.request.original_bytes.clone();
+        changed[0] = b'X';
+        let changed = reading.file_loaded(reading.ticket, Some(changed));
+        assert!(changed.has_unsaved());
+        assert!(!changed.signed_in_as("bob".into()).can_edit());
+    }
+
+    #[test]
+    fn pending_import_success_for_account_a_never_exposes_its_receipt_to_account_b() {
+        let (saving, intent) = ready().start_import("accepted operation".into()).unwrap();
+        let b = saving.signed_in_as("bob".into());
+        let acknowledged = b.imported(&intent, response(&intent));
+        assert!(acknowledged.stored.is_none());
+        assert_eq!(acknowledged.visible_metadata(), None);
+        assert!(!acknowledged.can_edit());
+        let returned = acknowledged.signed_in_as("alice".into());
+        assert!(!returned.has_unsaved());
+        assert!(returned.can_edit());
+        assert_eq!(returned.bytes, saving.bytes);
     }
 
     fn error(code: ErrorCode) -> ApiError {
@@ -469,7 +609,7 @@ mod tests {
             other
                 .read_failed(reading.ticket, "alice", &error(ErrorCode::NotFound))
                 .status,
-            ImportStatus::Ready
+            ImportStatus::Error(ErrorCode::Forbidden)
         );
     }
 

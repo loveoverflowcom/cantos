@@ -48,7 +48,22 @@ Use operator-supplied local configuration; tests always create disposable databa
 
 See [PR1 evidence](../evidence/identity-registry.md) for local results and deferred acceptance.
 
-## PR2 implementation → PR3 / Library handoff
+
+## Integrated registry consumption
+
+Use the independently reviewed registry integration at `47f5659`, retaining exact external keys
+and existing actors/ownership. The integrated migration order is1–14,16–19; storage0015 remains a
+separate prerequisite for its own PR. Keep all prior checksums. Credential consumers must use
+fresh verified evidence and maintain separate Studio, Theatre Web/native and Admin authority.
+The registry lock/disable regression and current full local acceptance are recorded in
+[registry evidence](../evidence/identity-registry.md#independent-integrated-review). This changes
+no production/provider/device activation gate or permission to register clients/credentials.
+
+## Historical PR2 implementation → PR3 / Library handoff
+
+This section preserves the original PR2 dependency snapshot. Current integration inherits the
+merged registry and develop Publication/Discovery/Library originals with unchanged checksums;
+Studio adds migration0025 after0020 for independently reviewed issuance and browser cancellation.
 
 PR2 implements [Studio OIDC](../architecture/studio-oidc.md), with exact client
 `cantos-studio-web-bff`, current-only login/callback routes, private verifier witness, durable
@@ -98,15 +113,44 @@ Provider disable cannot be atomic with local writes; document its introspection 
 Live production adoption must additionally resolve bearer at-rest protection, pending remote
 revocation recovery, retention/rate limits and provider SSO versus local/access logout semantics.
 
+## PR2 independent integration handoff
+
+The reviewed Studio source `850a820e7db224c41e2f4fd534301e83c0e1d5bf` incorporates merged
+registry/develop `007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3` and unchanged originals through0020,
+with additive0025. All17 full local preflight gates report PASS, including actual disposable
+PostgreSQL/HTTP, signed ES256 mocks, both WASM builds and9/9 mutation kills. Actual Studio browser
+checks report11 PASS/0 FAIL, with explicit inconclusive text scaling and deferred accessibility,
+provider and unobserved race gates. See the current
+[integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+for exact source/tree, raw log hashes, fail-before regressions and production limitations.
+
+PR3 must merge this actual branch/develop code and preserve both shared HTTP contract negotiation
+and Studio UUID request/response fencing. The shared OIDC transport remains confidential for
+Studio; native public-client transport cannot weaken Studio/Admin credential purpose. Immutable
+per-flow private browser binders and lineage serialization do not authorize actor-wide logout.
+Keep Theatre Web/native credentials, resource ownership and cancellation scopes independent.
+The work queue continues PR3 then PR4; linked PRs own execution status. No production client,
+credential, grant or network configuration was created by this integration.
+
 ## PR3 Theatre implementation → Admin
 
 [Theatre identity handoff](theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
-Web/CMP lifecycle groundwork and exact implemented/deferred matrix. Registry/Studio published
-heads are inherited; current develop already contains PR91/PR93/PR95, so PR3 uses Library's actual
-sealed seam through that accepted base. Migration0021 belongs to Theatre identity; Admin may use
-0022 after confirming the final combined migration registry. No historical SQL is changed.
+Web/CMP integration and exact implemented/deferred matrix. This source integration inherits the
+reviewed Studio/develop branch above, with Publication/Discovery/Library originals and Library's
+actual sealed authority seam. Its migration union is1–14,16–21,24,25 (22 entries);0020/0021 and
+all historical checksums remain unchanged. Native0024 and Studio0025 are additive. Admin0022
+belongs to the succeeding PR4; artwork0023 remains reserved and absent here.
 
-Shared `platform/oidc` now owns reused crypto/transport, while Studio/Theatre session policies and
-SQL remain independent. Admin must add its own purpose/admission/role+audit decisions; neither
-Studio nor Theatre cookie/session grants Admin. Producer grants are unchanged. The planned parent
-Ultra review after PR4 remains independent campaign acceptance; this PR does not merge or startPR4.
+Shared `platform/oidc` reuses crypto/transport while Studio/Theatre session policies and SQL
+remain independent. Studio/Theatre Web use confidential clients; the exact native public client
+does not weaken their verification or Admin purpose/admission/role+audit decisions. Neither
+Studio nor Theatre cookies/sessions, native bearers or producer grants confer Admin authority.
+Preserve the current Studio UUID fences, JSON default/opt-in Protobuf and legacy MessagePack
+contract when resolving shared code.
+
+Current combined Theatre verification and independent acceptance are pending. Android INTERNET,
+callback registration and host mounting remain unapplied after automatic approval review
+rejected the source activation; the source-only proposal awaits a direct human exception.
+Live provider/client/grants/credentials/TLS and actual Web/native device/secure-store acceptance
+remain explicit gates. The parent review continues PR3 then PR4; this handoff claims neither
+completion of the four-PR campaign nor production activation.

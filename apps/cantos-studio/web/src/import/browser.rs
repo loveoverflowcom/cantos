@@ -15,6 +15,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
 fn dispatch_import(state: RwSignal<ImportEditor>, api: StudioHttp, intent: ImportIntent) {
+    let api = api.snapshot();
     spawn_local(async move {
         match api.import(&intent.request).await {
             Ok(response) => {
@@ -50,18 +51,37 @@ fn selected_format(value: &str) -> ImportFormat {
 }
 
 #[component]
-pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl IntoView {
+pub fn ManuscriptImport(
+    actor: Signal<String>,
+    english: RwSignal<bool>,
+    session_pending: Signal<bool>,
+    dirty: RwSignal<bool>,
+    activity: RwSignal<bool>,
+) -> impl IntoView {
     let state = RwSignal::new(ImportEditor::default());
     let api = expect_context::<StudioContext>().api;
+    let file_input = NodeRef::<leptos::html::Input>::new();
     let copy = move || messages::import_copy(english.get());
     Effect::new(move |_| {
         let actor = actor.get();
-        state.update(|editor| *editor = editor.signed_in_as(actor));
+        let previous = state.get_untracked();
+        let next = previous.signed_in_as(actor);
+        if previous.actor != next.actor {
+            if let Some(input) = file_input.get_untracked() {
+                input.set_value("");
+            }
+        }
+        state.set(next);
     });
-    let blocked = move || state.with(ImportEditor::blocked);
+    Effect::new(move |_| {
+        dirty.set(state.with(ImportEditor::has_unsaved));
+        activity.set(state.with(|editor| editor.busy));
+    });
+    let blocked = move || session_pending.get() || state.with(ImportEditor::blocked);
     let save_blocked = move || {
         state.with(|editor| {
-            editor.blocked()
+            session_pending.get()
+                || editor.blocked()
                 || editor.actor.is_empty()
                 || editor.bytes.is_none()
                 || editor.metadata.reference.trim().is_empty()
@@ -87,8 +107,9 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                 }
             }>
                 <label for="import-file">{move || copy().file}</label>
-                <input class="cui-field-control" id="import-file" type="file" accept=".txt,.md,.markdown,.docx,.json" disabled=blocked
-                    aria-describedby="import-help import-reason import-field-findings" on:change=move |event| {
+                <input class="cui-field-control" id="import-file" node_ref=file_input type="file" accept=".txt,.md,.markdown,.docx,.json" disabled=blocked
+                    aria-describedby="import-help import-selected-file import-reason import-field-findings" on:change=move |event| {
+                        if blocked() {return;}
                         let Some(input) = event.target().and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok()) else { return; };
                         let Some(file) = input.files().and_then(|files| files.get(0)) else { return; };
                         // Reject before materializing an ArrayBuffer; the server repeats all bounds.
@@ -111,9 +132,10 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                             });
                         }
                     } />
+                <p class="identity">{move || copy().file_name}<output id="import-selected-file">{move || state.with(|editor| editor.visible_metadata().map(|metadata|metadata.file_name.clone()).unwrap_or_default())}</output></p>
                 <label for="import-format">{move || copy().format}</label>
                 <div class="cui-select">
-                <select class="cui-field-control" id="import-format" disabled=blocked prop:value=move || state.with(|editor| format_value(editor.metadata.format))
+                <select class="cui-field-control" id="import-format" disabled=blocked prop:value=move || state.with(|editor| editor.visible_metadata().map(|metadata|format_value(metadata.format)).unwrap_or("txt"))
                     on:change=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.format = selected_format(&event_target_value(&event))))>
                     <option value="txt">{move || copy().txt}</option>
                     <option value="markdown">{move || copy().markdown}</option>
@@ -124,25 +146,25 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                 </div>
                 <label for="import-reference">{move || copy().reference}</label>
                 <input class="cui-field-control" id="import-reference" disabled=blocked maxlength="2048" autocomplete="off" required aria-describedby="import-field-findings"
-                    prop:value=move || state.with(|editor| editor.metadata.reference.clone())
+                    prop:value=move || state.with(|editor| editor.visible_metadata().map(|metadata|metadata.reference.clone()).unwrap_or_default())
                     on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.reference = event_target_value(&event))) />
                 <div class="import-metadata">
                     <div>
                         <label for="import-rights-holder">{move || copy().rights_holder}</label>
                         <input class="cui-field-control" id="import-rights-holder" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.metadata.rights_holder.clone().unwrap_or_default())
+                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.rights_holder.clone()).unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.rights_holder = optional_metadata(event_target_value(&event)))) />
                     </div>
                     <div>
                         <label for="import-permission">{move || copy().permission_evidence}</label>
                         <input class="cui-field-control" id="import-permission" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.metadata.permission_evidence.clone().unwrap_or_default())
+                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.permission_evidence.clone()).unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.permission_evidence = optional_metadata(event_target_value(&event)))) />
                     </div>
                     <div>
                         <label for="import-usage">{move || copy().usage_scope}</label>
                         <input class="cui-field-control" id="import-usage" disabled=blocked maxlength="2048" autocomplete="off" aria-describedby="import-rights-help import-field-findings"
-                            prop:value=move || state.with(|editor| editor.metadata.usage_scope.clone().unwrap_or_default())
+                            prop:value=move || state.with(|editor| editor.visible_metadata().and_then(|metadata|metadata.usage_scope.clone()).unwrap_or_default())
                             on:input=move |event| state.update(|editor| *editor = editor.edit_metadata(|metadata| metadata.usage_scope = optional_metadata(event_target_value(&event)))) />
                     </div>
                 </div>
@@ -152,6 +174,7 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                     <Show when=move || state.with(|editor| editor.pending.is_some() && !editor.busy)>
                         <button class="cui-button" data-variant="secondary" type="button" aria-describedby="import-reason" disabled=move || state.with(|editor| editor.pending.as_ref().is_some_and(|intent| intent.actor != editor.actor))
                             on:click=move |_| {
+                                if session_pending.get_untracked() {return;}
                                 if let Some((saving, intent)) = state.get_untracked().retry() {
                                     state.set(saving);
                                     dispatch_import(state, api, intent);
@@ -168,11 +191,13 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
             </form>
             <form class="import-reopen" on:submit=move |event| {
                 event.prevent_default();
+                if read_blocked() {return;}
                 if let Some(reading) = state.get_untracked().start_read() {
                     let id = reading.source_id.clone();
                     let actor = reading.actor.clone();
                     let ticket = reading.ticket;
                     state.set(reading);
+                    let api = api.snapshot();
                     spawn_local(async move {
                         match api.read_import(&id).await {
                             Ok(response) => { let _ = state.try_update(|editor| *editor = editor.loaded(ticket, &actor, response)); }
@@ -184,7 +209,7 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                 <label for="import-source-id">{move || copy().source_id}</label>
                 <div class="toolbar">
                     <input class="cui-field-control" id="import-source-id" maxlength="36" disabled=blocked autocomplete="off" spellcheck="false"
-                        prop:value=move || state.with(|editor| editor.source_id.clone())
+                        prop:value=move || state.with(|editor| if editor.can_edit() {editor.source_id.clone()} else {String::new()})
                         on:input=move |event| state.update(|editor| *editor = editor.select_source(event_target_value(&event))) />
                     <button class="cui-button" data-variant="secondary" type="submit" disabled=read_blocked aria-describedby="import-reason">{move || copy().open}</button>
                 </div>
@@ -206,16 +231,28 @@ pub fn ManuscriptImport(actor: Signal<String>, english: RwSignal<bool>) -> impl 
                     </ul>
                 </Show>
             </div>
-            {move || state.with(|editor| editor.stored.clone()).map(|record| view! { <SourcePreview record=record english=english /> })}
+            {move || state.with(|editor| editor.stored.clone()).map(|record| view! { <SourcePreview record=record english=english session_pending=session_pending /> })}
         </section>
     }
 }
 
 #[component]
-fn SourcePreview(record: ImportResponse, english: RwSignal<bool>) -> impl IntoView {
+fn SourcePreview(
+    record: ImportResponse,
+    english: RwSignal<bool>,
+    session_pending: Signal<bool>,
+) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
-    let download = api.original_import_path(&record.id).ok();
     let record = StoredValue::new(record);
+    // A retained owner's preview can survive a new login by that same owner. The link must
+    // adopt that newly confirmed session, while an unconfirmed/different owner gets no URL.
+    let download = Memo::new(move |_| {
+        if session_pending.get() {
+            None
+        } else {
+            record.with_value(|record| api.snapshot().original_import_path(&record.id).ok())
+        }
+    });
     let copy = move || messages::import_copy(english.get());
     view! {
         <section aria-labelledby="import-stored-title" class="import-stored">
@@ -239,7 +276,9 @@ fn SourcePreview(record: ImportResponse, english: RwSignal<bool>) -> impl IntoVi
                     <h3 id="import-original-title">{move || copy().original}</h3>
                     {record.with_value(|record| record.original_text.clone()).map(|text| view! { <pre tabindex="0" lang="vi-VN">{text}</pre> })}
                     <Show when=move || record.with_value(|record| record.original_text.is_none())><p>{move || copy().binary}</p></Show>
-                    {download.map(|path| view! { <a class="download-original" href=path download=record.with_value(|record| record.metadata.file_name.clone())>{move || copy().download}</a> })}
+                    <Show when=move || download.with(Option::is_some)>
+                        <a class="download-original" href=move || download.get().unwrap_or_default() download=record.with_value(|record| record.metadata.file_name.clone())>{move || copy().download}</a>
+                    </Show>
                 </section>
                 <section aria-labelledby="import-parsed-title">
                     <h3 id="import-parsed-title">{move || copy().parsed}</h3>

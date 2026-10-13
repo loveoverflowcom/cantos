@@ -72,8 +72,11 @@ Studio audit manifests do not themselves authorize Theatre playback.
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
 and adds exact external keys with explicit operator registration/linking. The bounded
-[Studio OIDC](../architecture/studio-oidc.md) slice has signed-mock/local-SQL evidence; live provider
-acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
 using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
 before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
@@ -191,11 +194,34 @@ checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MV
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
 
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.
+
+
+## Identity integration order
+
+Consume the [exact identity registry](../architecture/identity-registry.md) before credential
+issuance, then integrate Studio OIDC, Theatre Web/native identity and Admin authorization in that
+order. Preserve the [handoff](identity-authentication-handoff.md#integrated-registry-consumption)
+and additive migration checksums. Current local/mock acceptance belongs in evidence records;
+production provider/client preparation, native runtime acceptance and explicit cross-client
+identity linking remain separate prerequisites. Equal email or subject text across different
+issuers never establishes a shared actor. GitHub owns execution status.
+
 The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
-published registry/Studio dependencies and the now-merged Listener Library seam. Its separate
-Web BFF and account fencing precede actual Web Library sync; CMP protocol/OS-adapter groundwork
-now connects to native public-client exchange/resource IO in migration0024; provider/device
-acceptance follows current combined source verification and the Android manifest permission
-exception. Admin0022 and the parent Ultra combined review remain in the identity sequence.
-GitHub PRs own execution/merge status; this ordering
-does not accept live providers, native playback or guest-import policy.
+reviewed registry/Studio dependencies and the merged Listener Library seam. Preserve the latest
+[Studio integrated acceptance](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+and its HTTP negotiation/session fences while integrating Theatre's separate Web BFF, account
+fencing and native public-client exchange/resource IO in migration0024. Current combined Theatre
+verification is pending. Android INTERNET/callback registration and host mounting remain
+unapplied after automatic approval review rejected the source activation; the direct human
+exception is pending. Provider/device/secure-store and native playback acceptance remain separate.
+Admin0022 follows in PR4; this queue does not claim the four-PR campaign complete or accept a
+guest-import policy.

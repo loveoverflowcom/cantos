@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform")
+    kotlin("plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose")
 }
@@ -116,6 +117,25 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
     }
 }
 
+// Embed the shared independent corpus for every configured test target. Python is a primitive
+// of the existing Gradle/xtask verification route, not another repository command surface.
+val protobufCorpus = rootProject.file("../../../packages/contracts/fixtures/protobuf/v1")
+val generatedProtobufDirectory = layout.buildDirectory.dir("generated/protobufVectors/commonTest/kotlin")
+val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
+    val generator = rootProject.file("tooling/embed_protobuf_fixtures.py")
+    val goldens = protobufCorpus.resolve("goldens.json")
+    val hostile = providers.gradleProperty("cantos.protobuf.hostileFixture").orNull
+        ?.let { file(it) } ?: protobufCorpus.resolve("hostile.json")
+    inputs.files(generator, goldens, hostile)
+    outputs.dir(generatedProtobufDirectory)
+    commandLine(
+        "python3", generator.absolutePath, goldens.absolutePath, hostile.absolutePath,
+        generatedProtobufDirectory.get().asFile.resolve(
+            "com/cantos/theatre/adapters/protobuf/CanonicalProtobufVectors.kt",
+        ).absolutePath,
+    )
+}
+
 if (androidEnabled) {
     // AGP enters the root classpath only for the Android opt-in, keeping desktop configuration
     // independent of AGP and the SDK. This is configuration of its actual extension, not a stub.
@@ -205,7 +225,9 @@ kotlin {
                 implementation(compose.runtime)
                 implementation(compose.components.resources)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.9.0")
                 implementation(compose.foundation)
                 implementation(compose.ui)
                 implementation("org.jetbrains.compose.material3:material3:1.8.2")
@@ -217,10 +239,11 @@ kotlin {
         commonTest {
             kotlin.srcDir(generatePlaybackVectors)
             kotlin.srcDir(generateClientBoundaryVectors)
+            kotlin.srcDir(generateProtobufVectors)
             dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             }
         }
         val desktopMain by getting {

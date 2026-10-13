@@ -200,6 +200,68 @@ fn config_and_cookie_policy_cannot_enable_remote_http_or_cross_origin_metadata()
 
 use crate::platform::oidc::mock;
 
+#[test]
+fn immutable_browser_inventory_is_bounded_duplicate_free_and_has_no_identity_authority() {
+    let values = (0..MAX_BROWSER_FLOWS)
+        .map(|i| (format!("{i:064x}"), "b".repeat(64)))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        BrowserInventory::new(values.clone()).unwrap().len(),
+        MAX_BROWSER_FLOWS
+    );
+    let mut overflow = values.clone();
+    overflow.push(("f".repeat(64), "c".repeat(64)));
+    assert!(matches!(
+        BrowserInventory::new(overflow),
+        Err(AuthError::State)
+    ));
+    assert!(matches!(
+        BrowserInventory::new(vec![values[0].clone(), values[0].clone()]),
+        Err(AuthError::State)
+    ));
+    assert!(matches!(
+        BrowserInventory::new(vec![("not-a-state".into(), "b".repeat(64))]),
+        Err(AuthError::State)
+    ));
+    assert!(matches!(
+        BrowserInventory::new(vec![("a".repeat(64), "raw-provider-token".into())]),
+        Err(AuthError::State)
+    ));
+}
+
+#[tokio::test]
+async fn oauth_basic_form_encoding_handles_special_secret_at_every_endpoint() {
+    let mock = mock::MockProvider::start(100).await;
+    let secret = "a+b%: đ";
+    *mock.data.expected_secret.lock().unwrap() = secret.into();
+    let provider = provider::Provider::new(
+        OidcConfig::new(&mock.issuer(), "http://127.0.0.1:8080", secret.into()).unwrap(),
+    )
+    .unwrap();
+    let url = provider
+        .authorization_url("state", "nonce", "verifier", 100)
+        .await
+        .unwrap();
+    let (_, code) = mock.issue(&url, "one", None);
+    let exchange = provider
+        .exchange(&code, "verifier", "nonce", || Ok(100))
+        .await
+        .unwrap();
+    assert_eq!(
+        provider
+            .introspect(&exchange.access_token, "one", || Ok(100))
+            .await,
+        Ok(300)
+    );
+    assert_eq!(provider.revoke(&exchange.access_token, 100).await, Ok(()));
+    assert_eq!(
+        provider
+            .introspect(&exchange.access_token, "one", || Ok(100))
+            .await,
+        Err(AuthError::Inactive)
+    );
+}
+
 #[tokio::test]
 async fn real_http_exchange_pkce_rotation_bounded_refresh_and_provider_disable() {
     use std::sync::atomic::Ordering;

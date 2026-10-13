@@ -103,6 +103,8 @@ pub struct Data {
     pub last_id_token: Mutex<Option<String>>,
     pub introspection_calls: AtomicUsize,
     pub introspection_fail: AtomicBool,
+    pub revoke_calls: AtomicUsize,
+    pub expected_secret: Mutex<String>,
     pub token_pauses: Mutex<HashMap<String, Arc<TokenPause>>>,
 }
 pub struct MockProvider {
@@ -137,6 +139,8 @@ impl MockProvider {
             last_id_token: Mutex::new(None),
             introspection_calls: AtomicUsize::new(0),
             introspection_fail: AtomicBool::new(false),
+            revoke_calls: AtomicUsize::new(0),
+            expected_secret: Mutex::new("fixture".into()),
             token_pauses: Mutex::new(HashMap::new()),
         });
         let router = Router::new()
@@ -207,6 +211,18 @@ impl MockProvider {
             .unwrap()
             .expires = self.data.now.load(Ordering::SeqCst);
     }
+    pub fn pause_code(&self, code: &str) -> Arc<TokenPause> {
+        let pause = Arc::new(TokenPause {
+            entered: tokio::sync::Notify::new(),
+            release: tokio::sync::Notify::new(),
+        });
+        self.data
+            .token_pauses
+            .lock()
+            .unwrap()
+            .insert(code.into(), pause.clone());
+        pause
+    }
     pub fn rotate(&self, kid: &str) {
         *self.data.signer.lock().unwrap() = Signer::new(kid);
     }
@@ -216,11 +232,37 @@ impl Drop for MockProvider {
         self.task.abort();
     }
 }
-fn basic(headers: &HeaderMap, client_id: &str) -> bool {
-    headers.get("authorization").is_some_and(|v| {
-        v.as_bytes()
-            == format!("Basic {}", STANDARD.encode(format!("{client_id}:fixture"))).as_bytes()
-    })
+fn basic(headers: &HeaderMap, data: &Data) -> bool {
+    let Some(encoded) = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Basic "))
+    else {
+        return false;
+    };
+    let Ok(decoded) = STANDARD.decode(encoded) else {
+        return false;
+    };
+    let Ok(decoded) = String::from_utf8(decoded) else {
+        return false;
+    };
+    let Some((client, password)) = decoded.split_once(':') else {
+        return false;
+    };
+    // RFC6749 client_secret_basic decodes form encoding after Basic. This oracle exercises
+    // a protocol implementation instead of copying the production header encoder.
+    let Ok(url) = reqwest::Url::parse(&format!(
+        "https://fixture.invalid/?client={client}&secret={password}"
+    )) else {
+        return false;
+    };
+    let pairs: HashMap<_, _> = url.query_pairs().collect();
+    pairs
+        .get("client")
+        .is_some_and(|value| value == data.client_id)
+        && pairs
+            .get("secret")
+            .is_some_and(|value| value.as_ref() == data.expected_secret.lock().unwrap().as_str())
 }
 async fn discovery(State(data): State<Arc<Data>>) -> Json<Value> {
     let o = &data.origin;
@@ -255,7 +297,7 @@ async fn token(
             || form.get("client_id").map(String::as_str) != Some(data.client_id)
             || form.contains_key("client_secret")
     } else {
-        !basic(&headers, data.client_id)
+        !basic(&headers, &data)
     } {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
@@ -336,7 +378,7 @@ async fn introspect(
     if if data.client_id == "cantos-theatre-native" {
         headers.contains_key("authorization") || form.contains_key("client_secret")
     } else {
-        !basic(&headers, data.client_id)
+        !basic(&headers, &data)
     } {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
@@ -357,10 +399,11 @@ async fn revoke(
     headers: HeaderMap,
     Form(form): Form<HashMap<String, String>>,
 ) -> StatusCode {
+    data.revoke_calls.fetch_add(1, Ordering::SeqCst);
     if if data.client_id == "cantos-theatre-native" {
         headers.contains_key("authorization") || form.contains_key("client_secret")
     } else {
-        !basic(&headers, data.client_id)
+        !basic(&headers, &data)
     } {
         return StatusCode::UNAUTHORIZED;
     }

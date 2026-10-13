@@ -3,7 +3,7 @@ use cantos_contracts::*;
 const ID: &str = "10000000-0000-4000-8000-000000000001";
 
 #[test]
-fn only_owner_401_invalidates_studio_authentication_not_producer_or_permission_denial() {
+fn only_owner_authentication_denials_invalidate_not_producer_or_permission_denial() {
     let rendition: AudioRenditionDocument = serde_json::from_slice(include_bytes!(
         "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
     ))
@@ -25,6 +25,25 @@ fn only_owner_401_invalidates_studio_authentication_not_producer_or_permission_d
         ErrorCode::Unauthenticated
     );
     assert_eq!(denied.owner_session_denial(&producer), None);
+    let changed = ClientError::http(
+        409,
+        br#"{"code":"unauthenticated","current_revision":null,"issues":[]}"#,
+    );
+    assert_eq!(
+        changed.owner_session_denial(&owner).unwrap().code,
+        ErrorCode::Unauthenticated
+    );
+    assert_eq!(changed.owner_session_denial(&producer), None);
+    for status in [401, 403, 409, 503] {
+        assert_eq!(
+            ClientError::http(
+                status,
+                br#"{"code":"forbidden","current_revision":null,"issues":[]}"#
+            )
+            .owner_session_denial(&owner),
+            None
+        );
+    }
     // An unknown Upload's reconciliation is an owner-cookie read, unlike direct producer PUT.
     let state = RequestState::default().context("alice", ID).unwrap();
     let (sending, ticket) = state.begin(producer).unwrap();
