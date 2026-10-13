@@ -14,6 +14,11 @@ fn check<M: Message + Default + PartialEq + std::fmt::Debug>(message: M, expecte
     assert_eq!(M::decode(expected).unwrap(), message);
 }
 fn main() {
+    assert_eq!(
+        include_str!(concat!(env!("OUT_DIR"), "/cantos.studio.wire.v1.rs")),
+        include_str!("../../../../packages/contracts/api/src/protobuf/generated.rs"),
+        "generated prost wire drift: regenerate from reviewed schema, never edit generated types"
+    );
     let path = std::env::args().nth(1).expect("goldens path");
     let corpus: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let cases = corpus["cases"].as_array().unwrap();
