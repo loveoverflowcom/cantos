@@ -6,6 +6,7 @@ pub enum Route {
     Explore,
     Work(WorkId),
     Library,
+    History,
     Player,
     Queue,
     Settings,
@@ -18,6 +19,7 @@ impl Route {
             "" | "discover" => Self::Discover,
             "explore" => Self::Explore,
             "library" => Self::Library,
+            "history" => Self::History,
             "player" => Self::Player,
             "queue" => Self::Queue,
             "settings" => Self::Settings,
@@ -35,11 +37,21 @@ impl Route {
             Self::Explore => "#explore".into(),
             Self::Work(id) => format!("#work/{}", id.slug()),
             Self::Library => "#library".into(),
+            Self::History => "#history".into(),
             Self::Player => "#player".into(),
             Self::Queue => "#queue".into(),
             Self::Settings => "#settings".into(),
             Self::Account => "#account".into(),
             Self::NotFound => "#not-found".into(),
+        }
+    }
+
+    /// Detail and history routes belong to one of the two main navigation destinations.
+    pub fn primary_navigation(self) -> Option<Self> {
+        match self {
+            Self::Discover | Self::Explore | Self::Work(_) => Some(Self::Discover),
+            Self::Library | Self::History => Some(Self::Library),
+            Self::Player | Self::Queue | Self::Settings | Self::Account | Self::NotFound => None,
         }
     }
 }
@@ -53,6 +65,7 @@ mod tests {
             Route::Discover,
             Route::Explore,
             Route::Library,
+            Route::History,
             Route::Player,
             Route::Queue,
             Route::Settings,
@@ -68,5 +81,18 @@ mod tests {
             );
         }
         assert_eq!(Route::from_hash("#work/secret-draft"), Route::NotFound);
+    }
+
+    #[test]
+    fn nested_routes_keep_their_primary_destination() {
+        assert_eq!(Route::Explore.primary_navigation(), Some(Route::Discover));
+        for work in WorkId::ALL {
+            assert_eq!(
+                Route::Work(work).primary_navigation(),
+                Some(Route::Discover)
+            );
+        }
+        assert_eq!(Route::History.primary_navigation(), Some(Route::Library));
+        assert_eq!(Route::Account.primary_navigation(), None);
     }
 }

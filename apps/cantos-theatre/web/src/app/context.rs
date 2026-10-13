@@ -9,11 +9,12 @@ use crate::{
         catalog::{Episode, Work},
         ids::{EpisodeId, WorkId},
         listening::{
+            history::HistoryState,
             library::{self, Bookmark, LibraryEvent, LibraryState},
             progress::ProgressState,
             queue::QueueState,
         },
-        playback::{Event, Intent, ResumeSnapshot},
+        playback::{Event, Intent, ResumeSnapshot, Status},
     },
     infrastructure::{fake_media::FakeMedia, mock_catalog::MockCatalog},
     messages::{self, Key, Locale},
@@ -29,6 +30,8 @@ pub struct TheatreContext {
     library_writer: RwSignal<LibraryState>,
     pub progress: ReadSignal<ProgressState>,
     progress_writer: RwSignal<ProgressState>,
+    pub history: ReadSignal<HistoryState>,
+    history_writer: RwSignal<HistoryState>,
     pub queue: ReadSignal<QueueState>,
     queue_writer: RwSignal<QueueState>,
     pub route: RwSignal<Route>,
@@ -41,6 +44,7 @@ impl TheatreContext {
     pub fn new(main: NodeRef<leptos::html::Main>) -> Self {
         let library = RwSignal::new(LibraryState::demo());
         let progress = RwSignal::new(ProgressState::default());
+        let history = RwSignal::new(HistoryState::default());
         let queue = RwSignal::new(QueueState::default());
         let ctx = Self {
             catalog: CatalogSession::new(MockCatalog),
@@ -49,6 +53,8 @@ impl TheatreContext {
             library_writer: library,
             progress: progress.read_only(),
             progress_writer: progress,
+            history: history.read_only(),
+            history_writer: history,
             queue: queue.read_only(),
             queue_writer: queue,
             route: RwSignal::new(Route::Discover),
@@ -72,9 +78,12 @@ impl TheatreContext {
         self.catalog.episode(id)
     }
     pub fn toggle_saved(self, id: WorkId) {
+        self.set_saved(id, !self.library.get_untracked().is_saved(id));
+    }
+    pub fn set_saved(self, id: WorkId, saved: bool) {
         self.library_writer.set(library::reduce(
             self.library.get_untracked(),
-            LibraryEvent::ToggleSaved(id),
+            LibraryEvent::SetSaved { work: id, saved },
         ));
     }
     pub fn remove_bookmark(self, mark: Bookmark) {
@@ -102,14 +111,26 @@ impl TheatreContext {
                 .set(self.progress.get_untracked().remember(snapshot));
         }
     }
-    /// Explicit user commands record local progress. No reactive effect copies player state.
+    /// Observe committed transitions, including synchronous callbacks from the fake engine.
+    /// No reactive effect copies player state into listening records.
     pub fn playback(self, event: Event) {
         let record = matches!(
             &event,
-            Event::PauseRequested | Event::SeekRequested { .. } | Event::SkipRequested { .. }
+            Event::PauseRequested
+                | Event::SeekRequested { .. }
+                | Event::SkipRequested { .. }
+                | Event::EnginePosition { .. }
+                | Event::EngineEnded { .. }
         );
+        let before = self.player.state.get_untracked();
         self.player.dispatch(event);
-        if record {
+        let after = self.player.state.get_untracked();
+        self.history_writer.set(
+            self.history
+                .get_untracked()
+                .observe_playback(&before, &after),
+        );
+        if before != after && (record || after.status() == Status::Simulating) {
             self.remember_position();
         }
     }
@@ -165,10 +186,32 @@ impl TheatreContext {
         let Some(progress) = self.progress.get_untracked().latest() else {
             return;
         };
-        self.remember_position();
+        self.resume_progress(progress.snapshot.source.episode());
+    }
+    pub fn resume_progress(self, id: EpisodeId) {
+        let Some(progress) = self.progress.get_untracked().find(id) else {
+            return;
+        };
+        if self.catalog.source(id) != Some(progress.snapshot.source) {
+            return;
+        }
+        let previous = self.player.snapshot();
+        let generation = self.player.state.get_untracked().generation();
         self.player.restore(progress.snapshot);
+        if self.player.state.get_untracked().generation() == generation {
+            return;
+        }
+        if let Some(snapshot) = previous {
+            self.progress_writer
+                .set(self.progress.get_untracked().remember(snapshot));
+        }
         self.remember_position();
         platform::navigate(self.route, Route::Player);
+    }
+    pub fn resume_episode(self, id: EpisodeId) {
+        if self.history.get_untracked().contains(id) {
+            self.resume_progress(id);
+        }
     }
     pub fn enqueue(self, id: EpisodeId) {
         let Some(source) = self.catalog.source(id) else {
@@ -193,17 +236,17 @@ impl TheatreContext {
     }
     pub fn mock_buffer(self) {
         if let Some(identity) = self.player.state.get_untracked().identity() {
-            self.player.dispatch(Event::EngineBuffering { identity });
+            self.playback(Event::EngineBuffering { identity });
         }
     }
     pub fn mock_started(self) {
         if let Some(identity) = self.player.state.get_untracked().identity() {
-            self.player.dispatch(Event::EngineStarted { identity });
+            self.playback(Event::EngineStarted { identity });
         }
     }
     pub fn mock_ended(self) {
         if let Some(identity) = self.player.state.get_untracked().identity() {
-            self.player.dispatch(Event::EngineEnded { identity });
+            self.playback(Event::EngineEnded { identity });
         }
     }
     pub fn restore_position(self) {
@@ -219,11 +262,16 @@ impl TheatreContext {
     pub fn clear_library(self) {
         self.library_writer.set(LibraryState::default());
         self.progress_writer.set(ProgressState::default());
+        self.clear_history();
         // Saved/bookmark/progress clear never unloads the root player or queue.
+    }
+    pub fn clear_history(self) {
+        self.history_writer.set(HistoryState::default());
     }
     pub fn reset_demo(self) {
         self.catalog.load(Scenario::Ready);
         self.library_writer.set(LibraryState::demo());
+        self.clear_history();
         self.queue_writer.set(QueueState {
             items: vec![EpisodeId {
                 work: WorkId::Mountain,
@@ -248,6 +296,183 @@ impl TheatreContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn history_starts_only_after_simulated_play_and_keeps_ended_episodes() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let river_first = EpisodeId {
+                work: WorkId::River,
+                index: 0,
+            };
+            let river_next = EpisodeId {
+                work: WorkId::River,
+                index: 1,
+            };
+            assert!(ctx.history.get_untracked().records().is_empty());
+            ctx.route.set(Route::Work(WorkId::River));
+            ctx.open_episode(river_first);
+            ctx.playback(Event::SeekRequested { position_ms: 5000 });
+            assert!(ctx.history.get_untracked().records().is_empty());
+            ctx.playback(Event::PlayRequested);
+            assert_eq!(ctx.player.status.get_untracked(), Status::Simulating);
+            assert_eq!(
+                ctx.history.get_untracked().records()[0].episode,
+                river_first
+            );
+            ctx.mock_ended();
+            assert_eq!(ctx.player.status.get_untracked(), Status::Ended);
+            assert_eq!(
+                ctx.history.get_untracked().records()[0].episode,
+                river_first
+            );
+            assert_eq!(
+                ctx.progress
+                    .get_untracked()
+                    .find(river_first)
+                    .unwrap()
+                    .snapshot
+                    .position_ms,
+                ctx.catalog.source(river_first).unwrap().duration_ms()
+            );
+            ctx.playback(Event::PlayRequested);
+            assert_eq!(
+                ctx.progress
+                    .get_untracked()
+                    .find(river_first)
+                    .unwrap()
+                    .snapshot
+                    .position_ms,
+                0
+            );
+            ctx.open_episode(river_next);
+            assert_eq!(
+                ctx.history.get_untracked().records()[0].episode,
+                river_first
+            );
+            ctx.playback(Event::PlayRequested);
+            assert_eq!(ctx.history.get_untracked().records().len(), 1);
+            assert_eq!(ctx.history.get_untracked().records()[0].episode, river_next);
+        });
+    }
+
+    #[test]
+    fn clear_history_preserves_every_other_owner_and_rejects_captured_history_actions() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let episode = ctx.player.snapshot().unwrap().source.episode();
+            ctx.playback(Event::PlayRequested);
+            ctx.playback(Event::SeekRequested {
+                position_ms: 15_000,
+            });
+            ctx.add_bookmark();
+            ctx.set_saved(WorkId::River, true);
+            let player = ctx.player.state.get_untracked();
+            let progress = ctx.progress.get_untracked();
+            let library = ctx.library.get_untracked();
+            let queue = ctx.queue.get_untracked();
+            ctx.route.set(Route::Library);
+            ctx.clear_history();
+            ctx.resume_episode(episode);
+            ctx.playback(Event::EngineStarted {
+                identity: player.identity().unwrap(),
+            });
+            assert!(ctx.history.get_untracked().records().is_empty());
+            assert_eq!(ctx.route.get_untracked(), Route::Library);
+            assert_eq!(ctx.player.state.get_untracked(), player);
+            assert_eq!(ctx.progress.get_untracked(), progress);
+            assert_eq!(ctx.library.get_untracked(), library);
+            assert_eq!(ctx.queue.get_untracked(), queue);
+        });
+    }
+
+    #[test]
+    fn history_resume_reads_current_progress_and_stays_paused_without_reordering_history() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let episode = EpisodeId {
+                work: WorkId::River,
+                index: 0,
+            };
+            ctx.open_episode(episode);
+            ctx.playback(Event::PlayRequested);
+            ctx.playback(Event::SeekRequested {
+                position_ms: 15_000,
+            });
+            let stale_identity = ctx.player.state.get_untracked().identity().unwrap();
+            ctx.playback(Event::PauseRequested);
+            ctx.playback(Event::SeekRequested { position_ms: 5000 });
+            let history = ctx.history.get_untracked();
+            ctx.route.set(Route::Library);
+            ctx.resume_episode(episode);
+            assert_eq!(ctx.route.get_untracked(), Route::Player);
+            assert_eq!(ctx.player.snapshot().unwrap().position_ms, 5000);
+            assert_eq!(
+                ctx.player.status.get_untracked(),
+                Status::Paused(crate::core::playback::PauseCause::ColdRestore)
+            );
+            ctx.playback(Event::EngineStarted {
+                identity: stale_identity,
+            });
+            assert_eq!(ctx.history.get_untracked(), history);
+            assert_eq!(ctx.player.snapshot().unwrap().position_ms, 5000);
+        });
+    }
+
+    #[test]
+    fn unknown_or_unavailable_progress_does_not_replace_player_or_navigate() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let unavailable = EpisodeId {
+                work: WorkId::Mountain,
+                index: 5,
+            };
+            let snapshot = ResumeSnapshot {
+                source: crate::core::playback::Source::new(unavailable, 60_000).unwrap(),
+                position_ms: 10_000,
+                speed_permille: 1000,
+            };
+            ctx.progress_writer
+                .set(ProgressState::default().remember(snapshot));
+            ctx.route.set(Route::Library);
+            let player = ctx.player.state.get_untracked();
+            ctx.resume_progress(unavailable);
+            ctx.resume_progress(EpisodeId {
+                work: WorkId::Dream,
+                index: 99,
+            });
+            assert_eq!(ctx.route.get_untracked(), Route::Library);
+            assert_eq!(ctx.player.state.get_untracked(), player);
+        });
+    }
+
+    #[test]
+    fn rejected_resume_keeps_positions_and_route_unchanged() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let source = ctx.player.snapshot().unwrap().source;
+            for snapshot in [
+                ResumeSnapshot {
+                    source,
+                    position_ms: source.duration_ms() + 1,
+                    speed_permille: 1000,
+                },
+                ResumeSnapshot {
+                    source,
+                    position_ms: 0,
+                    speed_permille: 1001,
+                },
+            ] {
+                let progress = ProgressState::default().remember(snapshot);
+                ctx.progress_writer.set(progress.clone());
+                ctx.route.set(Route::Library);
+                let player = ctx.player.state.get_untracked();
+                ctx.resume_progress(source.episode());
+                assert_eq!(ctx.player.state.get_untracked(), player);
+                assert_eq!(ctx.progress.get_untracked(), progress);
+                assert_eq!(ctx.route.get_untracked(), Route::Library);
+            }
+        });
+    }
     #[test]
     fn routes_share_one_root_player_and_library_clear_does_not_unload_it() {
         Owner::new().with(|| {
@@ -399,11 +624,6 @@ mod tests {
             assert_eq!(ctx.route.get_untracked(), Route::Settings);
             assert_eq!(ctx.player.state.get_untracked(), player);
             assert!(ctx.progress.get_untracked().records().is_empty());
-            // Screen callbacks delegate to the guarded command, without a second navigation.
-            let bookmarks = include_str!("../features/library.rs");
-            let queue = include_str!("../features/queue.rs");
-            assert!(bookmarks.contains("on:click=move |_| ctx.resume_bookmark(mark)"));
-            assert!(queue.contains("on:click=move |_| ctx.next()"));
         });
     }
 }

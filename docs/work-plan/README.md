@@ -82,6 +82,12 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   [Web mock](../evidence/theatre-web-mock.md) and [PR 02 local/browser validation](../evidence/theatre-web-pr02.md)
   establish the mock foundation only, including shared Web control-label alignment. Retain it while implementing publication and the authorized
   listener API first; neither completes 040 nor its issues.
+  The [#35 Web library MVP mock](../evidence/theatre-web-library-mvp.md) provides a bounded UX
+  review step: Khám phá/Của tôi navigation, direct Continue/Saved/History sections and persistent
+  mock mini-player. Review this presentation before its later CMP counterpart; retain publication,
+  listener identity/API and real playback/synchronization prerequisites for production acceptance.
+  The mock does not settle the broader product/backend decisions tracked by
+  [#34](https://github.com/loveoverflowcom/cantos/issues/34) or close #35.
 - [050 — native Theatre Mobile](050-cmp-native-listening.md). The memory-only
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
 

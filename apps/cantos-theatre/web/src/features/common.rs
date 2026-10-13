@@ -68,11 +68,14 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
 pub(crate) fn SaveAction(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     view! {
         <button type="button" class="theatre-action theatre-action-tonal"
-            aria-pressed=move || ctx.library.with(|state| state.is_saved(id)).to_string()
-            aria-label=move || ctx.format(Key::SaveName, &[("title", ctx.work(id).title.to_owned())])
-            on:click=move |_| { ctx.toggle_saved(id); if ctx.route.get_untracked() == Route::Library { platform::focus_main(ctx.main); } }>
-            {icon("bookmark_border")}
-            <span class="cui-control-label">{move || ctx.text(Key::Save)}</span>
+            aria-label=move || ctx.format(if ctx.library.with(|state| state.is_saved(id)) { Key::RemoveSaveName } else { Key::SaveName }, &[("title", ctx.work(id).title.to_owned())])
+            on:click=move |_| {
+                let desired = !ctx.library.with_untracked(|state| state.is_saved(id));
+                ctx.set_saved(id, desired);
+                if ctx.route.get_untracked() == Route::Library && !desired { platform::focus_main(ctx.main); }
+            }>
+            {move || icon(if ctx.library.with(|state| state.is_saved(id)) { "check" } else { "bookmark_border" })}
+            <span class="cui-control-label">{move || ctx.text(if ctx.library.with(|state| state.is_saved(id)) { Key::RemoveSave } else { Key::Save })}</span>
         </button>
     }
 }

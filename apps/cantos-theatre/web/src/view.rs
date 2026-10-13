@@ -4,8 +4,7 @@ use crate::{
     features::{
         common::*,
         discovery::Discover,
-        explore::Explore,
-        library::Library,
+        library::{History, Library},
         player::{MiniPlayer, Player},
         queue::Queue,
         work_detail::WorkDetail,
@@ -54,16 +53,25 @@ pub fn Theatre() -> impl IntoView {
                 <div class="theatre-content">
                     <header class="theatre-topbar">
                         <p>"Cantos"<span aria-hidden="true">" / "</span>{move || ctx.text(messages::route_key(ctx.route.get()))}</p>
-                        <span class="theatre-demo-label">{move || ctx.text(Key::DemoBadge)}</span>
+                        <div class="theatre-topbar-actions">
+                            <span class="theatre-demo-label">{move || ctx.text(Key::DemoBadge)}</span>
+                            <a class="theatre-avatar" href="#account" aria-label=move || ctx.text(Key::Account)
+                                aria-current=move || (ctx.route.get() == Route::Account).then_some("page")>
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <circle cx="12" cy="8" r="4" fill="currentColor"/>
+                                    <path d="M4 21v-2a8 8 0 0 1 16 0v2Z" fill="currentColor"/>
+                                </svg>
+                            </a>
+                        </div>
                     </header>
                     <Container width=ContainerWidth::Wide>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             <p class="theatre-demo-notice" id="theatre-demo-notice">{move || ctx.text(Key::DemoNotice)}</p>
                             {move || match ctx.route.get() {
-                                Route::Discover => view! { <Discover ctx=ctx/> }.into_any(),
-                                Route::Explore => view! { <Explore ctx=ctx/> }.into_any(),
+                                Route::Discover | Route::Explore => view! { <Discover ctx=ctx/> }.into_any(),
                                 Route::Work(id) => view! { <WorkDetail ctx=ctx id=id/> }.into_any(),
                                 Route::Library => view! { <Library ctx=ctx/> }.into_any(),
+                                Route::History => view! { <History ctx=ctx/> }.into_any(),
                                 Route::Player => view! { <Player ctx=ctx/> }.into_any(),
                                 Route::Queue => view! { <Queue ctx=ctx/> }.into_any(),
                                 Route::Settings => view! { <Settings ctx=ctx/> }.into_any(),
@@ -84,17 +92,13 @@ pub fn Theatre() -> impl IntoView {
 fn Navigation(ctx: TheatreContext) -> impl IntoView {
     [
         (Route::Discover, Key::Discover, "home"),
-        (Route::Explore, Key::Explore, "search"),
         (Route::Library, Key::Library, "library_books"),
-        (Route::Player, Key::Player, "headphones"),
-        (Route::Settings, Key::Settings, "settings"),
-        (Route::Account, Key::Account, "smartphone"),
     ]
     .into_iter()
     .map(move |(route, label, asset)| {
         view! {
             <a class="theatre-nav-link" href=route.hash()
-                aria-current=move || (ctx.route.get() == route).then_some("page")>
+                aria-current=move || (ctx.route.get().primary_navigation() == Some(route)).then_some("page")>
                 {icon(asset)}<span>{move || ctx.text(label)}</span>
             </a>
         }
@@ -154,6 +158,7 @@ fn Account(ctx: TheatreContext) -> impl IntoView {
             <p>{move || ctx.text(Key::AccountHelp)}</p>
             <UnsupportedAction ctx=ctx label=Key::SignIn/>
             <UnsupportedAction ctx=ctx label=Key::Sync/>
+            <a class="theatre-text-link" href="#settings">{move || ctx.text(Key::Settings)}</a>
             <a class="theatre-text-link" href="#library">{move || ctx.text(Key::Library)}</a>
         </Surface>
     }
@@ -198,9 +203,28 @@ mod tests {
             assert!(html.contains("không có âm thanh") || html.contains("Không có âm thanh"));
             assert!(html.contains("aria-label=\"Điều hướng chính\""));
             assert!(html.contains("aria-current=\"page\""));
+            assert!(html.contains("class=\"theatre-avatar\""));
+            assert!(html.contains("href=\"#account\""));
             assert!(!html.contains("Cantos Theatre"));
             for forbidden in ["<audio", "<video", "/api/v1/", "session-token", "/studio"] {
                 assert!(!html.contains(forbidden), "{forbidden}");
+            }
+        });
+    }
+    #[test]
+    fn main_navigation_has_only_discovery_and_my_library() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            for current in [Route::Discover, Route::History, Route::Work(WorkId::River)] {
+                ctx.route.set(current);
+                let html = view! { <Navigation ctx=ctx/> }.to_html();
+                assert_eq!(html.matches("class=\"theatre-nav-link\"").count(), 2);
+                assert!(html.contains("href=\"#discover\""));
+                assert!(html.contains("href=\"#library\""));
+                assert!(html.contains("aria-current=\"page\""));
+                for secondary in ["#explore", "#account", "#settings", "#player", "#queue"] {
+                    assert!(!html.contains(secondary), "{secondary}");
+                }
             }
         });
     }
