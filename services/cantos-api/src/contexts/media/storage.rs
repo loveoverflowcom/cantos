@@ -5,7 +5,12 @@
 //! Cleanup needs a separate, reference-aware retention policy; this adapter never collects it.
 //! This filesystem adapter implements private intake and authorized reads, never publication.
 
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, LazyLock},
+};
+
+use tokio::sync::Semaphore;
 
 use crate::platform::postgres::StoreError;
 
@@ -14,11 +19,36 @@ use super::domain::object_storage::{
     NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError,
 };
 
+mod config;
 pub mod port;
+pub(crate) mod registry;
+mod s3;
+mod sigv4;
 
 use port::{PrivateStorage, StorageFuture, StorageRead};
 
 const MAX_AUDIO_BYTES: u64 = super::audio_intake::MAX_AUDIO_BYTES as u64;
+
+// Hashing and durable writes are bounded independently of decoder admission. The blocking
+// closure owns its permit, so dropping its caller never admits a replacement while it runs.
+static IO_LANES: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
+
+fn bounded_filesystem_io<T: Send + 'static>(
+    lanes: Arc<Semaphore>,
+    operation: impl FnOnce() -> Result<T, StorageError> + Send + 'static,
+) -> StorageFuture<T> {
+    Box::pin(async move {
+        let permit = lanes
+            .try_acquire_owned()
+            .map_err(|_| StorageError::Unavailable)?;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            operation()
+        })
+        .await
+        .map_err(|_| StorageError::Unavailable)?
+    })
+}
 
 #[derive(Clone)]
 pub(crate) struct AudioStorage {
@@ -29,20 +59,19 @@ pub(crate) struct AudioStorage {
 impl PrivateStorage for AudioStorage {
     fn put_if_absent(&self, audio: VerifiedAudio) -> StorageFuture<()> {
         let storage = self.clone();
-        Box::pin(async move {
-            tokio::task::spawn_blocking(move || storage.persist(&audio).map(|_| ()))
-                .await
-                .map_err(|_| StorageError::Unavailable)?
-                .map_err(storage_error)
+        bounded_filesystem_io(IO_LANES.clone(), move || {
+            let stored = storage.persist(&audio).map_err(storage_error)?;
+            if stored.object_key != audio.metadata().sha256 {
+                return Err(StorageError::DigestMismatch);
+            }
+            Ok(())
         })
     }
 
     fn verify(&self, key: ObjectKey, integrity: ObjectIntegrity) -> StorageFuture<()> {
         let storage = self.clone();
-        Box::pin(async move {
-            tokio::task::spawn_blocking(move || storage.verified_file(&key, &integrity).map(|_| ()))
-                .await
-                .map_err(|_| StorageError::Unavailable)?
+        bounded_filesystem_io(IO_LANES.clone(), move || {
+            storage.verified_file(&key, &integrity).map(|_| ())
         })
     }
 
@@ -66,7 +95,7 @@ impl PrivateStorage for AudioStorage {
             if range.total_byte_length() != integrity.byte_length() {
                 return Err(StorageError::LengthMismatch);
             }
-            let file = tokio::task::spawn_blocking(move || {
+            let file = bounded_filesystem_io(IO_LANES.clone(), move || {
                 // Hash, metadata checks and named-inode verification retain this exact handle.
                 // Never verify-close-reopen: the name could select a different inode afterward.
                 let mut file = storage.verified_file(&key, &integrity)?;
@@ -74,8 +103,7 @@ impl PrivateStorage for AudioStorage {
                     .map_err(|_| StorageError::Unavailable)?;
                 Ok::<_, StorageError>(file)
             })
-            .await
-            .map_err(|_| StorageError::Unavailable)??;
+            .await?;
             let reader = tokio::fs::File::from_std(file).take(range.byte_length());
             let stream = ReaderStream::with_capacity(reader, 16 * 1024)
                 .map(|chunk| chunk.map_err(|_| StorageError::Unavailable));
@@ -91,6 +119,7 @@ impl PrivateStorage for AudioStorage {
 /// New capability consumers receive the storage port's typed failures directly.
 fn storage_error(error: StoreError) -> StorageError {
     match error {
+        StoreError::Storage(error) => error,
         StoreError::NotFound => StorageError::NotFound,
         StoreError::Forbidden | StoreError::Unauthenticated => StorageError::Forbidden,
         StoreError::InvalidRequest | StoreError::InvalidRequestFields(_) => {
@@ -140,24 +169,6 @@ impl AudioStorage {
         #[cfg(not(unix))]
         {
             let _ = verified;
-            Err(StoreError::Unavailable)
-        }
-    }
-
-    /// Re-open and hash the bounded stored object before returning a receipt or metadata.
-    pub(crate) fn verify(
-        &self,
-        object_key: &str,
-        sha256: &str,
-        byte_length: u64,
-    ) -> Result<(), StoreError> {
-        #[cfg(unix)]
-        {
-            self.inner.verify(object_key, sha256, byte_length, None)
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = (object_key, sha256, byte_length);
             Err(StoreError::Unavailable)
         }
     }
@@ -585,6 +596,40 @@ mod unix {
             }
             assert_eq!(bytes.len() as u64, read.byte_length);
             bytes
+        }
+
+        #[tokio::test]
+        async fn cancelled_blocking_io_keeps_its_lane_until_the_operation_actually_finishes() {
+            use super::super::bounded_filesystem_io;
+            use std::{sync::mpsc, time::Duration};
+            use tokio::sync::{oneshot, Semaphore};
+
+            // An isolated pool tests the production boundary without occupying other tests'
+            // global lanes. Observable channels fence the crash point; no timing sleep is used.
+            let lanes = Arc::new(Semaphore::new(1));
+            let (started, has_started) = oneshot::channel();
+            let (release, proceed) = mpsc::channel();
+            let worker = tokio::spawn(bounded_filesystem_io(lanes.clone(), move || {
+                let _ = started.send(());
+                proceed.recv().map_err(|_| StorageError::Unavailable)?;
+                Ok(())
+            }));
+            has_started.await.unwrap();
+            worker.abort();
+            assert!(worker.await.unwrap_err().is_cancelled());
+            assert_eq!(lanes.available_permits(), 0);
+            assert_eq!(
+                bounded_filesystem_io(lanes.clone(), || Ok(())).await,
+                Err(StorageError::Unavailable)
+            );
+            release.send(()).unwrap();
+            let returned =
+                tokio::time::timeout(Duration::from_secs(2), lanes.clone().acquire_owned())
+                    .await
+                    .unwrap()
+                    .unwrap();
+            drop(returned);
+            assert_eq!(lanes.available_permits(), 1);
         }
 
         #[tokio::test]

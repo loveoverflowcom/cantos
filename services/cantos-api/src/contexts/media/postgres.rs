@@ -5,6 +5,10 @@ use sha2::{Digest, Sha256};
 use tokio_postgres::{error::SqlState, Row};
 
 use super::audio_intake::DeliveryProfile;
+use super::domain::object_storage::{
+    ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
+};
+use super::storage::registry::RegistryStoredAudio;
 use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
 
 const INTENT_COLUMNS: &str = "id,script_id,script_revision,content_digest,profile_id,operation_id,created_by,to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at";
@@ -122,14 +126,20 @@ pub(super) fn receipt_digest(bytes: &[u8]) -> String {
 
 pub(super) struct StoredReceipt {
     pub receipt: AudioReceiptResponse,
-    pub object_key: String,
+    object: PrivateObjectRef,
+}
+
+impl StoredReceipt {
+    pub(super) fn location(&self) -> &PrivateObjectRef {
+        &self.object
+    }
 }
 
 pub(super) async fn receipt(
     tx: &Tx<'_>,
     intent: &AudioIntentResponse,
 ) -> Result<Option<StoredReceipt>, StoreError> {
-    let row = tx.query_opt("SELECT id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at,object_key,receipt_bytes,receipt_digest FROM audio_intake_receipts WHERE intent_id=$1", &[&intent.id]).await?;
+    let row = tx.query_opt("SELECT id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,to_char(accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS accepted_at,object_key,storage_target_id,receipt_bytes,receipt_digest FROM audio_intake_receipts WHERE intent_id=$1", &[&intent.id]).await?;
     let Some(row) = row else {
         return Ok(None);
     };
@@ -181,22 +191,33 @@ pub(super) async fn receipt(
     {
         return Err(StoreError::CorruptRevision);
     }
-    Ok(Some(StoredReceipt {
-        receipt,
-        object_key,
-    }))
+    let target: String = row
+        .try_get("storage_target_id")
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let target = StorageTargetId::parse(&target).map_err(|_| StoreError::CorruptRevision)?;
+    let key = ObjectKey::parse(&object_key).map_err(|_| StoreError::CorruptRevision)?;
+    let integrity = ObjectIntegrity::new(&receipt.media.sha256, receipt.media.byte_length)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let object =
+        PrivateObjectRef::new(target, key, integrity).map_err(|_| StoreError::CorruptRevision)?;
+    Ok(Some(StoredReceipt { receipt, object }))
 }
 
 pub(super) async fn insert_receipt(
     tx: &Tx<'_>,
     receipt: &AudioReceiptResponse,
-    object_key: &str,
+    stored: &RegistryStoredAudio,
 ) -> Result<(), StoreError> {
+    if stored.object_key != receipt.media.sha256 {
+        return Err(StoreError::CorruptRevision);
+    }
+    let object_key = stored.object_key.as_str();
+    let target = stored.storage_target.as_str();
     let bytes = serde_json::to_vec(receipt).map_err(|_| StoreError::CorruptRevision)?;
     let digest = receipt_digest(&bytes);
     let revision =
         i64::try_from(receipt.script_revision).map_err(|_| StoreError::CorruptRevision)?;
-    tx.execute("INSERT INTO audio_intake_receipts(id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,accepted_at,object_key,receipt_bytes,receipt_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10,$11,$12)", &[&receipt.id, &receipt.intent_id, &receipt.script_id, &revision, &receipt.content_digest, &receipt.profile_id, &receipt.operation_id, &receipt.accepted_by, &receipt.accepted_at, &object_key, &bytes, &digest]).await?;
+    tx.execute("INSERT INTO audio_intake_receipts(id,intent_id,script_id,script_revision,content_digest,profile_id,operation_id,accepted_by,accepted_at,object_key,storage_target_id,receipt_bytes,receipt_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::text::timestamptz,$10,$11,$12,$13)", &[&receipt.id, &receipt.intent_id, &receipt.script_id, &revision, &receipt.content_digest, &receipt.profile_id, &receipt.operation_id, &receipt.accepted_by, &receipt.accepted_at, &object_key, &target, &bytes, &digest]).await?;
     Ok(())
 }
 

@@ -1,0 +1,23 @@
+# Non-secret topology. Keep target IDs and their root/bucket stable for historical reads.
+version = 1
+[storage]
+active_write_target = "legacy-filesystem"
+[storage.targets.legacy-filesystem]
+driver = "filesystem"
+private_root = "/var/lib/cantos/private"
+
+# Uncomment only after operator capability acceptance, and inject credentials externally.
+# [storage.targets.s3-private]
+# driver = "s3"
+# endpoint = "https://storage.example.invalid"
+# region = "your-region"
+# private_bucket = "your-private-bucket"
+# force_path_style = true
+# access_key_env = "CANTOS_S3_ACCESS_KEY_ID"
+# secret_key_env = "CANTOS_S3_SECRET_ACCESS_KEY"
+# session_token_env = "CANTOS_S3_SESSION_TOKEN" # omit for long-lived keys
+# connect_timeout_ms = 3000
+# request_timeout_ms = 10000
+# conditional_put = true # required for active write target; no HEAD-then-PUT fallback
+# range_reads = true # absent capability fails closed on Range requests
+# presigned_reads = false # true requires version-pinned objects; otherwise API stream

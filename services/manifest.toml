@@ -9,7 +9,7 @@ required_dependencies = ["postgresql"]
 optional_dependencies = ["kanidm", "object-storage"]
 development = "Native cargo xtask run; explicit migrated DATABASE_URL or retained test cluster"
 production = "Planned deployment; development host is not a production runtime"
-environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT"]
+environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG"]
 ports = [8080]
 health = "Native run checks TCP readiness; no identity or publication readiness implied"
 persistence = "PostgreSQL metadata; explicit private development audio root"
@@ -61,14 +61,14 @@ health_command = ["/sbin/kanidmd", "scripting", "healthcheck", "--verify-tls", "
 
 [services.object-storage]
 runtime = "external"
-implementation = "planned"
+implementation = "configured"
 owner = "Cantos storage operator"
 required_dependencies = []
 optional_dependencies = []
-development = "Private filesystem intake exists; no local object-store service provisioned"
-production = "S3-compatible private staging and immutable delivery storage planned"
+development = "Private filesystem or explicitly configured S3 adapter; no object-store service provisioned"
+production = "Private-only S3 transport implemented; provider acceptance and publication isolation deferred"
 environment = []
 ports = []
-health = "No implemented probe"
+health = "Startup validates config only; HEAD/GET/Range acceptance requires authorized operator tests"
 persistence = "Externally managed media; no lifecycle or deletion command"
 lifecycle = "Operator-managed; services commands report external status as unobserved"

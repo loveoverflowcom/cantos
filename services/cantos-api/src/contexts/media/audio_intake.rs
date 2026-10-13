@@ -84,6 +84,10 @@ impl VerifiedAudio {
         &self.bytes
     }
 
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+
     pub fn metadata(&self) -> &AudioMetadata {
         &self.metadata
     }

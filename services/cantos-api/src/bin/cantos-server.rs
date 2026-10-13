@@ -19,7 +19,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         local_config(&env::var("DATABASE_URL")?).map_err(|_| "invalid local PostgreSQL config")?;
     // Caller-owned generation enters through authenticated context/submission tools.
     let mut store = Store::new(config).map_err(|_| "database pool unavailable")?;
-    if let Some(root) = env::var_os("CANTOS_AUDIO_ROOT") {
+    if let Some(path) = env::var_os("CANTOS_STORAGE_CONFIG") {
+        if env::var_os("CANTOS_AUDIO_ROOT").is_some() {
+            return Err("choose CANTOS_STORAGE_CONFIG or CANTOS_AUDIO_ROOT, not both".into());
+        }
+        store = store
+            .with_storage_config(std::path::Path::new(&path))
+            .map_err(|_| "invalid private storage configuration or missing secret inputs")?;
+    } else if let Some(root) = env::var_os("CANTOS_AUDIO_ROOT") {
         store = store
             .with_audio_storage(std::path::Path::new(&root))
             .map_err(|_| "invalid private development audio storage root")?;

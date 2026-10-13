@@ -3,12 +3,15 @@
 //!
 //! Business tables, queries and decisions live in each context's own `postgres` and
 //! `application` modules, never here.
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use cantos_contracts::FieldIssue;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::{Config, NoTls};
 
+use crate::contexts::media::{
+    domain::object_storage::StorageError, storage::registry::StorageRegistry,
+};
 use crate::platform::ids::canonical_uuid;
 use crate::script_ir::ReadError;
 
@@ -47,6 +50,7 @@ pub enum StoreError {
     ProductionBlocked(Vec<FieldIssue>),
     Unavailable,
     CorruptRevision,
+    Storage(StorageError),
     AudioRejected(&'static str),
     AudioInspectionUnavailable(&'static str),
 }
@@ -62,7 +66,7 @@ impl From<tokio_postgres::Error> for StoreError {
 #[derive(Clone)]
 pub struct Store {
     pool: Pool,
-    pub(crate) audio_root: Option<std::path::PathBuf>,
+    pub(crate) media_storage: Option<Arc<StorageRegistry>>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.
@@ -119,7 +123,7 @@ impl Store {
             .map_err(|_| StoreError::Unavailable)?;
         Ok(Self {
             pool,
-            audio_root: None,
+            media_storage: None,
         })
     }
 

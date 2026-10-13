@@ -181,6 +181,7 @@ fn error_response(error: StoreError) -> Response {
             None,
             issues,
         ),
+        StoreError::Storage(error) => return storage_error_response(error),
         StoreError::Unavailable => (
             StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::Unavailable,
@@ -227,4 +228,48 @@ fn error_response(error: StoreError) -> Response {
         }),
     )
         .into_response()
+}
+
+fn storage_error_response(
+    error: crate::contexts::media::domain::object_storage::StorageError,
+) -> Response {
+    use crate::contexts::media::domain::object_storage::StorageError;
+    let level = match error {
+        StorageError::NotFound => "DEBUG",
+        StorageError::Forbidden
+        | StorageError::Conflict
+        | StorageError::Timeout
+        | StorageError::Cancelled => "WARN",
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => "ERROR",
+    };
+    eprintln!(
+        "level={level} event=private_storage_operation_failed outcome={}",
+        error.code()
+    );
+    let (status, code) = match error {
+        StorageError::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
+        StorageError::Forbidden => (StatusCode::FORBIDDEN, ErrorCode::Forbidden),
+        StorageError::Conflict => (StatusCode::CONFLICT, ErrorCode::OperationReused),
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::CorruptRevision,
+        ),
+        StorageError::Timeout
+        | StorageError::Cancelled
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => {
+            (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Unavailable)
+        }
+    };
+    failure(code, status)
 }
