@@ -10,6 +10,7 @@ use crate::platform::postgres::Store;
 pub struct TheatreIdentity {
     config: OidcConfig,
     provider: Provider,
+    admission_slots: tokio::sync::Semaphore,
 }
 
 /// Browser receives only random opaque values; no provider bearer or verified proof is returned.
@@ -32,6 +33,8 @@ impl TheatreIdentity {
         let config = OidcConfig::theatre_web(issuer, web_origin, secret)?;
         Ok(Self {
             provider: Provider::new(config.clone())?,
+            // At most3 leases in the existing8-connection pool leaves capacity for dispatch.
+            admission_slots: tokio::sync::Semaphore::new(3),
             config,
         })
     }
@@ -131,6 +134,31 @@ impl TheatreIdentity {
         Ok(store.theatre_credential(&self.config, token).await?.actor)
     }
 
+    /// Owns the admission lease across the actual account dispatch; no provider I/O inside.
+    /// This concrete BFF consumer keeps transaction/session mechanics outside HTTP.
+    pub async fn with_session_admission<F, Fut, T>(
+        &self,
+        store: &Store,
+        token: &str,
+        actor: &str,
+        dispatch: F,
+    ) -> Result<T, AuthError>
+    where
+        F: FnOnce(String) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let _permit = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.admission_slots.acquire(),
+        )
+        .await
+        .map_err(|_| AuthError::Unavailable)?
+        .map_err(|_| AuthError::Unavailable)?;
+        store
+            .theatre_admission(&self.config, token, actor, dispatch)
+            .await
+    }
+
     pub async fn logout(
         &self,
         store: &Store,
@@ -208,3 +236,5 @@ fn now() -> Result<u64, AuthError> {
 
 #[cfg(test)]
 mod tests;
+
+pub mod native;

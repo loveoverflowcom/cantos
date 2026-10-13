@@ -97,3 +97,16 @@ success fallback, explicit expiry and logout linearization, cookie source matche
 Provider disable cannot be atomic with local writes; document its introspection observation boundary.
 Live production adoption must additionally resolve bearer at-rest protection, pending remote
 revocation recovery, retention/rate limits and provider SSO versus local/access logout semantics.
+
+## PR3 Theatre implementation → Admin
+
+[Theatre identity handoff](theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
+Web/CMP lifecycle groundwork and exact implemented/deferred matrix. Registry/Studio published
+heads are inherited; current develop already contains PR91/PR93/PR95, so PR3 uses Library's actual
+sealed seam through that accepted base. Migration0021 belongs to Theatre identity; Admin may use
+0022 after confirming the final combined migration registry. No historical SQL is changed.
+
+Shared `platform/oidc` now owns reused crypto/transport, while Studio/Theatre session policies and
+SQL remain independent. Admin must add its own purpose/admission/role+audit decisions; neither
+Studio nor Theatre cookie/session grants Admin. Producer grants are unchanged. The planned parent
+Ultra review after PR4 remains independent campaign acceptance; this PR does not merge or startPR4.

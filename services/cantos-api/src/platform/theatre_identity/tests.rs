@@ -1,8 +1,7 @@
 use super::*;
+use crate::platform::oidc::mock;
 use crate::platform::oidc::{config::THEATRE_WEB_CLIENT_ID, core::verify_for_client};
 use serde_json::json;
-#[path = "../../../tests/support/oidc_provider.rs"]
-mod mock;
 
 #[test]
 fn theatre_configuration_rejects_studio_native_and_admin_purposes() {

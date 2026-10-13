@@ -10,8 +10,8 @@ was provisioned. [Surface boundaries](../decisions/0015-api-surface-boundaries.m
 ## Architecture and explicit choices (L1)
 
 One modular backend owns this BFF; no Gateway, admin directory or new service. The concrete
-consumer is Studio Web through the current Studio router. `platform/studio_oidc/core.rs` owns
-pure signature/claims/expiry decisions and typed errors; `provider.rs` owns bounded HTTP/cache;
+consumer is Studio Web through the current Studio router. `platform/oidc/core.rs` now owns
+pure signature/claims/expiry decisions and typed errors; `platform/oidc/provider.rs` owns bounded HTTP/cache;
 `postgres.rs` owns durable transactions; the public application and thin Studio HTTP handlers
 compose them. Pure identity mapping remains in `platform/identity`. `ring` 0.17.14 supplies actual
 P-256 verification; base64/reqwest use already locked versions. No external identity headers,

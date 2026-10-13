@@ -100,6 +100,7 @@ TABLE_OWNER = {
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
     "actor_external_identities": "platform",
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
+    "theatre_identity_flows": "platform", "theatre_identity_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
@@ -542,6 +543,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "listening", "auth", "AuthenticatedListener"),
             ("contexts", "listening", "auth", "ListenerAuthenticator"),
             ("contexts", "listening", "auth", "DenyListenerAuthentication"),
+            ("contexts", "listening", "auth", "TheatreListenerAuthenticator"),
+            ("contexts", "listening", "auth", "TheatreListenerAuthenticator", "new"),
             ("contexts", "listening", "auth", "ListenerCredentials"),
             ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
         } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (
@@ -581,7 +584,7 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
-        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/studio_oidc/core.rs")}
+        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/oidc/core.rs")}
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")

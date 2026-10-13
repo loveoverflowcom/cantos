@@ -190,3 +190,10 @@ The [evidence record](../evidence/listener-library-progress.md) distinguishes pu
 checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
+published registry/Studio dependencies and the now-merged Listener Library seam. Its separate
+Web BFF and account fencing precede actual Web Library sync; CMP protocol/OS-adapter groundwork
+precedes native token/resource IO and device acceptance. Admin0022 and the parent Ultra combined
+review remain next in the identity sequence. GitHub PRs own execution/merge status; this ordering
+does not accept live providers, native playback or guest-import policy.

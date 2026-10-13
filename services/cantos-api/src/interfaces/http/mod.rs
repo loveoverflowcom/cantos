@@ -23,8 +23,10 @@ use crate::contexts::media::{
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
+mod cookies;
 mod studio;
 mod theatre;
+mod theatre_auth;
 mod theatre_library;
 mod wire;
 
@@ -72,13 +74,17 @@ fn router_with_services(
     publication: PublicationService,
     listener: ListenerService,
 ) -> Router {
-    router_with_identity_services(
-        state,
-        dist,
-        publication,
-        listener,
-        std::sync::Arc::new(DenyListenerAuthentication),
-    )
+    let authenticator: std::sync::Arc<dyn ListenerAuthenticator> =
+        if state.store.theatre_identity().is_some() {
+            std::sync::Arc::new(
+                crate::contexts::listening::auth::TheatreListenerAuthenticator::new(
+                    state.store.clone(),
+                ),
+            )
+        } else {
+            std::sync::Arc::new(DenyListenerAuthentication)
+        };
+    router_with_identity_services(state, dist, publication, listener, authenticator)
 }
 
 /// Trusted host composition. A real issuer adapter must authenticate before it mints a principal.
@@ -109,7 +115,15 @@ fn router_with_identity_services(
         )
         .nest(
             "/theatre",
-            theatre::routes().merge(theatre_library::routes()),
+            theatre::routes()
+                .merge(theatre_auth::routes(
+                    state.store.theatre_identity().is_some(),
+                ))
+                .merge(theatre_library::routes())
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    theatre_auth::bff_identity,
+                )),
         )
         .nest("/admin", admin::routes())
         // Deprecated pre-split Studio paths (`/api/v1/scripts/...`); same handlers as `/studio`.
@@ -191,7 +205,9 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
-    let mut response = if !valid_config || (!read && !valid_origin && !anonymous_playback && !bearer_mutation) {
+    let mut response = if !valid_config
+        || (!read && !valid_origin && !anonymous_playback && !bearer_mutation)
+    {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {

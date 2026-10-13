@@ -13,6 +13,7 @@ pub enum AccountError {
     SignedOut,
     WrongAccount,
     DuplicateIntent,
+    LogoutPending,
 }
 impl AccountScope {
     pub fn from_session(actor: String, session: String) -> Result<Self, AccountError> {
@@ -34,6 +35,8 @@ pub struct RequestFence {
     generation: u64,
     scope: AccountScope,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AccountGeneration(u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Recovery {
     SendIntent,
@@ -63,8 +66,38 @@ pub struct AccountState {
     scope: Option<AccountScope>,
     projection: Option<Vec<u8>>,
     pending: BTreeMap<String, PendingIntent>,
+    logout_pending: bool,
 }
 impl AccountState {
+    pub fn logout_pending(&self) -> bool {
+        self.logout_pending
+    }
+    pub fn begin_logout(&mut self) -> Result<AccountGeneration, AccountError> {
+        self.leave()?;
+        self.logout_pending = true;
+        Ok(self.generation())
+    }
+    pub fn finish_logout(&mut self, issued: AccountGeneration) -> bool {
+        if issued != self.generation() || !self.logout_pending {
+            return false;
+        }
+        self.logout_pending = false;
+        true
+    }
+    pub fn generation(&self) -> AccountGeneration {
+        AccountGeneration(self.generation)
+    }
+    pub fn finish_session(
+        &mut self,
+        issued: AccountGeneration,
+        scope: AccountScope,
+    ) -> Result<bool, AccountError> {
+        if issued != self.generation() {
+            return Ok(false);
+        }
+        self.enter(scope)?;
+        Ok(true)
+    }
     /// Hide old projections before any asynchronous logout or new sign-in starts.
     pub fn leave(&mut self) -> Result<(), AccountError> {
         self.scope = None;
@@ -76,6 +109,9 @@ impl AccountState {
         Ok(())
     }
     pub fn enter(&mut self, scope: AccountScope) -> Result<(), AccountError> {
+        if self.logout_pending {
+            return Err(AccountError::LogoutPending);
+        }
         self.leave()?;
         self.scope = Some(scope);
         Ok(())
@@ -199,5 +235,25 @@ mod tests {
             }
             assert!(!state.accepts(&old));
         }
+    }
+    #[test]
+    fn delayed_signed_out_session_lookup_cannot_restore_account_after_logout() {
+        let mut state = AccountState::default();
+        let issued = state.generation();
+        state.leave().unwrap();
+        assert_eq!(state.finish_session(issued, scope("A", 1)), Ok(false));
+        assert_eq!(state.fence(), Err(AccountError::SignedOut));
+    }
+    #[test]
+    fn new_login_waits_for_acknowledged_cookie_cleanup_and_unknown_logout_stays_closed() {
+        let mut state = AccountState::default();
+        state.enter(scope("A", 1)).unwrap();
+        let first = state.begin_logout().unwrap();
+        assert_eq!(state.enter(scope("B", 2)), Err(AccountError::LogoutPending));
+        let retry = state.begin_logout().unwrap();
+        assert!(!state.finish_logout(first));
+        assert!(state.logout_pending());
+        assert!(state.finish_logout(retry));
+        state.enter(scope("B", 2)).unwrap();
     }
 }

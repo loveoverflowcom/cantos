@@ -1,6 +1,6 @@
 //! Studio BFF only. No Listener/Admin identity, no production activation, no credential DTO.
 mod config;
-mod core;
+use crate::platform::oidc::core;
 mod postgres;
 mod provider;
 #[cfg(test)]

@@ -98,6 +98,38 @@ impl Store {
         })
     }
 
+    pub(super) async fn theatre_admission<F, Fut, T>(
+        &self,
+        config: &OidcConfig,
+        token: &str,
+        actor: &str,
+        dispatch: F,
+    ) -> Result<T, AuthError>
+    where
+        F: FnOnce(String) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let mut client = self.connection().await.map_err(unavailable)?;
+        let tx = client.transaction().await.map_err(unavailable)?;
+        let row = tx.query_opt("SELECT session_id::text FROM theatre_identity_sessions WHERE token_hash=$1 AND issuer=$2 AND actor_id=$3 AND NOT revoked AND expires_at>clock_timestamp() FOR SHARE", &[&token_hash(token),&config.issuer,&actor]).await.map_err(unavailable)?.ok_or(AuthError::Inactive)?;
+        let session_id: String = row.get(0);
+        let active = tx
+            .query_one("SELECT listener_lock_actor($1)", &[&actor])
+            .await
+            .map_err(unavailable)?;
+        if active.get::<_, Option<bool>>(0) != Some(true) {
+            return Err(AuthError::Inactive);
+        }
+        // A separate statement guarantees this clock read follows the actor lock wait.
+        let current = tx.query_one("SELECT EXISTS(SELECT 1 FROM theatre_identity_sessions WHERE token_hash=$1 AND expires_at>clock_timestamp() AND NOT revoked)", &[&token_hash(token)]).await.map_err(unavailable)?;
+        if !current.get::<_, bool>(0) {
+            return Err(AuthError::Inactive);
+        }
+        let output = dispatch(session_id).await;
+        tx.commit().await.map_err(unavailable)?;
+        Ok(output)
+    }
+
     pub(super) async fn theatre_cancel_and_revoke(
         &self,
         token: Option<&str>,

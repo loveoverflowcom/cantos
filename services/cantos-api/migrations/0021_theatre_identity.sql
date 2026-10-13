@@ -17,6 +17,7 @@ CREATE INDEX theatre_identity_flows_browser ON theatre_identity_flows(browser_ha
 CREATE TABLE theatre_identity_sessions (
     token_hash bytea PRIMARY KEY CHECK (octet_length(token_hash)=32),
     actor_id text NOT NULL REFERENCES actors(id),
+    session_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
     client_id text NOT NULL CHECK (client_id='cantos-theatre-web-bff'),
     expires_at timestamptz NOT NULL,
     revoked boolean NOT NULL DEFAULT false,
