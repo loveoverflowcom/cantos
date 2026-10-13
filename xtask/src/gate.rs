@@ -148,7 +148,7 @@ impl Gate {
 
     pub fn tools(&self) -> Vec<Tool> {
         match self {
-            Gate::Repository => vec![Tool::Python3, Tool::Git],
+            Gate::Repository => vec![Tool::Cargo, Tool::Python3, Tool::Git],
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::ScriptIrReference => vec![Tool::Python3],
             Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
@@ -179,6 +179,9 @@ impl Gate {
         let cargo = |args: &[&str]| CommandSpec::new("cargo", root).args(args.iter().copied());
         match self {
             Gate::Repository => vec![
+                cargo(&[
+                    "run", "--quiet", "--locked", "-p", "xtask", "--", "services", "validate",
+                ]),
                 python(&["scripts/check_repository.py"]),
                 python(&[
                     "-m",
@@ -351,6 +354,7 @@ mod tests {
         assert_eq!(
             lines(&Gate::Repository),
             [
+                "cargo run --quiet --locked -p xtask -- services validate",
                 "python3 scripts/check_repository.py",
                 "python3 -m unittest discover -s scripts -p 'test_*.py'",
                 "git diff --check",

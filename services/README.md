@@ -41,8 +41,16 @@ must preserve volumes; no lifecycle command performs migrations, pruning or data
 See [PostgreSQL](postgresql/README.md) and [Kanidm](kanidm/README.md) for private prerequisites,
 explicit commands, storage and recovery. Configured examples grant no production acceptance.
 
-## Implementation sequence
+## Implemented command boundary
 
-The process inventory and policy land first. The PostgreSQL/Kanidm guides and private environment
-examples follow, then typed manifest/configuration validation and `cargo xtask services`
-list/up/status/logs/down. A checked-in configuration is not evidence of a running service.
+`cargo xtask services list|validate|up|status|logs|down` now implements the bounded local
+contract described in [xtask](../xtask/README.md#explicit-local-service-infrastructure).
+`up --all` starts required PostgreSQL only; optional Kanidm requires named `up`.
+Static validation and deterministic/mocked boundary tests require no Podman. Actual
+container/TLS/readiness/persistence evidence is separate; see the
+[runtime evidence](../docs/evidence/podman-service-runtime.md).
+
+The server must support named-volume `nocreate` (older unsupported versions fail without an
+automatic update). Private mounts never relabel host files; enforcing SELinux requires
+preapproved readable input labels. Do not concurrently modify connection definitions or force
+replace labeled resources during lifecycle operations. No production acceptance is implied.

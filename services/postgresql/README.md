@@ -14,8 +14,8 @@ PostgreSQL 17 data location. Both container and volume have Cantos ownership lab
 
 Supply an existing private password file outside the repository (regular, caller-owned, mode
 0600), then export the [example variables](env.example). xtask neither creates a password nor
-reads/prints its contents. The file mounts read-only with a private SELinux label where
-supported and the official entrypoint uses `POSTGRES_PASSWORD_FILE`. On macOS the source path
+reads/prints its contents. The file mounts read-only without changing host security labels; enforcing SELinux needs
+operator-prepared readable labels. The official entrypoint uses `POSTGRES_PASSWORD_FILE`. On macOS the source path
 must already be shared into the running Podman Machine; xtask never changes VM mounts.
 
 ```sh
@@ -28,7 +28,7 @@ cargo xtask services --instance local down postgresql
 cargo xtask services --instance local up postgresql
 ```
 
-Commands become available in the lifecycle commit of this PR. Host binding is always
+Host binding is always
 `127.0.0.1`, with a configurable unprivileged port; a occupied port fails without stopping its
 owner. `pg_isready` checks container loopback TCP, which avoids a false ready result from the
 image's temporary initialization server (Unix socket only). It proves database readiness,

@@ -9,3 +9,11 @@ boundary doubles. Report live Podman evidence separately. Missing runtime/connec
 `UNSUPPORTED`; do not install it or provision a machine for a green result. Preserve native run
 and disposable PostgreSQL verification; build/test must never auto-start infrastructure.
 
+
+Use a unique task instance and unused port for live fixtures. Observe rootless local runtime
+first; never configure a connection or machine implicitly. Keep host security labels unchanged.
+Check created stopped-container ID, actual mount and volume ownership before starting it;
+`nocreate` prevents accidental empty replacement. Cancellation and readiness budgets cover
+the entire invocation/probe sequence. Treat timeouts as potentially ambiguous retained state.
+Review recreation and upgrades separately; labels do not defend against an administrator
+forging labels or force-removing resources concurrently.

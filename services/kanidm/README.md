@@ -14,9 +14,10 @@ release; it is not fresh runtime evidence for this PR. The current layout separa
 ## Operator prerequisites
 
 Use an already installed rootless Podman connection (Linux or running macOS Podman Machine).
-Prepare a private directory **outside Git**, caller-owned mode0700, containing only the intended
+Prepare a private directory **outside Git**, caller-owned mode 0700, containing only the intended
 `server.toml`, `chain.pem` and `key.pem` (regular caller-owned files, no group/other permissions).
 xtask never creates certificates, recovers admin accounts or changes trust/security settings.
+Private mounts do not relabel files; enforcing SELinux needs preapproved readable input labels.
 On macOS the directory must already be shared with the Machine. Export the
 [host environment example](env.example); xtask does not load dotenv files.
 
@@ -45,7 +46,7 @@ cargo xtask services down kanidm
 cargo xtask services up kanidm
 ```
 
-Commands become available in the lifecycle commit. `up --all` excludes optional Kanidm;
+`up --all` excludes optional Kanidm;
 `down --all` may stop an already-owned Kanidm container. Startup first statically validates the
 private configuration, then runs `/sbin/kanidmd configtest -c /config/server.toml` in a newly
 created labeled, network-disabled throwaway container with tmpfs `/data`. It never validates
@@ -54,7 +55,7 @@ proves upstream configuration acceptance, not TLS serving, identity integration 
 
 The actual server uses `/sbin/kanidmd server -c /config/server.toml`, a named
 `cantos-<instance>-kanidm-data` volume, and a host mapping only on `127.0.0.1`. Health uses the
-pinned scripting healthcheck with TLS verification. Upstream1.10.5 establishes an HTTPS
+pinned scripting healthcheck with TLS verification. Upstream 1.10.5 establishes an HTTPS
 connection to `/status` but does not check the returned status/body; report that bounded
 readiness, never end-to-end identity acceptance. Podman bounds each health probe and xtask
 bounds startup. Failed startup preserves the server container/volume for explicit inspection.

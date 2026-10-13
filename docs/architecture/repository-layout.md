@@ -38,7 +38,9 @@ apps/
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
 services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
-  kanidm/                  Identity provider deployment/config only; no code              CONFIG ONLY
+  manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
+  postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
+  kanidm/                  Opt-in Podman identity evaluation; no integration/code          CONFIG ONLY
 packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
@@ -166,7 +168,9 @@ cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```
 
-Kanidm has no build or run command: see services/kanidm/README.md for its example config.
+PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
+from native `run` and disposable database verification. See [services](../../services/README.md).
+Configured infrastructure is not a deployed identity provider or OIDC integration.
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that
