@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Logic Fix"
+  short_description: "Repair one bounded logic defect with regression evidence"
+  default_prompt: "Use $cantos-logic-fix to locate this defect's invariant owner, reproduce it with the smallest failing regression, apply a minimal repair and report verified layers and pending I/O acceptance."

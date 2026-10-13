@@ -66,9 +66,9 @@ reduced-motion behavior under those owner contracts.
 - **Review only:** use [`cantos-code-review`](../cantos-code-review/SKILL.md) for a diff or
   [`cantos-ui-inspector`](../cantos-ui-inspector/SKILL.md) for UI findings. Neither becomes
   write-enabled through this skill; an audit/report is not permission to repair.
-- **Wrong domain result:** stop the UI-only patch. Route through the foundation and owning
-  domain skill; use the `cantos-logic-fix` entrypoint when available (planned separately, not
-  implemented in this checkpoint). Do not hide a wrong gate/error/transition with a UI condition.
+- **Wrong domain result:** stop the UI-only patch. Use
+  [`cantos-logic-fix`](../cantos-logic-fix/SKILL.md) with the foundation and owning domain skill.
+  Do not hide a wrong gate/error/transition with a UI condition.
 - **Expanded scope:** report architecture, schema/breaking API, authorization/security,
   publication/rights/durability, independent cross-module defects or UX/domain redesign to
   [`cantos-work-item`](../cantos-work-item/SKILL.md) and the appropriate owner. Do not silently
