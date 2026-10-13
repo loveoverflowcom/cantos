@@ -12,8 +12,8 @@ use axum::{
     Json, Router,
 };
 use cantos_contracts::{
-    routes, wire::WireFormat, ReviewRequest, SaveRevisionRequest, ScriptValidationResponse,
-    SessionRequest, SessionResponse, ValidateScriptRequest,
+    routes, wire::WireFormat, ErrorCode, ReviewRequest, SaveRevisionRequest,
+    ScriptValidationResponse, SessionRequest, SessionResponse, ValidateScriptRequest,
 };
 
 use super::wire::{respond, Accepts, WireBody};
@@ -99,9 +99,10 @@ async fn deprecated(mut response: Response) -> Response {
 
 async fn login(
     state: State<AppState>,
+    headers: HeaderMap,
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    start_session(state, body, Mount::Current).await
+    start_session(state, headers, body, Mount::Current).await
 }
 
 /// Confirm the cookie that the browser actually sends, independently of a token exchange.
@@ -111,16 +112,23 @@ async fn current_session(State(state): State<AppState>, headers: HeaderMap) -> R
         Err(error) => return error_response(error),
     };
     match state.store.authenticate(&token).await {
-        Ok(actor_id) => Json(SessionResponse { actor_id }).into_response(),
+        Ok(actor_id) => match state.store.studio_session_id(&token).await {
+            Ok(id) => super::studio_fenced_response(
+                Json(SessionResponse { actor_id }).into_response(),
+                id.as_deref(),
+            ),
+            Err(error) => error_response(error),
+        },
         Err(error) => error_response(error),
     }
 }
 
 async fn legacy_login(
     state: State<AppState>,
+    headers: HeaderMap,
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
-    start_session(state, body, Mount::Legacy).await
+    start_session(state, headers, body, Mount::Legacy).await
 }
 
 async fn logout(state: State<AppState>, headers: HeaderMap) -> Response {
@@ -133,11 +141,27 @@ async fn legacy_logout(state: State<AppState>, headers: HeaderMap) -> Response {
 
 async fn start_session(
     State(state): State<AppState>,
+    headers: HeaderMap,
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
     mount: Mount,
 ) -> Response {
     if state.store.studio_oidc().is_some() {
         return error_response(StoreError::Forbidden);
+    }
+    if headers.contains_key(super::STUDIO_SESSION_HEADER) {
+        let actual = match cookie_token(&headers, &state.store) {
+            Ok(token) => match state.store.studio_session_id(&token).await {
+                Ok(id) => id,
+                Err(error) => return error_response(error),
+            },
+            Err(_) => None,
+        };
+        if !super::studio_fence_matches(&headers, actual.as_deref()) {
+            return super::studio_fenced_response(
+                super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+                actual.as_deref(),
+            );
+        }
     }
     let request = match body {
         Ok(Json(request)) => request,
@@ -146,6 +170,11 @@ async fn start_session(
     match state.store.authenticate(&request.token).await {
         Ok(actor_id) => {
             let mut response = Json(SessionResponse { actor_id }).into_response();
+            let session_id = match state.store.studio_session_id(&request.token).await {
+                Ok(id) => id,
+                Err(error) => return error_response(error),
+            };
+            response = super::studio_fenced_response(response, session_id.as_deref());
             // Only loopback development HTTP is supported. Production requires HTTPS/Secure.
             // The cookie is scoped to the mount so a Studio session is never sent to Theatre or
             // Admin routes.
@@ -183,6 +212,33 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
         }
         return auth::logout(state, headers).await;
     }
+    if let Ok(token) = cookie_token(&headers, &state.store) {
+        let session_id = match state.store.studio_session_id(&token).await {
+            Ok(id) => id,
+            Err(error) => return error_response(error),
+        };
+        if !super::studio_fence_matches(&headers, session_id.as_deref()) {
+            return super::studio_fenced_response(
+                super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+                session_id.as_deref(),
+            );
+        }
+        if headers
+            .get("x-cantos-studio-stale-only")
+            .is_some_and(|value| value == "1")
+        {
+            match state.store.authenticate(&token).await {
+                Ok(_) => {
+                    return super::studio_fenced_response(
+                        super::failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+                        session_id.as_deref(),
+                    )
+                }
+                Err(StoreError::Unauthenticated) => {}
+                Err(error) => return error_response(error),
+            }
+        }
+    }
     let result = match cookie_token(&headers, &state.store) {
         Ok(token) => state.store.revoke(&token).await,
         Err(error) => Err(error),
@@ -190,6 +246,11 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
     match result {
         Ok(()) => {
             let mut response = StatusCode::NO_CONTENT.into_response();
+            if headers.contains_key(super::STUDIO_SESSION_HEADER)
+                || headers.contains_key("x-cantos-studio-stale-only")
+            {
+                return response;
+            }
             let cookie = format!(
                 "cantos_session=; HttpOnly; SameSite=Strict; Path={}; Max-Age=0",
                 mount.cookie_path()

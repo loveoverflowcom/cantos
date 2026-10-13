@@ -1,7 +1,8 @@
 # Theatre Identity v1
 
-PR3 implements an opt-in Web BFF on the existing development host. Native protocol/adapters are
-compiled groundwork; native token exchange and resource admission remain disabled/deferred.
+PR3 implements separate opt-in Web BFF and native public-client identity on the development host.
+Native exchange/resource admission and OS adapter mounting are code; provider/device acceptance
+and production activation remain separate gates.
 See the [architecture](../../docs/architecture/theatre-identity.md) for the trust boundary.
 
 | Route | Admission / response |
@@ -9,7 +10,7 @@ See the [architecture](../../docs/architecture/theatre-identity.md) for the trus
 | GET `/api/v1/theatre/auth/login` | Same-origin navigation; redirects to exact Theatre Web issuer, `openid`, code + S256 |
 | GET `/api/v1/theatre/auth/callback` | Exact browser/state/nonce/redirect; consumed before one exchange; opaque cookie only |
 | GET `/api/v1/theatre/session` | Theatre cookie; `{actor_id, session_id}` as nonsecret display/fencing facts |
-| DELETE `/api/v1/theatre/session` | Exact Origin; works for expired sessions; local revoke/cancel before remote revoke; 204 and cleared cookies |
+| DELETE `/api/v1/theatre/session` | Exact Origin; works for expired sessions; local revoke/cancel before remote revoke; guarded UI 204 without shared cookie expiry |
 | Library / Progress / operation receipts | Existing [Library contract](listener-library-v1.md), sealed Listener principal; Web cookie admission |
 
 Session DTO is [`cantos_contracts::theatre_identity::Session`](api/src/theatre_identity.rs), with
@@ -18,8 +19,9 @@ random UUID unrelated to the credential. Neither is proof. No token, provider cl
 credential appears in the response. Auth-route failures use the existing `ApiError`; Library
 admission failures keep the Library error contract. All responses use no-store/no-referrer.
 
-Browser provider credentials remain server-side. Direct bearer is refused on an enabled Web BFF;
-native tokens need a separate future verified resource boundary, not Web cookie substitution.
+Provider credentials remain server-side. Native resources use a separate opaque native bearer,
+never a Web cookie. Cookie/bearer mixtures are refused. Web `/session` accepts only its Web cookie;
+`/native/session` accepts only the native bearer.
 Absent Theatre configuration retains default-deny account admission and existing guest routes.
 No automatic guest import/merge. Login/logout never emits history, moves playback or imports
 mock state. Client intent IDs/bodies are stable; A's pending intents cannot be submitted asB.
@@ -28,5 +30,62 @@ Native client is fixed `cantos-theatre-native`, scope `openid`, callback
 `com.cantos.theatre:/oauth2/callback`. System-browser adapters parse exact URI, reject fragments,
 unknown/duplicate parameters and correlate state before the single code exchange effect. The
 nonce/verifier stay in the pending in-memory attempt. Cancellation/process restart needs a new
-login. A code callback is not an authenticated account; native token verification/registry/API
-transport and host mounting are deferred acceptance.
+login. A code callback is not an authenticated account.
+
+| Native route | Contract |
+| --- | --- |
+| POST `/api/v1/theatre/native/auth/flows` | `{state,nonce,code_challenge}` → `{flow_id,authorization_url}`; fixed public client, no credentials/cookies |
+| POST `/api/v1/theatre/native/auth/flows/{flow_id}/exchange` | `{state,code,code_verifier}`; durable one-attempt consume before one public exchange; `{actor_id,session_id,access_token,expires_at}` |
+| GET `/api/v1/theatre/native/session` | Native bearer → `{actor_id,session_id,expires_at}` after resource signature, current introspection and local admission |
+| DELETE `/api/v1/theatre/native/session` | Native bearer; local revoke commits first; 204 with completed/pending remote revocation; identical-token retries are safe |
+
+`access_token` in the exchange response is a random 64-character lowercase-hex **Cantos native
+session credential**, independent of provider access tokens and Web cookies. Provider tokens
+stay private in PostgreSQL. Native clients persist only this credential in OS secure storage.
+All native routes reject Cookie headers, including an empty header. Auth JSON bodies are bounded
+at 16KiB and provider responses at 64KiB. [Native schema](schemas/theatre-native-identity-v1.schema.json)
+and the shared Rust DTOs own this wire contract.
+
+Private Library/Progress/operation responses carry `X-Cantos-Theatre-Session`, the admitted
+nonsecret session UUID. An optional request header with that name declares which session owns
+the intent; mismatch returns 409 before resource dispatch and stamps the actual session. The
+header grants no authority. Clients reject mismatched/missing response fences, hide old account
+projections and revalidate identity; they do not log out a switched account on 409.
+
+Web DELETE accepts the expected-session header too. Automatic 401 cookie cleanup additionally
+sends `X-Cantos-Theatre-Stale-Only: 1`; a now-valid cookie returns 409 with the actual UUID and no
+revocation or cookie clearing. Unknown provider status fails closed with 503 and no local revoke.
+Guarded/stale-only 204 responses emit no `Set-Cookie`: a delayed response must not erase a newer
+account cookie or flow created by another tab. Local revocation makes the retained HttpOnly
+cookie inert until replacement or expiry. Login treats only a positively known local revoked or
+expired credential as anonymous; unknown credentials and live provider outages remain closed.
+Web flows use distinct immutable HttpOnly cookie names derived from their exact random state,
+with a separate random binder value. The callback accepts only its own state/binder pair; mutable
+legacy binder cookies are refused. Login admits fewer than eight inventory cookies; malformed,
+duplicate state/binder, mixed Secure names and overflow fail closed without truncation or flow
+allocation. Concurrent anonymous starts can exceed the cap before any responses are observed;
+the browser must wait for the 300-second binder expiry before retrying if this happens.
+Active expected-A logout locks the validated inventory and A's own source flow, then sessions
+in deterministic order. It cancels pending flows and revokes already-issued sibling sessions
+before remote effects; callbacks linearizing later cannot issue. A stale-only or already locally
+revoked/expired A cleanup cannot cancel newly intended anonymous B flows. An expected-A cleanup
+may still cancel a rotation receipt only with its captured exact private binder, unexpired after
+all lock/write waits, and a matching immutable lineage root/source session association. The root
+serializes A→B→C rotations before flow locks; it grants no cancellation authority by itself.
+Old A plus UUID alone, or an expired/missing B binder, preserves active observed B/C. Rotations
+bound by SQL `previous_hash` cannot finish after the previous session is revoked. Session association remains local to the
+proven browser inventory; this is not an actor-wide or cross-device logout policy.
+Captured revocations carry durable attribution to the triggering session. The remote batch has
+an overall five-second deadline; outage/cancellation leaves acknowledged local revocation with
+pending evidence. A retry using A's original credential can finish only its already-revoked
+pending siblings even after old binder cookies expire, and cannot cancel fresh B. No background
+recovery worker or global provider logout is claimed.
+Callbacks issue the new session cookie but never expire inventory cookies: SQL consumption/
+completion enforces one-time use. DELETE without an expected-session or stale-only guard is
+refused without effects; current Web clients always use a guard.
+Native logout uses its own bearer and never clears Web cookies.
+
+No automatic guest import or credential restore occurs. A nonsecret durable native logout marker
+precedes cleanup; uncertain revocation retries retain the same credential. New login waits for
+OS deletion/marker acknowledgement. Provider/device acceptance, native runtime, secure-store
+crash behavior and production activation remain NOT_RUN until actually exercised.

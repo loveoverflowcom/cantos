@@ -1,7 +1,8 @@
-# Cantos Theatre Web mock
+# Cantos Theatre Web
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a session-only listener mock; users see **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
+a same-origin listener account boundary and an explicitly isolated session-only mock; users see
+**Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
 listening issue or UI-system qualification is completed by this foundation.
 The [library MVP record](../../../docs/evidence/theatre-web-library-mvp.md) scopes the
@@ -9,6 +10,9 @@ The [library MVP record](../../../docs/evidence/theatre-web-library-mvp.md) scop
 acceptance against real listener data remain separate.
 
 ## Scope and honest behavior
+
+The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample
+state is never imported into the authenticated account, and its controls never call live APIs.
 
 - Two primary navigation destinations: **Khám phá** (Discover) and **Của tôi** (My library).
   Search and filters belong to Khám phá; account opens through the avatar. Work details,
@@ -42,8 +46,8 @@ acceptance against real listener data remain separate.
   advances the checked generation. Recovery returns focus to main; clearing search returns it to
   the search field.
 
-No API, authentication, network client, real audio/download, timer, sync, disk/account persistence,
-billing, provider, backend or publication code is integrated. Unsupported actions stay disabled
+Within the explicit mock, no API, authentication, network client, real audio/download, timer,
+sync, disk/account persistence, billing or provider code is integrated. Unsupported actions stay disabled
 with associated reasons. The fake adapter is not browser/native audio integration, and the
 in-memory cold-restore exercise is not reload/session persistence.
 
@@ -58,6 +62,8 @@ in-memory cold-restore exercise is not reload/session persistence.
 | `src/core/listening/` | Separate saved-work/bookmark, progress, simulated history and queue facts/rules |
 | `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
+| `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership and private read projection lifecycle |
+| `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
 | `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery |
@@ -135,15 +141,33 @@ cargo xtask verify web
 cargo xtask preflight --changed-only
 ```
 
-Run serves `127.0.0.1:8082`; no API/proxy is needed. Tests belong to the existing Cargo workspace
-and `verify rust`: pure reducers, exact shared-vector replay, fake ports, stale callbacks, a single
-player across routes, resources and Leptos native string-render compositions. `serde_json` is a
-test-only dependency at already-locked 1.0.145. No alternative test/run orchestrator is introduced.
+Run serves `127.0.0.1:8082`; its Trunk proxy forwards `/api/` to the existing API on port8080.
+The frontend-only `run cantos-theatre --web` does not start or provision a backend. For the live
+account boundary, use the existing API/app commands in separate terminals:
+
+```sh
+cargo xtask run cantos-api --web-origin http://127.0.0.1:8082
+cargo xtask app cantos-theatre --web
+```
+
+The API needs an operator-supplied migrated local app-role `DATABASE_URL` (or its documented
+retained disposable test-cluster option). Theatre OIDC remains opt-in through the existing
+`CANTOS_THEATRE_OIDC_ISSUER` and separate `CANTOS_THEATRE_OIDC_SECRET`; approved client/callback,
+scope, credentials and TLS/provider acceptance are operator prerequisites, never provisioned by
+these commands. The current development host has one `CANTOS_WEB_ORIGIN`, so this recipe is a
+Theatre-origin profile. Simultaneous Studio on8081 and Theatre on8082 authentication is unverified.
+Without an available/configured identity backend the live view reports failure; it does not
+create a guest account or substitute mock data. The explicit mock works without an API.
+
+Tests belong to the existing Cargo workspace and `verify rust`: pure reducers, exact
+shared-vector replay, fake ports, stale callbacks, account fences, actual Library fixture decoding,
+a single mock player across routes, resources and Leptos native string-render compositions.
+`serde_json` remains at already-locked 1.0.145. No alternative test/run orchestrator is introduced.
 
 The [initial cloud execution record](../../../docs/evidence/theatre-web-mock.md) retains its
 historical tool limitations and later pre-merge run. PR 02 uses the existing local Rust 1.87.0 and
 Trunk 0.21.14 toolchains; see its [current evidence and remaining limits](../../../docs/evidence/theatre-web-pr02.md).
-The full contracts suite is `UNSUPPORTED` on this host because ffmpeg/ffprobe are absent; no
+The historical PR02 full contracts suite was `UNSUPPORTED` because ffmpeg/ffprobe were absent; no
 listener API, fixture corpus or media-inspection code is changed.
 
 ## Browser scenarios
@@ -180,18 +204,26 @@ production or UI-system acceptance gate.
 
 ## Explicit live and mock modes
 
-The default entrypoint mounts a live capability boundary. It never constructs the synthetic
-catalog or fake player. **Check API availability** performs a real same-origin, cookie-free GET
-against `/api/v1/theatre` through the local Trunk proxy to the existing API on8080. A JSON404
-`not_found` renders unsupported; other statuses, invalid responses and connection failures
-render errors. Cancelling or superseding a check fences its late response.
+The default entrypoint mounts the actual Theatre Web BFF account consumer. It bootstraps with
+`GET /api/v1/theatre/session`, redirects sign-in through `/api/v1/theatre/auth/login` and logs out
+with `DELETE /api/v1/theatre/session`. Provider tokens never reach JavaScript or browser storage.
+The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
+unavailable/protocol failure and unacknowledged logout. An expired session hides private data
+immediately and requires acknowledged session revocation before another login. Cleanup is stale-only;
+explicit logout pins the observed session. A cookie rotated in another tab is rechecked rather
+than revoked by a delayed request.
 
-Probe generation and phase are read-only outside their owner. Check and Cancel admit the checked
-generation transition before aborting the current transport; exhaustion leaves the current
-state and transport alone. Source-order tests and pure probe tests cover this boundary, while
-browser cancellation/owner-disposal acceptance remains a separate runtime check.
+The authenticated session reads the first 20 Continue, Saved and History items through their actual
+Library endpoints, using JSON and same-origin cookies. The UI shows accepted progress positions
+and page counts; no Library mutation, pagination UI, real playback, history-start event, automatic
+guest import, durable outbox or full synchronization is introduced. Network/body bounds and
+the session-correlated response header are checked before any private projection is displayed.
+Account/session generation fences both success and failure; switching accounts never relabels an
+old intent. Session checks repeat on window focus and once per minute while an authenticated page
+is visible; request batches have a 15 second deadline and refresh refuses duplicate pending reads.
+The timer/listener are removed on unmount. These implemented paths still require actual browser,
+provider/device and production acceptance; source/fixture tests alone do not establish them.
 
 Open `?mode=mock` explicitly for the existing isolated UI preview. An unknown mode never falls
 back to mock success. No Studio session, producer token, private submission or draft is available
-to either listener mode. There is no catalog, manifest, progress or media route to connect, so
-this transport probe is **not live Theatre playback integration**.
+to either listener mode. The live account projection is not live Theatre playback integration.

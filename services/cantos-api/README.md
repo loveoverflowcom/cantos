@@ -36,15 +36,18 @@ or in-backend mixing should remain.
   [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
   real PostgreSQL acceptance is blocked and default public delivery is unavailable.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
-  and `/api/v1/admin/*` with an opt-in [Admin capability/revocation and audit](../../docs/architecture/admin-authorization.md) slice. Pre-split Studio aliases remain deprecated.
+  contains Discovery/Library and separate opt-in Web/native identity routes; `/api/v1/admin/*`
+  provides the independent opt-in [Admin capability/revocation and audit](../../docs/architecture/admin-authorization.md)
+  slice. Pre-split Studio aliases remain deprecated.
 
 The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
 The registry itself authenticates no provider. The separate opt-in
 [Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
 callbacks and hashed Studio sessions on the current route group.
-[OIDC evidence](../../docs/evidence/studio-oidc.md) distinguishes signed mocks/real PostgreSQL
-from unrun Kanidm/browser/production acceptance.
+[OIDC evidence](../../docs/evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+records the latest signed mocks/real PostgreSQL and observed Studio browser checks separately
+from deferred Kanidm, unobserved runtime/accessibility and production acceptance.
 [Evidence](../../docs/evidence/identity-registry.md) and
 [OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
 
@@ -82,13 +85,21 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14 plus0016–0022 (21 migrations); private storage0015 remains separate.
-Standalone Publication0016 does not depend on storage0015. Publication/Discovery/Library originals
-are inherited from develop; Identity0018, Studio0020, Theatre0021 and Admin0022 are additive.
-Identity0018 alone grants no HTTP-role registry access. Studio credentials grant neither Theatre
-nor Admin authority. [Theatre identity](../../docs/architecture/theatre-identity.md) and
-[Admin authorization](../../docs/architecture/admin-authorization.md) record activation gates.
-Production Brief migration0013 is additive; upgrade/replay tests preserve
+versions1–14,16–22,24,25 (23 migrations); private storage0015 remains separate. Artwork0023
+remains reserved and absent from this registry; original Admin0022 bytes are unchanged.
+Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
+Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
+credential issuance and session/browser-flow fences, with operator-applied narrow grants in
+services/kanidm. Theatre0021/0024 add separate Web/native flows and sessions with narrow exact
+issuer/subject issuance; no Studio credential grants Listener authority.
+Admin0022 adds dedicated role decisions and append-only Admin-only revocation/audit, with no
+automatic runtime grants or authority over Studio, Theatre or producer resources.
+[Theatre identity](../../docs/architecture/theatre-identity.md) records pending combined
+verification, Android host activation and client/provider/device acceptance gaps.
+[Admin authorization](../../docs/architecture/admin-authorization.md) retains its separate live
+current-group, credential and least-privilege activation gates.
+Identity0018 alone grants no HTTP-role registry access. Production Brief
+migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
@@ -150,3 +161,20 @@ no Studio/Theatre/producer credential grants access. Missing config yields503 un
 Operator-applied function grants remain separate; see [Kanidm guide](../kanidm/README.md).
 There is no Admin UI, login client, role-grant/unblock endpoint or resource ACL bypass. Live
 Kanidm/custom current-group contract is NOT_RUN/unaccepted. Existing local-only host policy stays.
+
+## Separate Theatre native identity
+
+The development host opt-in `CANTOS_THEATRE_NATIVE_ISSUER` selects only the exact public client
+`cantos-theatre-native` and `com.cantos.theatre:/oauth2/callback`; it takes no client secret.
+Native flow/exchange/session routes and the strict [identity contract](../../packages/contracts/theatre-identity-v1.md)
+use bounded same-origin discovery/JWKS, real ID/access signatures, current introspection and
+separate SQL/native opaque session authority. Native resource admission never reuses a Web,
+Studio or Admin credential. Normal configuration remains disabled and production hosting,
+provider registration/TLS, native device and OS storage acceptance remain separate.
+
+Migration 0024 preserves 0021 and adds native tables/narrow issuance plus Web final-expiry rollback.
+Operator-applied development grants are SELECT on native sessions, UPDATE only revoked/
+revocation_pending, SELECT/INSERT/UPDATE on native flows and EXECUTE on the narrow native finish
+function and existing listener actor admission helpers. No API startup provisions these grants.
+Use the existing disposable `cargo xtask verify postgres` gate; it includes the signed public-client
+HTTP/PG suite. Recorded command results belong to the [evidence ledger](../../docs/evidence/theatre-identity.md).

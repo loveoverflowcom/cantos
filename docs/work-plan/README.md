@@ -72,8 +72,11 @@ Studio audit manifests do not themselves authorize Theatre playback.
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
 and adds exact external keys with explicit operator registration/linking. The bounded
-[Studio OIDC](../architecture/studio-oidc.md) slice has signed-mock/local-SQL evidence; live provider
-acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
 using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
 before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
@@ -191,14 +194,6 @@ checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MV
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
 
-The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
-published registry/Studio dependencies and the now-merged Listener Library seam. Its separate
-Web BFF and account fencing precede actual Web Library sync; CMP protocol/OS-adapter groundwork
-precedes native token/resource IO and device acceptance. The [Admin0022 slice and handoff](admin-authorization-handoff.md) supplies dedicated role decisions
-and audit. The parent Ultra combined review, final integration fixes and live-provider acceptance
-remain next in the identity sequence. GitHub PRs own execution/merge status; this ordering
-does not accept live providers, native playback or guest-import policy.
-
 ## Versioned binary transport pilot
 
 [Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
@@ -219,3 +214,17 @@ and additive migration checksums. Current local/mock acceptance belongs in evide
 production provider/client preparation, native runtime acceptance and explicit cross-client
 identity linking remain separate prerequisites. Equal email or subject text across different
 issuers never establishes a shared actor. GitHub owns execution status.
+
+The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
+reviewed registry/Studio dependencies and the merged Listener Library seam. Preserve the latest
+[Studio integrated acceptance](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+and its HTTP negotiation/session fences while integrating Theatre's separate Web BFF, account
+fencing and native public-client exchange/resource IO in migration0024. Current combined Theatre
+verification is pending. Android INTERNET/callback registration and host mounting remain
+unapplied after automatic approval review rejected the source activation; the direct human
+exception is pending. Provider/device/secure-store and native playback acceptance remain separate.
+The [Admin0022 slice and handoff](admin-authorization-handoff.md) adds dedicated resource-token
+verification, current role decisions, Admin-only access revocation and append-only audit in PR4.
+Its integrated source verification follows the reviewed Theatre branch; this queue does not
+claim the four-PR campaign complete or accept live providers, native playback or a guest-import
+policy. GitHub owns execution/merge status.

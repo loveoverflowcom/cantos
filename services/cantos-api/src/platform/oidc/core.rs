@@ -36,6 +36,7 @@ pub enum AuthError {
 struct Header {
     alg: String,
     kid: String,
+    typ: Option<String>,
     #[serde(default)]
     crit: Vec<String>,
 }
@@ -76,6 +77,78 @@ pub(crate) struct VerifiedIdentity {
     key: ExternalIdentityKey,
     expires: u64,
     digest: Vec<u8>,
+}
+
+/// Resource-token witness: an ID token or a registry row cannot construct it.
+pub(crate) struct VerifiedAccess {
+    key: ExternalIdentityKey,
+    expires: u64,
+}
+impl VerifiedAccess {
+    pub(crate) fn key(&self) -> &ExternalIdentityKey {
+        &self.key
+    }
+    pub(crate) fn expires(&self) -> u64 {
+        self.expires
+    }
+}
+
+#[derive(Deserialize)]
+struct AccessClaims {
+    iss: String,
+    sub: String,
+    aud: String,
+    client_id: String,
+    exp: u64,
+    iat: u64,
+    nbf: u64,
+    jti: String,
+    scope: String,
+}
+
+pub(crate) fn verify_native_access(
+    token: &str,
+    keys: &JwkSet,
+    issuer: &str,
+    client_id: &str,
+    now: u64,
+) -> Result<VerifiedAccess, AuthError> {
+    let parts: Vec<_> = token.split('.').collect();
+    if parts.len() != 3 {
+        return Err(AuthError::InvalidToken);
+    }
+    let header: Header =
+        serde_json::from_slice(&segment(parts[0], 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref() != Some("at+jwt") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verify_signature(token, keys)?;
+    let claims: AccessClaims =
+        serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.client_id != client_id {
+        return Err(AuthError::Audience);
+    }
+    if now >= claims.exp || claims.exp <= claims.iat {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf > now {
+        return Err(AuthError::NotYetValid);
+    }
+    if claims.jti.is_empty()
+        || claims.jti.len() > 128
+        || claims.jti.chars().any(char::is_control)
+        || !claims.scope.split_ascii_whitespace().any(|v| v == "openid")
+    {
+        return Err(AuthError::InvalidToken);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedAccess {
+        key,
+        expires: claims.exp,
+    })
 }
 
 impl VerifiedIdentity {
@@ -127,8 +200,14 @@ pub(crate) fn verify_for_client(
     nonce: &str,
     now: u64,
 ) -> Result<VerifiedIdentity, AuthError> {
-    let payload = verify_signature(token, keys)?;
-    let claims: Claims = serde_json::from_slice(&payload).map_err(|_| AuthError::InvalidToken)?;
+    let encoded = token.split('.').next().ok_or(AuthError::InvalidToken)?;
+    let header: Header =
+        serde_json::from_slice(&segment(encoded, 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref().is_some_and(|v| v != "JWT") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verify_signature(token, keys)?;
+    let claims: Claims = serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
     if claims.iss != issuer {
         return Err(AuthError::Issuer);
     }

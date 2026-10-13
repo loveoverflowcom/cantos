@@ -165,6 +165,75 @@ Publication-tree gate records (these supersede the earlier command rows for fina
 The final docs record the observed results after the commands; they do not change runtime behavior.
 No failure was suppressed or substituted with the selected-gates PASS.
 
+## Independent identity campaign repairs (verification in progress)
+
+Fresh source review at PR98 head `9794ed9ddcd376680a01b37938eabdde564290e1` found three concrete
+defects: the browser lacked the OIDC/current-cookie consumer; OAuth Basic sent unencoded
+special-character secrets; issuance checked time before final lock waits. The campaign first
+added the real signed HTTP regression and the actual PostgreSQL actor-lock regression. Root
+execution reproduced both failures on unchanged provider/0020 production code; raw records are
+`/private/tmp/cantos-identity-campaign/studio-fail-before-tests.patch`,
+`/private/tmp/cantos-identity-campaign/studio-basic-fail-before.log`,
+`/private/tmp/cantos-identity-campaign/studio-expiry-fail-before.log` and
+`/private/tmp/cantos-identity-campaign/studio-expiry-fail-before-pg.log`.
+
+The repairs use the already pinned `url` form serializer at token/introspection/revocation,
+additive migration 0025 (original 0020 unchanged), closed public mode DTO/route, startup/refresh
+actual-cookie confirmation, OIDC navigation/local logout and pure epoch fencing. Unit sources
+exercise delayed success/failure/configuration, duplicate/empty replies and preservation of the
+original author/ambiguous intent. HTTP sources assert exact mode-only responses, no cookie,
+no-store and missing Theatre/Admin/alias mounts. No test, build, browser or live-provider success
+is claimed by this in-progress entry; the campaign root owns fresh integrated execution and
+rendered/interaction/accessibility evidence before final handoff.
+
+The independent combined-boundary review also reproduced a later receipt-lock expiry defect
+after the first repair (`studio-late-effect-fail-before.log` and
+`studio-late-effect-fail-before-pg.log` in that same campaign folder). The new 0025 final clock
+fence runs after all effects and raises private SQLSTATE P0E01 to roll back the function's entire
+subtransaction before returning inactive. The original 0020 checksum is preserved.
+
+Further sources cover dirty-owner retention (including acknowledged-import cleanup), shared
+cookie-jar A/B request and logout fences, immutable per-attempt UUID/observation epoch, centralized
+private projection invalidation, successful echo-mismatch ambiguity, guarded logout without
+global cookie expiry, known inert-cookie relogin and foreign-issuer bearer revocation isolation.
+Signed-mock HTTP/PostgreSQL tests use actual handlers and disposable roles. All new execution
+and browser observations remain **NOT_RUN in this subagent ledger** until the campaign root
+runs the exact integrated tree. Formatting and whitespace checks passed locally; no subagent
+build, browser/provider acceptance, commit, push or remote write is claimed.
+
+The campaign root also reproduced the consumed guest-callback resurrection with actual signed
+mock HTTP and disposable PostgreSQL: `studio-guest-flow-fail-before-compiled.log` reports 303
+after acknowledged logout where 401 was required. The exact pre-repair files, including the
+untracked additive migration, are preserved with SHA256 manifest at
+`/private/tmp/cantos-identity-campaign/studio-before-browser-inventory/manifest.json`.
+The additive repair is now **0025** because 0023 is reserved for the separate artwork campaign;
+no published SQL checksum was changed. Sources add immutable max-eight per-flow cookie inventory,
+source-session association, lineage serialization with no cancellation authority, fresh private
+binder proof for lost-ack rotation, no-proof/expired-proof observed-B preservation, inert-A/new-B
+separation, overflow refusal and safe guarded legacy/development-cookie recovery. Unsigned
+cleanup preserves pending guest flows; explicit logout is disabled until cookie confirmation.
+These new protocol regressions remain NOT_RUN here until root executes the final tree.
+
+The root then executed the actual late-effect cancellation regression: a SHARE ROW EXCLUSIVE
+table lock allowed the prior SELECT FOR UPDATE checks but delayed the cancellation UPDATE until
+the private binder expired. `studio-cancel-late-effect-fail-before-wired.log` recorded FAIL
+(204 instead of required 401). The full pre-final-clock source/test SHA256 manifest is preserved
+under `studio-cancellation-before-final-clock/` in the campaign directory. The repair rechecks
+supplied binder and active-session expiry after every local write and awaits transaction rollback
+before refusal; provider I/O remains after that commit boundary. Fresh reruns belong to root's
+integrated ledger; this subagent still claims no new execution PASS.
+
+The root's fresh integrated `cargo xtask verify postgres --keep` rerun now reports **PASS**:
+all 18 Studio OIDC PostgreSQL/HTTP cases and inherited HTTP/restart/Protobuf/MessagePack fixtures
+passed. Raw log: `/private/tmp/cantos-identity-campaign/studio-postgres-integrated-fixed.log`.
+The first integrated run (17/18 Studio) remains preserved: its receipt-lock observer read
+`pg_stat_activity` through the same transaction holding the lock, so the initial current-query
+snapshot stayed cached. Both lock regressions now use a separate autocommit observer while
+retaining the exact production query/lock-stage assertions; this follows the documented
+[PostgreSQL17 statistics behavior](https://www.postgresql.org/docs/17/monitoring-stats.html).
+No production failure was ignored. WASM lint/build, final canonical preflight and actual browser
+interaction remain pending root's separate gates; live-provider evidence remains NOT_RUN.
+
 ## Residual risk / deferred acceptance
 
 Live Kanidm/TLS/client/grants/credentials and browser behavior remain NOT_RUN. Provider disable
@@ -173,7 +242,46 @@ observation and already accepted work may finish. Provider SSO/global logout is 
 local logout/access revocation are explicit. Failed remote revoke and rotated old bearers retain
 pending records; operator recovery for abandoned records is not automated. Before production,
 review bearer at-rest/backup protection, secret delivery, rate/retention budgets, pending recovery
-and actual provider/session lifecycle matrix. Expired/legacy cookie recovery is logout→login.
+and actual provider/session lifecycle matrix. Known expired/revoked OIDC cookies may begin a
+fresh login; unknown/legacy recovery needs explicit scoped logout. A shared cookie change is
+detected on the next fenced request or actual-cookie observation, not a live cross-tab push.
 Full repository/preflight acceptance must report the known baseline Darwin killpg fixture honestly.
 Combined migration tree and separate Listener/native/Admin acceptance belong to their owners.
 No GitHub Actions wait or production-ready claim follows from this draft handoff.
+
+
+## Independent integrated acceptance (13 October 2026)
+
+The final reviewed implementation is commit `850a820e7db224c41e2f4fd534301e83c0e1d5bf`,
+tree `51964d75c85a11d083af6fe55774c40d3b90ecdb`, incorporating merged develop
+`007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3`. Original migration0020 is unchanged;
+additive migration0025 preserves the separate artwork reservation0023. JSON remains the
+negotiated default, explicit Protobuf opt-in and the legacy MessagePack decoder remain available.
+
+Fresh canonical `repository`, `rust`, `contracts`, `web` and disposable `postgres` verification
+all report **PASS**. Full `cargo xtask preflight --changed-only` reports **PASS for all17 gates,
+with no skips**: repository, rust-format, script-ir-reference, protobuf-reference, rust-lint,
+rust-tests, dbsp, wav-reference, audio-inspection, web-lint, both web-builds, ui-preview,
+cmp-ui-preview, theatre-cmp-demo, mutation and postgres. Mutation killed9/9 mutants.
+PostgreSQL includes18 Studio OIDC cases plus inherited HTTP/process-kill/restart/codec cases.
+Earlier failure logs and exact fail-before snapshots are retained; none is excluded from a gate.
+
+Actual Chrome155 observations on frontend commit `288b89f72248ccaf41b8072b7698aca447ca1207`
+record **11 PASS, 0 FAIL, 1 INCONCLUSIVE and8 NOT_RUN**. All11 screenshots were opened and
+checked. Real development HTTP sessions exercise dirty Alice draft retention across Bob,
+private projection hiding/inertness while pending or unavailable, Alice's return, acknowledged
+logout, keyboard focus, accessibility-tree absence of hidden private controls, Vietnamese
+content and1440/390/320px layouts. The only subsequent code change replaces equivalent HTTP URI
+query access; frontend source is unchanged and the complete final preflight recompiled it.
+OS text scaling was inconclusive because rendered font metrics did not change. Screen-reader
+speech,200% browser zoom, native IME, live OIDC/TLS/provider disable, and the unobserved browser
+race scenarios remain **NOT_RUN**; signed-mock/backend tests do not upgrade these runtime gates.
+
+Raw evidence lives outside Git at `/private/tmp/cantos-identity-campaign/`.
+`pr98-acceptance-manifest.json` pins12 logs/reports by SHA256; its SHA256 is
+`0a49f171f19596a151f1297e1d8a4907ad1a0418fcc3d28bfdc7a78dde10f626`.
+The final complete command log is `studio-preflight-integrated-full.log`; actual browser evidence
+is under `studio-ui-runtime/`. This supersedes the pending root gates in earlier ledger entries,
+while preserving their historical scope. Production activation remains disabled pending the
+operator/provider and client acceptance gates above. No identity-specific Kani, native device,
+live provider or end-to-end production acceptance is claimed.

@@ -1752,7 +1752,7 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
     assert_eq!(
         versions,
         (1..=14)
-            .chain([16, 17, 18, 19, 20, 21, 22])
+            .chain([16, 17, 18, 19, 20, 21, 22, 24, 25])
             .collect::<Vec<_>>()
     );
     let preserved_versions = if catalog_already_applied {

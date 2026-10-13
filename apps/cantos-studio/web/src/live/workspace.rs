@@ -17,7 +17,7 @@ struct Dispatch {
     session_pending: Signal<bool>,
     abort: StoredValue<Option<AbortController>, LocalStorage>,
     complete: Callback<(Command, Result<Reply, ClientError>)>,
-    session_denied: Callback<ApiError>,
+    api: crate::api::StudioHttp,
 }
 impl Dispatch {
     fn abort(self) {
@@ -77,8 +77,10 @@ impl Dispatch {
             return;
         };
         self.state.set(sending);
+        let api = self.api.snapshot();
+        let session_fence = api.fence();
         spawn_local(async move {
-            let reply = browser::execute(&command, controller).await;
+            let reply = browser::execute(&command, controller, session_fence).await;
             if self
                 .state
                 .try_with_untracked(|s| s.accepts(ticket))
@@ -89,12 +91,18 @@ impl Dispatch {
                     .try_update(|s| *s = s.finish(ticket, reply.clone()));
                 // Receipt reconciliation executes an owner GET even when the retained intent
                 // is a producer Upload. Classify the executed request, not that original intent.
-                if let Some(error) = reply
+                if command.credentials() == Credentials::SameOrigin
+                    && reply == Err(ClientError::SessionChanged)
+                {
+                    api.invalidate_projection(&crate::session::unconfirmed_response());
+                }
+                let denial = reply
                     .as_ref()
                     .err()
                     .and_then(|e| e.owner_session_denial(&command))
-                {
-                    self.session_denied.run(error.clone());
+                    .cloned();
+                if let Some(error) = denial {
+                    let _ = api.notify_denial(Err::<(), _>(error));
                 }
                 let acknowledged = self
                     .state
@@ -170,7 +178,6 @@ pub fn ContentWorkspace(
     session_pending: Signal<bool>,
     activity: RwSignal<bool>,
     dirty: RwSignal<bool>,
-    session_denied: Callback<ApiError>,
 ) -> impl IntoView {
     let facts = RwSignal::new(Facts::default());
     let state = RwSignal::new(RequestState::default());
@@ -247,7 +254,7 @@ pub fn ContentWorkspace(
         state,
         session_pending,
         abort,
-        session_denied,
+        api: expect_context::<crate::api::StudioContext>().api,
         complete: Callback::new(
             move |(command, reply): (Command, Result<Reply, ClientError>)| match reply {
                 Ok(reply) => {

@@ -403,7 +403,7 @@ async fn identity_constraints_immutability_rollback_and_http_role_isolation_hold
         ("INSERT INTO actor_external_identities(issuer,subject,actor_id) VALUES('','s','a')", "23514"),
         ("UPDATE actor_external_identities SET actor_id='a'", "55000"),
         ("DELETE FROM actor_external_identities", "55000"),
-        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions", "55000"),
+        ("TRUNCATE actor_external_identities,studio_oidc_sessions,theatre_identity_sessions,theatre_native_sessions", "55000"),
     ] {
         assert_eq!(h.admin.batch_execute(sql).await.unwrap_err().code().unwrap().code(),code);
     }

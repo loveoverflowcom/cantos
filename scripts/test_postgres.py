@@ -639,6 +639,7 @@ def main():
         run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")

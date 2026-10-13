@@ -98,6 +98,16 @@ impl Editor {
 
     /// Session changes preserve the local author's bytes and unresolved save identity.
     pub fn signed_in(&self, actor: String) -> Self {
+        if actor != self.actor && !self.is_dirty() && self.pending.is_none() {
+            // A clean private document has no local work to retain across account ownership.
+            // Also invalidate any outstanding read; no A source identity may be projected as B.
+            return Self {
+                actor,
+                ticket: self.ticket.saturating_add(1),
+                status: Status::SignedIn,
+                ..Self::default()
+            };
+        }
         let mut next = self.clone();
         if next.actor != actor {
             next.ticket = next.ticket.saturating_add(1);
@@ -733,6 +743,34 @@ mod tests {
             assert_eq!(replaced.base, 2);
             assert_eq!(replaced.status, Status::Loaded);
         }
+    }
+
+    #[test]
+    fn changing_a_clean_account_clears_private_revision_identity_and_bytes() {
+        let reading = Editor {
+            actor: "alice".into(),
+            script: "script".into(),
+            ..Editor::default()
+        }
+        .start_read()
+        .unwrap();
+        let clean = reading.loaded(reading.ticket, response(3));
+        assert!(!clean.is_dirty());
+        let reading = clean.start_read().unwrap();
+        let bob = reading.signed_in("bob".into());
+        assert_eq!(bob.actor, "bob");
+        assert!(bob.script.is_empty());
+        assert_eq!(bob.base, 0);
+        assert!(bob.draft.is_empty());
+        assert!(bob.baseline.is_empty());
+        assert!(bob.draft_actor.is_empty());
+        assert!(bob.remote.is_none());
+        assert!(bob.read_actor.is_empty());
+        assert!(bob.read_script.is_empty());
+        assert_eq!(bob.ticket, reading.ticket + 1);
+        assert!(bob.can_edit());
+        assert_eq!(bob.status, Status::SignedIn);
+        assert!(bob.loaded(reading.ticket, response(4)).script.is_empty());
     }
 
     #[test]

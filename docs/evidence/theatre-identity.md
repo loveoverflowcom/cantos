@@ -114,3 +114,73 @@ Final scope: Web backend/session/sealed seam implemented; Web runtime mounting/f
 Native OS/protocol/verifier groundwork implemented and source-compiled; public exchange/resource
 revocation/registry consumer and host wiring remain incomplete. Native response is not authority;
 PR3 native integration is not complete. Parent Ultra independent review remains required afterPR4.
+
+### Independent campaign native completion — code awaiting fresh gates
+
+The campaign review found missing native exchange/resource/host consumers and a Web issuance
+expiry gap after INSERT/trigger waits. Migration 0024 preserves 0021 and adds final rollback,
+distinct native flows/sessions and narrow issuance. Native public-client code now supplies
+bounded discovery/JWKS/exchange without a secret, actual access-JWT purpose/signature checks,
+current introspection, exact registry issuance, a separate opaque session and current Library
+admission. Native API DTO/schema and direct production-core/HTTP/PG regressions were added;
+their existence is not execution evidence.
+
+Fresh gates are **NOT_RUN in this implementation subtask** until the parent resource lane runs
+the current combined source. Named targets: access signature/token confusion; public mock
+refusing Authorization/client_secret; actual flow/exchange/session/Library HTTP with disposable
+PG; replay/unknown exchange; remote revoke/local disable; stale session fence refusing writes;
+Web final-expiry registration rollback. Prior result tables remain historical, not current
+integrated acceptance.
+
+Android manifest source activation was rejected twice by automatic approval review as a
+network-settings change. The unapplied proposal is outside Git at
+`/tmp/cantos-native-android-manifest-proposal.md`; direct human exception is pending. Common
+transport/controller, OS adapters and iOS host work continued. No manifest workaround, provider
+registration, deployed credentials/TLS/network mutation or container was performed. Native
+runtime/device/provider/secure-store evidence remains NOT_RUN.
+
+The response-order regression `delayed_guarded_logout_and_completed_callbacks_never_expire_new_shared_cookies`
+uses the actual Axum routers, disposable PostgreSQL and signed provider fixture. A Notify gate
+holds A's remote revoke after its local commit while two initially anonymous callbacks complete;
+the oracle rejects any late old DELETE cookie expiry and any completed callback global flow
+expiry, checks B's current session and verifies known revoked versus arbitrary unknown begin.
+Source was added before the corresponding fix; execution/fail-before reproduction is NOT_RUN
+in this subtask. The existing stale-only fixture also requires provider outage to leave B
+unrevoked with 503 and no cookie effects.
+`guarded_inert_a_cookie_does_not_cancel_new_anonymous_b_flow` sends A's inert credential with
+a newly installed B binder through both expected-session and stale-only cleanup. It checks the
+actual SQL flow remains uncancelled and its HTTP callback/session succeeds. Source-only
+NOT_RUN; it covers the distinct cancellation race that cookie-header assertions cannot detect.
+
+The subsequent durable inventory regression
+`immutable_guest_inventory_logout_cancels_paused_callback_and_permits_fresh_login` pauses the
+second already-consumed guest callback in the real mock token endpoint, completes the first,
+adds a third immutable binder, and acknowledges active expected-session logout with all cookies.
+It requires the late callback to refuse without a new session/cookie, then admits a fresh login.
+Migration 0024 adds source-flow association; the same deterministic flow-before-session lock
+order covers pending callbacks and already-issued siblings. Production parser tests reject
+malformed/duplicate/mixed/overflow inventories and mutable fallback. These are source-only
+NOT_RUN until the parent executes fixed and retained fail-before sources.
+
+`immutable_inventory_revokes_already_issued_sibling_even_when_its_cookie_response_is_held`
+covers successful B issuance whose cookie response is withheld across A logout. B's late cookie
+remains inert; unguarded HTTP DELETE is refused without effects. The outage/retry fixture
+`inert_a_retry_finishes_captured_sibling_revoke_without_cancelling_fresh_b` requires durable
+batch attribution to finish old sibling acknowledgements after old cookies are absent, while
+fresh B remains admitted. Remote effects have an overall five-second budget.
+The scoped prior guarded production-kernel overlay is preserved outside Git at
+`/tmp/cantos-theatre-inventory-kernel-revert/manifest.json`; it intentionally retains the current
+fixture/native/cookie syntax and is not an original whole-head snapshot. Only the parent may
+temporarily apply it for actual fail-before execution and restore the recorded fixed hash.
+
+Android secure storage now maps `ProviderException` (including Keystore backend busy) to typed
+Unavailable without broad exception or coroutine cancellation catches. OS fault injection and
+native builds remain NOT_RUN in this subtask.
+
+`retired_a_cancels_only_captured_unexpired_rotation_receipts_and_preserves_observed_b` covers
+the completed rotation lost-ack gap: root-serialized A→B→C issuance needs exact captured
+unexpired flow binders for old A to cancel a matching receipt. Old A/UUID without B's binder,
+and a raw expired-binder replay, both preserve observed B. The captured fresh C receipt is
+revoked before its held cookie response can regain admission. Roots serialize; they confer no
+actor-wide or permanent retired-session cancellation authority. Source execution is assigned
+to the parent lane.
