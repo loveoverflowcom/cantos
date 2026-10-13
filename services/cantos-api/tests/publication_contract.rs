@@ -108,7 +108,11 @@ async fn real_publication_routes_require_studio_auth_and_have_no_legacy_or_liste
             let body: Value =
                 serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
                     .unwrap();
-            schema("ApiError", &body);
+            if prefix == "/api/v1/theatre" {
+                assert_eq!(body, json!({"code":"not_found","retryable":false}));
+            } else {
+                schema("ApiError", &body);
+            }
         }
     }
 }

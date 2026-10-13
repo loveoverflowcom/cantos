@@ -23,10 +23,11 @@ and needs a measured listener payload first. Progress and bookmark semantics are
 Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`), is
 routed by `http/theatre.rs`, has DTOs in `cantos_contracts::theatre`, and has its own listener
 authentication. It never reuses a Studio route, session or editor `Store` method, and a Studio
-session grants nothing here. The router is reserved and empty until 040.1.
+session grants nothing here. The Discovery/Playback core is implemented; see [its actual v1 contract](../../../../packages/contracts/theatre-discovery-v1.md). Anonymous current-public reads and a fail-closed grant port are present; library/progress, production identity, actual public delivery and generated client adoption are still deferred.
 
-Nothing below exists. Names are placeholders for the first listener PR (040.1) to confirm in the
-schema review; the shape — which resources exist and how each one may change — is the point.
+The table below remains the broader proposed resource map. The linked actual contract owns
+implemented Discovery/Playback names and behavior; progress/bookmarks/download operations are
+not implemented. OpenAPI and drift-checked Kotlin generation remain required client acceptance.
 
 | Resource | Illustrative operation | Mutability | Caching |
 |---|---|---|---|

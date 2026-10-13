@@ -110,8 +110,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **One backend.** `services/cantos-api` is the single deployable service for both products, as
   decided in [decision 0001](../decisions/0001-modular-monolith.md). Studio v1 is implemented. The
   API is split by surface into three route groups with separate routers, DTO modules, authentication
-  and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` and `/api/v1/admin/*`
-  (reserved: empty routers answering `404 not_found`, no fake data; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
+  and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
+  core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
+  (reserved: empty router answering `404 not_found`; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
   Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog

@@ -449,6 +449,33 @@ fn error(e: PublicationStoreError) { match e { PublicationStoreError::Domain(Pub
                     f"use crate::contexts::media::{symbol};",
                     "platform must not depend on a business context")
 
+    def test_listener_http_admits_only_composition_errors_and_credentials(self):
+        self.assertEqual(self.errors("interfaces/http/theatre_library.rs", """
+use crate::contexts::listening::{LibraryService, LibraryError};
+use crate::contexts::listening::auth::{ListenerAuthenticator, ListenerCredentials, AuthenticatedListener};
+fn f() { crate::contexts::listening::LibraryService::new(store); }
+"""), [])
+        for symbol in ("reconcile_progress", "projection::continue_records"):
+            self.assertRejected("interfaces/http/theatre_library.rs",
+                f"fn f() {{ crate::contexts::listening::domain::{symbol}(input); }}",
+                "HTTP must delegate business decisions")
+        self.assertRejected("interfaces/http/theatre_library.rs",
+            "fn f() { crate::contexts::listening::auth::AuthenticatedListener::from_verified_actor(actor); }",
+            "HTTP must delegate business decisions")
+
+    def test_listener_dependency_direction_and_test_only_router_composition(self):
+        self.assertEqual(self.errors("contexts/listening/postgres.rs", """
+use crate::contexts::media::library_publications;
+use crate::contexts::catalog::lock_listener_catalog;
+"""), [])
+        fixture="use crate::interfaces::http::{router_with_listener_identity,AppState};"
+        self.assertEqual(self.errors("contexts/listening/postgres/tests.rs",fixture), [])
+        self.assertRejected("contexts/listening/postgres.rs",fixture,"context must not depend on an interface")
+        self.assertRejected("contexts/listening/postgres/tests.rs",
+            "use crate::interfaces::http::theatre_library::routes;", "context must not depend on an interface")
+        self.assertRejected("contexts/media/postgres.rs",
+            "use crate::contexts::listening::LibraryService;", "media must not depend on listening")
+
     def test_http_cannot_import_business_policy(self):
         self.assertRejected("interfaces/http/studio/production.rs", """
 use crate::contexts::production::{domain::assess_eligibility as assess};

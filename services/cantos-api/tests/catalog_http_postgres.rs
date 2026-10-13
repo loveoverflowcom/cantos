@@ -2085,4 +2085,4 @@ async fn content_read_baseline_records_actual_authorized_api_and_indexed_postgre
 mod brief_http;
 
 #[path = "support/audio_lifecycle_http_postgres.rs"]
-mod audio_lifecycle_http;
+pub(crate) mod audio_lifecycle_http;

@@ -620,6 +620,8 @@ def main():
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
+        run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::listening::postgres::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "listener-library-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "audio_intake_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "audio-intake-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "build", "-p", "cantos-api", "--bins", "--locked", "--offline"], env=env, output=EVIDENCE / "host-build.log")
