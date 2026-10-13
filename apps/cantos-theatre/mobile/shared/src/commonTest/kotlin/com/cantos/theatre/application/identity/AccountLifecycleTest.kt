@@ -8,6 +8,11 @@ import kotlin.test.assertTrue
 
 class AccountLifecycleTest {
     private fun session(actor: String, n: Int) = AccountSession.fromServer(actor, "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}")!!
+    @Test fun legacy_actor_ids_remain_opaque_but_control_characters_are_rejected() {
+        val session = "00000000-0000-4000-8000-000000000001"
+        assertTrue(AccountSession.fromServer("owner-a", session) != null)
+        for (control in listOf('\u0000', '\u001f', '\u007f', '\u009f')) assertNull(AccountSession.fromServer("owner${control}a", session))
+    }
     @Test fun accountSwitchNeverRelabelsIntentAndLateCallbacksCannotMutateB() {
         val owner = AccountLifecycle()
         val operation = "00000000-0000-4000-8000-000000000003"

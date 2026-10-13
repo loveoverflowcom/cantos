@@ -265,3 +265,12 @@ not generated OpenAPI. Future generated bindings must name their source and gene
 opaque keysets and a fail-closed playback authorization port. Shared DTOs and strict fixtures
 are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
 acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.
+
+## Theatre Identity
+
+[Theatre Identity v1](theatre-identity-v1.md) keeps Web cookie and native opaque bearer purposes
+separate. Native public-client flow/exchange/session DTOs share the strict
+[native schema](schemas/theatre-native-identity-v1.schema.json) and [nonsecret session fixture](fixtures/theatre-identity/v1/native-session.json).
+The provider bearer never reaches either client. Session UUID headers reject late account
+intents and correlate private responses; they are fences, never authentication evidence.
+Device/provider acceptance remains separate from these implemented contracts.

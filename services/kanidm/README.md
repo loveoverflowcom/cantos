@@ -152,15 +152,23 @@ Kanidm reconciliation plan remains Studio-specific; no Theatre live provisioning
 
 For an operator-reviewed Theatre deployment, runtime needs SELECT on `actors`,
 `theatre_identity_sessions`; SELECT/INSERT/UPDATE on `theatre_identity_flows`;
-UPDATE(revoked,revocation_pending) on `theatre_identity_sessions`; EXECUTE on
+UPDATE(revoked,revocation_pending,revoked_by_token_hash) on `theatre_identity_sessions`; EXECUTE on
 `theatre_identity_finish(bytea,text,text,text,text,bytea,bytea,text,bigint)`,
 `listener_actor_active(text)` and `listener_lock_actor(text)`, plus the existing explicitly reviewed
 Library/Progress grants. It receives no registry SELECT or actor/session INSERT privilege.
 These are documentation/test grants, not an executed persistent role configuration.
 
-Native `cantos-theatre-native` remains public-client groundwork with exact callback
-`com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Native token exchange,
-resource verification, registry integration, host callback mounting and approved client/scopes
-remain deferred. Do not issue Web BFF sessions as native bearer tokens. See
+Native `cantos-theatre-native` has an opt-in public-client code path with exact callback
+`com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Bounded token exchange,
+access-token signature/purpose verification, current introspection, exact registry issuance and
+separate opaque native sessions are implemented source, awaiting current combined gates. Runtime
+needs SELECT on `actors`/`theatre_native_sessions`, UPDATE(revoked,revocation_pending) on native
+sessions, SELECT/INSERT/UPDATE on native flows, and EXECUTE on
+`theatre_native_finish(uuid,text,text,text,bytea,bytea,text,bigint,uuid)` plus the existing Listener
+lock/Library grants. These are reviewed deployment requirements, not live role changes.
+iOS host code is opt-in; Android source manifest/host activation remains held after automatic
+approval rejection. Provider public-client registration/scopes, OS storage/browser/device
+acceptance, TLS/credentials and production activation are unperformed gates. Do not issue Web
+BFF sessions as native bearer tokens. See
 [Theatre architecture](../../docs/architecture/theatre-identity.md) and
 [handoff](../../docs/work-plan/theatre-identity-handoff.md).

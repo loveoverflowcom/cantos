@@ -84,4 +84,4 @@ mod tests {
     }
 }
 
-pub use super::theatre_identity::TheatreListenerAuthenticator;
+pub use super::theatre_identity::{NativeListenerAuthenticator, TheatreListenerAuthenticator};

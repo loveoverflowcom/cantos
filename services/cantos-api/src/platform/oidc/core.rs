@@ -36,6 +36,7 @@ pub enum AuthError {
 struct Header {
     alg: String,
     kid: String,
+    typ: Option<String>,
     #[serde(default)]
     crit: Vec<String>,
 }
@@ -76,6 +77,78 @@ pub(crate) struct VerifiedIdentity {
     key: ExternalIdentityKey,
     expires: u64,
     digest: Vec<u8>,
+}
+
+/// Resource-token witness: an ID token or a registry row cannot construct it.
+pub(crate) struct VerifiedAccess {
+    key: ExternalIdentityKey,
+    expires: u64,
+}
+impl VerifiedAccess {
+    pub(crate) fn key(&self) -> &ExternalIdentityKey {
+        &self.key
+    }
+    pub(crate) fn expires(&self) -> u64 {
+        self.expires
+    }
+}
+
+#[derive(Deserialize)]
+struct AccessClaims {
+    iss: String,
+    sub: String,
+    aud: String,
+    client_id: String,
+    exp: u64,
+    iat: u64,
+    nbf: u64,
+    jti: String,
+    scope: String,
+}
+
+pub(crate) fn verify_native_access(
+    token: &str,
+    keys: &JwkSet,
+    issuer: &str,
+    client_id: &str,
+    now: u64,
+) -> Result<VerifiedAccess, AuthError> {
+    let parts: Vec<_> = token.split('.').collect();
+    if parts.len() != 3 {
+        return Err(AuthError::InvalidToken);
+    }
+    let header: Header =
+        serde_json::from_slice(&segment(parts[0], 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref() != Some("at+jwt") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verified_payload(token, keys)?;
+    let claims: AccessClaims =
+        serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.client_id != client_id {
+        return Err(AuthError::Audience);
+    }
+    if now >= claims.exp || claims.exp <= claims.iat {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf > now {
+        return Err(AuthError::NotYetValid);
+    }
+    if claims.jti.is_empty()
+        || claims.jti.len() > 128
+        || claims.jti.chars().any(char::is_control)
+        || !claims.scope.split_ascii_whitespace().any(|v| v == "openid")
+    {
+        return Err(AuthError::InvalidToken);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedAccess {
+        key,
+        expires: claims.exp,
+    })
 }
 
 impl VerifiedIdentity {
@@ -127,6 +200,38 @@ pub(crate) fn verify_for_client(
     nonce: &str,
     now: u64,
 ) -> Result<VerifiedIdentity, AuthError> {
+    let encoded = token.split('.').next().ok_or(AuthError::InvalidToken)?;
+    let header: Header =
+        serde_json::from_slice(&segment(encoded, 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref().is_some_and(|v| v != "JWT") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verified_payload(token, keys)?;
+    let claims: Claims = serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
+        return Err(AuthError::Audience);
+    }
+    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
+        return Err(AuthError::NotYetValid);
+    }
+    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
+        return Err(AuthError::Nonce);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedIdentity {
+        key,
+        expires: claims.exp,
+        digest: Sha256::digest(token).to_vec(),
+    })
+}
+
+fn verified_payload(token: &str, keys: &JwkSet) -> Result<Vec<u8>, AuthError> {
     let kid = token_kid(token)?;
     let parts: Vec<_> = token.split('.').collect();
     if parts.len() != 3 {
@@ -157,30 +262,7 @@ pub(crate) fn verify_for_client(
     UnparsedPublicKey::new(&ECDSA_P256_SHA256_FIXED, public)
         .verify(message.as_bytes(), &signature)
         .map_err(|_| AuthError::Signature)?;
-    let claims: Claims =
-        serde_json::from_slice(&segment(parts[1], 12_000)?).map_err(|_| AuthError::InvalidToken)?;
-    if claims.iss != issuer {
-        return Err(AuthError::Issuer);
-    }
-    if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
-        return Err(AuthError::Audience);
-    }
-    // No ambient clock/leeway. A callback proof must have been minted in the flow's lifetime.
-    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
-        return Err(AuthError::Expired);
-    }
-    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
-        return Err(AuthError::NotYetValid);
-    }
-    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
-        return Err(AuthError::Nonce);
-    }
-    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
-    Ok(VerifiedIdentity {
-        key,
-        expires: claims.exp,
-        digest: Sha256::digest(token).to_vec(),
-    })
+    segment(parts[1], 12_000)
 }
 
 fn constant_time_equal(a: &[u8], b: &[u8]) -> bool {
@@ -214,4 +296,79 @@ pub(crate) fn verify(
     now: u64,
 ) -> Result<VerifiedIdentity, AuthError> {
     verify_for_client(token, keys, issuer, CLIENT_ID, nonce, now)
+}
+
+#[cfg(test)]
+mod native_resource_tests {
+    use super::*;
+    use crate::platform::oidc::mock::Signer;
+    use serde_json::json;
+    #[test]
+    fn resource_witness_requires_actual_access_signature_purpose_client_scope_and_current_time() {
+        let signer = Signer::new("native-resource");
+        let attacker = Signer::new("native-resource");
+        let issuer = "https://idm.example/oauth2/openid/cantos-theatre-native";
+        let client = "cantos-theatre-native";
+        let keys: JwkSet = serde_json::from_value(json!({"keys":[signer.jwk()]})).unwrap();
+        let claims = json!({"iss":issuer,"sub":"nguyễn-minh","aud":client,"client_id":client,"iat":100,"nbf":100,"exp":300,"jti":"unique","scope":"openid"});
+        let proof = verify_native_access(
+            &signer.sign_access(claims.clone()),
+            &keys,
+            issuer,
+            client,
+            100,
+        )
+        .unwrap();
+        assert_eq!(proof.key().subject(), "nguyễn-minh");
+        assert_eq!(proof.expires(), 300);
+        assert_eq!(
+            verify_native_access(&signer.sign(claims.clone()), &keys, issuer, client, 100).err(),
+            Some(AuthError::InvalidToken)
+        );
+        assert_eq!(
+            verify_native_access(
+                &attacker.sign_access(claims.clone()),
+                &keys,
+                issuer,
+                client,
+                100
+            )
+            .err(),
+            Some(AuthError::Signature)
+        );
+        for (field, value, error) in [
+            ("aud", json!("cantos-theatre-web-bff"), AuthError::Audience),
+            (
+                "client_id",
+                json!("cantos-studio-web-bff"),
+                AuthError::Audience,
+            ),
+            ("iss", json!("https://other.example"), AuthError::Issuer),
+            ("exp", json!(100), AuthError::Expired),
+            ("nbf", json!(101), AuthError::NotYetValid),
+            ("scope", json!("profile"), AuthError::InvalidToken),
+        ] {
+            let mut changed = claims.clone();
+            changed[field] = value;
+            assert_eq!(
+                verify_native_access(&signer.sign_access(changed), &keys, issuer, client, 100)
+                    .err(),
+                Some(error)
+            );
+        }
+        let mut id_claims = claims.clone();
+        id_claims["nonce"] = json!("native-nonce");
+        assert_eq!(
+            verify_for_client(
+                &signer.sign_access(id_claims),
+                &keys,
+                issuer,
+                client,
+                "native-nonce",
+                100
+            )
+            .err(),
+            Some(AuthError::InvalidToken)
+        );
+    }
 }

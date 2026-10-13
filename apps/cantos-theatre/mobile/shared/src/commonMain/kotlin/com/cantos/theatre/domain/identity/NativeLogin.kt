@@ -17,7 +17,11 @@ class NativeConfiguration private constructor(val issuer: String, val redirect: 
     companion object {
         /** Operator-owned exact URI. No runtime client/scopes or Studio secret. */
         fun create(issuer: String, redirect: String): NativeConfiguration? {
-            val validIssuer = Regex("https://[a-z0-9.-]+(?::[0-9]+)?/oauth2/openid/cantos-theatre-native").matches(issuer)
+            val match = Regex("https://([a-z0-9.-]+)(?::([0-9]{1,5}))?/oauth2/openid/cantos-theatre-native").matchEntire(issuer) ?: return null
+            val host = match.groupValues[1]
+            val port = match.groupValues[2]
+            val validIssuer = issuer.length <= 2048 && !host.startsWith('.') && !host.endsWith('.') && !host.contains("..") &&
+                (port.isEmpty() || port.toInt() in 1..65535)
             return if (validIssuer && redirect == "com.cantos.theatre:/oauth2/callback") NativeConfiguration(issuer, redirect) else null
         }
     }

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.local/contracts/theatre-native-identity-v1.schema.json",
+  "title": "Theatre native public-client identity v1",
+  "oneOf": [
+    {"$ref": "#/$defs/flow_request"},
+    {"$ref": "#/$defs/flow"},
+    {"$ref": "#/$defs/exchange_request"},
+    {"$ref": "#/$defs/exchange"},
+    {"$ref": "#/$defs/session"}
+  ],
+  "$defs": {
+    "protocol_secret": {"type": "string", "minLength": 43, "maxLength": 128, "pattern": "^[A-Za-z0-9._~-]+$"},
+    "actor": {"type": "string", "minLength": 1, "maxLength": 128},
+    "session_id": {"type": "string", "format": "uuid"},
+    "expires": {"type": "integer", "minimum": 0},
+    "flow_request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "nonce", "code_challenge"],
+      "properties": {"state": {"$ref": "#/$defs/protocol_secret"}, "nonce": {"$ref": "#/$defs/protocol_secret"}, "code_challenge": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}}
+    },
+    "flow": {
+      "type": "object", "additionalProperties": false, "required": ["flow_id", "authorization_url"],
+      "properties": {"flow_id": {"type": "string", "format": "uuid"}, "authorization_url": {"type": "string", "maxLength": 8192, "format": "uri"}}
+    },
+    "exchange_request": {
+      "type": "object", "additionalProperties": false, "required": ["state", "code", "code_verifier"],
+      "properties": {"state": {"$ref": "#/$defs/protocol_secret"}, "code_verifier": {"$ref": "#/$defs/protocol_secret"}, "code": {"type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^[!-~]+$"}}
+    },
+    "exchange": {
+      "type": "object", "additionalProperties": false, "required": ["actor_id", "session_id", "access_token", "expires_at"],
+      "properties": {"actor_id": {"$ref": "#/$defs/actor"}, "session_id": {"$ref": "#/$defs/session_id"}, "access_token": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "expires_at": {"$ref": "#/$defs/expires"}}
+    },
+    "session": {
+      "type": "object", "additionalProperties": false, "required": ["actor_id", "session_id", "expires_at"],
+      "properties": {"actor_id": {"$ref": "#/$defs/actor"}, "session_id": {"$ref": "#/$defs/session_id"}, "expires_at": {"$ref": "#/$defs/expires"}}
+    }
+  }
+}

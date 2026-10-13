@@ -53,6 +53,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some() {
         return Err("Theatre secret requires explicit issuer".into());
     }
+    if let Ok(issuer) = env::var("CANTOS_THEATRE_NATIVE_ISSUER") {
+        let native = cantos_api::platform::theatre_identity::NativeIdentity::new(&issuer)
+            .map_err(|_| "invalid separate native public-client identity configuration")?;
+        store = store.with_theatre_native(native);
+    }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");

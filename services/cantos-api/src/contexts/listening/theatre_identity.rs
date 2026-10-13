@@ -13,6 +13,31 @@ use crate::{
 pub struct TheatreListenerAuthenticator {
     store: Store,
 }
+pub struct NativeListenerAuthenticator {
+    store: Store,
+}
+impl NativeListenerAuthenticator {
+    pub fn new(store: Store) -> Self {
+        Self { store }
+    }
+}
+impl ListenerAuthenticator for NativeListenerAuthenticator {
+    fn authenticate(&self, credentials: ListenerCredentials) -> AuthenticationFuture {
+        let store = self.store.clone();
+        Box::pin(async move {
+            let native = store
+                .theatre_native()
+                .ok_or(AuthenticationError::Unauthenticated)?;
+            let view = native
+                .authenticate(&store, credentials.expose_to_verifier())
+                .await
+                .map_err(authentication_error)?;
+            let actor =
+                OwnerId::parse(&view.actor_id).map_err(|_| AuthenticationError::Unavailable)?;
+            Ok(AuthenticatedListener::from_verified_actor(actor))
+        })
+    }
+}
 impl TheatreListenerAuthenticator {
     pub fn new(store: Store) -> Self {
         Self { store }

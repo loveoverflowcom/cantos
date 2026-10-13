@@ -137,3 +137,20 @@ and Platform supplies owner activity. Studio cookies grant nothing here. Migrati
 public releases in the existing atomic publication transaction. The default playback adapter
 is explicitly unavailable; this is not real public delivery or production acceptance.
 See [evidence](../../docs/evidence/theatre-discovery.md).
+
+## Separate Theatre native identity
+
+The development host opt-in `CANTOS_THEATRE_NATIVE_ISSUER` selects only the exact public client
+`cantos-theatre-native` and `com.cantos.theatre:/oauth2/callback`; it takes no client secret.
+Native flow/exchange/session routes and the strict [identity contract](../../packages/contracts/theatre-identity-v1.md)
+use bounded same-origin discovery/JWKS, real ID/access signatures, current introspection and
+separate SQL/native opaque session authority. Native resource admission never reuses a Web,
+Studio or Admin credential. Normal configuration remains disabled and production hosting,
+provider registration/TLS, native device and OS storage acceptance remain separate.
+
+Migration 0024 preserves 0021 and adds native tables/narrow issuance plus Web final-expiry rollback.
+Operator-applied development grants are SELECT on native sessions, UPDATE only revoked/
+revocation_pending, SELECT/INSERT/UPDATE on native flows and EXECUTE on the narrow native finish
+function and existing listener actor admission helpers. No API startup provisions these grants.
+Use the existing disposable `cargo xtask verify postgres` gate; it includes the signed public-client
+HTTP/PG suite. Recorded command results belong to the [evidence ledger](../../docs/evidence/theatre-identity.md).

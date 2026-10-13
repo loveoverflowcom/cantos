@@ -40,7 +40,9 @@ Account policy: no automatic guest import/merge (#34 open). Login/logout does no
 move playback. A→logout→B hides A data immediately and fences both late success/failure; A's original
 operation/body remains A-owned, never relabeled asB. Returning asA first reads a receipt for an
 unknown outcome. Helpers are memory only; no restart/durable outbox acceptance is claimed.
-Web waits for acknowledged logout cookie cleanup before starting another login. Native stale
+Web waits for acknowledged durable logout before starting another login. Guarded responses
+leave the locally revoked HttpOnly cookie inert until replacement/expiry and emit no global
+cookie expiry that could erase a newer tab's session. Native stale
 callbacks do not invalidate a newer pending flow. Actual secure-store failure handling must be
 accepted on OS targets before restoring credentials or enabling account UI.
 
@@ -64,3 +66,48 @@ plumbing, not a shared credential/session purpose. Neither Studio nor Theatre au
 
 See [architecture](../architecture/theatre-identity.md),
 [contract](../../packages/contracts/theatre-identity-v1.md) and [evidence](../evidence/theatre-identity.md).
+
+## Independent campaign completion handoff
+
+The code boundary above is historical. Native resource IO now has its own public-client config/
+transport, durable single-attempt flow, real ID/access signature witnesses, current introspection,
+exact registry issuance, native opaque session, fresh admission and local-first pending revoke.
+Migration 0024 also replaces Web issuance with final expiry rollback after all writes/trigger
+waits; 0021 bytes stay untouched. Contract fixtures, signature tests and actual SQL/HTTP regression
+sources accompany it. Fresh execution belongs to the parent resource lane; older PASS rows do
+not establish current integrated acceptance.
+
+The common controller and OS adapters are mounted into iOS with explicit HTTPS config. Android
+INTERNET/callback manifest activation remains an automatic-review blocker; the source-only
+proposal at `/tmp/cantos-native-android-manifest-proposal.md` is unapplied pending direct human
+exception. Provider registration/grants, deployed credentials/TLS/network settings and container
+startup were not performed. Complete the permitted source patch, then run common, Android/iOS
+build and named OS callback/storage/lifecycle acceptance where tools are available.
+
+Private requests now carry a nonsecret session fence. Mismatch 409 refuses dispatch and requires
+identity revalidation, preserving owner intent. Web stale-only cleanup and expected-session
+logout cannot revoke a switched valid cookie. Provider reconfiguration never receives a bearer
+stored for another exact issuer.
+
+Guarded/stale-only logout and completed callbacks emit no shared cookie expiry headers. A new
+login accepts a retained old cookie only when its exact local issuer/client session is positively
+revoked/expired; unknown cookies and provider outages remain closed. The actual PG/HTTP mock
+regression pauses old A's provider revoke after local commit while two guest callbacks complete,
+then checks that the late A response has no cookie effects and B remains admitted. This new
+regression is source evidence until the parent build lane executes it.
+
+The durable repair uses at most eight immutable per-flow cookies, with strict overflow refusal
+before new allocation and no mutable-cookie fallback. Active expected-A logout locks the proven
+flow inventory and A's source flow before associated sessions, atomically cancels pending flows
+and revokes already-issued siblings. A stale-only or already-inert A cleanup never cancels newly
+intended B. The paused signed-mock regression covers two initially guest callbacks plus a third
+binder, late callback refusal after acknowledged logout, and a fresh login. Overflow from more
+than eight concurrent anonymous starts requires waiting for 300-second binder expiry. Unguarded
+HTTP DELETE is retired. All new regression execution remains assigned to the parent lane.
+
+Recommended order: combined pure/mock/PG gates → Android source exception/application → actual
+Web/native interaction and secure-store lifecycle → authorized live-provider matrix → production
+at-rest/recovery/retention review. Native playback, durable outbox/guest-import policy and full
+Web/native synchronization retain their separate owners and acceptance gates.
+Because Web/native issuers are client-specific, shared Library acceptance also needs an explicit
+authorized registry link; equal subject strings do not authorize automatic linking.

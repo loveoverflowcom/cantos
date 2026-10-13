@@ -101,6 +101,7 @@ TABLE_OWNER = {
     "actor_external_identities": "platform",
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "theatre_identity_flows": "platform", "theatre_identity_sessions": "platform",
+    "theatre_native_flows": "platform", "theatre_native_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
@@ -545,6 +546,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "listening", "auth", "DenyListenerAuthentication"),
             ("contexts", "listening", "auth", "TheatreListenerAuthenticator"),
             ("contexts", "listening", "auth", "TheatreListenerAuthenticator", "new"),
+            ("contexts", "listening", "auth", "NativeListenerAuthenticator"),
+            ("contexts", "listening", "auth", "NativeListenerAuthenticator", "new"),
             ("contexts", "listening", "auth", "ListenerCredentials"),
             ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
         } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (

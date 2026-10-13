@@ -6,7 +6,7 @@ import com.cantos.theatre.ports.CredentialStore
 class AccountSession private constructor(val actor: String, val session: String) {
     companion object {
         fun fromServer(actor: String, session: String): AccountSession? =
-            if (actor.isNotEmpty() && actor.length <= 128 && actor.none { it.code < 32 } && Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}").matches(session)) AccountSession(actor, session) else null
+            if (actor.isNotEmpty() && actor.length <= 128 && actor.none { it.isISOControl() } && Regex("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}").matches(session)) AccountSession(actor, session) else null
     }
 }
 class AccountFence internal constructor(internal val generation: Long, internal val session: AccountSession)

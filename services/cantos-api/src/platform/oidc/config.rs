@@ -1,7 +1,15 @@
 use super::core::AuthError;
 const STUDIO_CLIENT_ID: &str = "cantos-studio-web-bff";
 pub const THEATRE_WEB_CLIENT_ID: &str = "cantos-theatre-web-bff";
+pub const THEATRE_NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
+pub const THEATRE_NATIVE_REDIRECT: &str = "com.cantos.theatre:/oauth2/callback";
 use reqwest::Url;
+
+#[derive(Clone)]
+pub(crate) enum ClientAuthentication {
+    Confidential(String),
+    PublicNative,
+}
 
 /// Operator-owned exact configuration. No environment, headers or discovery can choose a client.
 #[derive(Clone)]
@@ -11,11 +19,31 @@ pub struct OidcConfig {
     pub(crate) origin: Url,
     pub(crate) web_origin: String,
     pub(crate) redirect: String,
-    pub(crate) secret: String,
+    pub(crate) authentication: ClientAuthentication,
     pub(crate) secure: bool,
 }
 
 impl OidcConfig {
+    pub(crate) fn theatre_native(issuer: &str) -> Result<Self, AuthError> {
+        let provider = checked_url(issuer)?;
+        if provider.path() != format!("/oauth2/openid/{THEATRE_NATIVE_CLIENT_ID}") {
+            return Err(AuthError::Configuration);
+        }
+        let origin = provider.join("/").map_err(|_| AuthError::Configuration)?;
+        Ok(Self {
+            client_id: THEATRE_NATIVE_CLIENT_ID,
+            issuer: issuer.into(),
+            origin,
+            web_origin: String::new(),
+            redirect: THEATRE_NATIVE_REDIRECT.into(),
+            authentication: ClientAuthentication::PublicNative,
+            secure: true,
+        })
+    }
+
+    pub(crate) fn is_public_native(&self) -> bool {
+        matches!(self.authentication, ClientAuthentication::PublicNative)
+    }
     /// HTTPS with normal certificate validation; local HTTP is limited to literal loopback.
     /// This does not enable a production host. Cantos-server still requires development/loopback.
     pub fn new(issuer: &str, web_origin: &str, secret: String) -> Result<Self, AuthError> {
@@ -53,7 +81,7 @@ impl OidcConfig {
             origin,
             web_origin: web_origin.into(),
             redirect: format!("{web_origin}/api/v1/{surface}/auth/callback"),
-            secret,
+            authentication: ClientAuthentication::Confidential(secret),
             secure: web.scheme() == "https",
         })
     }

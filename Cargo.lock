@@ -815,6 +815,7 @@ dependencies = [
  "tower",
  "tower-http",
  "unicode-normalization",
+ "url",
  "uuid",
  "zip 4.6.1",
 ]

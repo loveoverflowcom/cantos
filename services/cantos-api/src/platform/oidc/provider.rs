@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 
 use super::{
-    config::OidcConfig,
+    config::{ClientAuthentication, OidcConfig},
     core::{self, AuthError, JwkSet, VerifiedIdentity},
 };
 
@@ -21,6 +21,10 @@ struct Discovery {
     id_token_signing_alg_values_supported: Vec<String>,
     token_endpoint_auth_methods_supported: Vec<String>,
     response_types_supported: Vec<String>,
+    #[serde(default)]
+    introspection_endpoint_auth_methods_supported: Vec<String>,
+    #[serde(default)]
+    revocation_endpoint_auth_methods_supported: Vec<String>,
 }
 
 struct Cached {
@@ -101,14 +105,34 @@ impl Provider {
                 .id_token_signing_alg_values_supported
                 .iter()
                 .any(|v| v == "ES256")
-            || !discovery
-                .token_endpoint_auth_methods_supported
-                .iter()
-                .any(|v| v == "client_secret_basic")
+            || (!self.config.is_public_native()
+                && !discovery
+                    .token_endpoint_auth_methods_supported
+                    .iter()
+                    .any(|v| v == "client_secret_basic"))
             || !discovery
                 .response_types_supported
                 .iter()
                 .any(|v| v == "code")
+        {
+            return Err(AuthError::InvalidMetadata);
+        }
+        if self.config.is_public_native()
+            && (discovery.authorization_endpoint
+                != self
+                    .config
+                    .origin
+                    .join("/ui/oauth2")
+                    .map_err(|_| AuthError::InvalidMetadata)?
+                    .as_str()
+                || !discovery
+                    .introspection_endpoint_auth_methods_supported
+                    .iter()
+                    .any(|v| v == "none")
+                || !discovery
+                    .revocation_endpoint_auth_methods_supported
+                    .iter()
+                    .any(|v| v == "none"))
         {
             return Err(AuthError::InvalidMetadata);
         }
@@ -174,6 +198,17 @@ impl Provider {
         verifier: &str,
         now: u64,
     ) -> Result<String, AuthError> {
+        self.authorization_url_with_challenge(state, nonce, &core::pkce_challenge(verifier), now)
+            .await
+    }
+
+    pub async fn authorization_url_with_challenge(
+        &self,
+        state: &str,
+        nonce: &str,
+        challenge: &str,
+        now: u64,
+    ) -> Result<String, AuthError> {
         let discovery = self.discovery(now).await?;
         let mut url = self.config.endpoint(&discovery.authorization_endpoint)?;
         url.query_pairs_mut().extend_pairs([
@@ -184,7 +219,7 @@ impl Provider {
             ("state", state),
             ("nonce", nonce),
             ("code_challenge_method", "S256"),
-            ("code_challenge", core::pkce_challenge(verifier).as_str()),
+            ("code_challenge", challenge),
         ]);
         Ok(url.into())
     }
@@ -198,16 +233,27 @@ impl Provider {
     ) -> Result<Exchange, AuthError> {
         let discovery = self.discovery(clock()?).await?;
         // Never retry: the provider may have consumed the code even if this response is lost.
+        let request = self.client.post(&discovery.token_endpoint);
+        let request = match &self.config.authentication {
+            ClientAuthentication::Confidential(secret) => request.basic_auth(
+                oauth_component(self.config.client_id),
+                Some(oauth_component(secret)),
+            ),
+            // Kanidm1.10.5 public code exchange uses client_id in the form, never a secret.
+            ClientAuthentication::PublicNative => request,
+        };
+        let mut form = vec![
+            ("grant_type", "authorization_code"),
+            ("code", code),
+            ("redirect_uri", self.config.redirect.as_str()),
+            ("code_verifier", verifier),
+        ];
+        if self.config.is_public_native() {
+            form.push(("client_id", self.config.client_id));
+        }
         let tokens: Tokens = bounded(
-            self.client
-                .post(&discovery.token_endpoint)
-                .basic_auth(self.config.client_id, Some(&self.config.secret))
-                .form(&[
-                    ("grant_type", "authorization_code"),
-                    ("code", code),
-                    ("redirect_uri", self.config.redirect.as_str()),
-                    ("code_verifier", verifier),
-                ])
+            request
+                .form(&form)
                 .send()
                 .await
                 .map_err(|_| AuthError::ProviderUnavailable)?,
@@ -250,9 +296,21 @@ impl Provider {
                 result?
             }
         };
+        let resource_expiry = if self.config.is_public_native() {
+            let access = self
+                .verify_native_resource(&tokens.access_token, &clock)
+                .await?;
+            if access.key() != proof.key() {
+                return Err(AuthError::Subject);
+            }
+            Some(access.expires())
+        } else {
+            None
+        };
         let access_expiry = self
             .introspect(&tokens.access_token, proof.key().subject(), &clock)
             .await?;
+        let access_expiry = resource_expiry.map_or(access_expiry, |v| v.min(access_expiry));
         Ok(Exchange {
             proof,
             access_token: tokens.access_token,
@@ -267,10 +325,17 @@ impl Provider {
         clock: impl Fn() -> Result<u64, AuthError>,
     ) -> Result<u64, AuthError> {
         let discovery = self.discovery(clock()?).await?;
+        let request = self.client.post(&discovery.introspection_endpoint);
+        let request = match &self.config.authentication {
+            ClientAuthentication::Confidential(secret) => request.basic_auth(
+                oauth_component(self.config.client_id),
+                Some(oauth_component(secret)),
+            ),
+            // Pinned Kanidm verifies possession/crypto; no client authentication is required.
+            ClientAuthentication::PublicNative => request,
+        };
         let facts: Introspection = bounded(
-            self.client
-                .post(&discovery.introspection_endpoint)
-                .basic_auth(self.config.client_id, Some(&self.config.secret))
+            request
                 .form(&[("token", token)])
                 .send()
                 .await
@@ -282,6 +347,8 @@ impl Provider {
         }
         if facts.sub.as_deref() != Some(subject)
             || facts.aud.as_deref() != Some(self.config.client_id)
+            || (self.config.is_public_native()
+                && facts.client_id.as_deref() != Some(self.config.client_id))
             || facts
                 .iss
                 .as_deref()
@@ -302,10 +369,15 @@ impl Provider {
 
     pub async fn revoke(&self, token: &str, now: u64) -> Result<(), AuthError> {
         let discovery = self.discovery(now).await?;
-        let response = self
-            .client
-            .post(&discovery.revocation_endpoint)
-            .basic_auth(self.config.client_id, Some(&self.config.secret))
+        let request = self.client.post(&discovery.revocation_endpoint);
+        let request = match &self.config.authentication {
+            ClientAuthentication::Confidential(secret) => request.basic_auth(
+                oauth_component(self.config.client_id),
+                Some(oauth_component(secret)),
+            ),
+            ClientAuthentication::PublicNative => request,
+        };
+        let response = request
             .form(&[("token", token), ("token_type_hint", "access_token")])
             .send()
             .await
@@ -319,6 +391,46 @@ impl Provider {
     pub async fn verify_metadata(&self, now: u64) -> Result<(), AuthError> {
         self.discovery(now).await.map(|_| ())
     }
+
+    pub async fn verify_native_resource(
+        &self,
+        token: &str,
+        clock: impl Fn() -> Result<u64, AuthError>,
+    ) -> Result<core::VerifiedAccess, AuthError> {
+        if !self.config.is_public_native() {
+            return Err(AuthError::Configuration);
+        }
+        self.discovery(clock()?).await?;
+        let mut cache = self.cache.lock().await;
+        let cached = cache.entry.as_mut().ok_or(AuthError::ProviderUnavailable)?;
+        let now = clock()?;
+        let result = core::verify_native_access(
+            token,
+            &cached.keys,
+            &self.config.issuer,
+            self.config.client_id,
+            now,
+        );
+        if matches!(result, Err(AuthError::UnknownKey | AuthError::Signature))
+            && now.saturating_sub(cached.last_refresh) >= 10
+        {
+            cached.last_refresh = now;
+            cached.keys = self.fetch_keys(&cached.discovery).await?;
+            core::verify_native_access(
+                token,
+                &cached.keys,
+                &self.config.issuer,
+                self.config.client_id,
+                clock()?,
+            )
+        } else {
+            result
+        }
+    }
+}
+
+fn oauth_component(value: &str) -> String {
+    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
 }
 
 async fn bounded<T: DeserializeOwned>(mut response: Response) -> Result<T, AuthError> {

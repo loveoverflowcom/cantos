@@ -65,6 +65,8 @@ pub struct Store {
     pub(crate) audio_root: Option<std::path::PathBuf>,
     pub(crate) theatre_identity:
         Option<std::sync::Arc<crate::platform::theatre_identity::TheatreIdentity>>,
+    pub(crate) theatre_native:
+        Option<std::sync::Arc<crate::platform::theatre_identity::NativeIdentity>>,
     pub(crate) studio_oidc: Option<std::sync::Arc<crate::platform::studio_oidc::StudioOidc>>,
 }
 
@@ -125,6 +127,7 @@ impl Store {
             audio_root: None,
             studio_oidc: None,
             theatre_identity: None,
+            theatre_native: None,
         })
     }
 

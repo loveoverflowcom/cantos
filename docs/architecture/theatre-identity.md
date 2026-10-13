@@ -12,7 +12,10 @@ Discovery and Library; PR92 registry/PR98 Studio remain published dependencies. 
 actor ID or Studio cookie is not authentication. The existing sealed Library seam is the authority,
 not a new generic ActorContext/header system. Exact issuer/subject is mapped only after signature,
 audience, time and nonce verification; email/name does not link accounts. Pairwise subjects across
-clients may map to different actors until an explicit linking action is authorized.
+clients may map to different actors until an explicit linking action is authorized. Equal subjects
+under different client-specific issuers also map independently: issuer is never normalized across
+clients. A shared Web/native Library needs an explicitly authorized registry link after both
+identity proofs; no automatic cross-client account correspondence is inferred.
 
 Web uses a separate BFF client `cantos-theatre-web-bff`; provider tokens stay off the JS boundary.
 Native uses a separate public `cantos-theatre-native` protocol and OS storage. Web session tokens
@@ -102,4 +105,80 @@ Final adapter location is `contexts/listening/theatre_identity.rs`, exported thr
 technical persistence owns the lease and HTTP dispatches only. Three bounded admission slots leave
 dispatch capacity in the existing pool. Expiry is read after actor wait. Separate native code-response
 verification in `platform/theatre_identity/native.rs` has no principal/session conversion or mounted
-resource API. Its trusted transport/durable exchange/revocation/registry consumer is incomplete.
+resource authority by itself. The native consumer below supplies trusted transport, durable
+exchange, current revocation observation and registry/session composition.
+
+## Native integration added by independent campaign review
+
+`NativeIdentity` uses a closed public-client authentication mode: no secret can be supplied to
+native exchange/introspection/revocation. Exact issuer/client/redirect and bounded same-origin
+discovery/JWKS are pinned. The device creates state/nonce/PKCE and uses the OS browser; the API
+durably consumes before its one public exchange. It verifies ES256 OIDC nonce and RFC9068
+`at+jwt` issuer/audience/client_id/time/scope, exact same subject and current introspection.
+Only private verified evidence reaches exact registry issuance. ID/access token purposes cannot
+substitute for each other.
+
+The [pinned Kanidm 1.10.5 source](https://github.com/kanidm/kanidm/blob/v1.10.5/server/lib/src/idm/oauth2.rs)
+implements public exchange with form `client_id` and no secret, and token-possession introspection/
+revocation without client authentication. Its discovery advertises `none` for the latter two
+while token discovery lists Basic/Post even for public clients. Native config explicitly pins
+public-client scope; a confidential registration fails exchange. Actual provider configuration,
+TLS and live acceptance remain unperformed.
+
+Migration 0024 adds distinct native flows/sessions. Native credentials are opaque random bearers;
+provider tokens remain private. Each resource request verifies the provider JWT, introspects,
+rereads the active local actor/session and takes bounded admission locks. Native credentials do
+not authenticate Studio, Admin or Web `/session`. Mixed Cookie/Authorization is denied. Local
+logout commits before remote revocation; outages retain durable pending evidence. Provider
+observation cannot be atomic with local SQL; already admitted work may finish. No refresh
+credential or offline authorization is introduced.
+
+Both native issuance and the replaced Web issuance function recheck flow/proof validity after
+INSERT/trigger/index waits. Final expiry raises a rollback exception, preserving no new actor,
+binding or session. Historical 0021 bytes stay immutable. Resource/session fence headers reject
+old-account intents before dispatch; guarded Web logout cannot revoke a newly valid cookie
+during stale-only cleanup or an expected-session mismatch.
+
+Guarded/stale-only Web logout responses emit no shared cookie expiry headers. A response can
+arrive after a newer login even when the old request was correctly fenced at dispatch. Local
+revocation leaves the HttpOnly cookie inert until replacement/expiry; begin accepts it as
+anonymous only after a positive exact-issuer/client local revoked/expired query. Unknown
+credentials and provider uncertainty remain closed. Callback responses likewise omit global
+flow-cookie expiry; durable consumed/completed state enforces replay refusal and binders retain
+their 300-second expiry. Each flow has an immutable state-named HttpOnly binder, so another
+begin cannot overwrite evidence of a pending callback. Callback parsing is exact and refuses
+legacy mutable cookies, duplicate/malformed pairs, wrong Secure names and inventories over
+eight. Begin refuses allocation at eight. Concurrent initial requests can exceed the observed
+cap; overflow is never truncated and requires binder expiry before retry.
+
+Migration 0024 associates each Web session with its source flow. An active expected-session
+logout validates inventory pairs, locks all flow rows in state-hash order (including its own
+source), then session rows in token-hash order, and refreshes the current clock afterward.
+It atomically cancels pending inventory flows and revokes already-issued siblings before remote
+effects. Issuance uses the same flow-before-session order; a callback either commits first and
+is revoked, or observes cancellation and issues nothing. Stale-only cleanup and locally
+revoked/expired A retries cannot cancel B's newly intended anonymous flows. Rotation flows and
+sessions propagate an immutable root, acquiring its advisory lock before flow locks during
+begin, issuance and logout. This only serializes related rotations. Inert expected-A cancellation
+still needs the captured exact B/C private binder and source receipt, with a matching root and
+server-side expiry rechecks after locks and writes. Root identity or retired A/UUID alone cannot
+revoke observed B/C; expired binders are not standing cancellation capabilities. A-bound
+rotations also fail the locked `previous_hash` revocation check. Unguarded HTTP DELETE is refused without effects;
+no actor-wide, issuer-wide or cross-device logout policy is introduced.
+The session's durable revocation-batch attribution keeps sibling remote acknowledgements tied
+to the original logout. Provider effects share a five-second overall deadline; timeout leaves
+local revocation committed and the response pending. An inert-A retry can recover already-revoked
+pending siblings without old binder cookies and without cancelling fresh B. No recovery daemon
+or production-provider acknowledgement is represented as implemented acceptance.
+
+The common client/controller has strict DTO decoding, fenced callbacks, unknown-code-outcome
+refusal and explicit restore only after server validation. Keystore/Keychain hold only the
+native credential; a nonsecret durable marker prevents restoration after uncertain logout.
+iOS mounts the Swift system browser/URLSession/Keychain bridge with both pinned HTTPS config
+fields. Android manifest activation awaits a source-only human exception after automatic
+approval review rejected the INTERNET/callback source change; no cleartext/TLS override or
+deployed network setting was changed.
+
+Native builds, OS storage/browser/cancellation/crash/restart, devices, accessibility and provider
+acceptance remain separate unrun gates. The host remains development/loopback-only; absent
+`CANTOS_THEATRE_NATIVE_ISSUER` keeps native routes disabled.

@@ -21,11 +21,14 @@ pub struct LoginStart {
 pub struct LoginComplete {
     pub actor_id: String,
     pub cookie: String,
-    pub clear_flow: String,
 }
 pub struct LogoutComplete {
     pub provider_revoked: bool,
     pub cookies: Vec<String>,
+}
+pub enum GuardedLogout {
+    Complete(LogoutComplete),
+    SessionChanged(String),
 }
 
 impl TheatreIdentity {
@@ -52,9 +55,21 @@ impl TheatreIdentity {
         store: &Store,
         previous: Option<&str>,
     ) -> Result<LoginStart, AuthError> {
-        if let Some(previous) = previous {
-            self.authenticate(store, previous).await?;
-        }
+        // Guarded logout leaves the revoked HttpOnly cookie inert until expiry/replacement.
+        // Only a positive local revoked/expired fact permits treating it as anonymous;
+        // unknown cookies and provider/protocol uncertainty remain closed.
+        let previous = match previous {
+            Some(token) if !valid_secret(token) => return Err(AuthError::InvalidToken),
+            Some(token) => match store.theatre_previous_is_inert(&self.config, token).await? {
+                Some(true) => None,
+                Some(false) => {
+                    self.authenticate(store, token).await?;
+                    Some(token)
+                }
+                None => return Err(AuthError::Inactive),
+            },
+            None => None,
+        };
         let state = random_secret()?;
         let browser = random_secret()?;
         let nonce = random_secret()?;
@@ -68,7 +83,12 @@ impl TheatreIdentity {
             .await?;
         Ok(LoginStart {
             url,
-            cookie: self.cookie(self.flow_name(), &browser, "Lax", FLOW_SECONDS),
+            cookie: self.cookie(
+                &self.flow_cookie_name(&state),
+                &browser,
+                "Lax",
+                FLOW_SECONDS,
+            ),
         })
     }
 
@@ -114,7 +134,6 @@ impl TheatreIdentity {
                 "Strict",
                 expires.saturating_sub(time).min(SESSION_SECONDS),
             ),
-            clear_flow: self.cookie(self.flow_name(), "", "Lax", 0),
         })
     }
 
@@ -165,7 +184,9 @@ impl TheatreIdentity {
         token: Option<&str>,
         browser: Option<&str>,
     ) -> Result<LogoutComplete, AuthError> {
-        let access = store.theatre_cancel_and_revoke(token, browser).await?;
+        let access = store
+            .theatre_cancel_and_revoke(&self.config, token, browser)
+            .await?;
         // Local revocation commits first. Retain durable pending evidence on remote outage.
         let provider_revoked = match (access, token) {
             (Some(access), Some(token)) => match self.provider.revoke(&access, now()?).await {
@@ -186,6 +207,85 @@ impl TheatreIdentity {
         })
     }
 
+    /// Expected UUID is a rejection fence, never authentication. Stale-only cleanup cannot
+    /// revoke a newly valid cookie after another tab changes account.
+    pub async fn guarded_logout(
+        &self,
+        store: &Store,
+        token: Option<&str>,
+        inventory: &[(String, String)],
+        expected: Option<&str>,
+        stale_only: bool,
+    ) -> Result<GuardedLogout, AuthError> {
+        if let Some(token) = token {
+            if let Some(current) = store.theatre_session_id(&self.config, token).await? {
+                if expected.is_some_and(|v| v != current) {
+                    return Ok(GuardedLogout::SessionChanged(current));
+                }
+                if stale_only {
+                    match self.authenticate(store, token).await {
+                        Ok(_) => return Ok(GuardedLogout::SessionChanged(current)),
+                        Err(AuthError::Inactive | AuthError::Expired) => {}
+                        Err(
+                            AuthError::Configuration
+                            | AuthError::ProviderUnavailable
+                            | AuthError::InvalidMetadata
+                            | AuthError::Unavailable
+                            | AuthError::InvalidToken
+                            | AuthError::Algorithm
+                            | AuthError::UnknownKey
+                            | AuthError::InvalidKey
+                            | AuthError::Signature
+                            | AuthError::Issuer
+                            | AuthError::Audience
+                            | AuthError::NotYetValid
+                            | AuthError::Nonce
+                            | AuthError::Subject
+                            | AuthError::State
+                            | AuthError::Replay,
+                        ) => {
+                            // A transport/protocol failure establishes no revocation fact.
+                            return Err(AuthError::Unavailable);
+                        }
+                    }
+                }
+            }
+        }
+        if expected.is_none() && !stale_only {
+            return Err(AuthError::State);
+        }
+        let mut provider_revoked = true;
+        if let Some(token) = token {
+            // Local cancellation/revocation commits before bounded provider effects. Only a
+            // still-active expected session may cancel its proven browser inventory; stale
+            // A cleanup cannot cancel B's newly intended anonymous flow.
+            let batch = store
+                .theatre_guarded_revoke(&self.config, token, expected, stale_only, inventory)
+                .await?;
+            provider_revoked =
+                match tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                    let mut completed = true;
+                    for (hash, access) in batch {
+                        if self.provider.revoke(&access, now()?).await.is_ok() {
+                            store.theatre_revocation_hash_completed(&hash).await?;
+                        } else {
+                            completed = false;
+                        }
+                    }
+                    Ok::<bool, AuthError>(completed)
+                })
+                .await
+                {
+                    Ok(result) => result?,
+                    Err(_) => false,
+                };
+        }
+        Ok(GuardedLogout::Complete(LogoutComplete {
+            provider_revoked,
+            cookies: Vec::new(),
+        }))
+    }
+
     pub fn session_name(&self) -> &'static str {
         if self.config.secure {
             "__Secure-cantos_theatre"
@@ -199,6 +299,9 @@ impl TheatreIdentity {
         } else {
             "cantos_theatre_flow"
         }
+    }
+    pub fn flow_cookie_name(&self, state: &str) -> String {
+        format!("{}_{state}", self.flow_name())
     }
     fn cookie(&self, name: &str, value: &str, same_site: &str, age: u64) -> String {
         let secure = if self.config.secure { "; Secure" } else { "" };
@@ -238,3 +341,5 @@ fn now() -> Result<u64, AuthError> {
 mod tests;
 
 pub mod native;
+mod native_session;
+pub use native_session::NativeIdentity;

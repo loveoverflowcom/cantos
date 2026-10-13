@@ -44,9 +44,19 @@ impl Signer {
         json!({"kid":self.kid,"kty":"EC","crv":"P-256","alg":"ES256","use":"sig","key_ops":["verify"],"x":B64.encode(&key[1..33]),"y":B64.encode(&key[33..65])})
     }
     pub fn sign(&self, claims: Value) -> String {
+        self.sign_typed(claims, None)
+    }
+    pub fn sign_access(&self, claims: Value) -> String {
+        self.sign_typed(claims, Some("at+jwt"))
+    }
+    fn sign_typed(&self, claims: Value, typ: Option<&str>) -> String {
+        let mut header = json!({"kid":self.kid,"alg":"ES256"});
+        if let Some(typ) = typ {
+            header["typ"] = json!(typ);
+        }
         let message = format!(
             "{}.{}",
-            B64.encode(serde_json::to_vec(&json!({"kid":self.kid,"alg":"ES256"})).unwrap()),
+            B64.encode(serde_json::to_vec(&header).unwrap()),
             B64.encode(serde_json::to_vec(&claims).unwrap())
         );
         let sig = self
@@ -68,6 +78,10 @@ struct Access {
     subject: String,
     expires: u64,
 }
+pub struct TokenPause {
+    pub entered: tokio::sync::Notify,
+    pub release: tokio::sync::Notify,
+}
 pub struct Data {
     pub origin: String,
     pub client_id: &'static str,
@@ -77,6 +91,9 @@ pub struct Data {
     pub now: std::sync::atomic::AtomicU64,
     pub active: AtomicBool,
     pub revoke_fail: AtomicBool,
+    pub revoke_pause: AtomicBool,
+    pub revoke_started: tokio::sync::Notify,
+    pub revoke_release: tokio::sync::Notify,
     pub token_fail: AtomicBool,
     pub bad_discovery: AtomicBool,
     pub bad_jwks: AtomicBool,
@@ -85,6 +102,8 @@ pub struct Data {
     pub id_override: Mutex<Option<String>>,
     pub last_id_token: Mutex<Option<String>>,
     pub introspection_calls: AtomicUsize,
+    pub introspection_fail: AtomicBool,
+    pub token_pauses: Mutex<HashMap<String, Arc<TokenPause>>>,
 }
 pub struct MockProvider {
     pub data: Arc<Data>,
@@ -106,6 +125,9 @@ impl MockProvider {
             now: std::sync::atomic::AtomicU64::new(now),
             active: AtomicBool::new(true),
             revoke_fail: AtomicBool::new(false),
+            revoke_pause: AtomicBool::new(false),
+            revoke_started: tokio::sync::Notify::new(),
+            revoke_release: tokio::sync::Notify::new(),
             token_fail: AtomicBool::new(false),
             bad_discovery: AtomicBool::new(false),
             bad_jwks: AtomicBool::new(false),
@@ -114,6 +136,8 @@ impl MockProvider {
             id_override: Mutex::new(None),
             last_id_token: Mutex::new(None),
             introspection_calls: AtomicUsize::new(0),
+            introspection_fail: AtomicBool::new(false),
+            token_pauses: Mutex::new(HashMap::new()),
         });
         let router = Router::new()
             .route(
@@ -132,6 +156,18 @@ impl MockProvider {
     }
     pub fn issuer(&self) -> String {
         format!("{}/oauth2/openid/{}", self.data.origin, self.data.client_id)
+    }
+    pub fn pause_code(&self, code: &str) -> Arc<TokenPause> {
+        let pause = Arc::new(TokenPause {
+            entered: tokio::sync::Notify::new(),
+            release: tokio::sync::Notify::new(),
+        });
+        self.data
+            .token_pauses
+            .lock()
+            .unwrap()
+            .insert(code.into(), pause.clone());
+        pause
     }
     pub fn issue(
         &self,
@@ -189,8 +225,13 @@ fn basic(headers: &HeaderMap, client_id: &str) -> bool {
 async fn discovery(State(data): State<Arc<Data>>) -> Json<Value> {
     let o = &data.origin;
     let client_id = data.client_id;
+    let authorization_path = if client_id == "cantos-theatre-native" {
+        "/ui/oauth2"
+    } else {
+        "/authorize"
+    };
     Json(
-        json!({"issuer":if data.bad_discovery.load(Ordering::SeqCst){format!("{o}/wrong")}else{format!("{o}/oauth2/openid/{client_id}")},"authorization_endpoint":format!("{o}/authorize"),"token_endpoint":format!("{o}/token"),"jwks_uri":format!("{o}/jwks"),"introspection_endpoint":format!("{o}/introspect"),"revocation_endpoint":format!("{o}/revoke"),"code_challenge_methods_supported":["S256"],"id_token_signing_alg_values_supported":["ES256"],"token_endpoint_auth_methods_supported":["client_secret_basic"],"response_types_supported":["code"]}),
+        json!({"issuer":if data.bad_discovery.load(Ordering::SeqCst){format!("{o}/wrong")}else{format!("{o}/oauth2/openid/{client_id}")},"authorization_endpoint":format!("{o}{authorization_path}"),"token_endpoint":format!("{o}/token"),"jwks_uri":format!("{o}/jwks"),"introspection_endpoint":format!("{o}/introspect"),"revocation_endpoint":format!("{o}/revoke"),"code_challenge_methods_supported":["S256"],"id_token_signing_alg_values_supported":["ES256"],"token_endpoint_auth_methods_supported":["client_secret_basic"],"introspection_endpoint_auth_methods_supported":["none"],"revocation_endpoint_auth_methods_supported":["none"],"response_types_supported":["code"]}),
     )
 }
 async fn jwks(State(data): State<Arc<Data>>) -> (StatusCode, Json<Value>) {
@@ -209,7 +250,13 @@ async fn token(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.token_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers, data.client_id) {
+    if if data.client_id == "cantos-theatre-native" {
+        headers.contains_key("authorization")
+            || form.get("client_id").map(String::as_str) != Some(data.client_id)
+            || form.contains_key("client_secret")
+    } else {
+        !basic(&headers, data.client_id)
+    } {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let code = data
@@ -239,11 +286,25 @@ async fn token(
             Json(json!({"error":"invalid_grant"})),
         );
     }
+    let pause = {
+        data.token_pauses
+            .lock()
+            .unwrap()
+            .remove(form.get("code").map(String::as_str).unwrap_or(""))
+    };
+    if let Some(pause) = pause {
+        pause.entered.notify_one();
+        pause.release.notified().await;
+    }
     let mut claims = json!({"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id),"aud":data.client_id,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
     if let Some((field, value)) = code.change {
         claims[field] = value;
     }
-    let access = uuid::Uuid::new_v4().to_string();
+    let access = if data.client_id == "cantos-theatre-native" {
+        data.signer.lock().unwrap().sign_access(json!({"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id),"sub":code.subject,"aud":data.client_id,"client_id":data.client_id,"iat":now,"nbf":now,"exp":now+200,"jti":uuid::Uuid::new_v4().to_string(),"scope":"openid"}))
+    } else {
+        uuid::Uuid::new_v4().to_string()
+    };
     data.access.lock().unwrap().insert(
         access.clone(),
         Access {
@@ -269,7 +330,14 @@ async fn introspect(
     Form(form): Form<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     data.introspection_calls.fetch_add(1, Ordering::SeqCst);
-    if !basic(&headers, data.client_id) {
+    if data.introspection_fail.load(Ordering::SeqCst) {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
+    }
+    if if data.client_id == "cantos-theatre-native" {
+        headers.contains_key("authorization") || form.contains_key("client_secret")
+    } else {
+        !basic(&headers, data.client_id)
+    } {
         return (StatusCode::UNAUTHORIZED, Json(json!({})));
     }
     let access = data.access.lock().unwrap();
@@ -289,11 +357,19 @@ async fn revoke(
     headers: HeaderMap,
     Form(form): Form<HashMap<String, String>>,
 ) -> StatusCode {
-    if !basic(&headers, data.client_id) {
+    if if data.client_id == "cantos-theatre-native" {
+        headers.contains_key("authorization") || form.contains_key("client_secret")
+    } else {
+        !basic(&headers, data.client_id)
+    } {
         return StatusCode::UNAUTHORIZED;
     }
     if data.revoke_fail.load(Ordering::SeqCst) {
         return StatusCode::SERVICE_UNAVAILABLE;
+    }
+    if data.revoke_pause.load(Ordering::SeqCst) {
+        data.revoke_started.notify_one();
+        data.revoke_release.notified().await;
     }
     data.access
         .lock()

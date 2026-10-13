@@ -19,6 +19,7 @@ import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.ProviderException
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -55,8 +56,15 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
             val value = plain.toString(Charsets.UTF_8)
             if (!value.toByteArray(Charsets.UTF_8).contentEquals(plain)) CredentialRead.Failed(CredentialFailure.Corrupt)
             else CredentialRead.Found(value)
-        } catch (_: java.io.FileNotFoundException) { CredentialRead.Missing }
+        } catch (_: java.io.FileNotFoundException) {
+            try {
+                if (file.baseFile.parentFile?.canRead() != true || file.baseFile.parentFile?.canExecute() != true) CredentialRead.Failed(CredentialFailure.Denied)
+                else if (file.baseFile.exists() || File(file.baseFile.path + ".bak").exists()) CredentialRead.Failed(CredentialFailure.Unavailable)
+                else CredentialRead.Missing
+            } catch (_: SecurityException) { CredentialRead.Failed(CredentialFailure.Denied) }
+        }
           catch (_: GeneralSecurityException) { CredentialRead.Failed(CredentialFailure.Corrupt) }
+          catch (_: ProviderException) { CredentialRead.Failed(CredentialFailure.Unavailable) }
           catch (_: IOException) { CredentialRead.Failed(CredentialFailure.Unavailable) }
           catch (_: SecurityException) { CredentialRead.Failed(CredentialFailure.Denied) }
     }
@@ -71,20 +79,30 @@ class AndroidCredentialStore(context: Context) : CredentialStore {
             val output = file.startWrite()
             try { output.write(encoded); file.finishWrite(output) }
             catch (failure: IOException) { file.failWrite(output); throw failure }
-            null
+            when (val check = read()) {
+                is CredentialRead.Found -> if (check.value == value) null else CredentialFailure.Corrupt
+                is CredentialRead.Failed -> check.reason
+                CredentialRead.Missing -> CredentialFailure.Unavailable
+            }
         } catch (_: GeneralSecurityException) { CredentialFailure.Unavailable }
+          catch (_: ProviderException) { CredentialFailure.Unavailable }
           catch (_: IOException) { CredentialFailure.Unavailable }
           catch (_: SecurityException) { CredentialFailure.Denied }
     }
     @Synchronized override fun clear(): CredentialFailure? = try {
         file.delete()
-        if (file.baseFile.exists()) CredentialFailure.Unavailable else null
+        if (listOf(file.baseFile, File(file.baseFile.path + ".bak"), File(file.baseFile.path + ".new")).any { it.exists() }) CredentialFailure.Unavailable else null
     } catch (_: SecurityException) { CredentialFailure.Denied }
 }
 
 class AndroidIdentityCrypto : IdentityCrypto {
-    override fun secret(): LoginSecret? = LoginSecret.parse(Base64.encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) }, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP))
-    override fun challenge(verifier: LoginSecret): String = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.value.toByteArray(Charsets.US_ASCII)), Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+    override fun secret(): LoginSecret? = try { LoginSecret.parse(Base64.encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) }, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)) }
+        catch (_: java.security.ProviderException) { null }
+        catch (_: SecurityException) { null }
+    override fun challenge(verifier: LoginSecret): String? = try { Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.value.toByteArray(Charsets.US_ASCII)), Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP) }
+        catch (_: GeneralSecurityException) { null }
+        catch (_: java.security.ProviderException) { null }
+        catch (_: SecurityException) { null }
 }
 class AndroidSystemBrowser(private val context: Context) : SystemBrowser {
     override fun open(url: String): Boolean {
@@ -98,6 +116,7 @@ class AndroidSystemBrowser(private val context: Context) : SystemBrowser {
     override fun cancel() = Unit
 }
 fun parseAndroidCallback(uri: Uri): NativeCallback? {
+    if (uri.toString().length > 16384) return null
     if (uri.fragment != null || uri.toString().substringBefore('?') != "com.cantos.theatre:/oauth2/callback") return null
     if (uri.queryParameterNames.any { it !in setOf("state", "code", "error", "error_description") || uri.getQueryParameters(it).size != 1 }) return null
     return NativeCallback(uri.toString().substringBefore('?'), uri.getQueryParameter("state") ?: return null, uri.getQueryParameter("code") ?: "", uri.getQueryParameter("error") != null)

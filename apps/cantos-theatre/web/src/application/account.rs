@@ -14,6 +14,7 @@ pub enum AccountError {
     WrongAccount,
     DuplicateIntent,
     LogoutPending,
+    RequestPending,
 }
 impl AccountScope {
     pub fn from_session(actor: String, session: String) -> Result<Self, AccountError> {
@@ -29,11 +30,19 @@ impl AccountScope {
     pub fn actor(&self) -> &str {
         &self.actor
     }
+    pub fn session(&self) -> &str {
+        &self.session
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RequestFence {
     generation: u64,
     scope: AccountScope,
+}
+impl RequestFence {
+    pub fn session(&self) -> &str {
+        self.scope.session()
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AccountGeneration(u64);
@@ -60,7 +69,7 @@ impl PendingIntent {
         self.recovery
     }
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct AccountState {
     generation: u64,
     scope: Option<AccountScope>,
@@ -69,6 +78,9 @@ pub struct AccountState {
     logout_pending: bool,
 }
 impl AccountState {
+    pub fn scope(&self) -> Option<&AccountScope> {
+        self.scope.as_ref()
+    }
     pub fn logout_pending(&self) -> bool {
         self.logout_pending
     }
@@ -78,6 +90,14 @@ impl AccountState {
         Ok(self.generation())
     }
     pub fn finish_logout(&mut self, issued: AccountGeneration) -> bool {
+        if issued != self.generation() || !self.logout_pending {
+            return false;
+        }
+        self.logout_pending = false;
+        true
+    }
+    /// A server-observed cookie rotation cancels cleanup, without granting a new account.
+    pub fn observe_session_change(&mut self, issued: AccountGeneration) -> bool {
         if issued != self.generation() || !self.logout_pending {
             return false;
         }
