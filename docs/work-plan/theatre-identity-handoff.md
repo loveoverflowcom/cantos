@@ -111,3 +111,51 @@ at-rest/recovery/retention review. Native playback, durable outbox/guest-import 
 Web/native synchronization retain their separate owners and acceptance gates.
 Because Web/native issuers are client-specific, shared Library acceptance also needs an explicit
 authorized registry link; equal subject strings do not authorize automatic linking.
+
+## Independent integrated acceptance handoff — 13 October 2026
+
+Current implementation source is `2a1a98546a04420638626ff6d05bbce550fb1235`, tree
+`2e8178a6607dd212acd6d657c36d5ade486ad13c`. Actual runtime used `0a4ee8f`, tree `bcde33a8`;
+the later change is the inherited PostgreSQL test oracle only, with production/UI bytes unchanged.
+The [current evidence appendix](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
+supersedes earlier incomplete-source/provisional gate descriptions for this snapshot.
+
+The mounted readonly Web account/Library consumer and native exchange/resource/registry/session
+code are implemented. Shared OIDC uses one proof boundary while Studio, Theatre Web, native
+and Admin purposes stay separate. Old A/UUID alone cannot revoke observed B: cancellation needs
+a captured unexpired private binder and exact matching receipt, or an already-revoked attributed
+retry cohort. Guarded cleanup leaves revoked HttpOnly cookies inert and emits no global expiry
+headers. Roots serialize related rotations and grant no cancellation authority by themselves.
+
+Verification is precise: the fourth full preflight was **16 PASS / PostgreSQL FAIL**. The
+test-only FK-graph correction retains the expected immutability error `55000`; subsequent full
+PostgreSQL verification **PASS** includes 15 Web, 6 native and 18 Studio OIDC tests plus all
+inherited suites. Final changed-only preflight selected **8 PASS with no skips**. Integrated Rust,
+the 4 Web build/lint gates, canonical account tests, CMP/reference/preview and 9-killed/0-survived
+mutation checks passed in their retained runs. Do not call this a single 17-green invocation.
+
+Actual built Web/Axum/PG plus ephemeral signed-provider browser observations are **14 PASS,
+0 FAIL, 2 INCONCLUSIVE, 7 NOT_RUN**; all 12 PNGs were opened and inspected. They exercise real
+provider chooser/callback, empty readonly Library, A/B fences, delayed 401 cleanup, provider
+outage/recovery and local logout with remote pending state. Native-select/text scaling caveats,
+200% zoom, nonempty Library/audio, screen reader/IME and live/native OS gates remain explicit.
+
+Final 16-record manifest: `/private/tmp/cantos-identity-campaign/pr101-acceptance-manifest.json`,
+SHA256 `e507afad65f29c01f9959b36f52de564171cce26ea0de27bda5e80fa2c216591`.
+It pins exact logs, runtime report/ledgers/images, build manifest and owned-process stop records.
+Task-owned API/provider and both fresh PG clusters are stopped; unique data/evidence is retained.
+
+Android **mock build PASS** compiled shared protocol/adapters: 61 tasks executed in 52 seconds.
+Its INTERNET/callback manifest and dependent host activation remain unapplied after automatic
+approval rejection, awaiting the direct human exception. This is not an Android auth-host/device
+acceptance or completion of the whole mobile client. iOS simulator framework is **UNSUPPORTED**:
+required Kotlin/Native 2.2.20 has no executable `bin/konanc`; no alternate toolchain substituted.
+PR101 remains draft while the Android source blocker is unresolved. Live provider/public-client
+setup, device/system-browser/secure-store/crash/playback/accessibility acceptance remain NOT_RUN,
+and production activation stays closed.
+
+Recommended order remains the held Android source exception, then named Web/native OS and
+secure-store lifecycle gates, followed by authorized live-provider setup and production
+at-rest/recovery/retention review. Durable outbox, guest-import, client-linking and broad playback
+acceptance keep their existing owners; no issue is closed by this handoff. GitHub owns PR execution
+status and the queue records only the next recommended work.

@@ -76,10 +76,19 @@ and adds exact external keys with explicit operator registration/linking. The bo
 adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
 account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
 all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
-accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
-using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
-before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
-provider/client/TLS acceptance remains separate from local core/database evidence.
+accessibility/provider gates explicit. The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
+now records the mounted readonly Web account/Library consumer and native exchange/resource/
+registry/session implementation. Its [integrated evidence](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
+records fourth full preflight 16 PASS/PostgreSQL FAIL, corrected full PostgreSQL PASS and final
+8 selected preflight PASS with no skips; this is not one 17-green invocation. Actual Web runtime
+is 14 PASS/0 FAIL/2 INCONCLUSIVE/7 NOT_RUN with 12 inspected PNGs. Android mock compile PASS
+does not activate the held manifest/host source; PR101 stays draft pending its direct human
+exception. iOS is UNSUPPORTED without required Kotlin/Native 2.2.20. Complete the held Android
+source step and named OS/provider/secure-store/accessibility gates before production activation
+or broader playback/synchronization acceptance. Registry lookup grants no surface authority;
+explicit client linking and operator-prepared live provider/client/TLS acceptance remain separate.
+GitHub owns execution status; the final evidence manifest is SHA256
+`e507afad65f29c01f9959b36f52de564171cce26ea0de27bda5e80fa2c216591`.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
 existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
