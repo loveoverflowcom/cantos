@@ -1,14 +1,17 @@
 //! Local component diagnostics. Values and callbacks here never call a Cantos service.
 
 use cantos_ui::{
-    AccessibleName, Announcement, Badge, Button, ButtonState, ButtonVariant, Checkbox, ChoiceState,
-    Container, ContainerWidth, Density, Dialog, DisabledReason, EmptyState, ErrorState, FieldError,
-    FieldHelp, FieldLabel, FieldState, FilterChip, Grid, GridColumns, Icon, IconButton, IconName,
-    Link, LinkHref, LoadingState, NumberField, Radio, RangeField, Select, Space, Stack,
-    StackDirection, Status, StatusTone, Surface, SurfaceTone, Switch, TextArea, TextField,
-    TextFieldKind, Theme, UiRoot,
+    AccessibleName, Announcement, Avatar, AvatarInitials, AvatarSize, Badge, Button, ButtonState,
+    ButtonVariant, Checkbox, ChoiceState, Container, ContainerWidth, Density, Dialog,
+    DisabledReason, EmptyState, ErrorState, FieldError, FieldHelp, FieldLabel, FieldState,
+    FilterChip, Grid, GridColumns, Icon, IconButton, IconName, Link, LinkHref, LoadingState,
+    NumberField, Radio, RangeField, Select, Space, Stack, StackDirection, Status, StatusTone,
+    Surface, SurfaceTone, Switch, TextArea, TextField, TextFieldKind, Theme, UiRoot,
 };
 use leptos::prelude::*;
+
+/// Offline sample picture; real hosts pass an authorized same-origin or object URL.
+const PREVIEW_AVATAR_IMAGE: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23886638'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23f6e7ca'/%3E%3Cpath d='M12 60c2-14 12-20 20-20s18 6 20 20z' fill='%23f6e7ca'/%3E%3C/svg%3E";
 
 pub mod catalog;
 mod discovery;
@@ -387,6 +390,23 @@ pub fn Gallery(
                                     <span><Icon name=IconName::MenuBook/>"Đọc"</span>
                                     <span><Icon name=IconName::Search/>"Tìm"</span>
                                     <span><Icon name=IconName::WarningAmber/>"Chú ý"</span>
+                                </Stack>
+                                <h3>"Avatar chữ"</h3>
+                                <p class="cui-gallery-note">"Một chữ cái mặc định như tài khoản Google/YouTube; màu ổn định theo mã người dùng. Ảnh mẫu là data URI offline; ảnh lỗi trở về chữ cái."</p>
+                                <Stack direction=StackDirection::Horizontal gap=Space::Sm class="cui-gallery-avatars">
+                                    <span data-avatar-state="initials-single"><Avatar display_name="Nguyễn Thị Ánh" stable_id=Some("user-42".to_owned())/>"Nguyễn Thị Ánh"</span>
+                                    <span data-avatar-state="initials-pair"><Avatar display_name="Người dẫn chuyện" initials=AvatarInitials::Pair/>"Người dẫn chuyện"</span>
+                                    <span data-avatar-state="no-initial"><Avatar display_name="😀"/>"Không có chữ cái"</span>
+                                    <span data-avatar-state="image"><Avatar display_name="Đỗ Văn An" image_src=Some(PREVIEW_AVATAR_IMAGE.to_owned())/>"Đỗ Văn An"</span>
+                                    <span data-avatar-state="image-failed"><Avatar display_name="Đỗ Văn An" image_src=Some("data:image/png;base64,AAAA".to_owned())/>"Ảnh lỗi"</span>
+                                    <span data-avatar-state="sizes">
+                                        <Avatar display_name="Lan" size=AvatarSize::Small/>
+                                        <Avatar display_name="Lan" size=AvatarSize::Medium/>
+                                        <Avatar display_name="Lan" size=AvatarSize::Large/>
+                                        "Ba kích thước"
+                                    </span>
+                                    <span data-avatar-state="named"><Avatar display_name="岑 昕" initials=AvatarInitials::Pair
+                                        accessible_name=AccessibleName::new("Ảnh đại diện của 岑 昕").expect("preview name")/></span>
                                 </Stack>
                             </Stack>
                         </section>

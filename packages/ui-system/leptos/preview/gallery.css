@@ -148,3 +148,5 @@
   background: var(--cantos-color-primary);
   opacity: var(--cui-token-sample-value);
 }
+.cui-gallery-avatars { flex-wrap: wrap; }
+.cui-gallery-avatars > span { display: inline-flex; align-items: center; gap: var(--cantos-space-sm); min-inline-size: 0; }

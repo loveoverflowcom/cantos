@@ -116,10 +116,10 @@ private const val PAIR_GLYPH_RATIO = 0.36f
  * Decorative by default: adjacent text supplies the name. Pass a localized [accessibleName]
  * only when the avatar stands alone and must convey who it is.
  *
- * Internal until the Leptos counterpart and both preview catalogue entries land.
+ * Registered in both preview catalogues; apps adopt it only after both renderers qualify.
  */
 @Composable
-internal fun Avatar(
+fun Avatar(
     displayName: String,
     modifier: Modifier = Modifier,
     stableId: String? = null,

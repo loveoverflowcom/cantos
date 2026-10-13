@@ -23,6 +23,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | `Surface`, `Stack`, `Grid`, `Container` | Quiet tonal containment, wrapping stacks, maximum 1/2/3 columns by container width, reading/wide/fluid measure; typed spacing and children |
 | `Dialog` | Controlled native modal, localized title/close label and children; close requests/errors dispatched to caller; safe initial focus |
 | `Icon`, `tokens::Token` | Offline decorative official outlined subset, generated closed token roles/static lookup |
+| `Avatar` | [Shared avatar contract](../shared/README.md#avatar): Google-style single initial (or first+last pair), FNV-1a identity tone from a caller stable ID, caller-authorized picture over initials with failure fallback; decorative unless given `AccessibleName` |
 | `TOKEN_CSS`, `FOUNDATION_CSS` | Compile-time CSS inclusion; Trunk hosts can link the same files directly |
 
 Apps own localized strings, unique stable IDs, values, routes, async effects, validation and permission
