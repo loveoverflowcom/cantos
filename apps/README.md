@@ -13,4 +13,5 @@ over HTTP; they never import each other. See the
 [`cantos-forge`](cantos-forge/README.md) is not a client of either product: it is the proposed
 producer-side CLI for AI hosts and producers ([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)).
 It runs outside the API runtime, never imports `services/` or another app and, in this
-foundation, implements only its verified pure core and `capabilities`.
+slice, implements a host-assisted local workflow (workspace, artifact registration, deterministic
+checks, local handoff bundle) and nothing that calls a provider or the API.

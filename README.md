@@ -58,7 +58,7 @@ No live routes should be inferred from [the proposed contract](packages/contract
 ## Repository
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
-- `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today only its verified pure core and `capabilities`. It runs outside the API and does not generate audio.
+- `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
 - `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.

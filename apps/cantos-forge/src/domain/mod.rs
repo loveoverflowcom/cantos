@@ -5,9 +5,13 @@
 //! The shell supplies facts (bytes, identities, recorded history) and executes effects.
 
 pub mod artifact;
+pub mod audio_profile;
+pub mod checks;
 pub mod digest;
 pub mod evaluation;
+pub mod handoff;
 pub mod identity;
 pub mod label;
 pub mod lineage;
+pub mod ogg_opus;
 pub mod workspace_path;

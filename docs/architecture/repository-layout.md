@@ -64,9 +64,10 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   authenticate through Kanidm: the API still uses operator-issued development tokens.
 - **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
-  [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core and
-  a `capabilities` command. It has no workflow command, provider, network client or handoff yet,
-  and it is not a Studio or Theatre client.
+  [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
+  a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
+  `artifact list/show`, `validate`, `handoff export`). It has no provider, network client or API
+  handoff, and it is not a Studio or Theatre client.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 

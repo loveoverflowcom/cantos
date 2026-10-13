@@ -1,4 +1,5 @@
-//! Architecture fitness checks for the Forge crate's internal dependency direction.
+//! Architecture fitness checks for the Forge crate's internal dependency direction:
+//! `domain` ← `application` ← `adapters`/`interfaces`, with `wire` between the core and the edges.
 //!
 //! These are lexical checks over source text: they catch an accidental import, not every
 //! possible way to reach the outside world.
@@ -126,4 +127,96 @@ fn the_checks_detect_a_forbidden_line() {
         .map(|(number, _)| number)
         .collect();
     assert_eq!(found, [1, 3]);
+}
+
+/// What the application layer may not name: effects, frameworks and the layers around it.
+const FORBIDDEN_IN_APPLICATION: &[&str] = &[
+    "std::fs",
+    "std::net",
+    "std::process",
+    "std::env",
+    "std::time",
+    "std::thread",
+    "SystemTime",
+    "serde",
+    "clap",
+    "getrandom",
+    "println!",
+    "eprintln!",
+    "print!",
+    "dbg!",
+    "crate::adapters",
+    "crate::interfaces",
+    "crate::wire",
+];
+
+/// What the wire shapes may not name: anything that runs, and the layers that use them.
+const FORBIDDEN_IN_WIRE: &[&str] = &[
+    "std::fs",
+    "std::io",
+    "std::net",
+    "std::process",
+    "std::env",
+    "std::time",
+    "clap",
+    "crate::application",
+    "crate::adapters",
+    "crate::interfaces",
+];
+
+fn offences_in(files: &[PathBuf], forbidden: &[&str]) -> Vec<String> {
+    let mut offences = Vec::new();
+    for file in files {
+        let source = fs::read_to_string(file).expect("UTF-8 source");
+        // Test modules may use temporary directories and clocks; production code may not.
+        let production = source.split("#[cfg(test)]").next().unwrap_or_default();
+        for (number, line) in code_lines(production) {
+            for token in forbidden {
+                if line.contains(token) {
+                    offences.push(format!("{}:{number}: {token}", file.display()));
+                }
+            }
+        }
+    }
+    offences
+}
+
+#[test]
+fn the_application_layer_performs_no_effects_and_names_no_outer_layer() {
+    let application = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/application");
+    let files = rust_sources(&application);
+    assert!(
+        files.len() >= 5,
+        "expected the use-case modules, found {files:?}"
+    );
+    let offences = offences_in(&files, FORBIDDEN_IN_APPLICATION);
+    assert!(
+        offences.is_empty(),
+        "application depends outward:\n{}",
+        offences.join("\n")
+    );
+}
+
+#[test]
+fn the_wire_shapes_run_nothing_and_name_no_layer_that_uses_them() {
+    let wire = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/wire.rs");
+    let offences = offences_in(&[wire], FORBIDDEN_IN_WIRE);
+    assert!(
+        offences.is_empty(),
+        "wire depends outward:\n{}",
+        offences.join("\n")
+    );
+}
+
+#[test]
+fn the_application_check_detects_a_forbidden_line() {
+    let sample = "use std::fs::File;\nuse crate::adapters::FsRuntime;\n";
+    let found = code_lines(sample)
+        .filter(|(_, line)| {
+            FORBIDDEN_IN_APPLICATION
+                .iter()
+                .any(|token| line.contains(token))
+        })
+        .count();
+    assert_eq!(found, 2);
 }

@@ -40,7 +40,10 @@ the producer tooling to live outside this repository or product.
 6. `cargo xtask` builds Forge and owns repository verification; Forge owns production workflows.
    xtask never runs Forge or a provider inside build, test, preflight or CI.
 7. The first increment is the crate, its wiring and the verified pure core plus a truthful
-   `capabilities` command. Workflow commands, adapters and handoff follow #82's sequence.
+   `capabilities` command. The second increment adds a host-assisted local workflow over that
+   core: a filesystem workspace of write-once records, `artifact add/list/show`, `validate`
+   (a strict Ogg Opus inspector and UTF-8 text check) and `handoff export` to a local bundle.
+   Provider orchestration and the API handoff follow #82's sequence.
 
 ## Alternatives
 
@@ -55,20 +58,30 @@ the producer tooling to live outside this repository or product.
 ## Consequences
 
 - Product and user impact: none for listeners or creators. AI hosts get a discoverable
-  `cantos-forge capabilities --json` that truthfully reports only `capabilities` as implemented.
+  `cantos-forge capabilities --json` that truthfully reports the implemented commands and keeps
+  the API handoff and provider-managed workflows `unsupported`. Forge produces no audio: hosts
+  register what they made, and Forge measures, records evidence and writes a local bundle.
 - Compatibility and migrations: N/A. No schema, route, contract or persisted data changes.
 - Operations, storage, and production cost: a seventh workspace member built by `verify rust`
   and CI; no provider, network call, credential or runtime service.
 - Implementation and recovery requirements: later slices must keep local and server state
   apart, record attempts before billable effects, reconcile ambiguous outcomes before retry,
   constrain paths, processes and output sizes, and keep secrets out of bundles and logs (#82).
-- Deferred questions: workspace storage format; instruction-bundle resolution from
+- Duplication to retire: Forge's Ogg Opus inspector follows the rules of the API's strict
+  container check (`services/cantos-api/src/contexts/media/structure.rs`) because Forge may not
+  import service code. Both must move to one shared pure package once the second consumer is
+  justified; until then a difference can only make Forge stricter or looser than admission, and
+  the API's independent inspection stays authoritative.
+- Deferred questions: workspace format evolution beyond `cantos-forge.workspace/v1`; instruction-bundle resolution from
   `.agents/skills/`; the shared pure Script IR validator package; the first provider adapter;
   self-service producer credentials (needs a separate API/permission design).
 
 ## Validation and revisit conditions
 
-Validated by `cargo test -p cantos-forge` (domain examples, properties, a compile-fail doctest
-and lexical purity checks) and by the xtask test that every workspace dependency points inward.
+Validated by `cargo test -p cantos-forge` (domain examples, properties, a compile-fail doctest,
+lexical layer checks, a differential check of the profile table against the intake contract,
+use cases over in-memory ports, the filesystem adapter on a real directory including tampering,
+and the built binary end to end) and by the xtask test that every workspace dependency points
+inward.
 Revisit if a second consumer needs the Forge core (split a package), if an API route starts to
 depend on Forge, or if a host requires a long-running transport.

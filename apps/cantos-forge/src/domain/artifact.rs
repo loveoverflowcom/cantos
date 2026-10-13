@@ -213,6 +213,39 @@ pub fn decide_registration(
     }
 }
 
+/// A recorded history that the registration rules would not have produced.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplayError {
+    /// The recorded facts at this position (0-based) break a revision rule.
+    Refused {
+        position: usize,
+        error: RevisionError,
+    },
+    /// The recorded facts at this position repeat the previous revision; a replayed command
+    /// creates nothing, so such a record cannot have been written by registration.
+    RepeatsPrevious { position: usize },
+}
+
+/// Rebuilds an artifact's revisions from recorded facts by applying the same registration rule
+/// that created them, so restored history can never hold a revision registration refuses.
+/// `recorded` is in revision order, starting with revision 1.
+pub fn replay(
+    artifact: ArtifactId,
+    recorded: impl IntoIterator<Item = RevisionFacts>,
+) -> Result<Vec<ArtifactRevision>, ReplayError> {
+    let mut revisions: Vec<ArtifactRevision> = Vec::new();
+    for (position, facts) in recorded.into_iter().enumerate() {
+        match decide_registration(artifact, revisions.last(), facts) {
+            Ok(Registration::Created(revision)) => revisions.push(revision),
+            Ok(Registration::AlreadyCurrent(_)) => {
+                return Err(ReplayError::RepeatsPrevious { position })
+            }
+            Err(error) => return Err(ReplayError::Refused { position, error }),
+        }
+    }
+    Ok(revisions)
+}
+
 impl ArtifactRevision {
     fn first(artifact: ArtifactId, facts: RevisionFacts) -> Result<Self, RevisionError> {
         refuse_self_input(artifact, &facts)?;
@@ -471,6 +504,51 @@ mod tests {
         assert_eq!(
             InputPins::new([pin(1), pin(1)]),
             Err(InputPinsError::RepeatedArtifact { artifact: id(9) })
+        );
+    }
+
+    #[test]
+    fn replay_reproduces_exactly_what_registration_created() {
+        let first = facts(b"v1", STORY, InputPins::default());
+        let second = facts(b"v2", STORY, InputPins::default());
+        let created = {
+            let v1 = register(id(1), None, first.clone());
+            let v2 = register(id(1), Some(&v1), second.clone());
+            vec![v1, v2]
+        };
+        assert_eq!(replay(id(1), [first, second]), Ok(created));
+        assert_eq!(replay(id(1), []), Ok(Vec::new()));
+    }
+
+    #[test]
+    fn replay_refuses_a_history_registration_would_refuse() {
+        let story = facts(b"v1", STORY, InputPins::default());
+        let audio = facts(b"v2", ArtifactPayload::Audio, InputPins::default());
+        assert_eq!(
+            replay(id(1), [story.clone(), audio]),
+            Err(ReplayError::Refused {
+                position: 1,
+                error: RevisionError::KindChanged {
+                    from: ArtifactKind::Manuscript,
+                    to: ArtifactKind::Audio
+                }
+            })
+        );
+        assert_eq!(
+            replay(id(1), [story.clone(), story]),
+            Err(ReplayError::RepeatsPrevious { position: 1 })
+        );
+        let self_pinned = {
+            let first = register(id(2), None, facts(b"x", STORY, InputPins::default()));
+            let pins = InputPins::new([first.pin()]).unwrap();
+            facts(b"y", STORY, pins)
+        };
+        assert_eq!(
+            replay(id(2), [self_pinned]),
+            Err(ReplayError::Refused {
+                position: 0,
+                error: RevisionError::SelfInput
+            })
         );
     }
 }

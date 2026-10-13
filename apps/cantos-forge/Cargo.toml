@@ -8,11 +8,13 @@ description = "Producer-side Cantos Forge CLI: local production records outside 
 
 [dependencies]
 clap = { version = "=4.6.7", features = ["derive"] }
+getrandom = "=0.3.4"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.145"
 sha2 = "=0.10.9"
 
 [dev-dependencies]
+tempfile = "=3.27.0"
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 
 [[bin]]

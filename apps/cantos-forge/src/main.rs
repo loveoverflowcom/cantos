@@ -5,10 +5,13 @@ use std::{
     process::ExitCode,
 };
 
-use cantos_forge::interfaces::cli::{self, ExitStatus, Response};
+use cantos_forge::{
+    adapters::FsRuntime,
+    interfaces::cli::{self, ExitStatus, Response},
+};
 
 fn main() -> ExitCode {
-    let response = cli::run(std::env::args_os());
+    let response = cli::run(std::env::args_os(), &FsRuntime::new());
     match write_response(&response) {
         Ok(()) => ExitCode::from(response.status.code()),
         // stdout is gone (for example a closed pipe); the result was not delivered.
