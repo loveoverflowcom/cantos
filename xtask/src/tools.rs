@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    config::{GRADLE_VERSION, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET},
+    config::{GRADLE_SUPPORTED_VERSIONS, UI_CMP_ANDROID_DIR, UI_CMP_DIR, WASM_TARGET},
     theatre_demo,
 };
 
@@ -91,7 +91,7 @@ impl Tool {
             Tool::Clippy => "rustup component add clippy",
             Tool::Wasm32Target => "rustup target add wasm32-unknown-unknown",
             Tool::Trunk => "cargo install trunk --version 0.21.14 --locked",
-            Tool::Gradle => "put installed Gradle 8.14.3 on PATH (no wrapper download)",
+            Tool::Gradle => "put installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 on PATH (no wrapper download)",
             Tool::Java => {
                 "put a compatible JDK 17 or newer on PATH (the CMP project targets Java 17)"
             }
@@ -313,9 +313,11 @@ pub fn cmp_gradle_project_exists(dir: &Path) -> bool {
             .any(|file| dir.join(file).is_file())
 }
 
-/// The package pins the reviewed Kotlin 2.2.20 / Compose 1.9 Gradle 8.14.3 version.
+/// Accepts only the reviewed Gradle releases for Kotlin 2.2.20 / Compose 1.9 / AGP 8.11.1.
 fn gradle_version_supported(version: &str) -> bool {
-    version.strip_prefix("Gradle ") == Some(GRADLE_VERSION)
+    version
+        .strip_prefix("Gradle ")
+        .is_some_and(|found| GRADLE_SUPPORTED_VERSIONS.contains(&found))
 }
 
 /// Locates an executable on `PATH` without running it.
@@ -415,13 +417,17 @@ mod tests {
 
     #[test]
     fn gradle_versions_are_bounded_and_preview_versions_are_rejected() {
-        assert!(gradle_version_supported("Gradle 8.14.3"));
+        for version in ["Gradle 8.13", "Gradle 8.14.1", "Gradle 8.14.2", "Gradle 8.14.3"] {
+            assert!(gradle_version_supported(version), "{version}");
+        }
         for version in [
-            "Gradle 8.14.2",
+            "Gradle 8.12.1",
+            "Gradle 8.14.0",
             "Gradle 8.14.4",
             "Gradle 8.15",
             "Gradle 8.20.0",
             "Gradle 8.14",
+            "Gradle 8.13.1",
             "Gradle 9.0.0",
             "Gradle 8.14.3-rc-1",
             "gradle 8.14.3",
