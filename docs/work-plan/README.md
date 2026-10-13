@@ -209,3 +209,15 @@ and additive migration checksums. Current local/mock acceptance belongs in evide
 production provider/client preparation, native runtime acceptance and explicit cross-client
 identity linking remain separate prerequisites. Equal email or subject text across different
 issuers never establishes a shared actor. GitHub owns execution status.
+## Private Work cover contract next
+
+The user-requested [issue104 MVP plan](012-private-work-artwork.md) selects one durable,
+owner-only Work cover and exact private preview from the
+[checked standards reference](catalog-media-standards-reference.md). Its
+[new-session implementation handoff](catalog-media-mvp-ultra-handoff.md) permits core rules and
+new opt-in metadata contracts first; real storage integration reuses the final independently
+reviewed PR90 boundary and coordinated additive migration 0023. No product implementation is
+claimed by these planning docs. The scope is API/DB, not Studio UI or public artwork delivery;
+P1 metadata, thumbnails and transcripts are explicitly deferred. This is an authorized narrow
+extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
+without reordering identity/storage or broader publication/listener acceptance.
