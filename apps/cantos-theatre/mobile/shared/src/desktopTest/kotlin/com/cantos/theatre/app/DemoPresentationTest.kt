@@ -82,7 +82,6 @@ class DemoPresentationTest {
             onNodeWithTag("simulation-status").assertTextEquals("Đang mở mô phỏng · Không có âm thanh thật")
             onNodeWithTag("transport").performScrollTo()
                 .assert(hasContentDescription("Dừng mô phỏng Người giữ tiếng chuông"))
-                .assert(hasText("Dừng mô phỏng"))
                 .performClick()
             assertEquals<List<DemoEvent>>(listOf(DemoEvent.ToggleSimulation), events)
             onNodeWithTag("simulation-status").assertTextEquals("Đang mở mô phỏng · Không có âm thanh thật")

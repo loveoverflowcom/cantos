@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSION = "0.2.0"
+VERSIONS = ("0.2.0", "0.2.1")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",
@@ -210,8 +210,8 @@ def contrast(first, second):
 def validate(source):
     """Refuse ambiguous mappings, unresolved values and unmet contrast floors."""
     _object(source, "source", TOP_LEVEL)
-    if source["version"] != VERSION:
-        raise ValueError(f"unsupported token version: expected {VERSION}")
+    if source["version"] not in VERSIONS:
+        raise ValueError(f"unsupported token version: expected one of {sorted(VERSIONS)}")
     _object(source["tokens"], "tokens")
     _object(source["themes"], "themes", {"light", "dark"})
     for name, tokens in [("tokens", source["tokens"]), *source["themes"].items()]:

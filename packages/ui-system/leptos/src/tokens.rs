@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.2.0 sha256:e9713d5ad276be53bf3a63b6ce72ad04d1dbf0b5918cbb759a39ea7c2c1f39a2
+// Generated from Cantos UI tokens v0.2.1 sha256:fed24d517ac1a32f7fc982494b0af480a9c97966713240155ca659001f3f4266
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.2.1";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -13,12 +13,15 @@ pub enum Token {
     ColorError,
     ColorErrorContainer,
     ColorFocus,
+    ColorOnPlayerSurface,
     ColorOnPrimary,
     ColorOnPrimaryContainer,
     ColorOnSurface,
     ColorOnSurfaceVariant,
     ColorOutline,
     ColorOutlineVariant,
+    ColorPlayerAccent,
+    ColorPlayerSurface,
     ColorPrimary,
     ColorPrimaryContainer,
     ColorSuccess,
@@ -89,12 +92,15 @@ pub const ALL: &[Token] = &[
     Token::ColorError,
     Token::ColorErrorContainer,
     Token::ColorFocus,
+    Token::ColorOnPlayerSurface,
     Token::ColorOnPrimary,
     Token::ColorOnPrimaryContainer,
     Token::ColorOnSurface,
     Token::ColorOnSurfaceVariant,
     Token::ColorOutline,
     Token::ColorOutlineVariant,
+    Token::ColorPlayerAccent,
+    Token::ColorPlayerSurface,
     Token::ColorPrimary,
     Token::ColorPrimaryContainer,
     Token::ColorSuccess,
@@ -169,12 +175,15 @@ impl Token {
             Self::ColorError => "--cantos-color-error",
             Self::ColorErrorContainer => "--cantos-color-error-container",
             Self::ColorFocus => "--cantos-color-focus",
+            Self::ColorOnPlayerSurface => "--cantos-color-on-player-surface",
             Self::ColorOnPrimary => "--cantos-color-on-primary",
             Self::ColorOnPrimaryContainer => "--cantos-color-on-primary-container",
             Self::ColorOnSurface => "--cantos-color-on-surface",
             Self::ColorOnSurfaceVariant => "--cantos-color-on-surface-variant",
             Self::ColorOutline => "--cantos-color-outline",
             Self::ColorOutlineVariant => "--cantos-color-outline-variant",
+            Self::ColorPlayerAccent => "--cantos-color-player-accent",
+            Self::ColorPlayerSurface => "--cantos-color-player-surface",
             Self::ColorPrimary => "--cantos-color-primary",
             Self::ColorPrimaryContainer => "--cantos-color-primary-container",
             Self::ColorSuccess => "--cantos-color-success",
@@ -264,6 +273,10 @@ impl Token {
                 crate::Theme::Dark => "#e0b8fc",
                 crate::Theme::Light | crate::Theme::System => "#744b98",
             },
+            Self::ColorOnPlayerSurface => match theme {
+                crate::Theme::Dark => "#f7eef9",
+                crate::Theme::Light | crate::Theme::System => "#f7eef9",
+            },
             Self::ColorOnPrimary => match theme {
                 crate::Theme::Dark => "#352044",
                 crate::Theme::Light | crate::Theme::System => "#ffffff",
@@ -287,6 +300,14 @@ impl Token {
             Self::ColorOutlineVariant => match theme {
                 crate::Theme::Dark => "#514658",
                 crate::Theme::Light | crate::Theme::System => "#dcd4dd",
+            },
+            Self::ColorPlayerAccent => match theme {
+                crate::Theme::Dark => "#dec6f0",
+                crate::Theme::Light | crate::Theme::System => "#dec6f0",
+            },
+            Self::ColorPlayerSurface => match theme {
+                crate::Theme::Dark => "#34283f",
+                crate::Theme::Light | crate::Theme::System => "#34283f",
             },
             Self::ColorPrimary => match theme {
                 crate::Theme::Dark => "#d9bdf1",

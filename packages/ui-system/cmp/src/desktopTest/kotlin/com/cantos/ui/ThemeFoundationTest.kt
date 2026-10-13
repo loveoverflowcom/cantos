@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -133,6 +134,27 @@ class ThemeFoundationTest {
             innerPreferences = innerPreferences.copy(textScale = 1f)
         }
         compose.runOnIdle { assertDensity("Thay đổi", 2f, 2f) }
+    }
+
+    @Test
+    fun injected_font_families_map_ui_and_editorial_roles_without_changing_density() {
+        var body: FontFamily? = null
+        var headline: FontFamily? = null
+        var editorial: FontFamily? = null
+        compose.setContent {
+            CantosTheme(UiPreferences(), uiFontFamily = FontFamily.Monospace, editorialFontFamily = FontFamily.Cursive) {
+                body = MaterialTheme.typography.bodyMedium.fontFamily
+                headline = MaterialTheme.typography.headlineLarge.fontFamily
+                editorial = LocalEditorialFontFamily.current
+                Probe("Fonts")
+            }
+        }
+        compose.runOnIdle {
+            assertEquals(FontFamily.Monospace, body)
+            assertEquals(FontFamily.Cursive, headline)
+            assertEquals(FontFamily.Cursive, editorial)
+            assertDensity("Fonts", 1f, 1f)
+        }
     }
 
     @Composable

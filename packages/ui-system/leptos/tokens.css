@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.2.0 sha256:e9713d5ad276be53bf3a63b6ce72ad04d1dbf0b5918cbb759a39ea7c2c1f39a2
+/* Generated from Cantos UI tokens v0.2.1 sha256:fed24d517ac1a32f7fc982494b0af480a9c97966713240155ca659001f3f4266
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -9,12 +9,15 @@
   --cantos-color-error: #a33436;
   --cantos-color-error-container: #fce3dd;
   --cantos-color-focus: #744b98;
+  --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #ffffff;
   --cantos-color-on-primary-container: #332340;
   --cantos-color-on-surface: #292331;
   --cantos-color-on-surface-variant: #6c616f;
   --cantos-color-outline: #837587;
   --cantos-color-outline-variant: #dcd4dd;
+  --cantos-color-player-accent: #dec6f0;
+  --cantos-color-player-surface: #34283f;
   --cantos-color-primary: #675080;
   --cantos-color-primary-container: #e6d9f1;
   --cantos-color-success: #375e4b;
@@ -85,12 +88,15 @@
     --cantos-color-error: #ffb3a9;
     --cantos-color-error-container: #4d2627;
     --cantos-color-focus: #e0b8fc;
+    --cantos-color-on-player-surface: #f7eef9;
     --cantos-color-on-primary: #352044;
     --cantos-color-on-primary-container: #f0defe;
     --cantos-color-on-surface: #f1e9f2;
     --cantos-color-on-surface-variant: #c4b8ca;
     --cantos-color-outline: #9d8ba4;
     --cantos-color-outline-variant: #514658;
+    --cantos-color-player-accent: #dec6f0;
+    --cantos-color-player-surface: #34283f;
     --cantos-color-primary: #d9bdf1;
     --cantos-color-primary-container: #513b63;
     --cantos-color-success: #b7d6ba;
@@ -110,12 +116,15 @@
   --cantos-color-error: #a33436;
   --cantos-color-error-container: #fce3dd;
   --cantos-color-focus: #744b98;
+  --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #ffffff;
   --cantos-color-on-primary-container: #332340;
   --cantos-color-on-surface: #292331;
   --cantos-color-on-surface-variant: #6c616f;
   --cantos-color-outline: #837587;
   --cantos-color-outline-variant: #dcd4dd;
+  --cantos-color-player-accent: #dec6f0;
+  --cantos-color-player-surface: #34283f;
   --cantos-color-primary: #675080;
   --cantos-color-primary-container: #e6d9f1;
   --cantos-color-success: #375e4b;
@@ -134,12 +143,15 @@
   --cantos-color-error: #ffb3a9;
   --cantos-color-error-container: #4d2627;
   --cantos-color-focus: #e0b8fc;
+  --cantos-color-on-player-surface: #f7eef9;
   --cantos-color-on-primary: #352044;
   --cantos-color-on-primary-container: #f0defe;
   --cantos-color-on-surface: #f1e9f2;
   --cantos-color-on-surface-variant: #c4b8ca;
   --cantos-color-outline: #9d8ba4;
   --cantos-color-outline-variant: #514658;
+  --cantos-color-player-accent: #dec6f0;
+  --cantos-color-player-surface: #34283f;
   --cantos-color-primary: #d9bdf1;
   --cantos-color-primary-container: #513b63;
   --cantos-color-success: #b7d6ba;

@@ -92,6 +92,8 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
   The [#35 CMP library MVP mock](../evidence/theatre-cmp-library-mvp.md) follows the Web
   presentation with two primary destinations and direct Continue/Saved/History sections.
+  The [reference UI repair](../evidence/theatre-cmp-ui-repair.md) restores artwork/font anatomy
+  and keeps large-text controls and preference dialogs within that same isolated mock boundary.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 

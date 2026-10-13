@@ -434,7 +434,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.2.0";
+pub const TOKEN_VERSION: &str = "0.2.1";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -507,6 +507,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         alias_of: None,
     },
     TokenRegistration {
+        name: "color.onPlayerSurface",
+        css_variable: "--cantos-color-on-player-surface",
+        kind: "color",
+        light: "#f7eef9",
+        dark: "#f7eef9",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
         name: "color.onPrimary",
         css_variable: "--cantos-color-on-primary",
         kind: "color",
@@ -562,6 +572,26 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "color",
         light: "#dcd4dd",
         dark: "#514658",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "color.playerAccent",
+        css_variable: "--cantos-color-player-accent",
+        kind: "color",
+        light: "#dec6f0",
+        dark: "#dec6f0",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "color.playerSurface",
+        css_variable: "--cantos-color-player-surface",
+        kind: "color",
+        light: "#34283f",
+        dark: "#34283f",
         compact: None,
         comfortable: None,
         alias_of: None,

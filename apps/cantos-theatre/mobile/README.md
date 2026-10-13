@@ -90,7 +90,10 @@ are disabled.
 
 `ios-build` links only the simulator framework. Open `iosApp/CantosDemo.xcodeproj`, choose the
 shared `CantosDemo` scheme and an existing Apple Silicon simulator to build/run after the
-framework exists. Xcode does not invoke/download Gradle. Physical-device linking/signing and
+framework exists. Xcode's `Copy Compose resources` phase copies the common font/art/license
+resources into `compose-resources/composeResources/com.cantos.theatre.resources`, the location
+read by pinned Compose 1.9.0 with this manually linked static framework. It does not invoke or
+download Gradle. Physical-device linking/signing and
 distribution are outside this mock. JVM `run` supervises its owned process group, with a
 foreground-launcher PID guard; it is not an Android/iOS run. Production
 `build/run cantos-theatre --mobile` stays `UNSUPPORTED`: native listening adapters are absent.
@@ -152,3 +155,13 @@ the reviewed Theatre backend contract before app wiring. No iOS transport integr
 noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
 These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
 acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-matrix.md).
+
+## Reference UI repair
+
+The [UI repair evidence](../../../docs/evidence/theatre-cmp-ui-repair.md) covers adaptive header/
+episode rows, exact reference paintings and OFL Noto font resources, the tonal mini-player,
+ordered icon transport and preference dialogs. Theme/language/speed/timer still live in the one
+app-owned mock state; catalog scenarios and reset are under the separate Demo tools dialog.
+The simulated timer performs no countdown. The [asset provenance](shared/src/commonMain/composeResources/files/provenance.json)
+records exact hashes and the remaining production artwork-rights review. Native runtime,
+TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JVM evidence.

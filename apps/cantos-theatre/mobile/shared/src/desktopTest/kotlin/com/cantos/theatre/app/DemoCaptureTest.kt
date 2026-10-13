@@ -159,6 +159,36 @@ class DemoCaptureTest {
         )
     }
 
+    @Test
+    fun repair_scenarios_cover_both_themes_short_screens_and_large_text_player() {
+        DemoTheme.entries.forEach { theme ->
+            val label = theme.name.lowercase()
+            capture("jvm-$label-player-390x844", 390, 844,
+                DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Player), theme = theme))
+            capture("jvm-$label-work-390x844", 390, 844,
+                DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Work(DemoWorkId.SonHa)), theme = theme))
+            capture("jvm-$label-settings-390x844", 390, 844,
+                DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Settings), theme = theme))
+        }
+        capture("jvm-light-shell-short-320x568", 320, 568)
+        capture("jvm-dark-player-short-320x568", 320, 568,
+            DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Player), theme = DemoTheme.Dark),
+            scrollToTag = "transport")
+        capture("jvm-light-player-text2-320x800", 320, 800,
+            DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Player)), textScale = 2f,
+            scrollToTag = "transport")
+    }
+
+    @Test
+    fun preference_dialogs_are_captured_in_context_and_at_double_text_scale() {
+        capture("jvm-light-theme-dialog-390x844", 390, 844,
+            DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Settings)),
+            clickTag = "setting-Theme", captureTag = "preference-dialog")
+        capture("jvm-dark-timer-dialog-text2-320x800", 320, 800,
+            DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Settings), theme = DemoTheme.Dark),
+            textScale = 2f, clickTag = "setting-Timer", captureTag = "preference-dialog")
+    }
+
     private fun libraryState(
         stack: List<DemoRoute> = listOf(DemoRoute.Library),
         theme: DemoTheme = DemoTheme.Light,

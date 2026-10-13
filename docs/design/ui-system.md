@@ -1,7 +1,7 @@
 # Cantos UI System
 
 Status: product requirements plus an implemented [UI foundation](../../packages/ui-system/README.md).
-The live Leptos Studio save/read surface consumes [canonical v0.2.0 tokens](../../packages/ui-system/shared/tokens.json), with earlier
+The live Leptos Studio save/read surface consumes [canonical v0.2.1 tokens](../../packages/ui-system/shared/tokens.json), with earlier
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
 Theatre/CMP journeys and exact reference fidelity remain unimplemented.
@@ -13,8 +13,10 @@ Cantos uses Material 3 Expressive principles with a soft lavender/purple identit
 The original reference was unavailable during initialization. The authenticated 2026-10-11 design
 handoff now supplies identical light/dark paper/lavender palettes, Noto Sans/Noto Serif family
 names, component specs and official outlined icons. The [shared contract](../../packages/ui-system/shared/README.md)
-records adopted values and bounded foundation choices. Embedded artwork/fonts are not
-redistributed. Exact fidelity, interactions and font rendering need actual browser inspection;
+records adopted values and bounded foundation choices. The [Theatre CMP repair](../evidence/theatre-cmp-ui-repair.md) bundles exact reference fonts
+under OFL and user-provided mock artwork with recorded provenance; production artwork rights
+remain unverified. Other consumers retain their existing fonts/assets. Exact fidelity,
+interactions and font rendering need actual renderer inspection;
 static boards do not establish an HTML screenshot comparison.
 
 ## Semantic tokens

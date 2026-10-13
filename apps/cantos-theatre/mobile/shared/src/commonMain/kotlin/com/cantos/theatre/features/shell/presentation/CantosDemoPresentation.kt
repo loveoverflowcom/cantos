@@ -1,5 +1,6 @@
 package com.cantos.theatre.features.shell.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -7,17 +8,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Home
@@ -31,9 +33,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -43,13 +46,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -57,39 +64,40 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import com.cantos.theatre.app.CopyKey
 import com.cantos.theatre.app.DemoCopy
 import com.cantos.theatre.app.clockTime
 import com.cantos.theatre.demo.DemoBookmark
-import com.cantos.theatre.demo.DemoCatalogView
 import com.cantos.theatre.demo.DemoCatalogMode
+import com.cantos.theatre.demo.DemoCatalogView
 import com.cantos.theatre.demo.DemoEpisode
 import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoListeningFailure
 import com.cantos.theatre.demo.DemoLocale
+import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoTheme
-import com.cantos.theatre.demo.DemoTimer
 import com.cantos.theatre.demo.DemoWork
 import com.cantos.theatre.demo.PlaybackUiStatus
-import com.cantos.theatre.demo.SupportedUiSpeedPercents
-import com.cantos.theatre.demo.continuingProgress
 import com.cantos.theatre.demo.canGoBack
+import com.cantos.theatre.demo.continuingProgress
 import com.cantos.theatre.demo.filteredWorks
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
+import com.cantos.ui.LocalEditorialFontFamily
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
+import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 /** The same isolated mock composition is mounted by Android, iOS and the JVM diagnostic host.
@@ -118,6 +126,8 @@ fun CantosDemoPresentation(
             reducedMotion = true,
             textScale = textScale,
         ),
+        uiFontFamily = theatreSans(),
+        editorialFontFamily = theatreSerif(),
     ) {
         Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
@@ -152,6 +162,9 @@ fun CantosDemoPresentation(
                             .testTag("screen"),
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
+                        Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("demo-notice"))
                         when (val route = state.route) {
                             DemoRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
                             DemoRoute.Search -> SearchScreen(state, catalog, copy, dispatch)
@@ -200,22 +213,22 @@ private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (canGoBack(state)) {
-            IconButton(onClick = { dispatch(DemoEvent.Back) }, modifier = Modifier.testTag("back")) {
+            IconButton(onClick = { dispatch(DemoEvent.Back) }, modifier = Modifier.size(tokenDp("size.control")).testTag("back")) {
                 Icon(
                     if (state.route == DemoRoute.Player) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
                     copy.text(if (state.route == DemoRoute.Player) CopyKey.ClosePlayer else CopyKey.Back),
                 )
             }
         }
-        Column(Modifier.weight(1f).padding(horizontal = tokenDp("space.sm"))) {
-            Text(
-                copy.text(CopyKey.Brand), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall)
-        }
+        Text(
+            copy.text(if (state.route == DemoRoute.Player) CopyKey.Player else CopyKey.Brand),
+            modifier = Modifier.weight(1f).padding(horizontal = tokenDp("space.sm")),
+            style = if (state.route == DemoRoute.Player) MaterialTheme.typography.labelLarge
+                else MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
         if (state.route != DemoRoute.Account) {
-            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Account)) }, modifier = Modifier.testTag("account")) {
+            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Account)) }, modifier = Modifier.size(tokenDp("size.control")).testTag("account")) {
                 Icon(Icons.Outlined.AccountCircle, copy.text(CopyKey.Account))
             }
         }
@@ -227,7 +240,7 @@ private fun DiscoveryScreen(state: DemoState, catalog: DemoCatalogView, copy: De
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Text(copy.text(CopyKey.ContinuingHeading), color = MaterialTheme.colorScheme.tertiary,
             style = MaterialTheme.typography.labelLarge)
-        Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif),
+        Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
         val point = continuingProgress(state).firstOrNull()
         if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
@@ -236,10 +249,14 @@ private fun DiscoveryScreen(state: DemoState, catalog: DemoCatalogView, copy: De
             Text(copy.text(CopyKey.Search))
         }
     }
-    Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif),
+    Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
         modifier = Modifier.semantics { heading() })
     if (state.catalogMode == DemoCatalogMode.Ready && catalog.works.isNotEmpty()) {
-        WorkShelf(catalog.works, state, copy, dispatch)
+        WorkSummary(catalog.works.first(), state, copy, dispatch, Modifier, featured = true)
+        if (catalog.works.size > 1) {
+            SectionHeading(CopyKey.ExploreHeading, copy)
+            WorkShelf(catalog.works.drop(1), state, copy, dispatch)
+        }
     } else {
         CatalogRecovery(if (state.catalogMode == DemoCatalogMode.Ready) DemoCatalogMode.Empty else state.catalogMode, copy, dispatch)
     }
@@ -263,7 +280,14 @@ private fun WorkShelf(works: List<DemoWork>, state: DemoState, copy: DemoCopy, d
 }
 
 @Composable
-private fun WorkSummary(work: DemoWork, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, modifier: Modifier) {
+private fun WorkSummary(
+    work: DemoWork,
+    state: DemoState,
+    copy: DemoCopy,
+    dispatch: (DemoEvent) -> Unit,
+    modifier: Modifier,
+    featured: Boolean = false,
+) {
     Card(
         onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Work(work.id))) },
         modifier = modifier.fillMaxWidth().testTag("work-${work.id}")
@@ -271,11 +295,31 @@ private fun WorkSummary(work: DemoWork, state: DemoState, copy: DemoCopy, dispat
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.large,
     ) {
+        if (featured) {
+            Box(Modifier.fillMaxWidth()) {
+                WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    .background(tokenColor("color.playerSurface")).padding(tokenDp("space.inset"))) {
+                    Text(work.category, color = tokenColor("color.playerAccent"), style = MaterialTheme.typography.bodySmall)
+                    Text(work.title, style = MaterialTheme.typography.headlineSmall, color = tokenColor("color.onPlayerSurface"))
+                }
+            }
+        }
         Column(Modifier.padding(tokenDp("space.md")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelLarge)
-            Text(work.title, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif))
+            if (!featured) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
+                    WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                        Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+                        Text(work.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             Text(work.description)
-            Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
+            if (featured) Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
@@ -347,9 +391,10 @@ private fun CatalogRecovery(mode: DemoCatalogMode, copy: DemoCopy, dispatch: (De
 
 @Composable
 private fun WorkScreen(work: DemoWork, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+    WorkArtwork(work.id, Modifier.fillMaxWidth().aspectRatio(1.6f))
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Text(work.category, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
-        Text(work.title, style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif),
+        Text(work.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
         Text(work.description)
         Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()), style = MaterialTheme.typography.bodySmall)
@@ -371,23 +416,30 @@ private fun WorkScreen(work: DemoWork, state: DemoState, copy: DemoCopy, dispatc
 
 @Composable
 private fun EpisodeSelection(episode: DemoEpisode, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
-    FilledTonalButton(
+    val selected = episode.id == state.selectedEpisode
+    Surface(
         onClick = { dispatch(DemoEvent.OpenEpisode(episode.id)) },
         enabled = episode.durationSeconds > 0,
-        modifier = Modifier.fillMaxWidth().testTag("episode-${episode.id}")
-            .semantics { contentDescription = copy.text(CopyKey.PlayEpisode, "title" to episode.title) },
-        shape = MaterialTheme.shapes.large,
-        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (episode.id == state.selectedEpisode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        ),
+        modifier = Modifier.fillMaxWidth().testTag("episode-${episode.id}").semantics {
+            role = Role.Button
+            contentDescription = copy.text(CopyKey.PlayEpisode, "title" to episode.title)
+            if (selected) stateDescription = copy.text(CopyKey.CurrentEpisode)
+        },
+        shape = MaterialTheme.shapes.medium,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        Text(episode.index.toString(), style = MaterialTheme.typography.titleLarge)
-        Column(Modifier.weight(1f).padding(tokenDp("space.sm"))) {
-            Text(episode.title, style = MaterialTheme.typography.titleMedium)
-            Text(copy.text(CopyKey.Duration, "minutes" to (episode.durationSeconds / 60).toString()), style = MaterialTheme.typography.bodySmall)
-            if (episode.id == state.selectedEpisode) Text(copy.text(CopyKey.CurrentEpisode), style = MaterialTheme.typography.bodySmall)
+        Row(Modifier.padding(tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Text(episode.index.toString(), style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                Text(episode.title, style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(copy.text(CopyKey.Duration, "minutes" to (episode.durationSeconds / 60).toString()),
+                    style = MaterialTheme.typography.bodySmall)
+                if (selected) Text(copy.text(CopyKey.CurrentEpisode), style = MaterialTheme.typography.bodySmall)
+            }
+            Icon(Icons.Outlined.PlayArrow, null)
         }
-        Icon(Icons.Outlined.PlayArrow, null)
     }
     if (episode.durationSeconds <= 0) Text(copy.text(CopyKey.SelectionUnavailableNote), style = MaterialTheme.typography.bodySmall)
 }
@@ -409,7 +461,7 @@ private fun SaveWorkButton(work: DemoWork, state: DemoState, copy: DemoCopy, dis
 
 @Composable
 private fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
-    Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif),
+    Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
     Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -439,7 +491,7 @@ private fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
 
 @Composable
 private fun SectionHeading(key: CopyKey, copy: DemoCopy) {
-    Text(copy.text(key), style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif),
+    Text(copy.text(key), style = MaterialTheme.typography.titleLarge.copy(fontFamily = LocalEditorialFontFamily.current),
         modifier = Modifier.semantics { heading() })
 }
 
@@ -464,24 +516,30 @@ private fun ListeningPoint(
         Text(copy.text(CopyKey.SelectionUnavailableNote))
         return
     }
-    FilledTonalButton(
+    Surface(
         onClick = {
             dispatch(if (fromHistory) DemoEvent.ResumeHistoryEpisode(point.episodeId) else DemoEvent.ResumeEpisode(point.episodeId))
         },
         modifier = Modifier.fillMaxWidth().testTag(tag).semantics {
+            role = Role.Button
             contentDescription = copy.text(CopyKey.ResumeSampleName, "title" to episode.title, "time" to copy.spokenTime(point.positionSeconds))
         },
+        color = MaterialTheme.colorScheme.primaryContainer,
         shape = MaterialTheme.shapes.large,
     ) {
-        Icon(Icons.Outlined.PlayArrow, null)
-        Column(Modifier.weight(1f).padding(tokenDp("space.sm"))) {
-            Text(catalog.work(episode.workId)?.title.orEmpty(), style = MaterialTheme.typography.labelLarge)
-            Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to episode.title))
-            Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds), "total" to clockTime(episode.durationSeconds)))
-            Text(copy.text(CopyKey.ResumeSample), style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.padding(tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
+            WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+                Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(),
+                    "title" to catalog.work(episode.workId)?.title.orEmpty()), style = MaterialTheme.typography.bodySmall)
+                Text(episode.title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds),
+                    "total" to clockTime(episode.durationSeconds)), style = MaterialTheme.typography.bodySmall)
+            }
+            Icon(Icons.Outlined.PlayArrow, null)
         }
     }
-    Text(copy.text(CopyKey.ResumeSampleHelp), style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
@@ -533,16 +591,11 @@ private fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
         SelectionUnavailable(copy, dispatch)
         return
     }
-    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(tokenDp("space.lg")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Text(work.title, style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif))
-            Text(copy.text(CopyKey.ArtworkPending), style = MaterialTheme.typography.bodySmall)
-        }
-    }
+    WorkArtwork(work.id, Modifier.fillMaxWidth().widthIn(max = tokenDp("breakpoint.medium")).aspectRatio(1.32f))
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to work.title), style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.tertiary)
-        Text(episode.title, style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif),
+        Text(episode.title, style = MaterialTheme.typography.headlineLarge,
             modifier = Modifier.semantics { heading() })
         Text(copy.text(playbackStatusKey(state.playbackStatus)),
             modifier = Modifier.testTag("simulation-status").semantics { liveRegion = LiveRegionMode.Polite })
@@ -556,31 +609,7 @@ private fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
             Text(clockTime(episode.durationSeconds))
         }
     }
-    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
-        verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        FilledTonalButton(onClick = { dispatch(DemoEvent.Seek(-15)) }, modifier = Modifier.testTag("rewind")) { Text(copy.text(CopyKey.Rewind)) }
-        Button(onClick = { dispatch(DemoEvent.ToggleSimulation) }, modifier = Modifier.testTag("transport").semantics {
-            contentDescription = copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode, "title" to episode.title)
-        }) {
-            Icon(if (state.transportRequested) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null)
-            Text(copy.text(if (state.transportRequested) CopyKey.Pause else CopyKey.Play))
-        }
-        FilledTonalButton(onClick = { dispatch(DemoEvent.Seek(15)) }, modifier = Modifier.testTag("forward")) { Text(copy.text(CopyKey.Forward)) }
-    }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        val bookmarked = DemoBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
-        FilledTonalButton(onClick = { dispatch(DemoEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
-            Icon(Icons.Outlined.Star, null)
-            Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))
-        }
-        FilledTonalButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Queue)) }, modifier = Modifier.testTag("queue")) {
-            Icon(Icons.AutoMirrored.Outlined.QueueMusic, null)
-            Text(copy.text(CopyKey.Queue))
-        }
-        TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }) {
-            Text(copy.text(CopyKey.SpeedCaption, "speed" to copy.speed(state.speedPercent)))
-        }
-    }
+    PlayerControls(state, episode, copy, dispatch)
     Text(copy.text(CopyKey.PlayerExplanation), style = MaterialTheme.typography.bodySmall)
     if (state.bookmarks.isNotEmpty()) {
         SectionHeading(CopyKey.Bookmarks, copy)
@@ -613,86 +642,70 @@ private fun QueueScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCo
 
 @Composable
 private fun SettingsScreen(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
-    Text(copy.text(CopyKey.PersonalRhythm), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif),
+    var panel by remember { mutableStateOf<PreferencePanel?>(null) }
+    var restoreFocus by remember { mutableStateOf<PreferencePanel?>(null) }
+    val requesters = remember { PreferencePanel.entries.associateWith { FocusRequester() } }
+    LaunchedEffect(panel, restoreFocus) {
+        if (panel == null) restoreFocus?.let {
+            withFrameNanos { }
+            requesters.getValue(it).requestFocus()
+            restoreFocus = null
+        }
+    }
+    Text(copy.text(CopyKey.PersonalRhythm), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
-    Text(copy.text(CopyKey.PreferencesNote))
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Text(copy.text(CopyKey.Theme), style = MaterialTheme.typography.titleLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            DemoTheme.entries.forEach { theme ->
-                FilterChip(selected = state.theme == theme, onClick = { dispatch(DemoEvent.SetTheme(theme)) },
-                    label = { Text(copy.text(if (theme == DemoTheme.Light) CopyKey.Light else CopyKey.Dark)) }, modifier = Modifier.testTag("theme-$theme"))
+    Column {
+        PreferencePanel.entries.forEach { choice ->
+            val value = when (choice) {
+                PreferencePanel.Theme -> copy.text(if (state.theme == DemoTheme.Light) CopyKey.Light else CopyKey.Dark)
+                PreferencePanel.Language -> copy.text(if (state.locale == DemoLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English)
+                PreferencePanel.Speed -> copy.speed(state.speedPercent)
+                PreferencePanel.Timer -> copy.text(timerKey(state.timer))
+                PreferencePanel.Diagnostics -> copy.text(CopyKey.CatalogState)
             }
-        }
-        Text(copy.text(CopyKey.Language), style = MaterialTheme.typography.titleLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            DemoLocale.entries.forEach { locale ->
-                FilterChip(selected = state.locale == locale, onClick = { dispatch(DemoEvent.SetLocale(locale)) },
-                    label = { Text(copy.text(if (locale == DemoLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English)) })
-            }
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Text(copy.text(CopyKey.Speed), style = MaterialTheme.typography.titleLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            SupportedUiSpeedPercents.forEach { speed ->
-                FilterChip(selected = state.speedPercent == speed, onClick = { dispatch(DemoEvent.SetSpeed(speed)) }, label = { Text(copy.speed(speed)) },
-                    modifier = Modifier.testTag("speed-$speed"))
-            }
-        }
-        Text(copy.text(CopyKey.Timer), style = MaterialTheme.typography.titleLarge)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            DemoTimer.entries.forEach { timer ->
-                val key = when (timer) {
-                    DemoTimer.Off -> CopyKey.TimerOff
-                    DemoTimer.Fifteen -> CopyKey.Timer15
-                    DemoTimer.Thirty -> CopyKey.Timer30
-                    DemoTimer.EndOfEpisode -> CopyKey.TimerEnd
-                }
-                FilterChip(selected = state.timer == timer, onClick = { dispatch(DemoEvent.SetTimer(timer)) }, label = { Text(copy.text(key)) })
-            }
+            PreferenceRow(copy.text(choice.title), value, { panel = choice },
+                Modifier.testTag("setting-$choice").focusRequester(requesters.getValue(choice)))
+            if (choice == PreferencePanel.Timer) Text(copy.text(CopyKey.PreferencesNote),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = tokenDp("space.md")))
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        Text(copy.text(CopyKey.CatalogState), style = MaterialTheme.typography.titleLarge)
-        Text(copy.text(CopyKey.CatalogStateNote), style = MaterialTheme.typography.bodySmall)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            DemoCatalogMode.entries.forEach { mode ->
-                val key = when (mode) {
-                    DemoCatalogMode.Ready -> CopyKey.Ready
-                    DemoCatalogMode.Loading -> CopyKey.LoadingMode
-                    DemoCatalogMode.Empty -> CopyKey.EmptyMode
-                    DemoCatalogMode.Error -> CopyKey.ErrorMode
-                }
-                FilterChip(selected = state.catalogMode == mode, onClick = { dispatch(DemoEvent.CatalogMode(mode)) },
-                    label = { Text(copy.text(key)) }, modifier = Modifier.testTag("catalog-$mode"))
-            }
-        }
+    panel?.let { current ->
+        PreferenceDialog(current, state, copy, dispatch) { panel = null; restoreFocus = current }
     }
-    Text(copy.text(CopyKey.Unsupported), style = MaterialTheme.typography.titleLarge)
-    Text(copy.text(CopyKey.IntegrationsPending), style = MaterialTheme.typography.bodySmall)
-    Text(copy.text(CopyKey.ResetNote), style = MaterialTheme.typography.bodySmall)
-    Button(onClick = { dispatch(DemoEvent.Reset) }, modifier = Modifier.testTag("reset")) { Text(copy.text(CopyKey.Reset)) }
 }
 
 @Composable
 private fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     val episode = catalog.episode(state.selectedEpisode) ?: return
-    Surface(color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-        shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.md"), vertical = tokenDp("space.sm"))) {
-        Row(Modifier.padding(horizontal = tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Player)) }, modifier = Modifier.weight(1f).testTag("mini-open").semantics {
-                contentDescription = copy.text(CopyKey.OpenPlayer, "title" to episode.title)
-                stateDescription = copy.text(playbackStatusKey(state.playbackStatus))
-            }) {
-                Column(Modifier.fillMaxWidth()) {
-                    Text(episode.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.inverseOnSurface)
-                    Text(clockTime(state.positionSeconds), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.inverseOnSurface)
+    Surface(color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
+        shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = tokenDp("space.md"), vertical = tokenDp("space.sm"))) {
+        Row(Modifier.padding(tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+            Surface(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Player)) },
+                color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
+                modifier = Modifier.weight(1f).testTag("mini-open").semantics {
+                    role = Role.Button
+                    contentDescription = copy.text(CopyKey.OpenPlayer, "title" to episode.title)
+                    stateDescription = copy.text(playbackStatusKey(state.playbackStatus))
+                }) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+                    WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")))
+                    Column(Modifier.weight(1f)) {
+                        Text(episode.title, style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(clockTime(state.positionSeconds), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
-            IconButton(onClick = { dispatch(DemoEvent.ToggleSimulation) }, modifier = Modifier.testTag("mini-transport")) {
+            FilledTonalIconButton(onClick = { dispatch(DemoEvent.ToggleSimulation) },
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = tokenColor("color.playerAccent"), contentColor = tokenColor("color.playerSurface")),
+                modifier = Modifier.size(tokenDp("size.control")).testTag("mini-transport")) {
                 Icon(if (state.transportRequested) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode, "title" to episode.title), tint = MaterialTheme.colorScheme.inverseOnSurface)
+                    copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode, "title" to episode.title))
             }
         }
     }
