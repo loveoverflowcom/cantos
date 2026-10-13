@@ -83,6 +83,16 @@ are separate from the implemented Catalog API and general external-producer hand
 The narrow development intake is described above. Prior worker/Google/eSpeak/VieNeu samples and
 DBSP job views are historical experiments, not prerequisites for the new roadmap.
 
+## Producer-side Cantos Forge
+
+[Issue #82](https://github.com/loveoverflowcom/cantos/issues/82) and the proposed
+[ADR 0022](../decisions/0022-cantos-forge-producer-cli.md) add a producer-side CLI outside the
+API runtime. Its [foundation](../../apps/cantos-forge/README.md) holds the crate, xtask build, the
+tested pure core and a host-assisted local workflow (workspace, register, validate, export a
+local bundle). Recommended next: instruction bundles and AI/human review evidence commands, then
+provider orchestration and the authorized handoff as separate boundaries. None of this changes the
+API sequence above. GitHub owns status.
+
 ## Canonical work plans
 
 - [010 — source/script import and editor](010-import-and-edit-script.md) — completed portions retained.

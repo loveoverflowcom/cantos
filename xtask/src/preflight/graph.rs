@@ -145,6 +145,7 @@ pub mod testing {
         };
         PackageGraph {
             packages: vec![
+                package("cantos-forge", "apps/cantos-forge", &[]),
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
@@ -201,6 +202,79 @@ mod tests {
                 "cantos-contracts",
                 "cantos-studio",
                 "cantos-theatre"
+            ]
+        );
+    }
+
+    /// The documented direction: apps depend only on packages, services only on packages,
+    /// packages on nothing outside `packages/`, and nothing depends on `xtask`.
+    fn inward_violations(graph: &PackageGraph) -> Vec<String> {
+        let area = |dir: &str| dir.split('/').next().unwrap_or_default().to_owned();
+        let product = |dir: &str| dir.split('/').take(2).collect::<Vec<_>>().join("/");
+        let by_name: BTreeMap<_, _> = graph
+            .packages
+            .iter()
+            .map(|package| (package.name.as_str(), package.dir.as_str()))
+            .collect();
+        let mut violations = Vec::new();
+        for package in &graph.packages {
+            for dep in &package.deps {
+                let Some(dep_dir) = by_name.get(dep.as_str()) else {
+                    violations.push(format!("{} -> {dep}: unknown package", package.name));
+                    continue;
+                };
+                let allowed = match (area(&package.dir).as_str(), area(dep_dir).as_str()) {
+                    (_, "xtask") => false,
+                    ("apps", "apps") => product(&package.dir) == product(dep_dir),
+                    ("apps" | "services" | "packages" | "xtask", "packages") => true,
+                    _ => false,
+                };
+                if !allowed {
+                    violations.push(format!(
+                        "{} ({}) -> {dep} ({dep_dir})",
+                        package.name, package.dir
+                    ));
+                }
+            }
+        }
+        violations
+    }
+
+    #[test]
+    fn workspace_dependencies_point_inward() {
+        let root = crate::workspace::Workspace::discover().unwrap();
+        let real = PackageGraph::load(root.root()).unwrap();
+        assert_eq!(inward_violations(&real), Vec::<String>::new());
+        assert_eq!(inward_violations(&testing::cantos()), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_inward_rule_rejects_each_forbidden_edge() {
+        let mut graph = testing::cantos();
+        let edges = [
+            ("cantos-forge", "cantos-api"),
+            ("cantos-forge", "cantos-studio"),
+            ("cantos-contracts", "cantos-ui"),
+            ("cantos-contracts", "cantos-api"),
+            ("cantos-api", "cantos-studio"),
+            ("cantos-ui", "xtask"),
+        ];
+        for (from, to) in edges {
+            let package = graph
+                .packages
+                .iter_mut()
+                .find(|package| package.name == from)
+                .unwrap();
+            package.deps.insert(to.to_owned());
+        }
+        assert_eq!(
+            inward_violations(&graph),
+            [
+                "cantos-forge (apps/cantos-forge) -> cantos-api (services/cantos-api)",
+                "cantos-forge (apps/cantos-forge) -> cantos-studio (apps/cantos-studio/web)",
+                "cantos-contracts (packages/contracts/api) -> cantos-api (services/cantos-api)",
+                "cantos-api (services/cantos-api) -> cantos-studio (apps/cantos-studio/web)",
+                "cantos-ui (packages/ui-system/leptos) -> xtask (xtask)",
             ]
         );
     }
