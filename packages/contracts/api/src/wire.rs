@@ -36,7 +36,7 @@ pub enum WireFormat {
     Json,
     /// Named-map MessagePack.
     MessagePack,
-    /// Versioned Studio pilot only; use `encode_pilot` / `decode_pilot`.
+    /// Reviewed versioned Studio metadata; use its explicit codec composition.
     Protobuf,
 }
 
@@ -175,6 +175,40 @@ pub fn decode_pilot<T: DeserializeOwned + crate::protobuf::ProtobufDto>(
     match format {
         WireFormat::Protobuf => crate::protobuf::decode(bytes),
         WireFormat::Json | WireFormat::MessagePack => decode(format, bytes),
+    }
+}
+
+/// New artwork metadata accepts only JSON and its reviewed Protobuf schema. This
+/// separate composition cannot accidentally add a legacy MessagePack consumer.
+#[inline]
+pub fn encode_artwork<T: Serialize + crate::protobuf::ProtobufDto + ?Sized>(
+    format: WireFormat,
+    value: &T,
+) -> Result<Vec<u8>, EncodeError> {
+    let bytes = match format {
+        WireFormat::Json => encode(format, value)?,
+        WireFormat::Protobuf => crate::protobuf::encode(value)?,
+        WireFormat::MessagePack => return Err(EncodeError),
+    };
+    if bytes.len() > crate::protobuf::MAX_ARTWORK_PROTOBUF_BYTES {
+        return Err(EncodeError);
+    }
+    Ok(bytes)
+}
+
+/// Metadata envelope bounds apply to both formats; domain admission remains separate.
+#[inline]
+pub fn decode_artwork<T: DeserializeOwned + crate::protobuf::ProtobufDto>(
+    format: WireFormat,
+    bytes: &[u8],
+) -> Result<T, DecodeError> {
+    if bytes.len() > crate::protobuf::MAX_ARTWORK_PROTOBUF_BYTES {
+        return Err(DecodeError::TooLarge);
+    }
+    match format {
+        WireFormat::Json => decode(format, bytes),
+        WireFormat::Protobuf => crate::protobuf::decode(bytes),
+        WireFormat::MessagePack => Err(DecodeError::Shape),
     }
 }
 

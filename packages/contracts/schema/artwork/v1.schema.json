@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/artwork/v1",
+  "title": "Cantos private Work artwork metadata v1",
+  "description": "JSON default and opt-in Protobuf on new private owner metadata only. Raw DTOs remain unvalidated: this schema documents bounded business fields, while full byte inspection, current owner rights, cross-record bindings, expiry, CAS and immutable digest checks belong to the service. Nullable responses serialize explicit null and may be absent on input; SetWorkArtworkRequest.artwork must be explicitly null or a complete object. No private storage key/target/URL or public image grant is exposed.",
+  "$defs": {
+    "CanonicalId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "OwnerId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ImageIntentDigest": {
+      "type": "string",
+      "pattern": "^ii-r1:sha256:[a-f0-9]{64}$"
+    },
+    "ImageAssetDigest": {
+      "type": "string",
+      "pattern": "^ia-r1:sha256:[a-f0-9]{64}$"
+    },
+    "ImageMime": {
+      "type": "string",
+      "enum": [
+        "image/png",
+        "image/jpeg"
+      ]
+    },
+    "ImageIntentState": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "admitted",
+        "expired"
+      ]
+    },
+    "ImageProfileId": {
+      "const": "cover-image-v1"
+    },
+    "ByteLength": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8388608
+    },
+    "Dimension": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "Timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "ImageDeclarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provenance",
+        "rights_refs"
+      ],
+      "properties": {
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Server additionally checks nonblank text, <=4096 UTF-8 bytes and controls limited to newline/carriage-return/tab."
+        },
+        "rights_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,64}$"
+          }
+        }
+      }
+    },
+    "CreateImageIntentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "id",
+        "expected_sha256",
+        "expected_byte_length",
+        "content_type",
+        "declarations"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "expected_sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "expected_byte_length": {
+          "$ref": "#/$defs/ByteLength"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ImageMime"
+        },
+        "declarations": {
+          "$ref": "#/$defs/ImageDeclarations"
+        }
+      }
+    },
+    "ImageIntentDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "work_id",
+        "owner_id",
+        "operation_id",
+        "request",
+        "created_at_ms",
+        "expires_at_ms",
+        "digest",
+        "profile_id"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "image-intent-v1"
+        },
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "work_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "request": {
+          "$ref": "#/$defs/CreateImageIntentRequest"
+        },
+        "created_at_ms": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/ImageIntentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/ImageProfileId"
+        }
+      }
+    },
+    "ImageVariantMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byte_length",
+        "content_type",
+        "width_px",
+        "height_px",
+        "profile_id"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "byte_length": {
+          "$ref": "#/$defs/ByteLength"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ImageMime"
+        },
+        "width_px": {
+          "$ref": "#/$defs/Dimension"
+        },
+        "height_px": {
+          "$ref": "#/$defs/Dimension"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/ImageProfileId"
+        }
+      }
+    },
+    "ImageAssetDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "intent_id",
+        "work_id",
+        "owner_id",
+        "verified_media",
+        "declarations",
+        "admitted_at_ms",
+        "digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "image-asset-v1"
+        },
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "intent_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "work_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
+        "verified_media": {
+          "$ref": "#/$defs/ImageVariantMetadata"
+        },
+        "declarations": {
+          "$ref": "#/$defs/ImageDeclarations"
+        },
+        "admitted_at_ms": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/ImageAssetDigest"
+        }
+      }
+    },
+    "ImageIntentResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent",
+        "state"
+      ],
+      "properties": {
+        "intent": {
+          "$ref": "#/$defs/ImageIntentDocument"
+        },
+        "asset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageAssetDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/ImageIntentState"
+        }
+      }
+    },
+    "WorkArtworkSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image_asset_id",
+        "image_asset_digest",
+        "alt_text"
+      ],
+      "properties": {
+        "image_asset_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "image_asset_digest": {
+          "$ref": "#/$defs/ImageAssetDigest"
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "Server additionally checks nonblank, <=1024 UTF-8 bytes, single-line text without any control character."
+        }
+      }
+    },
+    "SetWorkArtworkRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_work_revision",
+        "artwork"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "expected_work_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "artwork": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkArtworkSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "WorkArtworkResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_id",
+        "work_revision"
+      ],
+      "properties": {
+        "work_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "work_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "artwork": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkArtworkSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "changed_at_ms": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

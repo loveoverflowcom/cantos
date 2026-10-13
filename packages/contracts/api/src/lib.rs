@@ -18,6 +18,8 @@ mod briefs;
 pub use briefs::*;
 mod audio_intake;
 pub use audio_intake::*;
+mod artwork;
+pub use artwork::*;
 pub mod admin;
 pub mod protobuf;
 pub mod routes;

@@ -151,8 +151,10 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         impact.packages.insert(CONTRACTS_PACKAGE.to_owned());
         if within(path, "packages/contracts/protobuf")
             || within(path, "packages/contracts/fixtures/protobuf")
+            || within(path, "packages/contracts/fixtures/artwork")
             || within(path, "packages/contracts/api/src/protobuf")
             || path == "packages/contracts/api/tests/protobuf_wire.rs"
+            || path == "packages/contracts/api/tests/artwork_wire.rs"
         {
             impact.gates.insert(Gate::ProtobufReference);
             impact.gates.insert(Gate::TheatreCmpDemo);
@@ -392,9 +394,14 @@ mod tests {
     fn protobuf_inputs_select_drift_goldens_and_both_language_consumers() {
         for path in [
             "packages/contracts/protobuf/studio_v1.proto",
+            "packages/contracts/protobuf/artwork_v1.proto",
             "packages/contracts/fixtures/protobuf/v1/goldens.json",
             "packages/contracts/fixtures/protobuf/v1/hostile.json",
+            "packages/contracts/fixtures/artwork/v1/goldens.json",
+            "packages/contracts/fixtures/artwork/v1/hostile.json",
             "packages/contracts/api/src/protobuf/generated.rs",
+            "packages/contracts/api/src/protobuf/generated_artwork.rs",
+            "packages/contracts/api/tests/artwork_wire.rs",
             "scripts/reference_protobuf.py",
         ] {
             let selection = pick(&[path]);
