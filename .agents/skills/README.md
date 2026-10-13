@@ -5,7 +5,7 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Seventeen skills shared by every agent runtime in this repository: eight **rule owners** and nine
+Eighteen skills shared by every agent runtime in this repository: eight **rule owners** and ten
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
@@ -28,6 +28,7 @@ cantos-code-review                 ← read-only, assurance-first review of an e
 cantos-ui-inspector                ← report-only UI/UX inspection with reusable scenarios
 cantos-ui-fix                      ← bounded UI repair with same-scenario and layered evidence
 cantos-logic-fix                   ← bounded invariant repair with regression and layered evidence
+cantos-diagnostics                 ← progressive log reading, failure triage and a diagnosis report
 cantos-story-ingest                ← browser capture/OCR → raw sources + Drive handoff
 cantos-radio-adapt                 ← name map + dialogue/cues → versioned score
 cantos-audio-produce               ← reviewed score → final audio + production evidence
@@ -104,6 +105,14 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 | auditing UI/UX and writing a findings report without fixing | [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | repairing one bounded UI defect from screenshots, findings, labels, overflow or presentation-state mapping | [`cantos-ui-fix`](cantos-ui-fix/SKILL.md), then the UI and renderer owners |
 | repairing one bounded domain, type, state, error-handling, application or I/O defect | [`cantos-logic-fix`](cantos-logic-fix/SKILL.md), then the foundation and invariant owner; persistence/concurrency still needs real acceptance |
+| finding why a gate, test, build, runner, server, browser or service fails; triaging a red or flaky check; reading or summarizing long logs | [`cantos-diagnostics`](cantos-diagnostics/SKILL.md); a requested fix then continues through the repair entrypoint |
+| emitting or reviewing logs, diagnostic events, levels, redaction, correlation IDs, a logging dependency or telemetry services | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [structured observability](cantos-engineering/references/structured-observability.md) reference |
+
+`cantos-diagnostics` turns a failure into a classification (environment, pre-existing, flaky,
+regression, test defect or unknown) and a confirmed or bounded cause. It reads signals from summary
+to focused to deep depth (D0–D2, distinct from the L1–L5 layers), keeps full output in an ignored
+`artifacts/agent-runs/<run-id>/` record and removes its temporary instrumentation; it grants no
+repair authority and adds no status or gate.
 
 The two focused-fix entrypoints locate the existing invariant owner and deliver minimal repairs
 with independent L1–L5 results; they add no rule owner or outward-action authority. Correct

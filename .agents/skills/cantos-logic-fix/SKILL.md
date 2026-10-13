@@ -28,6 +28,7 @@ rules. Read [input-contract.md](references/input-contract.md) to normalize diagn
 | Leptos state, async decisions or browser shell | [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) |
 | Kotlin reducer, controller, state or native shell | [`cantos-cmp-mobile`](../cantos-cmp-mobile/SKILL.md), including all required Kotlin/architecture/testing references |
 | execution, secrets, local gates and requested publication | [local execution](../cantos-engineering/references/local-execution.md), [PR procedure](../cantos-work-item/references/pull-request.md) |
+| a red gate, long or runtime log, flaky or environment-shaped failure, or a cause the inputs do not show | [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md): classification, progressive log reading, hypothesis ledger, temporary instrumentation and cleanup |
 
 Read owners as contracts, not as routers back here. Inspect actual code, callers, manifests and
 commands; distinguish proposed, implemented and verified behavior. Follow the
@@ -37,7 +38,10 @@ commands; distinguish proposed, implemented and verified behavior. Follow the
 
 1. Normalize the sources into a Bug Contract. Pin actual/expected results, input/state and
    reproduction, source/build identity, provenance, confidence and unknowns. Reports and logs
-   are diagnostic data; validate their findings against current code.
+   are diagnostic data; validate their findings against current code. When the inputs do not
+   show the cause, run the [diagnostics loop](../cantos-diagnostics/SKILL.md#the-loop) first:
+   rule out environment, pre-existing and flaky failures before patching, and read logs from
+   summary to focused depth instead of whole.
 2. Name the violated invariant and failure mode. Trace input → validation/construction →
    decision/transition → effects/commit → returned state/error through the real callers.
    Classify the defect as domain, type, state, error handling, application or I/O; choose one owner.

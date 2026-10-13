@@ -191,7 +191,9 @@ part of the [phase review boundary](../../../docs/work-plan/project-planning.md#
 it demonstrates and which part remains. Label live and mocked evidence separately
 ([shared completion evidence](../../../docs/work-plan/README.md#shared-completion-evidence)). Never
 report a build, device run, audio result or provider call that did not happen; an unavailable gate
-goes on the residual-risk line.
+goes on the residual-risk line. When a gate prints `FAIL` or `UNSUPPORTED`, triage it with
+[`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) before editing code: environment,
+pre-existing, flaky or regression. Never rerun until green or `--skip` a failure away.
 
 ## 10. Update the owning docs and the queue
 
@@ -250,6 +252,7 @@ Follow-ups:               deferred acceptance checklist in PR; issues only if re
 |---|---|
 | reading a spec, prerequisites, slicing, the boundary statement, decisions, prototypes, queue updates | [`planning-and-slicing.md`](references/planning-and-slicing.md) |
 | pre-commit audit, commit message, push, PR body fields, live/mocked labels, after the PR opens | [`pull-request.md`](references/pull-request.md) |
+| a red gate, failing or flaky test, long log or runtime anomaly during delivery | [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) |
 
 Useful invocation for any agent:
 

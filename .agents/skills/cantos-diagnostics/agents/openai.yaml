@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Diagnostics"
+  short_description: "Progressive, evidence-driven diagnosis of failures and logs"
+  default_prompt: "Use $cantos-diagnostics to read this failure's signals from summary to focused depth, classify it as environment, pre-existing, flaky or regression against a clean baseline, test one hypothesis per iteration, keep full output in an ignored run record and report the diagnosis with cleanup proven."

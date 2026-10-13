@@ -97,6 +97,7 @@ Surface / Module:
 Observed:
 Expected:                  owning rule/contract
 Root cause:                confirmed + evidence | hypothesis + confidence | unknown
+Diagnosis:                 classification + oracle · run record path | none · instrumentation removed (oracle) | none added
 Invariant:
 Owner / boundary:
 Scope:                     defect, affected consumers, exclusions/escalation
