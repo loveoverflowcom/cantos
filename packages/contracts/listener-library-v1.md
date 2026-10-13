@@ -25,6 +25,10 @@ expiry and session revocation, then resolve the verified issuer/subject to the e
 registry. Mapping alone does not authenticate. #34 has no accepted guest-account merge policy:
 no guest persistence/import or automatic guest merge is implemented.
 
+GET progress returns the strict `{"resource":"progress","current":record|null}` envelope;
+GET Saved returns its register (including false revision0 when absent), not a mutation receipt.
+Unknown operation receipts return not_found in the authenticated account scope.
+
 ## Identity, concurrency and receipts
 
 Work and ContentUnit IDs are stable continuity. Publication, rendition, SHA-256 and duration

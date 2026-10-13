@@ -68,6 +68,22 @@ only when implemented. Do not invent implemented route claims from proposal docu
   inspection, owner-session private development intake and filesystem objects. No admitted file
   is implicitly QC/rights-reviewed or published; see [ADR 0020](../decisions/0020-studio-private-audio-intake.md).
 
+## Listener account state
+
+`contexts/listening` is downstream of Catalog and Media. It owns Library/progress/history,
+conditional revisions and durable operation receipts; Media continues to own public eligibility,
+publication and playback delivery. Its [v1 contract](../../packages/contracts/listener-library-v1.md)
+and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
+identity with default-deny composition and PostgreSQL authority. No new actor registry exists.
+Catalog/Media exports provide owned transaction fences and bounded eligibility batches; Listening
+never reads their private tables directly. HTTP can compose the service/auth port, validate bearer
+syntax and map typed errors, but cannot mint principals or run domain reconciliation.
+
+The architecture checker names this context/dependency direction and admits only the two host
+composition imports in its test-only PostgreSQL regression module. That module reuses the canonical
+publication fixture to test sealed synthetic principals without a production mock-auth feature.
+This narrow test seam does not admit interface calls from production Listening adapters.
+
 ## Next contexts
 
 Implement Studio catalog Web acceptance against the real API separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) now links Catalog-bound Briefs and private admission/review. Next implement `publication`
