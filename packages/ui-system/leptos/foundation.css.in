@@ -161,8 +161,37 @@
 :where(.cantos-ui) .cui-error-state { padding: var(--cantos-space-md); background: var(--cantos-color-error-container); color: var(--cantos-color-error); border-radius: var(--cantos-shape-reading); }
 :where(.cantos-ui) .cui-state-title { margin-block: 0 var(--cantos-space-sm); font-weight: var(--cantos-type-label-weight); }
 :where(.cantos-ui) .cui-loading-mark { display: block; flex-shrink: 0; inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); border: var(--cantos-size-focus-width) dotted currentColor; border-radius: var(--cantos-shape-pill); box-sizing: border-box; }
+:where(.cantos-ui) .cui-avatar {
+  --cui-avatar-size: var(--cantos-size-avatar-medium);
+  --cui-avatar-glyph: 0.44;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  inline-size: var(--cui-avatar-size);
+  block-size: var(--cui-avatar-size);
+  overflow: hidden;
+  border-radius: var(--cantos-shape-pill);
+  font-family: var(--cantos-type-family-ui);
+  font-weight: var(--cantos-type-label-weight);
+  /* Initials fill the fixed circle; they scale with the diameter, never escape it. */
+  font-size: calc(var(--cui-avatar-size) * var(--cui-avatar-glyph));
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+:where(.cantos-ui) .cui-avatar[data-size="small"] { --cui-avatar-size: var(--cantos-size-avatar-small); }
+:where(.cantos-ui) .cui-avatar[data-size="large"] { --cui-avatar-size: var(--cantos-size-avatar-large); }
+:where(.cantos-ui) .cui-avatar[data-initials="pair"] { --cui-avatar-glyph: 0.36; }
+:where(.cantos-ui) .cui-avatar-image { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
+:where(.cantos-ui) .cui-avatar[data-tone="lavender"] { background: var(--cantos-color-avatar-lavender); color: var(--cantos-color-on-avatar-lavender); }
+:where(.cantos-ui) .cui-avatar[data-tone="gold"] { background: var(--cantos-color-avatar-gold); color: var(--cantos-color-on-avatar-gold); }
+:where(.cantos-ui) .cui-avatar[data-tone="sage"] { background: var(--cantos-color-avatar-sage); color: var(--cantos-color-on-avatar-sage); }
+:where(.cantos-ui) .cui-avatar[data-tone="rose"] { background: var(--cantos-color-avatar-rose); color: var(--cantos-color-on-avatar-rose); }
+:where(.cantos-ui) .cui-avatar[data-tone="sky"] { background: var(--cantos-color-avatar-sky); color: var(--cantos-color-on-avatar-sky); }
+:where(.cantos-ui) .cui-avatar[data-tone="clay"] { background: var(--cantos-color-avatar-clay); color: var(--cantos-color-on-avatar-clay); }
 @media (forced-colors: active) {
-  :where(.cantos-ui) :where(.cui-badge, .cui-status, .cui-error-state) { border: var(--cantos-size-border) solid CanvasText; }
+  :where(.cantos-ui) :where(.cui-badge, .cui-status, .cui-error-state, .cui-avatar) { border: var(--cantos-size-border) solid CanvasText; }
 }
 
 /* Actions/navigation additions; merge into foundation.css.in, then regenerate. */

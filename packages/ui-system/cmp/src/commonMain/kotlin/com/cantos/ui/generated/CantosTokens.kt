@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
+// Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,15 +9,27 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.2.2"
+    const val version: String = "0.3.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
         TokenValue("color.accent", "color", "#886638", "#d9b57d", null, null, null),
+        TokenValue("color.avatarClay", "color", "#f2dfd3", "#573a2c", null, null, null),
+        TokenValue("color.avatarGold", "color", "#f3e3c3", "#54432a", null, null, null),
+        TokenValue("color.avatarLavender", "color", "#e6d9f1", "#4d3a5e", null, null, null),
+        TokenValue("color.avatarRose", "color", "#f6dde0", "#5a3239", null, null, null),
+        TokenValue("color.avatarSage", "color", "#dbe8dc", "#2f4a3a", null, null, null),
+        TokenValue("color.avatarSky", "color", "#d9e5f2", "#2b4157", null, null, null),
         TokenValue("color.background", "color", "#f7f3eb", "#211d25", null, null, null),
         TokenValue("color.error", "color", "#a33436", "#ffb3a9", null, null, null),
         TokenValue("color.errorContainer", "color", "#fce3dd", "#4d2627", null, null, null),
         TokenValue("color.focus", "color", "#744b98", "#e0b8fc", null, null, null),
+        TokenValue("color.onAvatarClay", "color", "#553222", "#f7dfd1", null, null, null),
+        TokenValue("color.onAvatarGold", "color", "#4d3712", "#f8e6c4", null, null, null),
+        TokenValue("color.onAvatarLavender", "color", "#3d2b4d", "#f0defe", null, null, null),
+        TokenValue("color.onAvatarRose", "color", "#5a2a33", "#fbdde2", null, null, null),
+        TokenValue("color.onAvatarSage", "color", "#24402f", "#d6ecdb", null, null, null),
+        TokenValue("color.onAvatarSky", "color", "#1f3a52", "#d8e8f8", null, null, null),
         TokenValue("color.onPlayerSurface", "color", "#f7eef9", "#f7eef9", null, null, null),
         TokenValue("color.onPrimary", "color", "#ffffff", "#352044", null, null, null),
         TokenValue("color.onPrimaryContainer", "color", "#332340", "#f0defe", null, null, null),
@@ -50,6 +62,9 @@ object CantosTokens {
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
         TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
+        TokenValue("size.avatarLarge", "dimension", "64", "64", null, null, null),
+        TokenValue("size.avatarMedium", "dimension", "40", "40", null, null, null),
+        TokenValue("size.avatarSmall", "dimension", "32", "32", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
         TokenValue("size.control", "dimension", "44", "44", "44", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),

@@ -56,6 +56,18 @@ pending-write/concurrent identity cases, then full accessibility acceptance; kee
 browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
 backend sequence above is unchanged.
 
+## Publication core and next listener boundary
+
+[Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
+clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
+minimal withdrawal over the existing candidate/intake path. [Verification](../evidence/publication-core.md)
+separates passing core/Router/proof tests from failed PostgreSQL startup and unrun delivery.
+Unconfigured delivery cannot activate. [Discovery/Playback then Library/Progress handoff](publication-discovery-handoff.md)
+defines the next two separately reviewed slices and the independent
+[private storage PR90](https://github.com/loveoverflowcom/cantos/pull/90) integration prerequisite.
+Keep #9/#10/#11 open through real storage, SQL/concurrency, listening/rights and public acceptance;
+Studio audit manifests do not themselves authorize Theatre playback.
+
 ## Existing foundations to retain
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens

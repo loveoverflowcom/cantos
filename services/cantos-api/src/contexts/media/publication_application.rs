@@ -679,7 +679,7 @@ impl PublicationService {
             return Err(conflict(&pointer));
         }
         let now = lifecycle_sql::now(&tx).await?;
-        let next = if pointer.active.as_deref() == Some(&request.release_id) {
+        let next = if pointer.active.as_deref() == Some(request.release_id.as_str()) {
             advance_pointer(pointer.version, pointer.version)?
         } else {
             pointer.version

@@ -30,9 +30,14 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,6 +46,9 @@ import com.cantos.ui.Announcement
 import com.cantos.ui.SelectOption
 import com.cantos.ui.Space
 import com.cantos.ui.AccessibleName
+import com.cantos.ui.Avatar
+import com.cantos.ui.AvatarInitials
+import com.cantos.ui.AvatarSize
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
@@ -91,6 +99,7 @@ import com.cantos.ui.generated.PreviewCatalog
 import com.cantos.ui.generated.PreviewComponent
 import com.cantos.ui.generated.TokenValue
 import com.cantos.ui.tokenColor
+import com.cantos.ui.parseTokenColor
 import com.cantos.ui.tokenDp
 import com.cantos.ui.typeStyle
 
@@ -550,6 +559,37 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
                 FieldHelp(icon.name)
             } }
         }
+        PreviewExample.Avatar -> AvatarExample(state, modifier)
+    }
+}
+
+/** Offline sample picture; real hosts decode an authorized image themselves. */
+private fun previewAvatarImage(): ImageBitmap {
+    val bitmap = ImageBitmap(64, 64)
+    Canvas(bitmap).apply {
+        drawRect(0f, 0f, 64f, 64f, Paint().apply { color = parseTokenColor("#886638") })
+        drawCircle(Offset(32f, 26f), 12f, Paint().apply { color = parseTokenColor("#f6e7ca") })
+    }
+    return bitmap
+}
+
+@Composable
+private fun AvatarExample(state: String, modifier: Modifier) {
+    val image = remember { previewAvatarImage() }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
+        verticalAlignment = Alignment.CenterVertically) {
+        when (state) {
+            "initials-pair" -> Avatar("Người dẫn chuyện", initials = AvatarInitials.Pair)
+            "no-initial" -> Avatar("😀")
+            "image" -> Avatar("Đỗ Văn An", image = image)
+            // The host passes null after a failed decode; initials return immediately.
+            "image-failed" -> Avatar("Đỗ Văn An", image = null)
+            "sizes" -> AvatarSize.entries.forEach { Avatar("Lan", size = it) }
+            "named" -> Avatar("岑 昕", initials = AvatarInitials.Pair,
+                accessibleName = AccessibleName.of("Ảnh đại diện của 岑 昕"))
+            else -> Avatar("Nguyễn Thị Ánh", stableId = "user-42")
+        }
+        if (state != "named") FieldHelp("Nguyễn Thị Ánh · Người dẫn chuyện")
     }
 }
 

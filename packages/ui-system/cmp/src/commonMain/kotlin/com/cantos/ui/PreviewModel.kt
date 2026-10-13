@@ -33,7 +33,8 @@ enum class PreviewExample(val id: String) {
     Grid("grid"),
     Container("container"),
     Dialog("dialog"),
-    Icon("icon");
+    Icon("icon"),
+    Avatar("avatar");
 
     companion object {
         fun fromId(id: String): PreviewExample? = entries.firstOrNull { it.id == id }
