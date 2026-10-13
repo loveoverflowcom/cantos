@@ -119,6 +119,11 @@ default work kind, existing-profile session and metadata contrast findings are o
 headers, remaining timing/identity cases, CMP interaction and Kani are not accepted. The follow-up
 changes evidence/planning only and deliberately applies no application fix.
 
+The [PR73 finding correction record](live-client-finding-fixes.md) separately records the
+controlled Work option, known-mount cookie migration and actual-cookie confirmation, owner-session
+denial handling, and app-local metadata foreground correction. Historical browser findings above
+retain their original checkpoint; compilation and runtime evidence are attributed separately.
+
 Independent review at the implementation checkpoint reports `no-actionable-findings`; its ledger
 and scope are in the [review record](live-client-review.md). All grounded findings were fixed and
 covered before that assessment; the reviewer read the named logs without rerunning heavy gates.

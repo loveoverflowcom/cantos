@@ -8,6 +8,7 @@ acceptance. Follow the [audio handoff](audio-lifecycle-frontend-handoff.md).
 | Capability / actual method and path (under `/api/v1`) | Consumer / authorization | Wire and media | Boundary |
 | --- | --- | --- | --- |
 | POST `studio/session` | Studio Web development token exchanged for HttpOnly cookie | SessionRequest/Response JSON | Implemented development identity; no Kanidm |
+| GET `studio/session` | Studio Web actual owner cookie | SessionResponse JSON, private no-store | Confirms cookie access and the exchanged actor; inactive/expired/revoked/duplicate sessions denied |
 | GET/POST `studio/works`; GET/PATCH/DELETE `studio/works/{id}`; GET history | Studio Web current cookie and permission; Origin on writes | Catalog DTOs, JSON, private no-store | Actual metadata; visibility never publishes |
 | GET/POST `studio/works/{id}/content-units`; POST reorder; GET/PATCH/DELETE `studio/content-units/{id}` | Studio Web cookie and role | Catalog DTOs, expected revisions and operation IDs | Stable chapter/episode identity; bounded opaque cursors |
 | GET content head/history/exact revision; POST content revisions under `studio/content-units/{id}` | Studio Web cookie and role | Content DTOs; text/recording/source/Script IR | Immutable ContentRevision; metadata links are independent |

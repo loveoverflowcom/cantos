@@ -49,11 +49,11 @@ then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#
 separate. No listening/interoperability is settled by admitting an Opus envelope.
 
 The [PR73 browser follow-up](../evidence/live-client-browser-acceptance.md) exercised the real
-bounded Studio flow but records partial/FAIL acceptance. Next within #66: correct the visible
-default work kind versus submitted kind, investigate successful sign-in followed by 401 in an
-existing Safari profile, then repair Catalog chip metadata contrast. These are proposed
-corrections/rechecks, not completed work or new execution tasks. Keep the missing header,
-timing/identity and full accessibility cases explicit; the recommended publication/Theatre
+bounded Studio flow and retains its historical partial/FAIL acceptance. The
+[bounded correction/recheck record](../evidence/live-client-finding-fixes.md) owns the later
+default-kind, existing-profile session and chip-contrast evidence. Next within #66, prioritize
+pending-write/concurrent identity cases, then full accessibility acceptance; keep missing
+browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
 backend sequence above is unchanged.
 
 ## Existing foundations to retain
