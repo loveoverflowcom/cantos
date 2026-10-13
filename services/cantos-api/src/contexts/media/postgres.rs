@@ -201,3 +201,5 @@ pub(super) async fn insert_receipt(
 }
 
 pub(super) mod lifecycle;
+
+pub(super) mod publication;

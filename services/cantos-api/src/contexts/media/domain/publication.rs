@@ -590,6 +590,7 @@ impl AudioRelease {
                 .details()
                 .rights_refs()
                 .iter()
+                .chain(r.declarations.rights_refs.iter())
                 .any(|id| !m.rights_refs.contains(id))
             || c.rendition_id != r.id
             || c.rendition_digest != r.digest
@@ -715,9 +716,54 @@ impl AudioRelease {
     }
 }
 
+/// Retained manifests are never re-evaluated against newer editorial/metadata revisions.
+/// Exact approval/rights withdrawal or expiry stops resolution immediately; historical bytes
+/// are never deleted and a rollback must create a new gated release.
+pub fn retained_release_eligible(
+    release: &AudioRelease,
+    rights: Option<&DistributionClearance>,
+    approval: Option<&PublicationApproval>,
+    withdrawn: bool,
+    now: i64,
+) -> bool {
+    let m = &release.document().manifest;
+    !withdrawn
+        && rights.is_some_and(|r| {
+            r.document().digest == m.distribution_clearance.digest
+                && r.document().request.decision == dto::DistributionDecision::Cleared
+                && rights_window_valid(
+                    r.document().recorded_at,
+                    r.document().request.valid_until,
+                    now,
+                )
+        })
+        && approval.is_some_and(|a| {
+            a.document().digest == m.publication_approval.digest
+                && a.document().request.decision == dto::PublicationApprovalDecision::Approved
+                && a.document().recorded_at <= now
+        })
+}
+pub fn delivery_matches_manifest(
+    delivery: &DeliveryObservation,
+    manifest: &dto::ReleaseManifestDocument,
+    now: i64,
+) -> bool {
+    match delivery {
+        DeliveryObservation::Verified(e) => {
+            e.object_id == manifest.delivery_object_id
+                && e.sha256.as_str() == manifest.media.sha256
+                && e.byte_length == manifest.media.byte_length
+                && rights_window_valid(e.verified_at, e.valid_until, now)
+        }
+        DeliveryObservation::Unavailable
+        | DeliveryObservation::Missing
+        | DeliveryObservation::IntegrityMismatch => false,
+    }
+}
+
 #[cfg(test)]
 #[path = "../publication_tests.rs"]
-mod tests;
+pub(crate) mod tests;
 #[cfg(kani)]
 mod kani_proofs {
     use super::{advance_pointer, rights_window_valid, PublicationError};

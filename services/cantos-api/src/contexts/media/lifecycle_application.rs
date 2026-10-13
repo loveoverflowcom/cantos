@@ -125,7 +125,7 @@ async fn scoped(
     .map_err(invalid)?;
     Ok((row.value, current))
 }
-async fn owner(
+pub(super) async fn owner(
     tx: &Tx<'_>,
     token: &str,
     unit: &str,
@@ -168,7 +168,7 @@ async fn snapshot(
         reviews: latest_reviews(&reviews).into_iter().cloned().collect(),
     })
 }
-async fn checked_reviews(
+pub(super) async fn checked_reviews(
     tx: &Tx<'_>,
     s: &AudioSubmission,
     r: &AudioRendition,

@@ -63,6 +63,8 @@ impl From<tokio_postgres::Error> for StoreError {
 pub struct Store {
     pool: Pool,
     pub(crate) audio_root: Option<std::path::PathBuf>,
+    pub(crate) publication_delivery:
+        std::sync::Arc<dyn crate::contexts::media::PublicationDelivery>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.
@@ -120,6 +122,9 @@ impl Store {
         Ok(Self {
             pool,
             audio_root: None,
+            publication_delivery: std::sync::Arc::new(
+                crate::contexts::media::publication_delivery::UnavailableDelivery,
+            ),
         })
     }
 

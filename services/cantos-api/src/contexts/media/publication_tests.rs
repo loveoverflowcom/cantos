@@ -127,20 +127,20 @@ fn review(kind: dto::AudioReviewKind) -> dto::AudioReviewDocument {
     )
     .unwrap()
 }
-struct Fixture {
-    content: ContentRevision,
-    work: Work,
-    unit: ContentUnit,
-    r: AudioRendition,
-    reviews: Vec<AudioReview>,
-    candidate: ReleaseCandidate,
-    rights: DistributionClearance,
-    approval: PublicationApproval,
-    object: ObjectObservation,
-    delivery: DeliveryObservation,
-    actor: OwnerId,
+pub(crate) struct Fixture {
+    pub(crate) content: ContentRevision,
+    pub(crate) work: Work,
+    pub(crate) unit: ContentUnit,
+    pub(crate) r: AudioRendition,
+    pub(crate) reviews: Vec<AudioReview>,
+    pub(crate) candidate: ReleaseCandidate,
+    pub(crate) rights: DistributionClearance,
+    pub(crate) approval: PublicationApproval,
+    pub(crate) object: ObjectObservation,
+    pub(crate) delivery: DeliveryObservation,
+    pub(crate) actor: OwnerId,
 }
-fn fixture() -> Fixture {
+pub(crate) fn fixture() -> Fixture {
     let work = Work::new(NewWork {
         id: WorkId::parse(WORK).unwrap(),
         owner_id: OwnerId::parse("alice").unwrap(),
@@ -276,7 +276,7 @@ fn fixture() -> Fixture {
     }
 }
 impl Fixture {
-    fn facts(&self) -> PublicationFacts<'_> {
+    pub(crate) fn facts(&self) -> PublicationFacts<'_> {
         PublicationFacts {
             candidate: &self.candidate,
             rendition: &self.r,
@@ -700,5 +700,106 @@ fn duplicate_reviews_and_future_reviews_preserve_publish_restore_consistency() {
     assert_eq!(
         evaluate(&f.facts()),
         vec![dto::PublicationBlocker::QcNotApproved]
+    );
+}
+
+#[test]
+fn retained_release_obeys_exact_expiry_revocation_withdrawal_and_approval() {
+    let f = fixture();
+    let release = AudioRelease::publish(
+        ReleaseId::parse(UNIT).unwrap(),
+        &f.actor,
+        5000,
+        None,
+        decide(&f.facts()).unwrap(),
+    )
+    .unwrap();
+    assert!(retained_release_eligible(
+        &release,
+        Some(&f.rights),
+        Some(&f.approval),
+        false,
+        9999
+    ));
+    assert!(!retained_release_eligible(
+        &release,
+        Some(&f.rights),
+        Some(&f.approval),
+        false,
+        10000
+    ));
+    assert!(!retained_release_eligible(
+        &release,
+        Some(&f.rights),
+        Some(&f.approval),
+        true,
+        5000
+    ));
+    assert!(!retained_release_eligible(
+        &release,
+        None,
+        Some(&f.approval),
+        false,
+        5000
+    ));
+    let mut raw = f.rights.document().clone();
+    raw.request.decision = dto::DistributionDecision::Revoked;
+    let revoked = DistributionClearance::record(raw, &f.candidate).unwrap();
+    assert!(!retained_release_eligible(
+        &release,
+        Some(&revoked),
+        Some(&f.approval),
+        false,
+        5000
+    ));
+    let mut raw = f.approval.document().clone();
+    raw.request.decision = dto::PublicationApprovalDecision::Withdrawn;
+    let withdrawn = PublicationApproval::record(raw, &f.candidate).unwrap();
+    assert!(!retained_release_eligible(
+        &release,
+        Some(&f.rights),
+        Some(&withdrawn),
+        false,
+        5000
+    ));
+    assert!(delivery_matches_manifest(
+        &f.delivery,
+        &release.document().manifest,
+        5000
+    ));
+    assert!(!delivery_matches_manifest(
+        &f.delivery,
+        &release.document().manifest,
+        9000
+    ));
+}
+#[test]
+fn rehashed_clearance_cannot_drop_known_rendition_rights() {
+    let f = fixture();
+    let release = AudioRelease::publish(
+        ReleaseId::parse(UNIT).unwrap(),
+        &f.actor,
+        5000,
+        None,
+        decide(&f.facts()).unwrap(),
+    )
+    .unwrap();
+    let mut raw = release.document().clone();
+    let mut rights = f.rights.document().clone();
+    rights.request.rights_refs = vec!["unrelated-rights".into()];
+    let rights = DistributionClearance::record(rights, &f.candidate).unwrap();
+    let mut approval = f.approval.document().clone();
+    approval.request.clearance_digest = rights.document().digest.clone();
+    let approval = PublicationApproval::record(approval, &f.candidate).unwrap();
+    raw.manifest.distribution_clearance = rights.document().clone();
+    raw.manifest.publication_approval = approval.document().clone();
+    raw.manifest.rights_refs = vec!["unrelated-rights".into()];
+    raw.manifest.digest.clear();
+    raw.manifest.digest = digest("rm-r1", &raw.manifest).unwrap();
+    raw.digest.clear();
+    raw.digest = digest("rl-r1", &raw).unwrap();
+    assert_eq!(
+        AudioRelease::restore(raw, &f.candidate, &f.r, &f.content),
+        Err(PublicationError::BindingMismatch)
     );
 }
