@@ -15,6 +15,7 @@ pub enum ClientError {
     Cancelled,
     SessionChanged,
     ReceiptNotEstablished,
+    ReplyMismatch,
     Transport,
     Protocol { status: u16 },
     Http { status: u16, error: ApiError },
@@ -42,6 +43,7 @@ impl ClientError {
             Self::Cancelled
             | Self::SessionChanged
             | Self::ReceiptNotEstablished
+            | Self::ReplyMismatch
             | Self::Transport
             | Self::Protocol { .. } => true,
             Self::Http { status, .. } => *status >= 500,
@@ -366,7 +368,7 @@ impl Command {
         fn parse<T: DeserializeOwned>(body: &[u8], status: u16) -> Result<T, ClientError> {
             serde_json::from_slice(body).map_err(|_| ClientError::Protocol { status })
         }
-        Ok(match self {
+        let reply = match self {
             Self::Works { .. } => Reply::Works(parse(body, status)?),
             Self::Work { .. } => Reply::Work(parse(body, status)?),
             Self::Units { .. } => Reply::Units(parse(body, status)?),
@@ -388,20 +390,130 @@ impl Command {
             Self::Submission { .. } | Self::Prepare { .. } | Self::ProducerStatus { .. } => {
                 Reply::Submission(Box::new(parse(body, status)?))
             }
-            Self::Upload { submission, .. } => {
-                let rendition: AudioRenditionDocument = parse(body, status)?;
-                if rendition.submission_id != *submission {
-                    return Err(ClientError::Protocol { status });
-                }
-                Reply::Rendition(Box::new(rendition))
-            }
+            Self::Upload { .. } => Reply::Rendition(Box::new(parse(body, status)?)),
             Self::Review { .. } => Reply::Review(parse(body, status)?),
             Self::Candidate { .. } | Self::CandidateRead { .. } => {
                 Reply::Candidate(parse(body, status)?)
             }
             Self::Revoke { .. } => Reply::Revoked,
-        })
+        };
+        self.check_reply(&reply)
+            .map_err(|_| ClientError::Protocol { status })?;
+        Ok(reply)
     }
+
+    /// Correlate a raw DTO to the question asked, without deciding access or admission.
+    pub fn check_reply(&self, reply: &Reply) -> Result<(), ClientError> {
+        let matches = match self {
+            Self::Works { .. } => matches!(reply, Reply::Works(_)),
+            Self::Work { id } => matches!(reply, Reply::Work(work) if work.id == *id),
+            Self::Units { work, .. } => matches!(reply, Reply::Units(page)
+                if page.items.iter().all(|unit| unit.work_id == *work)),
+            Self::CreateWork(request) => matches!(reply, Reply::Mutation(result)
+                if result.work.id == request.id && consistent_units(result)),
+            Self::PatchWork { work, .. }
+            | Self::ArchiveWork { work, .. }
+            | Self::Reorder { work, .. } => matches!(reply, Reply::Mutation(result)
+                if result.work.id == *work && consistent_units(result)),
+            Self::CreateUnit { work, request } => matches!(reply, Reply::Mutation(result)
+                if result.work.id == *work && consistent_units(result)
+                    && result.units.iter().any(|unit| unit.id == request.id)),
+            Self::PatchUnit { unit, .. } | Self::ArchiveUnit { unit, .. } => {
+                matches!(reply, Reply::Mutation(result)
+                    if consistent_units(result)
+                        && result.units.iter().any(|saved| saved.id == *unit))
+            }
+            Self::ContentHead { unit } => matches!(reply, Reply::Content(content)
+                if content.unit_id == *unit),
+            Self::ContentRevision { unit, revision } => matches!(reply, Reply::Content(content)
+                if content.unit_id == *unit && content.id == *revision),
+            Self::AppendContent { unit, request } => matches!(reply, Reply::ContentSaved(saved)
+                if saved.content.unit_id == *unit && saved.content.id == request.id),
+            // The existing history contract does not echo a unit identity.
+            Self::ContentHistory { .. } => matches!(reply, Reply::History(_)),
+            Self::Brief { unit, version } => matches!(reply, Reply::Brief(result)
+                if result.brief.content.unit_id == *unit && result.brief.version == *version),
+            Self::CreateBrief { unit, request } => matches!(reply, Reply::Brief(result)
+                if result.brief.content.unit_id == *unit && result.brief.id == request.id
+                    && result.brief.content.id == request.content_revision_id
+                    && result.brief.content.revision_digest == request.content_revision_digest),
+            Self::Submission { unit, submission } => matches!(reply, Reply::Submission(result)
+                if result.submission.id == *submission
+                    && result.submission.binding.unit_id == *unit && consistent_rendition(result)),
+            Self::Prepare { unit, request } => matches!(reply, Reply::Submission(result)
+                if prepared_submission_matches(unit, request, result) && consistent_rendition(result)),
+            Self::ProducerStatus { submission, .. } => matches!(reply, Reply::Submission(result)
+                if result.submission.id == *submission && consistent_rendition(result)),
+            Self::Upload {
+                binding,
+                submission,
+                sha256,
+                bytes,
+                ..
+            } => {
+                matches!(reply, Reply::Rendition(result)
+                    if result.submission_id == *submission && result.binding == *binding
+                        && result.verified_media.sha256 == *sha256
+                        && result.verified_media.byte_length == bytes.len() as u64)
+            }
+            Self::Review { request, .. } => matches!(reply, Reply::Review(result)
+                if result.operation_id == request.operation_id && result.request == *request),
+            Self::Candidate { unit, request, .. } => matches!(reply, Reply::Candidate(result)
+                if result.candidate.binding.unit_id == *unit
+                    && result.candidate.operation_id == request.operation_id
+                    && result.candidate.rendition_digest == request.rendition_digest),
+            // Candidate documents do not echo the submission identity.
+            Self::CandidateRead {
+                unit, candidate, ..
+            } => matches!(reply, Reply::Candidate(result)
+                if result.candidate.binding.unit_id == *unit && result.candidate.id == *candidate),
+            Self::Revoke { .. } => matches!(reply, Reply::Revoked),
+        };
+        if matches {
+            Ok(())
+        } else {
+            Err(ClientError::ReplyMismatch)
+        }
+    }
+}
+
+fn consistent_units(result: &CatalogMutationResponse) -> bool {
+    result
+        .units
+        .iter()
+        .all(|unit| unit.work_id == result.work.id)
+}
+
+fn consistent_rendition(result: &AudioSubmissionResponse) -> bool {
+    match &result.rendition {
+        Some(rendition) => {
+            rendition.submission_id == result.submission.id
+                && rendition.binding == result.submission.binding
+                && rendition.verified_media.sha256 == result.submission.expected_sha256
+                && rendition.verified_media.byte_length == result.submission.expected_byte_length
+                && result
+                    .reviews
+                    .iter()
+                    .all(|review| review.rendition_id == rendition.id)
+        }
+        None => result.reviews.is_empty(),
+    }
+}
+
+fn prepared_submission_matches(
+    unit: &str,
+    request: &CreateAudioSubmissionRequest,
+    result: &AudioSubmissionResponse,
+) -> bool {
+    let submission = &result.submission;
+    submission.id == request.id
+        && submission.operation_id == request.operation_id
+        && submission.binding == request.binding
+        && submission.binding.unit_id == unit
+        && submission.expected_sha256 == request.expected_sha256
+        && submission.expected_byte_length == request.expected_byte_length
+        && submission.declarations == request.declarations
+        && submission.expires_at == request.expires_at
 }
 
 impl Reply {
@@ -447,20 +559,11 @@ impl Command {
         let Reply::Submission(status) = reply else {
             return false;
         };
-        if status.submission.owner_id != actor {
+        if status.submission.owner_id != actor || !consistent_rendition(status) {
             return false;
         }
         match self {
-            Self::Prepare { unit, request } => {
-                status.submission.id == request.id
-                    && status.submission.operation_id == request.operation_id
-                    && status.submission.binding == request.binding
-                    && status.submission.binding.unit_id == *unit
-                    && status.submission.expected_sha256 == request.expected_sha256
-                    && status.submission.expected_byte_length == request.expected_byte_length
-                    && status.submission.declarations == request.declarations
-                    && status.submission.expires_at == request.expires_at
-            }
+            Self::Prepare { unit, request } => prepared_submission_matches(unit, request, status),
             Self::Upload {
                 binding,
                 submission,

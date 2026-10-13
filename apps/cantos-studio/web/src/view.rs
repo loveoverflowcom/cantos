@@ -139,9 +139,7 @@ fn dispatch_save(
             }
             Err(error) => {
                 if state
-                    .try_with_untracked(|e| {
-                        e.pending.as_ref() == Some(&intent) && e.actor == intent.actor
-                    })
+                    .try_with_untracked(|e| e.accepts_save_findings(&intent))
                     .unwrap_or(false)
                 {
                     let _ = issues.try_set(error.issues.clone());
