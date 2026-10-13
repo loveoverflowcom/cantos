@@ -173,9 +173,15 @@ async fn authenticated(State(state): State<AppState>, request: Request, next: Ne
         Ok(id) => id,
         Err(error) => return error_response(error),
     };
-    let mut query_fences =
-        url::form_urlencoded::parse(request.uri().query().unwrap_or("").as_bytes())
-            .filter(|(name, _)| name == "studio_session_id");
+    let mut query_fences = url::form_urlencoded::parse(
+        request
+            .uri()
+            .path_and_query()
+            .and_then(axum::http::uri::PathAndQuery::query)
+            .unwrap_or("")
+            .as_bytes(),
+    )
+    .filter(|(name, _)| name == "studio_session_id");
     let query_matches = match query_fences.next() {
         None => true,
         Some((_, value)) => {
