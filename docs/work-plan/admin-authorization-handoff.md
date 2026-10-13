@@ -85,3 +85,55 @@ errors and1 dependent assertion); unskipped preflight remains UNSUPPORTED for co
 The PR body pins exact final SHA/tree, own/inherited commits and raw-evidence manifest. Independent
 review of both the production fixes and the final test addition reports no actionable findings;
 parent Ultra review and the explicit live/provider/native gaps above remain outstanding.
+
+## Current independent integration handoff
+
+Implementation source `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
+`82fba427a0bd4af02f4a48e78a69dd8bbcb1281f`, normally inherits the reviewed Studio and Theatre
+integration, including Theatre's test-only immutable TRUNCATE graph repair. Historical source
+and gate descriptions above remain tied to their original checkpoints. The
+[current evidence appendix](../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
+owns this snapshot's final command counts, raw hashes, reviewed repairs and residual gates.
+
+The integration keeps the dedicated Admin confidential credential and current-group contract,
+exact registry actor, Admin-only block/receipt and append-only audit. One shared ES256 signature
+kernel and OAuth Basic component encoder supply plumbing only; caller-specific issuer, audience,
+client, ID/access purpose and policy remain separate. Studio/Theatre Web/native session/resource
+code and immutable UUID request/response fences retain their reviewed behavior; producer grants
+remain independent. No Admin role bypasses owner/resource rights. Shared Studio transport keeps
+JSON default, explicit Protobuf opt-in and legacy MessagePack decoding; Admin remains plain JSON.
+
+The combined migration registry is 1–14,16–22,24,25 (23 entries). Original Admin0022 and all
+published identity migration bytes/checksums remain unchanged; artwork0023 and private storage0015
+belong to their separate work. The actor-disable-after-lock regression and signed special-secret
+provider regression are retained. The strengthened audit fixture now checks exact `P0001` and
+unchanged complete rows across all 9 protected mutations; Registry still checks `55000`.
+
+Final actual local verification: full `cargo xtask preflight --changed-only` PASS for all 17 gates
+with no skips; mutation killed 9 with 0 survivors. Disposable PostgreSQL records 13 Admin tests
+plus 1 actual restart recovery, Theatre Web 15, native 6 and Studio OIDC 18. All inherited actual
+HTTP/process-kill/restart/migration/replay/codec suites PASS. Earlier failures and exact fail-before/fixed source
+snapshots remain available. The final 13-record manifest is
+`/private/tmp/cantos-identity-campaign/pr103-acceptance-manifest.json`, SHA256
+`dd49dbc36279bf64c8c50b98e860977ec1e96e2a3ecc6e076408b44dd074cead`. The historical 38-record
+manifest stays unchanged at SHA256
+`723980a1a14cbc180ab08f726fcbc1376a14bd8bf0cd5e232f5df0f512d01acf`.
+
+The original PR3 missing-source matrix above is historical. Current Theatre Web/native
+exchange/resource/session consumers are implemented in the inherited reviewed branch; their
+[current handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
+distinguishes actual Web/PG/Android mock-build evidence from unrun native host/device acceptance.
+Android INTERNET/callback registration and dependent host activation remain unapplied after
+automatic approval rejection, awaiting the direct human exception. PR101 remains draft for that
+source blocker; PR103 stays draft with its unresolved dependency. A mock build does not accept
+native authentication, system-browser delivery, secure-store lifecycle or playback.
+
+Next work remains the held Android source decision, then the actual named native OS/secure-store
+and provider lifecycle gates. Before Admin production activation, verify live current group
+removal, dedicated confidential client/credential delivery, issuer key rotation and normal TLS,
+and accept bearer/backup protection, audit retention/quotas/tamper and recovery budgets. Provider
+membership is a bounded observation of at most five seconds, not atomic with PostgreSQL. Keep
+Admin unavailable if the custom live contract is unproved; never use token-time groups alone.
+Local Admin blocks remain immutable and grant/unblock/global logout are outside this slice.
+No issue is closed, provider/account permission changed or complete four-PR merge claimed here.
+GitHub owns execution status; the queue owns recommended order and rationale.

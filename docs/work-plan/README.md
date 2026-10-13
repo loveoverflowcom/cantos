@@ -237,3 +237,25 @@ verification, current role decisions, Admin-only access revocation and append-on
 Its integrated source verification follows the reviewed Theatre branch; this queue does not
 claim the four-PR campaign complete or accept live providers, native playback or a guest-import
 policy. GitHub owns execution/merge status.
+
+## Current Admin integration checkpoint
+
+This checkpoint supersedes provisional source/gate descriptions in the earlier identity sequence.
+The [Admin handoff](admin-authorization-handoff.md#current-independent-integration-handoff) and
+[evidence](../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
+pin the normally integrated implementation `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
+`82fba427a0bd4af02f4a48e78a69dd8bbcb1281f`. Full `cargo xtask preflight --changed-only` reports
+PASS for all 17 gates with no skips; mutation killed 9 with 0 survivors. Its 23-entry registry
+preserves original identity/Admin migrations; artwork0023 and storage0015 stay with their owners.
+Inherited Studio/Theatre HTTP negotiation, private session fences and separately scoped credentials
+remain intact. Admin revocation affects only its local platform access, with current admission,
+operation replay and required append-only audit; it supplies no resource ACL or global logout.
+
+PR101 remains draft while the Android INTERNET/callback/host source exception is unresolved;
+PR103 keeps that dependency boundary. Complete that held source decision before native
+system-browser/secure-store/device acceptance, then authorized live-provider lifecycle and
+production protection/recovery/retention gates. Admin's live custom current-group contract is
+unaccepted; the five-second observation witness does not make remote membership SQL-atomic.
+Keep activation closed while those facts are unproved. The source and local/mock results do not
+complete native playback, durable outbox, guest-import/linking policy, broad listening issues or
+the four-PR merge campaign. GitHub owns execution/merge status; this queue records the next work.

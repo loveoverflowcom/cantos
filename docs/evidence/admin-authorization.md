@@ -184,3 +184,85 @@ published SHA/tree and manifest digest are pinned in draft [PR103](https://githu
 Final observed available disk before handoff:1,789,059,072 bytes (about1.67GiB), after all gates
 stopped. Further unique-data cleanup is not authorized. No remote CI wait, final Ultra, merge or
 production acceptance was performed.
+
+## Independent integrated review and local acceptance
+
+The current tested implementation is `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
+`82fba427a0bd4af02f4a48e78a69dd8bbcb1281f`. Normal merges retain the reviewed registry,
+Studio, Theatre and Protobuf history. The current migration union is 1–14,16–22,24,25 (23 entries);
+artwork0023 remains reserved. Original 0018/0020/0021/0022 checksums are unchanged. Admin remains
+plain JSON; the inherited Studio pilot retains JSON default, explicit Protobuf opt-in and legacy
+MessagePack compatibility.
+
+This appendix supersedes earlier provisional current-state descriptions for this snapshot.
+The original 38-record `/private/tmp/cantos-admin-evidence/integrated-evidence-sha256.json`
+remains intact at SHA256 `723980a1a14cbc180ab08f726fcbc1376a14bd8bf0cd5e232f5df0f512d01acf`.
+Its earlier PASS/FAIL/UNSUPPORTED results remain historical evidence, not this run's acceptance.
+Earlier failure logs, source snapshots, databases/WAL and unique fixtures remain preserved.
+
+Independent source review confirmed and repaired OAuth Basic encoding for special-character
+confidential secrets. Actual signed loopback-provider execution failed before the repair and
+passed afterward. The concrete Admin consumer now shares the crate-private RFC6749 component
+encoder; configuration still accepts the original valid secret domain. Integration retained one
+shared ES256 payload kernel, while each caller checks its own purpose and claims: Admin requires
+exact `cantos-admin-api`, issuer/audience/client, `at+jwt`, bounded time and current groups.
+Native public-client transport cannot select Admin's confidential path. Studio/Theatre session
+and resource modules retain their reviewed behavior; no cookie, native bearer or producer grant
+is converted into Admin authority.
+
+The actor-disable regression commits actual `active=false` while admission waits on the actor
+lock, then checks denial, zero revocation/receipt effects and one required redacted audit.
+The append-only test oracle was also strengthened: `TRUNCATE admin_audit` alone reaches an
+earlier foreign-key `0A000`, so a generic is-error assertion did not prove the immutable trigger.
+The new source first required exact `P0001` without changing that graph; actual fresh compilation
+and PostgreSQL execution reproduced the mismatch. The repaired fixture includes audit and
+operation tables, requires exact `P0001` for all 9 protected UPDATE/DELETE/TRUNCATE attempts and
+compares every complete ordered audit/operation/revocation row after each refusal. Registry
+immutability still requires exact `55000`; no production migration changed.
+
+| Regression / command | Actual result | Raw evidence |
+| --- | --- | --- |
+| Admin special-secret signed-provider adapter, old source | FAIL 0/1; ProviderUnavailable | `admin-basic-fail-before-fresh.log`; earlier stale-artifact compile failure is not an executed test |
+| Same special-secret adapter, repaired source | PASS 1/1 focused | `admin-basic-fixed.log`; final full Rust run covers the integrated source |
+| Strong append-only oracle with audit-only TRUNCATE | FAIL 0/1; actual `0A000` versus required `P0001` | `admin-append-only-fail-before-compiled.log`; fresh 14.68s compile, 0.18s test; helper filename preparation failure is separate and not counted |
+| Repaired full-graph append-only oracle | PASS 1/1 focused | `admin-append-only-fixed-focused.log`; fresh disposable PostgreSQL 17.4, 0.17s test; retained cluster stopped |
+| `cargo xtask preflight --changed-only` on final integrated source | PASS all 17 gates | `admin-preflight-final-combined.log`; no skips or unsupported steps in this invocation |
+| PostgreSQL portion of that actual final run | PASS: Admin 13, Admin restart 1, Theatre Web 15, native 6, Studio OIDC 18; all inherited actual HTTP/process-kill/restart/migration/replay/codec suites PASS | `admin-final-combined-pg-raw-evidence/manifest.json` |
+
+The final mutation gate killed 9 mutants with 0 survivors on the inherited Script IR kernels;
+this supplies no Admin/identity-specific Kani proof.
+
+Raw campaign evidence lives outside Git at `/private/tmp/cantos-identity-campaign/`.
+The final manifest is `/private/tmp/cantos-identity-campaign/pr103-acceptance-manifest.json`,
+SHA256 `dd49dbc36279bf64c8c50b98e860977ec1e96e2a3ecc6e076408b44dd074cead`, with 13 records and
+a nested 22-record raw PostgreSQL manifest. It pins the exact source, actual command logs,
+fail-before/fixed snapshots and independent review evidence. Parent execution owns the command
+results; the independent reviewer performed source checks and scoped fixes without starting a
+second build lane. All task-owned builders, API/provider processes, browser sessions and disposable
+PostgreSQL clusters are stopped; inherited PostgreSQL services were not touched. Free disk after
+the final owned processes stop: 1,027,809,280 bytes (recorded snapshot; later activity can change
+available space). Unique evidence and databases/WAL remain preserved.
+
+Acceptance remains bounded. `GET /api/v1/admin/capabilities` audits current admission;
+`POST /api/v1/admin/actors/{actor}/revoke-access` appends an **Admin-only** local access block,
+receipt and required audit. It does not disable/delete an actor, revoke Studio/Theatre sessions,
+grant a role, change a resource ACL or implement global/provider SSO logout. Required audit
+failure returns unavailable and rolls speculative effects back; replay reauthenticates current
+credentials and policy.
+
+Current provider groups are an introspection observation whose witness expires at the earliest
+token/access expiry or **at most five seconds after observation**. Local active/block/time facts
+are reread after lock waits and before commit, but remote group removal cannot be SQL-atomic.
+Live Kanidm `cantos_admin_groups` current-membership/removal semantics remain **NOT_RUN and
+unaccepted**. Missing configuration leaves Admin unavailable, and unsupported or missing group
+evidence cannot authorize a request. Production activation is closed pending the exact
+operator/provider contract, credential delivery, key rotation, at-rest/backup protection and
+audit retention/quota/tamper/recovery gates. There is no
+role-grant or unblock endpoint and no automatic grant/client/account/security bootstrap.
+
+PR103 remains draft while dependency PR101's Android INTERNET/callback/host activation lacks
+the direct human exception after automatic approval review rejected the source patch. Actual
+native system-browser/secure-store/crash/device/playback and live-provider gates remain separate.
+The inherited Studio/Theatre browser evidence is not Admin login/UI evidence; Admin has no UI.
+No identity-specific Kani proof, complete mobile acceptance, remote merge or whole-campaign
+completion is inferred from these local/mock results. GitHub owns PR execution status.
