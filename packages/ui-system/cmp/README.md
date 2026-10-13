@@ -10,7 +10,7 @@ navigation shell, downloads, audio session or playback adapter.
 
 Every shared declaration in [`preview-catalog.json`](../shared/preview-catalog.json) must have
 one real native example or an explicit unsupported explanation. The common package exposes
-29 wrappers with the same component names as Leptos. Close/retry labels, accessible names and
+30 wrappers with the same component names as Leptos. Close/retry labels, accessible names and
 visible content come from the caller. Caller-owned values and callbacks remain
 separate from rendering. Disabled/loading actions require a nonblank visible reason;
 read-only text stays selectable and does not dispatch edits. Native choice controls have no
