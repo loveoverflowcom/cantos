@@ -128,4 +128,56 @@ class DemoLayoutTest {
             onNodeWithTag("nav-library").assertIsDisplayed()
         }
     }
+
+    @Test
+    fun account_space_stacks_profile_status_sign_in_and_settings_above_the_shell() {
+        val events = mutableListOf<DemoEvent>()
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                Box(Modifier.requiredSize(390.dp, 844.dp)) {
+                    CantosDemoPresentation(DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)),
+                        DemoCatalogView(DemoFixtures.works), { events += it })
+                }
+            }
+            val title = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
+            val preview = onNodeWithTag("account-preview").fetchSemanticsNode().boundsInRoot
+            val signIn = onNodeWithTag("sign-in").fetchSemanticsNode().boundsInRoot
+            val settings = onNodeWithTag("settings").assertIsDisplayed()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+                .fetchSemanticsNode().boundsInRoot
+            val mini = onNodeWithTag("mini-player").fetchSemanticsNode().boundsInRoot
+            val tabs = onNodeWithTag("nav-library").fetchSemanticsNode().boundsInRoot
+            assertEquals(64f * density.density, avatar.width)
+            assertEquals(avatar.width, avatar.height)
+            assertTrue(title.bottom <= avatar.top)
+            assertTrue(avatar.bottom <= preview.top)
+            assertTrue(preview.bottom <= signIn.top)
+            assertTrue(signIn.bottom <= settings.top)
+            assertTrue(settings.bottom <= mini.top)
+            assertTrue(mini.bottom <= tabs.top)
+            onNodeWithTag("account").assertDoesNotExist()
+            onNodeWithTag("settings").performClick()
+            assertEquals<List<DemoEvent>>(listOf(DemoEvent.Navigate(DemoRoute.Settings)), events)
+        }
+    }
+
+    @Test
+    fun account_space_scrolls_above_the_shell_on_a_short_large_text_screen() {
+        runDesktopComposeUiTest(width = 320, height = 568) {
+            setContent {
+                Box(Modifier.requiredSize(320.dp, 568.dp)) {
+                    CantosDemoPresentation(DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)),
+                        DemoCatalogView(DemoFixtures.works), {}, textScale = 2f)
+                }
+            }
+            onNodeWithTag("settings").performScrollTo().assertIsDisplayed()
+            val settings = onNodeWithTag("settings").fetchSemanticsNode().boundsInRoot
+            val mini = onNodeWithTag("mini-open").fetchSemanticsNode().boundsInRoot
+            assertTrue(settings.bottom <= mini.top)
+            onNodeWithTag("back").assertIsDisplayed()
+            onNodeWithTag("nav-discovery").assertIsDisplayed()
+            onNodeWithTag("nav-library").assertIsDisplayed()
+        }
+    }
 }
