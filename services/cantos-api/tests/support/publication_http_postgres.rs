@@ -26,7 +26,7 @@ impl PublicationDelivery for VerifiedDeliveryFake {
         })
     }
 }
-struct PublishedFixture {
+pub(crate) struct PublishedFixture {
     a: AudioHarness,
     submission: Value,
     rendition: Value,
@@ -780,4 +780,36 @@ async fn theatre_rejects_copied_approval_snapshot_with_forged_latest_scalar_iden
     let (status, body) = theatre_call(h.app.clone(), "GET", &format!("/publications/{id}")).await;
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(body, json!({"code":"unavailable","retryable":false}));
+}
+
+// Reusable, test-only bridge for the API library's sealed fake Listener authenticator.
+#[allow(dead_code)]
+impl PublishedFixture {
+    pub(crate) async fn listener_world() -> Self {
+        let f = Self::new_visibility(true, true).await;
+        f.a.h.admin.batch_execute("GRANT SELECT,INSERT ON listener_state,listener_saved,listener_progress,listener_history,listener_playback_sessions,listener_device_sequences,listener_operations TO cantos_app; GRANT UPDATE(revision,history_revision,history_epoch) ON listener_state TO cantos_app; GRANT UPDATE(saved,revision,listener_order,accepted_at,snapshot,snapshot_digest) ON listener_saved TO cantos_app; GRANT UPDATE(position_ms,completion,revision,listener_order,accepted_at,snapshot,snapshot_digest) ON listener_progress TO cantos_app; GRANT UPDATE(publication_id,unit_id,listener_order,started_at,snapshot,snapshot_digest),DELETE ON listener_history TO cantos_app; GRANT UPDATE(sequence) ON listener_device_sequences TO cantos_app; GRANT EXECUTE ON FUNCTION listener_lock_actor(text) TO cantos_app;").await.unwrap();
+        f
+    }
+    pub(crate) fn listener_handles(&self) -> (&tokio_postgres::Client, Store, Config) {
+        (
+            &self.a.h.admin,
+            self.a.h.store.clone(),
+            self.a.h.config.clone(),
+        )
+    }
+    pub(crate) async fn listener_publish(&self, version: u64, active: Value) -> Value {
+        self.a
+            .h
+            .json(
+                "POST",
+                &format!("{}/publish", self.base()),
+                Some(ALICE),
+                Some(self.publish(version, active)),
+            )
+            .await
+            .success(StatusCode::CREATED)
+    }
+    pub(crate) async fn listener_withdraw(&self, release: &str, version: u64) -> Value {
+        self.a.h.json("POST",&format!("/content-units/{}/publication/withdraw",self.a.unit),Some(ALICE),Some(json!({"operation_id":operation(),"release_id":release,"expected_pointer_version":version,"reason":"Synthetic listener regression"}))).await.success(StatusCode::OK)
+    }
 }

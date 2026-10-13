@@ -13,6 +13,10 @@ use cantos_contracts::{routes, ApiError, ErrorCode};
 use tower_http::services::ServeDir;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
+use crate::contexts::listening::{
+    auth::{DenyListenerAuthentication, ListenerAuthenticator},
+    LibraryService,
+};
 use crate::contexts::media::{
     ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
 };
@@ -21,6 +25,7 @@ use crate::platform::postgres::{Store, StoreError};
 mod admin;
 mod studio;
 mod theatre;
+mod theatre_library;
 mod wire;
 
 #[derive(Clone)]
@@ -67,6 +72,34 @@ fn router_with_services(
     publication: PublicationService,
     listener: ListenerService,
 ) -> Router {
+    router_with_identity_services(
+        state,
+        dist,
+        publication,
+        listener,
+        std::sync::Arc::new(DenyListenerAuthentication),
+    )
+}
+
+/// Trusted host composition. A real issuer adapter must authenticate before it mints a principal.
+pub fn router_with_listener_identity(
+    state: AppState,
+    dist: &str,
+    authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
+) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    let listener = ListenerService::new(state.store.clone());
+    router_with_identity_services(state, dist, publication, listener, authenticator)
+}
+
+fn router_with_identity_services(
+    state: AppState,
+    dist: &str,
+    publication: PublicationService,
+    listener: ListenerService,
+    authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
+) -> Router {
+    let library = LibraryService::new(state.store.clone());
     // Surfaces are separate route groups with their own permission context; shared code is the
     // middleware below and the domain/store modules, never a handler.
     let api = Router::new()
@@ -74,7 +107,10 @@ fn router_with_services(
             "/studio",
             studio::routes(state.clone(), studio::Mount::Current).fallback(not_found),
         )
-        .nest("/theatre", theatre::routes())
+        .nest(
+            "/theatre",
+            theatre::routes().merge(theatre_library::routes()),
+        )
         .nest("/admin", admin::routes())
         // Deprecated pre-split Studio paths (`/api/v1/scripts/...`); same handlers as `/studio`.
         .merge(studio::routes(state.clone(), studio::Mount::Legacy))
@@ -95,6 +131,8 @@ fn router_with_services(
     host.with_state(state)
         .layer(axum::Extension(publication))
         .layer(axum::Extension(listener))
+        .layer(axum::Extension(library))
+        .layer(axum::Extension(authenticator))
 }
 
 async fn not_found() -> Response {
@@ -141,7 +179,8 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
         .map_or(request.uri().path(), |uri| uri.0.path());
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
-    let mut response = if !read && !valid_origin && !anonymous_playback {
+    let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
+    let mut response = if !read && !valid_origin && !anonymous_playback && !bearer_mutation {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {

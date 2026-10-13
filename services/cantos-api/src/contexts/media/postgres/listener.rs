@@ -473,3 +473,45 @@ impl ListenerRead for PgRead {
         })
     }
 }
+
+/// Narrow Media-owned current-public batch for the Library adapter. It returns public manifests,
+/// never private storage or the immutable Studio audit envelope. No per-item SQL round trips.
+pub(crate) async fn library_publications(
+    tx: &Tx<'_>,
+    units: &[String],
+    now: i64,
+) -> Result<Vec<cantos_contracts::theatre::PublicationManifest>, ListenerError> {
+    if units.len() > 50 {
+        return Err(ListenerError::InvalidRequest);
+    }
+    let from = FROM
+        .replace("{current_filter}", LISTENER_CURRENT_FILTER)
+        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+    let sql = format!("SELECT {COLUMNS} {from} AND x.unit_id=ANY($2)");
+    let rows = tx
+        .query(&sql, &[&now, &units])
+        .await
+        .map_err(|_| ListenerError::Unavailable)?;
+    let mut items = batch(tx, rows, 50, false, now).await?.0;
+    let fresh: i64 = tx
+        .query_one(
+            "SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
+            &[],
+        )
+        .await
+        .map_err(|_| ListenerError::Unavailable)?
+        .try_get(0)
+        .map_err(|_| ListenerError::Corrupt)?;
+    items.retain(|r| r.publication.valid_at(fresh));
+    Ok(items
+        .into_iter()
+        .map(|r| r.publication.manifest())
+        .collect())
+}
+pub(crate) async fn library_public_work(
+    tx: &Tx<'_>,
+    work_id: &str,
+    now: i64,
+) -> Result<bool, ListenerError> {
+    Ok(!work(tx, work_id, now).await?.0.is_empty())
+}
