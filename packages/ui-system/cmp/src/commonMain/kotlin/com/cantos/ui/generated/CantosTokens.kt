@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.2.0 sha256:e9713d5ad276be53bf3a63b6ce72ad04d1dbf0b5918cbb759a39ea7c2c1f39a2
+// Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.2.0"
+    const val version: String = "0.2.2"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -18,12 +18,15 @@ object CantosTokens {
         TokenValue("color.error", "color", "#a33436", "#ffb3a9", null, null, null),
         TokenValue("color.errorContainer", "color", "#fce3dd", "#4d2627", null, null, null),
         TokenValue("color.focus", "color", "#744b98", "#e0b8fc", null, null, null),
+        TokenValue("color.onPlayerSurface", "color", "#f7eef9", "#f7eef9", null, null, null),
         TokenValue("color.onPrimary", "color", "#ffffff", "#352044", null, null, null),
         TokenValue("color.onPrimaryContainer", "color", "#332340", "#f0defe", null, null, null),
         TokenValue("color.onSurface", "color", "#292331", "#f1e9f2", null, null, null),
         TokenValue("color.onSurfaceVariant", "color", "#6c616f", "#c4b8ca", null, null, null),
         TokenValue("color.outline", "color", "#837587", "#9d8ba4", null, null, null),
         TokenValue("color.outlineVariant", "color", "#dcd4dd", "#514658", null, null, null),
+        TokenValue("color.playerAccent", "color", "#dec6f0", "#dec6f0", null, null, null),
+        TokenValue("color.playerSurface", "color", "#34283f", "#34283f", null, null, null),
         TokenValue("color.primary", "color", "#675080", "#d9bdf1", null, null, null),
         TokenValue("color.primaryContainer", "color", "#e6d9f1", "#513b63", null, null, null),
         TokenValue("color.success", "color", "#375e4b", "#b7d6ba", null, null, null),
@@ -39,12 +42,14 @@ object CantosTokens {
         TokenValue("motion.emphasis.duration", "duration", "260", "260", null, null, null),
         TokenValue("motion.feedback.duration", "duration", "140", "140", null, null, null),
         TokenValue("motion.navigation.duration", "duration", "260", "260", null, null, null),
-        TokenValue("shape.container", "dimension", "18", "18", null, null, null),
-        TokenValue("shape.control", "dimension", "24", "24", null, null, null),
+        TokenValue("shape.container", "dimension", "16", "16", null, null, null),
+        TokenValue("shape.control", "dimension", "8", "8", null, null, null),
+        TokenValue("shape.detail", "dimension", "4", "4", null, null, null),
         TokenValue("shape.field", "dimension", "12", "12", null, null, "shape.reading"),
-        TokenValue("shape.overlay", "dimension", "24", "24", null, null, null),
+        TokenValue("shape.overlay", "dimension", "20", "20", null, null, null),
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
+        TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
         TokenValue("size.control", "dimension", "44", "44", "44", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),

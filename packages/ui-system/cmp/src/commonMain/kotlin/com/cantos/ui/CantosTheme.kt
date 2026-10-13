@@ -2,7 +2,6 @@ package com.cantos.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,8 @@ data class UiPreferences(
     }
 }
 
+val LocalEditorialFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.Serif }
+
 val LocalUiPreferences = staticCompositionLocalOf { UiPreferences() }
 
 // A nested preview changes its own multiplier without treating the outer multiplier as a
@@ -60,7 +61,7 @@ fun parseTokenColor(hex: String): Color {
     return Color(hex.drop(1).toInt(16) or (255 shl 24))
 }
 
-internal fun typeStyle(role: String, editorial: Boolean = false): TextStyle {
+internal fun typeStyle(role: String, editorial: Boolean = false, fontFamily: FontFamily? = null): TextStyle {
     val size = CantosTokens.number("type.$role.size").toFloat()
     val family = CantosTokens.text(if (editorial) "type.family.editorial" else "type.family.ui")
     val fallback = when {
@@ -69,9 +70,8 @@ internal fun typeStyle(role: String, editorial: Boolean = false): TextStyle {
         else -> error("No reviewed platform mapping for shared font family: $family")
     }
     return TextStyle(
-        // Shared contract names Noto families; no unlicensed embedded font is redistributed.
-        // Platform fallback is explicit until a reviewed Noto font-resource slice is adopted.
-        fontFamily = fallback,
+        // Consumers can supply licensed bundled families; other hosts keep the reviewed fallback.
+        fontFamily = fontFamily ?: fallback,
         fontSize = size.sp,
         lineHeight = (size * CantosTokens.number("type.$role.lineHeight").toFloat()).sp,
         fontWeight = FontWeight(CantosTokens.number("type.$role.weight").toInt()),
@@ -80,7 +80,12 @@ internal fun typeStyle(role: String, editorial: Boolean = false): TextStyle {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CantosTheme(preferences: UiPreferences, content: @Composable () -> Unit) {
+fun CantosTheme(
+    preferences: UiPreferences,
+    uiFontFamily: FontFamily? = null,
+    editorialFontFamily: FontFamily? = null,
+    content: @Composable () -> Unit,
+) {
     fun color(name: String): Color = parseTokenColor(CantosTokens.color(name, preferences.theme.tokenName))
     val primary = color("color.primary")
     val onPrimary = color("color.onPrimary")
@@ -129,16 +134,17 @@ fun CantosTheme(preferences: UiPreferences, content: @Composable () -> Unit) {
         surfaceContainerLow = surface,
         surfaceContainerLowest = color("color.background"),
     )
-    val body = typeStyle("body")
-    val title = typeStyle("title")
-    val headline = typeStyle("headline")
-    val label = typeStyle("label")
-    val metadata = typeStyle("metadata")
+    val body = typeStyle("body", fontFamily = uiFontFamily)
+    val title = typeStyle("title", fontFamily = uiFontFamily)
+    val headline = typeStyle("headline", editorial = editorialFontFamily != null, fontFamily = editorialFontFamily ?: uiFontFamily)
+    val label = typeStyle("label", fontFamily = uiFontFamily)
+    val metadata = typeStyle("metadata", fontFamily = uiFontFamily).copy(fontFeatureSettings = "tnum")
     val currentDensity = LocalDensity.current
     val platformFontScale = LocalPlatformFontScale.current ?: currentDensity.fontScale
     val minimumControlSize = CantosTokens.number("size.control", density = preferences.density.tokenName).toFloat().dp
     CompositionLocalProvider(
         LocalUiPreferences provides preferences,
+        LocalEditorialFontFamily provides (editorialFontFamily ?: FontFamily.Serif),
         LocalPlatformFontScale provides platformFontScale,
         LocalDensity provides DisplayDensity(currentDensity.density, platformFontScale * preferences.textScale),
         LocalMinimumInteractiveComponentSize provides minimumControlSize,
@@ -153,11 +159,11 @@ fun CantosTheme(preferences: UiPreferences, content: @Composable () -> Unit) {
                 labelLarge = label, labelMedium = label, labelSmall = metadata,
             ),
             shapes = Shapes(
-                extraSmall = RoundedCornerShape(tokenDp("shape.reading")),
-                small = RoundedCornerShape(tokenDp("shape.reading")),
-                medium = RoundedCornerShape(tokenDp("shape.container")),
-                large = RoundedCornerShape(tokenDp("shape.control")),
-                extraLarge = RoundedCornerShape(tokenDp("shape.overlay")),
+                extraSmall = CantosShapes.detail,
+                small = CantosShapes.control,
+                medium = CantosShapes.reading,
+                large = CantosShapes.container,
+                extraLarge = CantosShapes.overlay,
             ),
             content = content,
         )

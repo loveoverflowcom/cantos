@@ -12,9 +12,14 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -133,6 +138,67 @@ class ThemeFoundationTest {
             innerPreferences = innerPreferences.copy(textScale = 1f)
         }
         compose.runOnIdle { assertDensity("Thay đổi", 2f, 2f) }
+    }
+
+    @Test
+    fun injected_font_families_map_ui_and_editorial_roles_without_changing_density() {
+        var body: FontFamily? = null
+        var headline: FontFamily? = null
+        var editorial: FontFamily? = null
+        compose.setContent {
+            CantosTheme(UiPreferences(), uiFontFamily = FontFamily.Monospace, editorialFontFamily = FontFamily.Cursive) {
+                body = MaterialTheme.typography.bodyMedium.fontFamily
+                headline = MaterialTheme.typography.headlineLarge.fontFamily
+                editorial = LocalEditorialFontFamily.current
+                Probe("Fonts")
+            }
+        }
+        compose.runOnIdle {
+            assertEquals(FontFamily.Monospace, body)
+            assertEquals(FontFamily.Cursive, headline)
+            assertEquals(FontFamily.Cursive, editorial)
+            assertDensity("Fonts", 1f, 1f)
+        }
+    }
+
+    @Test
+    fun material_shapes_follow_the_shared_five_step_radius_scale() {
+        val radii = mutableListOf<Float>()
+        compose.setContent {
+            CantosTheme(UiPreferences()) {
+                val shapes = MaterialTheme.shapes
+                val density = LocalDensity.current
+                val values = listOf(shapes.extraSmall, shapes.small, shapes.medium, shapes.large, shapes.extraLarge)
+                    .map { shape -> cornerRadius(shape, density) }
+                SideEffect { radii.addAll(values) }
+            }
+        }
+        compose.runOnIdle { assertEquals(listOf(4f, 8f, 12f, 16f, 20f), radii) }
+    }
+
+    @Test
+    fun thumbnail_and_full_shapes_preserve_their_roles_at_multiple_sizes_and_densities() {
+        val results = mutableListOf<Float>()
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides DisplayDensity(2f, 2f)) {
+                CantosTheme(UiPreferences(density = Density.Comfortable)) {
+                    val thumbnail = cornerRadius(CantosShapes.thumbnail, LocalDensity.current)
+                    val full = CantosShapes.full
+                    val radii = listOf(48f, 80f, 200f).map { width ->
+                        val outline = full.createOutline(Size(width, 48f), LayoutDirection.Ltr,
+                            LocalDensity.current) as Outline.Rounded
+                        outline.roundRect.topLeftCornerRadius.x
+                    }
+                    SideEffect { results.add(thumbnail); results.addAll(radii) }
+                }
+            }
+        }
+        compose.runOnIdle { assertEquals(listOf(10f, 24f, 24f, 24f), results) }
+    }
+
+    private fun cornerRadius(shape: Shape, density: DisplayDensity): Float {
+        val outline = shape.createOutline(Size(200f, 200f), LayoutDirection.Ltr, density) as Outline.Rounded
+        return outline.roundRect.topLeftCornerRadius.x / density.density
     }
 
     @Composable

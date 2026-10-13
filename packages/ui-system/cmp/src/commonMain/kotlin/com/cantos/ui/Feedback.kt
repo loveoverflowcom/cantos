@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +37,7 @@ fun Badge(text: String, modifier: Modifier = Modifier, tone: StatusTone = Status
             StatusTone.Neutral -> tokenColor("color.onSurface")
             StatusTone.Info -> tokenColor("color.onPrimaryContainer")
             else -> tokenColor("color.${tone.role()}")
-        }, shape = RoundedCornerShape(tokenDp("shape.pill"))) {
+        }, shape = CantosShapes.full) {
         Text(text, Modifier.padding(horizontal = tokenDp("space.inset"), vertical = tokenDp("space.xs")),
             style = MaterialTheme.typography.labelSmall)
     }

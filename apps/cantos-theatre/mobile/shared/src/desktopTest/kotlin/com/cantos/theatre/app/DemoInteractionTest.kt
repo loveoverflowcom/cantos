@@ -152,14 +152,16 @@ class DemoInteractionTest {
             onNodeWithTag("account").performClick()
             onNodeWithTag("settings").performScrollTo().performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Cài đặt nghe"))
-            onNodeWithTag("theme-Dark").performScrollTo().performClick().assertIsSelected()
+            onNodeWithTag("setting-Theme").performScrollTo().performClick()
+            onNodeWithTag("theme-Dark").performClick()
+            onNodeWithTag("setting-Theme").assert(hasText("Mực tím · Tối"))
             onNodeWithTag("back").performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Tài khoản"))
             onNodeWithTag("back").performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Phòng nghe"))
             onNodeWithTag("elapsed").assertTextEquals("15:00")
             onNodeWithTag("simulation-status").assertTextEquals("Mô phỏng đang dừng")
-            onNodeWithTag("transport").assert(hasText("Mô phỏng phát"))
+            onNodeWithTag("transport").assert(hasContentDescription("Mô phỏng phát Người giữ tiếng chuông"))
         }
     }
 
@@ -171,7 +173,7 @@ class DemoInteractionTest {
             onNodeWithTag("search-input").performTextReplacement("Đèn Khuya")
             onNodeWithTag("account").performClick()
             onNodeWithTag("settings").performScrollTo().performClick()
-            val choice = onNodeWithTag("theme-Dark").performScrollTo()
+            val choice = onNodeWithTag("setting-Theme").performScrollTo()
             choice.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
             choice.assertIsFocused().performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Tài khoản"))
@@ -191,7 +193,9 @@ class DemoInteractionTest {
             setContent { DemoTestRoot() }
             onNodeWithTag("account").performClick()
             onNodeWithTag("settings").performScrollTo().performClick()
+            onNodeWithTag("setting-Diagnostics").performScrollTo().performClick()
             onNodeWithTag("catalog-Error").performScrollTo().performClick().assertIsSelected()
+            onNodeWithTag("preference-close").performClick()
             onNodeWithTag("back").performClick()
             onNodeWithTag("back").performClick()
             onNodeWithText("Chưa mở được danh sách minh họa").assertExists()
@@ -374,6 +378,35 @@ class DemoInteractionTest {
     }
 
     @Test
+    fun settings_and_player_dialogs_edit_the_same_preferences_without_moving_progress() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { DemoTestRoot(initialState = DemoState(stack = listOf(DemoRoute.Discovery, DemoRoute.Settings))) }
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("locale-English").performClick()
+            onNodeWithTag("setting-Language").assert(hasText("English"))
+            onNodeWithTag("setting-Speed").performScrollTo().performClick()
+            onNodeWithTag("speed-125").performClick()
+            onNodeWithTag("setting-Speed").assert(hasText("1.25×"))
+            onNodeWithTag("setting-Timer").performScrollTo().performClick()
+            onNodeWithTag("timer-Fifteen").performClick()
+            onNodeWithTag("setting-Timer").assert(hasText("15 minutes"))
+            onNodeWithTag("mini-open").performClick()
+            onNodeWithTag("elapsed").assertTextEquals("12:48")
+            onNodeWithTag("player-speed").performScrollTo().assert(hasText("1.25×")).performClick()
+            onNodeWithTag("speed-150").performClick()
+            onNodeWithTag("player-speed").assertIsFocused().assert(hasText("1.5×"))
+            onNodeWithTag("player-timer").performClick()
+            onNodeWithText("Select a demo state only; no countdown or automatic audio stop runs.").assertExists()
+            onNodeWithTag("timer-Off").performClick()
+            onNodeWithTag("player-timer").assertIsFocused().assert(hasText("Off"))
+            onNodeWithTag("elapsed").assertTextEquals("12:48")
+            onNodeWithTag("back").performClick()
+            onNodeWithTag("setting-Speed").performScrollTo().assert(hasText("1.5×"))
+            onNodeWithTag("setting-Timer").assert(hasText("Off"))
+        }
+    }
+
+    @Test
     fun reset_from_settings_restores_initial_locale_position_and_empty_bookmarks() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
@@ -390,6 +423,7 @@ class DemoInteractionTest {
                     speedPercent = 150,
                 ))
             }
+            onNodeWithTag("setting-Diagnostics").performScrollTo().performClick()
             onNodeWithTag("reset").performScrollTo().assert(hasText("Reset demo")).performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Khám phá"))
             onNodeWithTag("mini-open").assert(hasText("12:48"))

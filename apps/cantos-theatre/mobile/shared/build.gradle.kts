@@ -189,6 +189,7 @@ kotlin {
             kotlin.exclude("com/cantos/ui/preview/**")
             dependencies {
                 implementation(compose.runtime)
+                implementation(compose.components.resources)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
                 implementation(compose.foundation)
@@ -235,4 +236,8 @@ compose.desktop {
     application {
         mainClass = "com.cantos.theatre.app.MainKt"
     }
+}
+
+compose.resources {
+    packageOfResClass = "com.cantos.theatre.resources"
 }

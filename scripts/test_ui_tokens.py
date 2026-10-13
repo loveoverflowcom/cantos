@@ -433,6 +433,14 @@ class CanonicalRepositoryTokens(unittest.TestCase):
                 self.assertEqual(str(error.exception),
                                  f"{role}: expected {expected_type} type, got {kind}")
 
+    def test_version_rejects_non_string_input_with_a_validation_error(self):
+        for version in (None, [], {}, 201):
+            source = load_source(SOURCE.read_bytes())
+            source["version"] = version
+            with self.subTest(version=version):
+                with self.assertRaisesRegex(ValueError, "unsupported token version"):
+                    validate(source)
+
     def test_actual_source_meets_every_contrast_floor_in_both_themes(self):
         source = validate(load_source(SOURCE.read_bytes()))
         for theme, tokens in source["themes"].items():

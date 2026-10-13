@@ -1,4 +1,4 @@
-# Shared semantic contract v0.2.0
+# Shared semantic contract v0.2.2
 
 [`tokens.json`](tokens.json) is the sole active source. This is a bounded Cantos JSON schema,
 not a claim of DTCG conformance. The generator validates it before any output write.
@@ -34,13 +34,36 @@ The authenticated design package reviewed on 2026-10-11 supplies identical Laven
 for both products, Noto Sans UI / Noto Serif editorial names, 14/1.55 Web body, 14/1.9 editor,
 44 logical-unit Web targets, 48 for comfortable/touch intent, 140ms feedback and proposed 260ms
 navigation. Paper, lavender and muted gold preserve the quiet historical/fantasy character.
-No embedded font or artwork bytes are redistributed; those files still need rights review.
-The Web uses local/system fallbacks when the named fonts are unavailable.
+The Theatre CMP mock now supplies the exact Noto Sans/Serif resource families (SIL OFL 1.1)
+and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
+keeps hashes and the outstanding production artwork-rights boundary. Other hosts, including Web,
+retain local/system fallbacks. Shared theme callers may inject licensed font families without
+changing platform font scale. The shared package itself contains no font or painting files.
+
+v0.2.1 adds `color.playerSurface`, `color.onPlayerSurface` and `color.playerAccent` from the
+Mobile v2 handoff. Both themes deliberately retain the separate dark player surface and pale
+control accent. Existing roles are unchanged; CSS/Rust/Kotlin and the preview token inventory
+are generated together. All three player contrast pairs are part of the canonical checks.
 
 The generator keeps the 8-step rhythm without renaming established Studio spacing roles:
 `xs=4`, `sm=8`, `inset=12`, `md=16`, `section=20`, `lg=24`, `xl=32`, `xxl=36`.
-Reading/container/overlay/action shapes are separate roles (12/18/24/24), rather than a card
-around every line. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
+v0.2.2 standardizes the existing shape roles instead of adding a mobile-only token set:
+
+| Role | Logical radius | CMP Material slot / use |
+| --- | --- | --- |
+| `shape.detail` | 4 | extraSmall; small details |
+| `shape.control` | 8 | small; compact/text controls |
+| `shape.reading` / alias `shape.field` | 12 | medium; fields, regular actions, mini-player |
+| `shape.container` | 16 | large; story/continue cards and large covers |
+| `shape.overlay` | 20 | extraLarge; dialogs |
+| `shape.thumbnail` | 10 | compact artwork, including mini-player; explicit requested exception |
+| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators only |
+
+`CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
+slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock
+Material buttons opt into small/medium explicitly because their default Full shape bypasses
+Material theme slots. This changes shared Web action/container/overlay corners to 8/16/20 too;
+spacing, fonts, colors and motion values remain unchanged. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
 600/840 logical-unit medium/expanded breakpoints are foundation decisions, not copied app
 layout thresholds. They guide composition, while actual pane constraints belong to app owners.
 CSS media queries cannot consume custom properties: the generator substitutes named breakpoint
