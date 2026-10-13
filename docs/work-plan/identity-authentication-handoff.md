@@ -112,3 +112,23 @@ success fallback, explicit expiry and logout linearization, cookie source matche
 Provider disable cannot be atomic with local writes; document its introspection observation boundary.
 Live production adoption must additionally resolve bearer at-rest protection, pending remote
 revocation recovery, retention/rate limits and provider SSO versus local/access logout semantics.
+
+
+## PR2 independent integration handoff
+
+The reviewed Studio source `850a820e7db224c41e2f4fd534301e83c0e1d5bf` incorporates merged
+registry/develop `007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3` and unchanged originals through0020,
+with additive0025. All17 full local preflight gates report PASS, including actual disposable
+PostgreSQL/HTTP, signed ES256 mocks, both WASM builds and9/9 mutation kills. Actual Studio browser
+checks report11 PASS/0 FAIL, with explicit inconclusive text scaling and deferred accessibility,
+provider and unobserved race gates. See the current
+[integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+for exact source/tree, raw log hashes, fail-before regressions and production limitations.
+
+PR3 must merge this actual branch/develop code and preserve both shared HTTP contract negotiation
+and Studio UUID request/response fencing. The shared OIDC transport remains confidential for
+Studio; native public-client transport cannot weaken Studio/Admin credential purpose. Immutable
+per-flow private browser binders and lineage serialization do not authorize actor-wide logout.
+Keep Theatre Web/native credentials, resource ownership and cancellation scopes independent.
+The work queue continues PR3 then PR4; linked PRs own execution status. No production client,
+credential, grant or network configuration was created by this integration.

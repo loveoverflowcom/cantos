@@ -248,3 +248,40 @@ detected on the next fenced request or actual-cookie observation, not a live cro
 Full repository/preflight acceptance must report the known baseline Darwin killpg fixture honestly.
 Combined migration tree and separate Listener/native/Admin acceptance belong to their owners.
 No GitHub Actions wait or production-ready claim follows from this draft handoff.
+
+
+## Independent integrated acceptance (13 October 2026)
+
+The final reviewed implementation is commit `850a820e7db224c41e2f4fd534301e83c0e1d5bf`,
+tree `51964d75c85a11d083af6fe55774c40d3b90ecdb`, incorporating merged develop
+`007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3`. Original migration0020 is unchanged;
+additive migration0025 preserves the separate artwork reservation0023. JSON remains the
+negotiated default, explicit Protobuf opt-in and the legacy MessagePack decoder remain available.
+
+Fresh canonical `repository`, `rust`, `contracts`, `web` and disposable `postgres` verification
+all report **PASS**. Full `cargo xtask preflight --changed-only` reports **PASS for all17 gates,
+with no skips**: repository, rust-format, script-ir-reference, protobuf-reference, rust-lint,
+rust-tests, dbsp, wav-reference, audio-inspection, web-lint, both web-builds, ui-preview,
+cmp-ui-preview, theatre-cmp-demo, mutation and postgres. Mutation killed9/9 mutants.
+PostgreSQL includes18 Studio OIDC cases plus inherited HTTP/process-kill/restart/codec cases.
+Earlier failure logs and exact fail-before snapshots are retained; none is excluded from a gate.
+
+Actual Chrome155 observations on frontend commit `288b89f72248ccaf41b8072b7698aca447ca1207`
+record **11 PASS, 0 FAIL, 1 INCONCLUSIVE and8 NOT_RUN**. All11 screenshots were opened and
+checked. Real development HTTP sessions exercise dirty Alice draft retention across Bob,
+private projection hiding/inertness while pending or unavailable, Alice's return, acknowledged
+logout, keyboard focus, accessibility-tree absence of hidden private controls, Vietnamese
+content and1440/390/320px layouts. The only subsequent code change replaces equivalent HTTP URI
+query access; frontend source is unchanged and the complete final preflight recompiled it.
+OS text scaling was inconclusive because rendered font metrics did not change. Screen-reader
+speech,200% browser zoom, native IME, live OIDC/TLS/provider disable, and the unobserved browser
+race scenarios remain **NOT_RUN**; signed-mock/backend tests do not upgrade these runtime gates.
+
+Raw evidence lives outside Git at `/private/tmp/cantos-identity-campaign/`.
+`pr98-acceptance-manifest.json` pins12 logs/reports by SHA256; its SHA256 is
+`0a49f171f19596a151f1297e1d8a4907ad1a0418fcc3d28bfdc7a78dde10f626`.
+The final complete command log is `studio-preflight-integrated-full.log`; actual browser evidence
+is under `studio-ui-runtime/`. This supersedes the pending root gates in earlier ledger entries,
+while preserving their historical scope. Production activation remains disabled pending the
+operator/provider and client acceptance gates above. No identity-specific Kani, native device,
+live provider or end-to-end production acceptance is claimed.

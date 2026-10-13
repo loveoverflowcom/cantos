@@ -73,10 +73,10 @@ Studio audit manifests do not themselves authorize Theatre playback.
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
 and adds exact external keys with explicit operator registration/linking. The bounded
 [Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
-adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. Final
-lock-wait expiry and special-character OAuth Basic regressions belong to the identity review
-campaign; its final integrated gates and browser observations must be recorded separately. Live provider
-acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
 using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
 before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
