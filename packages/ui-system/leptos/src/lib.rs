@@ -1,5 +1,6 @@
 //! Cantos Web foundation. Apps own localized content, routes, effects and permission state.
 
+mod avatar;
 mod button;
 mod dialog;
 mod feedback;
@@ -10,6 +11,7 @@ mod navigation;
 mod root;
 pub mod tokens;
 
+pub use avatar::{avatar_initials, avatar_tone, safe_avatar_image_src, Avatar, AvatarInitialMode, AvatarSize, AvatarTone};
 pub use button::{
     AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, EmptyAccessibleName,
     EmptyDisabledReason, IconButton,

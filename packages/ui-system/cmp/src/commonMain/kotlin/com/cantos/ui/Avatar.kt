@@ -65,10 +65,9 @@ fun avatarTone(seed: String): AvatarTone {
  * Decorative by default: adjacent text supplies the user's name. Supply a localized
  * AccessibleName only when the avatar itself must convey that name.
  *
- * Initially internal until the matching Leptos component and both preview catalogues land.
  */
 @Composable
-internal fun Avatar(
+fun Avatar(
     displayName: String,
     modifier: Modifier = Modifier,
     stableId: String? = null,

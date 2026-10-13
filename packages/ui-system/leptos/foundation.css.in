@@ -624,3 +624,64 @@
   scroll-margin-block-start: var(--cantos-space-lg);
 }
 :where(.cantos-ui) .cui-gallery-page .cui-surface > p + p { margin-block-start: var(--cantos-space-sm); }
+
+/* Account avatars: token-backed, browser-native fallback; no remote avatar generator. */
+:where(.cantos-ui) .cui-avatar {
+  --cui-avatar-diameter: var(--cantos-size-control);
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  inline-size: var(--cui-avatar-diameter);
+  block-size: var(--cui-avatar-diameter);
+  overflow: hidden;
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+  font-family: var(--cantos-type-family-ui);
+  font-size: var(--cantos-type-label-size);
+  font-weight: var(--cantos-type-label-weight);
+  line-height: 1;
+  vertical-align: middle;
+  text-align: center;
+  user-select: none;
+}
+:where(.cantos-ui) .cui-avatar[data-size="small"] {
+  --cui-avatar-diameter: 2rem;
+  font-size: var(--cantos-type-metadata-size);
+}
+:where(.cantos-ui) .cui-avatar[data-size="large"] {
+  --cui-avatar-diameter: 4rem;
+  font-size: var(--cantos-type-title-size);
+}
+:where(.cantos-ui) .cui-avatar[data-tone="strong"] {
+  background: var(--cantos-color-primary);
+  color: var(--cantos-color-on-primary);
+}
+:where(.cantos-ui) .cui-avatar[data-tone="elevated"] {
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui) .cui-avatar[data-tone="quiet"] {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface);
+}
+:where(.cantos-ui) .cui-avatar-initials {
+  white-space: nowrap;
+  text-transform: none;
+}
+:where(.cantos-ui) .cui-avatar-image {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-avatar {
+    border: var(--cantos-size-border) solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}
