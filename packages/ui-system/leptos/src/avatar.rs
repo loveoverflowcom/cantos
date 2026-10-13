@@ -128,10 +128,24 @@ fn word_initial(word: &str) -> Option<String> {
     )
 }
 
+/// Image boundary: HTTPS, same-origin root-relative paths, object URLs for private media and
+/// inline raster/SVG data. Plain HTTP (mixed content), protocol-relative and other schemes are
+/// refused, and the initials show instead.
+pub fn avatar_image_src(raw: &str) -> Option<String> {
+    let source = raw.trim();
+    let lower = source.to_ascii_lowercase();
+    let same_origin = source.starts_with('/') && !source.starts_with("//");
+    let allowed = same_origin
+        || lower.starts_with("https://")
+        || lower.starts_with("blob:")
+        || lower.starts_with("data:image/");
+    allowed.then(|| source.to_owned())
+}
+
 /// Person or creator avatar: a caller-authorized picture over a stable tone, or initials.
 ///
-/// The host owns which URL is safe to load (same-origin or an object URL for private media),
-/// size limits and caching. Initials stay underneath while the picture loads and return when it
+/// The host owns which picture is authorized, size limits and caching; [`avatar_image_src`]
+/// only refuses unsafe URL forms. Initials stay underneath while the picture loads and return when it
 /// fails, so there is no blank frame. Decorative by default because adjacent text supplies the
 /// name; pass a localized `accessible_name` only when the avatar stands alone.
 #[component]
@@ -153,7 +167,8 @@ pub fn Avatar(
     let visible_src = move || {
         image_src
             .get()
-            .filter(|src| !src.trim().is_empty() && failed_src.get().as_ref() != Some(src))
+            .and_then(|src| avatar_image_src(&src))
+            .filter(|src| failed_src.get().as_ref() != Some(src))
     };
     let label = accessible_name.map(|name| name.as_str().to_owned());
     let decorative = label.is_none();

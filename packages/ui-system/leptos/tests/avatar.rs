@@ -1,8 +1,8 @@
 //! Vectors mirror `packages/ui-system/shared/README.md#avatar` and the CMP AvatarContractTest.
 
 use cantos_ui::{
-    avatar_initials, avatar_seed, avatar_tone, AccessibleName, Avatar, AvatarInitials, AvatarSize,
-    AvatarTone, TOKEN_CSS,
+    avatar_image_src, avatar_initials, avatar_seed, avatar_tone, AccessibleName, Avatar,
+    AvatarInitials, AvatarSize, AvatarTone, TOKEN_CSS,
 };
 use leptos::prelude::*;
 
@@ -142,4 +142,32 @@ fn named_standalone_avatar_is_one_image_for_assistive_technology() {
     );
     // Only the inner initials are hidden; the named root stays exposed.
     assert_eq!(html.matches("aria-hidden=\"true\"").count(), 1, "{html}");
+}
+
+#[test]
+fn only_safe_picture_urls_reach_the_image_element() {
+    for allowed in [
+        "https://cdn.example/a.webp",
+        " /media/avatar.webp ",
+        "blob:https://studio.example/1f2e",
+        "data:image/png;base64,AAAA",
+    ] {
+        assert!(avatar_image_src(allowed).is_some(), "{allowed}");
+    }
+    for refused in [
+        "http://cdn.example/a.webp",
+        "//cdn.example/a.webp",
+        "javascript:alert(1)",
+        "data:text/html,<p>x</p>",
+        "media/relative.webp",
+        "",
+    ] {
+        assert_eq!(avatar_image_src(refused), None, "{refused}");
+    }
+    let html = view! {
+        <Avatar display_name="An" image_src=Some("http://cdn.example/a.webp".to_owned())/>
+    }
+    .to_html();
+    assert!(!html.contains("<img"), "{html}");
+    assert!(html.contains(">A<"), "{html}");
 }

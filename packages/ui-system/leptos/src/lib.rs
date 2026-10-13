@@ -12,7 +12,8 @@ mod root;
 pub mod tokens;
 
 pub use avatar::{
-    avatar_initials, avatar_seed, avatar_tone, Avatar, AvatarInitials, AvatarSize, AvatarTone,
+    avatar_image_src, avatar_initials, avatar_seed, avatar_tone, Avatar, AvatarInitials,
+    AvatarSize, AvatarTone,
 };
 pub use button::{
     AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, EmptyAccessibleName,
