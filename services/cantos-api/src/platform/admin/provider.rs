@@ -4,7 +4,7 @@ use super::{
     domain::{AdminError, RoleEvidence},
     CLIENT_ID,
 };
-use crate::platform::oidc::core::JwkSet;
+use crate::platform::oidc::{core::JwkSet, provider::oauth_component};
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use std::time::Duration;
@@ -170,7 +170,10 @@ impl AdminProvider {
         let observation: Observation = bounded(
             self.client
                 .post(self.config.endpoint(&endpoint)?)
-                .basic_auth(CLIENT_ID, Some(&self.config.secret))
+                .basic_auth(
+                    oauth_component(CLIENT_ID),
+                    Some(oauth_component(&self.config.secret)),
+                )
                 .form(&[("token", token)])
                 .send()
                 .await

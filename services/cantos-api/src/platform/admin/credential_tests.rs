@@ -14,8 +14,11 @@ impl Signer {
         Self(EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, p.as_ref(), &r).unwrap())
     }
     fn keys(&self) -> JwkSet {
+        serde_json::from_value(self.jwks()).unwrap()
+    }
+    fn jwks(&self) -> Value {
         let k = self.0.public_key().as_ref();
-        serde_json::from_value(json!({"keys":[{"kid":"one","kty":"EC","crv":"P-256","alg":"ES256","x":B64.encode(&k[1..33]),"y":B64.encode(&k[33..65])}]})).unwrap()
+        json!({"keys":[{"kid":"one","kty":"EC","crv":"P-256","alg":"ES256","x":B64.encode(&k[1..33]),"y":B64.encode(&k[33..65])}]})
     }
     fn sign(&self, claims: Value, header: Value) -> String {
         let m = format!(
@@ -143,4 +146,108 @@ fn current_role_removal_demotion_and_expiry_invalidate_signed_admin_claims() {
         .unwrap()
         .observe(&["cantos_identity_operators".into()], 400, 100)
         .is_ok());
+}
+
+#[tokio::test]
+async fn admin_introspection_form_encodes_special_secret_before_basic_authentication() {
+    use super::provider::{AdminConfig, AdminProvider};
+    use axum::{
+        extract::Form,
+        http::{HeaderMap, StatusCode},
+        routing::{get, post},
+        Json, Router,
+    };
+    use base64::engine::general_purpose::STANDARD;
+    use std::{collections::HashMap, sync::Arc};
+
+    const SECRET: &str = "a+b%: đ&/?=#";
+    let signer = Signer::new();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let issuer = format!("{origin}/oauth2/openid/{CLIENT_ID}");
+    let now = super::now().unwrap();
+    let mut signed_claims = claims();
+    signed_claims["iss"] = json!(issuer);
+    signed_claims["iat"] = json!(now);
+    signed_claims["exp"] = json!(now + 200);
+    let token = signer.sign(signed_claims, header());
+    let expected_token = Arc::new(token.clone());
+    let metadata = json!({
+        "issuer":issuer,
+        "jwks_uri":format!("{origin}/jwks"),
+        "introspection_endpoint":format!("{origin}/introspect")
+    });
+    let keys = signer.jwks();
+    let observation = json!({
+        "active":true,"iss":issuer,"sub":"đặng-minh","aud":CLIENT_ID,
+        "client_id":CLIENT_ID,"exp":now+200,
+        "cantos_admin_groups":["cantos_identity_operators"]
+    });
+    let app = Router::new()
+        .route(
+            &format!("/oauth2/openid/{CLIENT_ID}/.well-known/openid-configuration"),
+            get(move || {
+                let metadata = metadata.clone();
+                async move { Json(metadata) }
+            }),
+        )
+        .route(
+            "/jwks",
+            get(move || {
+                let keys = keys.clone();
+                async move { Json(keys) }
+            }),
+        )
+        .route(
+            "/introspect",
+            post(
+                move |headers: HeaderMap, Form(form): Form<HashMap<String, String>>| {
+                    let observation = observation.clone();
+                    let expected_token = expected_token.clone();
+                    async move {
+                        // Decode the protocol at the mock provider boundary; do not copy the encoder.
+                        let credentials = headers
+                            .get("authorization")
+                            .and_then(|value| value.to_str().ok())
+                            .and_then(|value| value.strip_prefix("Basic "))
+                            .and_then(|value| STANDARD.decode(value).ok())
+                            .and_then(|value| String::from_utf8(value).ok());
+                        let accepted = credentials
+                            .as_deref()
+                            .and_then(|value| value.split_once(':'))
+                            .is_some_and(|(client, secret)| {
+                                let decode = |value: &str| {
+                                    reqwest::Url::parse(&format!(
+                                        "https://fixture.invalid/?value={value}"
+                                    ))
+                                    .ok()
+                                    .and_then(|url| {
+                                        url.query_pairs()
+                                            .next()
+                                            .map(|(_, value)| value.into_owned())
+                                    })
+                                };
+                                decode(client).as_deref() == Some(CLIENT_ID)
+                                    && decode(secret).as_deref() == Some(SECRET)
+                                    && form.get("token").map(String::as_str)
+                                        == Some(expected_token.as_str())
+                            });
+                        if accepted {
+                            (StatusCode::OK, Json(observation))
+                        } else {
+                            (StatusCode::UNAUTHORIZED, Json(json!({})))
+                        }
+                    }
+                },
+            ),
+        );
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let provider = AdminProvider::new(AdminConfig::new(&issuer, SECRET.into()).unwrap()).unwrap();
+    let result = provider.authenticate(&token).await;
+    server.abort();
+    let proof = result
+        .expect("compliant OAuth Basic authentication must admit the signed Admin credential");
+    assert_eq!(proof.key().issuer(), issuer);
+    assert_eq!(proof.key().subject(), "đặng-minh");
+    assert!(proof.valid_until() > now);
 }

@@ -452,7 +452,7 @@ async fn concurrent_duplicate_delivery_recovers_one_receipt_after_application_re
 }
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
-async fn local_role_revocation_and_disable_committed_while_waiting_for_lock_are_rechecked() {
+async fn local_admin_revocation_committed_while_waiting_for_lock_is_rechecked() {
     let mut h = Harness::new().await;
     let token = h.token("minh");
     let observer = connect(&h.config).await;
@@ -478,6 +478,64 @@ async fn local_role_revocation_and_disable_committed_while_waiting_for_lock_are_
     tx.commit().await.unwrap();
     assert_eq!(task.await.unwrap().err(), Some(AdminError::Revoked));
     assert_eq!(h.count("admin_operations").await, 0);
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+async fn actor_disable_committed_while_waiting_for_lock_is_rechecked_and_audited() {
+    let mut h = Harness::new().await;
+    let token = h.token("minh");
+    let observer = connect(&h.config).await;
+    let tx = h.db.transaction().await.unwrap();
+    tx.execute("UPDATE actors SET active=active WHERE id='minh'", &[])
+        .await
+        .unwrap();
+    let store = h.store.clone();
+    let operation = uuid::Uuid::new_v4().to_string();
+    let task = tokio::spawn(async move {
+        store
+            .admin()
+            .unwrap()
+            .revoke_access(&store, Some(&token), "other", &operation, uuid::Uuid::new_v4())
+            .await
+    });
+    // Observe the production admission query actually waiting before disabling the actor.
+    // This checks fresh SQL facts after the wait, rather than only an already-disabled fixture.
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            let waiting: i64 = observer
+                .query_one(
+                    "SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE 'SELECT * FROM admin_identity_facts%'",
+                    &[],
+                )
+                .await
+                .unwrap()
+                .get(0);
+            if waiting == 1 {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    tx.execute("UPDATE actors SET active=false WHERE id='minh'", &[])
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(task.await.unwrap().err(), Some(AdminError::InactiveActor));
+    assert_eq!(h.count("admin_operations").await, 0);
+    assert_eq!(h.count("admin_access_revocations").await, 0);
+    assert_eq!(h.count("admin_audit").await, 1);
+    let row = h
+        .db
+        .query_one("SELECT actor_id,action,target_actor_id,outcome FROM admin_audit", &[])
+        .await
+        .unwrap();
+    assert_eq!(row.get::<_, String>(0), "minh");
+    assert_eq!(row.get::<_, String>(1), "revoke_admin_access");
+    assert_eq!(row.get::<_, String>(2), "other");
+    assert_eq!(row.get::<_, String>(3), "denied");
 }
 
 #[tokio::test]

@@ -321,6 +321,11 @@ impl Provider {
     }
 }
 
+// RFC6749§2.3.1 form-encodes each credential before generic HTTP Basic encoding.
+pub(crate) fn oauth_component(value: &str) -> String {
+    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+}
+
 async fn bounded<T: DeserializeOwned>(mut response: Response) -> Result<T, AuthError> {
     if !response.status().is_success() || response.content_length().is_some_and(|v| v > 65_536) {
         return Err(AuthError::ProviderUnavailable);
