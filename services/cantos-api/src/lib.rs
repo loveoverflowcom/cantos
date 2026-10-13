@@ -1,6 +1,7 @@
 //! Modular Cantos backend: editorial ownership, source ingestion, host-created adaptations,
 //! production guidance and inspection of externally produced media.
 //! Neither this library nor the HTTP host executes text-to-speech or audio mixing.
+mod composition;
 pub mod contexts;
 pub mod interfaces;
 pub mod platform;

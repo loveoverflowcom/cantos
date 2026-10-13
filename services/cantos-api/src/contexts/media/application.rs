@@ -13,8 +13,10 @@ use super::audio_intake::{
     inspect_audio, AudioIntakeError, DeliveryProfile, VerifiedAudio, MAX_AUDIO_BYTES,
 };
 use super::domain::intake::{decide_prepare, IntentBinding, PrepareDecision};
+use super::domain::object_storage::{decide_owner_read, PrivateObjectRef};
 use super::postgres;
 use super::storage::registry::{RegistryStoredAudio, StorageRegistry};
+use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
 use crate::platform::postgres::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
@@ -153,6 +155,36 @@ impl Store {
     /// must be served by a separate host whose public tree cannot reference private objects.
     pub fn audio_storage_is_enabled(&self) -> bool {
         self.media_storage.is_some()
+    }
+
+    /// Resolve an owner's exact accepted historical receipt. This grants no publication or
+    /// producer access and performs no object I/O while the authorization transaction is open.
+    pub(crate) async fn audio_intent_object(
+        &self,
+        token: &str,
+        script: &str,
+        id: &str,
+    ) -> Result<PrivateObjectRef, StoreError> {
+        let script = normalized_uuid(script)?;
+        let id = normalized_uuid(id)?;
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
+        let intent = postgres::find_intent(&tx, &actor, &script, &id)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
+        let resource_owner =
+            OwnerId::parse(&intent.created_by).map_err(|_| StoreError::CorruptRevision)?;
+        decide_owner_read(&actor, &resource_owner).map_err(StoreError::Storage)?;
+        bound_revision(&tx, &intent).await?;
+        let receipt = postgres::receipt(&tx, &intent)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let object = receipt.location().clone();
+        authenticate(&tx, token).await?;
+        tx.commit().await?;
+        Ok(object)
     }
 
     /// The script owner pins one immutable, canonical profile separately from its byte upload.

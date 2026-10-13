@@ -1,11 +1,17 @@
 //! Content/Brief-bound Audio Lifecycle shell. All uploads share PR69's inspector/storage.
 use super::{
     application::{inspect_and_store, storage},
-    domain::{lifecycle::*, object_storage::PrivateObjectRef},
+    domain::{
+        lifecycle::*,
+        object_storage::{decide_owner_read, PrivateObjectRef},
+    },
     postgres::lifecycle as sql,
 };
 use crate::contexts::{
-    catalog::{domain::OwnerId, ProductionContent},
+    catalog::{
+        domain::{ContentUnitId, OwnerId},
+        ProductionContent,
+    },
     production::{
         self,
         domain::brief::{fingerprint, ProductionBrief},
@@ -426,6 +432,43 @@ impl Store {
         drop(client);
         finish_owner_snapshot(self, token, unit, reply, location).await
     }
+    /// Resolve one immutable rendition under the current Work owner, including stale briefs.
+    /// Accepted historical audio stays private and readable; upload eligibility is separate.
+    pub(crate) async fn audio_rendition_object(
+        &self,
+        token: &str,
+        unit: &str,
+        submission: &str,
+        rendition: &str,
+    ) -> Result<PrivateObjectRef, StoreError> {
+        let unit = ContentUnitId::parse(unit).map_err(|_| StoreError::InvalidRequest)?;
+        let submission = AudioSubmissionId::parse(submission).map_err(invalid)?;
+        let rendition = AudioRenditionId::parse(rendition).map_err(invalid)?;
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let (s, _, _) = owner(
+            &tx,
+            token,
+            unit.as_str(),
+            submission.as_str(),
+            LockMode::Share,
+        )
+        .await?;
+        let actor = authenticate(&tx, token).await?;
+        let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
+        let resource_owner =
+            OwnerId::parse(&s.document().owner_id).map_err(|_| StoreError::CorruptRevision)?;
+        decide_owner_read(&actor, &resource_owner).map_err(StoreError::Storage)?;
+        let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
+        if r.document().id != rendition.as_str() {
+            return Err(StoreError::NotFound);
+        }
+        let object = sql::location(&tx, &r).await?;
+        authenticate(&tx, token).await?;
+        tx.commit().await?;
+        Ok(object)
+    }
+
     pub async fn producer_audio_submission(
         &self,
         bearer: &str,

@@ -90,6 +90,12 @@ HTTP_PURE_BOUNDARIES = {
     ("contexts", "production", "production_catalog"),
     ("script_ir", "read_script"),
 }
+# Media's concrete private-read facade admits HTTP ranges and exposes only application scope,
+# safe errors and a bounded byte stream. This never permits direct domain/adapter dependencies.
+MEDIA_READ_HTTP_TYPES = {
+    "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageError",
+    "StorageStream",
+}
 TABLE_OWNER = {
     "scripts": "editorial", "script_members": "editorial",
     "script_revisions": "editorial", "script_reviews": "editorial",
@@ -513,7 +519,10 @@ def dependency_error(path, owner, domain, http):
             ("contexts", "catalog", "CatalogCursor"),
             ("contexts", "catalog", "CatalogCursor", "decode"),
         }
-        if http and path not in HTTP_PURE_BOUNDARIES and not (catalog_wire or catalog_error or catalog_input_type):
+        media_read = (path[:3] == ("contexts", "media", "read") and len(path) >= 4
+                      and path[3] in MEDIA_READ_HTTP_TYPES)
+        if http and path not in HTTP_PURE_BOUNDARIES and not (
+                catalog_wire or catalog_error or catalog_input_type or media_read):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"

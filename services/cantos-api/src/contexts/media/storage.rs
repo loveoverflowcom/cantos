@@ -90,7 +90,11 @@ impl PrivateStorage for AudioStorage {
 
             let range = range
                 .map(Ok)
-                .unwrap_or_else(|| NormalizedByteRange::full(integrity.byte_length()))
+                .unwrap_or_else(|| {
+                    crate::contexts::media::domain::object_storage::NormalizedByteRange::full(
+                        integrity.byte_length(),
+                    )
+                })
                 .map_err(|_| StorageError::InvalidIntegrity)?;
             if range.total_byte_length() != integrity.byte_length() {
                 return Err(StorageError::LengthMismatch);

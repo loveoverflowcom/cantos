@@ -13,6 +13,7 @@ use cantos_contracts::{routes, ApiError, ErrorCode};
 use tower_http::services::ServeDir;
 
 use crate::contexts::editorial::domain::diagnostics::validation_issues;
+use crate::contexts::media::read::StorageError;
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
@@ -230,10 +231,7 @@ fn error_response(error: StoreError) -> Response {
         .into_response()
 }
 
-fn storage_error_response(
-    error: crate::contexts::media::domain::object_storage::StorageError,
-) -> Response {
-    use crate::contexts::media::domain::object_storage::StorageError;
+fn storage_error_response(error: StorageError) -> Response {
     let level = match error {
         StorageError::NotFound => "DEBUG",
         StorageError::Forbidden

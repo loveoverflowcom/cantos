@@ -3,17 +3,12 @@
 //!
 //! Business tables, queries and decisions live in each context's own `postgres` and
 //! `application` modules, never here.
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use cantos_contracts::FieldIssue;
 use deadpool_postgres::{Manager, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::{Config, NoTls};
 
-use crate::contexts::media::{
-    domain::object_storage::StorageError, storage::registry::StorageRegistry,
-};
 use crate::platform::ids::canonical_uuid;
-use crate::script_ir::ReadError;
 
 mod migrations;
 mod session;
@@ -26,47 +21,14 @@ pub(crate) use session::{authenticate, session_token_registered};
 /// issue SQL through it themselves.
 pub(crate) type Tx<'a> = deadpool_postgres::Transaction<'a>;
 
-/// Outcome vocabulary of every use case, mapped one-to-one onto the HTTP error contract.
-///
-/// Three origins share it: access refusals (`Unauthenticated`, `NotFound`, `Forbidden`),
-/// rejections carried up from pure domain decisions (`InvalidRequest*`, `InvalidScript`,
-/// `EvidenceUnavailable`, `Stale*`, `OperationReused`, `ProposalAlreadySubmitted`,
-/// `ProductionBlocked`) and infrastructure failures (`Unavailable` for the database,
-/// `CorruptRevision` for a stored row that fails its integrity checks). Domain functions never
-/// construct it; application code maps their typed results into it.
-#[derive(Debug)]
-pub enum StoreError {
-    Unauthenticated,
-    NotFound,
-    Forbidden,
-    InvalidRequest,
-    InvalidRequestFields(Vec<FieldIssue>),
-    InvalidScript(ReadError),
-    EvidenceUnavailable,
-    StaleRevision(u64),
-    OperationReused,
-    ProposalAlreadySubmitted,
-    StaleProductionInputs,
-    ProductionBlocked(Vec<FieldIssue>),
-    Unavailable,
-    CorruptRevision,
-    Storage(StorageError),
-    AudioRejected(&'static str),
-    AudioInspectionUnavailable(&'static str),
-}
+// Retained public compatibility path; the aggregate and its use-case error vocabulary belong
+// to composition, while this module implements PostgreSQL connection/session plumbing only.
+pub use crate::composition::{Store, StoreError};
 
 impl From<tokio_postgres::Error> for StoreError {
     fn from(_: tokio_postgres::Error) -> Self {
         Self::Unavailable
     }
-}
-
-/// The application's handle on its PostgreSQL authority. Each context adds its use cases as
-/// inherent methods from its own `application` module.
-#[derive(Clone)]
-pub struct Store {
-    pool: Pool,
-    pub(crate) media_storage: Option<Arc<StorageRegistry>>,
 }
 
 /// Row locks taken while reading facts that a decision depends on.

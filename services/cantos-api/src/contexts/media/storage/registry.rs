@@ -109,6 +109,38 @@ impl StorageRegistry {
             .await
             .map_err(verification_error)
     }
+    pub(crate) async fn open_verified(
+        &self,
+        object: &PrivateObjectRef,
+        range: Option<super::super::domain::object_storage::NormalizedByteRange>,
+    ) -> Result<super::port::StorageRead, StoreError> {
+        use futures_util::StreamExt;
+        let permit = storage_permit()?;
+        let read = self
+            .resolve(object.target())?
+            .open_verified(object.key().clone(), object.integrity().clone(), range)
+            .await
+            .map_err(storage_error)?;
+        let stream = read.stream.map(move |chunk| {
+            let _keep_permit = &permit;
+            chunk
+        });
+        Ok(super::port::StorageRead {
+            stream: Box::pin(stream),
+            byte_length: read.byte_length,
+        })
+    }
+    pub(crate) async fn temporary_read(
+        &self,
+        object: &PrivateObjectRef,
+        ttl: u32,
+    ) -> Result<Option<super::port::TemporaryRead>, StoreError> {
+        let _permit = storage_permit()?;
+        self.resolve(object.target())?
+            .temporary_read(object.key().clone(), object.integrity().clone(), ttl)
+            .await
+            .map_err(storage_error)
+    }
 }
 pub(crate) fn storage_error(error: StorageError) -> StoreError {
     StoreError::Storage(error)

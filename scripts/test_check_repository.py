@@ -408,6 +408,31 @@ fn error(e: CatalogStoreError) { match e { CatalogStoreError::Domain(CatalogErro
                     f"fn f() {{ crate::contexts::catalog::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
+    def test_media_http_allows_the_reviewed_private_read_facade(self):
+        self.assertEqual(self.errors("interfaces/http/studio/audio_reads.rs", """
+use crate::contexts::media::read::{
+    AudioReadScope, ByteRange, NormalizedByteRange, RangeError, StorageError, StorageStream,
+};
+fn ranges() { ByteRange::parse(raw); NormalizedByteRange::byte_length(range); }
+fn errors(e: StorageError) { match e { StorageError::NotFound => {}, _ => {} } }
+fn read() { AudioReadScope::ScriptIntent { script, intent }; state.store.authorize_audio_read(scope); }
+"""), [])
+
+    def test_media_http_facade_keeps_domain_adapters_and_unreviewed_types_private(self):
+        for dependency in (
+            "domain::object_storage::ByteRange",
+            "domain::object_storage::StorageError",
+            "read_application::AudioReadScope",
+            "storage::port::StorageStream",
+            "storage::s3::S3Storage",
+            "read::StorageRegistry",
+            "read::PrivateObjectRef",
+        ):
+            with self.subTest(dependency=dependency):
+                self.assertRejected("interfaces/http/studio/audio_reads.rs",
+                    f"use crate::contexts::media::{dependency};",
+                    "HTTP must delegate business decisions through application use cases")
+
     def test_http_cannot_import_business_policy(self):
         self.assertRejected("interfaces/http/studio/production.rs", """
 use crate::contexts::production::{domain::assess_eligibility as assess};

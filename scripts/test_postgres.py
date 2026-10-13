@@ -521,6 +521,7 @@ def catalog_recovery(port, fixture):
 
 
 def audio_recovery(port, fixture):
+    """Replay receipts and read exact private bytes over TCP before/after API and PG restart."""
     unit, submission = fixture["unit"], fixture["request"]["id"]
     base = f"/content-units/{unit}/audio-submissions"
     result = {
@@ -536,6 +537,79 @@ def audio_recovery(port, fixture):
     actual = path.read_bytes()
     assert len(actual) == rendition["verified_media"]["byte_length"]
     assert hashlib.sha256(actual).hexdigest() == rendition["verified_media"]["sha256"]
+
+    class NoReadRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, request, response, code, message, headers, new_url):
+            return None
+
+    delivery_opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), NoReadRedirect())
+
+    def preview(method, path, extra=None, expected_status=200):
+        headers = {"Cookie": "cantos_session=" + "a" * 64,
+                   "Origin": f"http://127.0.0.1:{port}"}
+        headers.update(extra or {})
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/v1/studio{path}",
+            method=method, headers=headers)
+        try:
+            response = delivery_opener.open(request, timeout=15)
+        except urllib.error.HTTPError as error:
+            response = error
+        with response:
+            assert response.status == expected_status, (path, response.status)
+            assert response.headers["Cache-Control"] == "no-store"
+            assert response.headers["X-Content-Type-Options"] == "nosniff"
+            return response.read(), response.headers
+
+    media = rendition["verified_media"]
+    byte_path = f"{base}/{submission}/renditions/{rendition['id']}/bytes"
+    expected_etag = '"' + media["sha256"] + '"'
+    received, headers = preview("GET", byte_path)
+    assert received == actual
+    assert hashlib.sha256(received).hexdigest() == media["sha256"]
+    assert headers["Content-Type"] == "audio/ogg"
+    assert headers["Content-Length"] == str(len(actual))
+    assert headers["Accept-Ranges"] == "bytes"
+    assert headers["ETag"] == expected_etag
+    assert headers.get("Content-Range") is None
+    assert headers.get("Content-Encoding") is None
+    delivery = {"sha256": hashlib.sha256(received).hexdigest(),
+                "byte_length": len(received), "content_type": headers["Content-Type"],
+                "etag": headers["ETag"], "ranges": []}
+    received, headers = preview("HEAD", byte_path, {"Range": f"bytes={len(actual)}-"})
+    assert received == b""
+    assert headers["Content-Length"] == str(len(actual))
+    assert headers["Content-Type"] == "audio/ogg"
+    assert headers["ETag"] == expected_etag
+    assert headers.get("Content-Range") is None
+    delivery["head_byte_length"] = int(headers["Content-Length"])
+    middle, final_first = len(actual) // 2, len(actual) - 32
+    for value, first, last in [
+            ("bytes=0-31", 0, 31),
+            (f"bytes={middle}-{middle + 31}", middle, middle + 31),
+            ("bytes=-32", final_first, len(actual) - 1),
+            (f"bytes={final_first}-", final_first, len(actual) - 1)]:
+        received, headers = preview("GET", byte_path, {"Range": value}, 206)
+        assert received == actual[first:last + 1]
+        assert headers["Content-Length"] == str(last - first + 1)
+        assert headers["Content-Range"] == f"bytes {first}-{last}/{len(actual)}"
+        assert headers["Content-Type"] == "audio/ogg"
+        assert headers["ETag"] == expected_etag
+        delivery["ranges"].append({"request": value, "content_range": headers["Content-Range"],
+                                   "byte_length": len(received),
+                                   "sha256": hashlib.sha256(received).hexdigest()})
+    received, headers = preview("GET", byte_path, {"Range": f"bytes={len(actual)}-"}, 416)
+    assert headers["Content-Range"] == f"bytes */{len(actual)}"
+    assert json.loads(received)["code"] == "invalid_request"
+    delivery["unsatisfiable_content_range"] = headers["Content-Range"]
+    access_path = byte_path.removesuffix("/bytes") + "/read-access"
+    received, headers = preview("GET", access_path, expected_status=303)
+    assert received == b""
+    assert headers["Location"] == "/api/v1/studio" + byte_path
+    assert headers.get("X-Cantos-Read-Expires-At") is None
+    delivery["access_location"] = headers["Location"]
+    result["delivery"] = delivery
     request = urllib.request.Request(f"http://127.0.0.1:{port}/api/v1/studio/producer/audio-submissions/{submission}/bytes", data=actual, method="PUT", headers={"Origin": f"http://127.0.0.1:{port}", "Content-Type": "application/octet-stream", "Accept": "application/json", "Authorization": "Bearer " + fixture["upload_token"]})
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(request, timeout=15) as response:
@@ -692,8 +766,8 @@ def main():
             audio_host = start_host(audio_env, audio_http_port, catalog_log, audio, readiness=lambda p, f: audio_recovery(p, f))
             audio_after = audio_recovery(audio_http_port, audio)
             assert audio_before == audio_after
-            (CATALOG_EVIDENCE / "audio-server-restart.json").write_text(json.dumps({"provenance": audio["provenance"], "before": audio_before, "after": audio_after, "checks": "real socket HTTP; killed API host; PostgreSQL restart; exact original-operation prepare/PUT/candidate replay; private byte SHA-256 readback"}, ensure_ascii=False, indent=2) + "\n")
-            print("PASS: Audio Lifecycle actual socket HTTP + API kill + PostgreSQL restart + exact immutable receipts/reviews/candidates + original PUT replay + actual private byte integrity")
+            (CATALOG_EVIDENCE / "audio-server-restart.json").write_text(json.dumps({"provenance": audio["provenance"], "before": audio_before, "after": audio_after, "checks": "real socket HTTP; killed API host; PostgreSQL restart; exact original-operation prepare/PUT/candidate replay; owner GET/HEAD SHA-256/length/type/ETag; first/middle/suffix/final ranges and 416; local read-access 303"}, ensure_ascii=False, indent=2) + "\n")
+            print("PASS: Audio Lifecycle actual socket HTTP + API kill + PostgreSQL restart + exact immutable receipts/reviews/candidates + original PUT replay + owner byte GET/HEAD/Range integrity + refreshable local read access")
             catalog_after = catalog_recovery(catalog_http_port, catalog)
             assert catalog_after == catalog_before
             (CATALOG_EVIDENCE / "http-server-restart.json").write_text(json.dumps({
