@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub use super::domain::audio_profile::DeliveryProfile;
 use super::{process, structure};
 
-pub const MAX_AUDIO_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_AUDIO_BYTES: usize = super::domain::object_storage::MAX_OBJECT_BYTES as usize;
 const MAX_DURATION_SECONDS: f64 = 3600.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

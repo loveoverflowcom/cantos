@@ -5,7 +5,7 @@ mod application;
 pub mod audio_intake;
 mod postgres;
 mod process;
-pub(crate) mod storage;
+pub mod storage;
 mod structure;
 
 mod lifecycle_application;
