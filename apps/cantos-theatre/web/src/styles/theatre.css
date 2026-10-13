@@ -1,4 +1,11 @@
-/* Theatre-only compositions. Canonical v0.2.0 roles; local measures are app geometry. */
+/* Theatre-only compositions. Canonical roles plus the Web-only shape roles; local measures are app geometry. */
+/* Bundled Noto Sans/Serif (OFL, Vietnamese + Latin subset; provenance in assets/provenance.json).
+   The shared type roles name these families; without these faces a machine lacking Noto would
+   silently fall back to Georgia/system-ui. Two weights each: 500/600 map to the regular/bold faces. */
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/noto-sans-regular.woff2") format("woff2"); }
+@font-face { font-family: "Noto Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("assets/fonts/noto-sans-bold.woff2") format("woff2"); }
+@font-face { font-family: "Noto Serif"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/noto-serif-regular.woff2") format("woff2"); }
+@font-face { font-family: "Noto Serif"; font-style: normal; font-weight: 700; font-display: swap; src: url("assets/fonts/noto-serif-bold.woff2") format("woff2"); }
 body { margin: 0; }
 .theatre-shell { min-block-size: 100vh; }
 .theatre-app {
@@ -69,22 +76,10 @@ body { margin: 0; }
 .theatre-nav-link[aria-current="page"] { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container) !important; font-weight: var(--cantos-type-label-weight); }
 .theatre-nav-link:hover { background: var(--cantos-color-surface-container); }
 .theatre-quote { padding: var(--cantos-space-md); font-family: var(--cantos-type-family-editorial); color: var(--cantos-color-on-surface-variant); }
-.theatre-rail-note { padding: var(--cantos-space-md); font-size: var(--cantos-type-metadata-size); color: var(--cantos-color-on-surface-variant); }
 .theatre-content { min-inline-size: 0; }
 .theatre-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-md); padding: var(--cantos-space-lg) var(--cantos-space-xl); color: var(--cantos-color-on-surface-variant); }
 .theatre-topbar p { margin: 0; }
 .theatre-topbar-actions { display: flex; align-items: center; gap: var(--cantos-space-md); }
-.theatre-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: var(--cantos-size-control);
-  min-block-size: var(--cantos-size-control);
-  border-radius: var(--cantos-shape-pill);
-  background: var(--cantos-color-primary-container);
-  color: var(--cantos-color-on-primary-container) !important;
-}
-.theatre-avatar svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
 .theatre-demo-label { font-size: var(--cantos-type-metadata-size); }
 .theatre-main { padding: var(--cantos-space-md) var(--cantos-space-lg) var(--theatre-player-clearance); }
 .theatre-demo-notice { padding: var(--cantos-space-md); border-radius: var(--cantos-web-shape-reading); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
@@ -125,16 +120,75 @@ body { margin: 0; }
 .theatre-filters { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-lg); }
 .theatre-section-heading { margin-block: var(--cantos-space-xl) var(--cantos-space-lg); }
 .theatre-library-section { margin-block: var(--cantos-space-xl); }
+/* Panels: the Web v2 base panel is 24px (panel role); nested art and rows keep the container role. */
+.theatre-panel { padding: var(--cantos-space-lg); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-panel); }
+/* The one app-private listener avatar (guest glyph); `large` is the account identity size. */
+.theatre-app .theatre-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--cantos-size-control);
+  min-block-size: var(--cantos-size-control);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+  text-decoration: none;
+}
+.theatre-avatar svg { inline-size: var(--cantos-size-icon); block-size: var(--cantos-size-icon); }
+.theatre-avatar[data-size="large"] { inline-size: var(--cantos-size-avatar-large); min-block-size: var(--cantos-size-avatar-large); }
+.theatre-avatar[data-size="large"] svg { inline-size: calc(var(--cantos-size-icon) * 1.5); block-size: calc(var(--cantos-size-icon) * 1.5); }
+.theatre-avatar[aria-current="page"] { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: calc(var(--cantos-size-focus-offset) * -1); }
+.theatre-cover[data-art] { padding: 0; background: var(--cantos-color-surface-container); }
+.theatre-cover-art { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; object-fit: cover; }
+/* Small covers: artwork only; the typographic fallback keeps just its title. */
+.theatre-continue-art .theatre-cover, .theatre-row-art .theatre-cover { aspect-ratio: 1; min-block-size: 0; padding: var(--cantos-space-sm); justify-content: center; }
+.theatre-continue-art .theatre-cover[data-art], .theatre-row-art .theatre-cover[data-art] { padding: 0; }
+.theatre-continue-art .theatre-cover:not([data-art]) > :not(strong), .theatre-row-art .theatre-cover:not([data-art]) > :not(strong) { display: none; }
+.theatre-continue-art .theatre-cover strong, .theatre-row-art .theatre-cover strong { font-size: var(--cantos-type-metadata-size); line-height: var(--cantos-type-body-line-height); }
+/* Artwork and copy sit side by side while the copy keeps a readable measure, and stack when it would not (small viewport or large text). */
+.theatre-continue { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--cantos-space-lg); max-inline-size: 44rem; }
+.theatre-continue-art { flex: 0 0 clamp(4.5rem, 18vw, 8rem); }
+.theatre-continue-body { flex: 1 1 11rem; }
+.theatre-continue-body { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: var(--cantos-space-sm); min-inline-size: 0; }
+.theatre-app .theatre-continue-title { margin: 0; font-size: var(--cantos-type-title-size); line-height: var(--cantos-type-title-line-height); }
+.theatre-continue-title a, .theatre-row-copy h3 a, .theatre-work-meta h3 a { display: inline-flex; align-items: center; min-block-size: var(--cantos-size-control); text-decoration: none; }
+.theatre-continue-episode { margin: 0; color: var(--cantos-color-on-surface-variant); }
+.theatre-continue-body .theatre-action { margin-block-start: var(--cantos-space-sm); }
+.theatre-hint { margin: 0; font-size: var(--cantos-type-metadata-size); }
+.theatre-progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-xs) var(--cantos-space-md); inline-size: 100%; margin-block-start: var(--cantos-space-sm); }
+.theatre-progress-row .theatre-time { margin: 0; white-space: normal; color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.theatre-progress { flex: 1 1 8rem; block-size: var(--cantos-space-sm); border-radius: var(--cantos-shape-pill); background: var(--cantos-color-outline-variant); overflow: hidden; }
+.theatre-progress > span { display: block; inline-size: var(--theatre-progress, 0%); block-size: 100%; border-radius: inherit; background: var(--cantos-color-primary); }
+.theatre-history-list { display: grid; gap: var(--cantos-space-md); max-inline-size: 44rem; margin: 0; padding: 0; list-style: none; }
+.theatre-continue + .theatre-history-list { margin-block-start: var(--cantos-space-md); }
+.theatre-listening-row { display: grid; grid-template-columns: 4rem minmax(0, 1fr) auto; align-items: center; gap: var(--cantos-space-md); }
+.theatre-row-copy { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; }
+.theatre-app .theatre-row-copy :where(h3, p) { margin: 0; }
+.theatre-quiet-empty { max-inline-size: 65ch; margin: 0; }
+.theatre-empty { display: flex; align-items: flex-start; gap: var(--cantos-space-md); max-inline-size: 44rem; }
+.theatre-empty > div { min-inline-size: 0; }
+.theatre-app .theatre-empty h3 { margin-block-end: var(--cantos-space-sm); }
+.theatre-empty .theatre-icon { margin-block-start: var(--cantos-space-xs); color: var(--cantos-color-primary); }
+.theatre-empty .theatre-action { margin-block-start: var(--cantos-space-sm); }
+.theatre-account { display: grid; grid-template-columns: minmax(15rem, 19rem) minmax(0, 36rem); align-items: start; gap: var(--cantos-space-lg); }
+.theatre-account-identity { display: grid; justify-items: start; gap: var(--cantos-space-md); }
+.theatre-app .theatre-account-name h2 { margin: 0 0 var(--cantos-space-xs); }
+.theatre-account-name p { margin: 0; }
+.theatre-account-content { display: grid; gap: var(--cantos-space-lg); min-inline-size: 0; }
+.theatre-app .theatre-group-heading { margin: 0 0 var(--cantos-space-sm); color: var(--cantos-color-on-surface-variant); font: var(--cantos-type-label-weight) var(--cantos-type-label-size)/var(--cantos-type-label-line-height) var(--cantos-type-family-ui); }
+.theatre-rows { display: grid; gap: var(--cantos-space-xs); margin: 0; padding: 0; list-style: none; }
+.theatre-rows dd { margin: 0; }
+.theatre-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--cantos-space-xs) var(--cantos-space-md); min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-inset); }
+.theatre-row-label { font-weight: var(--cantos-type-label-weight); }
+.theatre-row-value { padding: var(--cantos-space-xs) var(--cantos-space-md); border-radius: var(--cantos-shape-pill); background: var(--cantos-color-surface-container-high); font-size: var(--cantos-type-metadata-size); font-weight: var(--cantos-type-label-weight); }
+.theatre-row-help { grid-column: 1 / -1; font-size: var(--cantos-type-metadata-size); }
+.theatre-row-link { grid-template-columns: auto minmax(0, 1fr); gap: var(--cantos-space-md); padding-inline: var(--cantos-space-md); border-radius: var(--cantos-web-shape-control); text-decoration: none; }
+.theatre-row-link .theatre-row-copy { display: grid; gap: var(--cantos-space-xs); }
+.theatre-row-link:hover { background: var(--cantos-color-surface-container-high); }
 .theatre-section-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); }
 .theatre-section-header h2 { margin-block: var(--cantos-space-md); }
-.theatre-library-notice { max-inline-size: 65ch; color: var(--cantos-color-on-surface-variant); }
-.theatre-section-empty { padding: var(--cantos-space-lg); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); }
-.theatre-section-empty p { margin-block-end: var(--cantos-space-sm); }
-.theatre-history-list { list-style: none; margin: 0; padding: 0; }
-.theatre-listening-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-md); padding-block: var(--cantos-space-lg); }
-.theatre-listening-row > div { flex: 1 1 16rem; min-inline-size: 0; }
-.theatre-listening-row :where(h3, p) { margin-block-end: var(--cantos-space-sm); }
 .theatre-history-confirm { margin-block: var(--cantos-space-lg); padding: var(--cantos-space-lg); border-radius: var(--cantos-web-shape-container); background: var(--cantos-color-surface-container-high); }
+.theatre-library-section .theatre-shelf { grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 16rem)); }
 .theatre-shelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cantos-space-lg); }
 .theatre-work-card { min-inline-size: 0; }
 .theatre-cover-link { display: block; border-radius: var(--cantos-web-shape-container); text-decoration: none; }
@@ -160,11 +214,6 @@ body { margin: 0; }
 .theatre-work-meta { padding-block: var(--cantos-space-md); }
 .theatre-work-meta h3 { font-size: var(--cantos-type-title-size); margin-block-end: var(--cantos-space-sm); }
 .theatre-work-meta h3 a { text-decoration: none; }
-.theatre-continue { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-lg); padding: var(--cantos-space-lg); margin-block: var(--cantos-space-lg); border-radius: var(--cantos-web-shape-container); background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
-.theatre-continue > div { flex: 1 1 20rem; min-inline-size: 0; }
-.theatre-continue .theatre-eyebrow, .theatre-continue .theatre-muted { color: var(--cantos-color-on-primary-container); }
-.theatre-continue h2 { margin-block-end: var(--cantos-space-sm); }
-.theatre-continue p { margin-block-end: var(--cantos-space-xs); }
 .theatre-search-field { display: grid; gap: var(--cantos-space-sm); }
 .theatre-input { inline-size: 100%; min-block-size: var(--cantos-size-control); padding: var(--cantos-space-inset) var(--cantos-space-md); border: var(--cantos-size-border) solid var(--cantos-color-outline); border-radius: var(--cantos-web-shape-reading); background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); font: inherit; }
 .theatre-state { padding: var(--cantos-space-xl); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); max-inline-size: 65ch; }
@@ -248,4 +297,16 @@ body { margin: 0; }
   .theatre-action, .theatre-chip, .theatre-nav-link[aria-current="page"] { outline: var(--cantos-size-border) solid ButtonText; }
   .theatre-action:disabled { color: GrayText !important; }
   .theatre-chip[aria-pressed="true"], .theatre-action[aria-pressed="true"] { outline: var(--cantos-size-focus-width) solid Highlight; }
+}
+@media (max-width: 56.25rem) { .theatre-account { grid-template-columns: minmax(0, 1fr); max-inline-size: 36rem; } }
+@media (max-width: 43.75rem) {
+  .theatre-panel { padding: var(--cantos-space-md); }
+  .theatre-continue { gap: var(--cantos-space-md); }
+  .theatre-continue-art { flex-basis: clamp(4.5rem, 18vw, 5rem); }
+  .theatre-listening-row { grid-template-columns: clamp(2.5rem, 14vw, 3.5rem) minmax(0, 1fr); }
+  .theatre-listening-row > .theatre-action { grid-column: 2; justify-self: start; }
+}
+@media (forced-colors: active) {
+  .theatre-progress { outline: var(--cantos-size-border) solid ButtonText; }
+  .theatre-progress > span { background: Highlight; }
 }

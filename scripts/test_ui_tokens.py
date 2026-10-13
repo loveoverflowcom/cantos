@@ -484,6 +484,7 @@ WEB_SHAPE_ROLES = {
     "--cantos-web-shape-reading": "0.75rem",
     "--cantos-web-shape-container": "1.125rem",
     "--cantos-web-shape-overlay": "1.5rem",
+    "--cantos-web-shape-panel": "1.5rem",
 }
 CANONICAL_SHAPE_USE = re.compile(r"var\(\s*--cantos-shape-(?!pill\b)[a-z-]+")
 
@@ -506,7 +507,7 @@ def declared_values(css):
 
 
 class WebShapeIndependence(unittest.TestCase):
-    """Web corners (24/12/18/24) must not move when the shared CMP shape scale does."""
+    """Web corners (24/12/18/24, panel 24) must not move when the shared CMP shape scale does."""
 
     def test_web_shape_roles_hold_the_documented_historical_values_in_the_one_source(self):
         self.assertEqual(declared_values(TEMPLATE.read_text(encoding="utf-8")), WEB_SHAPE_ROLES)

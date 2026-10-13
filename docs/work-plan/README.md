@@ -104,7 +104,9 @@ API sequence above. GitHub owns status.
   listener API first; neither completes 040 nor its issues.
   The [#35 Web library MVP mock](../evidence/theatre-web-library-mvp.md) provides a bounded UX
   review step: Khám phá/Của tôi navigation, direct Continue/Saved/History sections and persistent
-  mock mini-player. Retain publication,
+  mock mini-player. The [library/account v2 visual pass](../evidence/theatre-web-library-account-v2.md)
+  reworks those two screens (cluster, status rows, bundled fonts/mock artwork) without new product
+  scope; its Drive reference comparison and Avatar qualification remain open. Retain publication,
   listener identity/API and real playback/synchronization prerequisites for production acceptance.
   The mock does not settle the broader product/backend decisions tracked by
   [#34](https://github.com/loveoverflowcom/cantos/issues/34) or close #35.

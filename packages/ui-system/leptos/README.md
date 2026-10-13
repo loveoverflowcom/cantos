@@ -86,7 +86,7 @@ are committed and must not be hand-edited. All selectors are scoped by `.cantos-
 come from canonical v0.2.0 roles. No per-component dark palette, font download or artwork is bundled.
 System/local font fallbacks remain explicit. Layout measures (75ch/76rem and dialog maximum) are
 renderer geometry; spacing, colors, type, targets, density, focus and the pill shape use shared tokens.
-Corner radii use the Web-only `--cantos-web-shape-{control,reading,container,overlay}` roles declared
+Corner radii use the Web-only `--cantos-web-shape-{control,reading,container,overlay,panel}` roles declared
 in `foundation.css.in` ([mapping](../shared/README.md#web-shape-mapping)); components, apps and the
 gallery never read the shared CMP `shape.*` scale directly.
 

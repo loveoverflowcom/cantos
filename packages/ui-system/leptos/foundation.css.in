@@ -11,6 +11,7 @@
   --cantos-web-shape-reading: 0.75rem;
   --cantos-web-shape-container: 1.125rem;
   --cantos-web-shape-overlay: 1.5rem;
+  --cantos-web-shape-panel: 1.5rem;
 }
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
    Padding on the control leaves room for accents/descenders; never clip the label.

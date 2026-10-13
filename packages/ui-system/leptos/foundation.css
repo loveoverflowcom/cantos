@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971 template-sha256:755f7a5e576d1c648f5b41b5e58cee0d3fd687e5838b7a8a425ca7af717cb8e7
+/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971 template-sha256:5a6fc4680cbb56cba65510cff39c9020a8201948ad755f71738b319b26b7d3ed
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -13,6 +13,7 @@
   --cantos-web-shape-reading: 0.75rem;
   --cantos-web-shape-container: 1.125rem;
   --cantos-web-shape-overlay: 1.5rem;
+  --cantos-web-shape-panel: 1.5rem;
 }
 /* Center the visible cap-to-baseline box, rather than the font's asymmetric leading.
    Padding on the control leaves room for accents/descenders; never clip the label.
