@@ -3,6 +3,8 @@ package com.cantos.theatre.app
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.cantos.theatre.demo.DemoCatalogMode
+import com.cantos.theatre.demo.DemoEpisodeId
+import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoTheme
@@ -37,4 +39,28 @@ fun TheatreDiscoveryWidePreview() {
 @Composable
 fun TheatreErrorDarkPreview() {
     CantosDemoApp(initialState = DemoState(catalogMode = DemoCatalogMode.Error, theme = DemoTheme.Dark))
+}
+
+@Preview(name = "My library · vi · light", widthDp = 390, heightDp = 844, locale = "vi")
+@Composable
+fun TheatreLibraryLightPreview() {
+    CantosDemoApp(initialState = DemoState(
+        stack = listOf(DemoRoute.Library),
+        history = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768)),
+    ))
+}
+
+@Preview(name = "My library · vi · dark · 2x narrow", widthDp = 320, heightDp = 800, locale = "vi", fontScale = 2f)
+@Composable
+fun TheatreLibraryNarrowLargePreview() {
+    CantosDemoApp(initialState = DemoState(stack = listOf(DemoRoute.Library), theme = DemoTheme.Dark))
+}
+
+@Preview(name = "History · vi · light", widthDp = 390, heightDp = 844, locale = "vi")
+@Composable
+fun TheatreHistoryLightPreview() {
+    CantosDemoApp(initialState = DemoState(
+        stack = listOf(DemoRoute.Library, DemoRoute.History),
+        history = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768)),
+    ))
 }

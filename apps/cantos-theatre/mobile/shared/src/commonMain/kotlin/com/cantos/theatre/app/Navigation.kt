@@ -6,6 +6,8 @@ sealed interface TheatreRoute {
     data object Discovery : TheatreRoute
     data object Search : TheatreRoute
     data object Library : TheatreRoute
+    data object Account : TheatreRoute
+    data object History : TheatreRoute
     data object Settings : TheatreRoute
     data object Queue : TheatreRoute
     data object Player : TheatreRoute
@@ -50,8 +52,10 @@ fun reduceNavigation(state: NavigationState, event: NavigationEvent): Navigation
 }
 
 private fun navigate(state: NavigationState, route: TheatreRoute): NavigationState = when (route) {
-    TheatreRoute.Discovery, TheatreRoute.Search, TheatreRoute.Library -> NavigationState(listOf(route))
-    TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work -> {
+    TheatreRoute.Discovery, TheatreRoute.Library -> NavigationState(listOf(route))
+    TheatreRoute.Search -> NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Search))
+    TheatreRoute.History -> NavigationState(listOf(TheatreRoute.Library, TheatreRoute.History))
+    TheatreRoute.Account, TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work -> {
         val existingIndex = state.stack.indexOf(route)
         NavigationState(if (existingIndex >= 0) state.stack.take(existingIndex + 1) else state.stack + route)
     }

@@ -26,6 +26,22 @@ class NavigationTest {
     }
 
     @Test
+    fun search_history_and_account_are_secondary_to_the_two_primary_destinations() {
+        val discovery = NavigationState()
+        val search = reduceNavigation(discovery, NavigationEvent.Navigate(TheatreRoute.Search))
+        assertEquals(listOf(TheatreRoute.Discovery, TheatreRoute.Search), search.stack)
+        assertEquals(discovery, reduceNavigation(search, NavigationEvent.Back))
+        val history = reduceNavigation(search, NavigationEvent.Navigate(TheatreRoute.History))
+        assertEquals(listOf(TheatreRoute.Library, TheatreRoute.History), history.stack)
+        val account = reduceNavigation(history, NavigationEvent.Navigate(TheatreRoute.Account))
+        val settings = reduceNavigation(account, NavigationEvent.Navigate(TheatreRoute.Settings))
+        assertEquals(account, reduceNavigation(settings, NavigationEvent.Back))
+        assertEquals(history, reduceNavigation(account, NavigationEvent.Back))
+        assertEquals(NavigationState(listOf(TheatreRoute.Library)), reduceNavigation(history, NavigationEvent.Back))
+        assertEquals(discovery, reduceNavigation(settings, NavigationEvent.Navigate(TheatreRoute.Discovery)))
+    }
+
+    @Test
     fun navigation_copies_collection_authority_and_rejects_empty_root() {
         val stack = mutableListOf<TheatreRoute>(TheatreRoute.Discovery, TheatreRoute.Player)
         val state = NavigationState(stack)

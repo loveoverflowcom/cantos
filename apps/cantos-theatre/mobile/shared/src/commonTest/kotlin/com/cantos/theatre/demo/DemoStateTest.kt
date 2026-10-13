@@ -20,6 +20,8 @@ class DemoStateTest {
         assertFalse(state.transportRequested)
         assertFalse(canGoBack(state))
         assertEquals(DemoLocale.Vietnamese, state.locale)
+        assertEquals(listOf(DemoProgress(DemoEpisodeId.SonHa03, 768)), state.progress)
+        assertEquals(emptyList(), state.history)
         val simulatedSeed = DemoState(simulating = true)
         assertEquals(PlaybackUiStatus.Simulating, simulatedSeed.playbackStatus)
         assertTrue(simulatedSeed.simulating)
@@ -49,14 +51,20 @@ class DemoStateTest {
             DemoBookmark(DemoEpisodeId.SonHa03, 768),
             DemoBookmark(DemoEpisodeId.DenKhua01, 100),
         )
-        val state = DemoState(stack = stack, savedWorks = saved, bookmarks = bookmarks)
-        val copied = DemoState().copy(stack = stack, savedWorks = saved, bookmarks = bookmarks)
+        val progress = mutableListOf(DemoProgress(DemoEpisodeId.SonHa03, 768), DemoProgress(DemoEpisodeId.DenKhua01, 100))
+        val history = progress.toMutableList()
+        val state = DemoState(stack = stack, savedWorks = saved, bookmarks = bookmarks, progress = progress, history = history)
+        val copied = DemoState().copy(stack = stack, savedWorks = saved, bookmarks = bookmarks, progress = progress, history = history)
         stack.clear()
         saved.clear()
         bookmarks.clear()
+        progress.clear()
+        history.clear()
         listOf(state, copied).forEach { projected ->
             assertEquals(listOf(DemoRoute.Discovery, DemoRoute.Settings), projected.stack)
             assertEquals(setOf(DemoWorkId.SonHa, DemoWorkId.DenKhua), projected.savedWorks)
+            assertEquals(listOf(DemoProgress(DemoEpisodeId.SonHa03, 768), DemoProgress(DemoEpisodeId.DenKhua01, 100)), projected.progress)
+            assertEquals(projected.progress, projected.history)
             assertEquals(
                 listOf(DemoBookmark(DemoEpisodeId.SonHa03, 768), DemoBookmark(DemoEpisodeId.DenKhua01, 100)),
                 projected.bookmarks,
@@ -70,15 +78,21 @@ class DemoStateTest {
             stack = listOf(DemoRoute.Discovery, DemoRoute.Settings),
             savedWorks = setOf(DemoWorkId.SonHa, DemoWorkId.DenKhua),
             bookmarks = listOf(DemoBookmark(DemoEpisodeId.SonHa03, 768), DemoBookmark(DemoEpisodeId.DenKhua01, 100)),
+            progress = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768), DemoProgress(DemoEpisodeId.DenKhua01, 100)),
+            history = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768), DemoProgress(DemoEpisodeId.DenKhua01, 100)),
         )
         val originalHash = state.hashCode()
         (state.stack as MutableList<DemoRoute>).clear()
         (state.savedWorks as MutableSet<DemoWorkId>).clear()
         (state.bookmarks as MutableList<DemoBookmark>).clear()
+        (state.progress as MutableList<DemoProgress>).clear()
+        (state.history as MutableList<DemoProgress>).clear()
         assertEquals(listOf(DemoRoute.Discovery, DemoRoute.Settings), state.stack)
         assertEquals(DemoRoute.Settings, state.route)
         assertEquals(setOf(DemoWorkId.SonHa, DemoWorkId.DenKhua), state.savedWorks)
         assertEquals(2, state.bookmarks.size)
+        assertEquals(2, state.progress.size)
+        assertEquals(2, state.history.size)
         assertEquals(originalHash, state.hashCode())
         assertEquals(state, state.copy())
     }
@@ -93,6 +107,9 @@ class DemoStateTest {
             initial.copy(positionMs = 768_123L),
             initial.copy(savedWorks = emptySet()),
             initial.copy(bookmarks = listOf(DemoBookmark(DemoEpisodeId.SonHa03, 768))),
+            initial.copy(progress = emptyList()),
+            initial.copy(history = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768))),
+            initial.copy(listeningFailure = DemoListeningFailure.MemoryStoreUnavailable),
             initial.copy(libraryTab = DemoLibraryTab.Saved),
             initial.copy(query = "Sơn Hà"),
             initial.copy(catalogMode = DemoCatalogMode.Error),
@@ -124,6 +141,8 @@ class DemoStateTest {
         assertFailsWith<IllegalArgumentException> { DemoBookmark(DemoEpisodeId.DenKhua01, -1) }
         assertFailsWith<IllegalArgumentException> { DemoState(positionSeconds = 30, positionMs = 31_123L) }
         assertFailsWith<IllegalArgumentException> { DemoBookmark(DemoEpisodeId.DenKhua01, 30, 31_123L) }
+        assertFailsWith<IllegalArgumentException> { DemoProgress(DemoEpisodeId.DenKhua01, -1) }
+        assertFailsWith<IllegalArgumentException> { DemoProgress(DemoEpisodeId.DenKhua01, 30, 31_123L) }
     }
 
     @Test
@@ -187,6 +206,19 @@ class DemoStateTest {
         listOf(75, 100, 125, 150, 200).forEach { speed ->
             assertEquals(speed, DemoState(speedPercent = speed).speedPercent)
         }
+    }
+
+    @Test
+    fun continue_projection_has_the_latest_point_per_work_without_inventing_history() {
+        val unknown = DemoProgress(DemoEpisodeId.DenKhua01, 40)
+        val state = DemoState(progress = listOf(
+            DemoProgress(DemoEpisodeId.SonHa02, 50),
+            unknown,
+            DemoProgress(DemoEpisodeId.SonHa03, 768, 768_123L),
+        ))
+        assertEquals(listOf(DemoProgress(DemoEpisodeId.SonHa03, 768, 768_123L), unknown), continuingProgress(state))
+        assertEquals(emptyList(), state.history)
+        assertEquals(emptyList(), continuingProgress(state.copy(progress = emptyList())))
     }
 
     private fun sampleWork(episodes: List<DemoEpisode>): DemoWork = DemoWork(

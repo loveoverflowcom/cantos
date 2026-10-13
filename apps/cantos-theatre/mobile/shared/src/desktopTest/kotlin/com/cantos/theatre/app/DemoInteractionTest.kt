@@ -3,6 +3,9 @@ package com.cantos.theatre.app
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
@@ -16,6 +19,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
@@ -33,10 +37,19 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.adapters.mock.MemoryProgressPort
+import com.cantos.theatre.adapters.mock.MockCatalogPort
+import com.cantos.theatre.adapters.mock.MockMediaEngine
+import com.cantos.theatre.adapters.mock.mockInventory
+import com.cantos.theatre.adapters.mock.toEpisodeKey
+import com.cantos.theatre.adapters.mock.toPlaybackSource
+import com.cantos.theatre.domain.listening.ListeningSnapshot
+import com.cantos.theatre.domain.listening.ProgressRecord
+import com.cantos.theatre.domain.playback.PlaybackSnapshot
 import com.cantos.theatre.demo.DemoBookmark
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoEpisodeId
-import com.cantos.theatre.demo.DemoLibraryTab
+import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoLocale
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
@@ -56,9 +69,9 @@ class DemoInteractionTest {
             onNodeWithTag("continue").performScrollTo().performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Phòng nghe"))
             onNodeWithTag("elapsed").assertTextEquals("12:48")
-            onNodeWithTag("simulation-status").assertTextEquals("Đang mô phỏng · Không phát âm thanh")
-            onNodeWithTag("transport").performScrollTo().performClick()
             onNodeWithTag("simulation-status").assertTextEquals("Mô phỏng đang dừng")
+            onNodeWithTag("transport").performScrollTo().performClick()
+            onNodeWithTag("simulation-status").assertTextEquals("Đang mô phỏng · Không phát âm thanh")
             onNodeWithTag("rewind").performScrollTo().performClick()
             onNodeWithTag("elapsed").assertTextEquals("12:33")
             onNodeWithTag("bookmark").performScrollTo().performClick().performClick()
@@ -73,9 +86,12 @@ class DemoInteractionTest {
             onNodeWithTag("mini-open").assert(hasText("Người giữ tiếng chuông")).assert(hasText("12:33"))
             onNodeWithTag("mini-transport").assert(hasContentDescription("Dừng mô phỏng Người giữ tiếng chuông"))
             onNodeWithTag("nav-library").performClick()
-            onNodeWithTag("library-Bookmarks").performScrollTo().performClick().assertIsSelected()
-            onAllNodesWithContentDescription("Mở dấu trang Người giữ tiếng chuông, 12 phút 33 giây")
-                .assertCountEquals(1)
+            onNodeWithTag("library-continue").assertExists()
+            onNodeWithTag("library-saved").assertExists()
+            onNodeWithTag("library-history").assertExists()
+            onNodeWithTag("recent-SonHa03").assertExists()
+            onNodeWithTag("mini-open").performClick()
+            onAllNodesWithContentDescription("Mở dấu trang Người giữ tiếng chuông, 12 phút 33 giây").assertCountEquals(1)
         }
     }
 
@@ -83,7 +99,8 @@ class DemoInteractionTest {
     fun vietnamese_search_empty_result_and_clear_recover_the_visible_catalogue() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { DemoTestRoot() }
-            onNodeWithTag("nav-search").performClick().assertIsSelected()
+            onNodeWithTag("search").performScrollTo().performClick()
+            onNodeWithTag("nav-discovery").assertIsSelected()
             val input = onNodeWithTag("search-input")
             input.performTextReplacement("SƠN HÀ")
             onNodeWithText("1 tác phẩm minh họa").assertExists()
@@ -110,15 +127,15 @@ class DemoInteractionTest {
             onNodeWithTag("save-work").performScrollTo().assert(hasText("Lưu tác phẩm")).performClick()
             onNodeWithTag("save-work").assert(hasText("Đã lưu · Bỏ lưu"))
             onNodeWithTag("nav-library").performClick()
-            onNodeWithTag("library-Saved").performScrollTo().performClick().assertIsSelected()
+            onNodeWithTag("library-saved").performScrollTo()
             onNodeWithTag("work-SonHa").assertExists()
             onNodeWithTag("work-DenKhua").assertDoesNotExist()
             onNodeWithTag("work-SonHa").performScrollTo().performClick()
             onNodeWithTag("save-work").performScrollTo().performClick()
             onNodeWithTag("save-work").assert(hasText("Lưu tác phẩm"))
             onNodeWithTag("nav-library").performClick()
-            onNodeWithTag("library-Saved").assertIsSelected()
-            onNodeWithText("Tủ sách đang chờ bạn").assertExists()
+            onNodeWithTag("library-saved").performScrollTo()
+            onNodeWithText("Chưa lưu câu chuyện nào").assertExists()
             onNodeWithTag("work-SonHa").assertDoesNotExist()
         }
     }
@@ -132,9 +149,12 @@ class DemoInteractionTest {
                     positionSeconds = 900,
                 ))
             }
-            onNodeWithTag("settings").performClick()
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("settings").performScrollTo().performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Cài đặt nghe"))
             onNodeWithTag("theme-Dark").performScrollTo().performClick().assertIsSelected()
+            onNodeWithTag("back").performClick()
+            onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Tài khoản"))
             onNodeWithTag("back").performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Phòng nghe"))
             onNodeWithTag("elapsed").assertTextEquals("15:00")
@@ -147,12 +167,15 @@ class DemoInteractionTest {
     fun escape_from_a_focused_settings_control_returns_to_the_search_query() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { DemoTestRoot() }
-            onNodeWithTag("nav-search").performClick()
+            onNodeWithTag("search").performScrollTo().performClick()
             onNodeWithTag("search-input").performTextReplacement("Đèn Khuya")
-            onNodeWithTag("settings").performClick()
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("settings").performScrollTo().performClick()
             val choice = onNodeWithTag("theme-Dark").performScrollTo()
             choice.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
             choice.assertIsFocused().performKeyInput { pressKey(Key.Escape) }
+            onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Tài khoản"))
+            onNodeWithTag("back").performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Tìm kiếm"))
             onNodeWithTag("search-input").assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("Đèn Khuya")),
@@ -166,8 +189,10 @@ class DemoInteractionTest {
     fun error_scenario_and_retry_keep_the_episode_and_resume_position() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { DemoTestRoot() }
-            onNodeWithTag("settings").performClick()
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("settings").performScrollTo().performClick()
             onNodeWithTag("catalog-Error").performScrollTo().performClick().assertIsSelected()
+            onNodeWithTag("back").performClick()
             onNodeWithTag("back").performClick()
             onNodeWithText("Chưa mở được danh sách minh họa").assertExists()
             onNodeWithText("Đây là lỗi mô phỏng. Tập và điểm nghe của bạn vẫn được giữ.").assertExists()
@@ -250,6 +275,105 @@ class DemoInteractionTest {
     }
 
     @Test
+    fun history_confirmation_clears_only_history_and_latest_work_position_reopens_paused() {
+        val points = listOf(
+            DemoProgress(DemoEpisodeId.SonHa02, 100),
+            DemoProgress(DemoEpisodeId.DenKhua01, 40),
+            DemoProgress(DemoEpisodeId.SonHa03, 768),
+        )
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                DemoTestRoot(initialState = DemoState(
+                    stack = listOf(DemoRoute.Library),
+                    bookmarks = listOf(DemoBookmark(DemoEpisodeId.SonHa03, 768)),
+                    progress = points,
+                    history = listOf(points.last(), points[1]),
+                ))
+            }
+            onNodeWithTag("nav-search").assertDoesNotExist()
+            onNodeWithTag("resume-SonHa02").assertDoesNotExist()
+            onNodeWithTag("resume-SonHa03").assertExists()
+            onNodeWithTag("resume-DenKhua01").assertExists()
+            onNodeWithTag("history-all").performScrollTo().performClick()
+            onNodeWithTag("history-clear").performScrollTo().performClick()
+            onNodeWithText("Chỉ xóa danh sách lịch sử. Vị trí nghe, truyện đã lưu, dấu trang và trình phát vẫn được giữ lại.").assertExists()
+            val cancel = onNodeWithTag("history-cancel")
+            cancel.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+            cancel.assertIsFocused().performKeyInput { pressKey(Key.Escape) }
+            onNodeWithTag("history-dialog").assertDoesNotExist()
+            onNodeWithTag("history-SonHa03").assertExists()
+            onNodeWithTag("history-clear").performClick()
+            onNodeWithTag("history-cancel").performClick()
+            onNodeWithTag("history-SonHa03").assertExists()
+            onNodeWithTag("history-clear").performClick()
+            onNodeWithTag("history-confirm").performClick()
+            onNodeWithText("Chưa có lịch sử nghe").assertExists()
+            onNodeWithTag("history-SonHa03").assertDoesNotExist()
+            onNodeWithTag("mini-open").assert(hasText("12:48"))
+            onNodeWithTag("back").performClick()
+            onNodeWithTag("work-SonHa").assertExists()
+            onNodeWithTag("resume-SonHa03").performScrollTo().performClick()
+            onNodeWithTag("simulation-status").assertTextEquals("Mô phỏng đang dừng")
+            onNodeWithTag("elapsed").assertTextEquals("12:48")
+            onNodeWithTag("bookmark").performScrollTo().assert(hasText("Đã ghi dấu điểm này"))
+        }
+    }
+
+    @Test
+    fun avatar_account_honestly_disables_sign_in_and_preserves_mini_player() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { DemoTestRoot() }
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("sign-in").performScrollTo().assertIsNotEnabled()
+            onNodeWithText("Chưa có API đăng nhập hoặc đồng bộ tài khoản trong bản xem thử.").assertExists()
+            onNodeWithTag("mini-open").assert(hasText("12:48"))
+            onNodeWithTag("nav-library").performClick()
+            onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Của tôi"))
+            onNodeWithTag("mini-open").assert(hasText("12:48"))
+        }
+    }
+
+    @Test
+    fun refused_resume_shows_recovery_and_keeps_the_current_player_and_stored_point() {
+        lateinit var app: AppContainer
+        val key = DemoEpisodeId.SonHa03.toEpisodeKey()
+        val mismatch = ProgressRecord(key, 768_000L, 1_800_000L)
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                val scope = rememberCoroutineScope()
+                val container = remember {
+                    val inventory = mockInventory()
+                    val episode = requireNotNull(inventory.episode(key))
+                    val snapshot = ListeningSnapshot(progress = listOf(mismatch))
+                    AppContainer(
+                        scope,
+                        MockCatalogPort(inventory),
+                        MemoryProgressPort(snapshot),
+                        MockMediaEngine(),
+                        AppStartState(
+                            inventory,
+                            snapshot,
+                            PlaybackSnapshot(requireNotNull(episode.toPlaybackSource()), 768_000L, 1000),
+                            NavigationState(listOf(TheatreRoute.Library)),
+                        ),
+                    ).also { app = it }
+                }
+                DisposableEffect(container) { onDispose { container.close() } }
+                DemoTestRoot(appContainer = container)
+            }
+            onNodeWithTag("resume-SonHa03").performScrollTo().performClick()
+            onNodeWithTag("selection-unavailable").assertExists()
+            onNodeWithTag("transport").assertDoesNotExist()
+            onNodeWithTag("mini-open").assert(hasText("12:48"))
+            runOnIdle {
+                assertEquals(TheatreRoute.Unavailable, app.navigation.value.route)
+                assertEquals(listOf(mismatch), app.listening.state.value.snapshot.progress)
+                assertEquals(768_000L, app.playback.state.value.session?.positionMs)
+            }
+        }
+    }
+
+    @Test
     fun reset_from_settings_restores_initial_locale_position_and_empty_bookmarks() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent {
@@ -259,7 +383,6 @@ class DemoInteractionTest {
                     simulating = true,
                     savedWorks = emptySet(),
                     bookmarks = listOf(DemoBookmark(DemoEpisodeId.SonHa03, 900)),
-                    libraryTab = DemoLibraryTab.Bookmarks,
                     query = "Đèn Khuya",
                     catalogMode = DemoCatalogMode.Error,
                     theme = DemoTheme.Dark,
@@ -272,9 +395,9 @@ class DemoInteractionTest {
             onNodeWithTag("mini-open").assert(hasText("12:48"))
             onNodeWithTag("mini-transport").assert(hasContentDescription("Mô phỏng phát Người giữ tiếng chuông"))
             onNodeWithTag("nav-library").performClick()
-            onNodeWithTag("library-Bookmarks").performScrollTo().performClick()
-            onNodeWithText("Tủ sách đang chờ bạn").assertExists()
-            onNodeWithTag("nav-search").performClick()
+            onNodeWithText("Chưa có lịch sử nghe").assertExists()
+            onNodeWithTag("nav-discovery").performClick()
+            onNodeWithTag("search").performScrollTo().performClick()
             onNodeWithTag("search-input").assert(
                 SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")),
             )
@@ -289,8 +412,9 @@ private fun DemoTestRoot(
     textScale: Float = 1f,
     width: Int = 390,
     height: Int = 844,
+    appContainer: AppContainer? = null,
 ) {
     Box(Modifier.requiredSize(width.dp, height.dp)) {
-        CantosDemoApp(initialState = initialState, textScale = textScale)
+        CantosDemoApp(initialState = initialState, textScale = textScale, appContainer = appContainer)
     }
 }

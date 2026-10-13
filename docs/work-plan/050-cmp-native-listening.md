@@ -67,3 +67,9 @@ The [bounded architecture refactor](../../apps/cantos-theatre/mobile/docs/archit
 one mock player, pure Kotlin transitions and independent catalog/listening owners. Its shared
 mock vectors and fake-port evidence establish neither backend publication authority nor native
 audio, durable progress, download or production acceptance. Continue the same prerequisites.
+
+The [#35 CMP library MVP](../evidence/theatre-cmp-library-mvp.md) is a further bounded mock
+presentation step after the Web mock: Khám phá/Của tôi navigation, direct Continue/Saved/History
+sections, account through the avatar and one root mini-player. Desired saves, acknowledged
+simulated history and paused resume stay in existing listening/playback owners. This changes
+neither the production dependency order nor the account-sync/native acceptance gates above.

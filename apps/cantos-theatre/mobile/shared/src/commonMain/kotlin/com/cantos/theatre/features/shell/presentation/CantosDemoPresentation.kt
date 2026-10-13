@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Pause
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -42,6 +44,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,7 +73,8 @@ import com.cantos.theatre.demo.DemoCatalogView
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoEpisode
 import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoLibraryTab
+import com.cantos.theatre.demo.DemoProgress
+import com.cantos.theatre.demo.DemoListeningFailure
 import com.cantos.theatre.demo.DemoLocale
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
@@ -77,6 +83,7 @@ import com.cantos.theatre.demo.DemoTimer
 import com.cantos.theatre.demo.DemoWork
 import com.cantos.theatre.demo.PlaybackUiStatus
 import com.cantos.theatre.demo.SupportedUiSpeedPercents
+import com.cantos.theatre.demo.continuingProgress
 import com.cantos.theatre.demo.canGoBack
 import com.cantos.theatre.demo.filteredWorks
 import com.cantos.ui.CantosTheme
@@ -124,6 +131,18 @@ fun CantosDemoPresentation(
                 },
             ) {
                 DemoHeader(state, copy, dispatch)
+                when (state.listeningFailure) {
+                    null -> Unit
+                    DemoListeningFailure.MemoryStoreUnavailable -> Column(
+                        Modifier.fillMaxWidth().padding(tokenDp("space.md")).testTag("listening-failure")
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                    ) {
+                        Text(copy.text(CopyKey.ListeningStoreFailure))
+                        TextButton(onClick = { dispatch(DemoEvent.RetryListening) }, modifier = Modifier.testTag("listening-retry")) {
+                            Text(copy.text(CopyKey.RetryListening))
+                        }
+                    }
+                }
                 val scroll = remember(state.route) { androidx.compose.foundation.ScrollState(0) }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
@@ -143,6 +162,8 @@ fun CantosDemoPresentation(
                             }
                             DemoRoute.Player -> PlayerScreen(state, catalog, copy, dispatch)
                             DemoRoute.Queue -> QueueScreen(state, catalog, copy, dispatch)
+                            DemoRoute.Account -> AccountScreen(copy, dispatch)
+                            DemoRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
                             DemoRoute.Settings -> SettingsScreen(state, copy, dispatch)
                             DemoRoute.Unavailable -> SelectionUnavailable(copy, dispatch)
                         }
@@ -165,6 +186,8 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
         is DemoRoute.Work -> CopyKey.Work
         DemoRoute.Player -> CopyKey.Player
         DemoRoute.Queue -> CopyKey.Queue
+        DemoRoute.Account -> CopyKey.Account
+        DemoRoute.History -> CopyKey.History
         DemoRoute.Settings -> CopyKey.Settings
         DemoRoute.Unavailable -> CopyKey.SelectionUnavailable
     },
@@ -191,9 +214,9 @@ private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -
             )
             Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall)
         }
-        if (state.route != DemoRoute.Settings) {
-            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }, modifier = Modifier.testTag("settings")) {
-                Icon(Icons.Outlined.Settings, copy.text(CopyKey.Settings))
+        if (state.route != DemoRoute.Account) {
+            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Account)) }, modifier = Modifier.testTag("account")) {
+                Icon(Icons.Outlined.AccountCircle, copy.text(CopyKey.Account))
             }
         }
     }
@@ -206,39 +229,31 @@ private fun DiscoveryScreen(state: DemoState, catalog: DemoCatalogView, copy: De
             style = MaterialTheme.typography.labelLarge)
         Text(copy.text(CopyKey.Welcome), style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif),
             modifier = Modifier.semantics { heading() })
-        val episode = catalog.episode(state.selectedEpisode)
-        if (episode != null) {
-            // Multi-line content buttons retain the remote owner's card shape at large text.
-            FilledTonalButton(onClick = { dispatch(DemoEvent.OpenEpisode(episode.id)) }, modifier = Modifier.fillMaxWidth().testTag("continue"),
-                shape = MaterialTheme.shapes.large) {
-                Icon(Icons.Outlined.PlayArrow, null)
-                Column(Modifier.weight(1f).padding(tokenDp("space.sm"))) {
-                    Text(copy.text(CopyKey.Continue), style = MaterialTheme.typography.labelLarge)
-                    Text(episode.title)
-                    Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(state.positionSeconds), "total" to clockTime(episode.durationSeconds)),
-                        style = MaterialTheme.typography.bodySmall)
-                }
-            }
+        val point = continuingProgress(state).firstOrNull()
+        if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
+        TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Search)) }, modifier = Modifier.testTag("search")) {
+            Icon(Icons.Outlined.Search, null)
+            Text(copy.text(CopyKey.Search))
         }
     }
     Text(copy.text(CopyKey.DiscoverHeading), style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif),
         modifier = Modifier.semantics { heading() })
     if (state.catalogMode == DemoCatalogMode.Ready && catalog.works.isNotEmpty()) {
-        WorkShelf(catalog.works, copy, dispatch)
+        WorkShelf(catalog.works, state, copy, dispatch)
     } else {
         CatalogRecovery(if (state.catalogMode == DemoCatalogMode.Ready) DemoCatalogMode.Empty else state.catalogMode, copy, dispatch)
     }
 }
 
 @Composable
-private fun WorkShelf(works: List<DemoWork>, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+private fun WorkShelf(works: List<DemoWork>, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val columns = if (maxWidth >= tokenDp("breakpoint.medium")) 2 else 1
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
             works.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                     row.forEach { work ->
-                        WorkSummary(work, copy, dispatch, Modifier.weight(1f))
+                        WorkSummary(work, state, copy, dispatch, Modifier.weight(1f))
                     }
                     if (row.size < columns) Spacer(Modifier.weight(1f))
                 }
@@ -248,7 +263,7 @@ private fun WorkShelf(works: List<DemoWork>, copy: DemoCopy, dispatch: (DemoEven
 }
 
 @Composable
-private fun WorkSummary(work: DemoWork, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, modifier: Modifier) {
+private fun WorkSummary(work: DemoWork, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, modifier: Modifier) {
     Card(
         onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Work(work.id))) },
         modifier = modifier.fillMaxWidth().testTag("work-${work.id}")
@@ -262,6 +277,7 @@ private fun WorkSummary(work: DemoWork, copy: DemoCopy, dispatch: (DemoEvent) ->
             Text(work.description)
             Text(copy.text(CopyKey.EpisodesCount, "count" to work.episodes.size.toString()),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SaveWorkButton(work, state, copy, dispatch, "save-card-${work.id}")
         }
     }
 }
@@ -287,7 +303,7 @@ private fun SearchScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
     when {
         state.catalogMode != DemoCatalogMode.Ready -> CatalogRecovery(state.catalogMode, copy, dispatch)
         works.isEmpty() -> CatalogRecovery(DemoCatalogMode.Empty, copy, dispatch)
-        else -> WorkShelf(works, copy, dispatch)
+        else -> WorkShelf(works, state, copy, dispatch)
     }
 }
 
@@ -345,10 +361,7 @@ private fun WorkScreen(work: DemoWork, state: DemoState, copy: DemoCopy, dispatc
             Icon(Icons.Outlined.PlayArrow, null)
             Text(copy.text(CopyKey.StartDemo))
         }
-        FilledTonalButton(onClick = { dispatch(DemoEvent.SaveWork(work.id)) }, modifier = Modifier.testTag("save-work")) {
-            Icon(Icons.Outlined.Star, null)
-            Text(copy.text(if (work.id in state.savedWorks) CopyKey.Saved else CopyKey.Save))
-        }
+        SaveWorkButton(work, state, copy, dispatch, "save-work")
     }
     Text(copy.text(CopyKey.SavedOnlyHere), style = MaterialTheme.typography.bodySmall)
     Text(copy.text(CopyKey.Episodes), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
@@ -380,59 +393,136 @@ private fun EpisodeSelection(episode: DemoEpisode, state: DemoState, copy: DemoC
 }
 
 @Composable
+private fun SaveWorkButton(work: DemoWork, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, tag: String) {
+    val saved = work.id in state.savedWorks
+    FilledTonalButton(
+        onClick = { dispatch(DemoEvent.SetSaved(work.id, saved = !saved)) },
+        modifier = Modifier.testTag(tag).semantics {
+            contentDescription = copy.text(if (saved) CopyKey.UnsaveName else CopyKey.SaveName, "title" to work.title)
+            stateDescription = copy.text(if (saved) CopyKey.SavedTab else CopyKey.Save)
+        },
+    ) {
+        Icon(Icons.Outlined.Star, null)
+        Text(copy.text(if (saved) CopyKey.Saved else CopyKey.Save))
+    }
+}
+
+@Composable
 private fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = FontFamily.Serif),
         modifier = Modifier.semantics { heading() })
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        DemoLibraryTab.entries.forEach { tab ->
-            val key = when (tab) {
-                DemoLibraryTab.Continuing -> CopyKey.Continuing
-                DemoLibraryTab.Saved -> CopyKey.SavedTab
-                DemoLibraryTab.Bookmarks -> CopyKey.Bookmarks
-            }
-            FilterChip(selected = state.libraryTab == tab, onClick = { dispatch(DemoEvent.SelectLibrary(tab)) },
-                label = { Text(copy.text(key)) }, modifier = Modifier.testTag("library-$tab"))
-        }
+    Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
+    Column(Modifier.testTag("library-continue"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.Continuing, copy)
+        val points = continuingProgress(state)
+        if (points.isEmpty()) SectionEmpty(CopyKey.NoContinue, CopyKey.NoContinueHelp, copy, dispatch)
+        points.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = false, tag = "resume-${it.episodeId}") }
     }
-    when (state.libraryTab) {
-        DemoLibraryTab.Continuing -> {
-            val episode = catalog.episode(state.selectedEpisode)
-            if (episode == null) SelectionUnavailable(copy, dispatch) else EpisodeSelection(episode, state, copy, dispatch)
+    Column(Modifier.testTag("library-saved"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.SavedTab, copy)
+        val works = catalog.works.filter { it.id in state.savedWorks }
+        if (works.isEmpty()) SectionEmpty(CopyKey.NoSaved, CopyKey.NoSavedHelp, copy, dispatch)
+        else WorkShelf(works, state, copy, dispatch)
+        if (works.size < state.savedWorks.size) Text(copy.text(CopyKey.SelectionUnavailableNote))
+    }
+    Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
+        SectionHeading(CopyKey.History, copy)
+        TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.History)) }, modifier = Modifier.testTag("history-all")) {
+            Text(copy.text(CopyKey.ViewAllHistory))
         }
-        DemoLibraryTab.Saved -> {
-            val works = catalog.works.filter { it.id in state.savedWorks }
-            if (works.isEmpty()) LibraryEmpty(copy, dispatch) else WorkShelf(works, copy, dispatch)
-        }
-        DemoLibraryTab.Bookmarks -> {
-            val available = state.bookmarks.mapNotNull { bookmark ->
-                catalog.episode(bookmark.episodeId)?.let { episode -> bookmark to episode }
-            }
-            if (state.bookmarks.isEmpty()) {
-                LibraryEmpty(copy, dispatch)
-            } else if (available.isEmpty()) {
-                SelectionUnavailable(copy, dispatch)
-            } else if (available.size < state.bookmarks.size) {
-                Text(copy.text(CopyKey.SelectionUnavailableNote))
-            }
-            available.forEach { (bookmark, episode) ->
-                FilledTonalButton(onClick = {
-                    dispatch(DemoEvent.OpenBookmark(bookmark))
-                }, modifier = Modifier.fillMaxWidth().semantics {
-                    contentDescription = copy.text(CopyKey.OpenBookmark, "title" to episode.title, "time" to copy.spokenTime(bookmark.positionSeconds))
-                }) {
-                    Icon(Icons.Outlined.Star, null)
-                    Text(copy.text(CopyKey.BookmarkCaption, "title" to episode.title, "time" to clockTime(bookmark.positionSeconds)), Modifier.padding(tokenDp("space.sm")))
-                }
-            }
+        if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
+        state.history.take(3).forEach {
+            ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "recent-${it.episodeId}")
         }
     }
 }
 
 @Composable
-private fun LibraryEmpty(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
-    Text(copy.text(CopyKey.LibraryEmpty), style = MaterialTheme.typography.titleLarge)
-    Text(copy.text(CopyKey.LibraryEmptyNote))
-    Button(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
+private fun SectionHeading(key: CopyKey, copy: DemoCopy) {
+    Text(copy.text(key), style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif),
+        modifier = Modifier.semantics { heading() })
+}
+
+@Composable
+private fun SectionEmpty(title: CopyKey, help: CopyKey, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+    Text(copy.text(title), style = MaterialTheme.typography.titleMedium)
+    Text(copy.text(help), style = MaterialTheme.typography.bodySmall)
+    TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
+}
+
+@Composable
+private fun ListeningPoint(
+    point: DemoProgress,
+    catalog: DemoCatalogView,
+    copy: DemoCopy,
+    dispatch: (DemoEvent) -> Unit,
+    fromHistory: Boolean,
+    tag: String,
+) {
+    val episode = catalog.episode(point.episodeId)
+    if (episode == null || episode.durationSeconds <= 0) {
+        Text(copy.text(CopyKey.SelectionUnavailableNote))
+        return
+    }
+    FilledTonalButton(
+        onClick = {
+            dispatch(if (fromHistory) DemoEvent.ResumeHistoryEpisode(point.episodeId) else DemoEvent.ResumeEpisode(point.episodeId))
+        },
+        modifier = Modifier.fillMaxWidth().testTag(tag).semantics {
+            contentDescription = copy.text(CopyKey.ResumeSampleName, "title" to episode.title, "time" to copy.spokenTime(point.positionSeconds))
+        },
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Icon(Icons.Outlined.PlayArrow, null)
+        Column(Modifier.weight(1f).padding(tokenDp("space.sm"))) {
+            Text(catalog.work(episode.workId)?.title.orEmpty(), style = MaterialTheme.typography.labelLarge)
+            Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(), "title" to episode.title))
+            Text(copy.text(CopyKey.PositionCaption, "elapsed" to clockTime(point.positionSeconds), "total" to clockTime(episode.durationSeconds)))
+            Text(copy.text(CopyKey.ResumeSample), style = MaterialTheme.typography.labelLarge)
+        }
+    }
+    Text(copy.text(CopyKey.ResumeSampleHelp), style = MaterialTheme.typography.bodySmall)
+}
+
+@Composable
+private fun HistoryScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+    var confirming by remember { mutableStateOf(false) }
+    SectionHeading(CopyKey.History, copy)
+    Text(copy.text(CopyKey.HistoryHelp))
+    if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
+    else {
+        TextButton(onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
+        state.history.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "history-${it.episodeId}") }
+    }
+    if (confirming) AlertDialog(
+        modifier = Modifier.testTag("history-dialog"),
+        onDismissRequest = { confirming = false },
+        title = { Text(copy.text(CopyKey.ClearHistoryConfirmTitle)) },
+        text = { Text(copy.text(CopyKey.ClearHistoryHelp)) },
+        confirmButton = {
+            TextButton(onClick = { confirming = false; dispatch(DemoEvent.ClearHistory) }, modifier = Modifier.testTag("history-confirm")) {
+                Text(copy.text(CopyKey.ConfirmClearHistory))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { confirming = false }, modifier = Modifier.testTag("history-cancel")) { Text(copy.text(CopyKey.Cancel)) }
+        },
+    )
+}
+
+@Composable
+private fun AccountScreen(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+    SectionHeading(CopyKey.Account, copy)
+    Text(copy.text(CopyKey.AccountHelp))
+    Text(copy.text(CopyKey.LibrarySession))
+    Button(onClick = {}, enabled = false, modifier = Modifier.testTag("sign-in").semantics {
+        stateDescription = copy.text(CopyKey.SignInUnavailable)
+    }) { Text(copy.text(CopyKey.SignIn)) }
+    Text(copy.text(CopyKey.SignInUnavailable), style = MaterialTheme.typography.bodySmall)
+    FilledTonalButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }, modifier = Modifier.testTag("settings")) {
+        Icon(Icons.Outlined.Settings, null)
+        Text(copy.text(CopyKey.Settings))
+    }
 }
 
 @Composable
@@ -492,6 +582,18 @@ private fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
         }
     }
     Text(copy.text(CopyKey.PlayerExplanation), style = MaterialTheme.typography.bodySmall)
+    if (state.bookmarks.isNotEmpty()) {
+        SectionHeading(CopyKey.Bookmarks, copy)
+        state.bookmarks.forEach { bookmark ->
+            val markedEpisode = catalog.episode(bookmark.episodeId)
+            if (markedEpisode != null) TextButton(onClick = { dispatch(DemoEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
+                contentDescription = copy.text(CopyKey.OpenBookmark, "title" to markedEpisode.title, "time" to copy.spokenTime(bookmark.positionSeconds))
+            }) {
+                Text(copy.text(CopyKey.BookmarkCaption, "title" to markedEpisode.title, "time" to clockTime(bookmark.positionSeconds)))
+            }
+        }
+    }
+
 }
 
 @Composable
@@ -609,11 +711,9 @@ private fun playbackStatusKey(status: PlaybackUiStatus): CopyKey = when (status)
 private fun DemoTabs(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     val root = state.stack.firstOrNull()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) {
-        NavigationBarItem(selected = root == DemoRoute.Discovery, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) },
+        NavigationBarItem(selected = root == DemoRoute.Discovery || root == DemoRoute.Search, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) },
             icon = { Icon(Icons.Outlined.Home, null) }, label = { Text(copy.text(CopyKey.Discover)) }, modifier = Modifier.testTag("nav-discovery"))
-        NavigationBarItem(selected = root == DemoRoute.Search, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Search)) },
-            icon = { Icon(Icons.Outlined.Search, null) }, label = { Text(copy.text(CopyKey.Search)) }, modifier = Modifier.testTag("nav-search"))
-        NavigationBarItem(selected = root == DemoRoute.Library, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Library)) },
+        NavigationBarItem(selected = root == DemoRoute.Library || root == DemoRoute.History, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Library)) },
             icon = { Icon(Icons.AutoMirrored.Outlined.MenuBook, null) }, label = { Text(copy.text(CopyKey.Library)) }, modifier = Modifier.testTag("nav-library"))
     }
 }
