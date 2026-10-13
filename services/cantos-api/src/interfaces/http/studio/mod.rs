@@ -29,6 +29,7 @@ mod catalog;
 mod content;
 mod imports;
 mod production;
+mod publication;
 
 /// Which URL space a Studio route set is mounted under.
 #[derive(Clone, Copy)]
@@ -263,8 +264,8 @@ async fn end_session(State(state): State<AppState>, headers: HeaderMap, mount: M
     }
 }
 
-// Head, pinned revision, save and validation negotiate JSON or MessagePack (see `wire`); the
-// representation is settled by the extractors before the store is called.
+// Head, pinned revision, save and validation negotiate JSON, legacy MessagePack or Protobuf.
+// The representation is settled by the `wire` extractors before the store is called.
 async fn head(
     State(state): State<AppState>,
     Path(script): Path<String>,

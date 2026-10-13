@@ -36,6 +36,7 @@ impl CiJob {
             CiJob::Repository => vec![Gate::Repository, Gate::ScriptIrReference],
             CiJob::Rust => vec![
                 Gate::RustFormat,
+                Gate::ProtobufReference,
                 Gate::RustLint(Scope::Workspace),
                 Gate::RustTests(Scope::Workspace),
                 Gate::Dbsp,

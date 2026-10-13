@@ -16,6 +16,7 @@ import selectors
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TIMEOUT_SECONDS = 900
 MAX_LOG_BYTES = 4 * 1024 * 1024
 MAX_CONFIGURATION_BYTES = 1024 * 1024
+MAX_GROUP_STATUS_BYTES = 64 * 1024
 FORBIDDEN_ENVIRONMENT = frozenset((
     "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER",
     "RUSTC_WORKSPACE_WRAPPER", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTFLAGS",
@@ -65,6 +67,55 @@ def interrupt_signals():
             signal.signal(signum, handler)
 
 
+def darwin_group_is_only_zombies(group):
+    """Inspect only the pinned group; unavailable or ambiguous evidence fails closed."""
+    try:
+        # This fixed OS command cannot execute verifier code or create descendants.
+        # Bound its duration and the bytes admitted to memory; never log process details.
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["/bin/ps", "-g", str(group), "-o", "pid=,pgid=,stat="],
+                stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.DEVNULL,
+                env={"LC_ALL": "C"}, timeout=0.5, check=False,
+            )
+            output.seek(0)
+            snapshot = output.read(MAX_GROUP_STATUS_BYTES + 1)
+        if result.returncode != 0 or len(snapshot) > MAX_GROUP_STATUS_BYTES:
+            return False
+        members = set()
+        for row in snapshot.decode("ascii").splitlines():
+            fields = row.split()
+            if (len(fields) != 3 or not fields[0].isdigit() or not fields[1].isdigit()
+                    or len(fields[0]) > 10 or len(fields[1]) > 10):
+                return False
+            pid, observed_group, state = int(fields[0]), int(fields[1]), fields[2]
+            if (not 1 <= pid <= 2**31 - 1 or pid in members or observed_group != group
+                    or re.fullmatch(r"Z[+<>AELNSsVWX]*", state) is None):
+                return False
+            members.add(pid)
+        # The unreaped leader must appear; an empty/truncated group is not cleanup proof.
+        return group in members
+    except (OSError, UnicodeError, subprocess.TimeoutExpired):
+        return False
+
+
+def stop_owned_group(process):
+    """Keep the leader pinned until signalling or proof that no member can execute."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except PermissionError:
+        # Darwin denies signals to a zombie-only group. Do not reap to work around
+        # this: reaping would permit PGID reuse before a later group signal.
+        # uname observes the actual host even when a fixture models Linux Kani.
+        if os.uname().sysname != "Darwin":
+            raise
+        exited = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        if exited is None or exited.si_pid != process.pid or not darwin_group_is_only_zombies(process.pid):
+            raise
+
+
 def bounded_run(command, cwd, env, timeout, output_path, max_bytes=MAX_LOG_BYTES):
     """Keep the owned leader unreaped until its process group has been stopped."""
     if os.name != "posix" or not hasattr(os, "WNOWAIT"):
@@ -104,8 +155,7 @@ def bounded_run(command, cwd, env, timeout, output_path, max_bytes=MAX_LOG_BYTES
                 if done is not None:
                     # An exited leader may leave descendants holding its output pipe.
                     if not eof:
-                        try: os.killpg(process.pid, signal.SIGKILL)
-                        except ProcessLookupError: pass
+                        stop_owned_group(process)
                     else:
                         break
     except OSError as error:
@@ -113,8 +163,7 @@ def bounded_run(command, cwd, env, timeout, output_path, max_bytes=MAX_LOG_BYTES
     finally:
         if process is not None:
             # Never reap before signalling the exact group this invocation created.
-            try: os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError: pass
+            stop_owned_group(process)
             process.wait(timeout=5)
             if process.stdout: process.stdout.close()
         selector.close()

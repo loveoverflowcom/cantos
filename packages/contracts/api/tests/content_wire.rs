@@ -170,6 +170,7 @@ fn every_strict_prefix_is_truncated_or_an_incomplete_utf8_sequence() {
                     DecodeError::InvalidUtf8
                 }
                 WireFormat::Json | WireFormat::MessagePack => DecodeError::Truncated,
+                WireFormat::Protobuf => DecodeError::Shape,
             };
             assert_eq!(
                 decode::<AppendContentRequest>(format, &bytes[..length]),
@@ -182,6 +183,7 @@ fn every_strict_prefix_is_truncated_or_an_incomplete_utf8_sequence() {
         let expected = match format {
             WireFormat::Json => DecodeError::Malformed,
             WireFormat::MessagePack => DecodeError::TrailingBytes,
+            WireFormat::Protobuf => DecodeError::Shape,
         };
         assert_eq!(
             decode::<AppendContentRequest>(format, &trailing),

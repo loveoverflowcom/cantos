@@ -137,3 +137,20 @@ pub(crate) fn checked_number(number: u64) -> Result<i64, StoreError> {
 pub(crate) fn normalized_uuid(id: &str) -> Result<String, StoreError> {
     canonical_uuid(id).ok_or(StoreError::InvalidRequest)
 }
+
+/// Batched current actor facts; no Studio session is consulted by the listener consumer.
+pub(crate) async fn active_actors(
+    tx: &Tx<'_>,
+    ids: &[String],
+) -> Result<std::collections::BTreeSet<String>, StoreError> {
+    if ids.len() > 51 {
+        return Err(StoreError::InvalidRequest);
+    }
+    tx.query("SELECT id FROM actors WHERE id=ANY($1) AND active", &[&ids])
+        .await?
+        .iter()
+        .map(|r| r.try_get(0).map_err(|_| StoreError::CorruptRevision))
+        .collect()
+}
+
+pub(crate) const LISTENER_ACTOR_FILTER: &str = "listener_actor_active(release.owner_id)";

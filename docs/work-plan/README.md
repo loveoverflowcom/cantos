@@ -56,6 +56,18 @@ pending-write/concurrent identity cases, then full accessibility acceptance; kee
 browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
 backend sequence above is unchanged.
 
+## Publication core and next listener boundary
+
+[Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
+clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
+minimal withdrawal over the existing candidate/intake path. [Verification](../evidence/publication-core.md)
+separates passing core/Router/proof tests from failed PostgreSQL startup and unrun delivery.
+Unconfigured delivery cannot activate. [Discovery/Playback then Library/Progress handoff](publication-discovery-handoff.md)
+defines the next two separately reviewed slices and the independent
+[private storage PR90](https://github.com/loveoverflowcom/cantos/pull/90) integration prerequisite.
+Keep #9/#10/#11 open through real storage, SQL/concurrency, listening/rights and public acceptance;
+Studio audit manifests do not themselves authorize Theatre playback.
+
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
@@ -163,3 +175,42 @@ then publication before Theatre playback. Next runtime acceptance needs an opera
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
 lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.
+
+## Listener Library / Progress successor
+
+The [account Library/Progress v1](../../packages/contracts/listener-library-v1.md) and
+[identity/Web/CMP handoff](listener-library-progress-handoff.md) follow inherited draft PR93.
+The [evidence record](../evidence/listener-library-progress.md) distinguishes pure/use-case/Router
+checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
+no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
+remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.
+
+
+## Identity integration order
+
+Consume the [exact identity registry](../architecture/identity-registry.md) before credential
+issuance, then integrate Studio OIDC, Theatre Web/native identity and Admin authorization in that
+order. Preserve the [handoff](identity-authentication-handoff.md#integrated-registry-consumption)
+and additive migration checksums. Current local/mock acceptance belongs in evidence records;
+production provider/client preparation, native runtime acceptance and explicit cross-client
+identity linking remain separate prerequisites. Equal email or subject text across different
+issuers never establishes a shared actor. GitHub owns execution status.

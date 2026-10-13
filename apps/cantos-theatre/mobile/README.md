@@ -9,7 +9,9 @@ or durable persistence is connected. Studio is web-only.
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary account screen with an explicit unavailable sign-in reason.
+  the avatar opens a secondary **Không gian của bạn** screen: guest profile, a preview notice that
+  saved works and positions last only for this session, a disabled sign-in with its reason, and a
+  row into the listening settings. Nothing there claims durable storage or sync.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
   History has a secondary full list and confirmed clear action; clearing it preserves
   listening positions, saved works, bookmarks and the player.
@@ -165,3 +167,11 @@ app-owned mock state; catalog scenarios and reset are under the separate Demo to
 The simulated timer performs no countdown. The [asset provenance](shared/src/commonMain/composeResources/files/provenance.json)
 records exact hashes and the remaining production artwork-rights review. Native runtime,
 TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JVM evidence.
+
+## Portable Protobuf fixture harness
+
+The isolated `commonMain` transport adapter and `commonTest` fixtures exercise the four existing
+Studio pilot wire contracts under [ADR 0023](../../../docs/decisions/0023-versioned-protobuf-wire.md).
+This adds no Theatre endpoint, Studio Mobile client, authentication or player integration.
+The [compatibility evidence](docs/protobuf-compatibility.md) records exact version pins, independent
+byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/Android/iOS limits.

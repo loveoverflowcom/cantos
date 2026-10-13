@@ -76,6 +76,7 @@ CONTEXT_UPSTREAM = {
     "production": {"editorial", "catalog", "ingestion"},
     "catalog": {"editorial", "ingestion"},
     "media": {"editorial", "catalog", "production"},
+    "listening": {"catalog", "media"},
 }
 DOMAIN_EXTERNAL = {
     "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
@@ -101,6 +102,7 @@ TABLE_OWNER = {
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
+    **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")
@@ -475,13 +477,16 @@ def table_owner(table):
     return TABLE_OWNER.get(table)
 
 
-def dependency_error(path, owner, domain, http):
+def dependency_error(path, owner, domain, http, listener_pg_test=False):
     """Return the boundary violated by one path, or None for an admitted dependency."""
     if not path:
         return None
     if (owner or domain or http) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
-    if owner and path[0] == "interfaces":
+    if owner and path[0] == "interfaces" and not (listener_pg_test and path in {
+        ("interfaces", "http", "router_with_listener_identity"),
+        ("interfaces", "http", "AppState"),
+    }):
         return "context must not depend on an interface"
     if domain:
         if path[0] in DOMAIN_EXTERNAL or path[:2] in {
@@ -516,7 +521,34 @@ def dependency_error(path, owner, domain, http):
             ("contexts", "catalog", "CatalogCursor"),
             ("contexts", "catalog", "CatalogCursor", "decode"),
         }
-        if http and path not in HTTP_PURE_BOUNDARIES and not (catalog_wire or catalog_error or catalog_input_type):
+        publication_error = path[:3] in {
+            ("contexts", "media", "PublicationStoreError"),
+            ("contexts", "media", "PublicationDependencyError"),
+            ("contexts", "media", "ListenerError"),
+        } or path[:5] == ("contexts", "media", "domain", "publication", "PublicationError")
+        publication_composition = path in {
+            ("contexts", "media", "PublicationService"),
+            ("contexts", "media", "PublicationService", "new"),
+            ("contexts", "media", "PublicationService", "with_publication_delivery"),
+            ("contexts", "media", "PublicationDelivery"),
+            ("contexts", "media", "ListenerService"),
+            ("contexts", "media", "ListenerService", "new"),
+            ("contexts", "media", "ListenerError"),
+            ("contexts", "media", "PlaybackDelivery"),
+        }
+        listener_composition = path in {
+            ("contexts", "listening", "LibraryService"),
+            ("contexts", "listening", "LibraryService", "new"),
+            ("contexts", "listening", "auth", "AuthenticatedListener"),
+            ("contexts", "listening", "auth", "ListenerAuthenticator"),
+            ("contexts", "listening", "auth", "DenyListenerAuthentication"),
+            ("contexts", "listening", "auth", "ListenerCredentials"),
+            ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
+        } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (
+            "contexts", "listening", "auth", "AuthenticationError")
+        if http and path not in HTTP_PURE_BOUNDARIES and not (
+            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition or listener_composition
+        ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"
@@ -555,7 +587,7 @@ def check_api_architecture(root=ROOT):
         content = file.read_text(encoding="utf-8")
         code, strings = rust_code(content)
         for offset, path in source_paths(code, module):
-            error = dependency_error(path, owner, domain, http)
+            error = dependency_error(path, owner, domain, http, relative == Path("contexts/listening/postgres/tests.rs"))
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:

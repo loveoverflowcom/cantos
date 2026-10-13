@@ -1,0 +1,7 @@
+{
+  "operation_id": "80000000-0000-4000-8000-000000000003",
+  "candidate_digest": "rc-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "clearance_digest": "dc-r1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "decision": "approved",
+  "notes": "Approve this exact synthetic candidate."
+}

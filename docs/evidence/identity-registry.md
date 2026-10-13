@@ -118,3 +118,50 @@ A symbolic wrapper would not prove SQL concurrency; no
 speculative runner/dependency is added. Provider-live/OIDC/browser/native/production: NOT_RUN,
 outside PR1. See [contract](../architecture/identity-registry.md) and
 [successor handoff](../work-plan/identity-authentication-handoff.md). Remote CI is not checked/waited for.
+
+
+## Independent integrated review
+
+The earlier results above describe the original published PR92 snapshot. A fresh independent
+review integrated `develop` at `b28b87856b30c78c2921aa1134ac657b0584ebd7` without renumbering
+migrations or changing prior SQL checksums. The reviewed implementation is commit
+`47f5659b63d7969d4e795b4571d621967dd95a50`, tree
+`4107eb52bacf4de578414193ce36cd8ea6a2c698`.
+
+The registry still grants no authentication or resource authority. Its new PostgreSQL regression
+`identity_mutations_recheck_disable_after_actor_lock_wait` observes an actual blocked registration
+and linking request, commits actor disable, and requires `ActorInactive` with no new actor/binding.
+The integrated registry contains versions1–14,16–19 (18 entries); storage0015 remains outside PR92.
+
+A fresh unmodified supervisor reproduction retained Darwin zombie-group `killpg` EPERM failures.
+The repair keeps the owned leader unreaped with `WNOWAIT`, and accepts Darwin EPERM only when a
+bounded, exact-group OS snapshot proves every member is a zombie. Unknown, malformed, live,
+wrong-group or unavailable observations fail closed. No assertion was skipped. The focused
+supervisor suite passed83 tests; the repository gate passed326 Python tests. An inherited
+publication failure oracle was corrected to the unchanged503/`unavailable` driver policy,
+adding an exact error-code assertion while retaining every atomic rollback/retry assertion.
+
+| Current command | Result | Evidence |
+| --- | --- | --- |
+| `cargo xtask verify repository` | PASS | `pr92-repository.log` |
+| `cargo xtask verify rust` | PASS | `pr92-rust.log`: workspace format/lint/tests |
+| `cargo xtask verify contracts` | PASS | `pr92-contracts.log`: Script IR/Protobuf/reference/wire/real synthetic media |
+| `cargo xtask verify postgres` | PASS | `pr92-postgres-fixed.log`: disposable PostgreSQL17.4, identity9tests and complete inherited HTTP/restart/codec suites |
+| `cargo xtask preflight --changed-only` | PASS, no skipped gate | `pr92-preflight-full.log`: every selected gate, including Web, both CMP desktop gates, DBSP, mutation and PostgreSQL |
+
+Commands used Rust1.87.0, two build jobs, serial Rust tests, debug0/nonincremental builds and
+`TMPDIR=/private/tmp`. Gradle8.14.3 was installed in a task-local directory after checking its
+SHA256 against the official distribution. No production/inherited database, provider account,
+credential configuration, remote CI dispatch or provider-live call was used.
+
+Raw logs, preserved prior evidence, cache-cleanup hash manifests and
+`pr92-acceptance-manifest.json` are outside Git under
+`/private/tmp/cantos-identity-campaign`. The acceptance manifest SHA256 is
+`9882d14e1b2d766fb422da77c7e1fd0336dc50fa0f6132db946bcb1bd582794a`.
+Shared cache reuse requires invalidating generated first-party fingerprints at each worktree
+switch; a stale-contract compile failure was preserved, not treated as a test result.
+
+Evidence levels: `type-enforced`, `example-tested`, `property-tested`,
+`mock-integration-tested`, `integration-tested` and the existing Script IR `mutation-tested`
+claim. This is not an identity Kani proof, provider/device acceptance or production activation.
+Those remain NOT_RUN with the original operator/client prerequisites.

@@ -1,0 +1,36 @@
+// Wire authority for the four existing negotiated Studio routes only.
+// Scalars are optional to preserve presence. The edge adapter requires every
+// scalar on application DTOs and rejects absent/null fields, including zero/empty.
+syntax = "proto2";
+package cantos.studio.wire.v1;
+
+message ValidateScriptRequest {
+  optional string script_json = 1;
+  reserved 2 to 15;
+}
+message SaveRevisionRequest {
+  optional uint64 expected_revision = 1;
+  optional string operation_id = 2;
+  optional string script_json = 3;
+  reserved 4 to 15;
+}
+message RevisionResponse {
+  optional string script_id = 1;
+  optional uint64 revision = 2;
+  optional string accepted_by = 3;
+  optional string accepted_at = 4;
+  optional string content_digest = 5;
+  optional string export_digest = 6;
+  optional string script_json = 7;
+  reserved 8 to 15;
+}
+message FieldIssue {
+  optional string path = 1;
+  optional string rule = 2;
+  reserved 3 to 15;
+}
+message ScriptValidationResponse {
+  // Absent repeated field and empty list are the same value, including success.
+  repeated FieldIssue issues = 1;
+  reserved 2 to 15;
+}
