@@ -159,9 +159,13 @@ pub(super) struct Observations {
     pub object: ObjectObservation,
     pub delivery: DeliveryObservation,
 }
-async fn observe(store: &Store, r: &AudioRendition) -> Result<Observations, PublicationStoreError> {
+async fn observe(
+    store: &Store,
+    delivery: &dyn PublicationDelivery,
+    r: &AudioRendition,
+) -> Result<Observations, PublicationStoreError> {
     let object = observe_private(store, r).await?;
-    let delivery = observe_delivery(store.publication_delivery.as_ref(), r).await?;
+    let delivery = observe_delivery(delivery, r).await?;
     Ok(Observations { object, delivery })
 }
 async fn observe_private(
@@ -292,10 +296,23 @@ async fn commit(
     .await?;
     Ok(())
 }
-impl Store {
-    /// Explicit injection by the trusted host, never by a request/producer. Default is unavailable.
+/// Media-owned composition of metadata authority and a publication delivery consumer.
+/// Platform PostgreSQL plumbing never owns or imports this business port.
+#[derive(Clone)]
+pub struct PublicationService {
+    store: Store,
+    delivery: Arc<dyn PublicationDelivery>,
+}
+impl PublicationService {
+    pub fn new(store: Store) -> Self {
+        Self {
+            store,
+            delivery: Arc::new(UnavailableDelivery),
+        }
+    }
+    /// Explicit injection by the trusted host, never by a request/producer.
     pub fn with_publication_delivery(mut self, delivery: Arc<dyn PublicationDelivery>) -> Self {
-        self.publication_delivery = delivery;
+        self.delivery = delivery;
         self
     }
     pub async fn audio_publication_readiness(
@@ -304,13 +321,13 @@ impl Store {
         unit: &str,
         candidate: &str,
     ) -> Result<dto::PublicationReadinessResponse, PublicationStoreError> {
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         tx.commit().await?;
         drop(client);
-        let observations = observe(self, &initial.r).await?;
-        let mut client = self.connection().await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         if initial.r != fresh.r {
@@ -349,7 +366,7 @@ impl Store {
         normalized_uuid(&request.operation_id)?;
         request.rights_refs.sort();
         request.evidence_refs.sort();
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let s = subject(&tx, token, unit, candidate, LockMode::Update).await?;
         let actor = s.content.work.owner_id().as_str();
@@ -402,7 +419,7 @@ impl Store {
         request: dto::RecordPublicationApprovalRequest,
     ) -> Result<dto::PublicationApprovalDocument, PublicationStoreError> {
         normalized_uuid(&request.operation_id)?;
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let s = subject(&tx, token, unit, candidate, LockMode::Update).await?;
         let actor = s.content.work.owner_id().as_str();
@@ -422,6 +439,22 @@ impl Store {
                 dto::PublicationBlocker::ApprovalStale,
             ]));
         }
+        let object = if request.decision == dto::PublicationApprovalDecision::Approved {
+            Some(observe_private(&self.store, &s.r).await?)
+        } else {
+            None
+        };
+        let now = lifecycle_sql::now(&tx).await?;
+        if let Some(object) = object {
+            let observations = Observations {
+                object,
+                delivery: DeliveryObservation::Unavailable,
+            };
+            let blockers = approval_blockers(&s.facts(Some(&rights), None, &observations, now));
+            if !blockers.is_empty() {
+                return Err(PublicationStoreError::Blocked(blockers));
+            }
+        }
         let sequence = sql::latest_approval(&tx, &s.c).await?.map_or(Ok(1), |a| {
             advance_pointer(a.document().sequence, a.document().sequence)
         })?;
@@ -431,7 +464,7 @@ impl Store {
                 candidate_id: candidate.into(),
                 actor_id: actor.into(),
                 sequence,
-                recorded_at: lifecycle_sql::now(&tx).await?,
+                recorded_at: now,
                 request,
                 digest: String::new(),
             },
@@ -451,7 +484,7 @@ impl Store {
     ) -> Result<dto::ActiveAudioReleaseResponse, PublicationStoreError> {
         normalized_uuid(&request.operation_id)?;
         let digest = request_digest(&(unit, candidate, &request))?;
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         // Replays are durable receipts, never a second activation, even if later rights change.
@@ -476,8 +509,8 @@ impl Store {
         }
         tx.commit().await?;
         drop(client);
-        let mut observations = observe(self, &initial.r).await?;
-        let mut client = self.connection().await?;
+        let mut observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Update).await?;
         let actor = fresh.content.work.owner_id().as_str();
@@ -496,7 +529,7 @@ impl Store {
                 release: Some(release.document().clone()),
             });
         }
-        observations.object = observe_private(self, &fresh.r).await?;
+        observations.object = observe_private(&self.store, &fresh.r).await?;
         let rights = sql::latest_clearance(&tx, &fresh.c).await?;
         let approval = sql::latest_approval(&tx, &fresh.c).await?;
         let pointer = sql::pointer(&tx, unit, actor, true).await?;
@@ -534,7 +567,7 @@ impl Store {
         unit: &str,
     ) -> Result<dto::ActiveAudioReleaseResponse, PublicationStoreError> {
         let unit_id = ContentUnitId::parse(unit).map_err(|_| PublicationError::InvalidId)?;
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let content =
             catalog::production_content(&tx, Some(token), None, &unit_id, LockMode::Share)
@@ -560,8 +593,8 @@ impl Store {
         let release = bound_release(&tx, id, &initial).await?;
         tx.commit().await?;
         drop(client);
-        let observations = observe(self, &initial.r).await?;
-        let mut client = self.connection().await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, &candidate, LockMode::Share).await?;
         let current =
@@ -603,7 +636,7 @@ impl Store {
         token: &str,
         unit: &str,
         request: dto::WithdrawAudioReleaseRequest,
-    ) -> Result<dto::ActiveAudioReleaseResponse, PublicationStoreError> {
+    ) -> Result<dto::AudioReleaseWithdrawalResponse, PublicationStoreError> {
         normalized_uuid(&request.operation_id)?;
         ReleaseId::parse(&request.release_id)?;
         if request.reason.trim().is_empty()
@@ -614,7 +647,7 @@ impl Store {
         }
         let digest = request_digest(&(unit, &request))?;
         let unit_id = ContentUnitId::parse(unit).map_err(|_| PublicationError::InvalidId)?;
-        let mut client = self.connection().await?;
+        let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let content =
             catalog::production_content(&tx, Some(token), None, &unit_id, LockMode::Update)
@@ -630,9 +663,9 @@ impl Store {
             }
             authenticate(&tx, token).await?;
             tx.commit().await?;
-            return Ok(dto::ActiveAudioReleaseResponse {
+            return Ok(dto::AudioReleaseWithdrawalResponse {
                 pointer_version: prior.version,
-                release: None,
+                withdrawn_release_id: prior.release,
             });
         }
         if sql::release_candidate(&tx, &request.release_id, unit, actor)
@@ -678,16 +711,16 @@ impl Store {
             &sql::Operation {
                 request_digest: digest,
                 unit: unit.into(),
-                release: request.release_id,
+                release: request.release_id.clone(),
                 version: next,
             },
         )
         .await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
-        Ok(dto::ActiveAudioReleaseResponse {
+        Ok(dto::AudioReleaseWithdrawalResponse {
             pointer_version: next,
-            release: None,
+            withdrawn_release_id: request.release_id,
         })
     }
 }

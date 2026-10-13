@@ -1,0 +1,1436 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/publication/v1",
+  "title": "Cantos Studio Publication v1",
+  "description": "Studio-only immutable audit transport; neither a listener manifest nor delivery authority. Default delivery is unavailable. All publication gates are rechecked by the server.",
+  "$defs": {
+    "CanonicalId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "ActorId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,64}$"
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+    },
+    "ContentDigest": {
+      "type": "string",
+      "pattern": "^sir-c1:sha256:[a-f0-9]{64}$"
+    },
+    "Revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "AudioProfileId": {
+      "type": "string",
+      "enum": [
+        "opus-mono-20-v1",
+        "opus-mono-24-v1",
+        "opus-mono-32-v1",
+        "opus-mono-40-v1"
+      ],
+      "description": "Explicit selected Opus intake-envelope identity. No default or automatic selection; playback/loudness adoption remains separate."
+    },
+    "CreateAudioIntentRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "expected_revision",
+        "expected_content_digest",
+        "profile_id"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "expected_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "expected_content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        }
+      }
+    },
+    "AudioIntentResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "script_id",
+        "script_revision",
+        "content_digest",
+        "profile_id",
+        "operation_id",
+        "created_by",
+        "created_at",
+        "upload_path",
+        "status_path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "created_at": {
+          "$ref": "#/$defs/UtcTimestamp"
+        },
+        "upload_path": {
+          "type": "string",
+          "pattern": "^/api/v1/studio/scripts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/audio-intents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/bytes$"
+        },
+        "status_path": {
+          "type": "string",
+          "pattern": "^/api/v1/studio/scripts/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/audio-intents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "AudioMediaMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byte_length",
+        "container",
+        "codec",
+        "channels",
+        "sample_rate_hz",
+        "duration_ms",
+        "audio_bitrate_bps",
+        "profile_id"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "container": {
+          "const": "ogg"
+        },
+        "codec": {
+          "const": "opus"
+        },
+        "channels": {
+          "const": 1
+        },
+        "sample_rate_hz": {
+          "const": 48000
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "audio_bitrate_bps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 48000
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-20-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 24000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-24-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 28800
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-32-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 38400
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "opus-mono-40-v1"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "container": {
+                "const": "ogg"
+              },
+              "codec": {
+                "const": "opus"
+              },
+              "audio_bitrate_bps": {
+                "maximum": 48000
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AudioReceiptResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "intent_id",
+        "script_id",
+        "script_revision",
+        "content_digest",
+        "profile_id",
+        "operation_id",
+        "accepted_by",
+        "accepted_at",
+        "media"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "intent_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "script_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/ContentDigest"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "accepted_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "accepted_at": {
+          "$ref": "#/$defs/UtcTimestamp"
+        },
+        "media": {
+          "$ref": "#/$defs/AudioMediaMetadata"
+        }
+      }
+    },
+    "AudioIntentStatusResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent"
+      ],
+      "properties": {
+        "intent": {
+          "$ref": "#/$defs/AudioIntentResponse"
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudioReceiptResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Responses serialize an explicit null until bytes are accepted. Raw serde also permits omission; omission never creates an accepted receipt."
+        }
+      }
+    },
+    "AudioBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "work_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "unit_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "content_revision_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "content_revision_digest": {
+          "type": "string",
+          "pattern": "^cc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "brief_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "brief_version": {
+          "$ref": "#/$defs/Revision"
+        },
+        "brief_digest": {
+          "type": "string",
+          "pattern": "^pb-r1:sha256:[a-f0-9]{64}$"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/AudioProfileId"
+        }
+      },
+      "required": [
+        "work_id",
+        "unit_id",
+        "content_revision_id",
+        "content_revision_digest",
+        "brief_id",
+        "brief_version",
+        "brief_digest",
+        "profile_id"
+      ]
+    },
+    "ProducerDeclarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "producer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "rights_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 64
+        },
+        "quality_report": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "producer",
+        "method",
+        "provenance",
+        "rights_refs",
+        "quality_report"
+      ]
+    },
+    "AudioSubmissionDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1"
+        },
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "binding": {
+          "$ref": "#/$defs/AudioBinding"
+        },
+        "expected_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expected_byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "declarations": {
+          "$ref": "#/$defs/ProducerDeclarations"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "upload_path": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^as-r1:sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "operation_id",
+        "binding",
+        "expected_sha256",
+        "expected_byte_length",
+        "declarations",
+        "owner_id",
+        "created_at",
+        "expires_at",
+        "upload_path",
+        "digest"
+      ]
+    },
+    "CreateAudioSubmissionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "binding": {
+          "$ref": "#/$defs/AudioBinding"
+        },
+        "expected_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expected_byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "declarations": {
+          "$ref": "#/$defs/ProducerDeclarations"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "upload_token": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "operation_id",
+        "binding",
+        "expected_sha256",
+        "expected_byte_length",
+        "declarations",
+        "expires_at",
+        "upload_token"
+      ]
+    },
+    "AudioRenditionDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1"
+        },
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "submission_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "submission_digest": {
+          "type": "string",
+          "pattern": "^as-r1:sha256:[a-f0-9]{64}$"
+        },
+        "binding": {
+          "$ref": "#/$defs/AudioBinding"
+        },
+        "declarations": {
+          "$ref": "#/$defs/ProducerDeclarations"
+        },
+        "verified_media": {
+          "$ref": "#/$defs/AudioMediaMetadata"
+        },
+        "admitted_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^ar-r1:sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "submission_id",
+        "submission_digest",
+        "binding",
+        "declarations",
+        "verified_media",
+        "admitted_at",
+        "digest"
+      ]
+    },
+    "CreateAudioReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_digest": {
+          "type": "string",
+          "pattern": "^ar-r1:sha256:[a-f0-9]{64}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "kind": {
+          "enum": [
+            "qc",
+            "rights",
+            "editorial"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "approved",
+            "rejected",
+            "withdrawn"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "operation_id",
+        "rendition_digest",
+        "sha256",
+        "kind",
+        "decision",
+        "notes",
+        "evidence_refs"
+      ]
+    },
+    "AudioReviewDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "sequence": {
+          "$ref": "#/$defs/Revision"
+        },
+        "reviewer_id": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "reviewed_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "request": {
+          "$ref": "#/$defs/CreateAudioReviewRequest"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^aq-r1:sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "rendition_id",
+        "operation_id",
+        "sequence",
+        "reviewer_id",
+        "reviewed_at",
+        "request",
+        "digest"
+      ]
+    },
+    "AudioSubmissionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "submission": {
+          "$ref": "#/$defs/AudioSubmissionDocument"
+        },
+        "state": {
+          "enum": [
+            "awaiting_bytes",
+            "admitted",
+            "revoked",
+            "expired",
+            "stale"
+          ]
+        },
+        "rendition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudioRenditionDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reviews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AudioReviewDocument"
+          },
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "submission",
+        "state",
+        "rendition",
+        "reviews"
+      ]
+    },
+    "CreateReleaseCandidateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_digest": {
+          "type": "string",
+          "pattern": "^ar-r1:sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "operation_id",
+        "rendition_digest"
+      ]
+    },
+    "ReleaseCandidateDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_digest": {
+          "type": "string",
+          "pattern": "^ar-r1:sha256:[a-f0-9]{64}$"
+        },
+        "binding": {
+          "$ref": "#/$defs/AudioBinding"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "work_metadata_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "unit_metadata_revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "review_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalId"
+          },
+          "maxItems": 3
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "created_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "rendition_id",
+        "rendition_digest",
+        "binding",
+        "sha256",
+        "work_metadata_revision",
+        "unit_metadata_revision",
+        "review_ids",
+        "created_by",
+        "created_at",
+        "operation_id",
+        "digest"
+      ]
+    },
+    "ReleaseCandidateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate": {
+          "$ref": "#/$defs/ReleaseCandidateDocument"
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "stale_brief",
+              "upload_permission_revoked",
+              "upload_permission_expired",
+              "rights_unrecorded",
+              "qc_not_approved",
+              "rights_not_approved",
+              "editorial_not_approved",
+              "candidate_reviews_changed",
+              "metadata_changed",
+              "public_delivery_not_implemented"
+            ]
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "candidate",
+        "blockers"
+      ]
+    },
+    "ApiError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "current_revision",
+        "issues"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "unauthenticated",
+            "not_found",
+            "forbidden",
+            "invalid_request",
+            "invalid_script",
+            "evidence_unavailable",
+            "stale_revision",
+            "operation_reused",
+            "unavailable",
+            "corrupt_revision",
+            "proposal_already_submitted",
+            "invalid_catalog",
+            "catalog_conflict",
+            "stale_cursor",
+            "stale_production_inputs",
+            "production_blocked",
+            "audio_rejected"
+          ]
+        },
+        "current_revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "rule"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "DistributionDecision": {
+      "enum": [
+        "cleared",
+        "revoked"
+      ]
+    },
+    "PublicationApprovalDecision": {
+      "enum": [
+        "approved",
+        "withdrawn"
+      ]
+    },
+    "PublicationBlocker": {
+      "enum": [
+        "candidate_mismatch",
+        "owner_scope_lost",
+        "archived",
+        "stale_brief",
+        "metadata_changed",
+        "upload_permission_revoked",
+        "upload_permission_expired",
+        "profile_unsupported",
+        "object_missing",
+        "object_unverified",
+        "object_integrity_mismatch",
+        "qc_not_approved",
+        "rights_review_not_approved",
+        "editorial_not_approved",
+        "candidate_reviews_changed",
+        "rights_unrecorded",
+        "rights_revoked",
+        "rights_expired",
+        "rights_scope_mismatch",
+        "approval_missing",
+        "approval_withdrawn",
+        "approval_stale",
+        "delivery_unavailable",
+        "delivery_missing",
+        "delivery_integrity_mismatch",
+        "delivery_evidence_expired"
+      ]
+    },
+    "RecordDistributionRightsRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "candidate_digest",
+        "decision",
+        "rights_refs",
+        "valid_until",
+        "evidence_refs",
+        "notes"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "decision": {
+          "$ref": "#/$defs/DistributionDecision"
+        },
+        "rights_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "valid_until": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "DistributionClearanceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_id",
+        "actor_id",
+        "sequence",
+        "recorded_at",
+        "request",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "recorded_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "request": {
+          "$ref": "#/$defs/RecordDistributionRightsRequest"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^dc-r1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "RecordPublicationApprovalRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "candidate_digest",
+        "clearance_digest",
+        "decision",
+        "notes"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "clearance_digest": {
+          "type": "string",
+          "pattern": "^dc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "decision": {
+          "$ref": "#/$defs/PublicationApprovalDecision"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "PublicationApprovalDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_id",
+        "actor_id",
+        "sequence",
+        "recorded_at",
+        "request",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "actor_id": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "recorded_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "request": {
+          "$ref": "#/$defs/RecordPublicationApprovalRequest"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^pa-r1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "PublicationReadinessResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "candidate_digest",
+        "pointer_version",
+        "active_release_id",
+        "blockers",
+        "clearance",
+        "approval"
+      ],
+      "properties": {
+        "candidate_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "pointer_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "active_release_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PublicationBlocker"
+          }
+        },
+        "clearance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DistributionClearanceDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PublicationApprovalDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PublishAudioReleaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "candidate_digest",
+        "expected_pointer_version",
+        "expected_active_release_id"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "expected_pointer_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "expected_active_release_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ReleaseManifestDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "work_id",
+        "unit_id",
+        "work_metadata_revision",
+        "unit_metadata_revision",
+        "work_title",
+        "unit_title",
+        "language",
+        "rights_refs",
+        "candidate_id",
+        "candidate_digest",
+        "rendition_id",
+        "rendition_digest",
+        "binding",
+        "media",
+        "review_evidence",
+        "distribution_clearance",
+        "publication_approval",
+        "delivery_object_id",
+        "retention",
+        "digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1"
+        },
+        "work_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "unit_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "work_metadata_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "unit_metadata_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "work_title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "unit_title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "rights_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "candidate_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "candidate_digest": {
+          "type": "string",
+          "pattern": "^rc-r1:sha256:[a-f0-9]{64}$"
+        },
+        "rendition_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "rendition_digest": {
+          "type": "string",
+          "pattern": "^ar-r1:sha256:[a-f0-9]{64}$"
+        },
+        "binding": {
+          "$ref": "#/$defs/AudioBinding"
+        },
+        "media": {
+          "$ref": "#/$defs/AudioMediaMetadata"
+        },
+        "review_evidence": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/AudioReviewDocument"
+          }
+        },
+        "distribution_clearance": {
+          "$ref": "#/$defs/DistributionClearanceDocument"
+        },
+        "publication_approval": {
+          "$ref": "#/$defs/PublicationApprovalDocument"
+        },
+        "delivery_object_id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^publication-[A-Za-z0-9-]+$"
+        },
+        "retention": {
+          "const": "retain_until_rights_expiry_or_withdrawal"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^rm-r1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "AudioReleaseDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "published_by",
+        "published_at",
+        "supersedes",
+        "manifest",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "published_by": {
+          "$ref": "#/$defs/ActorId"
+        },
+        "published_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "manifest": {
+          "$ref": "#/$defs/ReleaseManifestDocument"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^rl-r1:sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "ActiveAudioReleaseResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pointer_version",
+        "release"
+      ],
+      "properties": {
+        "pointer_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "release": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudioReleaseDocument"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "WithdrawAudioReleaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "release_id",
+        "expected_pointer_version",
+        "reason"
+      ],
+      "properties": {
+        "operation_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "release_id": {
+          "$ref": "#/$defs/CanonicalId"
+        },
+        "expected_pointer_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "AudioReleaseWithdrawalResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pointer_version",
+        "withdrawn_release_id"
+      ],
+      "properties": {
+        "pointer_version": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "withdrawn_release_id": {
+          "$ref": "#/$defs/CanonicalId"
+        }
+      }
+    }
+  }
+}

@@ -28,6 +28,7 @@ mod catalog;
 mod content;
 mod imports;
 mod production;
+mod publication;
 
 /// Which URL space a Studio route set is mounted under.
 #[derive(Clone, Copy)]

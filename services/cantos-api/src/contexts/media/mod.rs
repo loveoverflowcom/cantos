@@ -14,7 +14,7 @@ pub(crate) use lifecycle_application::upload_token_registered;
 
 mod publication_application;
 pub(crate) mod publication_delivery;
-pub use publication_application::PublicationStoreError;
+pub use publication_application::{PublicationService, PublicationStoreError};
 pub use publication_delivery::{
     PublicationDelivery, PublicationDeliveryFuture, PublicationDependencyError, PublicationObject,
 };

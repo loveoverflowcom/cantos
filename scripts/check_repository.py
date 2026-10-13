@@ -513,7 +513,19 @@ def dependency_error(path, owner, domain, http):
             ("contexts", "catalog", "CatalogCursor"),
             ("contexts", "catalog", "CatalogCursor", "decode"),
         }
-        if http and path not in HTTP_PURE_BOUNDARIES and not (catalog_wire or catalog_error or catalog_input_type):
+        publication_error = path[:3] in {
+            ("contexts", "media", "PublicationStoreError"),
+            ("contexts", "media", "PublicationDependencyError"),
+        } or path[:5] == ("contexts", "media", "domain", "publication", "PublicationError")
+        publication_composition = path in {
+            ("contexts", "media", "PublicationService"),
+            ("contexts", "media", "PublicationService", "new"),
+            ("contexts", "media", "PublicationService", "with_publication_delivery"),
+            ("contexts", "media", "PublicationDelivery"),
+        }
+        if http and path not in HTTP_PURE_BOUNDARIES and not (
+            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition
+        ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"

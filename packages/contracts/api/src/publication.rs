@@ -160,3 +160,10 @@ pub struct WithdrawAudioReleaseRequest {
     pub expected_pointer_version: u64,
     pub reason: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AudioReleaseWithdrawalResponse {
+    pub pointer_version: u64,
+    pub withdrawn_release_id: String,
+}

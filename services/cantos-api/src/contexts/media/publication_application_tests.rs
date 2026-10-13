@@ -1,5 +1,5 @@
 use super::*;
-use crate::contexts::media::domain::publication::tests::fixture;
+use crate::contexts::media::domain::publication::tests::{fixture, Fixture};
 struct VerifiedDelivery;
 impl PublicationDelivery for VerifiedDelivery {
     fn observe(&self, object: PublicationObject) -> PublicationDeliveryFuture {
@@ -23,9 +23,7 @@ impl PublicationDelivery for FailingDelivery {
         Box::pin(async { Err(PublicationDependencyError::Unavailable) })
     }
 }
-fn request(
-    f: &super::super::domain::publication::tests::Fixture,
-) -> dto::PublishAudioReleaseRequest {
+fn request(f: &Fixture) -> dto::PublishAudioReleaseRequest {
     dto::PublishAudioReleaseRequest {
         operation_id: "80000000-0000-4000-8000-000000000001".into(),
         candidate_digest: f.candidate.document().digest.clone(),

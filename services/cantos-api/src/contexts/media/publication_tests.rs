@@ -803,3 +803,38 @@ fn rehashed_clearance_cannot_drop_known_rendition_rights() {
         Err(PublicationError::BindingMismatch)
     );
 }
+
+#[test]
+fn approving_rejects_revoked_expired_and_wrong_scope_rights_before_delivery() {
+    let f = fixture();
+    let mut facts = f.facts();
+    facts.approval = None;
+    facts.delivery = &DeliveryObservation::Unavailable;
+    assert_eq!(approval_blockers(&facts), vec![]);
+    let mut raw = f.rights.document().clone();
+    raw.request.decision = dto::DistributionDecision::Revoked;
+    let revoked = DistributionClearance::record(raw, &f.candidate).unwrap();
+    facts.rights = Some(&revoked);
+    assert_eq!(
+        approval_blockers(&facts),
+        vec![dto::PublicationBlocker::RightsRevoked]
+    );
+    facts.rights = Some(&f.rights);
+    facts.now = 10000;
+    assert_eq!(
+        approval_blockers(&facts),
+        vec![
+            dto::PublicationBlocker::UploadPermissionExpired,
+            dto::PublicationBlocker::RightsExpired
+        ]
+    );
+    let mut raw = f.rights.document().clone();
+    raw.request.rights_refs = vec!["unrelated-rights".into()];
+    let unrelated = DistributionClearance::record(raw, &f.candidate).unwrap();
+    facts.now = 5000;
+    facts.rights = Some(&unrelated);
+    assert_eq!(
+        approval_blockers(&facts),
+        vec![dto::PublicationBlocker::RightsScopeMismatch]
+    );
+}

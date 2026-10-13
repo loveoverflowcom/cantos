@@ -463,6 +463,43 @@ pub fn evaluate(f: &PublicationFacts<'_>) -> Vec<dto::PublicationBlocker> {
     }
     b.into_iter().collect()
 }
+/// Approving requires the same current candidate/rights/QC/integrity facts. Delivery is checked
+/// only at activation; there can be no prior publication approval for its own creation.
+pub fn approval_blockers(facts: &PublicationFacts<'_>) -> Vec<dto::PublicationBlocker> {
+    use dto::PublicationBlocker as B;
+    evaluate(facts)
+        .into_iter()
+        .filter(|b| match b {
+            B::ApprovalMissing
+            | B::ApprovalWithdrawn
+            | B::ApprovalStale
+            | B::DeliveryUnavailable
+            | B::DeliveryMissing
+            | B::DeliveryIntegrityMismatch
+            | B::DeliveryEvidenceExpired => false,
+            B::CandidateMismatch
+            | B::OwnerScopeLost
+            | B::Archived
+            | B::StaleBrief
+            | B::MetadataChanged
+            | B::UploadPermissionRevoked
+            | B::UploadPermissionExpired
+            | B::ProfileUnsupported
+            | B::ObjectMissing
+            | B::ObjectUnverified
+            | B::ObjectIntegrityMismatch
+            | B::QcNotApproved
+            | B::RightsReviewNotApproved
+            | B::EditorialNotApproved
+            | B::CandidateReviewsChanged
+            | B::RightsUnrecorded
+            | B::RightsRevoked
+            | B::RightsExpired
+            | B::RightsScopeMismatch => true,
+        })
+        .collect()
+}
+
 /// The half-open validity kernel is shared by commit-time rights and delivery checks.
 pub fn rights_window_valid(start: i64, end: i64, now: i64) -> bool {
     start >= 0 && start <= now && now < end
