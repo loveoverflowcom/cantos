@@ -102,7 +102,11 @@ How the foundation lands in the browser:
 - **Functional core.** Editor, playback, retry, poll-schedule and merge decisions are pure and
   tested with plain `#[test]`; Leptos and `web-sys` are the shell.
 - **Types as proofs.** `Retryability::UnkeyedWrite` cannot be retried; `SpeakerRef::Unresolved` is
-  a state, not an empty string; exhaustive matches map every validator and port error.
+  a state, not an empty string; exhaustive matches map every validator and port error. Apply
+  foundation [typed errors and composition](../cantos-engineering/references/typed-errors-and-composition.md)
+  through [Leptos async](references/leptos-async.md#typed-results-and-error-projection):
+  `Result` carries failure, `Option` carries meaningful absence, and UI projection preserves
+  correction/reconciliation facts without erasing the form.
 - **Clean syntax.** Readable `view!` with semantic classes, small named helpers, no `unwrap()` on
   browser globals, formatter-clean Rust and stylesheets.
 - **Material 3 Expressive.** Applied through tokens at each surface's intensity: a quiet,
@@ -175,6 +179,7 @@ A skill-only or docs-only edit needs no app run; say that no Web behavior was ex
 | surfaces, permission contexts, layering, ports in context, core crates in WASM, secrets, shell-owned mini-player, modules, SSR vs CSR | [`web-architecture.md`](references/web-architecture.md) |
 | binary request/response bodies, the codec switch, decoding by `Content-Type`, codec bundle cost | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
 | resources, actions, explicit states, stale responses, duplicate submits, retries, optimistic UI, job progress | [`leptos-async.md`](references/leptos-async.md) |
+| Result/Option, typed port failures, exhaustive UI error projection and recovery | foundation [typed errors](../cantos-engineering/references/typed-errors-and-composition.md) + [Web application](references/leptos-async.md#typed-results-and-error-projection) |
 | `web-sys`, listeners and cleanup, focus and dialogs, shortcuts, storage, `HTMLMediaElement`, Media Session, autoplay, ranges, signed URLs | [`dom-and-media-interop.md`](references/dom-and-media-interop.md) |
 | the Studio editor: dialogue identity, IME composition, save/version/conflict, undo, reordering, speakers, validation, large scripts | [`script-editor.md`](references/script-editor.md) |
 | CSS custom properties, SCSS, themes, reduced motion, focus, container queries, Vietnamese text in layout, proposed style gate | [`styling.md`](references/styling.md) |

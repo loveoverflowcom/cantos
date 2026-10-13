@@ -8,10 +8,12 @@
 Async code is where durable rules hide. Retry policy, conflict handling, poll scheduling and
 "may this be applied" are decisions: keep them as pure functions in a core crate per the
 foundation's [`functional-core.md`](../../cantos-engineering/references/functional-core.md), and let
-the resource or action resolve facts, call the rule once and interpret the result. API names
-below follow Leptos 0.7/0.8 (`Resource`, `LocalResource`, `Action`, `<Suspense>`, `<Transition>`,
-`<ErrorBoundary>`); verify exact constructors, including the non-`Send` local variants, against the
-version the repository pins.
+the resource or action resolve facts, call the rule once and interpret the result. Apply the
+canonical [typed-error policy](../../cantos-engineering/references/typed-errors-and-composition.md).
+The Web manifests pin **Leptos 0.7.8**. `LocalResource::new` takes one reactive fetcher;
+`Action::new_local` supports a non-`Send` future. `Resource::new` and `Action::new` have
+different serialization/`Send` bounds; do not copy 0.8 examples or force browser futures into
+them. The hypothetical ports below illustrate signatures, not an implemented resource migration.
 
 ## Rules at a glance
 
@@ -33,20 +35,52 @@ A resource owns remote *read* state keyed by its reactive inputs. An action owns
 its pending/value state. The component derives what to render from both.
 
 ```rust
-// Illustrative, proposed. The source closure is the request key; nothing writes it back.
+// Illustrative CSR wiring for Leptos 0.7.8; the port/types remain proposed.
 let ports = expect_context::<TheatreContext>();
-let episode = Resource::new(
-    move || route_episode_id.get(),
-    move |id| { let catalog = ports.catalog.clone(); async move { catalog.episode(id).await } },
-);
-let add_bookmark = Action::new(move |intent: &BookmarkIntent| {
-    let progress = ports.progress.clone();
+let catalog = ports.catalog.clone();
+let progress = ports.progress.clone();
+let episode = LocalResource::new(move || {
+    let id = route_episode_id.get(); // tracked before awaiting; nothing writes this key back
+    let catalog = catalog.clone();
+    async move { catalog.episode(id).await } // Result<Option<EpisodeView>, CatalogFailure>
+});
+let add_bookmark = Action::new_local(move |intent: &BookmarkIntent| {
+    let progress = progress.clone();
     let intent = intent.clone();
-    async move { progress.add_bookmark(intent).await }
+    async move { progress.add_bookmark(intent).await } // Result<BookmarkReceipt, BookmarkFailure>
 });
 ```
 
 Do not fire the same read from a parent and a child; load once and pass the value or resource down.
+
+### Typed results and error projection
+
+- Resource/action output keeps a capability-specific `Result<T, E>`. `Result<Option<T>, E>` is
+  justified only when absence is a successful contract outcome: unresolved resource, `Ok(None)`
+  and `Err(E)` are three different states. Do not use `.ok()` to make a request fit `Option`.
+- Action `value` may be `None` before any completed result; `pending` is a separate fact.
+  Neither is the success/failure outcome. Retain submitted snapshot/request identity and decide
+  whether an existing result belongs to it; a prior successful action value cannot announce
+  “saved” for a newly edited or in-flight snapshot.
+- Project every owned error variant exhaustively into a message key, field findings,
+  reconciliation facts and permitted recovery action. The pure projection performs no retry,
+  navigation or logging. Keep retry decisions in section 5; a localized message does not
+  establish retryability. Do not collapse conflict/auth/validation/unknown-write outcomes into
+  one `Unavailable` banner.
+- Current Studio [`ClientError`](../../../../apps/cantos-studio/web/src/live/command.rs) includes
+  `Cancelled`, `SessionChanged`, `ReceiptNotEstablished`, `Transport`, `Protocol`, `Http` and
+  `InvalidInput`. These are implementation facts, not the proposed `PortError`/`UiError` names
+  in later examples. Preserve its ambiguous-write/receipt semantics and the public `ErrorCode`
+  contract when extracting mappings. Malformed/unknown wire errors become protocol failures at
+  the HTTP adapter, never fabricated empty data or a default domain error.
+- `<ErrorBoundary>` can render explicit result errors; it is not a general Rust panic or
+  JavaScript exception containment mechanism. JS/browser exceptions stay in concrete platform
+  helpers and map to typed failures under foundation ERR-04, not in view closures.
+
+For a changed projection, test every variant's exact key, findings, recovery and form state;
+compile exhaustive matches. Include malformed wire errors, failed refresh with cached data,
+cancelled writes and lost save/finalize responses. Host projection tests do not establish browser
+interaction or real request cancellation.
 
 ## 2. Make every remote state explicit
 
@@ -67,7 +101,9 @@ pub fn classify_library(page: LibraryPage) -> LoadState<LibraryPage> {
 ```
 
 Render with an exhaustive `match` (no `_` arm) so a new state fails compilation instead of
-rendering nothing. `<Transition>` keeps the previous content during a refetch; use it when the
+rendering nothing. Keep stale data only for the same account, resource and compatible revision;
+clear it on logout/context switch so a failed refresh cannot disclose prior-session content.
+`<Transition>` keeps the previous content during a refetch; use it when the
 stale value is still meaningful (a library list) and `<Suspense>` when it is not (a different
 episode). Empty and failed copy are different strings with different actions: "Bạn chưa nghe tập
 nào" with a discovery link versus "Không tải được thư viện" with "Thử lại". All copy comes from the
@@ -86,6 +122,9 @@ request B (episode 2) ───────────►  fast response B     
   tag each request with what it answers and apply the response only if that is still current.
 - Key by the full question, including the revision: a save acknowledgement for base revision 3
   must not be applied after the editor has rebased onto revision 5.
+- Fence late errors as well as successes; an old failure must not clear new validation findings,
+  sign out a new session or overwrite a current success. A keyed resource does not fence side
+  effects performed inside its fetcher or other independently written signals.
 
 ```rust
 // Illustrative pure guard: a monotonic issue counter plus the question being answered.
@@ -100,6 +139,9 @@ pub fn should_apply(latest: Issued, answered: Issued) -> bool {
 On unmount or navigation, drop the pending write of the result. Writing into a disposed signal is
 at best a no-op with a warning; prefer the fallible `try_` setters or an owner check, and confirm
 the behavior for the pinned version. The regression test is in [`web-testing.md`](web-testing.md#the-stale-response-regression).
+An action abort handle stops polling its future; it does not promise that a browser request or
+server write stopped. Concrete request adapters own abort/cleanup, while mutation receipts and
+idempotency own reconciliation. Report cancellation as cancellation, not a retryable error.
 
 ## 4. Duplicate submits: state the behavior per mutation
 
@@ -168,6 +210,9 @@ snapshot. A failed request changes the *status*, never the *content*.
   acknowledged copy.
 - On failure or conflict, keep the draft, show the reason and a recovery action. Do not refetch
   "to be safe" and do not clear the form.
+- Attach field findings to the submitted snapshot/field version. Preserve newer typing and
+  selections, and reject stale findings; do not let an older failing response overwrite the
+  current draft's errors. Context/account changes still clear private data deliberately.
 
 The full editor state machine lives in [`script-editor.md`](script-editor.md#4-draft-save-and-version-states).
 
