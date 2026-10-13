@@ -33,10 +33,11 @@ pub enum Tool {
     Ffmpeg,
     Ffprobe,
     AndroidCli,
+    Kani,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 18] = [
+    pub const ALL: [Tool; 19] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -55,6 +56,7 @@ impl Tool {
         Tool::Ffmpeg,
         Tool::Ffprobe,
         Tool::AndroidCli,
+        Tool::Kani,
     ];
 
     pub fn label(self) -> &'static str {
@@ -77,6 +79,7 @@ impl Tool {
             Tool::Ffmpeg => "ffmpeg",
             Tool::Ffprobe => "ffprobe",
             Tool::AndroidCli => "android",
+            Tool::Kani => "Kani 0.68.0 / CBMC 6.11.0",
         }
     }
 
@@ -101,6 +104,7 @@ impl Tool {
             Tool::TheatreDemoGradleProject => {
                 "the isolated root/shared Gradle project and common/desktop sources must exist in apps/cantos-theatre/mobile"
             }
+            Tool::Kani => "prepare the official Kani 0.68.0 bundle with its matching nightly and CBMC 6.11.0 separately; set KANI_HOME; xtask never installs or runs the installer proxy",
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
             Tool::Ffmpeg | Tool::Ffprobe => {
@@ -118,7 +122,7 @@ impl Tool {
             Tool::Cargo => Some(("cargo", &["--version"])),
             Tool::Rustfmt => Some(("cargo", &["fmt", "--version"])),
             Tool::Clippy => Some(("cargo", &["clippy", "--version"])),
-            Tool::Wasm32Target => None,
+            Tool::Wasm32Target | Tool::Kani => None,
             Tool::Trunk => Some(("trunk", &["--version"])),
             Tool::Gradle => Some(("gradle", &["--no-daemon", "--version"])),
             Tool::Java => Some(("java", &["-version"])),
@@ -175,6 +179,18 @@ impl SystemTools {
         ) {
             return self.available(tool).then(|| "available".to_owned());
         }
+        if tool == Tool::Kani {
+            let output = crate::kani::probe_command(&self.root)
+                .to_command()
+                .stdin(Stdio::null())
+                .output()
+                .ok()?;
+            return output.status.success().then(|| {
+                String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .replace('\n', "; ")
+            });
+        }
         let (program, args) = tool.version_command()?;
         let output = Command::new(program)
             .args(args)
@@ -217,7 +233,7 @@ impl SystemTools {
             Tool::Java => self
                 .version(tool)
                 .is_some_and(|version| java_version_supported(&version)),
-            Tool::Rustfmt | Tool::Clippy | Tool::Ffmpeg | Tool::Ffprobe => {
+            Tool::Rustfmt | Tool::Clippy | Tool::Ffmpeg | Tool::Ffprobe | Tool::Kani => {
                 self.version(tool).is_some()
             }
             other => find_on_path(other.label()).is_some(),

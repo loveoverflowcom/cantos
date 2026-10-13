@@ -1,6 +1,7 @@
 use super::*;
 use crate::contexts::catalog::{content::wire, domain::content::*};
 use crate::contexts::production::domain::brief::rights_digest;
+use proptest::prelude::*;
 const WORK: &str = "10000000-0000-4000-8000-000000000001";
 const UNIT: &str = "20000000-0000-4000-8000-000000000002";
 const CONTENT: &str = "30000000-0000-4000-8000-000000000003";
@@ -371,6 +372,103 @@ fn explicit_state_event_matrix_rejects_terminal_admission() {
                 expected[row][column],
                 "{state:?} {event:?}"
             );
+        }
+    }
+}
+
+#[test]
+fn upload_clock_cannot_precede_creation_or_settled_admission() {
+    let submission = submission();
+    let settled = rendition();
+    let digest = "a".repeat(64);
+    for now in [i64::MIN, -1, 0, 2999] {
+        assert_eq!(
+            decide_admission(&submission, now, false, true, &digest, 100, None),
+            Err(AudioError::InvalidExpiry),
+            "{now}",
+        );
+    }
+    assert_eq!(
+        decide_admission(&submission, 3999, false, true, &digest, 100, Some(&settled)),
+        Err(AudioError::InvalidExpiry),
+    );
+    assert_eq!(
+        decide_admission(&submission, 4000, false, true, &digest, 100, Some(&settled)),
+        Ok(AdmissionDecision::Replay),
+    );
+}
+
+#[test]
+fn a_settled_rendition_cannot_be_replayed_for_another_submission() {
+    let s = submission();
+    let mut other = request();
+    other.id = OP.into();
+    let other =
+        AudioSubmission::create(&other, &brief(), &OwnerId::parse("alice").unwrap(), 3000).unwrap();
+    let foreign = AudioRendition::create(
+        &other,
+        rendition().document().verified_media.clone(),
+        AudioRenditionId::parse(ID).unwrap(),
+        4000,
+    )
+    .unwrap();
+    assert_eq!(
+        decide_admission(&s, 4500, false, true, &"a".repeat(64), 100, Some(&foreign)),
+        Err(AudioError::BindingMismatch),
+    );
+}
+
+#[test]
+fn submission_windows_admit_only_positive_bounded_lifetimes() {
+    for (created, expires) in [
+        (i64::MIN, i64::MAX),
+        (-1, 1),
+        (0, 0),
+        (1, 0),
+        (0, MAX_SUBMISSION_LIFETIME_MS + 1),
+        (i64::MAX, i64::MAX),
+    ] {
+        assert_eq!(
+            SubmissionWindow::new(created, expires),
+            Err(AudioError::InvalidExpiry)
+        );
+    }
+    for (created, expires) in [
+        (0, 1),
+        (0, MAX_SUBMISSION_LIFETIME_MS),
+        (i64::MAX - 1, i64::MAX),
+    ] {
+        let window = SubmissionWindow::new(created, expires).unwrap();
+        assert!(!window.contains(created - 1));
+        assert!(window.contains(created));
+        assert!(window.contains(expires - 1));
+        assert!(!window.contains(expires));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 256, rng_seed: proptest::test_runner::RngSeed::Fixed(20_261_013), ..ProptestConfig::default() })]
+    #[test]
+    fn submission_window_matches_wider_integer_lifetime_and_membership_oracles(
+        (created, expires) in prop_oneof![
+            (any::<i64>(), any::<i64>()),
+            (0_i64..=i64::MAX - MAX_SUBMISSION_LIFETIME_MS, 1_i64..=MAX_SUBMISSION_LIFETIME_MS)
+                .prop_map(|(created, duration)| (created, created + duration)),
+        ],
+        raw_now in any::<i64>(), clock_case in 0_u8..4,
+    ) {
+        let now = match clock_case {
+            0 => created,
+            1 => expires,
+            2 => expires.checked_sub(1).unwrap_or(raw_now),
+            _ => raw_now,
+        };
+        let duration = i128::from(expires) - i128::from(created);
+        let valid = created >= 0 && (1..=i128::from(MAX_SUBMISSION_LIFETIME_MS)).contains(&duration);
+        let window = SubmissionWindow::new(created, expires);
+        prop_assert_eq!(window.is_ok(), valid);
+        if let Ok(window) = window {
+            prop_assert_eq!(window.contains(now), (created..expires).contains(&now));
         }
     }
 }

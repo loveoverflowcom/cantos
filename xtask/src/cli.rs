@@ -9,6 +9,7 @@ use crate::{
     compose_preview::ComposePreviewArgs,
     config::DEFAULT_BASE,
     gate::GateKind,
+    kani::Kernel,
     run::{AppTarget, RunTarget},
     theatre_demo::DemoAction,
     ui_preview::{PreviewAction, Renderer},
@@ -116,6 +117,9 @@ pub enum Task {
     },
     /// Developer safety gate before pushing; --changed-only selects gates from the Git diff.
     Preflight {
+        /// Opt in to registered API Kani proofs, narrowed by changed paths when requested.
+        #[arg(long)]
+        kani: bool,
         /// Comparison base for --changed-only.
         #[arg(long, default_value = DEFAULT_BASE, value_name = "REF")]
         base: String,
@@ -144,6 +148,12 @@ pub enum Task {
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum VerifySuite {
+    /// Exact registered API bounded proofs; no normal build or CI requirement.
+    Kani {
+        /// Select a registered proposition (repeatable); omission selects all three.
+        #[arg(long, value_enum)]
+        harness: Vec<Kernel>,
+    },
     /// Documents, links, JSON, skills, Python unit tests and whitespace.
     Repository,
     /// rustfmt, clippy -D warnings and tests for the whole Cargo workspace.
@@ -177,6 +187,30 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn kani_accepts_only_registered_explicit_selectors() {
+        assert!(
+            matches!(parse("verify kani").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness.is_empty())
+        );
+        assert!(
+            matches!(parse("verify kani --harness wav-payload --harness catalog-revision").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness == [Kernel::WavPayload, Kernel::CatalogRevision])
+        );
+        for line in [
+            "verify kani --harness theatre",
+            "verify kani --harness wav",
+            "verify kani --no-default-checks",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
+        assert!(
+            matches!(parse("preflight --changed-only --kani --skip kani --dry-run").unwrap(), Task::Preflight { kani: true, changed_only: true, dry_run: true, skip, .. } if skip == [GateKind::Kani])
+        );
+        assert!(matches!(
+            parse("preflight").unwrap(),
+            Task::Preflight { kani: false, .. }
+        ));
     }
 
     #[test]

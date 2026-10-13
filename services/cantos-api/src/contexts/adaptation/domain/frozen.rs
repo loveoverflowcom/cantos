@@ -2,7 +2,9 @@
 //!
 //! `a1` is the retired provider-run preimage, kept readable; `c1` is the caller-owned context.
 //! Both bind the exact source, base revision and the evidence record identities minted for the
-//! run, from which acceptance rebuilds the trusted binding.
+//! run, from which acceptance rebuilds raw binding facts and re-admits them. These serialized
+//! snapshots are not sealed provenance or authorization witnesses; SQL reconstruction and
+//! transaction-time source/base/access checks remain required.
 use cantos_contracts::{
     AdaptationContextRequest, AdaptationCost, AdaptationProblem, AdaptationProviderMetadata,
     AdaptationUsage, ImportResponse, RevisionResponse, StartAdaptationRequest,

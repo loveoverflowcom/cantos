@@ -149,7 +149,19 @@ pub fn evaluate_for_owner(
     eligibility
 }
 
-/// A sealed witness for current input authorization. No paid dispatcher consumes it yet.
+/// A sealed decision for the supplied current-owner facts at one clock instant.
+/// It is not a lasting capability: any future consumer must reload and recheck the owner,
+/// rights, review, head, settings and time under its transaction fence. No dispatcher exists.
+///
+/// ```compile_fail
+/// use cantos_api::contexts::production::domain::AuthorizedProductionInputs;
+/// let forged = AuthorizedProductionInputs { input_digest: String::new() };
+/// ```
+/// ```compile_fail
+/// use cantos_api::contexts::production::domain::AuthorizedProductionInputs;
+/// fn deserialize<T: serde::de::DeserializeOwned>() {}
+/// deserialize::<AuthorizedProductionInputs>();
+/// ```
 pub struct AuthorizedProductionInputs {
     input_digest: String,
 }
@@ -160,8 +172,10 @@ impl AuthorizedProductionInputs {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn authorize_inputs(
     document: &FrozenProductionDocument,
+    current_owner: &str,
     current_revision: u64,
     current_settings_version: u64,
     current_rights: &[ProductionRightsClaimResponse],
@@ -169,8 +183,9 @@ pub fn authorize_inputs(
     approval: Option<&ProductionApprovalResponse>,
     now_unix: i64,
 ) -> Result<AuthorizedProductionInputs, Vec<ProductionFinding>> {
-    let eligibility = evaluate_snapshot(
+    let eligibility = evaluate_for_owner(
         document,
+        current_owner,
         current_revision,
         current_settings_version,
         current_rights,

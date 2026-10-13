@@ -277,6 +277,14 @@ impl Editor {
         self.failed(error)
     }
 
+    /// Findings describe the submitted bytes, never a newer draft or another context.
+    pub fn accepts_save_findings(&self, intent: &Intent) -> bool {
+        self.pending.as_ref() == Some(intent)
+            && self.actor == intent.actor
+            && self.script == intent.script
+            && self.draft == intent.request.script_json
+    }
+
     pub fn session_failed(&self, error: &ApiError) -> Self {
         let mut next = self.clone();
         next.busy = false;
@@ -474,6 +482,55 @@ pub fn error_status(code: &ErrorCode) -> Status {
 mod tests {
     use super::{Editor, Status, ValidationPreview};
     use cantos_contracts::{ApiError, ErrorCode, FieldIssue, RevisionResponse};
+
+    #[test]
+    fn late_save_findings_do_not_attach_to_newer_editor_text() {
+        let initial = Editor {
+            actor: "alice".into(),
+            script: "script".into(),
+            draft: "Ngày mai, mình có diễn tiếp không?".into(),
+            ..Editor::default()
+        };
+        let (saving, intent) = initial.start_save("op".into()).unwrap();
+        assert!(saving.accepts_save_findings(&intent));
+        let changed = saving.edit("Ngày mai, mình vẫn diễn tiếp.".into());
+        assert!(!changed.accepts_save_findings(&intent));
+        assert_eq!(changed.draft, "Ngày mai, mình vẫn diễn tiếp.");
+        assert_eq!(changed.pending, Some(intent));
+    }
+
+    #[test]
+    fn save_findings_require_the_pending_actor_script_and_exact_snapshot() {
+        let (saving, intent) = Editor {
+            actor: "alice".into(),
+            script: "script".into(),
+            draft: "Nguồn đã sửa".into(),
+            ..Editor::default()
+        }
+        .start_save("op".into())
+        .unwrap();
+        for changed in [
+            Editor {
+                actor: "bob".into(),
+                ..saving.clone()
+            },
+            Editor {
+                script: "another".into(),
+                ..saving.clone()
+            },
+            Editor {
+                pending: None,
+                ..saving.clone()
+            },
+        ] {
+            assert!(!changed.accepts_save_findings(&intent));
+        }
+        assert!(saving.accepts_save_findings(&intent));
+        assert!(saving
+            .edit("new".into())
+            .edit(saving.draft.clone())
+            .accepts_save_findings(&intent));
+    }
 
     #[test]
     fn typing_after_an_acknowledged_save_is_visibly_unsaved() {

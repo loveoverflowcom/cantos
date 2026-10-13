@@ -14,7 +14,7 @@ use crate::{
             progress::ProgressState,
             queue::QueueState,
         },
-        playback::{Event, Intent, ResumeSnapshot, Status},
+        playback::{Event, Intent, ResumeSnapshot, Status, ValidatedResumeSnapshot},
     },
     infrastructure::{fake_media::FakeMedia, mock_catalog::MockCatalog},
     messages::{self, Key, Locale},
@@ -97,8 +97,8 @@ impl TheatreContext {
             return;
         };
         let mark = Bookmark {
-            episode: snapshot.source.episode(),
-            position_ms: snapshot.position_ms,
+            episode: snapshot.source().episode(),
+            position_ms: snapshot.position_ms(),
         };
         self.library_writer.set(library::reduce(
             self.library.get_untracked(),
@@ -186,13 +186,13 @@ impl TheatreContext {
         let Some(progress) = self.progress.get_untracked().latest() else {
             return;
         };
-        self.resume_progress(progress.snapshot.source.episode());
+        self.resume_progress(progress.snapshot.source().episode());
     }
     pub fn resume_progress(self, id: EpisodeId) {
         let Some(progress) = self.progress.get_untracked().find(id) else {
             return;
         };
-        if self.catalog.source(id) != Some(progress.snapshot.source) {
+        if self.catalog.source(id) != Some(progress.snapshot.source()) {
             return;
         }
         let previous = self.player.snapshot();
@@ -220,7 +220,7 @@ impl TheatreContext {
         let current = self
             .player
             .snapshot()
-            .map(|snapshot| snapshot.source.episode());
+            .map(|snapshot| snapshot.source().episode());
         self.queue_writer
             .set(self.queue.get_untracked().enqueue(source, current));
     }
@@ -282,10 +282,12 @@ impl TheatreContext {
             work: WorkId::Mountain,
             index: 2,
         }) {
-            let snapshot = ResumeSnapshot {
+            let Ok(snapshot) = ValidatedResumeSnapshot::try_from(ResumeSnapshot {
                 source,
                 position_ms: 768000,
                 speed_permille: 1000,
+            }) else {
+                return;
             };
             self.progress_writer
                 .set(ProgressState::default().remember(snapshot));
@@ -331,7 +333,7 @@ mod tests {
                     .find(river_first)
                     .unwrap()
                     .snapshot
-                    .position_ms,
+                    .position_ms(),
                 ctx.catalog.source(river_first).unwrap().duration_ms()
             );
             ctx.playback(Event::PlayRequested);
@@ -341,7 +343,7 @@ mod tests {
                     .find(river_first)
                     .unwrap()
                     .snapshot
-                    .position_ms,
+                    .position_ms(),
                 0
             );
             ctx.open_episode(river_next);
@@ -359,7 +361,7 @@ mod tests {
     fn clear_history_preserves_every_other_owner_and_rejects_captured_history_actions() {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());
-            let episode = ctx.player.snapshot().unwrap().source.episode();
+            let episode = ctx.player.snapshot().unwrap().source().episode();
             ctx.playback(Event::PlayRequested);
             ctx.playback(Event::SeekRequested {
                 position_ms: 15_000,
@@ -405,7 +407,7 @@ mod tests {
             ctx.route.set(Route::Library);
             ctx.resume_episode(episode);
             assert_eq!(ctx.route.get_untracked(), Route::Player);
-            assert_eq!(ctx.player.snapshot().unwrap().position_ms, 5000);
+            assert_eq!(ctx.player.snapshot().unwrap().position_ms(), 5000);
             assert_eq!(
                 ctx.player.status.get_untracked(),
                 Status::Paused(crate::core::playback::PauseCause::ColdRestore)
@@ -414,7 +416,7 @@ mod tests {
                 identity: stale_identity,
             });
             assert_eq!(ctx.history.get_untracked(), history);
-            assert_eq!(ctx.player.snapshot().unwrap().position_ms, 5000);
+            assert_eq!(ctx.player.snapshot().unwrap().position_ms(), 5000);
         });
     }
 
@@ -431,8 +433,10 @@ mod tests {
                 position_ms: 10_000,
                 speed_permille: 1000,
             };
-            ctx.progress_writer
-                .set(ProgressState::default().remember(snapshot));
+            ctx.progress_writer.set(
+                ProgressState::default()
+                    .remember(ValidatedResumeSnapshot::try_from(snapshot).unwrap()),
+            );
             ctx.route.set(Route::Library);
             let player = ctx.player.state.get_untracked();
             ctx.resume_progress(unavailable);
@@ -446,31 +450,61 @@ mod tests {
     }
 
     #[test]
-    fn rejected_resume_keeps_positions_and_route_unchanged() {
+    fn rejected_resume_admission_keeps_positions_and_route_unchanged() {
         Owner::new().with(|| {
             let ctx = TheatreContext::new(NodeRef::new());
-            let source = ctx.player.snapshot().unwrap().source;
-            for snapshot in [
-                ResumeSnapshot {
-                    source,
-                    position_ms: source.duration_ms() + 1,
-                    speed_permille: 1000,
-                },
-                ResumeSnapshot {
-                    source,
-                    position_ms: 0,
-                    speed_permille: 1001,
-                },
+            let source = ctx.player.snapshot().unwrap().source();
+            for (snapshot, expected) in [
+                (
+                    ResumeSnapshot {
+                        source,
+                        position_ms: source.duration_ms() + 1,
+                        speed_permille: 1000,
+                    },
+                    crate::core::playback::Rejection::OutOfBounds,
+                ),
+                (
+                    ResumeSnapshot {
+                        source,
+                        position_ms: 0,
+                        speed_permille: 1001,
+                    },
+                    crate::core::playback::Rejection::UnsupportedSpeed,
+                ),
             ] {
-                let progress = ProgressState::default().remember(snapshot);
-                ctx.progress_writer.set(progress.clone());
                 ctx.route.set(Route::Library);
                 let player = ctx.player.state.get_untracked();
-                ctx.resume_progress(source.episode());
+                let progress = ctx.progress.get_untracked();
+                // Invalid raw facts cannot enter the retained progress owner.
+                assert_eq!(ValidatedResumeSnapshot::try_from(snapshot), Err(expected));
                 assert_eq!(ctx.player.state.get_untracked(), player);
                 assert_eq!(ctx.progress.get_untracked(), progress);
                 assert_eq!(ctx.route.get_untracked(), Route::Library);
             }
+        });
+    }
+    #[test]
+    fn admitted_progress_still_requires_the_current_catalog_source() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            let current = ctx.player.snapshot().unwrap().source();
+            let rebound =
+                crate::core::playback::Source::new(current.episode(), current.duration_ms() + 1)
+                    .unwrap();
+            let snapshot = ValidatedResumeSnapshot::try_from(ResumeSnapshot {
+                source: rebound,
+                position_ms: 1000,
+                speed_permille: 1000,
+            })
+            .unwrap();
+            let progress = ProgressState::default().remember(snapshot);
+            ctx.progress_writer.set(progress.clone());
+            ctx.route.set(Route::Library);
+            let player = ctx.player.state.get_untracked();
+            ctx.resume_progress(current.episode());
+            assert_eq!(ctx.player.state.get_untracked(), player);
+            assert_eq!(ctx.progress.get_untracked(), progress);
+            assert_eq!(ctx.route.get_untracked(), Route::Library);
         });
     }
     #[test]
@@ -542,8 +576,8 @@ mod tests {
             for _ in 0..3 {
                 ctx.continue_progress();
                 let current = ctx.player.snapshot().unwrap();
-                assert_eq!(current.source.episode(), other);
-                assert_eq!(current.position_ms, 15000);
+                assert_eq!(current.source().episode(), other);
+                assert_eq!(current.position_ms(), 15000);
                 assert_eq!(
                     ctx.progress.get_untracked().latest().unwrap().snapshot,
                     current
@@ -596,17 +630,17 @@ mod tests {
             ctx.continue_progress();
             let resumed = ctx.player.snapshot().unwrap();
             assert_ne!(
-                resumed.source.episode(),
-                old_progress.snapshot.source.episode()
+                resumed.source().episode(),
+                old_progress.snapshot.source().episode()
             );
             assert_eq!(
-                resumed.source.episode(),
+                resumed.source().episode(),
                 EpisodeId {
                     work: WorkId::Mountain,
                     index: 2
                 }
             );
-            assert_eq!(resumed.position_ms, 768000);
+            assert_eq!(resumed.position_ms(), 768000);
             assert_eq!(ctx.progress.get_untracked().records().len(), 1);
             assert!(ctx.library.get_untracked().bookmarks.is_empty());
         });

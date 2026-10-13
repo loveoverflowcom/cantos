@@ -58,6 +58,25 @@ pub fn within(path: &str, dir: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
+pub fn select_with_kani(
+    changed: Option<&[String]>,
+    graph: &PackageGraph,
+    enabled: bool,
+) -> Selection {
+    let mut selection = select(changed, graph);
+    if enabled {
+        let kernels = crate::kani::affected(changed, selection.broadened.is_some());
+        if kernels.is_empty() {
+            selection.notes.insert(
+                "Kani not selected: no registered kernel affected; no proof was run".into(),
+            );
+        }
+        selection.gates.extend(kernels.into_iter().map(Gate::Kani));
+        selection.gates.sort();
+    }
+    selection
+}
+
 pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
     let paths = match changed {
         None => return full("changed-only mode was not requested"),
@@ -446,6 +465,46 @@ mod tests {
         assert!(within("xtask", "xtask"));
         assert!(!within("apps/cantos-studio/web/x", "apps/cantos-theatre"));
         assert!(!within("xtaskish/a", "xtask"));
+    }
+
+    #[test]
+    fn optional_kani_selection_does_not_change_default_or_unrelated_preflight() {
+        let path = crate::kani::Kernel::WavPayload.source().to_owned();
+        let paths = [path];
+        let graph = testing::cantos();
+        assert_eq!(
+            select_with_kani(Some(&paths), &graph, false),
+            select(Some(&paths), &graph)
+        );
+        let opted = select_with_kani(Some(&paths), &graph, true);
+        assert_eq!(
+            opted
+                .gates
+                .iter()
+                .filter(|gate| gate.kind() == crate::gate::GateKind::Kani)
+                .collect::<Vec<_>>(),
+            [&Gate::Kani(crate::kani::Kernel::WavPayload)]
+        );
+        let docs = select_with_kani(Some(&["README.md".into()]), &graph, true);
+        assert!(!docs
+            .gates
+            .iter()
+            .any(|gate| gate.kind() == crate::gate::GateKind::Kani));
+        assert!(docs
+            .notes
+            .iter()
+            .any(|note| note.contains("no registered kernel affected")));
+        for paths in [None, Some(vec!["Cargo.lock".into()]), Some(Vec::new())] {
+            let opted = select_with_kani(paths.as_deref(), &graph, true);
+            assert_eq!(
+                opted
+                    .gates
+                    .iter()
+                    .filter(|gate| gate.kind() == crate::gate::GateKind::Kani)
+                    .count(),
+                3
+            );
+        }
     }
 
     #[test]

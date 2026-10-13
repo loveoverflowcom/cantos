@@ -577,3 +577,35 @@ fn edited_proposal_diagnostics_preserve_exact_paths_and_never_copy_private_paylo
         .unwrap()
         .contains("private-sentinel"));
 }
+
+#[test]
+fn every_raw_binding_reuse_is_readmitted_by_both_proposal_entry_points() {
+    let proposal = admitted(&output()).unwrap();
+    for mutate in [
+        |facts: &mut TrustedBinding| facts.source_id = "src_other".into(),
+        |facts: &mut TrustedBinding| facts.source_sha256 = "b".repeat(64),
+        |facts: &mut TrustedBinding| facts.generation_record_id = "INVALID".into(),
+        |facts: &mut TrustedBinding| facts.rights_record_id.clear(),
+        |facts: &mut TrustedBinding| facts.id_namespace = "f".repeat(31),
+        |facts: &mut TrustedBinding| facts.id_namespace = "g".repeat(32),
+    ] {
+        let mut facts = binding();
+        admit_output_with_ids(OUTPUT, &source(), &facts, &ids()).unwrap();
+        mutate(&mut facts);
+        let expected = cantos_contracts::AdaptationProblem {
+            code: "binding_mismatch".into(),
+            issues: vec![FieldIssue {
+                path: "/source_id".into(),
+                rule: "trusted_source".into(),
+            }],
+        };
+        assert_eq!(
+            admit_output_with_ids(OUTPUT, &source(), &facts, &ids()).unwrap_err(),
+            expected,
+        );
+        assert_eq!(
+            admit_edited_proposal(&proposal.script_json, &source(), &facts).unwrap_err(),
+            expected,
+        );
+    }
+}

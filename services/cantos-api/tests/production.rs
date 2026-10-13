@@ -509,6 +509,7 @@ fn historical_google_inputs_remain_exact_inspectable_history_but_approval_is_sta
         assert_eq!(eligibility.findings[0].path, "resolved.adapter_version");
         assert!(authorize_inputs(
             &historical,
+            "owner",
             1,
             1,
             &historical.rights,
@@ -902,7 +903,17 @@ fn a_frozen_blocked_candidate_is_inspectable_but_never_authorized() {
     assert!(!gate.inputs_eligible);
     assert!(!gate.approval_current);
     assert!(!gate.billable_dispatch_available);
-    assert!(authorize_inputs(&document, 1, 1, &rights, false, Some(&approval), NOW).is_err());
+    assert!(authorize_inputs(
+        &document,
+        "owner",
+        1,
+        1,
+        &rights,
+        false,
+        Some(&approval),
+        NOW
+    )
+    .is_err());
 }
 
 #[test]
@@ -916,8 +927,17 @@ fn approval_missing_is_separate_from_input_eligibility_and_foreign_owner_fails()
         ProductionFindingCode::ApprovalMissing
     );
     let mut approval = approval(&document);
-    let authorized =
-        authorize_inputs(&document, 1, 1, &rights(), true, Some(&approval), NOW).unwrap();
+    let authorized = authorize_inputs(
+        &document,
+        "owner",
+        1,
+        1,
+        &rights(),
+        true,
+        Some(&approval),
+        NOW,
+    )
+    .unwrap();
     assert_eq!(authorized.input_digest(), document.input_digest);
     approval.approved_by = "other-owner".into();
     let eligibility = evaluate_snapshot(&document, 1, 1, &rights(), true, Some(&approval), NOW);
@@ -1287,4 +1307,36 @@ fn conflicting_pronunciation_and_forged_canonical_revision_fail_admission() {
             rule: "digest_mismatch".into()
         }]
     );
+}
+
+#[test]
+fn authorization_witness_agrees_with_the_current_owner_gate() {
+    let document = document();
+    let approval = approval(&document);
+    for owner in ["owner", "new-owner"] {
+        let current = evaluate_for_owner(
+            &document,
+            owner,
+            1,
+            1,
+            &rights(),
+            true,
+            Some(&approval),
+            NOW,
+        );
+        let witness = authorize_inputs(
+            &document,
+            owner,
+            1,
+            1,
+            &rights(),
+            true,
+            Some(&approval),
+            NOW,
+        );
+        assert_eq!(witness.is_ok(), current.approval_current, "{owner}");
+        if let Err(findings) = witness {
+            assert_eq!(findings, current.findings, "{owner}");
+        }
+    }
 }

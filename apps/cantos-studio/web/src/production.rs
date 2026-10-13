@@ -346,6 +346,14 @@ pub struct Intent {
     pub command: Command,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+enum PendingOutcome {
+    #[default]
+    NotAmbiguous,
+    /// A later retry rejection cannot settle this exact earlier attempt.
+    Unknown(Box<Intent>),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Receipt {
     Settings(ProductionSettingsResponse),
@@ -374,6 +382,7 @@ pub struct Production {
     pub snapshot: Option<ProductionSnapshotResponse>,
     pub confirmation: Option<(String, String)>,
     pub pending: Option<Intent>,
+    pending_outcome: PendingOutcome,
     pub sending: bool,
     pub error: Option<ApiError>,
     pub rights_draft_dirty: bool,
@@ -392,6 +401,7 @@ impl Production {
             context: context.clone(),
             sequence: self.sequence.saturating_add(1),
             pending: self.pending.clone(),
+            pending_outcome: self.pending_outcome.clone(),
             ..Self::default()
         };
         if context.script == self.context.script {
@@ -656,6 +666,7 @@ impl Production {
         };
         let mut next = self.clone();
         next.pending = Some(intent.clone());
+        next.pending_outcome = PendingOutcome::NotAmbiguous;
         next.sending = true;
         next.error = None;
         next.confirmation = None;
@@ -686,11 +697,16 @@ impl Production {
         }
         let mut next = self.clone();
         next.sending = false;
-        if !matches!(
-            failure.code,
-            ErrorCode::Unavailable | ErrorCode::Unauthenticated
-        ) {
+        if failure.code == ErrorCode::Unavailable {
+            next.pending_outcome = PendingOutcome::Unknown(Box::new(intent.clone()));
+        } else if failure.code != ErrorCode::Unauthenticated
+            && !matches!(
+                &self.pending_outcome,
+                PendingOutcome::Unknown(unknown) if unknown.as_ref() == intent
+            )
+        {
             next.pending = None;
+            next.pending_outcome = PendingOutcome::NotAmbiguous;
         }
         if self.context == intent.context {
             next.error = Some(failure);
@@ -744,6 +760,7 @@ impl Production {
         }
         let mut next = self.clone();
         next.pending = None;
+        next.pending_outcome = PendingOutcome::NotAmbiguous;
         next.sending = false;
         if self.context != intent.context {
             return next;
@@ -1106,6 +1123,145 @@ mod tests {
         let other = uncertain.observe(&editor("other", 1));
         assert_eq!(other.pending, Some(intent));
         assert!(!other.can_retry());
+    }
+
+    fn assert_denied_retry_retains_unknown_settings_outcome(denial: ErrorCode) {
+        let original = state().edit(|form| form.bindings[0].rate = "1200".into());
+        let mut original_request = request();
+        original_request.operation_id = "original-settings-operation".into();
+        original_request.settings = original.form.as_ref().unwrap().settings().unwrap();
+        let (sending, intent) = original
+            .start(Command::Settings(original_request.clone()))
+            .unwrap();
+        let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
+        let (retrying, replay) = uncertain.retry().unwrap();
+        assert_eq!(replay, intent);
+        let denied = retrying.failed(&replay, error(denial.clone()));
+        assert_eq!(
+            denied.pending,
+            Some(intent.clone()),
+            "a retry denial cannot establish the first attempt's outcome"
+        );
+        assert_eq!(denied.form, original.form);
+        assert_eq!(denied.stored, original.stored);
+        assert_eq!(denied.error, Some(error(denial.clone())));
+        assert!(!denied.sending);
+        assert!(denied.has_activity());
+        let mut fresh_request = original_request;
+        fresh_request.operation_id = "replacement-settings-operation".into();
+        assert!(denied.start(Command::Settings(fresh_request)).is_none());
+        assert!(denied.discard_drafts().is_none());
+        let (retrying, repeated_replay) = denied.retry().unwrap();
+        assert_eq!(repeated_replay, intent);
+        let denied_again = retrying.failed(&repeated_replay, error(denial));
+        assert_eq!(denied_again, denied);
+    }
+
+    #[test]
+    fn forbidden_retry_preserves_unknown_settings_operation_and_form() {
+        assert_denied_retry_retains_unknown_settings_outcome(ErrorCode::Forbidden);
+    }
+
+    #[test]
+    fn not_found_retry_preserves_unknown_settings_operation_and_form() {
+        assert_denied_retry_retains_unknown_settings_outcome(ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn unknown_settings_outcome_survives_actor_and_revision_context_return() {
+        for denial in [ErrorCode::Forbidden, ErrorCode::NotFound] {
+            let original = state().edit(|form| form.scope = "private-stage-2".into());
+            let (sending, intent) = original.start(Command::Settings(request())).unwrap();
+            let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
+            let other = uncertain.observe(&editor("other", 1));
+            assert!(other.form.is_none());
+            assert!(other.retry().is_none());
+            let rejected_elsewhere = other.failed(&intent, error(denial.clone()));
+            assert_eq!(rejected_elsewhere.pending, Some(intent.clone()));
+            assert_eq!(rejected_elsewhere.error, None);
+            let returned = rejected_elsewhere.observe(&editor("owner", 2));
+            assert_eq!(returned.form, original.form);
+            let mut original_editor = editor("owner", 1);
+            original_editor.remote.as_mut().unwrap().export_digest =
+                original.context.export_digest.clone();
+            let restored = returned.observe(&original_editor);
+            assert_eq!(restored.context, intent.context);
+            assert_eq!(restored.form, original.form);
+            assert_eq!(restored.pending, Some(intent.clone()));
+            let (retrying, replay) = restored.retry().unwrap();
+            assert_eq!(replay, intent);
+            let denied = retrying.failed(&replay, error(denial.clone()));
+            assert_eq!(denied.pending, Some(intent.clone()));
+            assert_eq!(denied.form, original.form);
+            assert_eq!(denied.error, Some(error(denial)));
+            assert!(denied.start(Command::Settings(request())).is_none());
+            assert!(denied.discard_drafts().is_none());
+        }
+    }
+
+    #[test]
+    fn only_matching_settings_receipt_settles_an_unknown_outcome() {
+        let original = state();
+        let (sending, intent) = original.start(Command::Settings(request())).unwrap();
+        let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
+        let (retrying, replay) = uncertain.retry().unwrap();
+        let denied = retrying.failed(&replay, error(ErrorCode::Forbidden));
+        let mut different_intent = intent.clone();
+        if let Command::Settings(request) = &mut different_intent.command {
+            request.operation_id = "another-operation".into();
+        }
+        assert_eq!(
+            denied.failed(&different_intent, error(ErrorCode::Forbidden)),
+            denied
+        );
+        let mut mismatched_receipt = settings_receipt(&request());
+        mismatched_receipt.operation_id = "another-operation".into();
+        let unresolved = denied.recorded(&intent, Receipt::Settings(mismatched_receipt));
+        assert_eq!(unresolved.pending, Some(intent.clone()));
+        assert_eq!(unresolved.form, original.form);
+        assert_eq!(unresolved.error, Some(error(ErrorCode::Unavailable)));
+        let settled = unresolved.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
+        assert!(settled.pending.is_none());
+        assert_eq!(settled.pending_outcome, PendingOutcome::NotAmbiguous);
+        assert!(!settled.has_activity());
+        let mut next_request = request();
+        next_request.operation_id = "next-settings-operation".into();
+        next_request.expected_settings_version = 1;
+        let (sending, next_intent) = settled.start(Command::Settings(next_request)).unwrap();
+        let denied = sending.failed(&next_intent, error(ErrorCode::NotFound));
+        assert!(denied.pending.is_none());
+        assert_eq!(denied.pending_outcome, PendingOutcome::NotAmbiguous);
+    }
+
+    #[test]
+    fn first_attempt_denial_does_not_invent_an_unknown_outcome() {
+        for denial in [ErrorCode::Forbidden, ErrorCode::NotFound] {
+            let original = state();
+            let (sending, intent) = original.start(Command::Settings(request())).unwrap();
+            let denied = sending.failed(&intent, error(denial.clone()));
+            assert!(denied.pending.is_none());
+            assert_eq!(denied.pending_outcome, PendingOutcome::NotAmbiguous);
+            assert_eq!(denied.form, original.form);
+            assert_eq!(denied.stored, original.stored);
+            assert_eq!(denied.error, Some(error(denial)));
+            assert!(!denied.has_activity());
+            assert!(denied.retry().is_none());
+            assert!(denied.start(Command::Settings(request())).is_some());
+        }
+    }
+
+    #[test]
+    fn matching_receipt_settles_unknown_outcome_while_other_actor_stays_private() {
+        let (sending, intent) = state().start(Command::Settings(request())).unwrap();
+        let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
+        let switched = uncertain.observe(&editor("other", 1));
+        let settled = switched.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
+        assert!(settled.pending.is_none());
+        assert_eq!(settled.pending_outcome, PendingOutcome::NotAmbiguous);
+        assert!(!settled.has_activity());
+        assert!(settled.form.is_none());
+        assert!(settled.stored.is_none());
+        assert!(settled.error.is_none());
     }
 
     #[test]

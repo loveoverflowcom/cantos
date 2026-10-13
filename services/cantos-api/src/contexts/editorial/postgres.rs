@@ -4,6 +4,7 @@ use cantos_contracts::{ReviewResponse, RevisionResponse};
 use tokio_postgres::Row;
 use uuid::Uuid;
 
+use super::domain::revisions::AcceptedRevision;
 use super::domain::{export_digest, EvidenceKind};
 use crate::platform::postgres::{LockMode, StoreError, Tx};
 use crate::script_ir::{read_canonical_script, WRITE_VERSION};
@@ -16,6 +17,7 @@ fn review_query() -> String {
 
 /// The stored canonical bytes must still be the admitted Script IR with both recorded digests.
 fn decode_revision(row: &Row) -> Result<RevisionResponse, StoreError> {
+    let revision = accepted_sequence(row)?;
     let bytes: Vec<u8> = row.get("canonical_export");
     let content = read_canonical_script(&bytes).map_err(|_| StoreError::CorruptRevision)?;
     let digest: String = row.get("content_digest");
@@ -25,14 +27,23 @@ fn decode_revision(row: &Row) -> Result<RevisionResponse, StoreError> {
     }
     Ok(RevisionResponse {
         script_id: row.get("script_id"),
-        revision: u64::try_from(row.get::<_, i64>("revision"))
-            .map_err(|_| StoreError::CorruptRevision)?,
+        revision: revision.get(),
         accepted_by: row.get("accepted_by"),
         accepted_at: row.get("accepted_at"),
         content_digest: digest,
         export_digest: export_hash,
         script_json: String::from_utf8(bytes).map_err(|_| StoreError::CorruptRevision)?,
     })
+}
+
+fn accepted_sequence(row: &Row) -> Result<AcceptedRevision, StoreError> {
+    AcceptedRevision::from_sequence(
+        row.try_get("revision")
+            .map_err(|_| StoreError::CorruptRevision)?,
+        row.try_get("expected_revision")
+            .map_err(|_| StoreError::CorruptRevision)?,
+    )
+    .map_err(|_| StoreError::CorruptRevision)
 }
 
 fn decode_review(row: &Row) -> Result<ReviewResponse, StoreError> {
@@ -145,15 +156,16 @@ pub(super) async fn revisions_after(
 /// a replay, and its integrity is checked only if it is replayed.
 pub(super) struct AcceptedOperation {
     row: Row,
+    revision: AcceptedRevision,
 }
 
 impl AcceptedOperation {
     pub(super) fn revision(&self) -> u64 {
-        self.row.get::<_, i64>("revision") as u64
+        self.revision.get()
     }
 
     pub(super) fn expected_revision(&self) -> u64 {
-        self.row.get::<_, i64>("expected_revision") as u64
+        self.revision.expected()
     }
 
     pub(super) fn export(&self) -> Vec<u8> {
@@ -172,10 +184,13 @@ pub(super) async fn accepted_operation(
     operation: &str,
 ) -> Result<Option<AcceptedOperation>, StoreError> {
     let query = format!("SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND accepted_by=$2 AND operation_id=$3");
-    Ok(tx
-        .query_opt(&query, &[&script, &actor, &operation])
+    tx.query_opt(&query, &[&script, &actor, &operation])
         .await?
-        .map(|row| AcceptedOperation { row }))
+        .map(|row| {
+            let revision = accepted_sequence(&row)?;
+            Ok(AcceptedOperation { row, revision })
+        })
+        .transpose()
 }
 
 pub(super) struct NewRevision<'a> {
@@ -332,7 +347,14 @@ pub(super) async fn review_operation(
     actor: &str,
     operation: &str,
 ) -> Result<Option<u64>, StoreError> {
-    Ok(tx.query_opt("SELECT revision FROM script_review_operations WHERE script_id=$1 AND actor_id=$2 AND operation_id=$3", &[&script,&actor,&operation]).await?.map(|row| row.get::<_, i64>(0) as u64))
+    tx.query_opt("SELECT revision FROM script_review_operations WHERE script_id=$1 AND actor_id=$2 AND operation_id=$3", &[&script,&actor,&operation])
+        .await?
+        .map(|row| {
+            AcceptedRevision::from_number(row.try_get(0).map_err(|_| StoreError::CorruptRevision)?)
+                .map(AcceptedRevision::get)
+                .map_err(|_| StoreError::CorruptRevision)
+        })
+        .transpose()
 }
 
 pub(super) async fn insert_review(

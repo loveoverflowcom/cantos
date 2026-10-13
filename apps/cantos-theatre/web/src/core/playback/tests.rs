@@ -1,7 +1,7 @@
 use super::{
     reduce, CallbackIdentity, Effect, Engine, EngineCommand, Event, Intent, Interruption,
     PauseCause, PlaybackSession, PlayerState, Rejection, ResumeSnapshot, Source, Status,
-    Transition,
+    Transition, ValidatedResumeSnapshot,
 };
 use crate::core::ids::{EpisodeId, WorkId};
 
@@ -78,6 +78,69 @@ fn source_constructor_refuses_zero_duration_and_unbounded_episode_index() {
         .duration_ms(),
         u32::MAX
     );
+}
+
+#[test]
+fn resume_admission_checks_all_u16_speeds_and_position_edge_partitions() {
+    for position_ms in [0, 1, 59_999, 60_000, 60_001, u32::MAX] {
+        for speed_permille in 0..=u16::MAX {
+            let raw = ResumeSnapshot {
+                source: source(),
+                position_ms,
+                speed_permille,
+            };
+            // Independent authored contract, not the production speed predicate.
+            let expected = if position_ms > 60_000 {
+                Err(Rejection::OutOfBounds)
+            } else if matches!(speed_permille, 750 | 1000 | 1250 | 1500 | 2000) {
+                Ok(raw)
+            } else {
+                Err(Rejection::UnsupportedSpeed)
+            };
+            assert_eq!(
+                ValidatedResumeSnapshot::try_from(raw).map(|s| s.raw()),
+                expected
+            );
+        }
+    }
+    for duration_ms in [1, u32::MAX] {
+        let source = Source::new(source().episode(), duration_ms).unwrap();
+        for position_ms in [0, duration_ms] {
+            let raw = ResumeSnapshot {
+                source,
+                position_ms,
+                speed_permille: 1000,
+            };
+            let admitted = ValidatedResumeSnapshot::try_from(raw).unwrap();
+            assert_eq!(admitted.source(), source);
+            assert_eq!(admitted.position_ms(), position_ms);
+            assert_eq!(admitted.speed_permille(), 1000);
+            assert_eq!(admitted.raw(), raw);
+        }
+    }
+}
+
+#[test]
+fn invalid_restore_refuses_before_generation_exhaustion_and_never_changes_state() {
+    let mut state = session_state(Intent::Play, Engine::Running);
+    state.generation = u32::MAX;
+    for (position_ms, speed_permille, reason) in [
+        (60_001, 999, Rejection::OutOfBounds),
+        (60_000, 999, Rejection::UnsupportedSpeed),
+        (60_000, 1000, Rejection::GenerationExhausted),
+    ] {
+        assert_rejected(
+            state.clone(),
+            Event::RestoreRequested {
+                snapshot: ResumeSnapshot {
+                    source: source(),
+                    position_ms,
+                    speed_permille,
+                },
+            },
+            reason,
+        );
+    }
 }
 
 #[test]
@@ -552,6 +615,7 @@ fn assert_root_invariants(state: &PlayerState) {
     assert!(state.generation() > 0);
     assert!(session.position_ms() <= session.source().duration_ms());
     assert!([750, 1000, 1250, 1500, 2000].contains(&session.speed_permille()));
+    assert_eq!(session.validated_snapshot().raw(), session.snapshot());
     assert_eq!(
         state.identity(),
         Some(CallbackIdentity {

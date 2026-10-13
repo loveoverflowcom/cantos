@@ -36,7 +36,7 @@ fn only_owner_401_invalidates_studio_authentication_not_producer_or_permission_d
         ErrorCode::Unauthenticated
     );
     let denied_receipt = reconciling.finish(ticket, Err(denied.clone()));
-    assert!(denied_receipt.pending.is_some());
+    assert!(denied_receipt.pending().is_some());
     assert_eq!(denied_receipt.actor(), "alice");
     assert_eq!(
         ClientError::http(
@@ -60,10 +60,10 @@ fn interrupted_write_retries_the_exact_snapshot_without_false_success() {
     let state = RequestState::default().context("owner", "works").unwrap();
     let (sending, ticket) = state.begin(command.clone()).unwrap();
     let failed = sending.finish(ticket, Err(ClientError::Transport));
-    assert_eq!(failed.phase, Phase::Ambiguous);
-    assert!(failed.result.is_none());
+    assert_eq!(failed.phase(), Phase::Ambiguous);
+    assert!(failed.result().is_none());
     assert_eq!(
-        failed.retry().unwrap().0.pending.unwrap().json().unwrap(),
+        failed.retry().unwrap().0.pending().unwrap().json().unwrap(),
         command.json().unwrap()
     );
 }
@@ -73,12 +73,14 @@ fn late_response_after_cancel_navigation_or_session_switch_is_ignored() {
     let (sending, ticket) = state.begin(Command::Work { id: ID.into() }).unwrap();
     let cancelled = sending.cancel().unwrap();
     assert_eq!(
-        cancelled.finish(ticket, Err(ClientError::Transport)).phase,
+        cancelled
+            .finish(ticket, Err(ClientError::Transport))
+            .phase(),
         Phase::Idle
     );
     let changed = sending.context("another-owner", ID).unwrap();
     assert_eq!(
-        changed.finish(ticket, Err(ClientError::Transport)).phase,
+        changed.finish(ticket, Err(ClientError::Transport)).phase(),
         Phase::Idle
     );
 }
@@ -183,11 +185,11 @@ fn async_local_input_failure_does_not_corrupt_pending_or_ambiguous_write() {
         .begin(command)
         .unwrap();
     let unchanged = pending.input_failed();
-    assert_eq!(unchanged.phase, Phase::Pending);
+    assert_eq!(unchanged.phase(), Phase::Pending);
     assert!(unchanged.accepts(ticket));
     let ambiguous = pending.cancel().unwrap();
     let unchanged = ambiguous.input_failed();
-    assert_eq!(unchanged.phase, Phase::Ambiguous);
+    assert_eq!(unchanged.phase(), Phase::Ambiguous);
     assert!(unchanged.retry().is_some());
 }
 
@@ -213,9 +215,9 @@ fn original_unknown_outcome_survives_retry_auth_denial_and_reauthentication() {
             br#"{"code":"unauthenticated","current_revision":null,"issues":[]}"#,
         )),
     );
-    assert_eq!(denied.phase, Phase::Ambiguous);
+    assert_eq!(denied.phase(), Phase::Ambiguous);
     assert_eq!(
-        denied.pending.as_ref().unwrap().json().unwrap(),
+        denied.pending().as_ref().unwrap().json().unwrap(),
         command.json().unwrap()
     );
     let other = denied.context("other", "epoch2").unwrap();
@@ -223,7 +225,7 @@ fn original_unknown_outcome_survives_retry_auth_denial_and_reauthentication() {
     let owner = other.context("owner", "epoch3").unwrap();
     assert!(owner.can_retry());
     assert_eq!(
-        owner.pending.unwrap().json().unwrap(),
+        owner.pending().unwrap().json().unwrap(),
         command.json().unwrap()
     );
 }
@@ -261,7 +263,7 @@ fn upload_decodes_the_actual_rendition_dto_not_the_owner_status_dto() {
         sha256: rendition.verified_media.sha256.clone(),
         submission: rendition.submission_id.clone(),
         credential: UploadCredential::new("a".repeat(64)).unwrap(),
-        bytes: std::sync::Arc::new(vec![0]),
+        bytes: std::sync::Arc::new(vec![0; rendition.verified_media.byte_length as usize]),
     };
     assert_eq!(
         command.decode(200, raw).unwrap(),
@@ -291,10 +293,10 @@ fn cross_tab_cookie_change_cannot_acknowledge_another_actors_write() {
         .begin(command)
         .unwrap();
     let refused = sending.finish(ticket, Ok(Reply::Mutation(response)));
-    assert_eq!(refused.phase, Phase::Ambiguous);
-    assert_eq!(refused.error, Some(ClientError::SessionChanged));
-    assert!(refused.result.is_none());
-    assert!(refused.pending.is_some());
+    assert_eq!(refused.phase(), Phase::Ambiguous);
+    assert_eq!(refused.error(), Some(&ClientError::SessionChanged));
+    assert!(refused.result().is_none());
+    assert!(refused.pending().is_some());
 }
 
 #[test]
@@ -338,7 +340,7 @@ fn empty_page_and_failed_read_are_distinct_and_neither_implies_a_save() {
     assert!(empty.is_empty());
     let failed = pending.finish(ticket, Err(ClientError::Transport));
     assert!(!failed.is_empty());
-    assert_eq!(failed.phase, Phase::Failed);
+    assert_eq!(failed.phase(), Phase::Failed);
 }
 
 fn private_status_with_rendition() -> AudioSubmissionResponse {
@@ -391,12 +393,269 @@ fn unknown_upload_is_reconciled_by_exact_owner_receipt_after_bearer_revocation()
     assert_eq!(read.credentials(), Credentials::SameOrigin);
     assert_eq!(read.method(), "GET");
     let reconciled = checking.finish(ticket, Ok(Reply::Submission(Box::new(status.clone()))));
-    assert_eq!(reconciled.phase, Phase::Ready);
-    assert!(reconciled.pending.is_none());
+    assert_eq!(reconciled.phase(), Phase::Ready);
+    assert!(reconciled.pending().is_none());
     let mut mismatch = status;
     mismatch.rendition.as_mut().unwrap().verified_media.sha256 = "other".into();
     let refused = checking.finish(ticket, Ok(Reply::Submission(Box::new(mismatch))));
-    assert_eq!(refused.phase, Phase::Ambiguous);
-    assert!(refused.pending.is_some());
-    assert_eq!(refused.error, Some(ClientError::ReceiptNotEstablished));
+    assert_eq!(refused.phase(), Phase::Ambiguous);
+    assert!(refused.pending().is_some());
+    assert_eq!(refused.error(), Some(&ClientError::ReceiptNotEstablished));
+}
+
+#[test]
+fn a_well_formed_reply_for_another_work_never_becomes_ready() {
+    let response: CatalogMutationResponse = serde_json::from_str(include_str!(
+        "../../../../../packages/contracts/fixtures/catalog/v1/mutation.json"
+    ))
+    .unwrap();
+    let (pending, ticket) = RequestState::default()
+        .context("owner", "works")
+        .unwrap()
+        .begin(Command::Work { id: ID.into() })
+        .unwrap();
+    let mut other = response.work;
+    other.id = "99999999-0000-4000-8000-000000000001".into();
+    let rejected = pending.finish(ticket, Ok(Reply::Work(other)));
+    assert_eq!(rejected.phase(), Phase::Failed);
+    assert_eq!(rejected.error(), Some(&ClientError::ReplyMismatch));
+    assert!(rejected.result().is_none());
+}
+
+#[test]
+fn prepare_acknowledgement_cannot_arm_a_different_upload_intent() {
+    let response = private_status_with_rendition();
+    let mut request: CreateAudioSubmissionRequest = serde_json::from_str(include_str!(
+        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/prepare-recording.json"
+    ))
+    .unwrap();
+    request.binding = response.submission.binding.clone();
+    request.expected_sha256 = response.submission.expected_sha256.clone();
+    request.expected_byte_length = response.submission.expected_byte_length;
+    let command = Command::Prepare {
+        unit: request.binding.unit_id.clone(),
+        request: request.clone(),
+    };
+    let (pending, ticket) = RequestState::default()
+        .context("owner", "unit")
+        .unwrap()
+        .begin(command.clone())
+        .unwrap();
+    let mut other = response;
+    other.submission.operation_id = "99999999-0000-4000-8000-000000000001".into();
+    let rejected = pending.finish(ticket, Ok(Reply::Submission(Box::new(other))));
+    assert_eq!(rejected.phase(), Phase::Ambiguous);
+    assert_eq!(rejected.error(), Some(&ClientError::ReplyMismatch));
+    assert!(rejected.result().is_none());
+    assert_eq!(
+        rejected.pending().unwrap().json().unwrap(),
+        command.json().unwrap()
+    );
+}
+
+#[test]
+fn every_client_failure_has_one_completion_and_never_an_empty_success() {
+    let create: CreateWorkRequest = serde_json::from_str(include_str!(
+        "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+    ))
+    .unwrap();
+    let cases = [
+        (ClientError::InvalidInput, Phase::Failed),
+        (ClientError::Cancelled, Phase::Ambiguous),
+        (ClientError::SessionChanged, Phase::Ambiguous),
+        (ClientError::ReceiptNotEstablished, Phase::Ambiguous),
+        (ClientError::ReplyMismatch, Phase::Ambiguous),
+        (ClientError::Transport, Phase::Ambiguous),
+        (ClientError::Protocol { status: 200 }, Phase::Ambiguous),
+        (
+            ClientError::http(
+                503,
+                br#"{"code":"unavailable","current_revision":null,"issues":[]}"#,
+            ),
+            Phase::Ambiguous,
+        ),
+        (
+            ClientError::http(
+                409,
+                br#"{"code":"stale_revision","current_revision":8,"issues":[]}"#,
+            ),
+            Phase::Failed,
+        ),
+    ];
+    for (error, write_phase) in cases {
+        for command in [
+            Command::Works { cursor: None },
+            Command::CreateWork(create.clone()),
+        ] {
+            let is_write = command.is_write();
+            let initial = RequestState::default().context("owner", "works").unwrap();
+            assert_eq!(initial.completion(), None);
+            let (pending, ticket) = initial.begin(command.clone()).unwrap();
+            assert_eq!(pending.completion(), None);
+            assert!(pending.begin(command.clone()).is_none());
+            let failed = pending.finish(ticket, Err(error.clone()));
+            let expected_phase = if is_write { write_phase } else { Phase::Failed };
+            assert_eq!(failed.phase(), expected_phase);
+            assert_eq!(failed.completion(), Some(Err(&error)));
+            assert_eq!(failed.error(), Some(&error));
+            assert_eq!(failed.result(), None);
+            assert!(!failed.is_empty());
+            assert_eq!(
+                failed.pending().is_some(),
+                expected_phase == Phase::Ambiguous
+            );
+            if expected_phase == Phase::Ambiguous {
+                assert_eq!(
+                    failed.retry().unwrap().0.pending().unwrap().json(),
+                    command.json()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn late_success_and_failure_cannot_replace_a_newer_completed_read() {
+    let initial = RequestState::default().context("owner", "works").unwrap();
+    let (old, old_ticket) = initial.begin(Command::Works { cursor: None }).unwrap();
+    let (new, new_ticket) = old
+        .cancel()
+        .unwrap()
+        .begin(Command::Works { cursor: None })
+        .unwrap();
+    let reply = Reply::Works(CatalogPage {
+        items: vec![],
+        next_cursor: None,
+    });
+    let completed = new.finish(new_ticket, Ok(reply.clone()));
+    assert_eq!(completed.completion(), Some(Ok(&reply)));
+    for stale_result in [Ok(reply.clone()), Err(ClientError::Transport)] {
+        let unchanged = completed.finish(old_ticket, stale_result);
+        assert_eq!(unchanged.completion(), Some(Ok(&reply)));
+        assert_eq!(unchanged.phase(), Phase::Ready);
+        assert!(unchanged.pending().is_none());
+    }
+    let (refreshing, _) = completed.begin(Command::Works { cursor: None }).unwrap();
+    assert_eq!(refreshing.completion(), None);
+    assert_eq!(refreshing.result(), None);
+}
+
+#[test]
+fn content_and_brief_replies_bind_exact_requested_unit_and_revision() {
+    let content: ContentRevisionResponse = serde_json::from_str(include_str!(
+        "../../../../../packages/contracts/fixtures/content/v1/text-revision.json"
+    ))
+    .unwrap();
+    let exact = Command::ContentRevision {
+        unit: content.unit_id.clone(),
+        revision: content.id.clone(),
+    };
+    assert_eq!(exact.check_reply(&Reply::Content(content.clone())), Ok(()));
+    let mut wrong_revision = content.clone();
+    wrong_revision.id = ID.into();
+    assert_eq!(
+        exact.check_reply(&Reply::Content(wrong_revision.clone())),
+        Err(ClientError::ReplyMismatch)
+    );
+    assert_eq!(
+        exact.decode(200, &serde_json::to_vec(&wrong_revision).unwrap()),
+        Err(ClientError::Protocol { status: 200 })
+    );
+    let mut wrong_unit = content.clone();
+    wrong_unit.unit_id = ID.into();
+    assert_eq!(
+        Command::ContentHead {
+            unit: content.unit_id.clone()
+        }
+        .check_reply(&Reply::Content(wrong_unit)),
+        Err(ClientError::ReplyMismatch)
+    );
+    assert_eq!(
+        exact.check_reply(&Reply::Revoked),
+        Err(ClientError::ReplyMismatch)
+    );
+
+    let brief: ProductionBriefDocument = serde_json::from_str(include_str!(
+        "../../../../../packages/contracts/fixtures/briefs/v1/narration-document.json"
+    ))
+    .unwrap();
+    let command = Command::Brief {
+        unit: brief.content.unit_id.clone(),
+        version: brief.version,
+    };
+    let reply = ProductionBriefResponse {
+        brief,
+        freshness: BriefFreshness::Current,
+    };
+    assert_eq!(
+        command.check_reply(&Reply::Brief(Box::new(reply.clone()))),
+        Ok(())
+    );
+    let mut old_version = reply;
+    old_version.brief.version += 1;
+    assert_eq!(
+        command.check_reply(&Reply::Brief(Box::new(old_version))),
+        Err(ClientError::ReplyMismatch)
+    );
+}
+
+#[test]
+fn upload_receipts_require_exact_binding_hash_size_and_submission() {
+    let status = private_status_with_rendition();
+    let rendition = status.rendition.unwrap();
+    let command = Command::Upload {
+        binding: rendition.binding.clone(),
+        sha256: rendition.verified_media.sha256.clone(),
+        submission: rendition.submission_id.clone(),
+        credential: UploadCredential::new("a".repeat(64)).unwrap(),
+        bytes: std::sync::Arc::new(vec![0; rendition.verified_media.byte_length as usize]),
+    };
+    assert_eq!(
+        command.check_reply(&Reply::Rendition(Box::new(rendition.clone()))),
+        Ok(())
+    );
+    let mut changes = vec![rendition.clone(); 4];
+    changes[0].submission_id = ID.into();
+    changes[1].binding.unit_id = ID.into();
+    changes[2].verified_media.sha256 = "b".repeat(64);
+    changes[3].verified_media.byte_length += 1;
+    for changed in changes {
+        assert_eq!(
+            command.check_reply(&Reply::Rendition(Box::new(changed.clone()))),
+            Err(ClientError::ReplyMismatch)
+        );
+        assert_eq!(
+            command.decode(200, &serde_json::to_vec(&changed).unwrap()),
+            Err(ClientError::Protocol { status: 200 })
+        );
+    }
+}
+
+#[test]
+fn submission_reads_reject_internally_misbound_renditions() {
+    let status = private_status_with_rendition();
+    let command = Command::Submission {
+        unit: status.submission.binding.unit_id.clone(),
+        submission: status.submission.id.clone(),
+    };
+    assert_eq!(
+        command.check_reply(&Reply::Submission(Box::new(status.clone()))),
+        Ok(())
+    );
+    let mut changes = vec![status.clone(); 4];
+    changes[0].rendition.as_mut().unwrap().submission_id = ID.into();
+    changes[1].rendition.as_mut().unwrap().binding.unit_id = ID.into();
+    changes[2].rendition.as_mut().unwrap().verified_media.sha256 = "b".repeat(64);
+    changes[3]
+        .rendition
+        .as_mut()
+        .unwrap()
+        .verified_media
+        .byte_length += 1;
+    for changed in changes {
+        assert_eq!(
+            command.check_reply(&Reply::Submission(Box::new(changed))),
+            Err(ClientError::ReplyMismatch)
+        );
+    }
 }

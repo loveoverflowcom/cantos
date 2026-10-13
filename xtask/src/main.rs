@@ -10,6 +10,7 @@ mod compose_preview;
 mod config;
 mod doctor;
 mod gate;
+mod kani;
 mod pipeline;
 mod preflight;
 mod probe;
@@ -125,12 +126,18 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             theatre_demo::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
-            let steps = gate::steps(&gate::verify_suite(&suite), &workspace);
+            let mut steps = gate::steps(&gate::verify_suite(&suite), &workspace);
+            if matches!(suite, cli::VerifySuite::Kani { .. }) {
+                if let Err(error) = kani::prepare_configuration(&workspace, &mut steps) {
+                    return Ok(kani::configuration_refusal("verify", &steps, error));
+                }
+            }
             let report = pipeline::execute("verify", &steps, &tools, &mut runner);
             report.print();
             Ok(report.exit_code())
         }
         Task::Preflight {
+            kani,
             base,
             changed_only,
             skip,
@@ -138,6 +145,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         } => preflight::run(
             &workspace,
             &preflight::PreflightOptions {
+                kani,
                 base,
                 changed_only,
                 skip: skip.into_iter().collect(),
