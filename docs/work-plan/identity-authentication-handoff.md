@@ -66,18 +66,31 @@ StudioOidc, raw actor ID, operator bearer or caller identity headers. Kanidm pai
 and issuer/client paths may differ across clients; linking requires explicit authenticated intent,
 not equal email. No Studio session grants private Library/Progress or Admin access.
 
-The Library owner's proposed seam is
+The Library seam is now published in [PR95](https://github.com/loveoverflowcom/cantos/pull/95),
+exact head `dc45b46f732c19948f01947039ec4b09fa8a7741`, tree
+`b53ccafff81d1d98f4df368cbbaf41f9b5338dca`. Its
+[official handoff](https://github.com/loveoverflowcom/cantos/blob/dc45b46f732c19948f01947039ec4b09fa8a7741/docs/work-plan/listener-library-progress-handoff.md)
+and exact auth/application/router code were read for this handoff only; PR95 is not inherited
+or merged into PR2. The implemented seam is
 `contexts::listening::auth::{ListenerAuthenticator, ListenerCredentials, AuthenticatedListener,
-AuthenticationError}`. `authenticate(credentials)` returns a boxed Send future containing a
-Result of the sealed witness; `AuthenticatedListener::from_verified_actor(OwnerId)` is intended
+AuthenticationError}`. `ListenerCredentials` is bearer-only, bounded and redacted; cookies never
+enter the port. `authenticate(credentials)` returns a boxed Send + 'static future containing a
+Result of the sealed witness; `AuthenticatedListener::from_verified_actor(OwnerId)` is
 crate-visible for trusted adapters only, without Deserialize/public actor parsing. Default
 `DenyListenerAuthentication` refuses private account operations before PostgreSQL. LibraryService
-derives ListenerId ownership from the witness; proposed HTTP composition is
+derives ListenerId ownership from the witness; implemented trusted HTTP composition is
 `router_with_listener_identity(..., Arc<dyn ListenerAuthenticator>)`, preserving AppState/Studio
-composition. This seam is consistent with the current credential boundary, but PR3 must inspect
-the **exact published Library code** before implementing it. Do not build a parallel Listener
-mechanism. Issue34 has no accepted guest handoff policy; keep account-only persistence and no
-implicit guest merge. Native system-browser PKCE/OS secure storage and runtime evidence remain PR3.
+composition. Normal host composition still uses default deny. PR3 must use that **exact published
+Library code**, rather than invent a parallel Listener authority. Migration0019 belongs to PR95;
+its original SQL/checksum must join 0017/0018/0020 only at coordinated integration. The Library
+handoff's own PostgreSQL/client acceptance remains separate; reading source proves neither.
+
+Account/session fencing also belongs to PR3 acceptance: clear credentials/projections at logout,
+never relabel account A outbox entries as B, ignore delayed responses across the account/session
+boundary, and do not emit history merely from login/logout. Account-switch and provider
+disable/revocation tests must exercise the actual Listener adapter and private routes. Issue34
+has no accepted guest handoff policy; keep account-only persistence and no implicit guest merge.
+Native system-browser PKCE/OS secure storage and Web/CMP runtime evidence remain PR3.
 
 Session policy to preserve: current active/revoked local facts inside transaction, no failed-provider
 success fallback, explicit expiry and logout linearization, cookie source matched to configured host.

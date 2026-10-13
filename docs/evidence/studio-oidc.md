@@ -6,14 +6,27 @@ host. [Architecture/threat model](../architecture/studio-oidc.md),
 [operator policy](../../services/kanidm/README.md) separate implementation from deployment.
 No real provider/client/account/grant/TLS/container was activated or created.
 
-Base: fresh Cantos develop `df7d62fecf0023cb557a3051ae75918cedcd2610`. PR92 remains an explicit
+Initial base: fresh Cantos develop `df7d62fecf0023cb557a3051ae75918cedcd2610`. PR92 remains an explicit
 unmerged dependency at published `277e28c1ab3a06e3c2fae6093e3278bdece1a0bb`, tree
 `58ba323476f2a7ccc2043919acd74eb1c63454ca`; normal merge `efe16cd27581c3f71c8912f48d1622fb774de79b`
 starts branch `feat/studio-oidc` in `/private/tmp/cantos-studio-oidc`. No force push, dependency
-rewrite, PR90/91/93 integration, merge or next identity session is performed here.
+rewrite, PR90/91/93 integration, remote merge or next identity session is performed here.
+Before publication, a second fetch found develop at `389c5cb2760ec31b20f5dc816670e9914455313e`
+(merged Web PR94/96). Normal merge `0f1bf6284ab7333d848cffca1a8eff5e7f965c9f` incorporated that
+fresh base after own implementation `1ae392d1a9737a2592e17e288baa28fe9f076ee5`, without conflicts.
+The integrated workspace test exposed the new Theatre AccountPage exceeding Rust1.87's default
+query depth. The only Theatre source fix is the compiler-suggested crate attribute
+`#![recursion_limit = "256"]`; UI and authentication behavior are unchanged. The failing
+integrated log is retained at `/tmp/cantos-oidc-preflight-integrated.log`; a fresh rerun records
+the fix below. These inherited Web changes are now part of the develop base, not PR2's UI work.
 Fresh VOT develop `f3fea641a5fd226b883c4e32224ad8c97b8323f0` was read for private proof/verification/
 operator boundaries; Gateway/admin/bootstrap is not copied. Migration **0020_studio_oidc.sql**;
 0019 stays with Library/Progress, Discovery0017 stays with PR93. Original migration checksums remain.
+Before final publication, PR95 Library head `dc45b46f732c19948f01947039ec4b09fa8a7741`, tree
+`b53ccafff81d1d98f4df368cbbaf41f9b5338dca`, was fetched/read solely for PR3 documentation.
+Its actual bearer-only `ListenerAuthenticator`/sealed principal/default-deny router seam and
+official handoff are pinned in the [successor handoff](../work-plan/identity-authentication-handoff.md).
+It was not merged into this Studio branch; no Library test/runtime acceptance is claimed here.
 
 ## L1–L5 and security evidence
 
@@ -22,7 +35,7 @@ operator boundaries; Gateway/admin/bootstrap is not copied. Migration **0020_stu
 | L1 architecture/threat boundary | PASS | One Studio BFF, private witness, exact client/redirect, development/loopback host, narrow SQL issuance; independent canonical review below. Static gate results recorded below. |
 | L2 pure types/errors/rules | PASS | Private non-serde witness, exact typed refusal partitions, bounded parser/P-256 key usage/expiry, proof consumed at DB issuance. |
 | L3 core/crypto | PASS | 7 tests: actual ephemeral P-256 signatures, wrong issuer/audience/azp/nonce/sub/alg/kid/key/signature, duplicate keys, missing claims, exact time boundaries; RFC7636 vector and 8000 finite expiry combinations. No Kani claim. |
-| L4 HTTP provider orchestration | PASS | Production adapter + actual loopback HTTP signed mock: PKCE/redirect enforcement, code replay, bounded key rotation/load outage, bad metadata/claims, provider inactive and fresh clock after I/O. `mock-integration-tested`, not Kanidm-live. |
+| L4 HTTP provider orchestration | PASS | Production adapter + actual loopback HTTP signed mock: PKCE/redirect enforcement, code expiry/replay, bounded key rotation/load outage, bad metadata/claims, provider inactive and fresh clock after I/O. `mock-integration-tested`, not Kanidm-live. |
 | L5 PostgreSQL/HTTP | PASS | 7 new tests through full disposable PostgreSQL17.4 gate, including independent anonymous logins and explicit shared-lock operator/OIDC registration, final actor-lock wait, competing rotations, callback concurrency/lost acknowledgements, failed exchange no redispatch, account isolation/idempotent registration, disable/expiry/revocation/logout, pending remote outage, exact HTTPS cookie namespace and disabled OIDC configuration. Actual Axum router/DB role/grants, origin/referrer/cache/cookie and reserved route checks. |
 | Live Kanidm / browser / production | NOT_RUN | Operator client/grant/secret/TLS/runtime preparation outside authorized actions; production activation stays closed. HTTP cookie assertions are not browser observations. |
 | Listener / native / Admin | NOT_RUN | Separate PR3/PR4 and Library seam; no authority supplied by Studio. |
@@ -31,7 +44,7 @@ operator boundaries; Gateway/admin/bootstrap is not copied. Migration **0020_stu
 | --- | --- |
 | Wrong issuer/audience/azp/signature/alg/kid/key/nonce, exp/nbf/iat | Signed crypto tests call production verifier with injected time and exact error variants |
 | State/browser mismatch/replayed callback | SQL matching hashed flow/binder and atomic consume; race one winner; rejection before provider call |
-| Code replay/redirect/PKCE mismatch | Actual HTTP mock enforces one-time code/verifier/redirect; no automatic retry |
+| Code expiry/replay/redirect/PKCE mismatch | Actual HTTP mock enforces provider-clock expiry/one-time code/verifier/redirect; invalid_grant creates no session and callback retry never redispatches |
 | Lost/failed callback acknowledgement | Consume persists before HTTP; discarded successful response replays State refusal and no second session |
 | JWKS rotation/outage | Unknown-kid refresh/expiry/failure limit exercised by actual HTTP signed mock; reused-kid Signature refresh is source-reviewed |
 | Clock after network | Regression clock100→101 for newly minted token; expiry read again after introspection |
@@ -55,23 +68,23 @@ link; all new evidence/cluster roots are private to this worktree. PR1 evidence 
 | Command | Result | Raw local output |
 | --- | --- | --- |
 | `cargo test --locked -p cantos-api --lib platform::studio_oidc` | 7 PASS (native-local) | `/tmp/cantos-oidc-core-final.log` |
-| `cargo xtask verify postgres` | PASS (initial six-test slice); final seven-test slice also PASS via final preflight | `/tmp/cantos-oidc-postgres-final.log`, `/tmp/cantos-oidc-preflight-final.log`, `target/revision-evidence/studio-oidc-postgres-tests.log` |
+| `cargo xtask verify postgres` | PASS (initial six-test slice); seven-test slice also PASS via preflight before the fresh develop merge | `/tmp/cantos-oidc-postgres-final.log`, `/tmp/cantos-oidc-preflight-final.log`, `target/revision-evidence/studio-oidc-postgres-tests.log` |
 | `cargo xtask kanidm reconcile ... --dry-run` | NOT_RUN mutation, plan printed | `/tmp/cantos-oidc-kanidm-plan.log` |
-| `cargo xtask verify rust` | format/lint/tests PASS; final preflight reruns all on final source | `/tmp/cantos-oidc-rust.log`, `/tmp/cantos-oidc-preflight-final.log` |
+| `cargo xtask verify rust` | format/lint/tests PASS before the fresh develop merge; integrated rerun recorded below | `/tmp/cantos-oidc-rust.log`, `/tmp/cantos-oidc-preflight-final.log` |
 | `cargo xtask verify contracts` | script-ir-reference/contract-tests/wav-reference/audio-inspection PASS | `/tmp/cantos-oidc-contracts.log` |
 | `cargo xtask verify repository` | FAIL; static checks PASS, 305 Python tests retain37 Darwin errors+1fallout | `/tmp/cantos-oidc-repository-final.log` |
 | `cargo xtask preflight --changed-only` | UNSUPPORTED; compatible Gradle missing, no gate reported PASS | `/tmp/cantos-oidc-preflight.log` |
 | `cargo xtask preflight --changed-only --skip cmp-ui-preview --skip theatre-cmp-demo` | FAIL at repository; remaining non-skipped gates NOT_RUN | `/tmp/cantos-oidc-preflight-local.log` |
-| `cargo xtask preflight --changed-only --skip repository --skip cmp-ui-preview --skip theatre-cmp-demo` | PASS with3 explicitly skipped NOT_RUN gates on final source | `/tmp/cantos-oidc-preflight-final.log` |
+| `cargo xtask preflight --changed-only --skip repository --skip cmp-ui-preview --skip theatre-cmp-demo` | PASS with3 explicitly skipped NOT_RUN gates before the fresh develop merge | `/tmp/cantos-oidc-preflight-final.log` |
 | `cargo xtask kanidm verify ... --dry-run` | NOT_RUN network; explicit read-only plan printed | `/tmp/cantos-oidc-kanidm-verify-plan.log` |
 
 Shared Cargo/xtask inputs conservatively select every gate. Only Gradle9.7 was found; the required
 installed8.14.3 is absent. No wrapper download/tool installation or gate-policy relaxation was
-performed. Full preflight is incomplete. The final available-gates run includes fresh retirement/
+performed. Full preflight is incomplete. The available-gates run before the fresh develop merge includes fresh retirement/
 exhaustive-mapping fixes and real cross-adapter registration locks. Earlier six-test PG/initial
 available logs remain; only the final log proves this final seven-test scope.
 
-Final available-gates summary, copied from xtask:
+Available-gates summary before the fresh develop merge, copied from xtask:
 
 ```text
 NOT_RUN      repository                                skipped by --skip
@@ -116,8 +129,41 @@ pre-network clock error (valid newly minted token refused), and exact HTTPS name
 The follow-up also caught legacy-cookie retirement recovery and exhaustive error-map policy;
 those fixes/HTTP assertions and accurate migration/timing docs were reread. Final assessment `no-actionable-findings` within that
 source scope. Reviewer ran `git diff --check` PASS, did not duplicate gates or claim provider/browser
-acceptance. The final source/doc review preceded the final selected-gates rerun; the final raw log now
-contains the promised fresh format/lint/unit/PG evidence.
+acceptance. That source/doc review preceded the selected-gates rerun before the fresh develop merge;
+the raw log contains the promised fresh format/lint/unit/PG evidence for the own implementation.
+
+## Fresh develop integration
+
+The compiler-suggested Theatre recursion attribute was independently reviewed as build-only,
+without a new UI, identity or permission branch. The normal merge of develop did not alter
+`services/cantos-api` or contracts; Account/Library Web remains its separate session mock and
+Theatre HTTP remains reserved. The integrated rerun after the attribute passed all available
+gates, including both Web builds and all seven OIDC PostgreSQL tests:
+`/tmp/cantos-oidc-preflight-integrated-fixed.log` reports the same PASS/three explicit NOT_RUN
+summary above. No UI runtime/accessibility observation is claimed for a compiler attribute.
+The earlier failure remains in `/tmp/cantos-oidc-preflight-integrated.log`.
+
+Final requirement audit added a distinct expired-code oracle, rather than treating a generic
+exchange failure as code-expiry evidence. An issued code is expired at the injected provider
+clock while the local flow is valid. Actual HTTP returns `invalid_grant`; production callback
+creates no session and makes exactly one exchange, then retry returns State without network.
+The read-only reviewer found no actionable issue in this final fixture/test change. No production
+code changed. Final publication run `/tmp/cantos-oidc-preflight-publication.log` passed the full
+available-gates selection again with the three explicit NOT_RUN steps above, including seven
+actual OIDC PostgreSQL tests and the core/crypto/provider suite. This is the evidence for that
+last expiry oracle; earlier logs do not prove it. Source compatibility fix is isolated in commit
+`11fd71027d6e026bcacd778def3f3df8a5d46f92`.
+
+Publication-tree gate records (these supersede the earlier command rows for final handoff):
+
+| Command | Actual result | Retained log |
+| --- | --- | --- |
+| `cargo xtask preflight --changed-only --skip repository --skip cmp-ui-preview --skip theatre-cmp-demo` | PASS with3 explicitly skipped NOT_RUN steps; Rust/core/provider/Web/DBSP/contracts/audio/mutation/PostgreSQL PASS | `/tmp/cantos-oidc-preflight-publication.log` |
+| `cargo xtask verify repository` | FAIL: services/static checks PASS (490 text files,18 skills); 311 Python tests,37 Darwin killpg EPERM errors+1fallout failure; repeated after the exact PR95 handoff documentation with the same result | `/tmp/cantos-oidc-repository-publication.log`, `/tmp/cantos-oidc-repository-final-handoff.log` |
+| `cargo xtask preflight --changed-only` | UNSUPPORTED: compatible Gradle8.14.3 absent; no gate PASS claimed | `/tmp/cantos-oidc-preflight-publication-full.log` |
+
+The final docs record the observed results after the commands; they do not change runtime behavior.
+No failure was suppressed or substituted with the selected-gates PASS.
 
 ## Residual risk / deferred acceptance
 

@@ -138,6 +138,22 @@ async fn callback_is_single_use_browser_bound_and_failed_exchange_is_not_retried
     );
     assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), attempts);
     assert_eq!(h.count("sessions").await, 1);
+    // An issued code expires at the provider while the local browser flow is still valid.
+    // invalid_grant must consume the callback without minting authority or retrying exchange.
+    let (s, b, c) = h.start(None).await;
+    h.mock.expire_code(&c);
+    let attempts = h.mock.data.token_calls.load(Ordering::SeqCst);
+    assert_eq!(
+        h.oidc().callback(&h.store, &s, &b, &c).await.err(),
+        Some(AuthError::ProviderUnavailable)
+    );
+    assert_eq!(h.count("sessions").await, 1);
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), attempts + 1);
+    assert_eq!(
+        h.oidc().callback(&h.store, &s, &b, &c).await.err(),
+        Some(AuthError::State)
+    );
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), attempts + 1);
     // A lost successful callback acknowledgement cannot replay the code or expose a second cookie.
     let (s, b, c) = h.start(None).await;
     drop(h.oidc().callback(&h.store, &s, &b, &c).await.unwrap());

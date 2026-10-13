@@ -62,6 +62,7 @@ struct Code {
     redirect: String,
     subject: String,
     change: Option<(String, Value)>,
+    expires: u64,
 }
 struct Access {
     subject: String,
@@ -151,9 +152,19 @@ impl MockProvider {
                 redirect: pairs["redirect_uri"].clone(),
                 subject: subject.into(),
                 change,
+                expires: self.data.now.load(Ordering::SeqCst) + 60,
             },
         );
         (pairs["state"].clone(), code)
+    }
+    pub fn expire_code(&self, code: &str) {
+        self.data
+            .codes
+            .lock()
+            .unwrap()
+            .get_mut(code)
+            .unwrap()
+            .expires = self.data.now.load(Ordering::SeqCst);
     }
     pub fn rotate(&self, kid: &str) {
         *self.data.signer.lock().unwrap() = Signer::new(kid);
@@ -209,7 +220,9 @@ async fn token(
     if data.token_fail.load(Ordering::SeqCst) {
         return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({})));
     }
-    if form.get("redirect_uri") != Some(&code.redirect)
+    let now = data.now.load(Ordering::SeqCst);
+    if code.expires <= now
+        || form.get("redirect_uri") != Some(&code.redirect)
         || form.get("grant_type").map(String::as_str) != Some("authorization_code")
         || form
             .get("code_verifier")
@@ -220,7 +233,6 @@ async fn token(
             Json(json!({"error":"invalid_grant"})),
         );
     }
-    let now = data.now.load(Ordering::SeqCst);
     let mut claims = json!({"iss":format!("{}/oauth2/openid/{CLIENT_ID}",data.origin),"aud":CLIENT_ID,"sub":code.subject,"nonce":code.nonce,"iat":now,"exp":now+200,"nbf":now});
     if let Some((field, value)) = code.change {
         claims[field] = value;
