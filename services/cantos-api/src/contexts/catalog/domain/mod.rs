@@ -18,6 +18,7 @@ pub use metadata::{
 };
 pub use patch::{LinkPatch, UnitPatch, WorkPatch};
 pub use reorder::{plan_reorder, OrderAssignment, ReorderPlan};
+pub use revision::Revision;
 pub use unit::{ContentUnit, NewContentUnit, StoredContentUnit};
 pub use work::{NewWork, StoredWork, Work};
 

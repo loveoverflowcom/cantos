@@ -18,7 +18,7 @@ use crate::contexts::listening::{
     LibraryService,
 };
 use crate::contexts::media::{
-    ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
+    ArtworkService, ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
 };
 use crate::platform::postgres::{Store, StoreError};
 
@@ -92,6 +92,21 @@ pub fn router_with_listener_identity(
     router_with_identity_services(state, dist, publication, listener, authenticator)
 }
 
+/// Trusted composition for the private-artwork adapter. The default executable keeps these
+/// routes unmounted until the reviewed shared private storage boundary is integrated.
+pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: ArtworkService) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    let listener = ListenerService::new(state.store.clone());
+    router_with_identity_and_artwork(
+        state,
+        dist,
+        publication,
+        listener,
+        std::sync::Arc::new(DenyListenerAuthentication),
+        Some(artwork),
+    )
+}
+
 fn router_with_identity_services(
     state: AppState,
     dist: &str,
@@ -99,13 +114,25 @@ fn router_with_identity_services(
     listener: ListenerService,
     authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
 ) -> Router {
+    router_with_identity_and_artwork(state, dist, publication, listener, authenticator, None)
+}
+
+fn router_with_identity_and_artwork(
+    state: AppState,
+    dist: &str,
+    publication: PublicationService,
+    listener: ListenerService,
+    authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
+    artwork: Option<ArtworkService>,
+) -> Router {
     let library = LibraryService::new(state.store.clone());
     // Surfaces are separate route groups with their own permission context; shared code is the
     // middleware below and the domain/store modules, never a handler.
     let api = Router::new()
         .nest(
             "/studio",
-            studio::routes(state.clone(), studio::Mount::Current).fallback(not_found),
+            studio::routes_with_artwork(state.clone(), studio::Mount::Current, artwork.is_some())
+                .fallback(not_found),
         )
         .nest(
             "/theatre",
@@ -121,12 +148,18 @@ fn router_with_identity_services(
             origin_and_cache,
         ));
     let host = Router::new().nest(routes::API_BASE, api);
-    let host = if state.store.audio_storage_is_enabled() {
+    let host = if state.store.audio_storage_is_enabled() || artwork.is_some() {
         // ServeDir follows nested symlinks. An intake-enabled process therefore serves no
         // static files at all, even if public and private root paths appear disjoint.
+        // The explicit artwork host has the same rule before private image activation.
         host.fallback(not_found)
     } else {
         host.fallback_service(ServeDir::new(dist))
+    };
+    let host = if let Some(artwork) = artwork {
+        host.layer(axum::Extension(artwork))
+    } else {
+        host
     };
     host.with_state(state)
         .layer(axum::Extension(publication))

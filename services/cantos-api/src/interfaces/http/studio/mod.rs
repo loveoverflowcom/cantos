@@ -21,6 +21,7 @@ use super::{authenticated, cookie_token, error_response, AppState};
 use crate::platform::postgres::StoreError;
 
 mod adaptations;
+mod artwork;
 mod audio_intake;
 mod audio_lifecycle;
 mod briefs;
@@ -56,6 +57,14 @@ impl Mount {
 }
 
 pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
+    routes_with_artwork(state, mount, false)
+}
+
+pub(super) fn routes_with_artwork(
+    state: AppState,
+    mount: Mount,
+    artwork_enabled: bool,
+) -> Router<AppState> {
     let scripts = Router::new()
         .route("/scripts/{script}/head", get(head))
         .route("/scripts/{script}/revisions/{revision}", get(revision))
@@ -69,6 +78,11 @@ pub(super) fn routes(state: AppState, mount: Mount) -> Router<AppState> {
         .merge(production::routes());
     match mount {
         Mount::Current => scripts
+            .merge(if artwork_enabled {
+                artwork::routes()
+            } else {
+                Router::new()
+            })
             .merge(catalog::routes())
             // New Catalog/intake routes have no deprecated aliases.
             .merge(audio_intake::routes())

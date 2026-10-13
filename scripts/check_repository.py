@@ -101,6 +101,8 @@ TABLE_OWNER = {
     "actor_external_identities": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
+    "media_image_intents": "media", "media_image_assets": "media",
+    "media_work_artwork_changes": "media", "media_artwork_operations": "media",
     **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
@@ -545,8 +547,20 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
         } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (
             "contexts", "listening", "auth", "AuthenticationError")
+        artwork_composition = path in {
+            ("contexts", "media", "ArtworkService"),
+            ("contexts", "media", "ArtworkService", "new"),
+            ("contexts", "media", "ArtworkReceipt"),
+        }
+        artwork_error = path[:3] in {
+            ("contexts", "media", "ArtworkApplicationError"),
+            ("contexts", "media", "ImageObjectError"),
+        } or path[:5] in {
+            ("contexts", "media", "domain", "artwork", "ArtworkError"),
+            ("contexts", "media", "domain", "image", "ImageError"),
+        } or path[:4] == ("contexts", "media", "image_intake", "ImageIntakeError")
         if http and path not in HTTP_PURE_BOUNDARIES and not (
-            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition or listener_composition
+            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition or listener_composition or artwork_composition or artwork_error
         ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:

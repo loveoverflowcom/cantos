@@ -3,6 +3,12 @@ pub mod domain;
 
 mod application;
 pub mod audio_intake;
+mod image_application;
+pub mod image_intake;
+pub use image_application::{
+    ArtworkApplicationError, ArtworkReceipt, ArtworkService, ImageByteStream, ImageObjectError,
+    ImageUploadTicket, PrivateImagePreview,
+};
 mod postgres;
 mod process;
 pub(crate) mod storage;

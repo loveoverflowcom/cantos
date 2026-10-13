@@ -587,14 +587,13 @@ mod tests {
                 .iter()
                 .map(|outcome| outcome.status)
                 .collect::<Vec<_>>(),
-            [
-                Status::Fail,
-                Status::NotRun,
-                Status::NotRun,
-                Status::NotRun,
-                Status::NotRun,
-                Status::NotRun
-            ]
+            Kernel::ALL.map(|kernel| {
+                if kernel == Kernel::CatalogRevision {
+                    Status::Fail
+                } else {
+                    Status::NotRun
+                }
+            })
         );
         assert_eq!(runner.commands.len(), 1);
     }

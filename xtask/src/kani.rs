@@ -29,6 +29,7 @@ const MAX_CONFIGURATION_BYTES: u64 = 1024 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Kernel {
     CatalogRevision,
+    ImageBounds,
     WavPayload,
     SubmissionWindow,
     PublicationCommit,
@@ -37,8 +38,9 @@ pub enum Kernel {
 }
 
 impl Kernel {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::CatalogRevision,
+        Self::ImageBounds,
         Self::WavPayload,
         Self::SubmissionWindow,
         Self::PublicationCommit,
@@ -49,6 +51,7 @@ impl Kernel {
     pub fn name(self) -> &'static str {
         match self {
             Self::CatalogRevision => "catalog-revision",
+            Self::ImageBounds => "image-bounds",
             Self::WavPayload => "wav-payload",
             Self::SubmissionWindow => "submission-window",
             Self::PublicationCommit => "publication-commit",
@@ -60,6 +63,7 @@ impl Kernel {
     pub fn harness(self) -> &'static str {
         match self {
             Self::CatalogRevision => "contexts::catalog::domain::revision::kani_proofs::catalog_revision_admission_and_successor",
+            Self::ImageBounds => "contexts::media::domain::image::kani_proofs::image_bounds_admission",
             Self::WavPayload => "contexts::media::domain::wav_inspection::chunks::kani_proofs::wav_payload_range_is_checked",
             Self::SubmissionWindow => "contexts::media::domain::lifecycle::kani_proofs::submission_window_admission_and_membership",
             Self::PublicationCommit => "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
@@ -71,6 +75,7 @@ impl Kernel {
     pub fn source(self) -> &'static str {
         match self {
             Self::CatalogRevision => "services/cantos-api/src/contexts/catalog/domain/revision.rs",
+            Self::ImageBounds => "services/cantos-api/src/contexts/media/domain/image.rs",
             Self::WavPayload => {
                 "services/cantos-api/src/contexts/media/domain/wav_inspection/chunks.rs"
             }
@@ -88,6 +93,7 @@ impl Kernel {
     pub fn covers(self) -> u8 {
         match self {
             Self::CatalogRevision => 6,
+            Self::ImageBounds => 13,
             Self::WavPayload => 7,
             Self::SubmissionWindow => 8,
             Self::PublicationCommit => 6,
@@ -105,6 +111,7 @@ impl Kernel {
                 "std::fmt::Arguments::<'_>::from_str.assertion.1".into(),
             ],
             Self::SubmissionWindow => vec![format!("{}.assertion.3", self.harness())],
+            Self::ImageBounds => Vec::new(),
             Self::WavPayload => Vec::new(),
             Self::PublicationCommit => vec![format!("{}.assertion.1", self.harness())],
             Self::ListenerAccess => Vec::new(),
@@ -206,6 +213,7 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 | "services/cantos-api/src/contexts/media/domain/mod.rs"
         ) {
             selected.extend([
+                Kernel::ImageBounds,
                 Kernel::WavPayload,
                 Kernel::SubmissionWindow,
                 Kernel::PublicationCommit,
@@ -605,6 +613,7 @@ mod tests {
                 false
             ),
             [
+                Kernel::ImageBounds,
                 Kernel::WavPayload,
                 Kernel::SubmissionWindow,
                 Kernel::PublicationCommit,

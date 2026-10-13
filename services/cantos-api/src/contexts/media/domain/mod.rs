@@ -9,3 +9,6 @@ pub mod lifecycle;
 pub mod publication;
 
 pub mod listening;
+
+pub mod artwork;
+pub mod image;
