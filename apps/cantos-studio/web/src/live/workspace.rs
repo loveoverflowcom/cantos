@@ -17,6 +17,7 @@ struct Dispatch {
     session_pending: Signal<bool>,
     abort: StoredValue<Option<AbortController>, LocalStorage>,
     complete: Callback<(Command, Result<Reply, ClientError>)>,
+    session_denied: Callback<ApiError>,
 }
 impl Dispatch {
     fn abort(self) {
@@ -87,6 +88,15 @@ impl Dispatch {
                 let _ = self
                     .state
                     .try_update(|s| *s = s.finish(ticket, reply.clone()));
+                // Receipt reconciliation executes an owner GET even when the retained intent
+                // is a producer Upload. Classify the executed request, not that original intent.
+                if let Some(error) = reply
+                    .as_ref()
+                    .err()
+                    .and_then(|e| e.owner_session_denial(&command))
+                {
+                    self.session_denied.run(error.clone());
+                }
                 let acknowledged = self.state.with_untracked(|s| {
                     if s.phase == Phase::Ready {
                         s.result.clone().ok_or(ClientError::Transport)
@@ -159,6 +169,7 @@ pub fn ContentWorkspace(
     session_pending: Signal<bool>,
     activity: RwSignal<bool>,
     dirty: RwSignal<bool>,
+    session_denied: Callback<ApiError>,
 ) -> impl IntoView {
     let facts = RwSignal::new(Facts::default());
     let state = RwSignal::new(RequestState::default());
@@ -170,7 +181,7 @@ pub fn ContentWorkspace(
     let title = RwSignal::new(String::new());
     let synopsis = RwSignal::new(String::new());
     let rights = RwSignal::new(String::new());
-    let kind = RwSignal::new("story".to_string());
+    let kind = RwSignal::new(DEFAULT_WORK_KIND.to_string());
     let unit_title = RwSignal::new(String::new());
     let description = RwSignal::new(String::new());
     let body = RwSignal::new("text".to_string());
@@ -235,6 +246,7 @@ pub fn ContentWorkspace(
         state,
         session_pending,
         abort,
+        session_denied,
         complete: Callback::new(
             move |(command, reply): (Command, Result<Reply, ClientError>)| match reply {
                 Ok(reply) => {
@@ -309,6 +321,10 @@ pub fn ContentWorkspace(
                     input.set(String::new());
                 }
                 brief_version.set("0".into());
+                kind.set(DEFAULT_WORK_KIND.into());
+                body.set("text".into());
+                review_kind.set("qc".into());
+                decision.set("rejected".into());
                 consent.set(None);
                 dirty.set(false);
                 credential.set(None);
@@ -427,7 +443,7 @@ pub fn ContentWorkspace(
         <ul class="live-list">{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();view! {<li><button class="cui-button" type="button" disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())>{w.details.title}<small>{format!("{} · r{}",w.kind,w.revision)}</small></button></li>}}).collect_view()}</ul>
         <details><summary>{move ||text(Key::CreateWork,english.get())}</summary><div class="live-grid">
             <Field id="live-work-title" label=Key::Title value=title english=english/><Field id="live-work-synopsis" label=Key::Synopsis value=synopsis english=english multiline=true/>
-            <SelectField id="live-work-kind" label=Key::Kind value=kind english=english><option value="novel">"novel"</option><option value="story">"story"</option><option value="podcast">"podcast"</option></SelectField>
+            <SelectField id="live-work-kind" label=Key::Kind value=kind english=english><crate::ui::WorkKindOptions value=kind/></SelectField>
             <Field id="live-rights" label=Key::Rights value=rights english=english/>
         </div><ActionButton id="live-create-work" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((||Ok(Command::CreateWork(CreateWorkRequest {operation_id:uuid()?,id:uuid()?,kind:kind.get_untracked(),details:WorkDetailsDto {title:title.get_untracked(),synopsis:synopsis.get_untracked(),language:"vi-VN".into(),visibility:"private".into(),rights_refs:refs(rights.get_untracked())}})))()))>{move ||text(Key::CreateWork,english.get())}</ActionButton></details>
         <Show when=move ||facts.with(|f|f.work.is_some())>

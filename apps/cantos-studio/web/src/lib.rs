@@ -5,6 +5,7 @@ pub mod import;
 pub mod inspector;
 pub mod messages;
 pub mod production;
+pub mod session;
 pub mod ui;
 pub mod wire;
 

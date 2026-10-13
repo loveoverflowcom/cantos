@@ -161,6 +161,8 @@ pub fn Studio() -> impl IntoView {
     let preview = RwSignal::new(ValidationPreview::default());
     let token = RwSignal::new(String::new());
     let session_epoch = RwSignal::new(0u64);
+    // Retain draft ownership in Editor; only this cookie-confirmed actor is shown as signed in.
+    let authenticated_actor = RwSignal::new(None::<String>);
     let content_activity = RwSignal::new(false);
     let content_dirty = RwSignal::new(false);
     let selection = RwSignal::new(String::new());
@@ -262,18 +264,19 @@ pub fn Studio() -> impl IntoView {
                     </Select>
                 </div>
             </header>
-            <details class="session-panel" open=move || state.with(|e| e.actor.is_empty())>
-                <summary>{move || text(Key::Session, english.get())}" · "{move || state.with(|e| if e.actor.is_empty() { copy().unknown.to_owned() } else { e.actor.clone() })}</summary>
+            <details class="session-panel" open=move || authenticated_actor.with(Option::is_none)>
+                <summary>{move || text(Key::Session, english.get())}" · "{move || authenticated_actor.get().unwrap_or_else(||copy().unknown.to_owned())}</summary>
                 <p class="mode">{move || copy().mode}</p>
                 <form on:submit=move |event| {
                     event.prevent_default(); if state.with_untracked(|e| e.busy) || activity.get_untracked() || proposal_activity.get_untracked() || content_activity.get_untracked() { return; }
                     if content_dirty.get_untracked() && !confirm_discard(english.get_untracked()) {return;}
                     let submitted = token.get_untracked();
+                    authenticated_actor.set(None);
                     let Some(epoch)=session_epoch.get_untracked().checked_add(1) else {return;};session_epoch.set(epoch);
                     state.update(|e| { e.busy = true; e.status = Status::Loading; });
                     spawn_local(async move {
                         match api.login(submitted).await {
-                            Ok(response) => { let _ = token.try_set(String::new()); let _ = state.try_update(|e| *e = e.signed_in(response.actor_id)); },
+                            Ok(response) => { let _ = token.try_set(String::new()); let _ = authenticated_actor.try_set(Some(response.actor_id.clone())); let _ = state.try_update(|e| *e = e.signed_in(response.actor_id)); },
                             Err(error) => { let _ = state.try_update(|e| *e = e.session_failed(&error)); }
                         }
                     });
@@ -286,7 +289,7 @@ pub fn Studio() -> impl IntoView {
                 </form>
             </details>
             <WorkspaceNavigation panel=panel english=english/>
-            <div hidden=move || panel.get() != WorkspacePane::Content><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||panel.get()==WorkspacePane::Content) session_epoch=Signal::derive(move ||session_epoch.get()) session_pending=Signal::derive(move ||state.with(|s|s.busy)) activity=content_activity dirty=content_dirty/></div>
+            <div hidden=move || panel.get() != WorkspacePane::Content><crate::live::workspace::ContentWorkspace actor=actor english=english active=Signal::derive(move ||panel.get()==WorkspacePane::Content) session_epoch=Signal::derive(move ||session_epoch.get()) session_pending=Signal::derive(move ||state.with(|s|s.busy)||authenticated_actor.with(Option::is_none)) activity=content_activity dirty=content_dirty session_denied=Callback::new(move |error| {authenticated_actor.set(None);state.update(|e|*e=e.session_failed(&error));})/></div>
             <div id="workspace-import" hidden=move || panel.get() != WorkspacePane::Import><ManuscriptImport actor=actor english=english /></div>
             <div id="workspace-proposal" hidden=move || panel.get() != WorkspacePane::Proposal><ScriptAdaptation actor=actor english=english dirty=proposal_dirty activity=proposal_activity /></div>
             <div id="workspace-production" hidden=move || panel.get() != WorkspacePane::Production><ProductionInputs editor=state english=english script_activity=activity dirty=production_dirty activity=production_activity /></div>

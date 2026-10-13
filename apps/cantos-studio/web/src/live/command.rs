@@ -20,6 +20,17 @@ pub enum ClientError {
     Http { status: u16, error: ApiError },
 }
 impl ClientError {
+    /// Producer capability expiry says nothing about the Studio owner's cookie session.
+    pub fn owner_session_denial(&self, command: &Command) -> Option<&ApiError> {
+        match self {
+            Self::Http { status: 401, error }
+                if command.credentials() == Credentials::SameOrigin =>
+            {
+                Some(error)
+            }
+            _ => None,
+        }
+    }
     pub fn http(status: u16, body: &[u8]) -> Self {
         match serde_json::from_slice(body) {
             Ok(error) => Self::Http { status, error },

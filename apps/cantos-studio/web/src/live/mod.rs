@@ -3,6 +3,7 @@ mod command;
 mod state;
 pub use command::*;
 pub use state::*;
+pub const DEFAULT_WORK_KIND: &str = "story";
 #[cfg(target_arch = "wasm32")]
 pub mod browser;
 #[cfg(test)]

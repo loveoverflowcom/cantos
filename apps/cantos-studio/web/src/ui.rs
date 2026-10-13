@@ -10,6 +10,52 @@ use crate::messages::{
     workspace::{text, Key},
 };
 
+/// App-owned options share the exact value used by the CreateWork DTO.
+#[component]
+pub fn WorkKindOptions(value: RwSignal<String>) -> impl IntoView {
+    view! { <option value="novel" selected=move || value.get()=="novel">"novel"</option><option value="story" selected=move || value.get()=="story">"story"</option><option value="podcast" selected=move || value.get()=="podcast">"podcast"</option> }
+}
+
+#[cfg(test)]
+mod work_kind_tests {
+    use super::*;
+    #[test]
+    fn work_kind_display_and_payload_agree_for_default_changes_and_reset() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let kind = RwSignal::new(crate::live::DEFAULT_WORK_KIND.to_owned());
+            for value in [
+                crate::live::DEFAULT_WORK_KIND,
+                "novel",
+                "podcast",
+                "story",
+                crate::live::DEFAULT_WORK_KIND,
+            ] {
+                kind.set(value.to_owned());
+                let html = view! { <WorkKindOptions value=kind/> }.to_html();
+                let chosen = format!("value=\"{value}\" selected");
+                assert!(html.contains(&chosen), "{html}");
+                assert_eq!(html.matches(" selected").count(), 1, "{html}");
+                assert_eq!(kind.get_untracked(), value);
+                let mut request: cantos_contracts::CreateWorkRequest =
+                    serde_json::from_str(include_str!(
+                        "../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+                    ))
+                    .unwrap();
+                request.kind = kind.get_untracked();
+                let payload = crate::live::Command::CreateWork(request)
+                    .json()
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(
+                    serde_json::from_str::<serde_json::Value>(&payload).unwrap()["kind"],
+                    value
+                );
+            }
+        });
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum WorkspacePane {
     Import,

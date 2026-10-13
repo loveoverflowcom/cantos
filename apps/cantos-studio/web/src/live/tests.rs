@@ -3,6 +3,53 @@ use cantos_contracts::*;
 const ID: &str = "10000000-0000-4000-8000-000000000001";
 
 #[test]
+fn only_owner_401_invalidates_studio_authentication_not_producer_or_permission_denial() {
+    let rendition: AudioRenditionDocument = serde_json::from_slice(include_bytes!(
+        "../../../../../packages/contracts/fixtures/audio-lifecycle/v1/rendition-response.json"
+    ))
+    .unwrap();
+    let producer = Command::Upload {
+        binding: rendition.binding,
+        sha256: rendition.verified_media.sha256,
+        submission: rendition.submission_id,
+        credential: UploadCredential::new("a".repeat(64)).unwrap(),
+        bytes: std::sync::Arc::new(vec![0]),
+    };
+    let owner = Command::Works { cursor: None };
+    let denied = ClientError::http(
+        401,
+        br#"{"code":"unauthenticated","current_revision":null,"issues":[]}"#,
+    );
+    assert_eq!(
+        denied.owner_session_denial(&owner).unwrap().code,
+        ErrorCode::Unauthenticated
+    );
+    assert_eq!(denied.owner_session_denial(&producer), None);
+    // An unknown Upload's reconciliation is an owner-cookie read, unlike direct producer PUT.
+    let state = RequestState::default().context("alice", ID).unwrap();
+    let (sending, ticket) = state.begin(producer).unwrap();
+    let unknown = sending.finish(ticket, Err(ClientError::Transport));
+    let (reconciling, ticket, owner_read) = unknown.begin_reconcile().unwrap();
+    assert_eq!(owner_read.credentials(), Credentials::SameOrigin);
+    assert_eq!(
+        denied.owner_session_denial(&owner_read).unwrap().code,
+        ErrorCode::Unauthenticated
+    );
+    let denied_receipt = reconciling.finish(ticket, Err(denied.clone()));
+    assert!(denied_receipt.pending.is_some());
+    assert_eq!(denied_receipt.actor(), "alice");
+    assert_eq!(
+        ClientError::http(
+            403,
+            br#"{"code":"forbidden","current_revision":null,"issues":[]}"#
+        )
+        .owner_session_denial(&owner),
+        None
+    );
+    assert_eq!(ClientError::Transport.owner_session_denial(&owner), None);
+}
+
+#[test]
 fn interrupted_write_retries_the_exact_snapshot_without_false_success() {
     let command = Command::CreateWork(
         serde_json::from_str(include_str!(
