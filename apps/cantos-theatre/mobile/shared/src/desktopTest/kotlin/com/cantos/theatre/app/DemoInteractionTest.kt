@@ -329,7 +329,11 @@ class DemoInteractionTest {
             setContent { DemoTestRoot() }
             onNodeWithTag("account").performClick()
             onNodeWithTag("sign-in").performScrollTo().assertIsNotEnabled()
-            onNodeWithText("Chưa có API đăng nhập hoặc đồng bộ tài khoản trong bản xem thử.").assertExists()
+            onNodeWithText("Chưa hỗ trợ trong bản xem thử.").assertExists()
+            onNodeWithText("Người nghe khách").assertExists()
+            onNodeWithText("Truyện đã lưu và điểm nghe chỉ được giữ trong phiên này.").assertExists()
+            onNodeWithTag("header-title").assertTextEquals("Không gian của bạn")
+            onNodeWithText("Tài khoản").assertDoesNotExist()
             onNodeWithTag("mini-open").assert(hasText("12:48"))
             onNodeWithTag("nav-library").performClick()
             onNodeWithTag("screen").assert(SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, "Của tôi"))

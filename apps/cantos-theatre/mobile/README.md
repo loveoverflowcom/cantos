@@ -9,7 +9,9 @@ or durable persistence is connected. Studio is web-only.
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary account screen with an explicit unavailable sign-in reason.
+  the avatar opens a secondary **Không gian của bạn** screen: guest profile, a preview notice that
+  saved works and positions last only for this session, a disabled sign-in with its reason, and a
+  row into the listening settings. Nothing there claims durable storage or sync.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
   History has a secondary full list and confirmed clear action; clearing it preserves
   listening positions, saved works, bookmarks and the player.
