@@ -2,7 +2,6 @@ package com.cantos.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -160,11 +159,11 @@ fun CantosTheme(
                 labelLarge = label, labelMedium = label, labelSmall = metadata,
             ),
             shapes = Shapes(
-                extraSmall = RoundedCornerShape(tokenDp("shape.reading")),
-                small = RoundedCornerShape(tokenDp("shape.reading")),
-                medium = RoundedCornerShape(tokenDp("shape.container")),
-                large = RoundedCornerShape(tokenDp("shape.control")),
-                extraLarge = RoundedCornerShape(tokenDp("shape.overlay")),
+                extraSmall = CantosShapes.detail,
+                small = CantosShapes.control,
+                medium = CantosShapes.reading,
+                large = CantosShapes.container,
+                extraLarge = CantosShapes.overlay,
             ),
             content = content,
         )

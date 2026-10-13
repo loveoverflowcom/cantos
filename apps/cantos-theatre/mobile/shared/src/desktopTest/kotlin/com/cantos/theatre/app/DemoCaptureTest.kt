@@ -189,6 +189,18 @@ class DemoCaptureTest {
             textScale = 2f, clickTag = "setting-Timer", captureTag = "preference-dialog")
     }
 
+    @Test
+    fun shape_review_captures_mini_player_across_sizes_and_themes() {
+        DemoTheme.entries.forEach { theme ->
+            val label = theme.name.lowercase()
+            capture("jvm-$label-mini-320x568", 320, 568, DemoState(theme = theme))
+            capture("jvm-$label-mini-390x844", 390, 844, DemoState(theme = theme))
+            capture("jvm-$label-mini-840x840", 840, 840, DemoState(theme = theme))
+            capture("jvm-$label-mini-text2-320x800", 320, 800,
+                DemoState(theme = theme), textScale = 2f)
+        }
+    }
+
     private fun libraryState(
         stack: List<DemoRoute> = listOf(DemoRoute.Library),
         theme: DemoTheme = DemoTheme.Light,

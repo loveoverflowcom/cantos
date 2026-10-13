@@ -434,7 +434,7 @@ pub struct TokenRegistration {
     pub alias_of: Option<&'static str>,
 }
 
-pub const TOKEN_VERSION: &str = "0.2.1";
+pub const TOKEN_VERSION: &str = "0.2.2";
 pub const TOKENS: &[TokenRegistration] = &[
     TokenRegistration {
         name: "breakpoint.expanded",
@@ -750,8 +750,8 @@ pub const TOKENS: &[TokenRegistration] = &[
         name: "shape.container",
         css_variable: "--cantos-shape-container",
         kind: "dimension",
-        light: "1.125rem",
-        dark: "1.125rem",
+        light: "1rem",
+        dark: "1rem",
         compact: None,
         comfortable: None,
         alias_of: None,
@@ -760,8 +760,18 @@ pub const TOKENS: &[TokenRegistration] = &[
         name: "shape.control",
         css_variable: "--cantos-shape-control",
         kind: "dimension",
-        light: "1.5rem",
-        dark: "1.5rem",
+        light: "0.5rem",
+        dark: "0.5rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "shape.detail",
+        css_variable: "--cantos-shape-detail",
+        kind: "dimension",
+        light: "0.25rem",
+        dark: "0.25rem",
         compact: None,
         comfortable: None,
         alias_of: None,
@@ -780,8 +790,8 @@ pub const TOKENS: &[TokenRegistration] = &[
         name: "shape.overlay",
         css_variable: "--cantos-shape-overlay",
         kind: "dimension",
-        light: "1.5rem",
-        dark: "1.5rem",
+        light: "1.25rem",
+        dark: "1.25rem",
         compact: None,
         comfortable: None,
         alias_of: None,
@@ -802,6 +812,16 @@ pub const TOKENS: &[TokenRegistration] = &[
         kind: "dimension",
         light: "0.75rem",
         dark: "0.75rem",
+        compact: None,
+        comfortable: None,
+        alias_of: None,
+    },
+    TokenRegistration {
+        name: "shape.thumbnail",
+        css_variable: "--cantos-shape-thumbnail",
+        kind: "dimension",
+        light: "0.625rem",
+        dark: "0.625rem",
         compact: None,
         comfortable: None,
         alias_of: None,

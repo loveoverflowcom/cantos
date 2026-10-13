@@ -87,6 +87,7 @@ internal fun PreferenceDialog(
         if (panel != PreferencePanel.Diagnostics) onDismiss()
     }
     AlertDialog(
+        shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier.testTag("preference-dialog"),
         onDismissRequest = onDismiss,
         title = { Text(copy.text(panel.title)) },
@@ -130,7 +131,7 @@ internal fun PreferenceDialog(
                         }
                         Text(copy.text(CopyKey.IntegrationsPending), style = MaterialTheme.typography.bodySmall)
                         Text(copy.text(CopyKey.ResetNote), style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = {
+                        TextButton(shape = MaterialTheme.shapes.small, onClick = {
                             onDismiss()
                             dispatch(DemoEvent.Reset)
                         }, modifier = Modifier.testTag("reset")) {
@@ -141,7 +142,7 @@ internal fun PreferenceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag("preference-close")) { Text(copy.text(CopyKey.Done)) }
+            TextButton(shape = MaterialTheme.shapes.small, onClick = onDismiss, modifier = Modifier.testTag("preference-close")) { Text(copy.text(CopyKey.Done)) }
         },
     )
 }

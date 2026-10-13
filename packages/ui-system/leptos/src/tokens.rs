@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.2.1 sha256:fed24d517ac1a32f7fc982494b0af480a9c97966713240155ca659001f3f4266
+// Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.2.1";
+pub const VERSION: &str = "0.2.2";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -39,10 +39,12 @@ pub enum Token {
     MotionNavigationDuration,
     ShapeContainer,
     ShapeControl,
+    ShapeDetail,
     ShapeField,
     ShapeOverlay,
     ShapePill,
     ShapeReading,
+    ShapeThumbnail,
     SizeBorder,
     SizeControl,
     SizeFocusOffset,
@@ -118,10 +120,12 @@ pub const ALL: &[Token] = &[
     Token::MotionNavigationDuration,
     Token::ShapeContainer,
     Token::ShapeControl,
+    Token::ShapeDetail,
     Token::ShapeField,
     Token::ShapeOverlay,
     Token::ShapePill,
     Token::ShapeReading,
+    Token::ShapeThumbnail,
     Token::SizeBorder,
     Token::SizeControl,
     Token::SizeFocusOffset,
@@ -201,10 +205,12 @@ impl Token {
             Self::MotionNavigationDuration => "--cantos-motion-navigation-duration",
             Self::ShapeContainer => "--cantos-shape-container",
             Self::ShapeControl => "--cantos-shape-control",
+            Self::ShapeDetail => "--cantos-shape-detail",
             Self::ShapeField => "--cantos-shape-field",
             Self::ShapeOverlay => "--cantos-shape-overlay",
             Self::ShapePill => "--cantos-shape-pill",
             Self::ShapeReading => "--cantos-shape-reading",
+            Self::ShapeThumbnail => "--cantos-shape-thumbnail",
             Self::SizeBorder => "--cantos-size-border",
             Self::SizeControl => "--cantos-size-control",
             Self::SizeFocusOffset => "--cantos-size-focus-offset",
@@ -351,12 +357,14 @@ impl Token {
             Self::MotionEmphasisDuration => "260ms",
             Self::MotionFeedbackDuration => "140ms",
             Self::MotionNavigationDuration => "260ms",
-            Self::ShapeContainer => "1.125rem",
-            Self::ShapeControl => "1.5rem",
+            Self::ShapeContainer => "1rem",
+            Self::ShapeControl => "0.5rem",
+            Self::ShapeDetail => "0.25rem",
             Self::ShapeField => Self::ShapeReading.css_value(theme),
-            Self::ShapeOverlay => "1.5rem",
+            Self::ShapeOverlay => "1.25rem",
             Self::ShapePill => "62.4375rem",
             Self::ShapeReading => "0.75rem",
+            Self::ShapeThumbnail => "0.625rem",
             Self::SizeBorder => "0.0625rem",
             Self::SizeControl => "2.75rem",
             Self::SizeFocusOffset => "0.25rem",

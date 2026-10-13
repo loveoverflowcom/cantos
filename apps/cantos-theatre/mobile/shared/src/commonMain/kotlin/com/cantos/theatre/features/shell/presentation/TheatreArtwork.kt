@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
@@ -43,7 +44,7 @@ internal fun theatreSerif(): FontFamily = FontFamily(
  * Titles outside the art identify the work; the painting is decorative and never a focus stop.
  */
 @Composable
-internal fun WorkArtwork(id: DemoWorkId, modifier: Modifier = Modifier) {
+internal fun WorkArtwork(id: DemoWorkId, modifier: Modifier = Modifier, shape: Shape = MaterialTheme.shapes.large) {
     val path = when (id) {
         DemoWorkId.SonHa -> "drawable/son_ha_moon.png"
         DemoWorkId.DenKhua -> "drawable/den_khuya.png"
@@ -53,7 +54,7 @@ internal fun WorkArtwork(id: DemoWorkId, modifier: Modifier = Modifier) {
     val bitmap by produceState<ImageBitmap?>(null, path) {
         value = if (path == null) null else loadArtwork(path)
     }
-    Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium) {
+    Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = shape) {
         val image = bitmap
         if (image == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.IconButton as MaterialIconButton
@@ -88,7 +87,7 @@ internal fun ButtonControl(
         enabled = state.canPress(),
         modifier = modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state, description)
             .semantics { name?.let { contentDescription = it.text } },
-        shape = RoundedCornerShape(tokenDp("shape.control")),
+        shape = CantosShapes.control,
         border = if (variant == ButtonVariant.Secondary) BorderStroke(
             tokenDp("size.border"), tokenColor("color.outline"),
         ) else null,

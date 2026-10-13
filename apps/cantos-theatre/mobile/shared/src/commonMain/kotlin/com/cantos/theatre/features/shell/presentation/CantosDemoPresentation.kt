@@ -92,6 +92,7 @@ import com.cantos.theatre.demo.PlaybackUiStatus
 import com.cantos.theatre.demo.canGoBack
 import com.cantos.theatre.demo.continuingProgress
 import com.cantos.theatre.demo.filteredWorks
+import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
 import com.cantos.ui.LocalEditorialFontFamily
@@ -148,7 +149,7 @@ fun CantosDemoPresentation(
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     ) {
                         Text(copy.text(CopyKey.ListeningStoreFailure))
-                        TextButton(onClick = { dispatch(DemoEvent.RetryListening) }, modifier = Modifier.testTag("listening-retry")) {
+                        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.RetryListening) }, modifier = Modifier.testTag("listening-retry")) {
                             Text(copy.text(CopyKey.RetryListening))
                         }
                     }
@@ -244,7 +245,7 @@ private fun DiscoveryScreen(state: DemoState, catalog: DemoCatalogView, copy: De
             modifier = Modifier.semantics { heading() })
         val point = continuingProgress(state).firstOrNull()
         if (point != null) ListeningPoint(point, catalog, copy, dispatch, fromHistory = false, tag = "continue")
-        TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Search)) }, modifier = Modifier.testTag("search")) {
+        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Search)) }, modifier = Modifier.testTag("search")) {
             Icon(Icons.Outlined.Search, null)
             Text(copy.text(CopyKey.Search))
         }
@@ -309,7 +310,7 @@ private fun WorkSummary(
             if (!featured) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-                    WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")))
+                    WorkArtwork(work.id, Modifier.size(tokenDp("size.control") + tokenDp("space.xl")), shape = CantosShapes.thumbnail)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                         Text(work.category, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
                         Text(work.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -331,6 +332,7 @@ private fun SearchScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
     Text(copy.text(CopyKey.Search), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     OutlinedTextField(
+        shape = MaterialTheme.shapes.medium,
         value = state.query, onValueChange = { dispatch(DemoEvent.Search(it)) },
         modifier = Modifier.fillMaxWidth().testTag("search-input"),
         label = { Text(copy.text(CopyKey.SearchLabel)) },
@@ -356,7 +358,7 @@ private fun SelectionUnavailable(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) 
     Column(Modifier.testTag("selection-unavailable"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
         Text(copy.text(CopyKey.SelectionUnavailable), style = MaterialTheme.typography.titleLarge)
         Text(copy.text(CopyKey.SelectionUnavailableNote))
-        Button(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }, modifier = Modifier.testTag("selection-discover")) {
+        Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }, modifier = Modifier.testTag("selection-discover")) {
             Text(copy.text(CopyKey.Discover))
         }
     }
@@ -380,9 +382,9 @@ private fun CatalogRecovery(mode: DemoCatalogMode, copy: DemoCopy, dispatch: (De
         Text(copy.text(title), style = MaterialTheme.typography.titleLarge)
         Text(copy.text(message))
         if (mode == DemoCatalogMode.Error || mode == DemoCatalogMode.Loading) {
-            Button(onClick = { dispatch(DemoEvent.Retry) }, modifier = Modifier.testTag("retry")) { Text(copy.text(CopyKey.Retry)) }
+            Button(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Retry) }, modifier = Modifier.testTag("retry")) { Text(copy.text(CopyKey.Retry)) }
         } else {
-            TextButton(onClick = { dispatch(DemoEvent.Search("")); dispatch(DemoEvent.Retry); dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) {
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Search("")); dispatch(DemoEvent.Retry); dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) {
                 Text(copy.text(CopyKey.Discover))
             }
         }
@@ -401,7 +403,7 @@ private fun WorkScreen(work: DemoWork, state: DemoState, copy: DemoCopy, dispatc
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         val firstEpisode = work.episodes.firstOrNull()
-        Button(enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
+        Button(shape = MaterialTheme.shapes.medium, enabled = firstEpisode != null && firstEpisode.durationSeconds > 0,
             onClick = { firstEpisode?.let { dispatch(DemoEvent.OpenEpisode(it.id)) } }) {
             Icon(Icons.Outlined.PlayArrow, null)
             Text(copy.text(CopyKey.StartDemo))
@@ -447,7 +449,7 @@ private fun EpisodeSelection(episode: DemoEpisode, state: DemoState, copy: DemoC
 @Composable
 private fun SaveWorkButton(work: DemoWork, state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, tag: String) {
     val saved = work.id in state.savedWorks
-    FilledTonalButton(
+    FilledTonalButton(shape = MaterialTheme.shapes.medium,
         onClick = { dispatch(DemoEvent.SetSaved(work.id, saved = !saved)) },
         modifier = Modifier.testTag(tag).semantics {
             contentDescription = copy.text(if (saved) CopyKey.UnsaveName else CopyKey.SaveName, "title" to work.title)
@@ -479,7 +481,7 @@ private fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
     }
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.History, copy)
-        TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.History)) }, modifier = Modifier.testTag("history-all")) {
+        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
         }
         if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
@@ -499,7 +501,7 @@ private fun SectionHeading(key: CopyKey, copy: DemoCopy) {
 private fun SectionEmpty(title: CopyKey, help: CopyKey, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     Text(copy.text(title), style = MaterialTheme.typography.titleMedium)
     Text(copy.text(help), style = MaterialTheme.typography.bodySmall)
-    TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
+    TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
 }
 
 @Composable
@@ -529,7 +531,7 @@ private fun ListeningPoint(
     ) {
         Row(Modifier.padding(tokenDp("space.inset")), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.inset"))) {
-            WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")))
+            WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")), shape = CantosShapes.thumbnail)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 Text(copy.text(CopyKey.EpisodeLabel, "index" to episode.index.toString(),
                     "title" to catalog.work(episode.workId)?.title.orEmpty()), style = MaterialTheme.typography.bodySmall)
@@ -549,21 +551,22 @@ private fun HistoryScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
     Text(copy.text(CopyKey.HistoryHelp))
     if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
     else {
-        TextButton(onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
+        TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = true }, modifier = Modifier.testTag("history-clear")) { Text(copy.text(CopyKey.ClearHistory)) }
         state.history.forEach { ListeningPoint(it, catalog, copy, dispatch, fromHistory = true, tag = "history-${it.episodeId}") }
     }
     if (confirming) AlertDialog(
+        shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier.testTag("history-dialog"),
         onDismissRequest = { confirming = false },
         title = { Text(copy.text(CopyKey.ClearHistoryConfirmTitle)) },
         text = { Text(copy.text(CopyKey.ClearHistoryHelp)) },
         confirmButton = {
-            TextButton(onClick = { confirming = false; dispatch(DemoEvent.ClearHistory) }, modifier = Modifier.testTag("history-confirm")) {
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = false; dispatch(DemoEvent.ClearHistory) }, modifier = Modifier.testTag("history-confirm")) {
                 Text(copy.text(CopyKey.ConfirmClearHistory))
             }
         },
         dismissButton = {
-            TextButton(onClick = { confirming = false }, modifier = Modifier.testTag("history-cancel")) { Text(copy.text(CopyKey.Cancel)) }
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = false }, modifier = Modifier.testTag("history-cancel")) { Text(copy.text(CopyKey.Cancel)) }
         },
     )
 }
@@ -573,11 +576,11 @@ private fun AccountScreen(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     SectionHeading(CopyKey.Account, copy)
     Text(copy.text(CopyKey.AccountHelp))
     Text(copy.text(CopyKey.LibrarySession))
-    Button(onClick = {}, enabled = false, modifier = Modifier.testTag("sign-in").semantics {
+    Button(shape = MaterialTheme.shapes.medium, onClick = {}, enabled = false, modifier = Modifier.testTag("sign-in").semantics {
         stateDescription = copy.text(CopyKey.SignInUnavailable)
     }) { Text(copy.text(CopyKey.SignIn)) }
     Text(copy.text(CopyKey.SignInUnavailable), style = MaterialTheme.typography.bodySmall)
-    FilledTonalButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }, modifier = Modifier.testTag("settings")) {
+    FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) }, modifier = Modifier.testTag("settings")) {
         Icon(Icons.Outlined.Settings, null)
         Text(copy.text(CopyKey.Settings))
     }
@@ -615,7 +618,7 @@ private fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
         SectionHeading(CopyKey.Bookmarks, copy)
         state.bookmarks.forEach { bookmark ->
             val markedEpisode = catalog.episode(bookmark.episodeId)
-            if (markedEpisode != null) TextButton(onClick = { dispatch(DemoEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
+            if (markedEpisode != null) TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
                 contentDescription = copy.text(CopyKey.OpenBookmark, "title" to markedEpisode.title, "time" to copy.spokenTime(bookmark.positionSeconds))
             }) {
                 Text(copy.text(CopyKey.BookmarkCaption, "title" to markedEpisode.title, "time" to clockTime(bookmark.positionSeconds)))
@@ -679,8 +682,8 @@ private fun SettingsScreen(state: DemoState, copy: DemoCopy, dispatch: (DemoEven
 private fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
     val episode = catalog.episode(state.selectedEpisode) ?: return
     Surface(color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
-        shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()
-            .padding(horizontal = tokenDp("space.md"), vertical = tokenDp("space.sm"))) {
+        shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = tokenDp("space.md"), vertical = tokenDp("space.sm")).testTag("mini-player")) {
         Row(Modifier.padding(tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Surface(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Player)) },
@@ -692,7 +695,7 @@ private fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCop
                 }) {
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                    WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")))
+                    WorkArtwork(episode.workId, Modifier.size(tokenDp("size.control")), shape = CantosShapes.thumbnail)
                     Column(Modifier.weight(1f)) {
                         Text(episode.title, style = MaterialTheme.typography.labelLarge,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -700,7 +703,7 @@ private fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCop
                     }
                 }
             }
-            FilledTonalIconButton(onClick = { dispatch(DemoEvent.ToggleSimulation) },
+            FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(DemoEvent.ToggleSimulation) },
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = tokenColor("color.playerAccent"), contentColor = tokenColor("color.playerSurface")),
                 modifier = Modifier.size(tokenDp("size.control")).testTag("mini-transport")) {

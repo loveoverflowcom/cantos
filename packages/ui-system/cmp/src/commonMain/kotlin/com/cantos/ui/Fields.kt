@@ -2,7 +2,6 @@ package com.cantos.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -121,7 +120,7 @@ private fun ControlledTextField(
         maxLines = maxLines,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions.guardedBy(state),
-        shape = RoundedCornerShape(tokenDp("shape.field")),
+        shape = CantosShapes.reading,
         colors = fieldColors(state),
         supportingText = fieldSupportingText(messages),
     )
@@ -157,7 +156,7 @@ private fun ControlledTextField(
         maxLines = maxLines,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions.guardedBy(state),
-        shape = RoundedCornerShape(tokenDp("shape.field")),
+        shape = CantosShapes.reading,
         colors = fieldColors(state),
         supportingText = fieldSupportingText(messages),
     )

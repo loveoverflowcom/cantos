@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.2.1 sha256:fed24d517ac1a32f7fc982494b0af480a9c97966713240155ca659001f3f4266
+// Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.2.1"
+    const val version: String = "0.2.2"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -42,12 +42,14 @@ object CantosTokens {
         TokenValue("motion.emphasis.duration", "duration", "260", "260", null, null, null),
         TokenValue("motion.feedback.duration", "duration", "140", "140", null, null, null),
         TokenValue("motion.navigation.duration", "duration", "260", "260", null, null, null),
-        TokenValue("shape.container", "dimension", "18", "18", null, null, null),
-        TokenValue("shape.control", "dimension", "24", "24", null, null, null),
+        TokenValue("shape.container", "dimension", "16", "16", null, null, null),
+        TokenValue("shape.control", "dimension", "8", "8", null, null, null),
+        TokenValue("shape.detail", "dimension", "4", "4", null, null, null),
         TokenValue("shape.field", "dimension", "12", "12", null, null, "shape.reading"),
-        TokenValue("shape.overlay", "dimension", "24", "24", null, null, null),
+        TokenValue("shape.overlay", "dimension", "20", "20", null, null, null),
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
+        TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
         TokenValue("size.control", "dimension", "44", "44", "44", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),

@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.2.1 sha256:fed24d517ac1a32f7fc982494b0af480a9c97966713240155ca659001f3f4266
+/* Generated from Cantos UI tokens v0.2.2 sha256:6cc6c44890b5c41b73dad22e927c0962b95164f8421bf94f5645578ece6f8a1d
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -33,11 +33,13 @@
   --cantos-motion-emphasis-duration: 260ms;
   --cantos-motion-feedback-duration: 140ms;
   --cantos-motion-navigation-duration: 260ms;
-  --cantos-shape-container: 1.125rem;
-  --cantos-shape-control: 1.5rem;
-  --cantos-shape-overlay: 1.5rem;
+  --cantos-shape-container: 1rem;
+  --cantos-shape-control: 0.5rem;
+  --cantos-shape-detail: 0.25rem;
+  --cantos-shape-overlay: 1.25rem;
   --cantos-shape-pill: 62.4375rem;
   --cantos-shape-reading: 0.75rem;
+  --cantos-shape-thumbnail: 0.625rem;
   --cantos-size-border: 0.0625rem;
   --cantos-size-control: 2.75rem;
   --cantos-size-focus-offset: 0.25rem;
