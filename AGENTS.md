@@ -95,7 +95,8 @@ On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python un
 Static Compose UI capture goes through `cargo xtask compose-preview <cantos-theatre|ui-system-cmp>`;
 read the [CMP preview workflow](.agents/skills/cantos-cmp-mobile/references/compose-preview.md).
 It needs a real mobile Gradle project and Android Studio Quail 2+ with that project open, but no
-emulator or phone. Theatre Mobile remains a guide, so its capture is `UNSUPPORTED`;
+emulator or phone. Theatre Mobile's isolated mock has Gradle Android preview wrappers;
+capture requires the official CLI and a ready synced IDE, otherwise it is `UNSUPPORTED`.
 Studio Mobile is excluded. The shared `ui-system-cmp` library has an Android preview host. Open the PNG and assert the observed semantics before claiming inspected/tested
 evidence; host rendering does not replace Android/iOS runtime or screen-reader gates.
 

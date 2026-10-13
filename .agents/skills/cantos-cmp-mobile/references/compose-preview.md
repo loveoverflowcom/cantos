@@ -1,7 +1,8 @@
 # Compose preview without an emulator
 
 Use Android Studio's layout renderer for a quick pixel and semantics pass over actual Compose
-code. Theatre Mobile remains a README guide, so its capture target is `UNSUPPORTED`.
+code. Theatre Mobile's isolated mock has a Gradle Android host and existing wrappers in
+`shared/src/androidMain`; its capture target still requires the official CLI and ready IDE.
 Studio is web-only and has no mobile capture target; never scaffold one for preview evidence. The separate `ui-system-cmp` target selects a real Android library host in
 `packages/ui-system/cmp/android-preview`, with thin wrappers around the shared components and
 existing deterministic fixtures. The [PR43 host record](../../../../docs/evidence/cmp-pr43-android-preview.md)
@@ -56,15 +57,15 @@ Existing specimens declare their display inputs in `@Preview`:
 | `AndroidNavigationLightWidePreview` | 840 × 840 dp, light, Vietnamese, font scale 1× |
 | `AndroidNestedThemeDarkLargePreview` | 840 × 840 dp, dark, Vietnamese, font scale 2× |
 
-The product example below remains a **future invocation**: replace the file and function with
-ones discovered in the app. Neither `PlayerPreview.kt` nor `PlayerDarkVietnameseLargePreview`
-exists today.
+The Theatre mock has real wrappers around the same shared app. Compile with
+`cargo xtask theatre-demo android-build`, open its Gradle root and sync with
+`-Pcantos.android=true` before capture:
 
 ```sh
 cargo xtask compose-preview cantos-theatre \
-  --file apps/cantos-theatre/mobile/<source-set>/PlayerPreview.kt \
-  --composable PlayerDarkVietnameseLargePreview \
-  --label dark-vi-VN-large-text
+  --file apps/cantos-theatre/mobile/shared/src/androidMain/kotlin/com/cantos/theatre/app/TheatrePreviews.kt \
+  --composable TheatrePlayerDarkPreview \
+  --label player-dark-390-vi
 ```
 
 Quote the real path if it contains spaces. Paths resolve from the repository root even when
@@ -140,7 +141,8 @@ with Compose UI Test on the JVM** only when the real Gradle build configures it.
 source sets, test runner, SDK, graphics mode and tasks; pinned AGP versions may expose
 `testDebugUnitTest` or `testAndroidHostTest`, with module-specific names. Do not copy VOTHub's
 `:sharedUi:testAndroidHostTest` into Cantos: no such module or task exists here. Add an actual
-mobile test gate to xtask when that project lands. Today all Gradle tasks in
-[CMP testing](cmp-testing.md) are discovery examples, and Robolectric dependencies/runners remain
-candidates. Label a host run with its actual renderer and selected/executed test counts; it does
+native test gate to xtask only when its runner is implemented. The current
+`cargo xtask theatre-demo verify` runs common/desktop Compose tests, as
+[CMP testing](cmp-testing.md) records; Robolectric dependencies/runners remain candidates.
+Label a host run with its actual renderer and selected/executed test counts; it does
 not close the [native acceptance matrix](../../../../docs/architecture/mobile.md#future-acceptance-matrix).

@@ -9,9 +9,46 @@ The product boundaries are owned by
 [mobile.md § Boundaries](../../../../docs/architecture/mobile.md#boundaries) and the
 [architecture overview](../../../../docs/architecture/overview.md). The general dependency rule
 is the foundation's [decoupling reference](../../cantos-engineering/references/decoupling.md).
-This reference maps both onto Kotlin Multiplatform; it does not add layers. Everything below is
-a **proposed** layout: no mobile code exists yet. Recheck it against the real tree before relying
-on any path.
+This reference maps both onto Kotlin Multiplatform. The isolated mock has real code and Gradle
+hosts; native production listening remains planned. Inspect the
+[current structure](../../../../apps/cantos-theatre/mobile/README.md#structure) before choosing paths.
+
+## ARC-01 — inward dependencies and domain boundaries
+
+**MUST**, for handwritten application code: keep the conceptual layers below separate in
+responsibility, without inventing modules/folders to match a diagram. Domain owns business
+invariants; it imports neither application, presentation, infrastructure nor platform frameworks.
+Application depends on domain and required ports; adapters implement those ports; presentation
+receives values and emits typed intents; the composition root wires implementations/lifetimes.
+Feature packages cannot manipulate another feature's internal state. No circular imports.
+
+| Layer | Current `com.cantos.theatre` package / responsibility |
+|---|---|
+| Domain | `domain/playback`: `PlaybackState`, `PlaybackEvent`, `PlaybackEffect`, `reducePlayback`; `domain/publication` and `domain/listening` hold synthetic catalog/listening rules |
+| Application | `application/{playback,catalog,listening,preferences}`: independent authorities, event processing and effect interpretation |
+| Ports | `ports/{MediaEngine,CatalogPort,ProgressPort}`: required capabilities, no vendor implementations |
+| Adapters / infrastructure | `adapters/mock`: fake acknowledgements, synthetic fixtures and memory storage; no production HTTP/native audio/durable storage |
+| Presentation | `features/shell/presentation`: stateless Compose screen functions; `app/CantosDemoApp.kt` binds projections/intents |
+| Composition root | `app/AppContainer.kt` wires owners/ports; Android `CantosDemoApplication`, iOS `MainViewController`/SwiftUI owner and desktop host supply lifetimes |
+
+Good Kotlin: `fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransition`
+uses plain domain values. Counterexample: `domain/playback` importing `android.media.*`,
+`Composable` or `application.PlaybackController`. Verify import/source-set edges manually and
+compile the touched targets; package boundaries inside the shared Gradle module are not
+automatically compiler-enforced. Exception: framework code belongs in presentation/adapter
+source, never in domain; a small feature may colocate declarations while preserving import
+direction. DDD boundaries follow capability and invariant owners, not a mandatory class hierarchy.
+
+## ARC-02 — explicit wire, storage and domain mapping
+
+**MUST**, at external boundaries: keep API DTOs, generated wire types, persistence records and
+domain values distinct, with validated conversion. Good: `fun RawCheckpoint.toSnapshot():
+RestoreOutcome` validates source/position/speed together. Counterexample:
+`val session = json.decodeFromString<VerifiedDownload>(raw)` forging verification evidence.
+Verify invalid/unknown fields, schema versions, restoration and identity mismatches with boundary
+tests. Exception: contract-approved raw inputs may remain unaccepted values until the reducer
+rejects them; do not expose them as settled facts. No invented endpoints, DTO fields or auth
+policy; the listener API is still reserved and Studio stays Web-only.
 
 ## Dependency direction
 
@@ -29,11 +66,17 @@ UI intent → state holder / controller → pure reducer → effects as data
 OS or HTTP event → adapter → typed event → reducer → new immutable state → UI
 ```
 
-An arrow means "may depend on". Data flows both ways; imports flow one way. A screen never
-imports an adapter, a reducer never imports Compose, and nothing in `commonMain` imports
-`android.*`, `platform.AVFoundation.*`, a Ktor engine or a SQL driver.
+An arrow means "may depend on". Data flows both ways; imports flow inward. A screen never
+imports an adapter, a reducer never imports Compose. `commonMain` is portable: no `android.*`
+or `platform.AVFoundation.*`. A multiplatform HTTP/storage adapter may live there when justified,
+but domain/application signatures never expose its engine/driver/DTO types. Native implementations
+remain in `androidMain` / `iosMain` or Swift.
 
-## Proposed packages
+## Current layout and future capabilities
+
+The implemented mock uses the layer packages in ARC-01 within one shared module. The following
+feature/capability sketch is **future guidance only**; keep actual paths authoritative and
+add a folder/module only for a concrete consumer:
 
 Start with the fewest Gradle modules the chosen CMP template needs (typically one shared KMP
 module plus the Android and iOS hosts). Split a module only for a named reason: the generated API
@@ -63,10 +106,12 @@ see a dependency. Inside the shared module, organize by feature and capability:
 `api/` speaks JSON. A MessagePack representation is added only through the foundation's
 [wire codec procedure](../../cantos-engineering/references/wire-codec.md#5-extending-to-theatre-and-cmp):
 decode by response `Content-Type`, named maps, the committed goldens in `commonTest` and a JSON
-default switch. No CMP client or Kotlin binding exists yet.
+default switch. No production listener API client exists yet. Generated Kotlin test strings
+embed the reviewed mock corpus; they are neither HTTP bindings nor generated expected results.
 
-`playback/`, `downloads/`, `progress/`, `catalog/` and `session/` are the **shared application
-layer** from mobile.md. Feature packages consume them; they never import each other's `state/`.
+In that future sketch, `playback/`, `downloads/`, `progress/`, `catalog/` and `session/` are
+capabilities of the **shared application layer** from mobile.md, each retaining a pure domain core.
+Feature packages consume them; they never import each other's `state/`.
 Features communicate through the application layer or through navigation arguments that carry
 IDs only (`EpisodeId`, `PublicationId`), so a route can be rebuilt after process death.
 
@@ -95,15 +140,15 @@ storage, network and lifecycle signals, download execution. Each gets a narrow p
 `commonMain`, named for the capability Cantos needs, never for the vendor:
 
 ```kotlin
-// Illustrative, proposed — not existing code.
+// Current mock seam (see ports/MediaEngine.kt); native implementations remain future work.
 interface MediaEngine {
-    val events: Flow<EngineEvent>
-    fun load(source: PlayableSource, startAt: PlaybackPosition)
-    fun play()
-    fun pause()
-    fun seekTo(position: PlaybackPosition)
-    fun setSpeed(speed: PlaybackSpeed)
-    fun release()
+    val events: Flow<PlaybackObservation>
+    suspend fun prepare(command: PlaybackEngineCommand)
+    suspend fun start(command: PlaybackEngineCommand)
+    suspend fun pause(command: PlaybackEngineCommand)
+    suspend fun seek(command: PlaybackEngineCommand)
+    suspend fun setSpeed(command: PlaybackEngineCommand)
+    fun close()
 }
 ```
 
@@ -114,11 +159,51 @@ interface MediaEngine {
 | Swift implementation of a Kotlin interface passed in at startup | the API is awkward from Kotlin/Native (KVO, delegate-heavy AVFoundation, background `URLSession`) | the Kotlin surface exposes `suspend` or `Flow` to Swift without a recorded interop decision |
 
 Shape iOS-facing ports as plain callbacks or listener interfaces; wrap them into `Flow` with
-`callbackFlow` on the Kotlin side. Exposing coroutines to Swift needs an interop tool (SKIE and
-KMP-NativeCoroutines are candidates) chosen in an ADR.
+`callbackFlow` on the Kotlin side. Exposing coroutines to Swift needs an explicit interop/
+cancellation decision; SKIE and KMP-NativeCoroutines are candidates only if a concrete consumer
+needs them, selected in an ADR rather than required for every port.
 
-A port exists only with two real implementations — the platform adapter and a deterministic test
-fake count. A port added only so a test can count calls hides a rule that belongs in a reducer.
+A port needs a real external capability and consumer; the current mock plus scripted test
+implementations exercise its contract while native adapters are pending. Do not claim a production
+adapter exists because an interface exists. Avoid interfaces solely to count internal calls.
+
+## SOLID for functional architecture
+
+Each ID below is **MUST** when its responsibility/boundary exists. Composition is preferred to
+inheritance; none mandates OOP, a framework, a module per use case or interfaces for pure functions.
+The oracle column is a review obligation today, not a configured static gate.
+
+| ID / rationale | Positive Kotlin | Counterexample | Verification | Legitimate exception |
+|---|---|---|---|---|
+| SOLID-S: one coherent reason to change | `PlaybackController(scope, engine)` owns playback; `CatalogController` owns catalog | `TheatreManager` owns catalog, downloads, progress, navigation and player | Map each writable fact and lifetime to one owner; tests target the capability | Composition root wires several owners, without absorbing their rules |
+| SOLID-O: extend appropriate policies/ports through composition | `MediaEngine` gains an adapter; `when(event)` stays exhaustive | `else -> Unit` to avoid editing decisions when a new event arrives | Add variant and inspect compiler decisions; preserve port contract | Closed business ADTs deliberately require edits; no catch-all for OCP |
+| SOLID-L: substitutable behavior, not interface shape | `engineContract { scriptedEngine() }` and later `engineContract { nativeEngine() }` assert commands return before acknowledgements and callbacks retain identity | `override suspend fun start(...) { awaitReadyForever() }` blocks later Pause | Shared adapter contract tests for ordering, identity, failure/cancellation and cleanup | Platform extras may differ behind separate optional capabilities; required guarantees cannot weaken |
+| SOLID-I: narrow capability ports | `class CatalogController(port: CatalogPort)` | `interface EverythingRepository { fun catalog(); fun play(); fun billing() }` | Review actual caller operations and fake size; remove unrelated dependencies | Coherent related operations can share one port |
+| SOLID-D: policies depend inward | `PlaybackController(scope, engine: MediaEngine)` with root injection | `PlaybackController` constructs `ExoPlayer` or imports a vendor SDK | Import/root review plus fake-port tests; compile relevant source sets | Pure functions need no interface; platform roots may name concrete types |
+
+`engineContract` is an illustrative shared-test shape, not an existing test helper. Fake/native/
+production implementations should share it when present; device-specific behavior still needs
+device tests. A fake alone cannot establish substitutability of an unimplemented native adapter.
+
+## Concurrency guarantees
+
+Apply [FP-04, KT-STATE, KT-LIFETIME and KT-CONCURRENCY](kotlin-conventions.md) rather than a
+second set of ownership rules. Current playback serializes events and publishes immutable state;
+a **separate ordered effect worker** issues self-contained commands, and observations arrive
+through another collector. It never waits for engine readiness in the reducer/event owner.
+
+| Guarantee | What establishes it | What it does not establish |
+|---|---|---|
+| Thread safety | Confinement, synchronization or an evaluated concurrency algorithm | Correct business ordering or durability |
+| Atomic state publication | `MutableStateFlow.value`/pure retryable `update` | Atomicity with a network/media/storage call |
+| Serial effect execution | One ordered consumer of accepted effect batches | OS acknowledgement order, exactly-once delivery or multi-process durability |
+| Exactly-once delivery | Requires an explicit end-to-end protocol; do not infer it from a channel | An in-memory loop cannot survive crash/replay as a delivery guarantee |
+| Durable idempotency | Stable operation identity, persisted receipt and guarded acceptance at the external authority | Never guaranteed by debounce, a generation number or a fake's command list |
+
+Generation/source fencing rejects stale observations; it does not cancel already-issued external
+commands. Test rapid inputs, reset barriers, close/cancellation, delayed callbacks and repeated
+commands separately. Logout/account-switch handling remains a future boundary requiring the same
+stale-result discipline; the memory-only mock has no authenticated session.
 
 ## One media session owner
 
@@ -202,9 +287,11 @@ Before adding a KMP library: check the pinned artifact's published targets (Andr
 iOS simulator, JVM test host), its Kotlin and CMP compatibility, licence and maintenance, and
 whether an existing dependency already covers the need. Record the choice in an ADR when it is
 one of the decisions in [mobile.md](../../../../docs/architecture/mobile.md#implementation-decisions-to-record).
-Never upgrade the toolchain as a side effect of a feature.
+Never upgrade the toolchain as a side effect of a feature. Read the
+[candidate evaluation](cmp-tooling.md) before adding typed-error, validation, collection or
+verification libraries; it records the pinned baseline and unresolved compatibility probes.
 
-## Review questions
+## Reviewer checklist
 
 1. Which object is the one mutable authority for each fact this change touches, and what is its
    lifetime?
@@ -213,3 +300,8 @@ Never upgrade the toolchain as a side effect of a feature.
 4. Is any server policy now decided in Kotlin?
 5. Is the API type generated, and is its mapping into refined values tested with an invalid
    payload?
+6. Do TYPE-01–05 close construction/copy/decoding bypasses without inventing authorization?
+7. Do FP-01–04 keep decisions pure, values immutable and retryable transforms effect-free?
+8. Do SOLID-S/O/L/I/D preserve cohesive owners, exhaustive ADTs and substitutable narrow ports?
+9. Are cancellation, rapid commands and stale observations tested with reproducible schedules?
+10. Does VER-01–08 evidence name actual targets, bounds/seeds, complete ordered effects and gaps?

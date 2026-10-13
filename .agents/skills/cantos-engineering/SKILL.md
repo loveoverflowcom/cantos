@@ -20,10 +20,12 @@ vocabulary and report; none of them redefines these.
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
   document, the work-plan item and the code you will touch. Product rules live in
   [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
-- **Repository reality.** Script IR, Axum/PostgreSQL revisions/editorial/import/adaptation,
-  casting/frozen inputs, local/Google TTS probes, bounded development-only local/fake workers and
-  Leptos Studio exist. Theatre Web is a skeleton; Theatre Mobile, commercial dispatch, full production
-  and delivery remain planned. Inspect commands; see [local execution](references/local-execution.md).
+- **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
+  audio lifecycle slices, and Leptos Studio exist. Theatre Web is a session-only mock; Theatre
+  Mobile has a Gradle CMP mock with Android/iOS hosts and pure playback/controller tests.
+  Production listener API, native audio and delivery remain planned. Backend TTS/workers were
+  removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
+  Inspect commands; see [local execution](references/local-execution.md).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
@@ -56,8 +58,7 @@ format and lint
 report the exact evidence level and the residual risk
 ```
 
-Skipping a step is a decision you must state. "No core extracted: this adapter only maps types"
-is a fine answer; silence is not.
+State skipped steps; "No core extracted: this adapter only maps types" is sufficient.
 
 ### Database-backed GET, read and fetch work
 
@@ -77,21 +78,18 @@ if it is false. Keep a working ledger while implementing:
 | Claim / invariant | Failure mode | Cheapest oracle | Evidence level |
 |---|---|---|---|
 
-The [business-rule invariants](../../../docs/product/business-rules.md#product-invariants-to-verify)
-are the first ledger seeds for any production, publication or listening change: one changed line
-regenerates only that line and its dependent mixes; a dead worker resumes without duplicate
-accepted output; a lost provider response is reconciled before a repeat; stale approval blocks
-publication; an incomplete upload is never listener-visible; repeated play costs nothing; late
-offline progress never blindly overwrites newer progress.
-
-Every added test maps to a claim. Every changed high-impact claim gets evidence or an explicit gap.
+Use the current [business rules](../../../docs/product/business-rules.md#product-invariants-to-verify)
+with ADR 0018: exact immutable content/brief bindings, scoped/revocable producer access,
+duplicate upload/lost-finalize reconciliation, actual-byte integrity, stale approval blocking,
+private incomplete uploads, playback without production and revision-aware offline progress.
+Provider attempts/regeneration belong to external producers, never a new backend worker.
 
 ## 2. Decouple by ownership
 
 ```text
 pure domain values and rules   ←  application (permissions, transitions, gates)
         ↑                              ↑
-   adapters (PostgreSQL, S3, TTS, adaptation AI, audio tools)   ←  HTTP handlers, workers, UI
+   adapters (PostgreSQL, private storage, read-only inspection)   ←  HTTP handlers, UI
 ```
 
 Dependencies point toward pure domain values. Script IR and domain rules never import Axum,
@@ -110,7 +108,8 @@ wire path cannot forge what the constructor rejects.
 
 Settled facts are immutable. An accepted script revision, frozen production inputs, a provider
 attempt, an accepted artifact, a QC result, an approval and a release manifest are written once;
-a correction creates a new revision, run, artifact or release and preserves history. In code,
+a correction creates a new revision, artifact or release and preserves history. External producer
+attempt history belongs to its producer. In code,
 transformations take values and return new values; mutation stays local, private and invisible
 until the function returns.
 
@@ -122,7 +121,7 @@ fixtures, AI output or a migration.
 ## 4. Functional core, imperative shell
 
 ```text
-world: HTTP · PostgreSQL · S3 · TTS · adaptation AI · audio tools · clock · IDs · randomness
+world: HTTP · PostgreSQL · private storage · read-only audio tools · clock · IDs · randomness
                          ↓
                   imperative shell        resolves facts, executes effects, retries
                          ↓
@@ -135,10 +134,10 @@ world: HTTP · PostgreSQL · S3 · TTS · adaptation AI · audio tools · clock 
 
 When a durable decision sits inside a handler, worker loop, adapter, Leptos component or Kotlin
 screen, extract it before reaching for mocks. Cantos decisions that belong in the core include
-validating a script revision, planning partial regeneration, computing a speech fingerprint,
-classifying a provider failure into a retry decision, deciding whether a release may publish and
-reconciling listener progress. Each must be callable from a plain `#[test]` with no async runtime,
-database or provider.
+validating a script revision, binding a production brief, classifying an intake/replay decision,
+deciding whether a release may publish and reconciling listener progress. Each must be callable
+from a plain unit test with no async runtime, database or provider. Kotlin uses the same method;
+`reducePlayback` is the current pure-core example.
 
 Do not force this on thin CRUD or an adapter that only maps types.
 
@@ -275,6 +274,7 @@ A report with an empty residual-risk line is a report nobody can act on.
 | moving a decision out of a handler, worker loop, component or screen, with before/after recipes | [`extraction-recipes.md`](references/extraction-recipes.md) |
 | immutable revisions, append-only records, value semantics in Rust and Kotlin | [`immutability.md`](references/immutability.md) |
 | making an invalid state or identity unrepresentable | [`types-as-proofs.md`](references/types-as-proofs.md) |
+| Kotlin identities/factories/ADTs, pure reducers, ownership, SOLID or concurrency verification | [CMP Kotlin rules](../cantos-cmp-mobile/references/kotlin-conventions.md), [architecture](../cantos-cmp-mobile/references/cmp-architecture.md), [testing](../cantos-cmp-mobile/references/cmp-testing.md); load all three for a Kotlin decision |
 | serde, SQL rows, fixtures, AI output or migrations around a refined type | [`boundary-hardening.md`](references/boundary-hardening.md) |
 | PostgreSQL transactions, constraints, concurrency control, migrations, test databases | [`persistence.md`](references/persistence.md) |
 | database-backed GET/read/fetch, hot queries, indexes, DBSP incremental views, CDC, read-model invalidation or performance acceptance | [`postgresql-read-performance.md`](references/postgresql-read-performance.md) |

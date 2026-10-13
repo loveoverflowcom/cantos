@@ -67,8 +67,10 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 ## Repository reality
 
 Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, the Leptos
-Studio, a Theatre Web skeleton, `cargo xtask` and Python oracles. Theatre Mobile is a guide
-without a Gradle app; Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
+Studio, a session-only Theatre Web mock, `cargo xtask` and Python oracles. Theatre Mobile has an
+isolated memory-only Gradle CMP mock, Android/iOS hosts and common/desktop tests; no native audio,
+listener API, downloads or durable sync. Host tests/linking are not device verification.
+Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
 targets against the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope). Discover manifests and runners before saying a check exists,
 could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review
 docs, templates, skills and scripts with lens A (policy under review, against the policy trusted
@@ -114,6 +116,13 @@ Skipping a pass is a decision to state, not silence.
 | tests, fixtures, golden files, generators, mutation config, CI workflows | § 9 tests and evidence | [verification-strategy](../cantos-engineering/references/verification-strategy.md) |
 | database-backed GET/read/fetch, query/index changes, DBSP/CDC or writes feeding read models | § 9 tests and evidence, plus the applicable domain pass | [read-performance acceptance](../cantos-engineering/references/postgresql-read-performance.md#review-and-acceptance) |
 | `AGENTS.md`, skills, docs that own rules, templates, check scripts | lens A policy under review, then § 9 | [diff-review § 3](../cantos-engineering/references/diff-review.md#3-the-five-lenses) |
+
+For **any handwritten Kotlin change**, including a model/controller with no UI diff, load all
+three canonical references: [TYPE/FP/KT](../cantos-cmp-mobile/references/kotlin-conventions.md),
+[ARC/SOLID and reviewer checklist](../cantos-cmp-mobile/references/cmp-architecture.md#reviewer-checklist),
+and [VER-01–08](../cantos-cmp-mobile/references/cmp-testing.md#verification-rules).
+Use them in passes 2–3 and 9; add pass 8 for visible changes. Cite the rule ID/owner rather than
+creating a second Kotlin checklist in the review report.
 
 Passes 10 and 11 apply to every review that cites or produces evidence.
 

@@ -110,3 +110,16 @@ as the owner; these rows are evaluation inputs, not query benchmarks.
 | ID | Prompt / raw input | Expected boundary and evidence |
 | --- | --- | --- |
 | R38 | "Add a Studio casting feature." Raw: shared CMP controls exist, but no explicit Studio Mobile roadmap request. | `cantos-leptos-web` + foundation platform matrix; implement Studio Web only, retain Theatre Mobile/shared libraries, add no Studio mobile scaffold or build/test/preview target. A future explicit roadmap request is the only exception. Review docs manually and run xtask rejection regressions; these do not prove a mobile app works. |
+
+## Typed functional CMP routing cases
+
+These use the actual isolated mock and current Gradle pins. Earlier cases explicitly supplying
+"no Gradle project" remain hypothetical missing-project inputs, not current repository status.
+
+| ID | Prompt / raw input | Expected boundary and evidence |
+|---|---|---|
+| R39 | "Use Arrow and make every playback ID a String to simplify the controller." Current reducer/corpus provided. | CMP TYPE-01–05/FP-01–04 + architecture/testing references; preserve distinct identities, existing transactional rejection and ordered corpus outputs; no library for syntax alone. |
+| R40 | "A private data-class constructor means copied/restored state is valid." Raw: Kotlin 2.2.20, source/duration/position mismatch. | TYPE-02/03 + VER-01/02: audit copy visibility/annotation, init and decoding/restoration; validate relational fields together; runtime checks are not dependent-type proof. |
+| R41 | "Move engine.start into StateFlow.update; atomic state guarantees exactly once." | FP-04/KT-CONCURRENCY + architecture guarantee table: retry-pure lambda, named serialized owner, separate ordered worker and fenced observations; no exactly-once/durability claim from atomic publication. |
+| R42 | "Review this Kotlin port/controller diff." No Compose diff; delayed callbacks/reset/rapid controls. | Code-review loads all Kotlin/architecture/testing references read-only; applies ARC/SOLID and reviewer checklist, independent schedule/state/effect assertions; no UI-only routing assumption. |
+| R43 | "Desktop tests and 100 random sequences prove iOS audio." | VER-03–08: require seed/shrunk traces, independent oracle/bounds, separate per-target results; no Native/device/formal proof; mock and native evidence stay distinct. |
