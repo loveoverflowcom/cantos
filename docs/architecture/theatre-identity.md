@@ -97,3 +97,9 @@ or aggregate consumer warrants DBSP (**reject for this scope**). Concurrency/gra
 need disposable PG tests. Target workload, not measurement:1000active sessions,20concurrent account
 requests, local point-read p95≤20ms and no cross-account results; introspection end-to-end latency,
 throughput, EXPLAIN/BUFFERS and production rate budgets remain unmeasured/deferred. No speedup claim.
+
+Final adapter location is `contexts/listening/theatre_identity.rs`, exported through Listening auth;
+technical persistence owns the lease and HTTP dispatches only. Three bounded admission slots leave
+dispatch capacity in the existing pool. Expiry is read after actor wait. Separate native code-response
+verification in `platform/theatre_identity/native.rs` has no principal/session conversion or mounted
+resource API. Its trusted transport/durable exchange/revocation/registry consumer is incomplete.

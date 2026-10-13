@@ -7,8 +7,9 @@ PR98 contains PR92 exact277e28c. Subsequent fresh develop
 `6b7ee1f6540dc7fb7756eb7c2fb7f5c7863ba6d5` contains merged PR91/PR93/PR95 and was
 normal-merged in f9744a6. PR95 exactdc45b46/treeb53ccaff was read before integration;
 its actual sealed seam is used. No separate Library/Discovery history was imported into PR3;
-those features are now develop base. Private StoragePR90 remains separate. No prior worktree
-or published dependency history is rewritten. This worktree is `/private/tmp/cantos-theatre-identity`.
+those features are now develop base. Private StoragePR90 remains separate. Final develop00eab6d
+(PR99/PR100) was normal-merged in22fd352; Mobile v2 account-space changes are preserved. No prior
+worktree or published dependency history is rewritten. This worktree is `/private/tmp/cantos-theatre-identity`.
 
 ## Implemented versus deferred
 
@@ -16,7 +17,7 @@ or published dependency history is rewritten. This worktree is `/private/tmp/can
 | --- | --- | --- |
 | Web backend | Separate Theatre BFF client, actual ES256/issuer/audience/nonce→registry→sealed Listener; durable single-use flows, hashed sessions, introspection, local disable/logout/rotation and pending remote revocation | Live Kanidm/client/scopes/TLS/credentials/SSO and production operations; no activation |
 | Library seam | Actual PR95 authenticator/principal/router; current session/actor admission locks and default deny; no new Library domain | Full account sync/physical playback and production workload acceptance |
-| Web client | Compiled same-origin BFF port, bounded fetch, generation/session fences, old projection hide, immutable account-owned intents and receipt-first recovery; pending logout fences new login until cookie cleanup acknowledged | Port unmounted in existing explicit mock UI; actual backend UI journeys/two tabs/CUA/accessibility and durable outbox (#17) |
+| Web client | WASM-typechecked same-origin BFF port, bounded fetch, generation/session fences, old projection hide, immutable account-owned intents and receipt-first recovery; pending logout fences new login until cookie cleanup acknowledged | Port unmounted in existing explicit mock UI; actual backend UI journeys/two tabs/CUA/accessibility and durable outbox (#17) |
 | CMP common | Actual system-browser PKCE state/effect code, exact callback/state/nonce/redirect, replay/cancel/new-generation fencing, immutable account-owned intent helpers | Native token exchange consumer/resource API, stable durable persistence, lifecycle/OS runtime and Web+native sync |
 | Android | Keystore nonexportable AES-GCM + AtomicFile/noBackupFilesDir; SecureRandom/SHA256, external ACTION_VIEW, exact callback parser | Host callback registration/mounting, encrypted crash restore/denial/key invalidation and device acceptance |
 | iOS | Keychain AfterFirstUnlockThisDeviceOnly, secure randomness/SHA256, ASWebAuthenticationSession retained/cancelled owner and exact callback parser | Swift/Kotlin bridge/project mounting, Keychain lifecycle and device acceptance |

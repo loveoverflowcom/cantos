@@ -563,3 +563,52 @@ async fn actual_listener_identity_keeps_a_receipt_private_after_logout_and_accou
 }
 
 use cantos_api::contexts::listening::auth::TheatreListenerAuthenticator;
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL; expiry during actual actor admission wait"]
+async fn bff_admission_refreshes_session_expiry_after_actor_lock_wait() {
+    let mut h = Harness::new().await;
+    let (token, actor) = h.login(None).await;
+    h.admin.execute("UPDATE theatre_identity_sessions SET expires_at=clock_timestamp()+interval '2 seconds' WHERE token_hash=sha256(convert_to($1,'UTF8'))",&[&token]).await.unwrap();
+    let mut config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
+    let db: String = h
+        .admin
+        .query_one("SELECT current_database()", &[])
+        .await
+        .unwrap()
+        .get(0);
+    config.dbname(&db);
+    let observer = connect(&config).await;
+    let tx = h.admin.transaction().await.unwrap();
+    tx.query_one("SELECT id FROM actors WHERE id=$1 FOR UPDATE", &[&actor])
+        .await
+        .unwrap();
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "no-static-fixtures",
+    );
+    let pending = tokio::spawn(async move {
+        app.oneshot(
+            Request::builder()
+                .uri("/api/v1/theatre/session")
+                .header(header::COOKIE, format!("cantos_theatre={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(2),async {
+        loop {
+            let blocked:bool=observer.query_one("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND query LIKE 'SELECT listener_lock_actor(%' AND wait_event_type='Lock')",&[]).await.unwrap().get(0);
+            if blocked { break; }
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("BFF request must reach actor admission lock before expiry");
+    tx.query_one("SELECT pg_sleep(2.1)", &[]).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(pending.await.unwrap().status(), StatusCode::UNAUTHORIZED);
+}

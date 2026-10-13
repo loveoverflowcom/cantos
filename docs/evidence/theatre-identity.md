@@ -73,3 +73,44 @@ host wiring remain incomplete; Web port not mounted in mock UI; durable outbox/U
 actual provider/TLS/grants, two-device/two-tab races, secure-store lifecycle, native app/device/audio,
 accessibility, performance/retention/encrypted backend bearer/pending recovery and parent independent
 Ultra review remain deferred. This draft is implementation evidence, not production acceptance.
+
+### Final publication ledger
+
+These final rows supersede provisional results above.
+
+| Gate / named scope | Final observed result | Retained log |
+| --- | --- | --- |
+| repository static / services | PASS: corrected inward adapter/persistence placement and narrow composition; pure-core/Table ownership regressions pass | `/tmp/cantos-theatre-repository-gate-final.log` |
+| repository overall | FAIL:316 Python tests,37 Mac killpg EPERM errors +1 related fallout; no new architecture test failure | same log |
+| Rust format / workspace lint | PASS available preflight and final formatter check | `/tmp/cantos-theatre-preflight-bounded.log` |
+| workspace Rust tests | Earlier PASS; final attempt FAIL at link due disk exhaustion | `/tmp/cantos-theatre-preflight-release.log`, `...-bounded.log` |
+| final Web account pure source | PASS4 directly compiled from actual production account.rs with Rust1.87 and locked UUID library; not a copied model/UI test | `/tmp/cantos-theatre-account-pure-final2.log` |
+| final CMP pure/account/Android source | PASS5 common JUnit tests; Kotlin2.2.20 compilation of actual common/Android adapter sources against SDK35 | `/tmp/cantos-theatre-kotlin-final.log` |
+| native/Web verifier core | PASS3 actual signatures, with7 retained shared Studio tests; native response grants no Library authority | `/tmp/cantos-theatre-native-verifier-final.log` |
+| full combined PostgreSQL earlier | PASS, including actual Library7 regressions and existing restart/socket/Studio paths after minimal integration repairs | `/tmp/cantos-theatre-postgres-publication.log` |
+| final PostgreSQL current Theatre slice | PASS7 actual SQL+HTTP, current cap/lease/clock code, A/B immutable-receipt isolation and expiry after actor wait | `/tmp/cantos-theatre-postgres-final-seven.log`, `target/revision-evidence/theatre-identity-postgres-tests.log` |
+| final PostgreSQL overall | FAIL later in existing Catalog/Brief suite: disposable cluster WAL E58P01/recovery failure under exhausted disk and23 follow-on failures | same final-seven and cluster logs |
+| Web WASM lint/typecheck | PASS Studio/Theatre, including real same-origin account port | `/tmp/cantos-theatre-web-final.log` |
+| Web build | FAIL Studio LLVM ENOSPC; Theatre/UI preview NOT_RUN after failure | same Web log |
+| contracts | script-ir-reference PASS; contract-tests FAIL linker ENOSPC; WAV/audio NOT_RUN | `/tmp/cantos-theatre-contracts-final.log` |
+| DBSP | FAIL LLVM ENOSPC/partially linked fixture; not waived by later skip | `/tmp/cantos-theatre-preflight-release.log` |
+| full unskipped preflight | UNSUPPORTED compatible installed Gradle absent; other gates NOT_RUN | `/tmp/cantos-theatre-preflight-full.log` |
+| broad mutation / Kani | NOT_RUN: resource budget; no Script IR changes/new formal claim | explicitly skipped bounded preflight |
+| Swift iOS source | PASS typecheck; no app/simulator/device/Keychain IO claim | `/tmp/cantos-theatre-swift-check.log` |
+| Kanidm / UI/CUA / secure-store IO / native app/audio / independent review | NOT_RUN; native resource/exchange consumer is incomplete code, not just missing environment | handoff |
+
+Current xtask accepts installed Gradle8.13/8.14.1/8.14.2/8.14.3; none is available. Later cleanup
+removed only exact newly generated test binaries attributable to this task's retained logs, with
+ownership JSON records/tool output. Source, databases, evidence and pre-existing artifacts were
+preserved. Standard xtask reaping concerns only completed test databases inside its own fresh cluster.
+
+Architecture checks caught initial adapter ownership and SQL in HTTP. Adapter now belongs to
+Listening behind its auth facade; persistence owns the lease. Shared pure OIDC is checked at its
+actual new path. HTTP still cannot execute SQL, import lower adapters or mint an actor principal.
+Admission is capped at3 leases in the existing8-connection pool with a5second permit deadline;
+expiry is a separate statement after actor wait, exercised by the seventh actual PG regression.
+
+Final scope: Web backend/session/sealed seam implemented; Web runtime mounting/full UI sync deferred.
+Native OS/protocol/verifier groundwork implemented and source-compiled; public exchange/resource
+revocation/registry consumer and host wiring remain incomplete. Native response is not authority;
+PR3 native integration is not complete. Parent Ultra independent review remains required afterPR4.
