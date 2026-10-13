@@ -24,6 +24,7 @@ import zipfile
 
 from production_oracle import production_after_restart, production_before_restart
 import reference_msgpack
+import reference_protobuf
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "target" / "revision-evidence"
@@ -172,6 +173,37 @@ def msgpack_http(port, fixture, method="GET", accept="application/msgpack"):
         assert response.headers["Content-Type"] == "application/msgpack"
         assert response.headers["Vary"] == "accept"
         return response.status, reference_msgpack.decode(response.read())
+
+
+def protobuf_http(port, fixture, method="GET", accept="application/protobuf"):
+    """Real socket probe: independent encode-only oracle checks exact request/success bytes."""
+    path = "head" if method == "GET" else "revisions"
+    headers = {"Cookie": f"cantos_session={fixture['token']}",
+               "Origin": f"http://127.0.0.1:{port}", "Accept": accept}
+    body = None
+    if method != "GET":
+        body = reference_protobuf.encode("SaveRevisionRequest", fixture["request"])
+        headers["Content-Type"] = "application/protobuf"
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/v1/studio/scripts/{fixture['script']}/{path}",
+        data=body, method=method, headers=headers)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        response = opener.open(request, timeout=3)
+    except urllib.error.HTTPError as error:
+        response = error
+    with response:
+        assert response.headers["Cache-Control"] == "no-store"
+        assert response.headers["X-Content-Type-Options"] == "nosniff"
+        if response.status != 200:
+            assert response.headers["Content-Type"] == "application/json"
+            return response.status, json.load(response)
+        assert response.headers["Content-Type"] == "application/protobuf"
+        assert response.headers["Vary"] == "accept"
+        expected = reference_protobuf.encode("RevisionResponse", fixture["response"])
+        actual = response.read()
+        assert actual == expected, "Protobuf revision differs from independent wire oracle"
+        return response.status, actual
 
 
 def import_http(port, token, source=None, request=None, original=False):
@@ -716,6 +748,14 @@ def main():
             print("PASS: Studio Catalog actual socket HTTP + server kill + PostgreSQL restart + exact work/unit snapshots + original-operation replay")
             assert http(http_port, fixture) == fixture["response"]
             assert http(http_port, fixture, "POST") == fixture["response"]
+            # C2 seeds this operation via Protobuf before host death. Replays through JSON,
+            # legacy MessagePack and Protobuf must preserve the original row and exact digests.
+            expected_protobuf = reference_protobuf.encode("RevisionResponse", fixture["response"])
+            assert protobuf_http(http_port, fixture) == (200, expected_protobuf)
+            assert protobuf_http(http_port, fixture, "POST") == (200, expected_protobuf)
+            assert protobuf_http(http_port, fixture, accept="text/html") == (406, {
+                "code": "invalid_request", "current_revision": None,
+                "issues": [{"path": "accept", "rule": "not_acceptable"}]})
             # The lost-response replay again, in MessagePack, after process death and restart.
             assert msgpack_http(http_port, fixture) == (200, fixture["response"])
             assert msgpack_http(http_port, fixture, "POST") == (200, fixture["response"])

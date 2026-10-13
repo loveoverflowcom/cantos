@@ -198,3 +198,13 @@ precedes native token/resource IO and device acceptance. The [Admin0022 slice an
 and audit. The parent Ultra combined review, final integration fixes and live-provider acceptance
 remain next in the identity sequence. GitHub PRs own execution/merge status; this ordering
 does not accept live providers, native playback or guest-import policy.
+
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.

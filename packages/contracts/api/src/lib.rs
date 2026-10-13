@@ -19,6 +19,7 @@ pub use briefs::*;
 mod audio_intake;
 pub use audio_intake::*;
 pub mod admin;
+pub mod protobuf;
 pub mod routes;
 pub mod theatre;
 pub mod wire;

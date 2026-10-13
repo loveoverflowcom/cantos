@@ -119,6 +119,43 @@ class PostgresRunnerTests(unittest.TestCase):
                              (406, {"code": "invalid_request"}))
         self.assertIsNone(opener.open.call_args.args[0].data)
 
+    def test_protobuf_probe_sends_independent_request_and_requires_exact_response_bytes(self):
+        revision = {"script_id": "s", "revision": 2, "accepted_by": "actor",
+                    "accepted_at": "2026-10-13T00:00:00Z", "content_digest": "c", "export_digest": "e",
+                    "script_json": '{"title":"Ngày 🎭"}'}
+        fixture = {"script": "s", "token": "synthetic-session", "response": revision,
+                   "request": {"expected_revision": 1, "operation_id": "o", "script_json": "{}"}}
+        expected = runner.reference_protobuf.encode("RevisionResponse", revision)
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                            "Content-Type": "application/protobuf", "Vary": "accept"}
+        response.read.return_value = expected
+        opener = MagicMock()
+        opener.open.return_value = response
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(runner.protobuf_http(12345, fixture, "POST"), (200, expected))
+        sent = opener.open.call_args.args[0]
+        self.assertEqual(sent.get_header("Content-type"), "application/protobuf")
+        self.assertEqual(sent.get_header("Accept"), "application/protobuf")
+        self.assertEqual(sent.data, runner.reference_protobuf.encode("SaveRevisionRequest", fixture["request"]))
+        response.read.return_value = expected + b'\x00'
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            with self.assertRaisesRegex(AssertionError, "independent wire oracle"):
+                runner.protobuf_http(12345, fixture)
+        response.read.return_value = expected
+        response.headers["Content-Type"] = "application/json"
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            with self.assertRaises(AssertionError):
+                runner.protobuf_http(12345, fixture)
+        response.status = 406
+        response.read.return_value = b'{"code":"invalid_request"}'
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(runner.protobuf_http(12345, fixture, accept="text/html"),
+                             (406, {"code": "invalid_request"}))
+        self.assertIsNone(opener.open.call_args.args[0].data)
+
     def test_editor_readiness_uses_the_latest_saved_revision_without_replacing_the_fixture(self):
         fixture = {"script": "editor-script", "token": "synthetic-session",
                    "first": {"revision": 1}, "second": {"revision": 2},

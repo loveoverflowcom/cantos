@@ -269,3 +269,12 @@ acceptance dependencies. No library/progress or Studio-cookie reuse is introduce
 [Admin v1](admin-v1.md) defines the dedicated backend capability/revocation responses and
 append-only-audit policy boundary. It has shared Rust DTOs, schema and synthetic fixtures; no
 Admin UI/client or live Kanidm acceptance is implied.
+
+## Studio Protobuf wire pilot
+
+[Versioned policy and schema](protobuf/README.md) own the four actual Studio
+revision/validation wire roots. Existing Serde DTOs, exact Script IR text and JSON errors remain
+unchanged. `cargo xtask verify contracts` checks independent Python goldens, exact generated
+prost drift and production Rust codec tests; schema/fixture changes also select common/JVM
+Kotlin tests in preflight. [The migration ledger](../../docs/evidence/protobuf-wire-migration.md)
+records deferred browser/SQL/Native acceptance, measured costs and JSON rollback.

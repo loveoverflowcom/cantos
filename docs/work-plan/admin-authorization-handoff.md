@@ -22,7 +22,8 @@ checkout and earlier worktree changes, refs, databases/audio/raw fixtures remain
 VOT origin/develop was freshly fetched at`f3fea641a5fd226b883c4e32224ad8c97b8323f0`; source-only
 proof/identity audit, no copied Gateway or client-header trust. No new ADR number is allocated:
 this implements the existing separate Admin boundary with the concrete policy in architecture,
-leaving the Studio/Protobuf0023 collision for coordinated combined review.
+after fresh Protobuf develop integration the inherited Studio ADR is renumbered0024, preserving
+Protobuf ADR0023 and all historical published commit references. No new Admin ADR is allocated.
 
 ## Final-review order
 
