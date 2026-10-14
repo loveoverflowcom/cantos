@@ -247,4 +247,5 @@ issuers never establishes a shared actor. GitHub owns execution status.
 [VS Code workspace settings](../../.vscode/settings.json) now exclude generated outputs
 and caches from Explorer, search and recursive watching when the repository root is open.
 This tooling change does not reorder the product queue. Verify Explorer/Search behavior
-on a VS Code host before editor acceptance; GitHub owns PR execution status.
+on a VS Code host before editor acceptance, including separately opened Theatre Mobile,
+UI-system CMP and Android preview Gradle roots; GitHub owns PR execution status.

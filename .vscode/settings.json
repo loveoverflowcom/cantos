@@ -11,7 +11,11 @@
     "artifacts/agent-runs": true,
     "tmp": true,
     "**/*.pyc": true,
-    "**/.DS_Store": true
+    "**/.DS_Store": true,
+    "**/.idea": true,
+    "**/xcuserdata": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true
   },
   "search.useIgnoreFiles": true,
   "search.exclude": {
@@ -26,7 +30,11 @@
     "artifacts/agent-runs": true,
     "tmp": true,
     "**/*.pyc": true,
-    "**/.DS_Store": true
+    "**/.DS_Store": true,
+    "**/.idea": true,
+    "**/xcuserdata": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true
   },
   "files.watcherExclude": {
     "**/target/**": true,
@@ -40,6 +48,10 @@
     "artifacts/agent-runs/**": true,
     "tmp/**": true,
     "**/*.pyc": true,
-    "**/.DS_Store": true
+    "**/.DS_Store": true,
+    "**/.idea/**": true,
+    "**/xcuserdata/**": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true
   }
 }
