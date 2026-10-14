@@ -37,9 +37,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import com.cantos.theatre.app.CopyKey
-import com.cantos.theatre.app.DemoCopy
+import com.cantos.theatre.demo.CopyKey
 import com.cantos.theatre.demo.DemoBookmark
+import com.cantos.theatre.demo.DemoCopy
 import com.cantos.theatre.demo.DemoEpisode
 import com.cantos.theatre.demo.DemoEvent
 import com.cantos.theatre.demo.DemoRoute

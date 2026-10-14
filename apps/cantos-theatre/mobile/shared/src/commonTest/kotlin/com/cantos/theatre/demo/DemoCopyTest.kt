@@ -1,6 +1,5 @@
-package com.cantos.theatre.app
+package com.cantos.theatre.demo
 
-import com.cantos.theatre.demo.DemoLocale
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
