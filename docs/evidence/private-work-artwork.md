@@ -2,7 +2,7 @@
 
 ## Current integration checkpoint — 14 October 2026 UTC
 
-The final stable develop base is `6359e819dcbd5877b50e164a7c67f04e9017d66c`, tree
+The canonical backend execution base is `6359e819dcbd5877b50e164a7c67f04e9017d66c`, tree
 `39194a8db5e69f0926723d4498c421eefe7f6e08`, verified by an ordinary read-only fetch and
 ancestry check. It contains the separately reviewed storage merge
 `edbd7c7f6f0494e0d01dc5b4139134052b07ed07`, tree
@@ -11,6 +11,42 @@ ancestry check. It contains the separately reviewed storage merge
 checkpoint `cd1097d6bc76e3b584ddaa43516bbe844afb3ea4`, tree
 `047f2453535d8223dd209b4a524d4ec871d0fa2b`, as the first parent rather than rewriting its
 six logical commits. No unrelated PR is merged by this task.
+
+A subsequent final read-only fetch found reviewed merged PR110 at develop
+`bcb62646c5b10775725cbf0f39ab0c3a8113a097`, tree
+`aee81e7cbbab68bd02aa4276362e1ae6e5be424b`. It is reconciled as local
+`49d766453c78b9102255d6e3a89c6e583404e6b5`, tree
+`60400a9f008e8adbc36c73caeeab75eb0cf1d172`, mapping to remote code object
+`a69eaf79313642bcdce0eef525d58dbb6738697c` with ordered parents
+`175a50ccea8cf34613964b494701ae6185e49d8c`, `bcb62646c5b10775725cbf0f39ab0c3a8113a097`.
+The 17-file upstream delta relocates the Theatre DemoCopy package/imports and adds its bounded
+lexical architecture/preview guard, tests and skill/queue documentation. It changes no Rust,
+API, contract, storage, authentication, migration or Cargo.lock bytes. Independent read-only
+review matched all 266 Kani model inputs, all 14 approved config candidates and all 25 migration
+hashes to the actual e09c7fd execution and proper parents. The prior backend/proof evidence is
+therefore **reused by exact input equality**, never claimed as a new proof or DBSP run on this
+later head. Existing Rust checker declarations/tests remain unchanged; new Theatre guard/tests
+and the queue section match the reviewed upstream bytes. Affected repository/preview/skill
+checks freshly pass: 591 text files, 18 skills and 354 Python tests. The affected canonical
+Theatre JVM run actually executes desktopTest from a clean 49d7664 snapshot: 27 fresh XML suites/210 cases,
+zero failures/errors/skips, including 9 moved DemoCopy cases. All 227 scoped inputs match before
+and after; input digest is
+`b23ced670bd84e4aa280003c53a4bac27c57f149f8a4fdaaa1bdac5ff4ac585d`.
+Its final manifest SHA-256 is
+`38e1e7b8a0658287f542684b345a6c1427b47739be079cda91c540e3318a1cfa`.
+Unchanged CMP inventory and all 59 CMP/shared inputs explicitly reuse the actual e09c7fd
+12-suite/87-test run, not a fresh CMP execution. A minor upstream skill ambiguity is corrected
+to distinguish the present bounded lexical import guard from the absent compiler-backed
+negative harness. New fixture/preview/skill results are not native or live-provider acceptance. The final three-file
+evidence/skill-only preflight passes repository and format without rerunning backend proof/DBSP.
+The subsequent clean committed-documentation rerun encountered an existing process-observation
+fixture race: `/proc` stat disappeared after child exit and raised ProcessLookupError/Errno3,
+while that helper catches only FileNotFoundError at the stat read. This run is retained as
+FAIL, with Rust format not reached. Exactly one separately logged unchanged-source retry
+passes repository (354 tests) and format. The helper/verifier bytes are unchanged from the
+previously passing execution; independent source review confirms the narrow timing cause.
+No fixture, guard or budget is weakened, and the first failure is not erased. Both raw log
+hashes and exact executed source identity are retained in the structured ledger.
 
 A dot filesystem snapshot replacement removed the original local worktree, original local
 commit objects, tool caches and ignored raw artifacts. The remote checkpoint recovered every
