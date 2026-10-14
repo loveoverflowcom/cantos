@@ -32,8 +32,10 @@ executed and deferred acceptance.
 
 The pilot remains `GET scripts/{id}/head`, `GET scripts/{id}/revisions/{revision}`,
 `POST scripts/{id}/revisions` and `POST validation`, mounted under `/api/v1/studio` and the
-existing deprecated `/api/v1` alias. Other implemented Studio/listener routes remain JSON.
-No auth, storage, audio, Admin, Theatre or Studio Mobile transport is migrated.
+existing deprecated `/api/v1` alias. Other existing Studio/listener routes remain JSON. The separate new
+[private-artwork metadata contract](../../packages/contracts/artwork-v1.md) adds opt-in Protobuf
+only for its new roots; encoded image bytes stay outside metadata messages. No existing auth,
+storage, audio, Admin, Theatre or Studio Mobile transport is migrated.
 
 ## Negotiation and errors
 
@@ -88,3 +90,20 @@ reported; shared source availability and JVM output cannot establish Native acce
 The [working method](../../.agents/skills/cantos-engineering/references/wire-codec.md) owns the
 review/test workflow. Payload bytes, compression, CPU, allocation, bundle and network latency
 are independent measurements. Format choice establishes no blanket speedup.
+
+## New private Work artwork metadata
+
+[Artwork v1](../../packages/contracts/artwork-v1.md) uses separate `cantos.studio.artwork.v1`
+messages, generated private values and exhaustive adapters. New artwork metadata uses JSON by
+default and opt-in Protobuf, with a 32 KiB envelope, depth 4, 256 field occurrences and 64 rights
+references. It never enables MessagePack, changes the four legacy pilot roots, or puts PNG/JPEG
+bytes inside Protobuf. Existing scanner limits/error ordering remain independently regression
+tested. Its [evidence](../evidence/private-work-artwork.md) records separate actual serializer
+fixtures, hostile refusal cases, exact JSON receipt replay and the pending runtime acceptance.
+
+The Studio-only transport settles `Accept` before metadata decode or upload body admission.
+Raw image upload uses the declared PNG/JPEG Content-Type and bounded admission before buffering;
+preview returns unchanged private bytes with actual MIME, length and SHA-256 ETag. Errors remain
+JSON. The default host keeps these routes unmounted while final shared storage integration is
+pending; a trusted composition entrypoint exists for adapter verification. This does not retire
+legacy codecs or establish browser, database, storage, issuer or native-platform acceptance.

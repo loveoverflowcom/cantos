@@ -8,7 +8,7 @@ use super::audio_intake::DeliveryProfile;
 use super::domain::object_storage::{
     ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
 };
-use super::storage::registry::RegistryStoredAudio;
+use super::storage::registry::RegistryStoredObject;
 use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
 
 const INTENT_COLUMNS: &str = "id,script_id,script_revision,content_digest,profile_id,operation_id,created_by,to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at";
@@ -206,7 +206,7 @@ pub(super) async fn receipt(
 pub(super) async fn insert_receipt(
     tx: &Tx<'_>,
     receipt: &AudioReceiptResponse,
-    stored: &RegistryStoredAudio,
+    stored: &RegistryStoredObject,
 ) -> Result<(), StoreError> {
     if stored.object_key != receipt.media.sha256 {
         return Err(StoreError::CorruptRevision);
@@ -226,3 +226,6 @@ pub(super) mod lifecycle;
 pub(super) mod publication;
 
 pub(in crate::contexts::media) mod listener;
+
+pub(in crate::contexts::media) mod artwork;
+pub(in crate::contexts::media) mod image;

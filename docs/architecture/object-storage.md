@@ -19,6 +19,7 @@ approval or publication is authoritative.
 | Original manuscript file and import receipt | Ingestion; bounded immutable original bytes and checksum in PostgreSQL | Independently authorized Ingestion owner read |
 | Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in PostgreSQL | Exact authorized script/revision read |
 | Verified audio rendition and admission receipt | Media; immutable PostgreSQL metadata and bytes at the recorded private filesystem/S3 target | Media owner authorization, exact location and byte verification |
+| Private Work cover and selection history | Media sidecar; immutable PNG/JPEG facts and recorded target/key/SHA/length, Catalog-owned Work revision CAS | Current active owner, exact accepted asset and shared verified private read; no public image projection |
 | Published text/audio projection | Publication, when implemented | Approved immutable manifest plus separate listener authorization |
 
 Bounded text, sources and Script IR stay in PostgreSQL. A later large original/export may gain
@@ -55,6 +56,22 @@ authorization recheck; HTTP never selects providers or arbitrary internal locati
 port operation or provider `HEAD` request in this adapter. Listing, deletion, ACL/bucket-policy
 updates, publication promotion, direct temporary uploads, multipart and migration orchestration
 have no implementation in this boundary.
+
+Private writes consume the closed `VerifiedPayload` alternatives `VerifiedAudio` and
+`VerifiedImage`, each constructible only by its actual inspector. MIME, digest, length and
+bytes come from that witness: Ogg/Opus audio or PNG/JPEG image, never a caller-selected type.
+Images retain their separate 8 MiB encoded/64 MiB decoded admission policy; the shared
+32 MiB object envelope does not widen that policy. `persist_image` reuses the same registry,
+conditional writes, filesystem descriptors, S3 transport and bounded lanes. The historical
+S3 `private/audio/` prefix remains an internal shared namespace so old locations do not move.
+Owner image preview exposes neither temporary grants nor ranges in this MVP.
+
+For image PUT, owner-backed `Bytes` retains `Arc<VerifiedImage>` through every transport
+clone; a separate owner survives actual readback. Cancelling the caller cannot release the
+image admission lane while a surviving encoded transport body still owns it. This is bounded
+ownership, not a hard decoder/process CPU or total-RSS guarantee. See the
+[artwork contract](../../packages/contracts/artwork-v1.md) and
+[current evidence](../evidence/private-work-artwork.md).
 
 ## Immutable location and integrity
 

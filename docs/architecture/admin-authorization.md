@@ -115,9 +115,9 @@ resource ACL policy; this endpoint changes only the separate Admin block table.
 ## Persistence and read inventory
 
 Additive migration `0022_admin_authorization_audit.sql`; historical SQL/checksums remain unchanged.
-The current combined registry has1–22,24,25 (24 entries), including the integrated original
-Storage0015 and Admin0022. Artwork0023 remains reserved and absent; historical SQL/checksums
-are unchanged. Studio0025/native0024 do not grant Admin authority.
+The combined private-artwork branch registry has versions 1–25 (25 entries), including the
+original Storage0015, Admin0022 and coordinated Artwork0023. All historical SQL bytes and
+checksums are unchanged. Studio0025/native0024 and Artwork0023 do not grant Admin authority.
 Runtime receives no grants automatically. Narrow SECURITY DEFINER functions have fixed
 `pg_catalog` search paths and fully qualified tables; operator opts in only their EXECUTE grants.
 The application/verifier remains the credential trust boundary, not arbitrary SQL callers.

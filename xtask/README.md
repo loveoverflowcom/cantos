@@ -47,7 +47,7 @@ cargo xtask ui-preview cmp android-build             # compile the isolated Andr
 
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify postgres [--keep]
-cargo xtask verify kani [--harness catalog-revision|wav-payload|submission-window]...
+cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]

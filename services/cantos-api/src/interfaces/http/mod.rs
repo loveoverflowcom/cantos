@@ -19,7 +19,7 @@ use crate::contexts::listening::{
 };
 use crate::contexts::media::read::StorageError;
 use crate::contexts::media::{
-    ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
+    ArtworkService, ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
 };
 use crate::platform::postgres::{Store, StoreError};
 
@@ -100,6 +100,20 @@ pub fn router_with_listener_identity(
     router_with_identity_services(state, dist, publication, listener, authenticator)
 }
 
+/// Trusted composition override for the private-artwork application capability.
+pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: ArtworkService) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    let listener = ListenerService::new(state.store.clone());
+    router_with_identity_and_artwork(
+        state,
+        dist,
+        publication,
+        listener,
+        std::sync::Arc::new(DenyListenerAuthentication),
+        Some(artwork),
+    )
+}
+
 fn router_with_identity_services(
     state: AppState,
     dist: &str,
@@ -107,13 +121,31 @@ fn router_with_identity_services(
     listener: ListenerService,
     authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
 ) -> Router {
+    // The existing operator-selected private storage topology is the activation boundary.
+    // No new provider/configuration path or public artwork delivery is introduced.
+    let artwork = state
+        .store
+        .audio_storage_is_enabled()
+        .then(|| ArtworkService::new(state.store.clone()));
+    router_with_identity_and_artwork(state, dist, publication, listener, authenticator, artwork)
+}
+
+fn router_with_identity_and_artwork(
+    state: AppState,
+    dist: &str,
+    publication: PublicationService,
+    listener: ListenerService,
+    authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
+    artwork: Option<ArtworkService>,
+) -> Router {
     let library = LibraryService::new(state.store.clone());
     // Surfaces are separate route groups with their own permission context; shared code is the
     // middleware below and the domain/store modules, never a handler.
     let api = Router::new()
         .nest(
             "/studio",
-            studio::routes(state.clone(), studio::Mount::Current).fallback(not_found),
+            studio::routes_with_artwork(state.clone(), studio::Mount::Current, artwork.is_some())
+                .fallback(not_found),
         )
         .nest(
             "/theatre",
@@ -140,12 +172,18 @@ fn router_with_identity_services(
             origin_and_cache,
         ));
     let host = Router::new().nest(routes::API_BASE, api);
-    let host = if state.store.audio_storage_is_enabled() {
+    let host = if state.store.audio_storage_is_enabled() || artwork.is_some() {
         // ServeDir follows nested symlinks. An intake-enabled process therefore serves no
         // static files at all, even if public and private root paths appear disjoint.
+        // Every private artwork composition follows the same API-only rule.
         host.fallback(not_found)
     } else {
         host.fallback_service(ServeDir::new(dist))
+    };
+    let host = if let Some(artwork) = artwork {
+        host.layer(axum::Extension(artwork))
+    } else {
+        host
     };
     host.with_state(state)
         .layer(axum::Extension(publication))

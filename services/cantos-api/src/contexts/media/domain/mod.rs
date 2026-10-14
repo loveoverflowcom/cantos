@@ -10,3 +10,6 @@ pub mod object_storage;
 pub mod publication;
 
 pub mod listening;
+
+pub mod artwork;
+pub mod image;

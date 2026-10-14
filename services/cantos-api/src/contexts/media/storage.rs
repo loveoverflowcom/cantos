@@ -1,4 +1,4 @@
-//! Development-only private audio objects. PostgreSQL owns receipts and metadata, never bytes.
+//! Development-only private verified-media objects. PostgreSQL owns metadata, never bytes.
 //!
 //! Files are synchronized before metadata may commit and are never overwritten or removed by
 //! a transaction rollback. A crash or rejected metadata transaction may leave a private orphan.
@@ -18,6 +18,7 @@ use super::audio_intake::VerifiedAudio;
 use super::domain::object_storage::{
     NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError,
 };
+use super::image_intake::VerifiedImage;
 
 mod config;
 pub mod port;
@@ -25,7 +26,7 @@ pub(crate) mod registry;
 mod s3;
 mod sigv4;
 
-use port::{PrivateStorage, StorageFuture, StorageRead};
+use port::{PrivateStorage, StorageFuture, StorageRead, VerifiedPayload};
 
 const MAX_AUDIO_BYTES: u64 = super::audio_intake::MAX_AUDIO_BYTES as u64;
 
@@ -57,11 +58,15 @@ pub(crate) struct AudioStorage {
 }
 
 impl PrivateStorage for AudioStorage {
-    fn put_if_absent(&self, audio: VerifiedAudio) -> StorageFuture<()> {
+    fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()> {
         let storage = self.clone();
         bounded_filesystem_io(IO_LANES.clone(), move || {
-            let stored = storage.persist(&audio).map_err(storage_error)?;
-            if stored.object_key != audio.metadata().sha256 {
+            let stored = match &payload {
+                VerifiedPayload::Audio(audio) => storage.persist(audio),
+                VerifiedPayload::Image(image) => storage.persist_image(image),
+            }
+            .map_err(storage_error)?;
+            if stored.object_key != payload.sha256() {
                 return Err(StorageError::DigestMismatch);
             }
             Ok(())
@@ -177,6 +182,18 @@ impl AudioStorage {
         }
     }
 
+    fn persist_image(&self, verified: &VerifiedImage) -> Result<StoredAudio, StoreError> {
+        #[cfg(unix)]
+        {
+            self.inner.persist_image(verified)
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = verified;
+            Err(StoreError::Unavailable)
+        }
+    }
+
     fn verified_file(
         &self,
         key: &ObjectKey,
@@ -217,7 +234,8 @@ mod unix {
     use sha2::{Digest, Sha256};
 
     use super::{
-        storage_error, StorageError, StoreError, StoredAudio, VerifiedAudio, MAX_AUDIO_BYTES,
+        storage_error, StorageError, StoreError, StoredAudio, VerifiedAudio, VerifiedImage,
+        MAX_AUDIO_BYTES,
     };
 
     pub(super) struct PrivateDirectories {
@@ -262,7 +280,15 @@ mod unix {
             self.persist_bytes(verified.bytes(), &metadata.sha256, metadata.byte_length)
         }
 
-        // Kept private: tests exercise storage semantics without forging audio-admission proof.
+        pub(super) fn persist_image(
+            &self,
+            verified: &VerifiedImage,
+        ) -> Result<StoredAudio, StoreError> {
+            let metadata = verified.metadata();
+            self.persist_bytes(verified.bytes(), metadata.sha256(), metadata.byte_length())
+        }
+
+        // Kept private: tests exercise storage semantics without forging media-admission proof.
         fn persist_bytes(
             &self,
             bytes: &[u8],
@@ -600,6 +626,118 @@ mod unix {
             }
             assert_eq!(bytes.len() as u64, read.byte_length);
             bytes
+        }
+
+        #[tokio::test]
+        async fn inspected_images_survive_conditional_replay_restart_and_exact_private_reads() {
+            use super::super::{AudioStorage, ObjectIntegrity, ObjectKey, PrivateStorage};
+            use crate::contexts::media::{
+                domain::{image::ImageMime, object_storage::ByteRange},
+                image_intake::ImageAdmission,
+                storage::port::VerifiedPayload,
+            };
+
+            let scratch = Scratch::new();
+            let storage = AudioStorage::new(&scratch.0).unwrap();
+            for (bytes, mime) in [
+                (
+                    include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice(),
+                    ImageMime::Png,
+                ),
+                (
+                    include_bytes!("image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
+                    ImageMime::Jpeg,
+                ),
+            ] {
+                for _ in 0..2 {
+                    let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                        tokio::sync::Semaphore::new(1),
+                    ))
+                    .unwrap()
+                    .inspect(bytes.to_vec(), mime)
+                    .await
+                    .unwrap();
+                    storage
+                        .put_if_absent(VerifiedPayload::Image(image))
+                        .await
+                        .unwrap();
+                }
+                let key = ObjectKey::for_bytes(bytes);
+                let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
+                let restarted = AudioStorage::new(&scratch.0).unwrap();
+                restarted
+                    .verify(key.clone(), integrity.clone())
+                    .await
+                    .unwrap();
+                let read = restarted
+                    .open_verified(key.clone(), integrity.clone(), None)
+                    .await
+                    .unwrap();
+                assert_eq!(collect_read(read).await, bytes);
+                let range = ByteRange::parse("bytes=3-10")
+                    .unwrap()
+                    .normalize(bytes.len() as u64)
+                    .unwrap();
+                let read = restarted
+                    .open_verified(key, integrity, Some(range))
+                    .await
+                    .unwrap();
+                assert_eq!(collect_read(read).await, &bytes[3..11]);
+                assert_eq!(fs::read(scratch.object(&digest(bytes))).unwrap(), bytes);
+                assert_eq!(
+                    fs::metadata(scratch.object(&digest(bytes)))
+                        .unwrap()
+                        .permissions()
+                        .mode()
+                        & 0o7777,
+                    0o400
+                );
+            }
+            assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 2);
+        }
+
+        #[tokio::test]
+        async fn replay_of_an_inspected_image_rejects_corruption_without_overwriting_it() {
+            use super::super::{AudioStorage, PrivateStorage};
+            use crate::contexts::media::{
+                domain::image::ImageMime, image_intake::ImageAdmission,
+                storage::port::VerifiedPayload,
+            };
+
+            let bytes = include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice();
+            let scratch = Scratch::new();
+            let storage = AudioStorage::new(&scratch.0).unwrap();
+            let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            ))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+            storage
+                .put_if_absent(VerifiedPayload::Image(image))
+                .await
+                .unwrap();
+            let object = scratch.object(&digest(bytes));
+            fs::set_permissions(&object, Permissions::from_mode(0o600)).unwrap();
+            let mut corrupt = bytes.to_vec();
+            corrupt[bytes.len() - 1] ^= 1;
+            fs::write(&object, &corrupt).unwrap();
+            fs::set_permissions(&object, Permissions::from_mode(0o400)).unwrap();
+
+            let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            ))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+            assert_eq!(
+                storage.put_if_absent(VerifiedPayload::Image(image)).await,
+                Err(StorageError::DigestMismatch)
+            );
+            assert_eq!(fs::read(&object).unwrap(), corrupt);
+            assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 1);
         }
 
         #[tokio::test]

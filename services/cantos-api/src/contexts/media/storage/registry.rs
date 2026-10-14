@@ -4,12 +4,16 @@ use super::super::{
     domain::object_storage::{
         ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageError, StorageTargetId,
     },
+    image_intake::VerifiedImage,
 };
 use super::{
     config::{StorageConfig, TargetConfig},
     s3::S3Storage,
 };
-use super::{port::PrivateStorage, AudioStorage};
+use super::{
+    port::{PrivateStorage, VerifiedPayload},
+    AudioStorage,
+};
 use crate::platform::postgres::StoreError;
 use std::{
     collections::BTreeMap,
@@ -26,7 +30,7 @@ fn storage_permit() -> Result<OwnedSemaphorePermit, StoreError> {
         .map_err(|_| StoreError::Storage(StorageError::Unavailable))
 }
 
-pub(crate) struct RegistryStoredAudio {
+pub(crate) struct RegistryStoredObject {
     pub(crate) object_key: String,
     pub(crate) storage_target: StorageTargetId,
 }
@@ -87,17 +91,29 @@ impl StorageRegistry {
     pub(crate) async fn persist(
         &self,
         verified: VerifiedAudio,
-    ) -> Result<RegistryStoredAudio, StoreError> {
+    ) -> Result<RegistryStoredObject, StoreError> {
+        self.persist_payload(VerifiedPayload::Audio(verified)).await
+    }
+    pub(crate) async fn persist_image(
+        &self,
+        verified: VerifiedImage,
+    ) -> Result<RegistryStoredObject, StoreError> {
+        self.persist_payload(VerifiedPayload::Image(verified)).await
+    }
+    async fn persist_payload(
+        &self,
+        verified: VerifiedPayload,
+    ) -> Result<RegistryStoredObject, StoreError> {
         let _permit = storage_permit()?;
         let object_key = ObjectKey::for_bytes(verified.bytes());
-        ObjectIntegrity::new(&verified.metadata().sha256, verified.metadata().byte_length)
+        ObjectIntegrity::new(verified.sha256(), verified.byte_length())
             .and_then(|i| i.verify_bytes(verified.bytes()))
             .map_err(storage_error)?;
         self.resolve(&self.active)?
             .put_if_absent(verified)
             .await
             .map_err(storage_error)?;
-        Ok(RegistryStoredAudio {
+        Ok(RegistryStoredObject {
             object_key: object_key.as_str().to_owned(),
             storage_target: self.active.clone(),
         })

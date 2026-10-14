@@ -6,21 +6,21 @@ use super::CatalogError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
-pub(super) struct Revision(u64);
+pub struct Revision(u64);
 
 impl Revision {
-    pub(super) const fn new(value: u64) -> Result<Self, CatalogError> {
+    pub const fn new(value: u64) -> Result<Self, CatalogError> {
         if value == 0 || value > i64::MAX as u64 {
             return Err(CatalogError::InvalidRevision);
         }
         Ok(Self(value))
     }
 
-    pub(super) const fn get(self) -> u64 {
+    pub const fn get(self) -> u64 {
         self.0
     }
 
-    pub(super) const fn next(self) -> Result<Self, CatalogError> {
+    pub const fn next(self) -> Result<Self, CatalogError> {
         if self.0 == i64::MAX as u64 {
             return Err(CatalogError::RevisionLimit);
         }

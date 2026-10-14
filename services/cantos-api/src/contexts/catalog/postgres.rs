@@ -2,7 +2,7 @@
 //! only locks and persists their admitted values, rechecking snapshot integrity on every read.
 use tokio_postgres::Row;
 
-use super::domain::{ContentUnit, Work};
+use super::domain::{ContentUnit, Revision, Work};
 use crate::platform::postgres::{checked_number, LockMode, StoreError, Tx};
 
 #[path = "storage.rs"]
@@ -123,6 +123,39 @@ pub(super) async fn load_work(
             let work = decode_work_row(row)?;
             if checked_number(work.revision()).map_err(|_| StoreError::CorruptRevision)?
                 != corrupt(row.try_get::<_, i64>("head_revision"))?
+            {
+                return Err(StoreError::CorruptRevision);
+            }
+            Ok(work)
+        })
+        .transpose()
+}
+
+/// An indexed exact historical lookup, bounded by the current head. The caller first locks
+/// and authorizes the current Work. Identity is current and immutable; lifecycle is historical.
+pub(super) async fn load_work_revision(
+    tx: &Tx<'_>,
+    id: &str,
+    revision: Revision,
+) -> Result<Option<Work>, StoreError> {
+    let row = tx.query_opt(
+        "SELECT w.id,w.owner_id,w.kind,r.revision,r.snapshot,r.snapshot_digest FROM catalog_works w JOIN catalog_work_revisions r ON r.work_id=w.id WHERE w.id=$1 AND r.revision=$2 AND r.revision<=w.head_revision",
+        &[&id, &checked_number(revision.get())?],
+    ).await?;
+    row.as_ref()
+        .map(|row| {
+            let bytes: Vec<u8> = corrupt(row.try_get("snapshot"))?;
+            let checksum: String = corrupt(row.try_get("snapshot_digest"))?;
+            if digest(&bytes) != checksum {
+                return Err(StoreError::CorruptRevision);
+            }
+            let work = decode_work(&bytes)?;
+            if work.id().as_str() != corrupt(row.try_get::<_, String>("id"))?
+                || work.owner_id().as_str() != corrupt(row.try_get::<_, String>("owner_id"))?
+                || work.kind().as_str() != corrupt(row.try_get::<_, String>("kind"))?
+                || work.revision() != revision.get()
+                || checked_number(work.revision()).map_err(|_| StoreError::CorruptRevision)?
+                    != corrupt(row.try_get::<_, i64>("revision"))?
             {
                 return Err(StoreError::CorruptRevision);
             }

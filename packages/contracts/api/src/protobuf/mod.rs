@@ -6,7 +6,9 @@ use crate::{
     ValidateScriptRequest,
 };
 use prost::Message;
+mod artwork;
 mod generated;
+mod generated_artwork;
 mod scan;
 use scan::Schema;
 
@@ -14,8 +16,12 @@ pub const MAX_PROTOBUF_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_PROTOBUF_DEPTH: usize = 4;
 pub const MAX_PROTOBUF_ISSUES: usize = 65_536;
 pub const MAX_PROTOBUF_FIELDS: usize = 196_616;
+pub const MAX_ARTWORK_PROTOBUF_BYTES: usize = 32 * 1024;
+pub const MAX_ARTWORK_PROTOBUF_DEPTH: usize = 4;
+pub const MAX_ARTWORK_PROTOBUF_FIELDS: usize = 256;
+pub const MAX_ARTWORK_RIGHTS_REFS: usize = 64;
 
-/// Only reviewed pilot roots implement this trait. Values are raw DTOs, never witnesses.
+/// Only reviewed versioned metadata roots implement this trait. Raw DTOs are never witnesses.
 pub trait ProtobufDto {
     fn encode_protobuf(&self) -> Result<Vec<u8>, EncodeError>;
     fn decode_protobuf(bytes: &[u8]) -> Result<Self, DecodeError>

@@ -199,6 +199,9 @@ mod tests {
         assert!(
             matches!(parse("verify kani --harness wav-payload --harness catalog-revision").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness == [Kernel::WavPayload, Kernel::CatalogRevision])
         );
+        assert!(
+            matches!(parse("verify kani --harness image-bounds").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness == [Kernel::ImageBounds])
+        );
         for line in [
             "verify kani --harness theatre",
             "verify kani --harness wav",

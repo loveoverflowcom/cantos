@@ -46,18 +46,34 @@ pub(super) fn request_format(
 /// preference, including an equal binary-only tie with legacy MessagePack. The most specific
 /// matching media range sets each quality (RFC 9110 § 12.5.1).
 pub(super) fn response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
-    select_response_format(accept, true)
+    select_response_format(accept, true, true)
 }
 
 /// Catalog currently offers only JSON; a higher binary preference does not exclude
 /// JSON when the client still allows it. Keep the existing header parser and quality rules.
 pub(super) fn json_response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
-    select_response_format(accept, false)
+    select_response_format(accept, false, false)
+}
+
+/// New artwork metadata offers JSON and Protobuf only. Reuse the frozen header parser
+/// without widening legacy MessagePack or existing Catalog route capabilities.
+pub(super) fn artwork_response_format(accept: Option<&str>) -> Result<WireFormat, NotAcceptable> {
+    select_response_format(accept, false, true)
+}
+
+pub(super) fn artwork_request_format(
+    content_type: Option<&str>,
+) -> Result<WireFormat, UnsupportedMediaType> {
+    match request_format(content_type)? {
+        WireFormat::MessagePack => Err(UnsupportedMediaType),
+        format => Ok(format),
+    }
 }
 
 fn select_response_format(
     accept: Option<&str>,
-    pilot_binary: bool,
+    messagepack_allowed: bool,
+    protobuf_allowed: bool,
 ) -> Result<WireFormat, NotAcceptable> {
     let ranges: Vec<MediaRange> = accept
         .into_iter()
@@ -68,12 +84,12 @@ fn select_response_format(
         return Ok(WireFormat::Json);
     }
     let json = quality(&ranges, "json");
-    let msgpack = if pilot_binary {
+    let msgpack = if messagepack_allowed {
         quality(&ranges, "msgpack")
     } else {
         0
     };
-    let protobuf = if pilot_binary {
+    let protobuf = if protobuf_allowed {
         quality(&ranges, "protobuf")
     } else {
         0
@@ -325,6 +341,51 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
+
+    #[test]
+    fn artwork_negotiation_is_json_default_and_explicit_protobuf_only() {
+        use WireFormat::{Json as J, Protobuf as P};
+        for (accept, expected) in [
+            (None, Ok(J)),
+            (Some("*/*"), Ok(J)),
+            (Some("application/protobuf"), Ok(P)),
+            (Some("application/msgpack"), Err(NotAcceptable)),
+            (Some("application/msgpack,application/json;q=0.1"), Ok(J)),
+            (
+                Some("application/msgpack,application/protobuf;q=0.1"),
+                Ok(P),
+            ),
+            (Some("application/protobuf,application/json"), Ok(J)),
+            (Some("application/json;q=0,*/*"), Ok(P)),
+            (
+                Some("application/protobuf;q=0,application/json;q=0,*/*"),
+                Err(NotAcceptable),
+            ),
+            (
+                Some("application/protobuf;version=2,application/json;q=0,*/*"),
+                Err(NotAcceptable),
+            ),
+            (Some("application/protobuf+json"), Err(NotAcceptable)),
+        ] {
+            assert_eq!(artwork_response_format(accept), expected, "{accept:?}");
+        }
+        for header in [
+            "application/msgpack",
+            "Application/Msgpack;x=1",
+            "application/x-msgpack",
+        ] {
+            assert_eq!(
+                artwork_request_format(Some(header)),
+                Err(UnsupportedMediaType)
+            );
+        }
+        assert_eq!(artwork_request_format(None), Ok(J));
+        assert_eq!(artwork_request_format(Some("application/json")), Ok(J));
+        assert_eq!(
+            artwork_request_format(Some("application/x-protobuf;version=1")),
+            Ok(P)
+        );
+    }
 
     #[test]
     fn json_only_routes_respect_json_quality_even_when_msgpack_is_preferred() {

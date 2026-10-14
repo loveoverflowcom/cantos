@@ -23,7 +23,7 @@ struct RecordingPrivateStorage {
 }
 
 impl PrivateStorage for RecordingPrivateStorage {
-    fn put_if_absent(&self, _audio: VerifiedAudio) -> StorageFuture<()> {
+    fn put_if_absent(&self, _payload: VerifiedPayload) -> StorageFuture<()> {
         Box::pin(async {
             Err(StorageError::UnsupportedCapability(
                 StorageCapability::ConditionalCreate,
@@ -93,6 +93,90 @@ fn assert_storage_error(result: Result<(), StoreError>, expected: StorageError) 
         Err(StoreError::Storage(observed)) => assert_eq!(observed, expected),
         other => panic!("expected exact Storage({expected:?}), observed {other:?}"),
     }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn inspected_image_writes_and_historical_reads_share_the_existing_target_registry() {
+    use crate::contexts::media::{domain::image::ImageMime, image_intake::ImageAdmission};
+    use futures_util::TryStreamExt;
+
+    struct Scratch(std::path::PathBuf);
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let parent = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+    let scratch = Scratch(parent.join(format!("cantos-image-registry-{}", uuid::Uuid::new_v4())));
+    std::fs::create_dir(&scratch.0).unwrap();
+    let origin_root = scratch.0.join("origin");
+    let replacement_root = scratch.0.join("replacement");
+    let origin = Arc::new(AudioStorage::new(&origin_root).unwrap());
+    let replacement = Arc::new(AudioStorage::new(&replacement_root).unwrap());
+    let mut registry = StorageRegistry {
+        active: target("origin-private"),
+        targets: BTreeMap::from([
+            (target("origin-private"), origin as Arc<dyn PrivateStorage>),
+            (
+                target("replacement-private"),
+                replacement as Arc<dyn PrivateStorage>,
+            ),
+        ]),
+    };
+    let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+    let image =
+        ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+    let stored = registry.persist_image(image).await.unwrap();
+    assert_eq!(
+        stored.object_key,
+        "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276"
+    );
+    assert_eq!(stored.storage_target, target("origin-private"));
+    let historical = PrivateObjectRef::new(
+        stored.storage_target,
+        ObjectKey::parse(&stored.object_key).unwrap(),
+        ObjectIntegrity::for_bytes(bytes).unwrap(),
+    )
+    .unwrap();
+
+    registry.active = target("replacement-private");
+    registry.verify(&historical).await.unwrap();
+    let read = registry.open_verified(&historical, None).await.unwrap();
+    let chunks: Vec<_> = read.stream.try_collect().await.unwrap();
+    assert_eq!(chunks.into_iter().flatten().collect::<Vec<_>>(), bytes);
+    assert_eq!(
+        std::fs::read_dir(replacement_root.join("objects"))
+            .unwrap()
+            .count(),
+        0
+    );
+
+    let image =
+        ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+    let replacement_stored = registry.persist_image(image).await.unwrap();
+    assert_eq!(replacement_stored.object_key, stored.object_key);
+    assert_eq!(
+        replacement_stored.storage_target,
+        target("replacement-private")
+    );
+    std::fs::remove_file(origin_root.join("objects").join(&stored.object_key)).unwrap();
+    assert!(matches!(
+        registry.verify(&historical).await,
+        Err(StoreError::CorruptRevision)
+    ));
+    assert_eq!(
+        std::fs::read(replacement_root.join("objects").join(&stored.object_key)).unwrap(),
+        bytes
+    );
 }
 
 #[tokio::test]

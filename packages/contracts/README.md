@@ -29,6 +29,11 @@ Catalog visibility grants no public delivery; optional immutable source/Script I
 neither rights clearance nor publication. The deprecated alias and reserved surface groups gain
 no Catalog routes, and Studio Web Catalog UX remains a separate acceptance slice.
 
+The [private Work artwork v1 contract](artwork-v1.md) adds raw metadata DTOs, JSON Schema,
+strict opt-in Protobuf presence and independent fixtures for one private PNG/JPEG Work cover.
+Its metadata/byte/application acceptance stays separate from public delivery and client UI;
+existing Catalog and pilot contracts retain their exact representation.
+
 The [Content Identity v1 contract](content-v1.md) adds separate immutable content revisions,
 normalized text or exact source/Script IR bindings, recording-only units, full revision digests,
 owner-bound evidence, atomic retries and bounded history. Metadata/content counters are distinct;

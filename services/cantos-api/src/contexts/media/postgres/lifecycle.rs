@@ -3,7 +3,7 @@ use super::super::domain::lifecycle::*;
 use super::super::domain::object_storage::{
     ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
 };
-use super::super::storage::registry::RegistryStoredAudio;
+use super::super::storage::registry::RegistryStoredObject;
 use crate::platform::postgres::{StoreError, Tx};
 use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
@@ -195,7 +195,7 @@ pub(in crate::contexts::media) async fn location(
 pub(in crate::contexts::media) async fn insert_rendition(
     tx: &Tx<'_>,
     value: &AudioRendition,
-    stored: &RegistryStoredAudio,
+    stored: &RegistryStoredObject,
 ) -> Result<(), StoreError> {
     let d = value.document();
     if stored.object_key != d.verified_media.sha256 {

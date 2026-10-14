@@ -227,6 +227,18 @@ fn byte_and_item_limits_fail_before_runtime_decoding() {
         protobuf::decode::<ScriptValidationResponse>(&issue.repeat(MAX_PROTOBUF_ISSUES + 1)),
         Err(DecodeError::TooLarge)
     );
+    let mut wrong_wire_after_maximum = issue.repeat(MAX_PROTOBUF_ISSUES);
+    wrong_wire_after_maximum.extend([8, 0]);
+    assert_eq!(
+        protobuf::decode::<ScriptValidationResponse>(&wrong_wire_after_maximum),
+        Err(DecodeError::Shape)
+    );
+    let mut truncated_after_maximum = issue.repeat(MAX_PROTOBUF_ISSUES);
+    truncated_after_maximum.extend([10, 1]);
+    assert_eq!(
+        protobuf::decode::<ScriptValidationResponse>(&truncated_after_maximum),
+        Err(DecodeError::Truncated)
+    );
     let excessive = ScriptValidationResponse {
         issues: vec![
             FieldIssue {

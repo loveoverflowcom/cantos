@@ -15,7 +15,7 @@ use super::audio_intake::{
 use super::domain::intake::{decide_prepare, IntentBinding, PrepareDecision};
 use super::domain::object_storage::{decide_owner_read, PrivateObjectRef};
 use super::postgres;
-use super::storage::registry::{RegistryStoredAudio, StorageRegistry};
+use super::storage::registry::{RegistryStoredObject, StorageRegistry};
 use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
 use crate::platform::postgres::{
@@ -381,7 +381,7 @@ pub(super) async fn inspect_and_store(
     objects: Arc<StorageRegistry>,
     bytes: Vec<u8>,
     profile: DeliveryProfile,
-) -> Result<(AudioMediaMetadata, RegistryStoredAudio), StoreError> {
+) -> Result<(AudioMediaMetadata, RegistryStoredObject), StoreError> {
     let permit = INSPECTION_LANES
         .try_acquire()
         .map_err(|_| StoreError::Unavailable)?;

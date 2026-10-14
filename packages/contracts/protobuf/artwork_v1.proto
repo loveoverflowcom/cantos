@@ -1,0 +1,96 @@
+// New private artwork metadata roots only; raw PNG/JPEG bytes are never wrapped.
+// Presence is preserved on the wire. Strict edge admission rejects unknown fields,
+// enum zero/unknown values, duplicate singulars and either duplicate oneof arm.
+syntax = "proto2";
+package cantos.studio.artwork.v1;
+
+enum ImageMime {
+  IMAGE_MIME_UNSPECIFIED = 0;
+  IMAGE_MIME_PNG = 1;
+  IMAGE_MIME_JPEG = 2;
+}
+enum ImageIntentState {
+  IMAGE_INTENT_STATE_UNSPECIFIED = 0;
+  IMAGE_INTENT_STATE_PENDING = 1;
+  IMAGE_INTENT_STATE_ADMITTED = 2;
+  IMAGE_INTENT_STATE_EXPIRED = 3;
+}
+message ImageDeclarations {
+  optional string provenance = 1;
+  repeated string rights_refs = 2;
+  reserved 3 to 15;
+}
+message CreateImageIntentRequest {
+  optional string operation_id = 1;
+  optional string id = 2;
+  optional string expected_sha256 = 3;
+  optional uint64 expected_byte_length = 4;
+  optional ImageMime content_type = 5;
+  optional ImageDeclarations declarations = 6;
+  reserved 7 to 15;
+}
+message ImageIntentDocument {
+  optional string schema_version = 1;
+  optional string id = 2;
+  optional string work_id = 3;
+  optional string owner_id = 4;
+  optional string operation_id = 5;
+  optional CreateImageIntentRequest request = 6;
+  optional uint64 created_at_ms = 7;
+  optional uint64 expires_at_ms = 8;
+  optional string digest = 9;
+  optional string profile_id = 10;
+  reserved 11 to 15;
+}
+message ImageVariantMetadata {
+  optional string sha256 = 1;
+  optional uint64 byte_length = 2;
+  optional ImageMime content_type = 3;
+  optional uint32 width_px = 4;
+  optional uint32 height_px = 5;
+  optional string profile_id = 6;
+  reserved 7 to 15;
+}
+message ImageAssetDocument {
+  optional string schema_version = 1;
+  optional string id = 2;
+  optional string intent_id = 3;
+  optional string work_id = 4;
+  optional string owner_id = 5;
+  optional ImageVariantMetadata verified_media = 6;
+  optional ImageDeclarations declarations = 7;
+  optional uint64 admitted_at_ms = 8;
+  optional string digest = 9;
+  reserved 10 to 15;
+}
+message ImageIntentResponse {
+  optional ImageIntentDocument intent = 1;
+  optional ImageAssetDocument asset = 2;
+  optional ImageIntentState state = 3;
+  reserved 4 to 15;
+}
+message WorkArtworkSelection {
+  optional string image_asset_id = 1;
+  optional string image_asset_digest = 2;
+  optional string alt_text = 3;
+  reserved 4 to 15;
+}
+message ClearArtwork {
+  reserved 1 to 536870911;
+}
+message SetWorkArtworkRequest {
+  optional string operation_id = 1;
+  optional uint64 expected_work_revision = 2;
+  oneof change {
+    WorkArtworkSelection artwork = 3;
+    ClearArtwork clear_artwork = 4;
+  }
+  reserved 5 to 15;
+}
+message WorkArtworkResponse {
+  optional string work_id = 1;
+  optional uint64 work_revision = 2;
+  optional WorkArtworkSelection artwork = 3;
+  optional uint64 changed_at_ms = 4;
+  reserved 5 to 15;
+}

@@ -37,6 +37,14 @@ or in-backend mixing should remain.
   [read contract](../../packages/contracts/private-content-reads-v1.md) and
   [evidence](../../docs/evidence/provider-independent-storage.md) distinguish the implemented
   private capability from separate live-provider/publication acceptance.
+- [Private Work artwork v1](../../packages/contracts/artwork-v1.md): one owner PNG/JPEG cover,
+  bounded full-byte inspection, immutable intent/asset receipts, private GET/HEAD preview,
+  operation-identified revision-CAS select/replace/clear and exact historical reads.
+  New metadata defaults to JSON with opt-in Protobuf; encoded bytes remain unchanged.
+  The existing private storage configuration also enables these current Studio routes and
+  keeps the host API-only. No separate image storage/provider setting or public projection
+  exists. [Artwork evidence](../../docs/evidence/private-work-artwork.md) keeps real SQL,
+  authorized HTTP/restart and provider acceptance gaps explicit.
 - [Publication v1](../../packages/contracts/publication-v1.md): owner distribution decisions,
   exact approval/readiness, immutable release snapshots, atomic CAS active pointers and withdrawal.
   [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
@@ -96,8 +104,8 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–22,24,25 (24 migrations), including original private storage0015 and Admin0022.
-Artwork0023 remains reserved and absent; historical SQL bytes/checksums are unchanged.
+versions 1–25 (25 migrations), including original private storage0015, Admin0022 and coordinated
+private Artwork0023. Historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in

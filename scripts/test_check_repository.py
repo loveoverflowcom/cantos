@@ -480,6 +480,27 @@ fn error(e: PublicationStoreError) { match e { PublicationStoreError::Domain(Pub
                     f"fn f() {{ crate::contexts::media::domain::publication::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
 
+    def test_artwork_http_allows_only_composition_receipts_and_typed_errors(self):
+        self.assertEqual(self.errors("interfaces/http/studio/artwork.rs", """
+use crate::contexts::media::{ArtworkService, ArtworkReceipt, ArtworkApplicationError, ImageObjectError};
+use crate::contexts::media::domain::{image::ImageError, artwork::ArtworkError};
+use crate::contexts::media::image_intake::ImageIntakeError;
+fn f(store: Store) { ArtworkService::new(store); }
+fn error(e: ArtworkApplicationError) { match e { ArtworkApplicationError::Image(ImageError::IntentExpired) => {}, _ => {} } }
+"""), [])
+        for symbol in (
+            "domain::image::ImageAsset::create",
+            "domain::image::decide_image_prepare",
+            "domain::artwork::decide_artwork_change",
+            "domain::artwork::SetWorkArtwork::admit",
+            "image_intake::ImageAdmission::try_acquire",
+            "postgres::image::insert_asset",
+        ):
+            with self.subTest(symbol=symbol):
+                self.assertRejected("interfaces/http/studio/artwork.rs",
+                    f"fn f() {{ crate::contexts::media::{symbol}(input); }}",
+                    "HTTP must delegate business decisions")
+
     def test_platform_cannot_own_publication_delivery_port(self):
         for symbol in ("PublicationDelivery", "PublicationService"):
             with self.subTest(symbol=symbol):

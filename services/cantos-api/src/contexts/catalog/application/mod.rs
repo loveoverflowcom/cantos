@@ -278,6 +278,7 @@ pub(super) fn decode_outcome(bytes: &[u8]) -> Result<CatalogOutcome, CatalogStor
 
 mod commands;
 pub mod content;
+pub(crate) mod owner_work;
 pub(crate) mod production_content;
 mod queries;
 pub mod wire;

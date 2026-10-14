@@ -136,6 +136,27 @@ val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
     )
 }
 
+// Artwork stays fixture-only in commonTest: no mobile route or shipping serializer.
+val artworkCorpus = rootProject.file("../../../packages/contracts/fixtures/artwork/v1")
+val generatedArtworkDirectory = layout.buildDirectory.dir("generated/artworkVectors/commonTest/kotlin")
+val generateArtworkVectors = tasks.register<Exec>("generateArtworkVectors") {
+    val generator = rootProject.file("tooling/embed_artwork_fixtures.py")
+    val goldens = artworkCorpus.resolve("goldens.json")
+    val hostile = artworkCorpus.resolve("hostile.json")
+    inputs.files(
+        generator, goldens, hostile,
+        rootProject.file("../../../scripts/protobuf-oracle/Oracle.kt"),
+        rootProject.file("../../../scripts/protobuf-oracle/generate_kotlin_vectors.py"),
+    )
+    outputs.dir(generatedArtworkDirectory)
+    commandLine(
+        "python3", generator.absolutePath, goldens.absolutePath, hostile.absolutePath,
+        generatedArtworkDirectory.get().asFile.resolve(
+            "com/cantos/theatre/artworkfixtures/CanonicalArtworkVectors.kt",
+        ).absolutePath,
+    )
+}
+
 if (androidEnabled) {
     // AGP enters the root classpath only for the Android opt-in, keeping desktop configuration
     // independent of AGP and the SDK. This is configuration of its actual extension, not a stub.
@@ -240,6 +261,7 @@ kotlin {
             kotlin.srcDir(generatePlaybackVectors)
             kotlin.srcDir(generateClientBoundaryVectors)
             kotlin.srcDir(generateProtobufVectors)
+            kotlin.srcDir(generateArtworkVectors)
             dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")

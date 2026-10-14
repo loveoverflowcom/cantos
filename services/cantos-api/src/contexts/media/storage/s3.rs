@@ -1,26 +1,27 @@
 //! Generic, private, bounded S3-compatible storage. There are no vendor branches, ACL changes,
 //! bucket-policy changes or unsafe HEAD-then-PUT emulations in this adapter.
 
-use std::{fmt, time::Duration};
+use std::{fmt, sync::Arc, time::Duration};
 
+use bytes::Bytes;
 use chrono::Utc;
 use futures_util::StreamExt;
 use reqwest::{header, redirect, Client, Method, Response, StatusCode, Url};
 use sha2::{Digest, Sha256};
 
-use crate::contexts::media::{
-    audio_intake::VerifiedAudio,
-    domain::object_storage::{
-        NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageCapability, StorageError,
-        MAX_OBJECT_BYTES,
-    },
+use crate::contexts::media::domain::object_storage::{
+    NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageCapability, StorageError,
+    MAX_OBJECT_BYTES,
 };
+use crate::contexts::media::image_intake::VerifiedImage;
 
 use super::{
-    port::{PrivateStorage, StorageFuture, StorageRead, TemporaryRead},
+    port::{PrivateStorage, StorageFuture, StorageRead, TemporaryRead, VerifiedPayload},
     sigv4::{canonical_query, Signer, EMPTY_PAYLOAD_SHA256},
 };
 
+// Historical audio locations use this fixed private namespace. Images share it so reads keep
+// selecting only the recorded target/key; MIME never becomes a caller-selected path segment.
 const PRIVATE_PREFIX: &str = "private/audio";
 
 /// Non-secret transport options. The composition root resolves secret injection and chooses
@@ -70,6 +71,16 @@ impl fmt::Debug for S3Storage {
 struct VerifiedLocation {
     version_id: Option<String>,
     etag: Option<String>,
+}
+
+/// Transport clones retain the sealed encoded body and its admission permit. Cancellation
+/// cannot free a lane while reqwest/hyper still owns bytes from that admitted image.
+struct ImageBody(Arc<VerifiedImage>);
+
+impl AsRef<[u8]> for ImageBody {
+    fn as_ref(&self) -> &[u8] {
+        self.0.bytes()
+    }
 }
 
 impl S3Storage {
@@ -141,7 +152,7 @@ impl S3Storage {
         url: Url,
         payload_hash: &str,
         additional: &[(&str, String)],
-        body: Option<Vec<u8>>,
+        body: Option<Bytes>,
     ) -> Result<Response, StorageError> {
         let timestamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
         let headers =
@@ -167,8 +178,10 @@ impl S3Storage {
         &self,
         key: ObjectKey,
         integrity: ObjectIntegrity,
-        bytes: Vec<u8>,
+        bytes: impl Into<Bytes>,
+        content_type: &'static str,
     ) -> Result<(), StorageError> {
+        let bytes = bytes.into();
         validate_binding(&key, &integrity)?;
         integrity.verify_bytes(&bytes)?;
         if !self.settings.conditional_put {
@@ -183,7 +196,7 @@ impl S3Storage {
                 integrity.sha256(),
                 &[
                     ("if-none-match", "*".to_owned()),
-                    ("content-type", "audio/ogg".to_owned()),
+                    ("content-type", content_type.to_owned()),
                     ("content-length", integrity.byte_length().to_string()),
                 ],
                 Some(bytes),
@@ -380,13 +393,28 @@ impl S3Storage {
 }
 
 impl PrivateStorage for S3Storage {
-    fn put_if_absent(&self, audio: VerifiedAudio) -> StorageFuture<()> {
+    fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()> {
         let storage = self.clone();
         Box::pin(async move {
-            let metadata = audio.metadata();
-            let integrity = ObjectIntegrity::new(&metadata.sha256, metadata.byte_length)?;
-            let key = ObjectKey::parse(&metadata.sha256)?;
-            storage.put_bytes(key, integrity, audio.into_bytes()).await
+            let integrity = ObjectIntegrity::new(payload.sha256(), payload.byte_length())?;
+            let key = ObjectKey::parse(payload.sha256())?;
+            let content_type = payload.content_type();
+            match payload {
+                VerifiedPayload::Audio(audio) => {
+                    storage
+                        .put_bytes(key, integrity, audio.into_bytes(), content_type)
+                        .await
+                }
+                VerifiedPayload::Image(image) => {
+                    // The local owner retains admission through actual-byte readback; the
+                    // Bytes owner independently retains it for every surviving transport clone.
+                    let image = Arc::new(image);
+                    let body = Bytes::from_owner(ImageBody(image.clone()));
+                    let result = storage.put_bytes(key, integrity, body, content_type).await;
+                    drop(image);
+                    result
+                }
+            }
         })
     }
 
@@ -920,13 +948,13 @@ mod tests {
         let (key, integrity) = expected(bytes);
         assert_eq!(
             storage
-                .put_bytes(key.clone(), integrity.clone(), bytes.to_vec())
+                .put_bytes(key.clone(), integrity.clone(), bytes.to_vec(), "audio/ogg")
                 .await,
             Ok(())
         );
         assert_eq!(
             storage
-                .put_bytes(key.clone(), integrity, bytes.to_vec())
+                .put_bytes(key.clone(), integrity, bytes.to_vec(), "audio/ogg")
                 .await,
             Ok(())
         );
@@ -935,6 +963,7 @@ mod tests {
         for request in [&requests[0], &requests[2]] {
             assert_eq!(request.method, Method::PUT);
             assert_eq!(request.headers["if-none-match"], "*");
+            assert_eq!(request.headers["content-type"], "audio/ogg");
             assert_eq!(request.body, bytes);
             assert!(request.uri.ends_with(key.as_str()));
             assert!(request.headers["authorization"]
@@ -944,6 +973,208 @@ mod tests {
         }
         assert_eq!(requests[1].method, Method::GET);
         assert_eq!(requests[3].method, Method::GET);
+    }
+
+    #[tokio::test]
+    async fn inspected_png_and_jpeg_use_actual_mime_conditional_create_and_pinned_reads() {
+        use crate::contexts::media::{domain::image::ImageMime, image_intake::ImageAdmission};
+
+        for (bytes, mime) in [
+            (
+                include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice(),
+                ImageMime::Png,
+            ),
+            (
+                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
+                ImageMime::Jpeg,
+            ),
+        ] {
+            let peer = Peer::new(vec![
+                Reply::status(StatusCode::OK),
+                Reply::object(bytes),
+                Reply::status(StatusCode::PRECONDITION_FAILED),
+                Reply::object(bytes),
+                Reply::object(bytes),
+                Reply::object(bytes),
+            ])
+            .await;
+            let storage = peer.storage();
+            for _ in 0..2 {
+                let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                    tokio::sync::Semaphore::new(1),
+                ))
+                .unwrap()
+                .inspect(bytes.to_vec(), mime)
+                .await
+                .unwrap();
+                assert_eq!(
+                    storage.put_if_absent(VerifiedPayload::Image(image)).await,
+                    Ok(())
+                );
+            }
+            let (key, integrity) = expected(bytes);
+            let read = storage
+                .open_verified(key.clone(), integrity, None)
+                .await
+                .unwrap();
+            assert_eq!(collect(read).await.unwrap(), bytes);
+            let requests = peer.state.requests.lock().unwrap();
+            assert_eq!(requests.len(), 6);
+            for request in [&requests[0], &requests[2]] {
+                assert_eq!(request.method, Method::PUT);
+                assert_eq!(
+                    request.uri,
+                    format!("/private-bucket/private/audio/{}", key.as_str())
+                );
+                assert_eq!(request.headers["content-type"], mime.as_str());
+                assert_eq!(request.headers["content-length"], bytes.len().to_string());
+                assert_eq!(request.headers["if-none-match"], "*");
+                assert_eq!(request.body, bytes);
+            }
+            for request in [&requests[1], &requests[3], &requests[4], &requests[5]] {
+                assert_eq!(request.method, Method::GET);
+                assert!(request.body.is_empty());
+            }
+            assert_eq!(
+                requests[5].headers["if-match"],
+                "\"opaque-not-a-content-digest\""
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn inspected_image_put_rejects_wrong_readback_without_retry_or_success() {
+        use crate::contexts::media::{domain::image::ImageMime, image_intake::ImageAdmission};
+
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let mut corrupt = bytes.to_vec();
+        corrupt[bytes.len() - 1] ^= 1;
+        let peer = Peer::new(vec![Reply::status(StatusCode::OK), Reply::object(&corrupt)]).await;
+        let image =
+            ImageAdmission::from_test_lanes(std::sync::Arc::new(tokio::sync::Semaphore::new(1)))
+                .unwrap()
+                .inspect(bytes.to_vec(), ImageMime::Png)
+                .await
+                .unwrap();
+        assert_eq!(
+            peer.storage()
+                .put_if_absent(VerifiedPayload::Image(image))
+                .await,
+            Err(StorageError::DigestMismatch)
+        );
+        let requests = peer.state.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].method, Method::PUT);
+        assert_eq!(requests[0].headers["content-type"], "image/png");
+        assert_eq!(requests[1].method, Method::GET);
+    }
+
+    #[tokio::test]
+    async fn inspected_image_keeps_its_admission_lane_until_s3_readback_finishes() {
+        use crate::contexts::media::{
+            domain::image::ImageMime,
+            image_intake::{ImageAdmission, ImageIntakeError},
+        };
+        use tokio::sync::{Notify, Semaphore};
+
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let lanes = Arc::new(Semaphore::new(1));
+        let image = ImageAdmission::from_test_lanes(lanes.clone())
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+        let readback_started = Arc::new(Notify::new());
+        let readback_release = Arc::new(Semaphore::new(0));
+        let router = Router::new().route(
+            "/{*path}",
+            any({
+                let started = readback_started.clone();
+                let release = readback_release.clone();
+                move |request: Request<Body>| {
+                    let started = started.clone();
+                    let release = release.clone();
+                    async move {
+                        if request.method() == Method::PUT {
+                            let (parts, body) = request.into_parts();
+                            assert_eq!(parts.headers["content-type"], "image/png");
+                            assert_eq!(
+                                to_bytes(body, MAX_OBJECT_BYTES as usize).await.unwrap(),
+                                bytes
+                            );
+                            HttpResponse::builder()
+                                .status(StatusCode::OK)
+                                .body(Body::empty())
+                                .unwrap()
+                        } else {
+                            assert_eq!(request.method(), Method::GET);
+                            started.notify_one();
+                            let _permit = release.acquire().await.unwrap();
+                            HttpResponse::builder()
+                                .status(StatusCode::OK)
+                                .header("content-length", bytes.len().to_string())
+                                .header("etag", "\"synthetic-verified-image\"")
+                                .body(Body::from(bytes))
+                                .unwrap()
+                        }
+                    }
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let storage = loopback_storage(&endpoint);
+        let put = tokio::spawn(storage.put_if_absent(VerifiedPayload::Image(image)));
+        tokio::time::timeout(Duration::from_secs(2), readback_started.notified())
+            .await
+            .unwrap();
+        assert_eq!(lanes.available_permits(), 0);
+        assert!(matches!(
+            ImageAdmission::from_test_lanes(lanes.clone()),
+            Err(ImageIntakeError::AdmissionBusy)
+        ));
+        readback_release.add_permits(1);
+        assert_eq!(put.await.unwrap(), Ok(()));
+        assert_eq!(lanes.available_permits(), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn last_transport_body_clone_retains_image_admission_after_outer_owner_drops() {
+        use crate::contexts::media::{
+            domain::image::ImageMime,
+            image_intake::{ImageAdmission, ImageIntakeError},
+        };
+        use tokio::sync::Semaphore;
+
+        let bytes = include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice();
+        let lanes = Arc::new(Semaphore::new(1));
+        let image = Arc::new(
+            ImageAdmission::from_test_lanes(lanes.clone())
+                .unwrap()
+                .inspect(bytes.to_vec(), ImageMime::Png)
+                .await
+                .unwrap(),
+        );
+        let body = Bytes::from_owner(ImageBody(image.clone()));
+        assert_eq!(body.as_ptr(), image.bytes().as_ptr());
+        assert_eq!(body.as_ref(), bytes);
+        let cloned_body = body.clone();
+        let final_transport_slice = body.slice(3..11);
+
+        drop(image);
+        assert_eq!(lanes.available_permits(), 0);
+        drop(body);
+        drop(cloned_body);
+        assert_eq!(lanes.available_permits(), 0);
+        assert!(matches!(
+            ImageAdmission::from_test_lanes(lanes.clone()),
+            Err(ImageIntakeError::AdmissionBusy)
+        ));
+        assert_eq!(final_transport_slice.as_ref(), &bytes[3..11]);
+        drop(final_transport_slice);
+        assert_eq!(lanes.available_permits(), 1);
     }
 
     #[tokio::test]
@@ -957,7 +1188,7 @@ mod tests {
         .await;
         assert_eq!(
             peer.storage()
-                .put_bytes(key, integrity, bytes.to_vec())
+                .put_bytes(key, integrity, bytes.to_vec(), "audio/ogg")
                 .await,
             Err(StorageError::DigestMismatch)
         );
@@ -970,7 +1201,7 @@ mod tests {
         let (key, integrity) = expected(bytes);
         assert_eq!(
             peer.storage()
-                .put_bytes(key, integrity, bytes.to_vec())
+                .put_bytes(key, integrity, bytes.to_vec(), "audio/ogg")
                 .await,
             Err(StorageError::LengthMismatch)
         );
@@ -992,7 +1223,7 @@ mod tests {
             let (key, integrity) = expected(bytes);
             assert_eq!(
                 peer.storage()
-                    .put_bytes(key, integrity, bytes.to_vec())
+                    .put_bytes(key, integrity, bytes.to_vec(), "audio/ogg")
                     .await,
                 Err(error)
             );
@@ -1003,7 +1234,9 @@ mod tests {
         storage.settings.conditional_put = false;
         let (key, integrity) = expected(bytes);
         assert_eq!(
-            storage.put_bytes(key, integrity, bytes.to_vec()).await,
+            storage
+                .put_bytes(key, integrity, bytes.to_vec(), "audio/ogg")
+                .await,
             Err(StorageError::UnsupportedCapability(
                 StorageCapability::ConditionalCreate
             ))

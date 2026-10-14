@@ -1,4 +1,4 @@
-//! Private audio storage capability used by intake and authorized Studio reads.
+//! Private verified-media storage capability used by intake and authorized Studio reads.
 //! Provider details and transport failures are translated by concrete adapters.
 
 use std::{fmt, future::Future, pin::Pin};
@@ -9,10 +9,55 @@ use futures_util::Stream;
 use crate::contexts::media::{
     audio_intake::VerifiedAudio,
     domain::object_storage::{NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError},
+    image_intake::VerifiedImage,
 };
 
 pub type StorageFuture<T> = Pin<Box<dyn Future<Output = Result<T, StorageError>> + Send + 'static>>;
 pub type StorageStream = Pin<Box<dyn Stream<Item = Result<Bytes, StorageError>> + Send + 'static>>;
+
+/// Only actual-byte inspection witnesses may cross the private write boundary.
+/// No raw bytes, caller-selected MIME or mutable metadata can construct a payload.
+/// Image witnesses retain their admission lane until storage/readback finishes or is dropped.
+///
+/// ```compile_fail
+/// use cantos_api::contexts::media::storage::port::VerifiedPayload;
+/// let forged = VerifiedPayload::Image(vec![1, 2, 3]);
+/// ```
+pub enum VerifiedPayload {
+    Audio(VerifiedAudio),
+    Image(VerifiedImage),
+}
+
+impl VerifiedPayload {
+    pub fn bytes(&self) -> &[u8] {
+        match self {
+            Self::Audio(audio) => audio.bytes(),
+            Self::Image(image) => image.bytes(),
+        }
+    }
+
+    pub fn sha256(&self) -> &str {
+        match self {
+            Self::Audio(audio) => &audio.metadata().sha256,
+            Self::Image(image) => image.metadata().sha256(),
+        }
+    }
+
+    pub fn byte_length(&self) -> u64 {
+        match self {
+            Self::Audio(audio) => audio.metadata().byte_length,
+            Self::Image(image) => image.metadata().byte_length(),
+        }
+    }
+
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            // Audio admission accepts only the versioned Ogg/Opus delivery profile.
+            Self::Audio(_) => "audio/ogg",
+            Self::Image(image) => image.metadata().content_type().as_str(),
+        }
+    }
+}
 
 /// A bounded stream of the exact verified object, or its normalized byte range.
 pub struct StorageRead {
@@ -61,7 +106,7 @@ impl fmt::Debug for TemporaryRead {
 
 /// No deletion, mutable overwrite, public promotion or caller-selected storage keys exist.
 pub trait PrivateStorage: Send + Sync {
-    fn put_if_absent(&self, audio: VerifiedAudio) -> StorageFuture<()>;
+    fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()>;
 
     fn verify(&self, key: ObjectKey, integrity: ObjectIntegrity) -> StorageFuture<()>;
 
@@ -85,7 +130,38 @@ pub trait PrivateStorage: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use super::{StorageError, TemporaryRead};
+    use super::{StorageError, TemporaryRead, VerifiedPayload};
+    use crate::contexts::media::{domain::image::ImageMime, image_intake::ImageAdmission};
+
+    #[tokio::test]
+    async fn image_payload_facts_come_from_complete_actual_byte_inspection() {
+        for (bytes, mime, hash) in [
+            (
+                include_bytes!("../image_intake/fixtures/python-rgb-2x3.png").as_slice(),
+                ImageMime::Png,
+                "7b222c7332a2d0a325b482be5ff001918ff8470f52405b99d4c8351856bed276",
+            ),
+            (
+                include_bytes!("../image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
+                ImageMime::Jpeg,
+                "a259cc25075434554da937e24a8056b5f9db0608a448c06effac4ba9c950eb46",
+            ),
+        ] {
+            let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            ))
+            .unwrap()
+            .inspect(bytes.to_vec(), mime)
+            .await
+            .unwrap();
+            let payload = VerifiedPayload::Image(image);
+            assert_eq!(payload.bytes(), bytes);
+            // Digests are independently recorded by the existing synthetic fixture oracle.
+            assert_eq!(payload.sha256(), hash);
+            assert_eq!(payload.byte_length(), bytes.len() as u64);
+            assert_eq!(payload.content_type(), mime.as_str());
+        }
+    }
 
     #[test]
     fn temporary_read_is_https_only_and_debug_never_contains_the_bearer_url() {

@@ -47,11 +47,13 @@ separates local and mocked results from real-provider acceptance. It does not co
 deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
 write target moves no existing objects.
 
-The next private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
-should extend this verified-payload/MIME boundary inside Media and reuse the same storage
-registry, retaining the audio envelope and original-target reads. Keep its additive migration
-0023 separate from storage migration0015; no second S3 adapter or public artwork projection
-is needed for that owner-only outcome.
+The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
+extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
+retaining the audio envelope and original-target reads. Its additive migration0023 stays
+separate from storage migration0015. The [artwork evidence](../evidence/private-work-artwork.md)
+keeps current core/filesystem/controlled-peer checks separate from pending real SQL,
+authorized HTTP/restart and provider acceptance. No second S3 adapter or public artwork
+projection is needed for that owner-only outcome.
 
 Recommended backend follow-ups preserve that order:
 
@@ -256,6 +258,26 @@ production provider/client preparation, native runtime acceptance and explicit c
 identity linking remain separate prerequisites. Equal email or subject text across different
 issuers never establishes a shared actor. GitHub owns execution status.
 
+## Private Work cover API/DB acceptance
+
+The user-requested [issue104 MVP plan](012-private-work-artwork.md) selects one durable,
+owner-only Work cover and exact private preview from the
+[checked standards reference](catalog-media-standards-reference.md). Its
+[new-session implementation handoff](catalog-media-mvp-ultra-handoff.md) permits core rules and
+new opt-in metadata contracts first; real storage integration reuses the final independently
+reviewed PR90 boundary and coordinated additive migration 0023. No product implementation is
+claimed by these planning docs. The scope is API/DB, not Studio UI or public artwork delivery;
+P1 metadata, thumbnails and transcripts are explicitly deferred. This is an authorized narrow
+extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
+without reordering identity/storage or broader publication/listener acceptance.
+
+The [implemented private artwork contract](../../packages/contracts/artwork-v1.md) now reuses
+the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL
+upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG
+restart faults. The [dated evidence ledger](../evidence/private-work-artwork.md) separates those
+remaining gates from current core, decoder, filesystem and controlled-peer checks.
+
+
 The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.md) follows the
 reviewed registry/Studio dependencies and the merged Listener Library seam. Preserve the latest
 [Studio integrated acceptance](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
@@ -292,8 +314,10 @@ suites, on source
 `ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. The previous 13 October Web/runtime counts and manifest
 remain historical, not a new native acceptance record.
 
-The resumed Theatre snapshot normally inherits storage migration0015 from develop and retains the sorted
-23-entry registry 1–21,24,25 without editing historical bytes. Failed persistence/unknown revoke
+The reviewed Theatre identity snapshot inherited storage migration0015 from develop and retained
+its then-sorted 23-entry registry 1–21,24,25 without editing historical bytes. This private Work
+artwork branch additionally preserves coordinated migration0023 and the final Admin merge's
+migration0022; the combined registry is now 25 entries, 1–25. Failed persistence/unknown revoke
 retains the exact native credential for acknowledged retry; pending/unavailable denial with
 lost/corrupt credentials remains closed and controlled recovery is still unassigned. No live
 provider, app install or OS/TLS/credential configuration was performed. Next recommended order
