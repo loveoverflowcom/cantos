@@ -252,13 +252,18 @@ class AppContainer(
     }
 
     companion object {
-        fun mock(scope: CoroutineScope, seed: DemoState = DemoState()): AppContainer {
+        /** [progressPort] receives the exact listening seed the controller starts with. */
+        fun mock(
+            scope: CoroutineScope,
+            seed: DemoState = DemoState(),
+            progressPort: (ListeningSnapshot) -> ProgressPort = ::MemoryProgressPort,
+        ): AppContainer {
             val inventory = mockInventory()
             val start = startState(inventory, seed)
             val defaults = startState(inventory, DemoState())
             val port = MockCatalogPort(inventory, seed.catalogMode.toScenario())
             val container = AppContainer(
-                scope, port, MemoryProgressPort(start.listening), MockMediaEngine(), start, defaults,
+                scope, port, progressPort(start.listening), MockMediaEngine(), start, defaults,
                 changeScenario = port::setScenario,
             )
             if (seed.catalogMode != DemoCatalogMode.Ready) container.catalog.refresh()

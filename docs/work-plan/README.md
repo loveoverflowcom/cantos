@@ -184,6 +184,10 @@ API sequence above. GitHub owns status.
   and keeps large-text controls and preference dialogs within that same isolated mock boundary.
   The [radius normalization](../evidence/theatre-cmp-shapes.md) keeps the same mock anatomy
   while sharing shape roles with the existing design system.
+  The [fake storage simulator](../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
+  ([#109](https://github.com/loveoverflowcom/cantos/issues/109)) exercises shared-session
+  load/store/recreate, latency, faults and reset fencing before the local metadata store ADR;
+  it is memory-only and supplies no durable persistence or process-death evidence.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 

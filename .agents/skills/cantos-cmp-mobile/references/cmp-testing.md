@@ -76,6 +76,9 @@ different revision, or a filter that matched nothing is not a pass.
 - Fakes implement ports: `FakeMediaEngine` records commands and emits scripted `EngineEvent`s;
   `FakeListenerApi` scripts accepted, duplicate, stale, `401` and timeout responses; a fake file
   system (Okio's is a candidate) supports crash hooks. Never mock the reducer under test.
+  The mock's existing [fake storage simulator](../../../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
+  covers shared-session load/store/recreate, latency, write faults and reset fencing behind
+  `ProgressPort`; it is memory-only and never `integration-tested` storage.
 - Keep the oracle independent: expected values come from the owning document or vector, never
   from calling the reducer to compute them.
 

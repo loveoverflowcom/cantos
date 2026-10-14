@@ -222,6 +222,18 @@ class DemoCaptureTest {
         }
     }
 
+    @Test
+    fun fresh_and_restored_fake_storage_sessions_are_captured_at_390_by_844() {
+        FakeStorageSession.entries.forEach { session ->
+            val label = session.name.lowercase()
+            capture("jvm-light-$label-session-390x844", 390, 844, session.seed(), session = session)
+            capture(
+                "jvm-light-$label-session-history-390x844", 390, 844, session.seed(),
+                scrollToTag = "library-history", session = session,
+            )
+        }
+    }
+
     private fun libraryState(
         stack: List<DemoRoute> = listOf(DemoRoute.Library),
         theme: DemoTheme = DemoTheme.Light,
@@ -250,6 +262,7 @@ class DemoCaptureTest {
         scrollToTag: String? = null,
         clickTag: String? = null,
         captureTag: String = "capture-root",
+        session: FakeStorageSession? = null,
     ) {
         var rendererDensity = Float.NaN
         var rendererFontScale = Float.NaN
@@ -258,7 +271,11 @@ class DemoCaptureTest {
                 rendererDensity = LocalDensity.current.density
                 rendererFontScale = LocalDensity.current.fontScale
                 Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture-root")) {
-                    CantosDemoApp(initialState = state, textScale = textScale)
+                    if (session == null) {
+                        CantosDemoApp(initialState = state, textScale = textScale)
+                    } else {
+                        FakeStorageSessionApp(session, textScale = textScale)
+                    }
                 }
             }
             if (scrollToTag != null) onNodeWithTag(scrollToTag).performScrollTo()
@@ -281,7 +298,7 @@ class DemoCaptureTest {
                 """
                 {
                   "renderer": "JVM Desktop Compose UI test",
-                  "entrypoint": "CantosDemoApp",
+                  "entrypoint": "${if (session == null) "CantosDemoApp" else "FakeStorageSessionApp($session)"}",
                   "requestedWidthDp": $width,
                   "requestedHeightDp": $height,
                   "capturedWidthPx": ${bitmap.width},

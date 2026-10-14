@@ -99,7 +99,7 @@ shared/src/commonMain/kotlin/com/cantos/theatre/
   domain/            pure publication/playback/listening models and transitions
   application/       independent catalog/listening/preferences owners and one playback loop
   ports/             CatalogPort, ProgressPort and observation-only MediaEngine
-  adapters/mock/     synthetic fixtures, catalog/memory adapters and fake acknowledgements
+  adapters/mock/     synthetic fixtures, catalog/memory/fake-storage adapters and fake acknowledgements
   features/          stateless app-screen presentation
   demo/              immutable diagnostic seeds and presentation metadata
 shared/src/commonTest/      canonical vectors, reducers, fake-port/lifetime/reset regressions
@@ -169,11 +169,39 @@ cargo xtask compose-preview cantos-theatre \
   --composable TheatreDiscoveryLightPreview --label discovery-light-390
 ```
 
-Other wrappers cover dark player/error, 840 dp discovery and 320 dp work at 2× text. Capture
+Other wrappers cover dark player/error, 840 dp discovery and 320 dp work at 2× text, plus the
+`TheatreFreshSessionPreview` / `TheatreRestoredSessionPreview` fake-storage fixtures below. Capture
 needs the official Android CLI and correct synced IDE project; the old SDK `android` executable
 is insufficient. Open PNGs and inspect exported semantics before asserting evidence.
 JVM tests capture the same app under `shared/build/reports/theatre-demo`, or the selected
 `CANTOS_THEATRE_DEMO_CAPTURE_DIR`. Those captures are not OS screenshots or native runtime tests.
+
+## Fake storage simulator
+
+`adapters/mock/FakeStorageDatabase` is a deterministic, **memory-only** session store for testing
+the Nghe tiếp / Đã lưu / Lịch sử / Dấu trang UX before a local metadata store is chosen.
+`FakePersistentProgressPort(database, FakeStorageConfig(...))` implements the unchanged
+`ProgressPort`; several ports and recreated `ListeningController`s may share one database, and
+a recreated owner sees stored data only after an explicit `reload()`. A new database starts
+empty, like `MemoryProgressPort`, and process death discards both.
+
+- Every read and write, including its opt-in read/write latency (default `0`, never negative),
+  runs inside one fair mutex owned by the database. Operations from all ports therefore commit
+  in request order: a slow older write cannot land after a newer accepted one.
+- `failNextWrites(n)`, `failAllWrites()` (storage full) and `recoverWrites()` are storage-level
+  faults consumed only at a write's commit point. A refused write changes nothing and returns
+  `Unavailable`; the controller's existing retry semantics apply.
+- `reset(seed)` replaces the contents immediately and fences every write requested before it;
+  a fenced write returns `Unavailable` and consumes no fault. Cancellation propagates, never
+  commits and consumes no fault. `database.state` is a read-only inspection value.
+- `FakeStorageSessionApp(Fresh | Restored)` mounts the production `CantosDemoApp` through
+  `AppContainer.mock(..., progressPort = ...)` with a database seeded from exactly the
+  controller's start snapshot. The two Android `@Preview` wrappers and the JVM UI/capture tests
+  render that same function. There are no interactive storage controls in the app UI.
+
+`cargo xtask theatre-demo verify` runs these common/JVM tests. They are `example-tested` /
+`mock-integration-tested` evidence over a fake: they establish no durable persistence, SQLite
+schema or migration, Android/iOS process death or device behavior.
 
 ## Design and acceptance
 
