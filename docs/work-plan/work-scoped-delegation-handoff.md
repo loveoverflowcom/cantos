@@ -27,12 +27,15 @@ Mac work are not prerequisites or part of this PR.
    identity, independent Script/source relations, Brief grant checks, lifecycle final checks,
    artwork owner facade and publication mutations. Verify the inventory names actual code, not
    guessed proposed modules.
-3. Inspect and rerun the retained disposable A/B fixture. Validate exact errors, signature
+3. Inspect and rerun the [exact archival A/B fixture](../evidence/work-scoped-delegation-fixture.md)
+   through its hash-checked extraction, independently of ignored session artifacts. Validate exact errors, signature
    rejection partitions and zero synthetic effect after current-parent revoke. Report its
    limitations: no production modules, SQL, HTTP, S3 or complete wire interoperability.
 4. Challenge the comparison under identical current-rights assumptions. Signed/offline proof
    cannot silently weaken revoke/owner/resource guarantees; attenuation cannot authenticate an
    asserted caller or prevent a holder reusing a parent. Do not claim package maturity from docs.
+   The baseline parser is illustrative: signed non-object JSON is not closed-error handled;
+   its passing cases are not a general hostile-input or production parser claim.
 5. Review exact local fencing versus remote observation age, stream/URL leakage bounds,
    lost issuance response, child lifetime/revoke, immutable operation attribution and audit
    outage behavior. Any missing product semantics stays needs-decision, not an implementation.

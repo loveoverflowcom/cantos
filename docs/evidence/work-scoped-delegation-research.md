@@ -17,6 +17,8 @@ sketch; [the handoff](../work-plan/work-scoped-delegation-handoff.md) owns recom
 - Ignored local run record: `artifacts/agent-runs/issue113-session1/fixtures.py`,
   `fixtures.log`, `results.json`. The fixture is deliberately not a production source/dependency,
   repository entrypoint, supported protocol SDK or committed automated regression gate.
+- Exact public source is now preserved in the [archival Markdown appendix](work-scoped-delegation-fixture.md),
+  with hash-checked fresh-checkout extraction; ignored files are not the only reproduction route.
 
 Issue #113 has no comments at the initial read. Its "no code or migration" boundary is preserved:
 only Markdown is changed. Small disposable experiments satisfy the comparison step without
@@ -100,22 +102,26 @@ PASETO/Biscuit/Macaroons sizes/performance are **NOT_RUN**.
 
 ## Reproduction and disposal
 
-For the second session on the same cloud worktree, run:
+Use the [exact Markdown appendix](work-scoped-delegation-fixture.md#hash-checked-replay-from-a-fresh-checkout)
+from any fresh checkout; its stdlib extraction verifies the recorded source SHA-256 before
+running in a new temporary directory. No session-local artifact is required. Replay needs
+already-installed Python/`cryptography` and enabled assertions; missing prerequisites are
+**NOT_RUN**. Record actual source/tool versions and all named outcomes. Never replace the
+first-run timing observation with replay timings.
 
-```sh
-python3 artifacts/agent-runs/issue113-session1/fixtures.py
-```
+The second session copied the original fixture into a separate ignored run directory, verified
+its unchanged source hash and independently reproduced all **64 exact outcomes + 8 fixed subset
+cases**, including both zero-synthetic-commit rechecks and both exact token sizes. It then
+replayed the appendix extraction from committed documentation alone, with the same stable results.
+The first session's source, JSON and logs were preserved. Each run writes only adjacent results;
+none reads secret files or performs network I/O.
 
-This is a disposable research experiment outside repository orchestration, not another
-`build/test/run` entrypoint. It writes only its adjacent ignored result record. Confirm the
-source hash above before replay; no credentials/environment-secret files are read. Compare exact
-assertion partitions; timing variation is expected and must not replace the first-run observation.
-
-If the disposable files are unavailable in a later checkout, reconstruct the two experiments
-from the mechanism/input/partition descriptions above or use a reviewed library's official
-vectors. Label a reconstructed run with its own source hash/tool versions; do not claim it is
-the same run. Keeping prototype code out of production is intentional. A durable regression
-suite belongs to a later reviewed implementation; do not add this illustrative reducer as SSOT.
+Independent inspection also demonstrated a known non-production parser limitation: a correctly
+signed JSON array payload raises `AttributeError`, rather than a typed refusal. This negative
+control is not one of the passing 64 cases and does not invalidate their recorded outcomes.
+It does rule out any broader hostile-parser/fail-closed claim. See the appendix's limits; no
+Cantos source uses this illustrative parser. A durable regression suite belongs to a later
+reviewed implementation, never to a second handwritten policy SSOT.
 
 ## Verification ledger
 
@@ -137,10 +143,10 @@ retested or changed. Older evidence records are not fresh test results for this 
 No provider/device/production acceptance, completed #113 checklist, final ADR, issue closure,
 deployment or generally usable agent credentials follow from this evidence.
 
-The actual dry run `cargo xtask preflight --changed-only --dry-run` reports five documentation
+The actual dry run `cargo xtask preflight --changed-only --dry-run` reports six documentation
 paths, no Cargo package impact and repository/rust-format selection; its execution status is
 **NOT_RUN** by definition, separately from the executed PASS above. Full logs are retained in
-the ignored run record as `repository.log`, `preflight-plan.log` and `preflight.log`. Diagnostic
+the respective ignored session run records as `repository.log`, `preflight-plan.log` and `preflight.log`. Diagnostic
 fixture tests inside the repository suite intentionally print model/conformance failure and fake
 Kani output; the 392-test suite itself is OK. Those adapter negative-control messages are neither
 an actual delegated behavior failure nor Quint/Kani execution evidence for this RFC.
