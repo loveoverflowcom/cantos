@@ -51,7 +51,8 @@ or in-backend mixing should remain.
   the initial real PostgreSQL acceptance attempt was blocked and default public delivery is unavailable.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   contains Discovery/Library and separate opt-in Web/native identity routes; `/api/v1/admin/*`
-  remains reserved until its independent PR4. Pre-split Studio aliases remain deprecated.
+  provides the independent opt-in [Admin capability/revocation and audit](../../docs/architecture/admin-authorization.md)
+  slice. Pre-split Studio aliases remain deprecated.
 
 The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
@@ -88,7 +89,7 @@ src/
     media/                  # private intake/review/read/storage and publication authority
       domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
     listening/              # separate account-owned Library/progress/history
-  interfaces/http/          # separate Studio/Theatre routes; Admin remains reserved for PR4
+  interfaces/http/          # separate Studio, Theatre and Admin surfaces
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
@@ -103,15 +104,21 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–21,24,25 (23 migrations), including original private storage0015. Admin0022 belongs
-to its independent succeeding PR; artwork0023 remains reserved and absent from this registry.
+versions1–22,24,25 (24 migrations), including original private storage0015 and Admin0022.
+Artwork0023 remains reserved and absent; historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in
 services/kanidm. Theatre0021/0024 add separate Web/native flows and sessions with narrow exact
 issuer/subject issuance; no Studio credential grants Listener authority.
-[Theatre identity](../../docs/architecture/theatre-identity.md) records pending combined
-verification, Android host activation and client/provider/device acceptance gaps.
+Admin0022 adds dedicated role decisions and append-only Admin-only revocation/audit, with no
+automatic runtime grants or authority over Studio, Theatre or producer resources.
+[Theatre identity](../../docs/architecture/theatre-identity.md) records mounted Web/native
+consumers and the user-authorized Android host source. Its [resumed evidence](../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026)
+separates actual common/PG/Android build results from NOT_RUN device/system-browser/secure-store/
+provider acceptance and the UNSUPPORTED canonical iOS framework gate.
+[Admin authorization](../../docs/architecture/admin-authorization.md) retains its separate live
+current-group, credential and least-privilege activation gates.
 Identity0018 alone grants no HTTP-role registry access. Production Brief
 migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
@@ -186,6 +193,17 @@ and Platform supplies owner activity. Studio cookies grant nothing here. Migrati
 public releases in the existing atomic publication transaction. The default playback adapter
 is explicitly unavailable; this is not real public delivery or production acceptance.
 See [evidence](../../docs/evidence/theatre-discovery.md).
+
+## Admin authorization and audit
+
+The [Admin policy](../../docs/architecture/admin-authorization.md) and
+[v1 contract](../../packages/contracts/admin-v1.md) define dedicated resource credentials,
+current system-group observation, exact registry actor and append-only atomic audit. Optional
+`CANTOS_ADMIN_OIDC_ISSUER` / `CANTOS_ADMIN_OIDC_SECRET` configure only the fixed Admin client;
+no Studio/Theatre/producer credential grants access. Missing config yields503 unavailable.
+Operator-applied function grants remain separate; see [Kanidm guide](../kanidm/README.md).
+There is no Admin UI, login client, role-grant/unblock endpoint or resource ACL bypass. Live
+Kanidm/custom current-group contract is NOT_RUN/unaccepted. Existing local-only host policy stays.
 
 ## Separate Theatre native identity
 

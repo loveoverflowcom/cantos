@@ -1,4 +1,4 @@
-# ADR 0023: A Studio-only OIDC BFF in the existing API
+# ADR 0024: A Studio-only OIDC BFF in the existing API
 
 - Status: proposed for production adoption; implemented for the authorized bounded PR2 slice
 - Decision owner: Cantos maintainers

@@ -122,7 +122,7 @@ pub(crate) fn verify_native_access(
     if header.typ.as_deref() != Some("at+jwt") {
         return Err(AuthError::InvalidToken);
     }
-    let body = verified_payload(token, keys)?;
+    let body = verify_signature(token, keys)?;
     let claims: AccessClaims =
         serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
     if claims.iss != issuer {
@@ -206,7 +206,7 @@ pub(crate) fn verify_for_client(
     if header.typ.as_deref().is_some_and(|v| v != "JWT") {
         return Err(AuthError::InvalidToken);
     }
-    let body = verified_payload(token, keys)?;
+    let body = verify_signature(token, keys)?;
     let claims: Claims = serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
     if claims.iss != issuer {
         return Err(AuthError::Issuer);
@@ -214,6 +214,7 @@ pub(crate) fn verify_for_client(
     if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
         return Err(AuthError::Audience);
     }
+    // No ambient clock/leeway. A callback proof must have been minted in the flow's lifetime.
     if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
         return Err(AuthError::Expired);
     }
@@ -231,7 +232,8 @@ pub(crate) fn verify_for_client(
     })
 }
 
-fn verified_payload(token: &str, keys: &JwkSet) -> Result<Vec<u8>, AuthError> {
+/// Shared crypto only: callers still validate their own credential purpose and claims.
+pub(crate) fn verify_signature(token: &str, keys: &JwkSet) -> Result<Vec<u8>, AuthError> {
     let kid = token_kid(token)?;
     let parts: Vec<_> = token.split('.').collect();
     if parts.len() != 3 {

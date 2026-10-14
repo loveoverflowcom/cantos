@@ -83,6 +83,7 @@ pub struct TokenPause {
     pub release: tokio::sync::Notify,
 }
 pub struct Data {
+    admin_groups: Mutex<Vec<String>>,
     pub origin: String,
     pub client_id: &'static str,
     pub signer: Mutex<Signer>,
@@ -119,6 +120,7 @@ impl MockProvider {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let data = Arc::new(Data {
+            admin_groups: Mutex::new(Vec::new()),
             origin,
             client_id,
             signer: Mutex::new(Signer::new("first")),
@@ -189,6 +191,45 @@ impl MockProvider {
             },
         );
         (pairs["state"].clone(), code)
+    }
+    /// Signed RFC9068-shaped resource fixture. It is not a real Kanidm credential.
+    pub fn resource(
+        &self,
+        subject: &str,
+        groups: &[&str],
+        change: Option<(&str, Value)>,
+    ) -> String {
+        let now = self.data.now.load(Ordering::SeqCst);
+        let mut claims = json!({"iss":self.issuer(),"sub":subject,"aud":self.data.client_id,"client_id":self.data.client_id,"iat":now,"exp":now+200,"cantos_admin_groups":groups});
+        if let Some((field, value)) = change {
+            claims[field] = value;
+        }
+        let signer = self.data.signer.lock().unwrap();
+        let message = format!(
+            "{}.{}",
+            B64.encode(
+                serde_json::to_vec(&json!({"alg":"ES256","kid":signer.kid,"typ":"at+jwt"}))
+                    .unwrap()
+            ),
+            B64.encode(serde_json::to_vec(&claims).unwrap())
+        );
+        let signature = signer
+            .key
+            .sign(&SystemRandom::new(), message.as_bytes())
+            .unwrap();
+        let token = format!("{message}.{}", B64.encode(signature.as_ref()));
+        self.data.access.lock().unwrap().insert(
+            token.clone(),
+            Access {
+                subject: subject.into(),
+                expires: now + 200,
+            },
+        );
+        *self.data.admin_groups.lock().unwrap() = groups.iter().map(|g| (*g).to_string()).collect();
+        token
+    }
+    pub fn set_admin_groups(&self, groups: &[&str]) {
+        *self.data.admin_groups.lock().unwrap() = groups.iter().map(|g| (*g).to_string()).collect();
     }
     pub fn expire_code(&self, code: &str) {
         self.data
@@ -378,7 +419,7 @@ async fn introspect(
     (
         StatusCode::OK,
         Json(
-            json!({"active":data.active.load(Ordering::SeqCst),"sub":value.subject,"exp":value.expires,"aud":data.client_id,"client_id":data.client_id,"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id)}),
+            json!({"cantos_admin_groups":*data.admin_groups.lock().unwrap(),"active":data.active.load(Ordering::SeqCst),"sub":value.subject,"exp":value.expires,"aud":data.client_id,"client_id":data.client_id,"iss":format!("{}/oauth2/openid/{}",data.origin,data.client_id)}),
         ),
     )
 }

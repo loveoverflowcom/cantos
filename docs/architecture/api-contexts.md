@@ -51,8 +51,8 @@ object keys. See [private storage](object-storage.md) and
 | Prefix | Who uses it | State |
 | --- | --- | --- |
 | `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Partially implemented; opt-in Studio OIDC sessions |
-| `/api/v1/theatre/*` | Listener discovery/playback/progress | Public Discovery/Playback and Library/Progress cores implemented; default playback unavailable and listener authentication denied; production acceptance pending |
-| `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
+| `/api/v1/theatre/*` | Listener discovery/playback/progress; separate Web/native identity | Public Discovery/Playback and Library/Progress cores plus opt-in identity implemented; default playback unavailable, unconfigured authentication denied; production acceptance pending |
+| `/api/v1/admin/*` | Separate platform authorization and audit | Opt-in [capability/revocation slice](admin-authorization.md); live provider acceptance pending |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
 | Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; separate [Publication v1](../../packages/contracts/publication-v1.md) core with default unavailable delivery |
 | Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../packages/contracts/private-content-reads-v1.md): protected GET/HEAD/Range and refreshable access; no listener access |

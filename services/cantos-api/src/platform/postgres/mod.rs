@@ -85,6 +85,7 @@ impl Store {
             .map_err(|_| StoreError::Unavailable)?;
         Ok(Self {
             pool,
+            admin: None,
             media_storage: None,
             studio_oidc: None,
             theatre_identity: None,

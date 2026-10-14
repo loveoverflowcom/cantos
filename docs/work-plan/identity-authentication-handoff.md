@@ -137,7 +137,7 @@ credential, grant or network configuration was created by this integration.
 [Theatre identity handoff](theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
 Web/CMP integration and exact implemented/deferred matrix. This source integration inherits the
 reviewed Studio/develop branch above, with Publication/Discovery/Library originals and Library's
-actual sealed authority seam. Its migration union is1–14,16–21,24,25 (22 entries);0020/0021 and
+actual sealed authority seam. The PR3 migration union is1–14,16–21,24,25 (22 entries);0020/0021 and
 all historical checksums remain unchanged. Native0024 and Studio0025 are additive. Admin0022
 belongs to the succeeding PR4; artwork0023 remains reserved and absent here.
 
@@ -154,3 +154,19 @@ rejected the source activation; the source-only proposal awaits a direct human e
 Live provider/client/grants/credentials/TLS and actual Web/native device/secure-store acceptance
 remain explicit gates. The parent review continues PR3 then PR4; this handoff claims neither
 completion of the four-PR campaign nor production activation.
+
+## PR4 current local source integration
+
+[Admin authorization](../architecture/admin-authorization.md) adds its dedicated exact
+`cantos-admin-api` access-token purpose, confidential introspection/current-group evidence,
+existing registry actor, local policy and required append-only audit. Its revocation endpoint
+changes only Admin access. Shared ES256 signature/Basic encoding plumbing supplies no role,
+session or resource authority to another surface.
+
+The Admin branch normally merges the reviewed Theatre/develop source above and retains each
+independent host opt-in, Studio request/response UUID fence and negotiated wire contract. Its
+migration union is1–14,16–22,24,25 (23 entries); published0022 bytes are unchanged and artwork0023
+remains absent. Existing Admin local/mock evidence precedes this dependency integration; fresh
+combined gates remain pending in the parent's resource lane. Keep the PR draft while Theatre's
+Android source exception and required integration checks are unresolved. No push, remote merge,
+production activation or live provider/account configuration follows from this local merge.

@@ -112,7 +112,7 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   API is split by surface into three route groups with separate routers, DTO modules, authentication
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
   core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
-  (reserved: empty router answering `404 not_found`; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
+  (opt-in [Admin capability/revocation and audit](admin-authorization.md); live provider acceptance pending; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
   Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog

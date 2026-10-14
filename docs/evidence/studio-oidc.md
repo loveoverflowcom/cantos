@@ -2,7 +2,7 @@
 
 Review boundary: opt-in Studio BFF credential/session integration in the existing development
 host. [Architecture/threat model](../architecture/studio-oidc.md),
-[ADR0023](../decisions/0023-studio-oidc-bff.md) and
+[ADR0023](../decisions/0024-studio-oidc-bff.md) and
 [operator policy](../../services/kanidm/README.md) separate implementation from deployment.
 No real provider/client/account/grant/TLS/container was activated or created.
 

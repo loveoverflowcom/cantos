@@ -271,6 +271,10 @@ opaque keysets and a fail-closed playback authorization port. Shared DTOs and st
 are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
 acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.
 
+[Admin v1](admin-v1.md) defines the dedicated backend capability/revocation responses and
+append-only-audit policy boundary. It has shared Rust DTOs, schema and synthetic fixtures; no
+Admin UI/client or live Kanidm acceptance is implied.
+
 ## Studio Protobuf wire pilot
 
 [Versioned policy and schema](protobuf/README.md) own the four actual Studio

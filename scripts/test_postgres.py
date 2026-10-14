@@ -120,7 +120,7 @@ def reap_completed_databases(env, cluster_url, retained):
 
 def retained_restart_databases():
     """Names only: credentials and source bodies never enter cleanup output."""
-    paths = (EVIDENCE / "restart.json", EDITOR_EVIDENCE / "editor-api-journey.json",
+    paths = (EVIDENCE / "admin-restart.json", EVIDENCE / "restart.json", EDITOR_EVIDENCE / "editor-api-journey.json",
              CATALOG_EVIDENCE / "restart.json", CATALOG_EVIDENCE / "http-restart.json",
              CATALOG_EVIDENCE / "audio-restart.json")
     return {json.loads(path.read_text())["database"] for path in paths if path.exists()}
@@ -710,6 +710,8 @@ def main():
         run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", server_options, "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
+        run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
@@ -798,6 +800,8 @@ def main():
             audio_host.wait(timeout=5)
             audio_host = None
             run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-m", "fast", "-w", "restart"], env=env)
+            run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "admin_recovery_after_database_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "admin-restart-tests.log")
+            print("PASS: Admin PostgreSQL restart + immutable block/audit + original-operation receipt under fresh verified synthetic binding")
             run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_postgres", "--locked", "--offline", "catalog_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-restart-tests.log")
             print("PASS: Catalog PostgreSQL restart + exact work/unit snapshots + migration replay + original-operation replay + independent row counts")
             run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "catalog_http_recovery_after_server_restart", "--", "--ignored", "--exact", "--test-threads=1"], env=env, output=EVIDENCE / "catalog-http-restart-tests.log")
