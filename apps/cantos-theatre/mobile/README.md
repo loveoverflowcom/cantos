@@ -189,7 +189,7 @@ discards it.
 | --- | --- | --- |
 | Mock database | `sandbox/database/` | `FakeStorageDatabase`, its read-only `FakeStorageState` and the `FakePersistentProgressPort` connection behind the unchanged `ProgressPort` |
 | Mock sessions / presets | `sandbox/sessions/` | `FakeStorageSession` seeds: `Demo` (the `AppContainer.mock` default), `Fresh` and `Restored` |
-| Mock app documents / directory | absent | no file I/O consumer exists; a fake file system for download staging waits for the downloads/local metadata ADR |
+| Mock app documents / directory | absent | no file I/O consumer exists; [ADR 0026](../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) keeps a file-system double for #16 download staging, never for SQLite |
 
 `FakeStorageDatabase` is a deterministic session store for testing the Nghe tiếp / Đã lưu /
 Lịch sử / Dấu trang UX before a local metadata store is chosen.
@@ -218,6 +218,14 @@ was removed rather than kept as a second fake.
   The `Fresh`/`Restored` Android `@Preview` wrappers and the JVM UI/capture tests render that
   function; `CantosDemoApp()` and the Android, iOS and desktop hosts use `AppContainer.mock(scope)`,
   the `Demo` preset over its own database. There are no interactive storage controls in the app UI.
+
+`ProgressPortContract` in `commonTest/.../ports` is the adapter-agnostic port behavior from
+ADR 0026: exact round trip, whole-snapshot replacement, shared reopened connections, isolated
+stores and no commit after cancellation. It is bound to this fake with and without latency;
+a future durable adapter must pass the same suite, while latency, faults and reset fencing stay
+fake-only. The ADR substitutes each I/O layer with its own double: this fake for listening, a
+file-system double for staged bytes and the real SQL engine (in memory or a temporary file) for
+a metadata store. No storage library or durable adapter is adopted.
 
 `cargo xtask theatre-demo verify` runs these common/JVM tests. They are `example-tested` /
 `mock-integration-tested` evidence over a fake: they establish no durable persistence, SQLite
