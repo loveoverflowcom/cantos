@@ -27,7 +27,7 @@ Feature packages cannot manipulate another feature's internal state. No circular
 | Domain | `domain/playback`: `PlaybackState`, `PlaybackEvent`, `PlaybackEffect`, `reducePlayback`; `domain/publication` and `domain/listening` hold synthetic catalog/listening rules |
 | Application | `application/{playback,catalog,listening,preferences}`: independent authorities, event processing and effect interpretation |
 | Ports | `ports/{MediaEngine,CatalogPort,ProgressPort}`: required capabilities, no vendor implementations |
-| Adapters / infrastructure | `adapters/mock`: fake acknowledgements, synthetic fixtures and memory storage; no production HTTP/native audio/durable storage |
+| Adapters / infrastructure | `adapters/mock`: fake acknowledgements and synthetic fixtures; `adapters/mock/sandbox/{database,sessions}`: the one memory-only fake storage database and its presets; no production HTTP/native audio/durable storage |
 | Presentation | `features/shell/presentation`: stateless Compose screen functions; `app/CantosDemoApp.kt` binds projections/intents |
 | Composition root | `app/AppContainer.kt` wires owners/ports; Android `CantosDemoApplication`, iOS `MainViewController`/SwiftUI owner and desktop host supply lifetimes |
 

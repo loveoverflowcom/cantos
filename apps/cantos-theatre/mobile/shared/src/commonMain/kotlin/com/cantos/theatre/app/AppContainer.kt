@@ -1,10 +1,13 @@
 package com.cantos.theatre.app
 
 import com.cantos.theatre.adapters.mock.CatalogScenario
-import com.cantos.theatre.adapters.mock.MemoryProgressPort
 import com.cantos.theatre.adapters.mock.MockCatalogPort
 import com.cantos.theatre.adapters.mock.MockMediaEngine
 import com.cantos.theatre.adapters.mock.mockInventory
+import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
+import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
+import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
 import com.cantos.theatre.adapters.mock.seedListening
 import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.adapters.mock.toPlaybackSource
@@ -252,18 +255,22 @@ class AppContainer(
     }
 
     companion object {
-        /** [progressPort] receives the exact listening seed the controller starts with. */
+        /**
+         * Every mock mount stores listening data in one fake storage database; [storage]
+         * receives the exact listening seed the controller starts with. Reset restores the
+         * [FakeStorageSession.Demo] preset.
+         */
         fun mock(
             scope: CoroutineScope,
-            seed: DemoState = DemoState(),
-            progressPort: (ListeningSnapshot) -> ProgressPort = ::MemoryProgressPort,
+            seed: DemoState = FakeStorageSession.Demo.seed(),
+            storage: (ListeningSnapshot) -> FakeStorageDatabase = ::FakeStorageDatabase,
         ): AppContainer {
             val inventory = mockInventory()
             val start = startState(inventory, seed)
-            val defaults = startState(inventory, DemoState())
+            val defaults = startState(inventory, FakeStorageSession.Demo.seed())
             val port = MockCatalogPort(inventory, seed.catalogMode.toScenario())
             val container = AppContainer(
-                scope, port, progressPort(start.listening), MockMediaEngine(), start, defaults,
+                scope, port, FakePersistentProgressPort(storage(start.listening)), MockMediaEngine(), start, defaults,
                 changeScenario = port::setScenario,
             )
             if (seed.catalogMode != DemoCatalogMode.Ready) container.catalog.refresh()

@@ -1,10 +1,11 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.adapters.mock.MemoryProgressPort
 import com.cantos.theatre.adapters.mock.MockCatalogPort
 import com.cantos.theatre.adapters.mock.MockCommandKind
 import com.cantos.theatre.adapters.mock.MockMediaEngine
 import com.cantos.theatre.adapters.mock.mockInventory
+import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
 import com.cantos.theatre.adapters.mock.toPlaybackSource
 import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.demo.DemoEvent
@@ -47,7 +48,7 @@ class AppContainerTest {
         val point = PlaybackSnapshot(requireNotNull(episode.toPlaybackSource()), 768_000L, 1000)
         val listening = ListeningSnapshot(progress = listOf(ProgressRecord(key, point.positionMs, episode.durationMs)))
         val seed = AppStartState(inventory, listening, point)
-        return AppContainer(this, MockCatalogPort(inventory), MemoryProgressPort(listening), engine, seed)
+        return AppContainer(this, MockCatalogPort(inventory), FakePersistentProgressPort(FakeStorageDatabase(listening)), engine, seed)
     }
 
     @Test
@@ -57,7 +58,7 @@ class AppContainerTest {
         val point = PlaybackSnapshot(requireNotNull(episode.toPlaybackSource()), 768_000L, 1000)
         val initial = ListeningSnapshot()
         val engine = MockMediaEngine()
-        val app = AppContainer(this, MockCatalogPort(inventory), MemoryProgressPort(initial), engine,
+        val app = AppContainer(this, MockCatalogPort(inventory), FakePersistentProgressPort(FakeStorageDatabase(initial)), engine,
             AppStartState(inventory, initial, point))
         try {
             advanceUntilIdle()
@@ -250,7 +251,7 @@ class AppContainerTest {
         val other = EpisodeKey(WorkKey("den-khuya"), 0)
         val mismatched = ListeningSnapshot(progress = listOf(ProgressRecord(other, 10_000L, 60_000L)))
         val engine = MockMediaEngine(acknowledgeAutomatically = false)
-        val app = AppContainer(this, MockCatalogPort(inventory), MemoryProgressPort(mismatched), engine,
+        val app = AppContainer(this, MockCatalogPort(inventory), FakePersistentProgressPort(FakeStorageDatabase(mismatched)), engine,
             AppStartState(inventory, mismatched, point))
         try {
             advanceUntilIdle()
@@ -479,7 +480,7 @@ class AppContainerTest {
         val point = PlaybackSnapshot(requireNotNull(episode.toPlaybackSource()), 768_000L, 1000)
         val baseline = ListeningSnapshot(progress = listOf(ProgressRecord(key, point.positionMs, episode.durationMs)))
         val app = AppContainer(
-            CoroutineScope(coroutineContext + dispatcher), MockCatalogPort(inventory), MemoryProgressPort(baseline),
+            CoroutineScope(coroutineContext + dispatcher), MockCatalogPort(inventory), FakePersistentProgressPort(FakeStorageDatabase(baseline)),
             MockMediaEngine(acknowledgeAutomatically = false), AppStartState(inventory, baseline, point),
         )
         try {

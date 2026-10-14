@@ -187,7 +187,9 @@ API sequence above. GitHub owns status.
   The [fake storage simulator](../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
   ([#109](https://github.com/loveoverflowcom/cantos/issues/109)) exercises shared-session
   load/store/recreate, latency, faults and reset fencing before the local metadata store ADR;
-  it is memory-only and supplies no durable persistence or process-death evidence.
+  it is memory-only and supplies no durable persistence or process-death evidence. Its database
+  and presets form one [mock app sandbox](../../apps/cantos-theatre/mobile/docs/architecture.md#mock-app-sandbox)
+  that also backs `AppContainer.mock`, replacing the separate memory progress adapter.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 

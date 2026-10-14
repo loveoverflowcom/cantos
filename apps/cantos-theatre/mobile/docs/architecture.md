@@ -42,7 +42,8 @@ still needs device/simulator evidence; compiled common/JVM tests prove the app w
 The root derives `DemoState` for rendering; it does not own a writable aggregate mirroring the
 controllers. Query, timer selection, confirmation and scroll remain screen-local. The legacy
 library-tab seed is diagnostic compatibility only; no library tabs are rendered. Fixture data
-is under `adapters/mock`, separate from presentation metadata and domain rules. The current
+is under `adapters/mock`, and simulated local storage under its
+[`sandbox`](#mock-app-sandbox), separate from presentation metadata and domain rules. The current
 six presentation identifiers are diagnostic fixture identifiers, not production publication IDs.
 No DownloadedAsset/offline subsystem is added without a consumer.
 
@@ -57,7 +58,8 @@ flowchart LR
   Playback --> Core[Pure playback transition]
   Playback -->|ordered effects| Engine[MediaEngine / MockMediaEngine]
   Engine -->|fenced observations| Playback
-  Listening --> PP[ProgressPort / MemoryProgressPort or FakePersistentProgressPort]
+  Listening --> PP[ProgressPort / FakePersistentProgressPort]
+  PP --> DB[(Sandbox FakeStorageDatabase)]
   Catalog --> View[Derived projection]
   Playback --> View
   Listening --> View
@@ -72,6 +74,45 @@ documents read-only exposure, equality conflation and potentially repeated updat
 No effect or I/O is placed inside those transforms. The MediaEngine seam is mock-scoped;
 Media3/AVFoundation, backend-authorized publications and production lifecycle policy are future
 reviewed consumers, not implementations implied by these interfaces.
+
+## Mock app sandbox
+
+All mock and fake adapters are under `adapters/mock`; simulated local storage and its presets
+form one sandbox subpackage. Real adapters (`adapters/http`, `adapters/identity`,
+`adapters/protobuf`) never import it.
+
+```text
+shared/src/commonMain/kotlin/com/cantos/theatre/
+  adapters/mock/
+    DemoFixtures.kt, DemoMapping.kt   synthetic catalog corpus and fixture <-> domain mapping
+    MockCatalogPort.kt                scripted CatalogPort scenarios
+    MockMediaEngine.kt                command recorder and fake acknowledgements, no audio
+    sandbox/
+      database/FakeStorageDatabase.kt          serialized memory database, faults, epoch reset
+      database/FakePersistentProgressPort.kt   ProgressPort connection, opt-in latency
+      sessions/FakeStorageSessions.kt          FakeStorageSession presets: Demo, Fresh, Restored
+  app/
+    AppContainer.kt                   AppContainer.mock(scope, seed = Demo, storage = ::FakeStorageDatabase)
+    FakeStorageSessionApp.kt          mountFakeStorageSession / FakeStorageSessionApp wiring
+shared/src/androidMain/.../app/TheatrePreviews.kt  CantosDemoApp(...) and FakeStorageSessionApp(Fresh|Restored)
+shared/src/commonTest/.../adapters/mock/sandbox/database/FakeStorageDatabaseTest.kt
+shared/src/desktopTest/.../adapters/mock/sandbox/database/FakeStorageContentionTest.kt
+```
+
+| Consumer | Entry | Storage |
+| --- | --- | --- |
+| Android, iOS and desktop demo hosts; `CantosDemoApp()` | `AppContainer.mock(scope)` | `Demo` preset in a new database |
+| `CantosDemoApp(initialState = …)` previews and JVM tests | `AppContainer.mock(scope, seed)` | caller seed in a new database |
+| Fresh/Restored previews, UI/capture tests | `FakeStorageSessionApp(preset)` | preset in a new database exposed by the mount |
+| Controller/application tests | `FakePersistentProgressPort(FakeStorageDatabase(seed), config)` | explicit database, optionally shared by several ports |
+
+Dependency direction is unchanged: `domain`, `ports` and `application` cannot import
+`adapters` (the repository `check_theatre_architecture` guard rejects it), and `features` cannot
+import `adapters` or `app`. Sandbox code imports only `domain`, `ports`, `demo` and coroutines;
+it never imports `app`, so the composition-root mount stays in `app/FakeStorageSessionApp.kt`.
+The former `MemoryProgressPort` was a single-port special case of the default database and is
+removed. There is no mock app documents directory: no consumer performs file I/O, and a fake
+file system for download staging belongs to the future downloads/local metadata decision.
 
 ## Playback and reset invariants
 

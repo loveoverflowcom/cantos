@@ -14,6 +14,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
+import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoLibraryTab
 import com.cantos.theatre.demo.DemoEpisodeId
@@ -224,7 +226,8 @@ class DemoCaptureTest {
 
     @Test
     fun fresh_and_restored_fake_storage_sessions_are_captured_at_390_by_844() {
-        FakeStorageSession.entries.forEach { session ->
+        // The Demo preset is the CantosDemoApp default, already captured above.
+        listOf(FakeStorageSession.Fresh, FakeStorageSession.Restored).forEach { session ->
             val label = session.name.lowercase()
             capture("jvm-light-$label-session-390x844", 390, 844, session.seed(), session = session)
             capture(
