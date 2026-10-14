@@ -97,7 +97,7 @@ pub enum Gate {
 /// Integration test targets of `cantos-api` for metadata, wire, Script IR and read-only media
 /// admission. Tool-backed ignored tests belong to `Gate::AudioInspection`; database tests
 /// belong to `Gate::Postgres`.
-pub const API_CONTRACT_TESTS: [&str; 12] = [
+pub const API_CONTRACT_TESTS: [&str; 13] = [
     "script_ir",
     "studio_contract",
     "wire_contract",
@@ -110,6 +110,7 @@ pub const API_CONTRACT_TESTS: [&str; 12] = [
     "audio_intake_contract",
     "publication_contract",
     "listener_library_contract",
+    "admin_contract",
 ];
 
 impl Gate {

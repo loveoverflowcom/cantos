@@ -219,6 +219,49 @@ async fn content_identity_routes_exist_only_in_current_studio_and_never_share_it
 }
 
 #[tokio::test]
+async fn admin_configuration_is_unavailable_without_admin_specific_verifier() {
+    let reply = call("GET", &format!("{ADMIN_BASE}/capabilities"), true, "").await;
+    assert_eq!(reply.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(reply.body["code"], "unavailable");
+    for base in [STUDIO_BASE, THEATRE_BASE, API_BASE] {
+        let reply = call("GET", &format!("{base}/capabilities"), true, "").await;
+        assert_eq!(reply.status, StatusCode::NOT_FOUND);
+    }
+}
+
+#[tokio::test]
+async fn admin_raw_transport_errors_keep_safe_json_contract_without_database_access() {
+    for body in [
+        "{",
+        r#"{}"#,
+        r#"{"operation_id":3}"#,
+        r#"{"operation_id":"x","actor_id":"forged"}"#,
+    ] {
+        let reply = call(
+            "POST",
+            &format!("{ADMIN_BASE}/actors/minh/revoke-access"),
+            false,
+            body,
+        )
+        .await;
+        assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+        assert_eq!(reply.body["code"], "invalid_request");
+    }
+    let reply = call(
+        "POST",
+        &format!("{ADMIN_BASE}/actors/%FF/revoke-access"),
+        false,
+        r#"{"operation_id":"x"}"#,
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+    assert_eq!(reply.body["code"], "invalid_request");
+    let reply = call("POST", &format!("{ADMIN_BASE}/capabilities"), false, "{}").await;
+    assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+    assert_eq!(reply.body["code"], "invalid_request");
+}
+
+#[tokio::test]
 async fn private_audio_reads_require_studio_authentication_and_have_no_other_surface_alias() {
     for suffix in [
         format!("/scripts/{SCRIPT}/audio-intents/{SCRIPT}/bytes"),

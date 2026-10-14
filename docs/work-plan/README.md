@@ -266,8 +266,11 @@ verification was pending and Android INTERNET/callback registration and host mou
 unapplied after automatic approval review rejected the source activation. The direct human
 exception and those source steps are now resolved in the resumed appendix below.
 Provider/device/secure-store and native playback acceptance remain separate.
-Admin0022 follows in PR4; this queue does not claim the four-PR campaign complete or accept a
-guest-import policy.
+The [Admin0022 slice and handoff](admin-authorization-handoff.md) adds dedicated resource-token
+verification, current role decisions, Admin-only access revocation and append-only audit in PR4.
+Its fresh combined verification follows the reviewed develop98f247e/Theatre/storage/IDE merge;
+this queue does not claim campaign completion, live-provider/native playback acceptance or a
+guest-import policy. GitHub owns execution/merge status.
 
 ## Resumed native identity source and next acceptance — 14 October 2026
 
@@ -289,7 +292,7 @@ suites, on source
 `ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. The previous 13 October Web/runtime counts and manifest
 remain historical, not a new native acceptance record.
 
-The current branch normally inherits storage migration0015 from develop and retains the sorted
+The resumed Theatre snapshot normally inherits storage migration0015 from develop and retains the sorted
 23-entry registry 1–21,24,25 without editing historical bytes. Failed persistence/unknown revoke
 retains the exact native credential for acknowledged retry; pending/unavailable denial with
 lost/corrupt credentials remains closed and controlled recovery is still unassigned. No live
@@ -307,3 +310,49 @@ and caches from Explorer, search and recursive watching when the repository root
 This tooling change does not reorder the product queue. Verify Explorer/Search behavior
 on a VS Code host before editor acceptance, including separately opened Theatre Mobile,
 UI-system CMP and Android preview Gradle roots; GitHub owns PR execution status.
+
+## Historical Admin integration checkpoint — 13 October 2026
+
+This historical checkpoint superseded provisional descriptions for its exact source only.
+Fresh verification after the resumed develop merge is pending; these prior results are not
+promoted to current integrated acceptance.
+The [Admin handoff](admin-authorization-handoff.md#current-independent-integration-handoff) and
+[evidence](../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
+pin the normally integrated implementation `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
+`82fba427a0bd4af02f4a48e78a69dd8bbcb1281f`. Full `cargo xtask preflight --changed-only` reports
+PASS for all 17 gates with no skips; mutation killed 9 with 0 survivors. Its 23-entry registry
+preserves original identity/Admin migrations; artwork0023 and storage0015 stay with their owners.
+Inherited Studio/Theatre HTTP negotiation, private session fences and separately scoped credentials
+remain intact. Admin revocation affects only its local platform access, with current admission,
+operation replay and required append-only audit; it supplies no resource ACL or global logout.
+
+In that snapshot, PR101 remained draft while the Android INTERNET/callback/host source
+exception was unresolved and PR103 kept that dependency boundary. The authorized source step
+is now resolved and PR101 merged at develop `98f247e`; the remaining native
+system-browser/secure-store/device acceptance precedes authorized live-provider lifecycle and
+production protection/recovery/retention gates. Admin's live custom current-group contract is
+unaccepted; the five-second observation witness does not make remote membership SQL-atomic.
+Keep activation closed while those facts are unproved. The source and local/mock results do not
+complete native playback, durable outbox, guest-import/linking policy, broad listening issues or
+the four-PR merge campaign. GitHub owns execution/merge status; this queue records the next work.
+
+Current Admin integration normally consumes reviewed develop `98f247e`, including storage0015,
+editor workspace hygiene and the authorized Theatre Android source. Its combined registry is
+1–22,24,25 (24 entries) with historical bytes unchanged. Tested source `eccf31684524572eef3048e75a9abd08d52c6581`,
+tree `d3f3b31ba7ab28969b47a1008d2200bf8b7bed92`, passed all 17 local gates without skips: 332 repository
+Python tests, 9 killed/0 survived Script IR mutants, 207 common/JVM tests with 0 failures/errors/skips,
+and actual PostgreSQL 14 Admin+1 restart, 16 Theatre Web/7 native/18 Studio plus all inherited
+HTTP/process-kill/restart/storage/migration/replay/codec/publication suites. The
+[resumed Admin evidence](../evidence/admin-authorization.md#resumed-integrated-review-and-acceptance--14-october-2026)
+pins the 10-record/12-source/67-raw-proof manifest at SHA256
+`1a0336cf7b598ee416fc91dc5f70936bdd6c8a56447fa0cfafb0a3d179e507dc`. The 10 issued-Admin rendition
+401 cases are isolation assurance, not a reproduced production defect or storage IO claim.
+GitHub owns PR103 push/merge status; local evidence does not close the separate acceptance gates.
+Later develop PR108 CMP extraction `648c5b76` was normally integrated at `980fca66`, tree
+`fdb22b5a`. Its actual proportional preflight passed repository/rust-format/theatre-cmp-demo,
+including207 common tests; the canonical mock Android build passed. The independent source review
+preserves25 existing function bodies/signatures, apart from required visibility. The exact
+`eccf316` full17 record remains separate from this later supplement, SHA256
+`527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`.
+Production stays closed until live current-group/client/credential/rotation and named native
+OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.

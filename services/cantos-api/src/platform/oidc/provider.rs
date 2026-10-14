@@ -429,7 +429,8 @@ impl Provider {
     }
 }
 
-fn oauth_component(value: &str) -> String {
+// RFC6749§2.3.1 form-encodes each credential before generic HTTP Basic encoding.
+pub(crate) fn oauth_component(value: &str) -> String {
     url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
 }
 

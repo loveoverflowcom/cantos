@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/admin/v1",
+  "oneOf": [{"$ref":"#/$defs/capability"},{"$ref":"#/$defs/revocation"}],
+  "$defs": {
+    "capability": {
+      "type":"object", "additionalProperties":false,
+      "required":["actor_id","role","source","valid_until","audit_id"],
+      "properties": {
+        "actor_id":{"type":"string","pattern":"^[a-z0-9_-]{1,64}$"},
+        "role":{"enum":["auditor","identity_operator"]},
+        "source":{"const":"verified_issuer_group_and_current_introspection"},
+        "valid_until":{"type":"integer","minimum":1},
+        "audit_id":{"type":"string","format":"uuid"}
+      }
+    },
+    "revocation": {
+      "type":"object", "additionalProperties":false,
+      "required":["operation_id","target_actor_id","revoked","audit_id"],
+      "properties": {
+        "operation_id":{"type":"string","format":"uuid"},
+        "target_actor_id":{"type":"string","pattern":"^[a-z0-9_-]{1,64}$"},
+        "revoked":{"const":true},
+        "audit_id":{"type":"string","format":"uuid"}
+      }
+    }
+  }
+}

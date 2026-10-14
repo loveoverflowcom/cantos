@@ -105,6 +105,7 @@ TABLE_OWNER = {
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
     "actor_external_identities": "platform",
+    "admin_audit": "platform", "admin_operations": "platform", "admin_access_revocations": "platform",
     "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "theatre_identity_flows": "platform", "theatre_identity_sessions": "platform",
     "theatre_native_flows": "platform", "theatre_native_sessions": "platform",
@@ -596,7 +597,7 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
-        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/oidc/core.rs")}
+        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/oidc/core.rs"), Path("platform/admin/domain.rs")}
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")

@@ -76,7 +76,7 @@ Sources: [upstream configuration](https://kanidm.github.io/kanidm/stable/server_
 
 ## Studio OIDC operator boundary
 
-[ADR0023](../../docs/decisions/0023-studio-oidc-bff.md) and the
+[ADR0023](../../docs/decisions/0024-studio-oidc-bff.md) and the
 [credential/session architecture](../../docs/architecture/studio-oidc.md) record exact policy.
 This directory still contains no identity-provider code. The API integration never starts Kanidm,
 recovers admin, creates grants/credentials, persists a secret or changes TLS/network permissions.
@@ -165,14 +165,42 @@ These are documentation/test grants, not an executed persistent role configurati
 Native `cantos-theatre-native` has an opt-in public-client code path with exact callback
 `com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Bounded token exchange,
 access-token signature/purpose verification, current introspection, exact registry issuance and
-separate opaque native sessions are implemented source, awaiting current combined gates. Runtime
-needs SELECT on `actors`/`theatre_native_sessions`, UPDATE(revoked,revocation_pending) on native
+separate opaque native sessions are implemented; scoped local evidence is recorded in the
+[resumed Theatre ledger](../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+Runtime needs SELECT on `actors`/`theatre_native_sessions`, UPDATE(revoked,revocation_pending) on native
 sessions, SELECT/INSERT/UPDATE on native flows, and EXECUTE on
 `theatre_native_finish(uuid,text,text,text,bytea,bytea,text,bigint,uuid)` plus the existing Listener
 lock/Library grants. These are reviewed deployment requirements, not live role changes.
-iOS host code is opt-in; Android source manifest/host activation remains held after automatic
-approval rejection. Provider public-client registration/scopes, OS storage/browser/device
-acceptance, TLS/credentials and production activation are unperformed gates. Do not issue Web
-BFF sessions as native bearer tokens. See
+iOS host code remains opt-in; the canonical local iOS framework gate is UNSUPPORTED without the
+required installed Kotlin/Native 2.2.20 compiler. The user-authorized Android manifest and
+Application/MainActivity source is mounted and its canonical mock Android build passed. This
+source integration installed no app and changed no OS/device network or TLS setting. Provider
+public-client registration/scopes, OS storage/system-browser/device/lifecycle acceptance,
+live TLS/credentials and production activation remain NOT_RUN/closed. Do not issue Web BFF
+sessions as native bearer tokens. See
 [Theatre architecture](../../docs/architecture/theatre-identity.md) and
 [handoff](../../docs/work-plan/theatre-identity-handoff.md).
+
+## Admin resource contract (opt-in; no live acceptance)
+
+Admin uses a **separate** fixed `cantos-admin-api` resource client and exact issuer, not Studio,
+Theatre, `idm_admins`, an operator token or a producer grant. The
+[policy](../../docs/architecture/admin-authorization.md) requires both a signed dedicated
+`cantos_admin_groups` claim and a current authenticated introspection observation of that same
+claim. Allowed values map only to `auditor` and `identity_operator`. Missing/unknown/stale/current
+role removal fails closed; local Admin block is authoritative regardless of the provider.
+
+A default provider configuration is **not sufficient**: no live evidence establishes custom
+claim freshness in Kanidm introspection. This PR implements the actual verifier and refusal path,
+not an OAuth client/claim/grant bootstrap or end-to-end login. Do not enable it by merely copying a
+sample secret/claim map or treating token-time groups as current membership. An authorized provider
+acceptance task must establish real current-group removal, disable, expiry, wrong issuer/audience/
+keys and rotation before activation; otherwise leave Admin unavailable. No live credentials or
+security settings are created by this slice.
+
+For an operator-prepared local test deployment only, migration0022 requires explicit EXECUTE on
+`admin_identity_facts(text,text,text)`, `admin_append_audit(uuid,text,text,text,text,uuid)`,
+`admin_operation(text,uuid)` and `admin_revoke_access(text,uuid,text,uuid)` to the runtime role.
+Do not grant direct INSERT/UPDATE/DELETE/TRUNCATE or SELECT on Admin tables or the registry. These
+functions are privileged effects, not an authentication mechanism. Audit outage denies success;
+there is no local block deletion/unblock routine. This documentation grants no account rights.
