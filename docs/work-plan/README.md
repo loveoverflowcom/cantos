@@ -196,6 +196,9 @@ API sequence above. GitHub owns status.
   it is memory-only and supplies no durable persistence or process-death evidence. Its database
   and presets form one [mock app sandbox](../../apps/cantos-theatre/mobile/docs/architecture.md#mock-app-sandbox)
   that also backs `AppContainer.mock`, replacing the separate memory progress adapter.
+  [ADR 0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) records the
+  per-layer storage test doubles and adoption gates and adds the shared `ProgressPort` contract
+  suite; Okio/SQLDelight-style dependencies wait for their #16/#17 consumers.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 

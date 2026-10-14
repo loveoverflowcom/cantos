@@ -95,6 +95,8 @@ shared/src/commonMain/kotlin/com/cantos/theatre/
     AppContainer.kt                   AppContainer.mock(scope, seed = Demo, storage = ::FakeStorageDatabase)
     FakeStorageSessionApp.kt          mountFakeStorageSession / FakeStorageSessionApp wiring
 shared/src/androidMain/.../app/TheatrePreviews.kt  CantosDemoApp(...) and FakeStorageSessionApp(Fresh|Restored)
+shared/src/commonTest/.../ports/ProgressPortContract.kt             adapter-agnostic port contract (ADR 0026)
+shared/src/commonTest/.../adapters/mock/sandbox/database/FakePersistentProgressPortContractTest.kt
 shared/src/commonTest/.../adapters/mock/sandbox/database/FakeStorageDatabaseTest.kt
 shared/src/desktopTest/.../adapters/mock/sandbox/database/FakeStorageContentionTest.kt
 ```
@@ -111,8 +113,11 @@ Dependency direction is unchanged: `domain`, `ports` and `application` cannot im
 import `adapters` or `app`. Sandbox code imports only `domain`, `ports`, `demo` and coroutines;
 it never imports `app`, so the composition-root mount stays in `app/FakeStorageSessionApp.kt`.
 The former `MemoryProgressPort` was a single-port special case of the default database and is
-removed. There is no mock app documents directory: no consumer performs file I/O, and a fake
-file system for download staging belongs to the future downloads/local metadata decision.
+removed. There is no mock app documents directory: no consumer performs file I/O.
+[ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed)
+keeps this database as the listening double, assigns a file-system double to #16 download
+staging and the real SQL engine to a future metadata store, and binds any durable `ProgressPort`
+to the shared `ProgressPortContract` this fake already passes.
 
 ## Playback and reset invariants
 

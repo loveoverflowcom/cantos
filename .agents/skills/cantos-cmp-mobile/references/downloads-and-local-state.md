@@ -115,6 +115,9 @@ titles, emails or signed URLs; hashing an email does not anonymize it.
 mobile.md requires an ADR for the local metadata store. SQLDelight and Room KMP are candidates;
 evaluate target support, migration tooling and transaction semantics on both platforms. A
 key-value store (DataStore KMP is a candidate) suits settings only.
+[ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed)
+fixes the test doubles per layer (never SQLite over a fake file system), the directory classes
+and the adoption gates, and requires a durable `ProgressPort` to pass the shared contract suite.
 
 - Every row is keyed by account scope. Download rows reference publication and asset checksum,
   never a URL.
