@@ -3,8 +3,8 @@
 
 use std::net::{Ipv4Addr, SocketAddr};
 
-/// Rust version every package declares and CI pins (`rust-version` / `RUSTUP_TOOLCHAIN`).
-pub const REQUIRED_RUST: &str = "1.87";
+/// Rust version every package declares and CI pins (`rust-version` / `rust-toolchain.toml`).
+pub const REQUIRED_RUST: &str = "1.98.1";
 /// Trunk version the web READMEs document.
 pub const TRUNK_VERSION: &str = "0.21.14";
 /// Gradle version the checked-in wrappers pin (`gradle-wrapper.properties`); the preferred install.
@@ -134,6 +134,18 @@ mod tests {
 
     #[test]
     fn rust_version_matches_every_package() {
+        let pin: toml::Value = toml::from_str(&read("rust-toolchain.toml")).unwrap();
+        let toolchain = &pin["toolchain"];
+        assert_eq!(toolchain["channel"].as_str(), Some(REQUIRED_RUST));
+        assert_eq!(toolchain["profile"].as_str(), Some("minimal"));
+        assert_eq!(
+            toolchain["components"].as_array().unwrap(),
+            &[toml::Value::from("rustfmt"), toml::Value::from("clippy")]
+        );
+        assert_eq!(
+            toolchain["targets"].as_array().unwrap(),
+            &[toml::Value::from(WASM_TARGET)]
+        );
         for manifest in [
             "services/cantos-api/Cargo.toml",
             "apps/cantos-forge/Cargo.toml",
@@ -145,6 +157,13 @@ mod tests {
         ] {
             assert!(
                 read(manifest).contains(&format!("rust-version = \"{REQUIRED_RUST}\"")),
+                "{manifest}"
+            );
+            let package: toml::Value = toml::from_str(&read(manifest)).unwrap();
+            assert_eq!(package["package"]["edition"].as_str(), Some("2021"));
+            assert_eq!(
+                package["package"]["rust-version"].as_str(),
+                Some(REQUIRED_RUST),
                 "{manifest}"
             );
         }

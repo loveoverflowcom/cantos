@@ -2,7 +2,7 @@
 name = "xtask"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.87"
+rust-version = "1.98.1"
 publish = false
 description = "Repository-level build, run and verification surface for Cantos (cargo xtask)"
 

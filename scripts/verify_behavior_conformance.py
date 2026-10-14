@@ -138,7 +138,7 @@ def decode_trace(raw):
 
 def snapshot(root, behavior):
     """Pin implementation, fixture, compiler configuration and comparison inputs."""
-    paths = {SCRIPT, "scripts/test_verify_behavior_conformance.py", "Cargo.toml", "Cargo.lock", ".cargo/config.toml"}
+    paths = {SCRIPT, "scripts/test_verify_behavior_conformance.py", "Cargo.toml", "Cargo.lock", ".cargo/config.toml", "rust-toolchain.toml"}
     for directory in ("services/cantos-api", "packages/contracts/api"):
         paths.add(directory + "/Cargo.toml")
         paths.update(str(path.relative_to(root)) for path in (root / directory / "src").rglob("*.rs"))
@@ -307,13 +307,18 @@ def compiler_configuration(root, behavior):
 
 
 def implementation_tools(root, behavior):
+    try:
+        pin = tomllib.loads(behavior.regular(root / "rust-toolchain.toml").decode())["toolchain"]["channel"]
+    except (KeyError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise ConformanceError("invalid production toolchain pin") from error
+    require(isinstance(pin, str) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", pin), "implementation observer requires an exact stable toolchain pin")
     identity = {}
     for name in ("cargo", "rustc"):
         executable = shutil.which(name)
         require(executable is not None, "missing " + name + " for independent implementation observer")
         args = [executable, "--version"] + (["--verbose"] if name == "rustc" else [])
         probe = behavior.process(args, root)
-        require(probe.returncode == 0 and re.match(name + r" 1\.87\.0(?: |$)", probe.stdout), "implementation observer requires " + name + " 1.87.0")
+        require(probe.returncode == 0 and re.match(re.escape(name + " " + pin) + r"(?: |$)", probe.stdout), "implementation observer requires " + name + " " + pin)
         identity[name] = {"invocation": executable, "version": probe.stdout.strip(),
                           "launcherSha256": behavior.digest(Path(executable).resolve(), 256 * 1024 * 1024)}
     sysroot = behavior.process([identity["rustc"]["invocation"], "--print", "sysroot"], root)

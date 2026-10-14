@@ -106,7 +106,7 @@ cannot settle Apple compilation, device integer behavior or Native runtime alloc
 
 ## Reproduction through the existing verification route
 
-From the repository root with installed Rust 1.87.0, Python 3, a full JDK and Gradle 8.14.3:
+From the repository root with installed Rust 1.98.1, Python 3, a full JDK and Gradle 8.14.3:
 
 ```sh
 cargo xtask doctor

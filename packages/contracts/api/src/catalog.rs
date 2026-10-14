@@ -4,17 +4,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// PATCH distinguishes an omitted field from an explicit clear and a replacement value.
 /// Only optional unit links/checksums may be cleared; admission rejects `Null` elsewhere.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum PatchField<T> {
+    #[default]
     Missing,
     Null,
     Value(T),
-}
-
-impl<T> Default for PatchField<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<T> PatchField<T> {

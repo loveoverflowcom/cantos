@@ -11,9 +11,9 @@
 
 The backend, its PostgreSQL schema and one **implemented experimental** DBSP adapter now exist
 ([ADR 0017](../../../../docs/decisions/0017-experimental-dbsp-job-summary.md),
-[evidence](../../../../docs/evidence/dbsp-job-summary.md)). The `dbsp` crate (0.198.0, pinned for
-Rust 1.87) is an optional dependency of `cantos-api` behind the `dbsp-experimental` feature; default
-builds do not compile it, and its only consumer is the opt-in development `JobSummary` read. It is
+[evidence](../../../../docs/evidence/dbsp-job-summary.md)). The `dbsp` crate (0.198.0, selected against the original
+Rust 1.87 baseline) is an optional dependency of `cantos-api` behind the `dbsp-experimental` feature; default
+builds do not compile it; its former consumer was the opt-in development `JobSummary` read. It is
 not a production adoption: there is no Feldera service, connector, checkpoint, outbox retention or
 production configuration. Reinspect the actual checkout before every implementation; these
 observations do not describe all future branches.

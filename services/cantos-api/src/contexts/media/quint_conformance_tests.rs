@@ -615,7 +615,7 @@ fn assertion_checkpoints_do_not_repeat_decisions_or_immutable_effects() {
     )
     .unwrap();
     let checkpoints = &output.traces[0].checkpoints;
-    for pair in checkpoints.chunks_exact(2) {
+    for pair in checkpoints.as_chunks::<2>().0.iter() {
         assert_eq!(pair[1].outcome, ObservedOutcome::NoOutcome(()));
         assert_eq!(pair[0].state, pair[1].state);
         assert_eq!(pair[0].submission, pair[1].submission);

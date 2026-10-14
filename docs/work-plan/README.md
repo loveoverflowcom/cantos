@@ -118,6 +118,15 @@ contract-fixture groundwork to that same sequence. Before connecting live Theatr
 checks under the [proposed delivery decision gates](../decisions/0027-publication-streaming-evidence-gates.md).
 Shared Studio transport and mocked publication bytes do not replace those dependencies.
 
+## Compiler compatibility review boundary
+
+The [production Rust pin](../architecture/rust-toolchain.md) keeps edition 2021 and locked
+dependencies stable. Complete platform/tooling acceptance independently of the optional stable-API
+candidates in [issue 125](https://github.com/loveoverflowcom/cantos/issues/125). Prioritize a
+measured consumer and its semantic oracle before Range formatting, Ogg parsing or syntax changes;
+retain independent Kani/Quint results and the existing publication/storage gates. This does not
+reorder the backend capabilities above or revive DBSP production jobs.
+
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact

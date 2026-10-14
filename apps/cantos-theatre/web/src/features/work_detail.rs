@@ -61,14 +61,14 @@ pub(crate) fn EpisodeRow(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
                 {episode.available.then(|| view! {
                     <div class="theatre-queue-action">
                         <button type="button" class="theatre-action theatre-action-text"
-                            disabled=move || (ctx.queue.with(|state| state.items.contains(&id)) || ctx.player.view.get().is_some_and(|player| player.episode == id))
+                            disabled=move || { ctx.queue.with(|state| state.items.contains(&id)) || ctx.player.view.get().is_some_and(|player| player.episode == id) }
                             aria-label=move || ctx.format(Key::QueueName, &[("title", episode.title.to_owned())])
                             aria-describedby=format!("queue-reason-{}-{}", id.work.slug(), id.index)
                             on:click=move |_| ctx.enqueue(id)>
                             {icon("add")}<span class="cui-control-label">{move || ctx.text(Key::QueueAdd)}</span>
                         </button>
                         <p id=format!("queue-reason-{}-{}", id.work.slug(), id.index) class="theatre-muted"
-                            hidden=move || (!ctx.queue.with(|state| state.items.contains(&id)) && ctx.player.view.get().is_none_or(|player| player.episode != id))>
+                            hidden=move || { !ctx.queue.with(|state| state.items.contains(&id)) && ctx.player.view.get().is_none_or(|player| player.episode != id) }>
                             {move || if ctx.player.view.get().is_some_and(|player| player.episode == id) { ctx.text(Key::CurrentEpisode) } else { ctx.text(Key::QueueAdded) }}
                         </p>
                     </div>

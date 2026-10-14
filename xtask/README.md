@@ -339,17 +339,18 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly five registered API-library propositions:
-`catalog-revision`, `wav-payload`, `submission-window`, `publication-commit` and `listener-access`. Repeat `--harness` to select a subset;
+`cargo xtask verify kani` selects exactly seven registered API-library propositions:
+`catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`, `publication-commit`,
+`listener-access` and `listener-reconcile`. Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/7/8/6/5) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7) and reviewed unreachable checks.
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
 limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all five. Unrelated documents, Web/CMP and service configuration select
+uncertain changes select all seven. Unrelated documents, Web/CMP and service configuration select
 none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.
@@ -358,7 +359,7 @@ Prepare official Kani **0.68.0** separately with its existing matching
 `nightly-2026-08-21-x86_64-unknown-linux-gnu` toolchain and CBMC **6.11.0**, then set `KANI_HOME`
 to its bundle parent (default `$HOME/.kani`). The current compatible model is
 x86_64-unknown-linux-gnu/64-bit `usize`, bundled
-`rustc 1.100.0-nightly (8925ea358 2026-08-20)`, with CaDiCaL. Production still uses **Rust 1.87.0**.
+`rustc 1.100.0-nightly (8925ea358 2026-08-20)`, with CaDiCaL. Production still uses **Rust 1.98.1**.
 The shared read-only probe checks the existing bundle, compiler/host and both version lines.
 It invokes only the absolute installed driver in cargo-plugin mode, never an installer proxy,
 setup, download or global toolchain change. Missing/incompatible tools are `UNSUPPORTED` before
@@ -408,7 +409,8 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 | `postgres` | `cargo fetch --locked`, then postgres |
 
 `cargo xtask ci` runs all four locally; [the workflow](../.github/workflows/repository-checks.yml)
-runs one per GitHub job with `RUSTUP_TOOLCHAIN=1.87.0`. CI has no `--skip`. Every full-preflight gate
+runs one per GitHub job after `rustup show active-toolchain` selects the exact
+[`rust-toolchain.toml`](../rust-toolchain.toml) pin. CI has no `--skip`. Every full-preflight gate
 runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-demo`. Mutation stays opt-in through
 `verify mutation` and is selected by preflight when Script IR sources change. The CMP desktop preview is
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
@@ -417,7 +419,7 @@ protection and required checks are configured outside this repository.
 
 ### doctor
 
-Reports the selected `rustc` against the pinned 1.87, each tool and its version, which gates can
+Reports the selected `rustc` against the pinned 1.98.1, each tool and its version, which gates can
 run here, the unsupported production Theatre Mobile surface and the separate mock and Kanidm's configuration-only status. It exits with
 failure only when Cargo, Git or Python 3 is missing.
 

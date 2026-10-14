@@ -93,7 +93,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix="cantos-script-ir-mutations-") as temp:
         workspace = Path(temp) / "repo"
         workspace.mkdir()
-        for name in ("Cargo.toml", "Cargo.lock"):
+        # The disposable workspace lives outside the repository's rustup selection.
+        # Keep the exact production pin there too, without requiring an ambient override.
+        for name in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml"):
             shutil.copy2(ROOT / name, workspace / name)
         # Cargo resolves every workspace manifest, even for a package-scoped test, so each
         # member is copied without generated bundles.

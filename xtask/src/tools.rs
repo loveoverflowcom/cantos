@@ -92,7 +92,7 @@ impl Tool {
     /// How a developer provides the tool; xtask itself never does.
     pub fn hint(self) -> &'static str {
         match self {
-            Tool::Cargo => "install Rust 1.87 with rustup",
+            Tool::Cargo => "install the rust-toolchain.toml pin (Rust 1.98.1) with rustup",
             Tool::Rustfmt => "rustup component add rustfmt",
             Tool::Clippy => "rustup component add clippy",
             Tool::Wasm32Target => "rustup target add wasm32-unknown-unknown",

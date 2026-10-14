@@ -39,7 +39,7 @@ mkdir -p "$RUN/logs"
   printf '# cwd=%s head=%s dirty_paths=%s\n' "$PWD" "$(git rev-parse --short HEAD)" "$(git status --porcelain | wc -l | tr -d ' ')"
 } >"$RUN/logs/$step.log"
 start=$(date +%s)
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask verify rust >>"$RUN/logs/$step.log" 2>&1; code=$?
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask verify rust >>"$RUN/logs/$step.log" 2>&1; code=$?
 printf '{"step":"%s","exit":%d,"seconds":%d,"log":"logs/%s.log"}\n' \
   "$step" "$code" "$(( $(date +%s) - start ))" "$step" >>"$RUN/commands.jsonl"
 tail -n 3 "$RUN/logs/$step.log"
@@ -48,7 +48,7 @@ tail -n 3 "$RUN/logs/$step.log"
 - Never pipe the command itself into `head`, `tail` or `grep`: the exit code and the full output
   are lost. With `tee`, set `set -o pipefail` first.
 - The header records the command text, directory, HEAD and dirty count. Record exported
-  variables by **name and non-secret value** only (`RUSTUP_TOOLCHAIN=1.87.0`), never an
+  variables by **name and non-secret value** only (`RUSTUP_TOOLCHAIN=1.98.1`), never an
   environment dump, connection URL or token.
 - Run one heavy lane at a time ([resources](../../cantos-engineering/references/local-execution.md#resources)).
 - This is a capture convention around existing commands, not a new build, test or run

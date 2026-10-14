@@ -310,7 +310,7 @@ mutation/stream response, not just once in a handler.
 ### Image inspection and the smallest storage adaptation
 
 Select image = 0.25.8, default-features = false, features png/jpeg, only after the implementation
-records the pinned dependency decision, resolves its lock under Rust 1.87 and checks current
+records the pinned dependency decision, resolves its lock under the production toolchain pin and checks current
 security advisories. There is no dependency/toolchain installation in this planning session.
 Use actual PNG/JPEG decoders, not a hand-written magic/header-only acceptance pipeline.
 
@@ -499,7 +499,7 @@ loop-free high-impact numeric boundary, register image-bounds in the existing ty
 registry and runner selection tests; call the actual production symbol, not a proof-only copy.
 Record source/configuration/lock identities, target width, unwind bound (2 if still loop-free),
 every assumption/stub (expected none), every cover result and safety/unwinding checks. Keep the
-existing Kani 0.68.0/compiler nightly-2026-08-21/CBMC 6.11.0 pins and production Rust 1.87.0.
+existing Kani 0.68.0/compiler nightly-2026-08-21/CBMC 6.11.0 pins and the production rust-toolchain.toml pin.
 Never disable overflow/unwinding checks or install/upgrade a verifier to make planning succeed.
 If the kernel changes or tooling is unavailable, record why property tests are the adequate
 core evidence and the proof is NOT_RUN/UNSUPPORTED; no blanket bounded-model-checked claim.

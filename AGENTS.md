@@ -93,7 +93,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
 | Generic DBSP incremental engine (job summary binding retired) | `cargo xtask verify dbsp`; do not reintroduce a synthesis worker to satisfy it |
 
-Use Rust 1.87 (`RUSTUP_TOOLCHAIN=1.87.0`, as in CI). PostgreSQL checks create a new disposable
+Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start
 only local processes they own and never provision databases, identity or providers. Report each
 gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not reached) or

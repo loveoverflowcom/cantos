@@ -163,6 +163,17 @@ mod tests {
                 "workflow does not run `cargo xtask ci --job {name}`"
             );
         }
-        assert!(workflow.contains("RUSTUP_TOOLCHAIN: 1.87.0"));
+        assert_eq!(
+            workflow
+                .matches("run: rustup show active-toolchain")
+                .count(),
+            CiJob::ALL.len(),
+            "every job must select rust-toolchain.toml"
+        );
+        assert!(
+            !workflow.contains("RUSTUP_TOOLCHAIN:"),
+            "a workflow override must not bypass the repository pin"
+        );
+        assert!(!workflow.contains("rustup toolchain install"));
     }
 }

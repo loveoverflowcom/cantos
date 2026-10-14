@@ -178,19 +178,30 @@ class ConformanceContracts(unittest.TestCase):
         directory = tempfile.TemporaryDirectory(prefix="cantos-compiler-tool-contract-")
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
+        (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "1.98.1"\n')
         (root / "bin").mkdir()
         (root / "lib").mkdir()
         for name in ("cargo", "rustc"):
             (root / "bin" / name).write_text(name)
         (root / "lib/librustc_driver.so").write_text("driver")
         def probe(argv, _root):
-            output = str(root) if argv[1:] == ["--print", "sysroot"] else Path(argv[0]).name + " 1.87.0 (fixture)"
+            output = str(root) if argv[1:] == ["--print", "sysroot"] else Path(argv[0]).name + " 1.98.1 (fixture)"
             return SimpleNamespace(returncode=0, stdout=output)
         with patch.object(conformance.shutil, "which", side_effect=lambda name: str(root / "bin" / name)), patch.object(behavior, "process", side_effect=probe):
             identity = conformance.implementation_tools(root, behavior)
             self.assertEqual(identity["cargo"]["binarySha256"], behavior.digest(root / "bin/cargo"))
             self.assertEqual(identity["compilerDrivers"][str(root / "lib/librustc_driver.so")], behavior.digest(root / "lib/librustc_driver.so"))
-            with patch.object(behavior, "process", return_value=SimpleNamespace(returncode=0, stdout="cargo 1.88.0 (wrong)")), self.assertRaises(conformance.ConformanceError):
+            for tool in ("cargo", "rustc"):
+                for version in ("1.87.0", "1.98.0", "1.98.10", "1.98.1-nightly", "1.99.0"):
+                    def wrong_probe(argv, cwd):
+                        if Path(argv[0]).name == tool:
+                            return SimpleNamespace(returncode=0, stdout=tool + " " + version + " (wrong)")
+                        return probe(argv, cwd)
+                    with self.subTest(tool=tool, version=version), patch.object(behavior, "process", side_effect=wrong_probe), self.assertRaises(conformance.ConformanceError):
+                        conformance.implementation_tools(root, behavior)
+        for channel in ("stable", "1.98", "nightly-2026-08-21"):
+            (root / "rust-toolchain.toml").write_text('[toolchain]\nchannel = "' + channel + '"\n')
+            with self.subTest(channel=channel), self.assertRaises(conformance.ConformanceError):
                 conformance.implementation_tools(root, behavior)
 
     def test_ambient_observer_and_compiler_environment_is_rejected(self):

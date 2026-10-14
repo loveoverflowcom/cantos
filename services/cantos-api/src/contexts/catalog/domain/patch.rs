@@ -29,18 +29,13 @@ impl WorkPatch {
 
 /// An optional binding distinguishes retaining the current reference from explicitly
 /// removing it. The HTTP boundary decides which variant an omitted or null field means.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(tag = "action", content = "value", rename_all = "snake_case")]
 pub enum LinkPatch<T> {
+    #[default]
     Keep,
     Set(T),
     Clear,
-}
-
-impl<T> Default for LinkPatch<T> {
-    fn default() -> Self {
-        Self::Keep
-    }
 }
 
 impl<T: Clone> LinkPatch<T> {
@@ -75,5 +70,16 @@ impl UnitPatch {
             script: self.script.apply(&current.script),
             content_digest: self.content_digest.apply(&current.content_digest),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LinkPatch;
+
+    #[test]
+    fn default_keeps_the_binding_without_requiring_a_default_payload() {
+        struct NoDefault;
+        assert!(matches!(LinkPatch::<NoDefault>::default(), LinkPatch::Keep));
     }
 }

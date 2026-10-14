@@ -108,7 +108,11 @@ Gradle wrapper files, Kotlin/Swift sources, Compose resources, Xcode projects/sh
 and editable `local.properties` remain visible. Generated vectors, Compose captures, APKs
 and Kotlin/Native frameworks already live under excluded module `build` directories.
 
-Use Rust 1.87, a local PostgreSQL 17 cluster for database tests, and Trunk for Leptos Web.
+Use the exact Rust 1.98.1 pin in [`rust-toolchain.toml`](rust-toolchain.toml), a local PostgreSQL 17
+cluster for database tests, and Trunk for Leptos Web. `rustup show active-toolchain` installs the
+minimal compiler, matching rustfmt/Clippy and `wasm32-unknown-unknown` target when needed.
+All seven package MSRVs are 1.98.1; edition 2021 and locked dependency versions stay unchanged.
+Kani keeps its separately bundled nightly compiler. See the [upgrade review boundary](docs/architecture/rust-toolchain.md).
 
 ```sh
 cargo xtask doctor

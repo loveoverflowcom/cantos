@@ -17,12 +17,12 @@ pub fn run(tools: &SystemTools) -> ExitCode {
     println!("Cantos developer environment");
     match tools.rustc_version() {
         Some(version) => {
-            let pinned = version.starts_with(&format!("rustc {REQUIRED_RUST}."));
+            let pinned = is_pinned_rustc(&version);
             println!("  {version}");
             if !pinned {
                 println!(
-                    "  note: packages declare rust-version {REQUIRED_RUST} and CI pins 1.87.0; \
-                     select it with `rustup override set 1.87.0` or RUSTUP_TOOLCHAIN=1.87.0"
+                    "  note: packages and rust-toolchain.toml pin {REQUIRED_RUST}; \
+                     remove any conflicting override or select RUSTUP_TOOLCHAIN={REQUIRED_RUST}"
                 );
             }
         }
@@ -96,5 +96,30 @@ pub fn run(tools: &SystemTools) -> ExitCode {
     } else {
         println!("doctor: core tools are missing; xtask cannot verify this repository here.");
         ExitCode::FAILURE
+    }
+}
+
+fn is_pinned_rustc(version: &str) -> bool {
+    let mut tokens = version.split_whitespace();
+    tokens.next() == Some("rustc") && tokens.next() == Some(REQUIRED_RUST)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compiler_pin_matches_the_exact_stable_patch_not_a_prefix() {
+        assert!(is_pinned_rustc("rustc 1.98.1 (release hash)"));
+        for version in [
+            "rustc 1.98.0 (known vtable regression)",
+            "rustc 1.98.10 (different patch)",
+            "rustc 1.98.1-nightly (different channel)",
+            "rustc 1.99.0 (different release)",
+            "cargo 1.98.1 (wrong executable)",
+            "rustc",
+        ] {
+            assert!(!is_pinned_rustc(version), "{version}");
+        }
     }
 }

@@ -171,7 +171,7 @@ Brief read-grant issuance also needs SELECT on `audio_submissions` for credentia
 
 ## Local verification
 
-From the repository root, using Rust 1.87 and PostgreSQL 17 where needed:
+From the repository root, using Rust 1.98.1 and PostgreSQL 17 where needed:
 
 ```sh
 cargo xtask verify repository

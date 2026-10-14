@@ -13,7 +13,7 @@ Contents: [classification](#1-classify-before-you-patch), [signature](#2-failure
 
 | Class | Typical signature | Oracle that establishes it | Report and next owner |
 |---|---|---|---|
-| **environment** | xtask `UNSUPPORTED`; a step `FAIL`s before running code (missing tool, wrong `rustc`, locale or temporary-path error, port taken, empty offline Cargo cache, full disk) | `cargo xtask doctor`, `--version` probes and the error text name the environment, not a source path; the same command proceeds past that point once a per-command setting such as `RUSTUP_TOOLCHAIN=1.87.0` or `TMPDIR=/private/tmp` is applied | keep the printed status; name the prerequisite and ask the user for anything that installs or starts software; never a code change |
+| **environment** | xtask `UNSUPPORTED`; a step `FAIL`s before running code (missing tool, wrong `rustc`, locale or temporary-path error, port taken, empty offline Cargo cache, full disk) | `cargo xtask doctor`, `--version` probes and the error text name the environment, not a source path; the same command proceeds past that point once a per-command setting such as `RUSTUP_TOOLCHAIN=1.98.1` or `TMPDIR=/private/tmp` is applied | keep the printed status; name the prerequisite and ask the user for anything that installs or starts software; never a code change |
 | **pre-existing** | the same signature on a clean base | [baseline comparison](#3-clean-baseline-comparison) reproduces it without the change | still `FAIL` for that gate; "not introduced by this change" with the baseline command; fixing it needs the user's scope |
 | **flaky** | identical command, unchanged tree, different outcomes | bounded reruns (at most three, each captured) plus a named nondeterminism source: wall clock, ordering, shared ports or database names, timeouts, parallel tests | report every run (`FAIL`, then `PASS`, …) with frequency; a later pass never replaces the earlier `FAIL`; the source of nondeterminism is a defect to route |
 | **regression** | fails with the change, passes on the clean base in the same environment | baseline comparison plus the smallest reproduction at the owning layer | `cantos-logic-fix`, `cantos-ui-fix` or `cantos-work-item` with this diagnosis |
@@ -70,7 +70,7 @@ Keep the ledger in the run record's `run.md` (or the report when no record exist
 
 | # | Hypothesis | If true we would see | Discriminating check | Result | Status |
 |---|---|---|---|---|---|
-| H1 | the gate runs under rustc 1.97, not 1.87 | `rustc --version` 1.97; clippy lint absent on 1.87 | rerun the step with `RUSTUP_TOOLCHAIN=1.87.0` | lint gone | confirmed, environment |
+| H1 | a conflicting override selects a compiler different from the production pin | `rustc --version` differs from `rust-toolchain.toml` | rerun the step with `RUSTUP_TOOLCHAIN=1.98.1` | compiler identity matches the pin; reclassify any remaining failure separately | confirmed, environment |
 | H2 | the rejection mutates the revision before returning | the stored revision differs after `Err` | pure test asserting the unchanged value | value unchanged | refuted |
 
 - A check is **discriminating** only when the hypotheses predict different outcomes for it.
