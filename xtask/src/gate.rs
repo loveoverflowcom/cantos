@@ -75,6 +75,7 @@ pub enum Gate {
     Behavior {
         capability: Option<String>,
         setup: bool,
+        conformance: bool,
     },
     RustFormat,
     ScriptIrReference,
@@ -167,15 +168,23 @@ impl Gate {
     pub fn tools(&self) -> Vec<Tool> {
         match self {
             Gate::Repository => vec![Tool::Cargo, Tool::Python3, Tool::Git],
-            Gate::Behavior { setup, .. } => vec![
-                Tool::Python3,
-                Tool::Git,
-                if *setup {
-                    Tool::BehaviorRuntime
-                } else {
-                    Tool::Quint
-                },
-            ],
+            Gate::Behavior {
+                setup, conformance, ..
+            } => {
+                let mut tools = vec![
+                    Tool::Python3,
+                    Tool::Git,
+                    if *setup {
+                        Tool::BehaviorRuntime
+                    } else {
+                        Tool::Quint
+                    },
+                ];
+                if *conformance {
+                    tools.push(Tool::Cargo);
+                }
+                tools
+            }
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
@@ -224,8 +233,17 @@ impl Gate {
                 CommandSpec::new("git", root).args(["diff", "--check"]),
                 CommandSpec::new("git", root).args(["diff", "--cached", "--check"]),
             ],
-            Gate::Behavior { capability, setup } => {
-                vec![behavior::command(workspace, capability.as_deref(), *setup)]
+            Gate::Behavior {
+                capability,
+                setup,
+                conformance,
+            } => {
+                vec![behavior::command(
+                    workspace,
+                    capability.as_deref(),
+                    *setup,
+                    *conformance,
+                )]
             }
             Gate::RustFormat => vec![cargo(&["fmt", "--all", "--", "--check"])],
             Gate::Kani(kernel) => vec![kernel.command(workspace)],
@@ -364,9 +382,14 @@ pub fn full() -> Vec<Gate> {
 /// The gates behind one `cargo xtask verify <suite>` command.
 pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
-        VerifySuite::Behavior { capability, setup } => vec![Gate::Behavior {
+        VerifySuite::Behavior {
+            capability,
+            setup,
+            conformance,
+        } => vec![Gate::Behavior {
             capability: capability.clone(),
             setup: *setup,
+            conformance: *conformance,
         }],
         VerifySuite::Kani { harness } => {
             let kernels: BTreeSet<_> = if harness.is_empty() {
@@ -469,6 +492,7 @@ mod tests {
         let model = Gate::Behavior {
             capability: None,
             setup: false,
+            conformance: false,
         };
         assert_eq!(model.kind(), GateKind::Behavior);
         assert_eq!(lines(&model), ["python3 scripts/verify_behavior.py"]);
@@ -476,17 +500,40 @@ mod tests {
         let setup = Gate::Behavior {
             capability: Some("cantos.media.private-audio-admission".into()),
             setup: true,
+            conformance: false,
         };
         assert_eq!(lines(&setup), ["python3 scripts/verify_behavior.py --setup --capability cantos.media.private-audio-admission"]);
         assert_eq!(
             setup.tools(),
             [Tool::Python3, Tool::Git, Tool::BehaviorRuntime]
         );
+        let conformance = Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: true,
+        };
+        assert_eq!(
+            lines(&conformance),
+            ["python3 scripts/verify_behavior.py --conformance"]
+        );
+        assert_eq!(
+            conformance.tools(),
+            [Tool::Python3, Tool::Git, Tool::Quint, Tool::Cargo]
+        );
+        assert_eq!(
+            verify_suite(&VerifySuite::Behavior {
+                capability: None,
+                setup: false,
+                conformance: true
+            }),
+            [conformance]
+        );
         assert!(!full().contains(&model));
         assert_eq!(
             verify_suite(&VerifySuite::Behavior {
                 capability: None,
-                setup: false
+                setup: false,
+                conformance: false
             }),
             [model]
         );

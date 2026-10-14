@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Narrow locked Quint model gate; cargo xtask is the public command surface.
 
-No model evaluation, transport codec, implementation reducer, solver or service lives
-here. Quint owns parsing/type/effect checking and executable expected outcomes.
+Quint owns parsing/type/effect checking and executable expected outcomes. Optional
+conformance decodes those outputs and calls an independent test-only Rust observer.
 """
 
 import argparse
@@ -365,7 +365,7 @@ def artifact_root(root):
     return parent
 
 
-def execute_capability(root, cap, versions, executables, cli, inputs, revision):
+def execute_capability(root, cap, versions, executables, cli, inputs, revision, conformance=False):
     parent = artifact_root(root)
     bundle = parent / (cap["id"] + "-" + uuid.uuid4().hex)
     bundle.mkdir(mode=0o700)
@@ -470,7 +470,15 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision):
         report["finishedAt"] = datetime.now(timezone.utc).isoformat()
         write_json(bundle / "report.json", report)
         print(f"behavior {cap['id']}: {report.get('status', 'FAIL')} (model-only); evidence: {bundle.relative_to(root)}")
-        print("implementation-conformance: NOT_RUN; DB/API/storage/client/device acceptance: NOT_RUN; exhaustive proof: NOT_RUN")
+        if not conformance or report.get("status") != "PASS":
+            print("implementation-conformance: NOT_RUN; DB/API/storage/client/device acceptance: NOT_RUN; exhaustive proof: NOT_RUN")
+    if conformance:
+        from verify_behavior_conformance import ConformanceError, execute
+        try:
+            execute(root, cap, bundle, report, versions, inputs, revision, sys.modules[__name__])
+        except (ConformanceError, BehaviorError) as error:
+            raise BehaviorError(f"{cap['id']}: model PASS, implementation-conformance FAIL: {error}; evidence: {bundle.relative_to(root)}") from error
+        print("DB/API/authorization/media/storage/client/device acceptance: NOT_RUN; exhaustive proof: NOT_RUN")
     return bundle
 
 
@@ -478,12 +486,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capability")
     parser.add_argument("--setup", action="store_true")
+    parser.add_argument("--conformance", action="store_true")
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--runtime-only", action="store_true")
     args = parser.parse_args()
     try:
         if args.probe:
-            require(not args.setup and args.capability is None, "probe must be read-only")
+            require(not args.setup and not args.conformance and args.capability is None, "probe must be read-only")
             versions = runtime(ROOT)[1] if args.runtime_only else installed_tool(ROOT)[0]
             print("; ".join(f"{k} {versions[k]}" for k in ("node", "npm", "quint") if k in versions))
             return 0
@@ -512,7 +521,7 @@ def main():
         require(revision_result.returncode == 0, "source revision unavailable")
         revision = revision_result.stdout.strip()
         for cap in capabilities:
-            execute_capability(ROOT, cap, versions, executables, cli, snapshot(ROOT, [cap]), revision)
+            execute_capability(ROOT, cap, versions, executables, cli, snapshot(ROOT, [cap]), revision, args.conformance)
         return 0
     except (BehaviorError, OSError, KeyError, UnicodeError) as error:
         print(f"behavior: FAIL: {error}", file=sys.stderr)

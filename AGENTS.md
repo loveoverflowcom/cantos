@@ -87,7 +87,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Any change (documents, skills, scripts) | `cargo xtask verify repository` |
 | Before handoff or a pull request | `cargo xtask preflight --changed-only` (it broadens to every gate when impact is uncertain) |
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
-| Registered Quint models/tooling | `cargo xtask verify behavior` (model-only; explicit `--setup` for the locked development tool) |
+| Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |

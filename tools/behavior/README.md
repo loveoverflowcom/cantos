@@ -1,6 +1,6 @@
 # Locked development-only Quint toolchain
 
-The repository surface is `cargo xtask verify behavior [--capability ID] [--setup]`.
+The repository surface is `cargo xtask verify behavior [--capability ID] [--setup] [--conformance]`.
 Do not add a competing npm script or invoke a solver implicitly.
 
 Pins are Node **24.19.0**, npm **11.9.0** and official `@informalsystems/quint` **0.33.0**.
@@ -32,3 +32,9 @@ Upgrade the pins/lock deliberately. Rerun the output-contract unit tests, named 
 property campaign, witnesses and every negative control before accepting new evidence.
 Repository installation capability, model execution, implementation conformance and real
 infrastructure/device acceptance are different claims.
+
+`--conformance` adds the registered test-only Rust pure-core observer with locked/offline
+Cargo, no new dependency or provider process. Compiler override environments and ambient
+observer configuration are refused. Each owned observer process has a 180-second bound;
+Quint queries retain their original catalog bounds. Model and implementation artifacts have
+separate statuses. See the [observation protocol](../../specs/behavior/observation-protocol.md).

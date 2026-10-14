@@ -66,7 +66,9 @@ real SQL/authorization/media observation.
    Never commit private content, credentials, full generated campaigns or bulk media.
 
 Report type/effect and named examples, bounded sampled model properties, witnesses and
-mutation sensitivity separately. Current PR A is not `bounded-model-checked` (no solver),
+mutation sensitivity separately. Default model-only execution is not `bounded-model-checked` (no solver),
 `differentially-tested` against Rust, `integration-tested` against SQL/storage or `device-tested`.
+The optional registered conformance gate adds attributable pure-core `differentially-tested`
+observations, not those other tiers. See the [observation protocol](../../../../specs/behavior/observation-protocol.md).
 Native constructor/transport laws remain useful independent checks. An accepted `.qnt`
 expectation and a real observed implementation must both exist before claiming conformance.

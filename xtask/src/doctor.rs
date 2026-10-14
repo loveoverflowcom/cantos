@@ -53,6 +53,7 @@ pub fn run(tools: &SystemTools) -> ExitCode {
     gates.push(Gate::Behavior {
         capability: None,
         setup: false,
+        conformance: false,
     });
     gates.extend(crate::kani::Kernel::ALL.into_iter().map(Gate::Kani));
     gates.sort();
