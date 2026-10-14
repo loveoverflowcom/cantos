@@ -50,11 +50,11 @@ object keys. See [private storage](object-storage.md) and
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake and exact owner reads | Partially implemented |
-| `/api/v1/theatre/*` | Listener discovery/playback/progress | Reserved; not implemented |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Partially implemented; opt-in Studio OIDC sessions |
+| `/api/v1/theatre/*` | Listener discovery/playback/progress | Public Discovery/Playback and Library/Progress cores implemented; default playback unavailable and listener authentication denied; production acceptance pending |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
-| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; publication absent |
+| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; separate [Publication v1](../../packages/contracts/publication-v1.md) core with default unavailable delivery |
 | Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../packages/contracts/private-content-reads-v1.md): protected GET/HEAD/Range and refreshable access; no listener access |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
@@ -81,15 +81,38 @@ handlers or invent implemented route claims from proposal documents. Shared DTOs
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
 - `media`: structural WAV inspection, explicit profile/binding rules, bounded Opus-byte
   inspection, private intake/admission/review, immutable location metadata, filesystem and
-  generic S3-compatible adapters, and exact owner-authorized preview. Private content-addressed
-  bytes stay distinct from approval/publication. [ADR 0020](../decisions/0020-studio-private-audio-intake.md)
+  generic S3-compatible adapters, exact owner-authorized preview, publication authority and
+  public release eligibility. Private content-addressed bytes stay distinct from approved
+  publication objects; default public delivery is unavailable.
+  [ADR 0020](../decisions/0020-studio-private-audio-intake.md)
   retains intake safeguards; [ADR 0022](../decisions/0022-provider-independent-private-storage.md)
   describes the storage extension and separate real-provider acceptance.
 
+## Listener account state
+
+`contexts/listening` is downstream of Catalog and Media. It owns Library/progress/history,
+conditional revisions and durable operation receipts; Media continues to own public eligibility,
+publication and playback delivery. Its [v1 contract](../../packages/contracts/listener-library-v1.md)
+and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
+identity with default-deny composition and PostgreSQL authority. The separate
+[Platform identity registry](identity-registry.md) binds external identities but supplies no
+listener credential verification or authority from a Studio session.
+Catalog/Media exports provide owned transaction fences and bounded eligibility batches; Listening
+never reads their private tables directly. HTTP can compose the service/auth port, validate bearer
+syntax and map typed errors, but cannot mint principals or run domain reconciliation.
+
+The architecture checker names this context/dependency direction and admits only the two host
+composition imports in its test-only PostgreSQL regression module. That module reuses the canonical
+publication fixture to test sealed synthetic principals without a production mock-auth feature.
+This narrow test seam does not admit interface calls from production Listening adapters.
+
 ## Next contexts
 
-Implement Studio catalog Web acceptance against the real API separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) now links Catalog-bound Briefs and private admission/review. Next implement `publication`
-(approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
+Complete broader Studio Web, provider delivery and Theatre identity/native acceptance
+separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) links
+Catalog-bound Briefs and private admission/review; Media's
+[Publication core](../../packages/contracts/publication-v1.md) owns approvals and atomic manifest
+pointers, and Listening owns account read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
 commercial speech-provider adapter, synthesis retry system or speech-clip registry belongs here.
 

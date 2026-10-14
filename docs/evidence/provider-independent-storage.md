@@ -1,5 +1,10 @@
 # Provider-independent storage and verified private reads
 
+This is the historical 13 October implementation record. The
+[14 October integrated review](provider-independent-storage-review.md) records current
+develop integration, repaired compatibility tests and fresh local results; its results
+supersede the original failures and unavailable tools below for that reviewed tree.
+
 ## Scope and baseline
 
 Implementation handoff for provider-independent private Media storage, exact Studio audio

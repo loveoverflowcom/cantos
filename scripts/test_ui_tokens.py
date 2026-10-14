@@ -349,9 +349,21 @@ class TokenContract(unittest.TestCase):
         for template, message in [("{{space.controlInline}}", "unknown breakpoint placeholder"),
                                   ("{{breakpoint.unknown}}", "unknown breakpoint placeholder"),
                                   ("{{breakpoint.medium}", "malformed placeholder"),
-                                  ("var(--cantos-color-missing)", "undefined CSS roles")]:
+                                  ("var(--cantos-color-missing)", "undefined CSS roles"),
+                                  ("var(--cantos-web-shape-missing)", "undefined CSS roles"),
+                                  (".a { --cantos-shape-reading: 2rem; }", "may declare only new --cantos-web-"),
+                                  (".a { --cantos-color-new: red; }", "may declare only new --cantos-web-"),
+                                  (".a { --cantos-web-color-surface: red; }\n.b { --cantos-color-surface: red; }",
+                                   "may declare only new --cantos-web-")]:
             with self.subTest(template=template), self.assertRaisesRegex(ValueError, message):
                 outputs(json.dumps(self.source), template)
+
+    def test_template_may_declare_and_use_a_renderer_local_web_role(self):
+        template = ":where(.cantos-ui) {\n  --cantos-web-shape-control: 1.5rem;\n}\n.a { border-radius: var(--cantos-web-shape-control); }\n"
+        generated = outputs(json.dumps(self.source), template)
+        self.assertIn("--cantos-web-shape-control: 1.5rem;", generated[OUTPUTS["foundation"]])
+        for name in ("css", "rust", "kotlin"):
+            self.assertNotIn("web-shape", generated[OUTPUTS[name]], f"{name} must not learn Web-only roles")
 
     def test_check_mode_reports_every_missing_and_drifted_output_without_writes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -433,6 +445,14 @@ class CanonicalRepositoryTokens(unittest.TestCase):
                 self.assertEqual(str(error.exception),
                                  f"{role}: expected {expected_type} type, got {kind}")
 
+    def test_version_rejects_non_string_input_with_a_validation_error(self):
+        for version in (None, [], {}, 201):
+            source = load_source(SOURCE.read_bytes())
+            source["version"] = version
+            with self.subTest(version=version):
+                with self.assertRaisesRegex(ValueError, "unsupported token version"):
+                    validate(source)
+
     def test_actual_source_meets_every_contrast_floor_in_both_themes(self):
         source = validate(load_source(SOURCE.read_bytes()))
         for theme, tokens in source["themes"].items():
@@ -448,7 +468,7 @@ class CanonicalRepositoryTokens(unittest.TestCase):
     def test_all_ui_system_and_app_css_role_uses_are_defined(self):
         source = validate(load_source(SOURCE.read_bytes()))
         roles = source["tokens"] | source["themes"]["light"] | source["aliases"]
-        defined = {variable(role) for role in roles}
+        defined = {variable(role) for role in roles} | web_roles()
         consumers = list((ROOT / "packages/ui-system/leptos").glob("*.css*"))
         consumers += list((ROOT / "apps/cantos-studio/web").glob("*.css"))
         consumers += list((ROOT / "apps/cantos-theatre/web").glob("*.css"))
@@ -457,6 +477,82 @@ class CanonicalRepositoryTokens(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 used = set(re.findall(r"var\(\s*(--cantos-[a-z0-9-]+)", path.read_text(encoding="utf-8")))
                 self.assertLessEqual(used, defined, f"undefined roles in {path}")
+
+
+WEB_SHAPE_ROLES = {
+    "--cantos-web-shape-control": "1.5rem",
+    "--cantos-web-shape-reading": "0.75rem",
+    "--cantos-web-shape-container": "1.125rem",
+    "--cantos-web-shape-overlay": "1.5rem",
+    "--cantos-web-shape-panel": "1.5rem",
+}
+CANONICAL_SHAPE_USE = re.compile(r"var\(\s*--cantos-shape-(?!pill\b)[a-z-]+")
+
+
+def web_roles():
+    """Renderer-local roles declared by the committed Leptos template."""
+    return set(re.findall(r"(?<![\w-])(--cantos-web-[a-z0-9-]+)\s*:", TEMPLATE.read_text(encoding="utf-8")))
+
+
+def web_css_files():
+    paths = list((ROOT / "packages/ui-system/leptos").glob("*.css*"))
+    paths += list((ROOT / "packages/ui-system/leptos/preview").glob("*.css"))
+    paths += list((ROOT / "apps/cantos-studio/web").glob("*.css"))
+    paths += list((ROOT / "apps/cantos-theatre/web/src/styles").glob("*.css"))
+    return sorted(path for path in paths if path.name not in {"tokens.css"})
+
+
+def declared_values(css):
+    return dict(re.findall(r"(--cantos-web-shape-[a-z]+)\s*:\s*([^;]+);", css))
+
+
+class WebShapeIndependence(unittest.TestCase):
+    """Web corners (24/12/18/24, panel 24) must not move when the shared CMP shape scale does."""
+
+    def test_web_shape_roles_hold_the_documented_historical_values_in_the_one_source(self):
+        self.assertEqual(declared_values(TEMPLATE.read_text(encoding="utf-8")), WEB_SHAPE_ROLES)
+        self.assertEqual(declared_values(OUTPUTS["foundation"].read_text(encoding="utf-8")), WEB_SHAPE_ROLES)
+
+    def test_only_the_template_declares_web_shape_values(self):
+        for path in web_css_files():
+            if path in (TEMPLATE, OUTPUTS["foundation"]):
+                continue
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertEqual(declared_values(path.read_text(encoding="utf-8")), {})
+
+    def test_web_components_use_web_shape_roles_never_the_shared_cmp_scale(self):
+        for path in web_css_files():
+            if path == OUTPUTS["foundation"]:
+                continue
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertEqual(CANONICAL_SHAPE_USE.findall(path.read_text(encoding="utf-8")), [])
+        generated = OUTPUTS["foundation"].read_text(encoding="utf-8")
+        self.assertEqual(CANONICAL_SHAPE_USE.findall(generated), [])
+
+    def test_changing_every_shared_shape_value_leaves_web_corners_and_pill_untouched(self):
+        source = load_source(SOURCE.read_bytes())
+        template = TEMPLATE.read_text(encoding="utf-8")
+        baseline = outputs(json.dumps(source), template)
+        for role in ("shape.detail", "shape.control", "shape.reading", "shape.container",
+                     "shape.overlay", "shape.thumbnail"):
+            source["tokens"][role]["value"] = 1
+        shrunk = outputs(json.dumps(source), template)
+        self.assertEqual(shrunk[OUTPUTS["foundation"]].split("*/", 1)[1],
+                         baseline[OUTPUTS["foundation"]].split("*/", 1)[1])
+        self.assertEqual(declared_values(shrunk[OUTPUTS["foundation"]]), WEB_SHAPE_ROLES)
+        self.assertIn("--cantos-shape-control: 0.0625rem;", shrunk[OUTPUTS["css"]])
+        self.assertIn("--cantos-shape-pill: 62.4375rem;", shrunk[OUTPUTS["css"]])
+
+    def test_cmp_outputs_and_canonical_scale_stay_independent_of_web_roles(self):
+        source = validate(load_source(SOURCE.read_bytes()))
+        self.assertEqual({role: source["tokens"][role]["value"] for role in
+                          ("shape.detail", "shape.control", "shape.reading", "shape.container",
+                           "shape.overlay", "shape.thumbnail")},
+                         {"shape.detail": 4, "shape.control": 8, "shape.reading": 12,
+                          "shape.container": 16, "shape.overlay": 20, "shape.thumbnail": 10})
+        for name in ("css", "rust", "kotlin"):
+            with self.subTest(output=name):
+                self.assertNotIn("web-shape", OUTPUTS[name].read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

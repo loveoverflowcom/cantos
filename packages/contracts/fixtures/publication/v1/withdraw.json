@@ -1,0 +1,6 @@
+{
+  "operation_id": "80000000-0000-4000-8000-000000000004",
+  "release_id": "90000000-0000-4000-8000-000000000001",
+  "expected_pointer_version": 1,
+  "reason": "Synthetic withdrawal fixture."
+}

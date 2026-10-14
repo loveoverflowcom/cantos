@@ -1,7 +1,7 @@
 # Cantos UI System
 
 Status: product requirements plus an implemented [UI foundation](../../packages/ui-system/README.md).
-The live Leptos Studio save/read surface consumes [canonical v0.2.0 tokens](../../packages/ui-system/shared/tokens.json), with earlier
+The live Leptos Studio save/read surface consumes [canonical v0.2.1 tokens](../../packages/ui-system/shared/tokens.json), with earlier
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
 Theatre/CMP journeys and exact reference fidelity remain unimplemented.
@@ -13,8 +13,10 @@ Cantos uses Material 3 Expressive principles with a soft lavender/purple identit
 The original reference was unavailable during initialization. The authenticated 2026-10-11 design
 handoff now supplies identical light/dark paper/lavender palettes, Noto Sans/Noto Serif family
 names, component specs and official outlined icons. The [shared contract](../../packages/ui-system/shared/README.md)
-records adopted values and bounded foundation choices. Embedded artwork/fonts are not
-redistributed. Exact fidelity, interactions and font rendering need actual browser inspection;
+records adopted values and bounded foundation choices. The [Theatre CMP repair](../evidence/theatre-cmp-ui-repair.md) bundles exact reference fonts
+under OFL and user-provided mock artwork with recorded provenance; production artwork rights
+remain unverified. Other consumers retain their existing fonts/assets. Exact fidelity,
+interactions and font rendering need actual renderer inspection;
 static boards do not establish an HTML screenshot comparison.
 
 ## Semantic tokens
@@ -30,7 +32,7 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 | Status | `color.error`, `color.warning`, `color.success` on their matching `*Container` backgrounds | Pair color with text/icon; never use color alone to identify QC or production state. |
 | Type | `type.headline`, `type.title`, `type.body`, `type.label`, `type.metadata` | Fonts must support Vietnamese diacritics and long character/work names. Use tabular figures for comparable time/cost data. |
 | Space | `space.xs`, `sm`, `inset`, `md`, `section`, `lg`, `xl`, `xxl` | Adopted rhythm:4/8/12/16/20/24/32/36 in platform-appropriate units; reduce chrome before text or touch targets. |
-| Shape | `shape.control`, `shape.container`, `shape.overlay`, `shape.pill` | Pills suit filters, speed, and compact actions; scripts and data tables need stable rectangular reading areas. |
+| Shape | `shape.detail`, `shape.control`, `shape.reading`, `shape.container`, `shape.overlay`, `shape.thumbnail`, `shape.pill` | Shared 4/8/12/16/20 scale; thumbnail 10. Mini-player 12, story/continue cards and large covers 16. Full is reserved for circles and genuine pills, such as filter chips and navigation indicators; regular actions use 8–12. See the [token mapping](../../packages/ui-system/shared/README.md#decisions-from-the-reference). That scale serves CMP; Leptos Web uses its own [Web shape mapping](../../packages/ui-system/shared/README.md#web-shape-mapping) (control 24, reading 12, container 18, overlay 24) so Web keeps its expressive corners. |
 | Elevation | `elevation.base`, `elevation.overlay` | Prefer surface tone and spacing; use elevation where it communicates overlap. |
 | Motion | `motion.feedback`, `motion.navigation`, `motion.emphasis`, `motion.reduced` | Specify intent; choose supported framework mechanisms during implementation and verify each target. |
 

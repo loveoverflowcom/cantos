@@ -177,6 +177,15 @@ impl AdaptationReview {
         if actor == self.actor {
             return self.clone();
         }
+        if !self.draft_changed && self.pending.is_none() {
+            // A clean acknowledged run belongs to its old account, including its identifiers.
+            // Dirty drafts and unresolved acceptance below keep their original recovery owner.
+            return Self {
+                actor,
+                ticket: self.ticket.saturating_add(1),
+                ..Self::default()
+            };
+        }
         let mut next = self.clone();
         next.actor = actor;
         next.stored = None;
@@ -555,6 +564,39 @@ impl AdaptationReview {
             ReviewStatus::AcceptedOpened
         };
         next
+    }
+}
+
+#[cfg(test)]
+mod clean_session_tests {
+    use super::*;
+
+    #[test]
+    fn changing_a_clean_account_clears_private_adaptation_run_and_bytes() {
+        let clean = AdaptationReview {
+            actor: "alice".into(),
+            run_id: "00000000-0000-4000-8000-000000000002".into(),
+            draft: "private acknowledged proposal".into(),
+            baseline: "private acknowledged proposal".into(),
+            draft_actor: "alice".into(),
+            status: ReviewStatus::RunOpened,
+            ..AdaptationReview::default()
+        };
+        let reading = clean.start_read().unwrap();
+        let bob = reading.signed_in_as("bob".into());
+        assert_eq!(bob.actor, "bob");
+        assert!(bob.run_id.is_empty());
+        assert!(bob.draft.is_empty());
+        assert!(bob.baseline.is_empty());
+        assert!(bob.draft_actor.is_empty());
+        assert!(bob.stored.is_none());
+        assert!(bob.source.is_none());
+        assert!(bob.input_revision.is_none());
+        assert!(bob.accepted.is_none());
+        assert!(bob.issues.is_empty());
+        assert_eq!(bob.ticket, reading.ticket + 1);
+        assert!(!bob.busy);
+        assert_eq!(bob.status, ReviewStatus::Idle);
     }
 }
 

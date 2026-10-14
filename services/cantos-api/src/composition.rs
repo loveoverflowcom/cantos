@@ -42,4 +42,5 @@ pub enum StoreError {
 pub struct Store {
     pub(crate) pool: deadpool_postgres::Pool,
     pub(crate) media_storage: Option<Arc<StorageRegistry>>,
+    pub(crate) studio_oidc: Option<Arc<crate::platform::studio_oidc::StudioOidc>>,
 }

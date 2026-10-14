@@ -9,7 +9,9 @@ or durable persistence is connected. Studio is web-only.
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary account screen with an explicit unavailable sign-in reason.
+  the avatar opens a secondary **Không gian của bạn** screen: guest profile, a preview notice that
+  saved works and positions last only for this session, a disabled sign-in with its reason, and a
+  row into the listening settings. Nothing there claims durable storage or sync.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
   History has a secondary full list and confirmed clear action; clearing it preserves
   listening positions, saved works, bookmarks and the player.
@@ -90,7 +92,10 @@ are disabled.
 
 `ios-build` links only the simulator framework. Open `iosApp/CantosDemo.xcodeproj`, choose the
 shared `CantosDemo` scheme and an existing Apple Silicon simulator to build/run after the
-framework exists. Xcode does not invoke/download Gradle. Physical-device linking/signing and
+framework exists. Xcode's `Copy Compose resources` phase copies the common font/art/license
+resources into `compose-resources/composeResources/com.cantos.theatre.resources`, the location
+read by pinned Compose 1.9.0 with this manually linked static framework. It does not invoke or
+download Gradle. Physical-device linking/signing and
 distribution are outside this mock. JVM `run` supervises its owned process group, with a
 foreground-launcher PID guard; it is not an Android/iOS run. Production
 `build/run cantos-theatre --mobile` stays `UNSUPPORTED`: native listening adapters are absent.
@@ -152,3 +157,21 @@ the reviewed Theatre backend contract before app wiring. No iOS transport integr
 noncooperative late responses and drives the JVM adapter against a fresh local HTTP server.
 These are common/JVM and mocked HTTP integration evidence, not Android/iOS device or playback
 acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-matrix.md).
+
+## Reference UI repair
+
+The [UI repair evidence](../../../docs/evidence/theatre-cmp-ui-repair.md) covers adaptive header/
+episode rows, exact reference paintings and OFL Noto font resources, the tonal mini-player,
+ordered icon transport and preference dialogs. Theme/language/speed/timer still live in the one
+app-owned mock state; catalog scenarios and reset are under the separate Demo tools dialog.
+The simulated timer performs no countdown. The [asset provenance](shared/src/commonMain/composeResources/files/provenance.json)
+records exact hashes and the remaining production artwork-rights review. Native runtime,
+TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JVM evidence.
+
+## Portable Protobuf fixture harness
+
+The isolated `commonMain` transport adapter and `commonTest` fixtures exercise the four existing
+Studio pilot wire contracts under [ADR 0023](../../../docs/decisions/0023-versioned-protobuf-wire.md).
+This adds no Theatre endpoint, Studio Mobile client, authentication or player integration.
+The [compatibility evidence](docs/protobuf-compatibility.md) records exact version pins, independent
+byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/Android/iOS limits.

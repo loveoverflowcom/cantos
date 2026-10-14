@@ -38,6 +38,13 @@ The [Production Brief v1 contract](production-brief-v1.md) exports immutable Cat
 rights/guidance/profile pins and independent expiring read permissions. It produces no audio
 and grants no upload/review/publication authority.
 
+The [Publication v1 contract](publication-v1.md) adds current-owner distribution clearance,
+exact approval, complete readiness blockers, immutable releases, atomic active pointers and
+withdrawal receipts over private candidates. Its JSON schema/fixtures and Studio routes are
+implemented; [evidence](../../docs/evidence/publication-core.md) records verified core and pending
+PostgreSQL/public delivery acceptance. Default delivery is unavailable. Audit manifests stay
+Studio-only; no public Theatre projection or staging delivery is provided.
+
 The [manuscript import v1 contract](manuscript-v1.md) adds a private, immutable source intake
 receipt for TXT, Markdown, DOCX and validated Script IR. It uses the existing source registry,
 separates exact original bytes from normalized extraction, and never saves a script revision or
@@ -251,3 +258,19 @@ DTOs checked against the same Schema/fixtures in both native and browser-consume
 not generated OpenAPI. Future generated bindings must name their source and generation command.
 
 [Private Audio Lifecycle v1](audio-lifecycle-v1.md) implements Content/Brief-bound admission, independently scoped upload, append-only review and private candidate readiness. Public publication remains unavailable.
+
+## Theatre Discovery/Playback
+
+[Discovery/Playback v1](theatre-discovery-v1.md) adds real anonymous public-release queries,
+opaque keysets and a fail-closed playback authorization port. Shared DTOs and strict fixtures
+are implemented; real PostgreSQL/public delivery and drift-checked Web/CMP adoption remain
+acceptance dependencies. No library/progress or Studio-cookie reuse is introduced.
+
+## Studio Protobuf wire pilot
+
+[Versioned policy and schema](protobuf/README.md) own the four actual Studio
+revision/validation wire roots. Existing Serde DTOs, exact Script IR text and JSON errors remain
+unchanged. `cargo xtask verify contracts` checks independent Python goldens, exact generated
+prost drift and production Rust codec tests; schema/fixture changes also select common/JVM
+Kotlin tests in preflight. [The migration ledger](../../docs/evidence/protobuf-wire-migration.md)
+records deferred browser/SQL/Native acceptance, measured costs and JSON rollback.

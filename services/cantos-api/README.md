@@ -37,13 +37,29 @@ or in-backend mixing should remain.
   [read contract](../../packages/contracts/private-content-reads-v1.md) and
   [evidence](../../docs/evidence/provider-independent-storage.md) distinguish the implemented
   private capability from separate live-provider/publication acceptance.
-- Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
-  and `/api/v1/admin/*` reserved (404). Pre-split Studio aliases remain deprecated.
+- [Publication v1](../../packages/contracts/publication-v1.md): owner distribution decisions,
+  exact approval/readiness, immutable release snapshots, atomic CAS active pointers and withdrawal.
+  [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
+  the initial real PostgreSQL acceptance attempt was blocked and default public delivery is unavailable.
+- Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*` serves
+  Public Discovery/Playback and default-deny Library/Progress cores. `/api/v1/admin/*` remains
+  reserved (404). Pre-split Studio aliases remain deprecated.
+
+The [actor registry](../../docs/architecture/identity-registry.md) is implemented in
+`platform/identity`: typed exact keys, atomic registration and explicit operator linking.
+The registry itself authenticates no provider. The separate opt-in
+[Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
+callbacks and hashed Studio sessions on the current route group.
+[OIDC evidence](../../docs/evidence/studio-oidc.md) distinguishes signed mocks/real PostgreSQL
+from unrun Kanidm/browser/production acceptance.
+[Evidence](../../docs/evidence/identity-registry.md) and
+[OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
 
 ## Planned functionality (not implemented)
 
 Broader Studio Web acceptance, production identity/credential delivery, real-provider/CDN
-acceptance, stronger rights/QC policy, publication manifests and Theatre listener API.
+acceptance, stronger rights/QC policy, public publication delivery and Theatre identity/native
+listening acceptance.
 [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
 creating routes or DTOs. A proposal is not an existing API.
@@ -60,9 +76,10 @@ src/
     ingestion/              # import and source preservation
     adaptation/             # external proposal acceptance
     production/             # planning-only guidance and rights
-    media/                  # private intake/review/read facade/storage/inspection
-      domain/               # pure profile/binding/object-integrity/range rules and WAV inspection
-  interfaces/http/          # Studio, reserved Theatre/Admin surfaces
+    media/                  # private intake/review/read/storage and publication authority
+      domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
+    listening/              # separate account-owned Library/progress/history
+  interfaces/http/          # Studio, Theatre and reserved Admin surfaces
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
@@ -77,7 +94,12 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–15/count15; Production Brief migration0013 is additive; upgrade/replay tests preserve
+versions1–20,25 (21 migrations), including private storage0015.
+Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
+Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
+credential issuance and session/browser-flow fences, with operator-applied narrow grants in
+services/kanidm. Identity0018 alone grants no HTTP-role registry access. Production Brief
+migration0013 is additive; upgrade/replay tests preserve
 the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
 in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
@@ -140,3 +162,13 @@ cargo xtask preflight --changed-only
 tests, integration mocks and verification must be reported with actual results; CI need
 not finish for handoff. No test of historical TTS synthesis may be used as proof that
 external audio upload, storage or publication exists.
+
+## Theatre discovery and playback boundary
+
+The [Theatre v1 contract](../../packages/contracts/theatre-discovery-v1.md) exposes real
+public-only work/search/detail/ordered-unit/manifest reads and anonymous playback authorization
+at `/api/v1/theatre`. Media owns current eligibility; Catalog supplies exact batched snapshots
+and Platform supplies owner activity. Studio cookies grant nothing here. Migration 0017 indexes
+public releases in the existing atomic publication transaction. The default playback adapter
+is explicitly unavailable; this is not real public delivery or production acceptance.
+See [evidence](../../docs/evidence/theatre-discovery.md).

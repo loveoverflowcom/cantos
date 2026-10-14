@@ -569,6 +569,28 @@
       }
     },
     {
+      "id": "avatar",
+      "name": "Avatar",
+      "family": "icons",
+      "states": [
+        "initials-single",
+        "initials-pair",
+        "no-initial",
+        "image",
+        "image-failed",
+        "sizes",
+        "named"
+      ],
+      "leptos": {
+        "status": "registered",
+        "reason": "String-render anatomy and shared-vector tests exist; browser runtime, accessibility and visual qualification remain pending."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Source and commonTest vectors are written; Gradle was unavailable, so compile, desktop preview, accessibility and visual evidence remain unverified."
+      }
+    },
+    {
       "id": "dialog",
       "name": "Dialog",
       "family": "dialog",

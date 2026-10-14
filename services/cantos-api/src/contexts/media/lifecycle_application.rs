@@ -124,7 +124,7 @@ async fn scoped(
     .map_err(invalid)?;
     Ok((row.value, current))
 }
-async fn owner(
+pub(super) async fn owner(
     tx: &Tx<'_>,
     token: &str,
     unit: &str,
@@ -300,7 +300,7 @@ async fn verified_producer_rendition(
     Ok(r.document().clone())
 }
 
-async fn checked_reviews(
+pub(super) async fn checked_reviews(
     tx: &Tx<'_>,
     s: &AudioSubmission,
     r: &AudioRendition,

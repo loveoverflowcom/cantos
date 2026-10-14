@@ -2,6 +2,7 @@ use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
     features::{
+        account::Account,
         common::*,
         discovery::Discover,
         library::{History, Library},
@@ -48,7 +49,6 @@ pub fn Theatre() -> impl IntoView {
                         <Navigation ctx=ctx/>
                     </nav>
                     <p class="theatre-quote">{move || ctx.text(Key::Quote)}</p>
-                    <p class="theatre-rail-note">{move || ctx.text(Key::DemoBadge)}</p>
                 </aside>
                 <div class="theatre-content">
                     <header class="theatre-topbar">
@@ -57,10 +57,7 @@ pub fn Theatre() -> impl IntoView {
                             <span class="theatre-demo-label">{move || ctx.text(Key::DemoBadge)}</span>
                             <a class="theatre-avatar" href="#account" aria-label=move || ctx.text(Key::Account)
                                 aria-current=move || (ctx.route.get() == Route::Account).then_some("page")>
-                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <circle cx="12" cy="8" r="4" fill="currentColor"/>
-                                    <path d="M4 21v-2a8 8 0 0 1 16 0v2Z" fill="currentColor"/>
-                                </svg>
+                                <PersonGlyph/>
                             </a>
                         </div>
                     </header>
@@ -147,20 +144,6 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
                 <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
             </div>
         </section>
-    }
-}
-
-#[component]
-fn Account(ctx: TheatreContext) -> impl IntoView {
-    view! {
-        <PageHeading ctx=ctx title=Key::Account/>
-        <Surface tone=SurfaceTone::Container inset=Space::Lg>
-            <p>{move || ctx.text(Key::AccountHelp)}</p>
-            <UnsupportedAction ctx=ctx label=Key::SignIn/>
-            <UnsupportedAction ctx=ctx label=Key::Sync/>
-            <a class="theatre-text-link" href="#settings">{move || ctx.text(Key::Settings)}</a>
-            <a class="theatre-text-link" href="#library">{move || ctx.text(Key::Library)}</a>
-        </Surface>
     }
 }
 

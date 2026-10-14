@@ -47,6 +47,12 @@ separates local and mocked results from real-provider acceptance. It does not co
 deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
 write target moves no existing objects.
 
+The next private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
+should extend this verified-payload/MIME boundary inside Media and reuse the same storage
+registry, retaining the audio envelope and original-target reads. Keep its additive migration
+0023 separate from storage migration0015; no second S3 adapter or public artwork projection
+is needed for that owner-only outcome.
+
 Recommended backend follow-ups preserve that order:
 
 | Order | Capability owner | Outcome and dependency |
@@ -75,7 +81,30 @@ pending-write/concurrent identity cases, then full accessibility acceptance; kee
 browser headers and expiry interactions explicit. GitHub retains execution status. The recommended publication/Theatre
 backend sequence above is unchanged.
 
+## Publication core and next listener boundary
+
+[Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
+clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
+minimal withdrawal over the existing candidate/intake path. [Verification](../evidence/publication-core.md)
+separates passing core/Router/proof tests from failed PostgreSQL startup and unrun delivery.
+Unconfigured delivery cannot activate. [Discovery/Playback then Library/Progress handoff](publication-discovery-handoff.md)
+defines the next two separately reviewed slices and the independent
+[private storage PR90](https://github.com/loveoverflowcom/cantos/pull/90) integration prerequisite.
+Keep #9/#10/#11 open through real storage, SQL/concurrency, listening/rights and public acceptance;
+Studio audit manifests do not themselves authorize Theatre playback.
+
 ## Existing foundations to retain
+
+The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
+and adds exact external keys with explicit operator registration/linking. The bounded
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
+before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
+provider/client/TLS acceptance remains separate from local core/database evidence.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
 existing six-crate boundaries. [PR75](https://github.com/loveoverflowcom/cantos/pull/75)
@@ -104,6 +133,16 @@ are separate from the implemented Catalog API and general external-producer hand
 The narrow development intake is described above. Prior worker/Google/eSpeak/VieNeu samples and
 DBSP job views are historical experiments, not prerequisites for the new roadmap.
 
+## Producer-side Cantos Forge
+
+[Issue #82](https://github.com/loveoverflowcom/cantos/issues/82) and the proposed
+[ADR 0022](../decisions/0022-cantos-forge-producer-cli.md) add a producer-side CLI outside the
+API runtime. Its [foundation](../../apps/cantos-forge/README.md) holds the crate, xtask build, the
+tested pure core and a host-assisted local workflow (workspace, register, validate, export a
+local bundle). Recommended next: instruction bundles and AI/human review evidence commands, then
+provider orchestration and the authorized handoff as separate boundaries. None of this changes the
+API sequence above. GitHub owns status.
+
 ## Canonical work plans
 
 - [010 — source/script import and editor](010-import-and-edit-script.md) — completed portions retained.
@@ -115,7 +154,9 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   listener API first; neither completes 040 nor its issues.
   The [#35 Web library MVP mock](../evidence/theatre-web-library-mvp.md) provides a bounded UX
   review step: Khám phá/Của tôi navigation, direct Continue/Saved/History sections and persistent
-  mock mini-player. Retain publication,
+  mock mini-player. The [library/account v2 visual pass](../evidence/theatre-web-library-account-v2.md)
+  reworks those two screens (cluster, status rows, bundled fonts/mock artwork) without new product
+  scope; its Drive reference comparison and Avatar qualification remain open. Retain publication,
   listener identity/API and real playback/synchronization prerequisites for production acceptance.
   The mock does not settle the broader product/backend decisions tracked by
   [#34](https://github.com/loveoverflowcom/cantos/issues/34) or close #35.
@@ -123,6 +164,10 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
   [CMP mock](../../apps/cantos-theatre/mobile/README.md) completes neither 050 nor its issues.
   The [#35 CMP library MVP mock](../evidence/theatre-cmp-library-mvp.md) follows the Web
   presentation with two primary destinations and direct Continue/Saved/History sections.
+  The [reference UI repair](../evidence/theatre-cmp-ui-repair.md) restores artwork/font anatomy
+  and keeps large-text controls and preference dialogs within that same isolated mock boundary.
+  The [radius normalization](../evidence/theatre-cmp-shapes.md) keeps the same mock anatomy
+  while sharing shape roles with the existing design system.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 
@@ -155,5 +200,44 @@ bounded local infrastructure option while preserving native verification. It doe
 product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
 then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
-lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
+
+## Public discovery before account-owned listening state
+
+The [Discovery/Playback backend contract](../../packages/contracts/theatre-discovery-v1.md)
+adds a current-public projection, stable opaque keysets and explicit unavailable media grants.
+Keep Publication/delivery/SQL acceptance and the isolated Web/CMP mock-to-live adapter work
+separate. The [Library/Progress handoff](discovery-library-handoff.md) requires the coordinated
+typed listener identity boundary, conditional/idempotent writes and removal-safe progress.
+No listener registry or native playback is inferred from anonymous catalog reads.
+
+## Listener Library / Progress successor
+
+The [account Library/Progress v1](../../packages/contracts/listener-library-v1.md) and
+[identity/Web/CMP handoff](listener-library-progress-handoff.md) follow inherited draft PR93.
+The [evidence record](../evidence/listener-library-progress.md) distinguishes pure/use-case/Router
+checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MVP Khám phá | Của tôi;
+no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
+remain fail-closed dependencies, and this draft does not complete the broad listening issues.
+
+## Versioned binary transport pilot
+
+[Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio
+Protobuf pilot and portable CMP fixture harness through one branch/PR.
+[The migration ledger](../evidence/protobuf-wire-migration.md) separates pure-core/router/JVM
+evidence from deferred real PostgreSQL, browser save/reload/rollback, Android/iOS and performance
+acceptance. Keep JSON default, preserve legacy MessagePack compatibility, and finish those
+activation gates before expanding the wire contract. This does not reorder publication/listener
+work or change identity, rights, audio or storage scope. GitHub owns execution status.
+
+
+## Identity integration order
+
+Consume the [exact identity registry](../architecture/identity-registry.md) before credential
+issuance, then integrate Studio OIDC, Theatre Web/native identity and Admin authorization in that
+order. Preserve the [handoff](identity-authentication-handoff.md#integrated-registry-consumption)
+and additive migration checksums. Current local/mock acceptance belongs in evidence records;
+production provider/client preparation, native runtime acceptance and explicit cross-client
+identity linking remain separate prerequisites. Equal email or subject text across different
+issuers never establishes a shared actor. GitHub owns execution status.

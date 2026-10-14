@@ -68,6 +68,7 @@
                 A1000000000000000000000A /* Sources */,
                 A10000000000000000000004 /* Frameworks */,
                 A1000000000000000000000B /* Resources */,
+                A10000000000000000000012 /* Copy Compose resources */,
             );
             buildRules = ();
             dependencies = ();
@@ -107,6 +108,20 @@
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        A10000000000000000000012 /* Copy Compose resources */ = {
+            isa = PBXShellScriptBuildPhase;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ("$(SRCROOT)/../shared/src/commonMain/composeResources");
+            name = "Copy Compose resources";
+            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/com.cantos.theatre.resources");
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "set -eu\n# This host links a prebuilt static framework, so Xcode owns its common resource copy.\ncantos_resource_input=\"${SRCROOT}/../shared/src/commonMain/composeResources\"\ncantos_resource_output=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/compose-resources/composeResources/com.cantos.theatre.resources\"\nmkdir -p \"$cantos_resource_output\"\n/usr/bin/ditto \"$cantos_resource_input\" \"$cantos_resource_output\"\n";
+        };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
         A1000000000000000000000A /* Sources */ = {

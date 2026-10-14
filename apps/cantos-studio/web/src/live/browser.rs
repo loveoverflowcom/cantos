@@ -35,7 +35,11 @@ impl Deadline {
         })
     }
 }
-pub async fn execute(command: &Command, controller: AbortController) -> Result<Reply, ClientError> {
+pub async fn execute(
+    command: &Command,
+    controller: AbortController,
+    session_fence: Option<crate::session::SessionFence>,
+) -> Result<Reply, ClientError> {
     let path = command.path()?;
     let deadline = Deadline::new(controller)?;
     let signal = deadline.controller.signal();
@@ -52,6 +56,13 @@ pub async fn execute(command: &Command, controller: AbortController) -> Result<R
         })
         .header("Accept", "application/json")
         .abort_signal(Some(&signal));
+    let expected_fence = match command.credentials() {
+        Credentials::SameOrigin => Some(session_fence.ok_or(ClientError::SessionChanged)?),
+        Credentials::Omit => None,
+    };
+    if let Some(fence) = expected_fence {
+        request = request.header(crate::api::SESSION_HEADER, &fence.header());
+    }
     if let Command::ProducerStatus { credential, .. } | Command::Upload { credential, .. } = command
     {
         request = request.header("Authorization", &credential.bearer());
@@ -69,6 +80,18 @@ pub async fn execute(command: &Command, controller: AbortController) -> Result<R
     }
     .map_err(|_| ClientError::Transport)?;
     let response = request.send().await.map_err(|_| ClientError::Transport)?;
+    if response.ok()
+        && expected_fence.is_some_and(|fence| {
+            !fence.accepts(
+                response
+                    .headers()
+                    .get(crate::api::SESSION_HEADER)
+                    .as_deref(),
+            )
+        })
+    {
+        return Err(ClientError::SessionChanged);
+    }
     let status = response.status();
     if status == 204 && matches!(command, Command::Revoke { .. }) {
         return Ok(Reply::Revoked);

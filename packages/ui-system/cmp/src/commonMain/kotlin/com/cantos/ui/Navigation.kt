@@ -38,7 +38,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.foundation.shape.RoundedCornerShape
 
 /** Native URI dispatch only; routing/history and platform opening stay caller-owned. */
 @Composable
@@ -169,6 +168,6 @@ fun Dialog(
                 LaunchedEffect(Unit) { (initialFocus ?: closeFocus).requestFocus() }
             }, properties = properties,
             containerColor = tokenColor("color.surface"),
-            shape = RoundedCornerShape(tokenDp("shape.overlay")))
+            shape = CantosShapes.overlay)
     }
 }

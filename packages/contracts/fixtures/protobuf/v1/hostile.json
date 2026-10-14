@@ -1,0 +1,161 @@
+{
+  "contract": "cantos.studio.wire.v1",
+  "cases": [
+    {
+      "name": "zero-tag",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "00",
+      "error": "Malformed"
+    },
+    {
+      "name": "missing-script",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "",
+      "error": "Shape"
+    },
+    {
+      "name": "empty-script",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a00",
+      "error": null
+    },
+    {
+      "name": "length-eof",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a",
+      "error": "Truncated"
+    },
+    {
+      "name": "claimed-length",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a0a61",
+      "error": "Truncated"
+    },
+    {
+      "name": "invalid-utf8",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a01ff",
+      "error": "InvalidUtf8"
+    },
+    {
+      "name": "duplicate-scalar",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a000a00",
+      "error": "Shape"
+    },
+    {
+      "name": "unknown-tag",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "1200",
+      "error": "Shape"
+    },
+    {
+      "name": "appended-unknown",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a001200",
+      "error": "Shape"
+    },
+    {
+      "name": "wrong-wire",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0800",
+      "error": "Shape"
+    },
+    {
+      "name": "groups",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0b0c",
+      "error": "Shape"
+    },
+    {
+      "name": "overlong-length",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a8000",
+      "error": "Malformed"
+    },
+    {
+      "name": "overlong-tag",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "8a0000",
+      "error": "Malformed"
+    },
+    {
+      "name": "trailing-varint",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a00ff",
+      "error": "Truncated"
+    },
+    {
+      "name": "trailing-zero",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0a0000",
+      "error": "Malformed"
+    },
+    {
+      "name": "uint64-overflow",
+      "message": "SaveRevisionRequest",
+      "protobuf_hex": "08ffffffffffffffffff02",
+      "error": "Malformed"
+    },
+    {
+      "name": "uint64-continuation",
+      "message": "SaveRevisionRequest",
+      "protobuf_hex": "0880808080808080808080",
+      "error": "Malformed"
+    },
+    {
+      "name": "tag-overflow",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "ffffffffffffffffff01",
+      "error": "Malformed"
+    },
+    {
+      "name": "huge-length",
+      "message": "ValidateScriptRequest",
+      "protobuf_hex": "0affffffffffffffffff01",
+      "error": "Truncated"
+    },
+    {
+      "name": "nested-duplicate",
+      "message": "ScriptValidationResponse",
+      "protobuf_hex": "0a060a000a001200",
+      "error": "Shape"
+    },
+    {
+      "name": "nested-missing",
+      "message": "ScriptValidationResponse",
+      "protobuf_hex": "0a00",
+      "error": "Shape"
+    },
+    {
+      "name": "empty-validation",
+      "message": "ScriptValidationResponse",
+      "protobuf_hex": "",
+      "error": null
+    },
+    {
+      "name": "nested-unknown",
+      "message": "ScriptValidationResponse",
+      "protobuf_hex": "0a060a0012001a00",
+      "error": "Shape"
+    },
+    {
+      "name": "unsigned-max-present",
+      "message": "SaveRevisionRequest",
+      "protobuf_hex": "08ffffffffffffffffff0112001a00",
+      "error": null
+    },
+    {
+      "name": "reordered-zero-present",
+      "message": "SaveRevisionRequest",
+      "protobuf_hex": "1a0012000800",
+      "error": null
+    },
+    {
+      "name": "repeated-merged",
+      "message": "ScriptValidationResponse",
+      "protobuf_hex": "0a040a0012000a040a001200",
+      "error": null
+    }
+  ]
+}

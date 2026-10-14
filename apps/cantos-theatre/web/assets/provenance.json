@@ -1,0 +1,46 @@
+{
+  "purpose": "Isolated Theatre Web mock only. Web-sized derivatives of the artwork and fonts already bundled by the Theatre CMP mock.",
+  "source": "https://drive.google.com/file/d/157jbpHUTKZ-tDzNfXD878nvnF4thWmM4/view",
+  "sourceRecord": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json",
+  "artworkRights": "User-supplied design assets used for the requested isolated mock. The package names no artist or independent redistribution license; production rights review remains required.",
+  "fonts": "Noto Sans / Noto Serif 2.015, regular and bold. Copyright 2022 The Noto Project Authors. SIL OFL 1.1; see fonts/OFL.txt.",
+  "files": {
+    "artwork/son-ha-ky.webp": {
+      "derivedFrom": "drawable/son_ha_moon.png",
+      "sourceSha256": "388f4770ef5c75d50f1bacd0426563a7546bd23675e5dfeb8f671a58c6dda393",
+      "sha256": "5d1d679925accfaecc632463c00434e4159fc3413a15cc2d60a93cffb90e6b18",
+      "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
+    },
+    "artwork/den-khuya.webp": {
+      "derivedFrom": "drawable/den_khuya.png",
+      "sourceSha256": "f96ae8c1532385499546f21c8bc2ee59d75c127e1e374dff4fa8125a8e2a2760",
+      "sha256": "d5c5c38535396c6421b83dc3d5942885137712606e8adad4a1361d16c3476901",
+      "derivation": "Pillow: longest side 800 px (LANCZOS), WebP quality 80, method 6. Display crop happens in CSS."
+    },
+    "fonts/noto-sans-regular.woff2": {
+      "derivedFrom": "font/noto_sans_regular.ttf",
+      "sourceSha256": "f5f552c8c5edb61fe6efb824baf4d4de47b1a8689ab4925ff43f7bd6a4ebece5",
+      "sha256": "8fc95aaf383fd80b94237ce8bcb5d2abad3fa29d08aca4c26e072e53514b5f78"
+    },
+    "fonts/noto-sans-bold.woff2": {
+      "derivedFrom": "font/noto_sans_bold.ttf",
+      "sourceSha256": "3a08a47daa00cade516425c15c57615aef2fd418ec9811a7b9f465088f92cc05",
+      "sha256": "84efc5eff61f51639dd7e8443c21c86077de88f98ea3633584c60c9fbc1a82cc"
+    },
+    "fonts/noto-serif-regular.woff2": {
+      "derivedFrom": "font/noto_serif_regular.ttf",
+      "sourceSha256": "19e72cd8d595fae5bd74a5206f5d938512e1183d4fed7abb1ec1be1d7efa5f88",
+      "sha256": "8b21b128f98d2e6361d14d7ed88dea5ee6e7d1cc4e2123eab95527904ccd3106"
+    },
+    "fonts/noto-serif-bold.woff2": {
+      "derivedFrom": "font/noto_serif_bold.ttf",
+      "sourceSha256": "96656aa5cec8f1d6fd0e804c1fad397e1a1cfa082e6642124e0bda68cd8363ce",
+      "sha256": "f1d87c57fa0b2f1411fffcc61727fd05d10c221612fa1163ccaa74676a7ddc4e"
+    }
+  },
+  "fontSubset": {
+    "tool": "fontTools.subset 4.66.1 with brotli, --layout-features='*', --no-hinting, --flavor=woff2",
+    "unicodes": "U+0020-007E,U+00A0-00FF,U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0304,U+0306-030C,U+031B,U+0323,U+0326-0329,U+1EA0-1EF9,U+2013-2014,U+2018-201E,U+2022,U+2026,U+2032-2033,U+20AB,U+2122,U+2190-2193,U+2212",
+    "coverage": "Every precomposed Vietnamese letter (upper and lower), the combining tone marks, the em dash, middle dot, ellipsis, curly quotes and the dong sign were checked present in each file; tnum is retained."
+  }
+}

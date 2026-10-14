@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -39,7 +38,7 @@ fun Surface(
         SurfaceTone.Raised -> "color.surfaceContainerHigh"
     }
     androidx.compose.material3.Surface(modifier, color = tokenColor(role), contentColor = tokenColor("color.onSurface"),
-        shape = RoundedCornerShape(tokenDp(if (tone == SurfaceTone.Reading) "shape.reading" else "shape.container"))) {
+        shape = if (tone == SurfaceTone.Reading) CantosShapes.reading else CantosShapes.container) {
         Box(Modifier.padding(inset.value())) {
             if (tone == SurfaceTone.Reading) ProvideTextStyle(typeStyle("editor", editorial = true), content)
             else content()

@@ -19,6 +19,7 @@ pub use briefs::*;
 mod audio_intake;
 pub use audio_intake::*;
 pub mod admin;
+pub mod protobuf;
 pub mod routes;
 pub mod theatre;
 pub mod wire;
@@ -156,5 +157,24 @@ pub struct SessionResponse {
     pub actor_id: String,
 }
 
+/// Public Studio login presentation only; this DTO is never authentication evidence.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioAuthenticationMode {
+    Development,
+    Oidc,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct StudioAuthenticationConfiguration {
+    pub mode: StudioAuthenticationMode,
+}
+
 mod audio_lifecycle;
 pub use audio_lifecycle::*;
+
+mod publication;
+pub use publication::*;
+
+pub mod listener_library;

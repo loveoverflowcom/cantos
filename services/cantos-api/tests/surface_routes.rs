@@ -66,7 +66,7 @@ fn surface_bases_are_distinct_children_of_the_api_root() {
 }
 
 #[tokio::test]
-async fn reserved_theatre_and_admin_surfaces_serve_nothing_even_when_a_session_is_presented() {
+async fn unimplemented_theatre_and_admin_paths_serve_nothing_even_with_studio_session() {
     for base in [THEATRE_BASE, ADMIN_BASE] {
         for path in [
             "".to_owned(),
@@ -215,5 +215,47 @@ async fn content_identity_routes_exist_only_in_current_studio_and_never_share_it
                 assert_eq!(reply.body["code"], "not_found");
             }
         }
+    }
+}
+
+#[tokio::test]
+async fn private_audio_reads_require_studio_authentication_and_have_no_other_surface_alias() {
+    for suffix in [
+        format!("/scripts/{SCRIPT}/audio-intents/{SCRIPT}/bytes"),
+        format!("/scripts/{SCRIPT}/audio-intents/{SCRIPT}/read-access"),
+        format!("/content-units/{SCRIPT}/audio-submissions/{SCRIPT}/renditions/{SCRIPT}/bytes"),
+        format!(
+            "/content-units/{SCRIPT}/audio-submissions/{SCRIPT}/renditions/{SCRIPT}/read-access"
+        ),
+    ] {
+        for method in ["GET", "HEAD"] {
+            for cookie in [false, true] {
+                let current = call(method, &format!("{STUDIO_BASE}{suffix}"), cookie, "").await;
+                assert_eq!(
+                    current.status,
+                    StatusCode::UNAUTHORIZED,
+                    "{method} {STUDIO_BASE}{suffix}"
+                );
+                if method == "GET" {
+                    assert_eq!(current.body["code"], "unauthenticated");
+                }
+                for base in [API_BASE, THEATRE_BASE, ADMIN_BASE] {
+                    let reply = call(method, &format!("{base}{suffix}"), cookie, "").await;
+                    assert_eq!(
+                        reply.status,
+                        StatusCode::NOT_FOUND,
+                        "{method} {base}{suffix}"
+                    );
+                }
+            }
+        }
+        let request = Request::builder()
+            .uri(format!("{STUDIO_BASE}{suffix}"))
+            .header(header::AUTHORIZATION, "Bearer producer-upload-capability")
+            .body(Body::empty())
+            .unwrap();
+        let response = app().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{suffix}");
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     }
 }

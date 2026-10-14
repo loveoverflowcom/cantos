@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSION = "0.2.0"
+VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",
@@ -56,6 +56,7 @@ REDUCED_ROLES = {
     "motion.feedback.duration", "motion.navigation.duration",
     "motion.emphasis.duration",
 }
+WEB_PREFIX = "--cantos-web-"  # renderer-local roles the Leptos template may declare itself
 DEFAULT_SCOPE = ":where(.cantos-ui)"
 SYSTEM_DARK_SCOPE = '.cantos-ui:not([data-theme="light"]):not([data-theme="dark"])'
 
@@ -210,8 +211,8 @@ def contrast(first, second):
 def validate(source):
     """Refuse ambiguous mappings, unresolved values and unmet contrast floors."""
     _object(source, "source", TOP_LEVEL)
-    if source["version"] != VERSION:
-        raise ValueError(f"unsupported token version: expected {VERSION}")
+    if source["version"] not in VERSIONS:
+        raise ValueError(f"unsupported token version: expected one of {sorted(VERSIONS)}")
     _object(source["tokens"], "tokens")
     _object(source["themes"], "themes", {"light", "dark"})
     for name, tokens in [("tokens", source["tokens"]), *source["themes"].items()]:
@@ -408,7 +409,12 @@ def _foundation(source, template):
     rendered = re.sub(r"\{\{([^{}]+)\}\}", replace, template)
     if "{{" in rendered or "}}" in rendered:
         raise ValueError("foundation template: malformed placeholder")
-    defined = {variable(role) for role in source["tokens"] | source["themes"]["light"] | source["aliases"]}
+    canonical = {variable(role) for role in source["tokens"] | source["themes"]["light"] | source["aliases"]}
+    declared = set(re.findall(r"(?<![\w-])(--cantos-[a-z0-9-]+)\s*:", rendered))
+    shadowing = {name for name in declared if not name.startswith(WEB_PREFIX) or name in canonical}
+    if shadowing:
+        raise ValueError(f"foundation template: may declare only new {WEB_PREFIX}* roles, not {', '.join(sorted(shadowing))}")
+    defined = canonical | declared
     used = set(re.findall(r"var\(\s*(--cantos-[a-z0-9-]+)", rendered))
     if not used <= defined:
         raise ValueError(f"foundation template: undefined CSS roles {', '.join(sorted(used - defined))}")

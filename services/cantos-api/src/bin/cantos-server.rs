@@ -1,6 +1,7 @@
 use cantos_api::{
     interfaces::http::{router, AppState},
     platform::postgres::{local_config, Store},
+    platform::studio_oidc::{OidcConfig, StudioOidc},
 };
 use std::{env, net::SocketAddr};
 
@@ -35,10 +36,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if store.audio_storage_is_enabled() {
         eprintln!("Private audio intake enabled: API-only host; serve Studio separately through its Trunk proxy");
     }
-    let state = AppState {
-        store,
-        web_origin: env::var("CANTOS_WEB_ORIGIN").unwrap_or_else(|_| format!("http://{address}")),
-    };
+    let web_origin = env::var("CANTOS_WEB_ORIGIN").unwrap_or_else(|_| format!("http://{address}"));
+    if let Ok(issuer) = env::var("CANTOS_STUDIO_OIDC_ISSUER") {
+        let secret = env::var("CANTOS_STUDIO_OIDC_SECRET")
+            .map_err(|_| "OIDC requires an operator-supplied client secret")?;
+        let config = OidcConfig::new(&issuer, &web_origin, secret)
+            .map_err(|_| "invalid Studio OIDC config")?;
+        let oidc = StudioOidc::new(config).map_err(|_| "OIDC client unavailable")?;
+        store = store.with_studio_oidc(oidc);
+    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some() {
+        return Err("OIDC secret requires explicit issuer".into());
+    }
+    let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");
     axum::serve(listener, router(state, &dist))

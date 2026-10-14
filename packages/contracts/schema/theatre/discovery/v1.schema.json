@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/theatre/discovery/v1.schema.json",
+  "title": "Theatre Discovery and Playback v1",
+  "$defs": {
+    "WorkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_id",
+        "kind",
+        "title",
+        "description",
+        "language",
+        "first_published_at_ms"
+      ],
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "enum": [
+            "novel",
+            "story",
+            "podcast"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 63
+        },
+        "first_published_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "WorkPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/WorkSummary"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^lc1_[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "UnitSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_id",
+        "kind",
+        "position",
+        "title",
+        "description",
+        "publication_id",
+        "published_at_ms",
+        "duration_ms"
+      ],
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "kind": {
+          "enum": [
+            "chapter",
+            "episode"
+          ]
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "publication_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "published_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "UnitPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "work_id",
+        "items",
+        "next_cursor"
+      ],
+      "properties": {
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/UnitSummary"
+          }
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^lc1_[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "PublicationManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "publication_id",
+        "work_id",
+        "unit_id",
+        "rendition_id",
+        "manifest_digest",
+        "sha256",
+        "byte_length",
+        "duration_ms",
+        "container",
+        "codec",
+        "channels",
+        "sample_rate_hz",
+        "profile_id",
+        "language",
+        "published_at_ms"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1"
+        },
+        "publication_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "unit_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "rendition_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "manifest_digest": {
+          "type": "string",
+          "pattern": "^rm-r1:sha256:[a-f0-9]{64}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "container": {
+          "const": "ogg"
+        },
+        "codec": {
+          "const": "opus"
+        },
+        "channels": {
+          "const": 1
+        },
+        "sample_rate_hz": {
+          "const": 48000
+        },
+        "profile_id": {
+          "enum": [
+            "opus-mono-20-v1",
+            "opus-mono-24-v1",
+            "opus-mono-32-v1",
+            "opus-mono-40-v1"
+          ]
+        },
+        "language": {
+          "type": "string",
+          "maxLength": 63
+        },
+        "published_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "PlaybackAuthorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publication_id",
+        "rendition_id",
+        "sha256",
+        "url",
+        "expires_at_ms",
+        "content_type",
+        "byte_range_supported"
+      ],
+      "properties": {
+        "publication_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "rendition_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 4096
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "content_type": {
+          "const": "audio/ogg"
+        },
+        "byte_range_supported": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ListenerError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_request",
+            "invalid_cursor",
+            "not_found",
+            "rendition_unavailable",
+            "unavailable"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

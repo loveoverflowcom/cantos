@@ -59,6 +59,9 @@ struct AudioHarness {
 }
 impl AudioHarness {
     async fn new(recording: bool, profile: &str) -> Self {
+        Self::new_visibility(recording, profile, false).await
+    }
+    async fn new_visibility(recording: bool, profile: &str, public: bool) -> Self {
         let mut h = Harness::new().await;
         h.admin.batch_execute("GRANT SELECT,INSERT ON audio_submissions,audio_submission_revocations,audio_renditions,audio_reviews,audio_release_candidates TO cantos_app;").await.unwrap();
         let root = PrivateRoot::new();
@@ -71,6 +74,9 @@ impl AudioHarness {
             "unused-public-root",
         );
         let mut work_body = work_request(if recording { "podcast" } else { "novel" });
+        if public {
+            work_body["details"]["visibility"] = json!("public");
+        }
         work_body["details"]["rights_refs"] = json!(["catalog-rights"]);
         let w = h
             .json("POST", "/works", Some(ALICE), Some(work_body))
@@ -417,7 +423,11 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
                 "not_found"
             }
         );
-        schema("ApiError", &error);
+        if target == theatre_path.as_str() {
+            assert_eq!(error, json!({"code": "not_found", "retryable": false}));
+        } else {
+            schema("ApiError", &error);
+        }
     }
 }
 
@@ -1113,3 +1123,6 @@ async fn audio_read_baseline_uses_current_owner_app_role_and_exact_bounded_point
     fs::create_dir_all(EVIDENCE).unwrap();
     fs::write(format!("{EVIDENCE}/audio-read-baseline.json"),serde_json::to_vec_pretty(&json!({"role":role,"postgres":a.h.admin.query_one("SHOW server_version",&[]).await.unwrap().get::<_,String>(0),"samples_ms":samples,"candidate_samples_ms":candidate_samples,"plans":plans,"object_bytes":bytes.len(),"target_p95_ms":500,"targets_are_local_workload_only":true,"dbsp":"reject: authorized bounded point reads; no hot aggregate/CDC consumer; no DBSP change","scope":"Warm local synthetic 1submission/1rendition/1review/1candidate;20status+20candidate actual Router/app-role/current-owner status reads with actual private hash verification; no production cardinality/SLO claim"})).unwrap()).unwrap();
 }
+
+#[path = "publication_http_postgres.rs"]
+pub(crate) mod publication_http;

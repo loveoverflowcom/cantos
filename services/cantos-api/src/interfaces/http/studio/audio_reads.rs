@@ -102,7 +102,7 @@ async fn access(
     path: String,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };
@@ -149,7 +149,7 @@ async fn read(
         Ok(permit) => permit,
         Err(_) => return error_response(StoreError::Unavailable),
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(token) => token,
         Err(error) => return error_response(error),
     };

@@ -37,6 +37,7 @@ REQUIRED = (
     "docs/architecture/repository-layout.md",
     "docs/decisions/0009-monorepo-layout.md",
     "apps/README.md",
+    "apps/cantos-forge/README.md",
     "apps/cantos-theatre/web/README.md",
     "apps/cantos-theatre/mobile/README.md",
     "apps/cantos-studio/web/README.md",
@@ -75,6 +76,7 @@ CONTEXT_UPSTREAM = {
     "production": {"editorial", "catalog", "ingestion"},
     "catalog": {"editorial", "ingestion"},
     "media": {"editorial", "catalog", "production"},
+    "listening": {"catalog", "media"},
 }
 DOMAIN_EXTERNAL = {
     "axum", "deadpool_postgres", "tokio_postgres", "postgres", "sqlx", "diesel",
@@ -93,7 +95,7 @@ HTTP_PURE_BOUNDARIES = {
 # Media's concrete private-read facade admits HTTP ranges and exposes only application scope,
 # safe errors and a bounded byte stream. This never permits direct domain/adapter dependencies.
 MEDIA_READ_HTTP_TYPES = {
-    "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageError",
+    "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageCapability", "StorageError",
     "StorageStream",
 }
 TABLE_OWNER = {
@@ -102,8 +104,11 @@ TABLE_OWNER = {
     "script_review_operations": "editorial", "script_evidence": "editorial",
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
+    "actor_external_identities": "platform",
+    "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
+    **{table: "listening" for table in ("listener_state", "listener_saved", "listener_progress", "listener_history", "listener_playback_sessions", "listener_device_sequences", "listener_operations")},
 }
 RUST_PATH = re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*(?:::\s*[a-zA-Z_][a-zA-Z_0-9]*)+")
 USE_TOKEN = re.compile(r"[a-zA-Z_][a-zA-Z_0-9]*|::|[{},*]")
@@ -478,13 +483,16 @@ def table_owner(table):
     return TABLE_OWNER.get(table)
 
 
-def dependency_error(path, owner, domain, http):
+def dependency_error(path, owner, domain, http, listener_pg_test=False):
     """Return the boundary violated by one path, or None for an admitted dependency."""
     if not path:
         return None
     if (owner or domain or http) and path[0] == "<legacy>":
         return "context uses a legacy crate alias; name the owning context explicitly"
-    if owner and path[0] == "interfaces":
+    if owner and path[0] == "interfaces" and not (listener_pg_test and path in {
+        ("interfaces", "http", "router_with_listener_identity"),
+        ("interfaces", "http", "AppState"),
+    }):
         return "context must not depend on an interface"
     if domain:
         if path[0] in DOMAIN_EXTERNAL or path[:2] in {
@@ -494,8 +502,8 @@ def dependency_error(path, owner, domain, http):
             return "pure domain must not depend on I/O, a runtime, clock or randomness"
         if path[:2] == ("std", "io") and len(path) > 2 and path[2] in {"stdin", "stdout", "stderr"}:
             return "pure domain must not depend on console I/O"
-        if path[0] == "platform" and path[:2] != ("platform", "ids"):
-            return "pure domain may use only the pure platform::ids boundary"
+        if path[0] == "platform" and path[:2] != ("platform", "ids") and path[:3] != ("platform", "identity", "domain"):
+            return "pure domain may use only pure platform::ids or identity::domain values"
         if path[0] == "interfaces":
             return "pure domain must not depend on an interface"
     if path[0] == "contexts" and len(path) >= 2:
@@ -521,8 +529,35 @@ def dependency_error(path, owner, domain, http):
         }
         media_read = (path[:3] == ("contexts", "media", "read") and len(path) >= 4
                       and path[3] in MEDIA_READ_HTTP_TYPES)
+        publication_error = path[:3] in {
+            ("contexts", "media", "PublicationStoreError"),
+            ("contexts", "media", "PublicationDependencyError"),
+            ("contexts", "media", "ListenerError"),
+        } or path[:5] == ("contexts", "media", "domain", "publication", "PublicationError")
+        publication_composition = path in {
+            ("contexts", "media", "PublicationService"),
+            ("contexts", "media", "PublicationService", "new"),
+            ("contexts", "media", "PublicationService", "with_publication_delivery"),
+            ("contexts", "media", "PublicationDelivery"),
+            ("contexts", "media", "ListenerService"),
+            ("contexts", "media", "ListenerService", "new"),
+            ("contexts", "media", "ListenerError"),
+            ("contexts", "media", "PlaybackDelivery"),
+        }
+        listener_composition = path in {
+            ("contexts", "listening", "LibraryService"),
+            ("contexts", "listening", "LibraryService", "new"),
+            ("contexts", "listening", "auth", "AuthenticatedListener"),
+            ("contexts", "listening", "auth", "ListenerAuthenticator"),
+            ("contexts", "listening", "auth", "DenyListenerAuthentication"),
+            ("contexts", "listening", "auth", "ListenerCredentials"),
+            ("contexts", "listening", "auth", "ListenerCredentials", "bearer"),
+        } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (
+            "contexts", "listening", "auth", "AuthenticationError")
         if http and path not in HTTP_PURE_BOUNDARIES and not (
-                catalog_wire or catalog_error or catalog_input_type or media_read):
+            catalog_wire or catalog_error or catalog_input_type or media_read
+            or publication_error or publication_composition or listener_composition
+        ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
         return "HTTP must not call a database or external provider directly"
@@ -555,12 +590,13 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
+        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/studio_oidc/core.rs")}
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")
         code, strings = rust_code(content)
         for offset, path in source_paths(code, module):
-            error = dependency_error(path, owner, domain, http)
+            error = dependency_error(path, owner, domain, http, relative == Path("contexts/listening/postgres/tests.rs"))
             if parts[0] == "platform" and path[0] == "contexts":
                 error = "platform must not depend on a business context"
             if error:

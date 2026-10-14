@@ -109,6 +109,13 @@ validator it fails unavailable. Full delivered bodies are checked again at strea
 A provider ETag is a transport validator, never the accepted checksum. Range delivery requires
 declared support and exact `206`, length and Content-Range; it has no unsafe fallback.
 
+Persisted identity is the original target, content-addressed key, accepted SHA-256 and length.
+The provider version observed at admission is not retained in PostgreSQL. Each read verifies
+current bytes before selecting its version/ETag pin; different bytes are rejected, while
+recreated identical bytes remain eligible. Retrieving a noncurrent historical S3 version after
+deletion of the current object requires a separate retained-version capability. Per-read pinning
+does not establish that capability or provider retention.
+
 ## Checked configuration and switching
 
 `CANTOS_STORAGE_CONFIG` is an absolute path to a non-secret TOML topology. The

@@ -29,9 +29,10 @@ container infrastructure; build/test/run/preflight never do.
 ```sh
 cargo xtask build cantos-api [--release]          # cargo build --locked -p cantos-api --bins
 cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experimental (opt-in incremental core; no consumer)
+cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
-cargo xtask build all [--release]                  # the API and both Web clients
+cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
 cargo xtask run cantos-studio --web [--test-cluster] [--open]
@@ -64,13 +65,16 @@ cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composabl
 
 ### Targets, surfaces and profiles
 
-`cantos-api` is the Axum/PostgreSQL backend. `cantos-studio` (creators) is web-only: pass
+`cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
+([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
+xtask only builds it: no `run`, gate or CI job executes Forge, and Forge calls no provider.
+`cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
 Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
 `UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
-out-of-scope directory. `build all` covers the API and both Web clients and notes that Theatre
+out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
 Mobile and `services/kanidm` (configuration only) are not built. See the
 [platform matrix](../docs/architecture/repository-layout.md#platform-scope).
 
@@ -185,7 +189,7 @@ launch does not prove window readiness or complete process cleanup. Record actua
 observations separately.
 
 CMP requires a real package-local Gradle project (both settings and build files), an installed
-Gradle 8.14.3 and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
+Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 (8.14.3 preferred; matches the wrappers) and a compatible JDK 17 or newer on `PATH`. All Gradle invocations use
 `--no-daemon` and `-Dorg.gradle.java.installations.auto-download=false`: the JDK must already be
 available. Gradle resolves declared project dependencies normally. xtask never invokes a
 downloading wrapper, installs Gradle or provisions a JDK. A missing or incompatible prerequisite
@@ -194,7 +198,7 @@ The Theatre `--mobile` surface remains reserved and is separate from this deskto
 Shared CMP previews do not create a Studio mobile client.
 
 `ui-preview cmp android-build` compiles `compileDebugKotlinAndroid` in the isolated
-`packages/ui-system/cmp/android-preview` library with the same installed Gradle 8.14.3/JDK
+`packages/ui-system/cmp/android-preview` library with the same installed Gradle/JDK
 checks. That project consumes the shared CMP source and requires a locally configured Android
 SDK. The command starts no IDE, emulator, app or device process. Its build is optional and
 separate from the desktop build/test gate, so desktop users do not acquire an Android SDK
@@ -209,6 +213,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | --- | --- | --- |
 | `repository` | typed `services validate`; `scripts/check_repository.py`; `python3 -m unittest discover -s scripts -p 'test_*.py'`; `git diff --check`; `git diff --cached --check` | cargo, python3, git |
 | `rust-format` | `cargo fmt --all -- --check` | rustfmt |
+| `protobuf-reference` | independent Python goldens + pinned isolated prost/protoc exact generated-schema drift oracle + its clippy | cargo, python3, clippy |
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
@@ -229,7 +234,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `repository` | repository |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
-| `contracts` | script-ir-reference, contract-tests, wav-reference, audio-inspection |
+| `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
 | `dbsp` | dbsp |
 | `postgres` | postgres |
@@ -288,6 +293,7 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
+- Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. The service
@@ -304,17 +310,17 @@ state it in the pull request.
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly three registered API-library propositions:
-`catalog-revision`, `wav-payload` and `submission-window`. Repeat `--harness` to select a subset;
+`cargo xtask verify kani` selects exactly five registered API-library propositions:
+`catalog-revision`, `wav-payload`, `submission-window`, `publication-commit` and `listener-access`. Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/7/8) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/7/8/6/5) and reviewed unreachable checks.
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
-limits. Existing Theatre harnesses are outside this registry and have no new executed claim.
+limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all three. Unrelated documents, Web/CMP and service configuration select
+uncertain changes select all five. Unrelated documents, Web/CMP and service configuration select
 none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.
@@ -368,7 +374,7 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
+| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
 | `web` | web-lint, web-build (Studio and Theatre) |
 | `postgres` | `cargo fetch --locked`, then postgres |
 
@@ -468,7 +474,7 @@ cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:asse
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
 
-Build/verify/run require installed Gradle 8.14.3 and a full JDK 17+. Android checks an existing
+Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
 absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
 iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
 then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.
@@ -489,3 +495,14 @@ private root; it does not provision identity/storage or use an inherited databas
 PostgreSQL verification now discards completed suite databases only after their tests pass,
 retaining all five restart fixtures for the existing crash/replay assertions. This bounds local
 disk consumption without removing any test or weakening PostgreSQL durability settings.
+
+### Studio Kanidm operator tools
+
+`cargo xtask kanidm reconcile --issuer ISSUER --web-origin ORIGIN --group GROUP --dry-run`
+prints a typed Studio-only client/callback/openid plan. It has no mutation execution path and
+reports provider reconciliation NOT_RUN. No container, user, grants, credential or TLS bootstrap
+is started. `cargo xtask kanidm verify --issuer ISSUER --web-origin ORIGIN [--dry-run]` invokes the
+API's bounded read-only discovery/JWKS primitive only when explicitly run; dry-run starts nothing.
+Metadata PASS establishes no user login, disable/logout or production acceptance. These optional
+operator operations are outside preflight/CI; Rust tests exercise their plans and the real adapter
+against ephemeral signed HTTP mocks. See the [operator policy](../services/kanidm/README.md).

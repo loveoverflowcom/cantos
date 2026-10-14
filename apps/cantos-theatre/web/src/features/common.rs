@@ -32,8 +32,39 @@ pub(crate) fn icon(asset: &'static str) -> impl IntoView {
     view! { <span class="theatre-icon" aria-hidden="true" inner_html=markup></span> }
 }
 
+/// The one app-private listener glyph (guest). The shared `Avatar` is not admitted for Theatre yet:
+/// it still lacks both-renderer qualification evidence (see the preview catalog gate).
+#[component]
+pub(crate) fn PersonGlyph() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="8" r="4" fill="currentColor"/>
+            <path d="M4 21v-2a8 8 0 0 1 16 0v2Z" fill="currentColor"/>
+        </svg>
+    }
+}
+
 pub(crate) fn clock(seconds: u32) -> String {
     format!("{}:{:02}", seconds / 60, seconds % 60)
+}
+
+/// Whole-percent position for a progress bar; an unknown or zero duration shows no progress.
+pub(crate) fn progress_percent(position_ms: u32, duration_seconds: u32) -> u8 {
+    let duration_ms = u64::from(duration_seconds) * 1000;
+    if duration_ms == 0 {
+        return 0;
+    }
+    (u64::from(position_ms) * 100 / duration_ms).min(100) as u8
+}
+
+/// Mock artwork bundled with the app (see assets/provenance.json). Works without a painting
+/// keep the typographic cover.
+pub(crate) fn artwork_src(id: WorkId) -> Option<&'static str> {
+    match id {
+        WorkId::Mountain => Some("assets/artwork/son-ha-ky.webp"),
+        WorkId::River => Some("assets/artwork/den-khuya.webp"),
+        WorkId::Dream => None,
+    }
 }
 
 #[component]
@@ -53,14 +84,24 @@ pub(crate) fn PageHeading(
 
 #[component]
 pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
-    view! {
-        <div class="theatre-cover" data-work=id.slug() role="img"
-            aria-label=move || format!("{}: {}", ctx.work(id).title, ctx.text(Key::CoverPlaceholder))>
-            <span class="theatre-cover-moon" aria-hidden="true"></span>
-            <span class="theatre-cover-index" aria-hidden="true">"C / "{match id { WorkId::Mountain => "01", WorkId::River => "02", WorkId::Dream => "03" }}</span>
-            <strong lang="vi-VN" aria-hidden="true">{ctx.work(id).title}</strong>
-            <small aria-hidden="true">{move || ctx.text(messages::genre_key(ctx.work(id).genre))}</small>
-        </div>
+    match artwork_src(id) {
+        Some(src) => view! {
+            <div class="theatre-cover" data-work=id.slug() data-art="true" role="img"
+                aria-label=move || format!("{}: {}", ctx.work(id).title, ctx.text(Key::CoverArtPlaceholder))>
+                <img class="theatre-cover-art" src=src alt="" decoding="async" loading="lazy"/>
+            </div>
+        }
+        .into_any(),
+        None => view! {
+            <div class="theatre-cover" data-work=id.slug() role="img"
+                aria-label=move || format!("{}: {}", ctx.work(id).title, ctx.text(Key::CoverPlaceholder))>
+                <span class="theatre-cover-moon" aria-hidden="true"></span>
+                <span class="theatre-cover-index" aria-hidden="true">"C / "{match id { WorkId::Mountain => "01", WorkId::River => "02", WorkId::Dream => "03" }}</span>
+                <strong lang="vi-VN" aria-hidden="true">{ctx.work(id).title}</strong>
+                <small aria-hidden="true">{move || ctx.text(messages::genre_key(ctx.work(id).genre))}</small>
+            </div>
+        }
+        .into_any(),
     }
 }
 

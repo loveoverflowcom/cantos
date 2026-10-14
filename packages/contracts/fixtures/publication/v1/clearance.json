@@ -1,0 +1,13 @@
+{
+  "operation_id": "80000000-0000-4000-8000-000000000002",
+  "candidate_digest": "rc-r1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "decision": "cleared",
+  "rights_refs": [
+    "synthetic-rights"
+  ],
+  "valid_until": 10000,
+  "evidence_refs": [
+    "synthetic-rights"
+  ],
+  "notes": "Synthetic owner decision fixture, never a legal attestation."
+}

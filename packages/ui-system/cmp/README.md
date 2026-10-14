@@ -10,7 +10,7 @@ navigation shell, downloads, audio session or playback adapter.
 
 Every shared declaration in [`preview-catalog.json`](../shared/preview-catalog.json) must have
 one real native example or an explicit unsupported explanation. The common package exposes
-29 wrappers with the same component names as Leptos. Close/retry labels, accessible names and
+30 wrappers with the same component names as Leptos. Close/retry labels, accessible names and
 visible content come from the caller. Caller-owned values and callbacks remain
 separate from rendering. Disabled/loading actions require a nonblank visible reason;
 read-only text stays selectable and does not dispatch edits. Native choice controls have no
@@ -28,6 +28,11 @@ text multiplier against the inherited platform font scale; they do not multiply 
 `Actions.kt` and `Fields.kt` own their native wrappers, sharing focus/state decoration through
 `ComponentModifiers.kt`. `Choices.kt`, `Navigation.kt`, `Layout.kt` and `Feedback.kt` now own their native contracts;
 `Components.kt` retains the root, field messages and decorative icons. The isolated Android diagnostic host shares these sources directly and adds tooling only.
+
+`Avatar.kt` owns the pure [avatar contract](../shared/README.md#avatar) (`avatarInitials`,
+`avatarSeed`, `avatarTone`) and a renderer for a caller-decoded `ImageBitmap` or the initials
+fallback. It is registered in both preview catalogues (`avatar`, seven states) with the Leptos
+`Avatar`; no application may adopt it before both renderers qualify.
 
 String field calls remain compatible. `TextField`, `TextArea` and `NumberField` also accept
 caller-owned `TextFieldValue`, retaining text/selection/composition without conversion. Return
@@ -186,7 +191,7 @@ Float if one percent cannot be represented. OS binding, real IME, screen reader,
 Noto/reference and mobile acceptance remain separate. Historical attempts below retain their
 own source/toolchain scope.
 
-`commonTest/PreviewModelTest.kt` checks exact 29-component inventory parity, search/family
+`commonTest/PreviewModelTest.kt` checks exact 30-component inventory parity, search/family
 filtering, validated names/reasons, blocked dispatch projections, read-only versus disabled,
 generated token density/alias/motion lookups and nine official icon path mappings.
 `desktopTest/ComponentSemanticsTest.kt` declares JVM Compose tests for callbacks, visible

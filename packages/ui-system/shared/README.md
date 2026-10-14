@@ -1,4 +1,4 @@
-# Shared semantic contract v0.2.0
+# Shared semantic contract v0.3.0
 
 [`tokens.json`](tokens.json) is the sole active source. This is a bounded Cantos JSON schema,
 not a claim of DTCG conformance. The generator validates it before any output write.
@@ -34,13 +34,56 @@ The authenticated design package reviewed on 2026-10-11 supplies identical Laven
 for both products, Noto Sans UI / Noto Serif editorial names, 14/1.55 Web body, 14/1.9 editor,
 44 logical-unit Web targets, 48 for comfortable/touch intent, 140ms feedback and proposed 260ms
 navigation. Paper, lavender and muted gold preserve the quiet historical/fantasy character.
-No embedded font or artwork bytes are redistributed; those files still need rights review.
-The Web uses local/system fallbacks when the named fonts are unavailable.
+The Theatre CMP mock now supplies the exact Noto Sans/Serif resource families (SIL OFL 1.1)
+and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
+keeps hashes and the outstanding production artwork-rights boundary. Other hosts, including Web,
+retain local/system fallbacks. Shared theme callers may inject licensed font families without
+changing platform font scale. The shared package itself contains no font or painting files.
+
+v0.2.1 adds `color.playerSurface`, `color.onPlayerSurface` and `color.playerAccent` from the
+Mobile v2 handoff. Both themes deliberately retain the separate dark player surface and pale
+control accent. Existing roles are unchanged; CSS/Rust/Kotlin and the preview token inventory
+are generated together. All three player contrast pairs are part of the canonical checks.
 
 The generator keeps the 8-step rhythm without renaming established Studio spacing roles:
 `xs=4`, `sm=8`, `inset=12`, `md=16`, `section=20`, `lg=24`, `xl=32`, `xxl=36`.
-Reading/container/overlay/action shapes are separate roles (12/18/24/24), rather than a card
-around every line. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
+v0.2.2 standardizes the existing shape roles instead of adding a mobile-only token set:
+
+| Role | Logical radius | CMP Material slot / use |
+| --- | --- | --- |
+| `shape.detail` | 4 | extraSmall; small details |
+| `shape.control` | 8 | small; compact/text controls |
+| `shape.reading` / alias `shape.field` | 12 | medium; fields, regular actions, mini-player |
+| `shape.container` | 16 | large; story/continue cards and large covers |
+| `shape.overlay` | 20 | extraLarge; dialogs |
+| `shape.thumbnail` | 10 | compact artwork, including mini-player; explicit requested exception |
+| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators only |
+
+`CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
+slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock
+Material buttons opt into small/medium explicitly because their default Full shape bypasses
+Material theme slots. The shared scale is CMP's: Web does **not** consume it (see below), so it
+changes no Web corner; spacing, fonts, colors and motion values remain unchanged. Elevation is reserved for overlap; zero base shadow keeps reading quiet.
+### Web shape mapping
+
+Leptos keeps the soft corners it shipped with in v0.2.0 through five renderer-local roles
+declared once, in the [stylesheet template](../leptos/foundation.css.in), not in `tokens.json`:
+
+| Web role | Value | Historical shared role | Use |
+| --- | --- | --- | --- |
+| `--cantos-web-shape-control` | 24 (1.5rem) | `shape.control` | buttons, navigation selection, chips as actions |
+| `--cantos-web-shape-reading` | 12 (0.75rem) | `shape.reading` / `shape.field` | text fields, notices, badges, reading surfaces |
+| `--cantos-web-shape-container` | 18 (1.125rem) | `shape.container` | story/continue cards, covers, panels |
+| `--cantos-web-shape-overlay` | 24 (1.5rem) | `shape.overlay` | featured container, mini-player, dialogs |
+| `--cantos-web-shape-panel` | 24 (1.5rem) | none (Web v2 base panel) | primary page panels that hold nested cards, covers or rows (Theatre continue-listening, account identity); nested items keep `container` |
+
+Web CSS reads only these roles plus the shared `shape.pill`; it never reads the shared
+`shape.{control,reading,field,container,overlay}` custom properties, so the CMP scale can change
+without moving a Web corner. The generator refuses a template custom property outside
+`--cantos-web-*` or one that shadows a canonical role, and `scripts/test_ui_tokens.py`
+(`WebShapeIndependence`) pins the values and the no-direct-use rule. CMP outputs never mention
+these roles. Values are logical-unit equivalents of the historical v0.2.0 numbers, not new design.
+
 600/840 logical-unit medium/expanded breakpoints are foundation decisions, not copied app
 layout thresholds. They guide composition, while actual pane constraints belong to app owners.
 CSS media queries cannot consume custom properties: the generator substitutes named breakpoint
@@ -56,6 +99,53 @@ foreground color; rendered contrast and browser `color-mix` remain runtime revie
 All token pairs are checked in both themes. This does not measure text over art, transparency,
 disabled opacity, focus occlusion or forced-colors rendering. Provenance and exact executed
 checks are in the [foundation evidence](../../../docs/evidence/ui-system-foundation.md).
+
+v0.3.0 adds avatar identity roles: six `color.avatar<Tone>` / `color.onAvatar<Tone>` pairs
+(Lavender, Gold, Sage, Rose, Sky, Clay) and `size.avatarSmall|Medium|Large` (32/40/64). The
+hues are muted container tones beside Lavender Ink, not status colors; every pair is a 4.5
+text contrast check in both themes (measured 7.7–9.4). Existing roles are unchanged.
+
+## Avatar
+
+A text avatar shows a person or creator when no picture is available. The rules follow the
+Google account / YouTube channel fallback and correct the VOTHub divergence, where CMP showed
+one letter and Leptos two. One contract serves both renderers:
+
+| Rule | Contract |
+| --- | --- |
+| Initial of a word | first BMP letter (Unicode `L*`) or ASCII digit, uppercased, keeping following combining marks (U+0300–036F, 1AB0–1AFF, 1DC0–1DFF, 20D0–20FF, FE20–FE2F); leading punctuation is skipped |
+| Single (default) | initial of the first word: `Nguyễn Thị Ánh` → `N`, `@cantos.studio` → `C` |
+| Pair | first and last words, keeping the Vietnamese given name: `Nguyễn Thị Ánh` → `NÁ` |
+| No initial | empty text and a plain tone circle, never `?` |
+| Tone seed | trimmed caller stable ID (account/creator ID) so a rename keeps the color; else the display name with whitespace runs collapsed |
+| Tone | 32-bit FNV-1a over UTF-8 of the seed, mod 6, in the order Lavender, Gold, Sage, Rose, Sky, Clay |
+| Glyph size | proportional to the diameter (0.44 single, 0.36 pair), not to text scale, so it never escapes the circle |
+| Picture | caller-owned and drawn over the tone; while loading or after failure the initials show. CMP takes a host-decoded `ImageBitmap`; Web accepts only HTTPS, same-origin, `blob:` or `data:image/` URLs |
+| Semantics | decorative by default; an optional localized accessible name makes it a standalone image |
+
+Golden vectors (both renderer test suites assert these):
+
+| Input | Single | Pair |
+| --- | --- | --- |
+| `  Nguyễn Thị Ánh  ` | `N` | `NÁ` |
+| `  __Đỗ Văn An` | `Đ` | `ĐA` |
+| `岑 昕` | `岑` | `岑昕` |
+| `a◌́nh Dương` (decomposed) | `A◌́` | `A◌́D` |
+| `ß` | `S` | `S` |
+| `  😀 ` / empty | empty | empty |
+
+| Seed | Tone |
+| --- | --- |
+| `user-42` | Rose |
+| `user-1` | Sky |
+| `alice@example.com` | Sage |
+| empty, `creator-7` | Gold |
+| `Nguyễn Thị Ánh`, `Người dẫn chuyện` | Lavender |
+
+Supplementary-plane characters are skipped on both renderers because Kotlin common has no
+code-point classification. Unicode category tables of the two standard libraries can still
+differ for rare letters; the vectors cover realistic Vietnamese, Latin and CJK names. Fetching,
+caching, size limits and decoding of pictures stay in the host; the primitive calls no network.
 
 ## Preview registration and adoption
 

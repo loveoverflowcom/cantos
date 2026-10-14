@@ -11,6 +11,7 @@ mod config;
 mod doctor;
 mod gate;
 mod kani;
+mod kanidm;
 mod pipeline;
 mod preflight;
 mod probe;
@@ -55,6 +56,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::Build {
@@ -77,7 +79,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             };
             let mut report = pipeline::execute("build", &steps, &tools, &mut runner);
             if target == build::BuildTarget::All {
-                report.note("not built: production mobile listening (theatre-demo builds only the isolated mock UI) and services/kanidm (configuration only)");
+                report.note("built, not run: cantos-forge. Not built: production mobile listening (theatre-demo builds only the isolated mock UI) and services/kanidm (configuration only)");
             }
             report.print();
             Ok(report.exit_code())

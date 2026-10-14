@@ -1,0 +1,12 @@
+{
+  "operation_id": "00000000-0000-4000-8000-00000000000a",
+  "outcome": "history_epoch_conflict",
+  "resolution": "keep_server",
+  "state": {
+    "resource": "history",
+    "current": {
+      "revision": 2,
+      "epoch": 1
+    }
+  }
+}

@@ -51,11 +51,13 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Studio Kanidm operator plan or read-only OIDC metadata check; no automatic bootstrap.
+    Kanidm(crate::kanidm::KanidmArgs),
     /// Explicit Podman local infrastructure lifecycle; never used by build/test/run.
     Services(crate::services::ServicesArgs),
     /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.
     ComposePreview(ComposePreviewArgs),
-    /// Build a target with Cargo (API) or Trunk (Web); dev profile unless --release.
+    /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]
         target: BuildTarget,
@@ -150,7 +152,7 @@ pub enum Task {
 pub enum VerifySuite {
     /// Exact registered API bounded proofs; no normal build or CI requirement.
     Kani {
-        /// Select a registered proposition (repeatable); omission selects all three.
+        /// Select a registered proposition (repeatable); omission selects all registered kernels.
         #[arg(long, value_enum)]
         harness: Vec<Kernel>,
     },
@@ -237,6 +239,14 @@ mod tests {
             Task::Build {
                 target: BuildTarget::CantosApi,
                 dbsp_experimental: true,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse("build cantos-forge --release").unwrap(),
+            Task::Build {
+                target: BuildTarget::CantosForge,
+                release: true,
                 ..
             }
         ));

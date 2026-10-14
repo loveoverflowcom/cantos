@@ -1,0 +1,11 @@
+{
+  "operation": {
+    "operation_id": "00000000-0000-4000-8000-00000000000a",
+    "device_id": "00000000-0000-4000-8000-00000000000b",
+    "device_sequence": 1,
+    "device_reported_at_ms": null
+  },
+  "base_revision": 1,
+  "history_epoch": 0,
+  "confirmation": "clear_history"
+}

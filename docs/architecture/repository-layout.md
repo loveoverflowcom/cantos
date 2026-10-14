@@ -36,6 +36,7 @@ apps/
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
+  cantos-forge/            Producer-side CLI, outside the API runtime (package cantos-forge) FOUNDATION
 services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
@@ -61,7 +62,13 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   It implements no native audio, listener API, background playback, downloads or durable sync.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
-  authenticate through Kanidm: the API still uses operator-issued development tokens.
+  claim live Kanidm acceptance: the API now has opt-in [Studio OIDC](studio-oidc.md) alongside
+  development tokens, with live provider/production activation gated.
+- **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
+  [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
+  a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
+  `artifact list/show`, `validate`, `handoff export`). It has no provider, network client or API
+  handoff, and it is not a Studio or Theatre client.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 
@@ -93,7 +100,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 - `packages/` imports neither `apps/` nor `services/`. An app never imports another app, and an app
   never links `services/` code; the browser or phone talks to the API over HTTP, so no server crate
-  enters a WASM dependency graph.
+  enters a WASM dependency graph. Cantos Forge follows the same rule: a future handoff uses HTTP
+  and producer credentials, and the API never spawns or waits for Forge. `cargo test -p xtask`
+  checks that every workspace dependency edge points inward.
 - **Studio and Theatre stay separate.** Each has its own UI, routes, session and permission
   context. A listener request must never reach a Studio route and a Studio screen must not ship in
   the Theatre bundle. Enforcement stays in the backend: private drafts, voice assets and previews
@@ -101,8 +110,9 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 - **One backend.** `services/cantos-api` is the single deployable service for both products, as
   decided in [decision 0001](../decisions/0001-modular-monolith.md). Studio v1 is implemented. The
   API is split by surface into three route groups with separate routers, DTO modules, authentication
-  and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` and `/api/v1/admin/*`
-  (reserved: empty routers answering `404 not_found`, no fake data; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
+  and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
+  core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
+  (reserved: empty router answering `404 not_found`; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
   Domain rules and PostgreSQL authority stay shared; a surface never calls another surface's
   handler. Backend no longer starts TTS workers. Current contexts are Editorial, Ingestion,
   Adaptation, reference-only Production, pure Media inspection and the internal Catalog
@@ -110,8 +120,11 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
-  example server config. The API will validate tokens issued by it once identity work starts;
+  example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
   nothing in this repository reimplements an identity provider.
+  The [internal actor registry](identity-registry.md) now owns exact external bindings under
+  `platform/identity`, preserving existing actors and development sessions; it does not verify
+  provider claims, add OIDC login or grant Theatre/Admin authority.
 
 ## What is shared, and what is not
 
@@ -138,11 +151,12 @@ Not shared, deliberately:
 
 ## Cargo workspace
 
-The root `Cargo.toml` lists six members and one `Cargo.lock`. Each builds on its own.
+The root `Cargo.toml` lists seven members and one `Cargo.lock`. Each builds on its own.
 
 | Member | Package | Build target |
 | --- | --- | --- |
 | `services/cantos-api` | `cantos-api` | native; `cantos-server`, `cantos-migrate`, `cantos-operator`, validation/diff and read-only WAV inspection CLIs |
+| `apps/cantos-forge` | `cantos-forge` | native producer-side CLI `cantos-forge`; never a dependency of another member |
 | `apps/cantos-studio/web` | `cantos-studio` | `wasm32-unknown-unknown` through Trunk |
 | `apps/cantos-theatre/web` | `cantos-theatre` | `wasm32-unknown-unknown` through Trunk |
 | `packages/contracts/api` | `cantos-contracts` | native and WASM |
@@ -159,6 +173,7 @@ Trunk and refuses reserved surfaces instead of simulating them.
 
 ```sh
 cargo xtask build cantos-api           # service binaries (native)
+cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web session-only mock through Trunk
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
@@ -170,7 +185,8 @@ cargo xtask verify web                 # WASM clippy and Trunk builds of both cl
 
 PostgreSQL and optional Kanidm use explicit `cargo xtask services` lifecycle commands, separate
 from native `run` and disposable database verification. See [services](../../services/README.md).
-Configured infrastructure is not a deployed identity provider or OIDC integration.
+Configured infrastructure is not a deployed identity provider. The opt-in Studio OIDC code has
+separate mocked/SQL evidence and unrun live-provider gates.
 
 `cantos-server` serves `apps/cantos-studio/web/dist` by default for local development, through
 `CANTOS_WEB_DIST`. This is a development convenience for same-origin cookies, not a statement that
