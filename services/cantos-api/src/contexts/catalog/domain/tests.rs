@@ -778,7 +778,11 @@ fn archived_parents_block_unit_creation_edit_archive_restore_and_reorder() {
         Err(CatalogError::WorkArchived)
     );
     assert_eq!(
-        plan_reorder(&parent, &[original.clone()], &[original.id().clone()]),
+        plan_reorder(
+            &parent,
+            std::slice::from_ref(&original),
+            &[original.id().clone()]
+        ),
         Err(CatalogError::WorkArchived)
     );
 }
@@ -799,7 +803,11 @@ fn a_unit_cannot_be_edited_archived_or_reordered_through_another_parent() {
     );
     assert_eq!(original.archive(&other, 1, 2_000), Err(wrong_work.clone()));
     assert_eq!(
-        plan_reorder(&other, &[original.clone()], &[original.id().clone()]),
+        plan_reorder(
+            &other,
+            std::slice::from_ref(&original),
+            &[original.id().clone()]
+        ),
         Err(wrong_work)
     );
 }

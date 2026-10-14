@@ -1,0 +1,6 @@
+# Production compiler pin; Kani keeps its independently bundled nightly toolchain.
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

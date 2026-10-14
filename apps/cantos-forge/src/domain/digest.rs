@@ -34,10 +34,11 @@ impl Sha256Digest {
             return Err(DigestError::MalformedHex);
         }
         let mut bytes = [0_u8; 32];
-        for (byte, pair) in bytes.iter_mut().zip(hex.as_bytes().chunks_exact(2)) {
-            let &[high, low] = pair else {
-                return Err(DigestError::MalformedHex);
-            };
+        for (byte, pair) in bytes
+            .iter_mut()
+            .zip(hex.as_bytes().as_chunks::<2>().0.iter())
+        {
+            let &[high, low] = pair;
             *byte = (lowercase_nibble(high)? << 4) | lowercase_nibble(low)?;
         }
         Ok(Self(bytes))

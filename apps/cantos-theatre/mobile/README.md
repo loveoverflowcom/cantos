@@ -127,20 +127,20 @@ requires fresh [two-renderer admission](../../../.agents/skills/cantos-ui-design
 ## Local commands
 
 Repository operations use [`cargo xtask`](../../../xtask/README.md). Put installed Gradle
-**8.14.3**, a full **JDK 17+** and Rust **1.87** on the environment. Existing pins remain Kotlin
+**8.14.3**, a full **JDK 17+** and Rust **1.98.1** on the environment. Existing pins remain Kotlin
 **2.2.20**, Compose **1.9.0**, Material3 **1.8.2**, AGP **8.11.1**; JVM bytecode targets Java 17.
 No command installs Gradle/JDK/SDK/native compiler or weakens TLS.
 
 ```sh
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask theatre-demo build
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask theatre-demo verify
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask theatre-demo run
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo build
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo verify
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
 
 # Existing platform 35 + build-tools 35.0.0 in ANDROID_HOME / ANDROID_SDK_ROOT.
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask theatre-demo android-build
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo android-build
 
 # Full Xcode and already installed Kotlin/Native 2.2.20 distribution.
-RUSTUP_TOOLCHAIN=1.87.0 cargo xtask theatre-demo ios-build \
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
 

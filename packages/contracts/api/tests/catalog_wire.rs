@@ -114,6 +114,15 @@ fn patch_preserves_omission_null_and_value_as_three_distinct_inputs() {
 }
 
 #[test]
+fn patch_default_is_missing_even_when_the_payload_has_no_default() {
+    struct NoDefault;
+    assert!(matches!(
+        PatchField::<NoDefault>::default(),
+        PatchField::Missing
+    ));
+}
+
+#[test]
 fn optional_link_absence_on_creation_serializes_as_explicit_unknown_facts() {
     let mut value: Value = serde_json::from_str(CREATE_UNIT).unwrap();
     for field in ["source", "script", "content_digest"] {

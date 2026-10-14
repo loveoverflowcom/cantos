@@ -2,7 +2,7 @@
 name = "cantos-forge"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.87"
+rust-version = "1.98.1"
 publish = false
 description = "Producer-side Cantos Forge CLI: local production records outside the Cantos API runtime"
 

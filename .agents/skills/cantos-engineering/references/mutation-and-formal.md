@@ -109,15 +109,16 @@ violated proposition; it is not authorization for panic-driven production contro
 
 ### Actual execution and repository integration
 
-**Current implemented scope:** `cargo xtask verify kani` registers only three
-API-library production kernels: `catalog-revision`, `wav-payload` and
-`submission-window`. Omission selects all three; repeat `--harness` for a subset.
+**Current implemented scope:** `cargo xtask verify kani` registers seven
+API-library production kernels: `catalog-revision`, `image-bounds`, `wav-payload`,
+`submission-window`, `publication-commit`, `listener-access` and `listener-reconcile`.
+Omission selects all seven; repeat `--harness` for a subset.
 The fixed model pins Kani 0.68.0, bundled rustc 1.100.0-nightly (8925ea358,
 nightly-2026-08-21), CBMC 6.11.0 and x86_64-unknown-linux-gnu/64-bit usize,
 API library/no default features, CaDiCaL and unwind 2. Actual execution, source
 identity, covers and residuals are recorded in
 [the proof ledger](../../../../docs/assurance/kani.md). Production remains Rust
-1.87.0; the verifier has no runtime dependency and no automatic install/setup.
+1.98.1; the verifier has no runtime dependency and no automatic install/setup.
 
 The implemented [xtask command contract](../../../../xtask/README.md#optional-targeted-kani-proofs)
 keeps Kani out of normal builds, `verify rust`, ordinary full preflight and CI.
@@ -153,7 +154,7 @@ its exact model; do not add speculative UI/rendering/native/backend proof lanes.
 
 For any new target, record its concrete gap/production reach, exact verifier /
 compiler / solver / target compatibility and configuration before adopting it.
-Normal Cantos builds remain Rust 1.87.0. Do not add a runtime proof dependency,
+Normal Cantos builds remain Rust 1.98.1. Do not add a runtime proof dependency,
 change the production toolchain, install tools just to green a docs change or
 register every backend harness by default. Extend the existing typed xtask
 registry and gate tests rather than adding competing repository orchestration.

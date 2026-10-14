@@ -131,12 +131,14 @@ impl CatalogCursor {
         Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
     }
     pub fn decode(encoded: &str) -> Result<Self, CatalogStoreError> {
-        if encoded.is_empty() || encoded.len() > 2048 || encoded.len() % 2 != 0 {
+        if encoded.is_empty() || encoded.len() > 2048 || !encoded.len().is_multiple_of(2) {
             return Err(CatalogStoreError::InvalidCursor);
         }
         let bytes = encoded
             .as_bytes()
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|pair| {
                 let text =
                     std::str::from_utf8(pair).map_err(|_| CatalogStoreError::InvalidCursor)?;

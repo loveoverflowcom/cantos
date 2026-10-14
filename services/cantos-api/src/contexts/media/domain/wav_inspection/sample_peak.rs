@@ -81,11 +81,8 @@ fn channel_peaks<const N: usize>(
 ) -> Vec<(u32, u64)> {
     let mut peaks = vec![(0, 0); channels];
     for (frame, samples) in (0_u64..).zip(payload.chunks_exact(N * channels)) {
-        for (peak, sample) in peaks.iter_mut().zip(samples.chunks_exact(N)) {
-            let Ok(code) = <[u8; N]>::try_from(sample) else {
-                continue;
-            };
-            let level = magnitude(code);
+        for (peak, sample) in peaks.iter_mut().zip(samples.as_chunks::<N>().0.iter()) {
+            let level = magnitude(*sample);
             if level > peak.0 {
                 *peak = (level, frame);
             }
@@ -96,4 +93,16 @@ fn channel_peaks<const N: usize>(
 
 fn dbfs(magnitude: u32, full_scale: u32) -> Option<f64> {
     (magnitude > 0).then(|| 20.0 * (f64::from(magnitude) / f64::from(full_scale)).log10())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::channel_peaks;
+
+    #[test]
+    fn fixed_sample_arrays_keep_complete_frames_and_the_first_tied_peak() {
+        let samples = [1, 0, 2, 0, 3, 0, 4, 0, 3, 0, 4, 0, 255];
+        let peaks = channel_peaks::<2>(&samples, 2, |code| u32::from(u16::from_le_bytes(code)));
+        assert_eq!(peaks, vec![(3, 1), (4, 1)]);
+    }
 }

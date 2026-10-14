@@ -110,7 +110,7 @@ or stale retained/source/tool/config hashes fail closed. Cargo is locked/offline
 observer process has a 180-second bound. Unexpected compiler overrides/ambient replay settings
 are refused, including legacy/TOML ancestor/global Cargo configuration, configured tool
 selection and target runner/linker overrides. Config absence is also pinned. Exact Rust/Cargo
-1.87.0, launchers, toolchain binaries and compiler driver hashes are recorded and rechecked;
+1.98.1, launchers, toolchain binaries and compiler driver hashes are recorded and rechecked;
 Cargo invokes the pinned compiler directly. Sources/HEAD/tools are checked again at completion. Endpoint checks do not isolate
 against concurrent mutate-and-restore writes or hostile replacement of both tool and receipt.
 

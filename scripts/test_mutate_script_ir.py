@@ -20,6 +20,8 @@ class MutationWorkspaceTest(unittest.TestCase):
         members = manifest["workspace"]["members"]
 
         def inspect_copy(workspace, _env):
+            self.assertEqual((Path(workspace) / "rust-toolchain.toml").read_bytes(),
+                             (mutations.ROOT / "rust-toolchain.toml").read_bytes())
             for member in members:
                 with self.subTest(member=member):
                     copied = Path(workspace) / member / "Cargo.toml"

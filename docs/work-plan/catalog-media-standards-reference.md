@@ -5,6 +5,10 @@ Status: proposed implementation reference, not feature evidence. Checked on
 The current user separately requested a small API/DB MVP plan and a subsequent implementation
 session; the issue's research-only boundary does not itself authorize implementation.
 
+The active production compiler is now pinned separately in
+[`rust-toolchain.toml`](../../rust-toolchain.toml); the dated source inspection below
+retains its original Rust baseline. Keep image 0.25.8 and existing decoder semantics locked.
+
 ## Use of the sources
 
 These are semantic references. They do not make RSS/XML the Cantos protocol, storage format,

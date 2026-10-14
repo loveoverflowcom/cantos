@@ -17,9 +17,6 @@ concurrency:
   group: repository-checks-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  RUSTUP_TOOLCHAIN: 1.87.0
-
 jobs:
   repository:
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Select pinned Rust toolchain for xtask
-        run: rustup toolchain install 1.87.0 --profile minimal
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Documents, fixtures, skills and the Script IR oracle
         run: cargo xtask ci --job repository
   rust:
@@ -42,7 +39,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Select pinned Rust toolchain
-        run: rustup toolchain install 1.87.0 --profile minimal --component rustfmt --component clippy
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Install read-only inspection and owned-fixture test tools
         run: |
           sudo apt-get update
@@ -58,10 +55,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Select pinned Rust toolchain with the WASM target
-        run: rustup toolchain install 1.87.0 --profile minimal --component clippy --target wasm32-unknown-unknown
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Install the documented Trunk version
-        env:
-          RUSTUP_TOOLCHAIN: stable
         run: cargo install trunk --version 0.21.14 --locked
       - name: WASM lint and Trunk builds of Studio and Theatre Web
         run: cargo xtask ci --job web
@@ -74,7 +69,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Select pinned Rust toolchain
-        run: rustup toolchain install 1.87.0 --profile minimal
+        run: rustup show active-toolchain # installs the exact rust-toolchain.toml pin and components
       - name: Install PostgreSQL 17 server binaries
         run: |
           sudo apt-get update

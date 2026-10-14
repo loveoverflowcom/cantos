@@ -20,11 +20,11 @@ evidence are separately recorded in the
 
 ## Build and run
 
-Requires Rust 1.87, `wasm32-unknown-unknown`, Trunk 0.21.14 and matching wasm-bindgen 0.2.100.
+Requires Rust 1.98.1, `wasm32-unknown-unknown`, Trunk 0.21.14 and matching wasm-bindgen 0.2.100.
 From the repository root:
 
 ```sh
-rustup target add wasm32-unknown-unknown --toolchain 1.87.0
+rustup target add wasm32-unknown-unknown --toolchain 1.98.1
 cargo xtask build cantos-studio --web   # NO_COLOR=true trunk build --locked in this directory
 cargo xtask verify web                  # WASM clippy plus Trunk builds of Studio and Theatre
 ```

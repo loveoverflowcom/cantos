@@ -527,12 +527,12 @@ fn defect_cases() -> Vec<(&'static str, Vec<u8>, Vec<StructuralError>)> {
         ),
         (
             "no fmt chunk",
-            riff(&[data.clone()]),
+            riff(std::slice::from_ref(&data)),
             vec![MissingChunk { id: ChunkId::FMT }],
         ),
         (
             "no data chunk",
-            riff(&[fmt.clone()]),
+            riff(std::slice::from_ref(&fmt)),
             vec![MissingChunk { id: ChunkId::DATA }],
         ),
         (
