@@ -4,3 +4,4 @@ pub mod ids;
 pub mod incremental;
 pub mod operator;
 pub mod postgres;
+pub mod studio_oidc;

@@ -40,11 +40,38 @@ Named append-only reviews and private candidates expose current blockers; public
 always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
 [frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
+[Provider-independent private storage](../architecture/object-storage.md) adds durable original
+target metadata, filesystem/S3 adapters and exact owner-authorized audio preview while retaining
+Catalog/Editorial/Ingestion readers. Its [implementation evidence](../evidence/provider-independent-storage.md)
+separates local and mocked results from real-provider acceptance. It does not complete #10's
+deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
+write target moves no existing objects.
+
+The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
+extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
+retaining the audio envelope and original-target reads. Its additive migration0023 stays
+separate from storage migration0015. The [artwork evidence](../evidence/private-work-artwork.md)
+keeps current core/filesystem/controlled-peer checks separate from pending real SQL,
+authorized HTTP/restart and provider acceptance. No second S3 adapter or public artwork
+projection is needed for that owner-only outcome.
+
+Recommended backend follow-ups preserve that order:
+
+| Order | Capability owner | Outcome and dependency |
+| --- | --- | --- |
+| 1 | Media/storage; operator deployment boundary (#10) | Accept private policies, conditional writes, version-pinned grants, Range/CORS/expiry and measured capacity on the chosen provider; declarations/mocks cannot establish production behavior |
+| 2 | Media review and rights owners (#9) | Bind named listening/rights/QC findings to exact admitted bytes and revisions; format admission is not approval |
+| 3 | Publication (#11) | Implement approved immutable manifests and atomic replacement/retention, consuming exact verified locations and current approvals; keep private intake isolated |
+| 4 | Listening (#12), then Theatre clients (#13/#14) | Define separate listener identity/access and publication-bound reads before real discovery/playback; never reuse private Studio handlers |
+
+These owners identify architectural responsibility, not assignees. GitHub owns assignment and
+execution status; provider/migration/publication acceptance remains separate from this slice.
+
 The [live client boundary](live-client-api-matrix.md) connects the bounded Studio forms and
 keeps Theatre capabilities unsupported until a reviewed listener/publication contract exists.
 Remaining Studio controls and responsive/keyboard/user acceptance stay with #66; transport
-checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, secure
-identity/storage and stronger rights/QC policy,
+checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, production
+identity/storage acceptance and stronger rights/QC policy,
 then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
 separate. No listening/interoperability is settled by admitting an Opus envelope.
 
@@ -71,9 +98,14 @@ Studio audit manifests do not themselves authorize Theatre playback.
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
-and adds exact external keys with explicit operator registration/linking. Next identity boundary:
-[Studio OIDC, then separate Theatre identity](identity-authentication-handoff.md), before durable
-listener library/progress. Registry lookup grants no surface authority; operator-prepared
+and adds exact external keys with explicit operator registration/linking. The bounded
+[Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and
+adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
+account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
+all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
+accessibility/provider gates explicit. Live provider acceptance remains an identity prerequisite. Next: [separate Theatre identity](identity-authentication-handoff.md),
+using the published [PR95](https://github.com/loveoverflowcom/cantos/pull/95) default-deny auth seam
+before enabling private library/progress and replacing mock Web/CMP consumers. Registry lookup grants no surface authority; operator-prepared
 provider/client/TLS acceptance remains separate from local core/database evidence.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
@@ -88,8 +120,10 @@ or speculative wrappers. GitHub owns publication/review status.
 
 Implementation delivery and named core evidence do not complete broader Studio
 acceptance, rights/QC, publication or listener implementation. Real PostgreSQL
-acceptance remains unrun after denied disposable startup; the full Rust gate still
-fails in upstream service fixtures, with the original port flake retained separately.
+acceptance in that earlier assurance record remains unrun after denied disposable startup;
+its full Rust gate fails in upstream service fixtures, with the original port flake retained
+separately. Later storage/read verification belongs to its own
+[evidence record](../evidence/provider-independent-storage.md).
 Next owners must resolve/recheck those environments without weakening private-input
 guards, then perform the existing browser/IME/cookie/conflict and listener acceptance.
 No broader product feature or CMP refactor is introduced by this assurance work.
@@ -168,7 +202,7 @@ bounded local infrastructure option while preserving native verification. It doe
 product queue: finish live client acceptance, then reviewed identity/storage and stronger QC,
 then publication before Theatre playback. Next runtime acceptance needs an operator-prepared
 rootless Podman/Machine environment, compatible `nocreate`, private TLS and disposable fixture
-lifecycle/persistence evidence. Production backups/upgrades and Kanidm OIDC remain separately
+lifecycle/persistence evidence. Production backups/upgrades and live Kanidm OIDC acceptance remain separately
 scoped work; unavailable runtime evidence is not a blocker to reviewing this draft.
 
 ## Public discovery before account-owned listening state
@@ -209,7 +243,7 @@ and additive migration checksums. Current local/mock acceptance belongs in evide
 production provider/client preparation, native runtime acceptance and explicit cross-client
 identity linking remain separate prerequisites. Equal email or subject text across different
 issuers never establishes a shared actor. GitHub owns execution status.
-## Private Work cover contract next
+## Private Work cover API/DB acceptance
 
 The user-requested [issue104 MVP plan](012-private-work-artwork.md) selects one durable,
 owner-only Work cover and exact private preview from the
@@ -221,3 +255,9 @@ claimed by these planning docs. The scope is API/DB, not Studio UI or public art
 P1 metadata, thumbnails and transcripts are explicitly deferred. This is an authorized narrow
 extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
 without reordering identity/storage or broader publication/listener acceptance.
+
+The [implemented private artwork contract](../../packages/contracts/artwork-v1.md) now reuses
+the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL
+upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG
+restart faults. The [dated evidence ledger](../evidence/private-work-artwork.md) separates those
+remaining gates from current core, decoder, filesystem and controlled-peer checks.

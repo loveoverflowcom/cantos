@@ -24,8 +24,11 @@ impl ClientError {
     /// Producer capability expiry says nothing about the Studio owner's cookie session.
     pub fn owner_session_denial(&self, command: &Command) -> Option<&ApiError> {
         match self {
-            Self::Http { status: 401, error }
-                if command.credentials() == Credentials::SameOrigin =>
+            Self::Http {
+                status: 401 | 409,
+                error,
+            } if command.credentials() == Credentials::SameOrigin
+                && error.code == ErrorCode::Unauthenticated =>
             {
                 Some(error)
             }

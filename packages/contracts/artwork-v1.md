@@ -131,10 +131,18 @@ HEAD and remain unchanged. Before/after SHA-256 is identical for each:
 ## Implemented HTTP checkpoint and safe activation
 
 The adapter lives only under the current Studio mount, with no deprecated alias. The shipped
-host keeps artwork paths unmounted while the separately reviewed shared storage integration is
-pending. `router_with_private_artwork` is a trusted host-composition entrypoint for this adapter;
-its current `ArtworkService::new` object port refuses actual storage operations. No fake storage
-success or production activation is implied. See the [runtime ledger](../../docs/evidence/private-work-artwork.md).
+host mounts artwork when the existing private storage topology is configured through
+`Store::with_audio_storage` or `Store::with_storage_config`; without private storage it remains
+unmounted. `router_with_private_artwork` is a trusted composition override. `ArtworkService::new`
+uses the reviewed shared registry, filesystem and S3 adapters with a sealed inspected image
+payload and actual MIME. Every private-artwork composition disables same-process static files.
+No provider, database, production or public-delivery acceptance is implied by activation.
+See the [runtime ledger](../../docs/evidence/private-work-artwork.md).
+
+Current Studio cookie selection and session fencing apply before handler/body admission.
+Artwork reads accept the middleware-owned `studio_session_id` query fence alongside the
+optional exact `work_revision`; unknown/duplicate business fields remain invalid. A forged
+or duplicate fence is refused by the existing Studio middleware.
 
 Metadata request/success formats are negotiated separately. Omitted/equal/wildcard Accept uses
 JSON; explicit Protobuf uses the same strict version/parameter policy as the older pilot.

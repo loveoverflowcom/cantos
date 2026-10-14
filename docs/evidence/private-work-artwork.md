@@ -1,5 +1,112 @@
 # Private Work artwork implementation evidence
 
+## Current integration checkpoint — 14 October 2026 UTC
+
+The separately reviewed storage dependency is now incorporated from develop
+`edbd7c7f6f0494e0d01dc5b4139134052b07ed07`, tree
+`6bc5900899e44afd706b717756a91867dc54dc75` (PR90 final head
+`ea7aee5857577f12752e0d66a55bac08a72a00d3`). Integration preserves the published PR105
+checkpoint `cd1097d6bc76e3b584ddaa43516bbe844afb3ea4`, tree
+`047f2453535d8223dd209b4a524d4ec871d0fa2b`, as the first parent rather than rewriting its
+six logical commits. No unrelated PR is merged by this task.
+
+A dot filesystem snapshot replacement removed the original local worktree, original local
+commit objects, tool caches and ignored raw artifacts. The remote checkpoint recovered every
+committed product source, fixture, plan and evidence document; no unique unfinished product
+code was lost. The original local-to-published commit mapping below remains historical.
+October 13 execution claims describe their original inspected/running snapshots; missing raw
+logs cannot be rechecked now and their printed PASS rows are not fresh integrated evidence.
+New tools and final source evidence are regenerated in the recovered isolated worktree.
+
+### Implemented shared-storage and identity integration
+
+- The closed `VerifiedPayload` carries only actual `VerifiedAudio` or `VerifiedImage` witnesses.
+  Integrity and actual Ogg/Opus, PNG or JPEG MIME are derived from inspection. No raw payload,
+  forged audio witness, second S3 adapter or caller-selected object key is introduced.
+- Image persistence reuses the reviewed registry, private filesystem and S3 adapters,
+  conditional-create/readback rules and existing registry/filesystem concurrency bounds.
+  Image admission retains its separate two-lane/8 MiB encoded/64 MiB decoded policy.
+  Owner-backed, zero-copy transport `Bytes` retain `Arc<VerifiedImage>` until their last clone
+  drops, while another owner survives readback. Filesystem blocking ownership survives caller
+  cancellation. These are ownership/resource regressions, not a hard CPU/total-RSS proof.
+- Stored image target/key/SHA/length become the shared checked `PrivateObjectRef`. Reads use
+  the original target; missing targets never fall back to the active write target. Missing or
+  mismatched admitted bytes fail as corruption. Typed transport failures remain safe outcomes.
+- **No provider version is persisted at admission.** Each S3 read verifies current bytes and
+  then pins that read by its observed version/ETag. Recreated identical bytes are eligible;
+  retrieval of deleted/noncurrent historical versions and provider retention remain separate.
+- Default current Studio artwork routes activate only when existing private storage is
+  configured. Every private-artwork composition disables static serving. No legacy, Theatre,
+  Admin, producer or public image path is added. Final Studio cookie namespace and session
+  header/query fences run before extraction/effects, and application reauthorization remains
+  after inspection/storage and before mutation/response.
+- The registry is additive and sorted: 22 entries, versions 1–20, 23 and 25. Migration 0023 is still
+  this slice's reserved sidecar. Every one of the 22 migration files is byte-identical to its
+  proper published parent, including PR90's 0015 and Studio identity's 0020/0025. Nothing is
+  renumbered or rewritten.
+
+### Fresh independent-layer execution
+
+All commands below execute on the recovered integrated source. Full new logs are retained in
+ignored `artifacts/agent-runs/issue104-integration/`; old missing logs are not substituted.
+
+| Scope | Actual result | Evidence boundary |
+| --- | --- | --- |
+| Media pure domain | PASS | 86 tests, including actual image/artwork core and reviewed storage identities/ranges |
+| PNG/JPEG inspection | PASS | 17 real decoder, malformed/metadata/resource and cancellation cases |
+| Image application | PASS | 26 passed; 21 actual-service cases use named repository/storage fakes, five bridge cases exercise real private filesystem bytes; one real SQL case ignored |
+| Shared storage | PASS | 54 tests, retaining all reviewed PR90 cases plus eight image regressions; real synthetic filesystem and controlled loopback S3 peers, no live provider |
+| Artwork HTTP | PASS | Nine adapter/extractor unit probes plus four actual production-router composition probes; lazy pools do not establish authenticated owner SQL |
+| Actual repository gate | PASS | 570 text files/18 skills and 337 Python tests; initial forbidden fixture import and lexical alias findings fixed in source without weakening the checker |
+| All API test targets | PASS | Fresh `cargo test -p cantos-api --tests --locked --no-run`, including four new ignored production HTTP/service/SQL/filesystem tests; compilation only |
+| Fresh reviewed-base service fixtures | FAIL | Clean detached edbd7c7, own base-built xtask target: 8 passed/17 failed; same private-input checkout guard failures, no feature source and no weakened guard |
+| Canonical contracts | PASS | Fresh Script IR reference, Python/prost metadata oracle, 91 Rust contract tests, actual WAV oracle and two Ogg/Opus inspection cases |
+| Canonical Rust aggregate | FAIL | Format/all-target workspace lint PASS; API library 376 passed/65 ignored and four artwork composition tests passed; xtask 134 passed/17 known private-fixture failures independently reproduced above |
+| Preflight planning | PASS | Actual changed-only dry-run selected all 17 gates conservatively; planning is not gate execution |
+| Final preflight/Kani | NOT_RUN | Fresh execution/proof outcomes will be appended after actual completion; the October 13 rows below are historical |
+| Disposable PostgreSQL/authorized HTTP/restart | NOT_RUN | Prior Unix-socket startup denial remains unresolved; no retry, alternate TCP, inherited DB or mock substitution |
+
+The first repository run failed the prohibited inline HTTP fixture import and a test alias
+ambiguity; both were corrected, and the canonical rerun passed. The four new ignored acceptance
+sources call actual production router/service/repository/registry paths, use the original three
+synthetic fixtures, assert exact receipts/history/authorization/session fences and a two-PID
+Catalog clock/CAS race. Their reopen asserts a new Store/pool/directory descriptor, **not** a
+process kill or PostgreSQL restart. They are registered in the existing disposable runner and
+remain authored/compiled only while that startup is denied.
+
+The committed historical records identify the denied action as disposable PostgreSQL Unix-socket
+creation; the original detailed reviewer rationale/raw event did not survive this restored
+snapshot. A permitted disposable executor is still required for upgrade/constraints/grants,
+real races/read plans, authenticated HTTP/rights/session acceptance, host-kill and PG-restart
+faults. Restored PG17.4 executable availability and Doctor's runnable row do not resolve access.
+Live provider, issuer/TLS/native runtime and public delivery remain outside this acceptance.
+
+Independent source review inspected the shared bridge/payload/ownership/MIME, original-target
+reads, configured-storage activation, final identity fences and all 22 unchanged migrations.
+At 03:00:56 UTC its bounded 47-file path+NUL+bytes+NUL hash was
+`13c11606424ca3b4816b3e470cef6202a4bdb22a3a8823ff08453c7607f1a304`.
+It found no remaining confirmed source defect after the inline fixture correction and ran no
+build, database, provider or proof. This is a source snapshot pin, separate from execution.
+
+A targeted decoder dependency metadata review used the actual normal-edge `cargo tree -p image`
+closure (19 locked package/version pairs) and official RustSec database commit
+`6aed84668c23d7f535077a9fe918bf1fa0f6a5bc`. Its published records were image's
+[RUSTSEC-2019-0014](https://rustsec.org/advisories/RUSTSEC-2019-0014.html) and
+[RUSTSEC-2020-0073](https://rustsec.org/advisories/RUSTSEC-2020-0073.html), patched before
+pinned 0.25.8, and zlib-rs's
+[RUSTSEC-2024-0401](https://rustsec.org/advisories/RUSTSEC-2024-0401.html), patched before
+locked 0.6.8. No other published record appears in that pinned decoder closure. The upstream
+[image advisory page](https://github.com/image-rs/image/security/advisories) also lists no
+published advisory. This is dated metadata inspection, not a whole-lock cargo-audit, complete
+vulnerability-absence guarantee, sanitization claim or hard decoder-resource proof. Closure,
+advisory-file hashes and versions are retained in `image-advisory-review.json`.
+
+## Historical checkpoint — 13 October 2026 UTC
+
+The following ledger, commands and source identities are retained from the original session.
+Their raw ignored artifacts became unavailable after recovery; they are not reasserted as the
+current integrated tree's execution. Current activation/dependency state is the section above.
+
 Implementation started 2026-10-13 UTC on `feat/issue104-private-work-artwork`, from refreshed
 `develop` `007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3` (PR92). The separately completed
 [bounded plan](../work-plan/012-private-work-artwork.md) is retained as design input, rather than
@@ -39,7 +146,8 @@ BUFFERS)` remain NOT_RUN until a permitted disposable PostgreSQL17 environment i
 
 Results will be recorded per actually executed scope. No planning check, fixture-generator
 unit test, compile-only ignored test or mocked result establishes feature integration acceptance.
-Full logs are retained in ignored `artifacts/agent-runs/issue104*/` records.
+At original publication, full logs were retained in ignored `artifacts/agent-runs/issue104*/`
+records; those October13 artifacts are now unavailable after snapshot recovery.
 
 | Layer / scope | Status | Evidence / gap |
 | --- | --- | --- |

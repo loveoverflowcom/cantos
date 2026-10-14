@@ -65,6 +65,15 @@ impl ImageAdmission {
         Self::from_lanes(IMAGE_LANES.clone())
     }
 
+    /// Independent test lanes exercise the actual decoder and permit lifetime without
+    /// competing with application tests that intentionally exhaust production admission.
+    #[cfg(test)]
+    pub(crate) fn from_test_lanes(
+        lanes: std::sync::Arc<Semaphore>,
+    ) -> Result<Self, ImageIntakeError> {
+        Self::from_lanes(lanes)
+    }
+
     fn from_lanes(lanes: std::sync::Arc<Semaphore>) -> Result<Self, ImageIntakeError> {
         let permit = lanes
             .try_acquire_owned()

@@ -221,6 +221,7 @@ fn error(error: ArtworkApplicationError) -> Response {
             ImageObjectError::NotFound => error_response(StoreError::NotFound),
             ImageObjectError::Unavailable => error_response(StoreError::Unavailable),
             ImageObjectError::Corrupt => error_response(StoreError::CorruptRevision),
+            ImageObjectError::Storage(error) => error_response(StoreError::Storage(error)),
         },
     };
     private_headers(response, true)
@@ -294,13 +295,14 @@ fn image_error(error: ImageError) -> Response {
 }
 
 async fn prepare(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath(work): StudioPath<String>,
     ArtworkAccepts(format): ArtworkAccepts,
     headers: HeaderMap,
     ArtworkBody(request): ArtworkBody<dto::CreateImageIntentRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -310,12 +312,13 @@ async fn prepare(
     }
 }
 async fn intent(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath((work, intent)): StudioPath<(String, String)>,
     ArtworkAccepts(format): ArtworkAccepts,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -331,7 +334,7 @@ async fn upload(
     ArtworkAccepts(format): ArtworkAccepts,
     request: Request,
 ) -> Response {
-    let token = match cookie_token(request.headers()) {
+    let token = match cookie_token(request.headers(), &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -378,12 +381,13 @@ async fn upload(
     }
 }
 async fn asset(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath((work, asset)): StudioPath<(String, String)>,
     ArtworkAccepts(format): ArtworkAccepts,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -396,8 +400,13 @@ async fn asset(
 #[serde(deny_unknown_fields)]
 struct ArtworkQuery {
     work_revision: Option<u64>,
+    // The protected Studio middleware validates this transport fence before dispatch.
+    // Keep other unknown business parameters rejected by this strict query DTO.
+    #[serde(rename = "studio_session_id")]
+    _studio_session_id: Option<String>,
 }
 async fn artwork(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath(work): StudioPath<String>,
     ArtworkAccepts(format): ArtworkAccepts,
@@ -414,7 +423,7 @@ async fn artwork(
             )
         }
     };
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -424,13 +433,14 @@ async fn artwork(
     }
 }
 async fn set_artwork(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath(work): StudioPath<String>,
     ArtworkAccepts(format): ArtworkAccepts,
     headers: HeaderMap,
     ArtworkBody(request): ArtworkBody<dto::SetWorkArtworkRequest>,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -440,12 +450,13 @@ async fn set_artwork(
     }
 }
 async fn preview(
+    State(state): State<AppState>,
     Extension(service): Extension<ArtworkService>,
     StudioPath((work, asset)): StudioPath<(String, String)>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
-    let token = match cookie_token(&headers) {
+    let token = match cookie_token(&headers, &state.store) {
         Ok(t) => t,
         Err(e) => return headers_error(e),
     };
@@ -528,6 +539,116 @@ mod tests {
             .oneshot(request.body(Body::from(body)).unwrap())
             .await
             .unwrap()
+    }
+    #[test]
+    fn strict_artwork_query_accepts_the_middleware_fence_without_relaxing_business_fields() {
+        for (query, revision) in [
+            ("", None),
+            ("?work_revision=7", Some(7)),
+            (
+                "?studio_session_id=00000000-0000-4000-8000-000000000004",
+                None,
+            ),
+            (
+                "?work_revision=7&studio_session_id=00000000-0000-4000-8000-000000000004",
+                Some(7),
+            ),
+        ] {
+            let uri = format!("/probe{query}").parse().unwrap();
+            let Query(value) = Query::<ArtworkQuery>::try_from_uri(&uri).unwrap();
+            assert_eq!(value.work_revision, revision, "{query}");
+        }
+        for query in [
+            "?work_revision=invalid",
+            "?work_revision=-1",
+            "?work_revision=18446744073709551616",
+            "?work_revision=1&work_revision=2",
+            "?work_revision=7&unknown=1",
+            "?studio_session_id=a&studio_session_id=b",
+        ] {
+            let uri = format!("/probe{query}").parse().unwrap();
+            let error = Query::<ArtworkQuery>::try_from_uri(&uri).err().unwrap();
+            assert_eq!(error.status(), StatusCode::BAD_REQUEST, "{query}");
+        }
+    }
+    #[tokio::test]
+    async fn metadata_accept_refusal_never_polls_the_body_or_dispatches_the_handler() {
+        let (app, calls) = probe();
+        let body = Body::from_stream(futures_util::stream::poll_fn(|_| {
+            panic!("refused artwork Accept must not poll metadata bytes");
+            #[allow(unreachable_code)]
+            std::task::Poll::Ready(None::<Result<Bytes, std::io::Error>>)
+        }));
+        let response = app
+            .oneshot(
+                HttpRequest::post("/probe")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::ACCEPT, "application/msgpack")
+                    .body(body)
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_ACCEPTABLE);
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+            serde_json::json!({
+                "code": "invalid_request",
+                "current_revision": null,
+                "issues": [{"path": "accept", "rule": "not_acceptable"}],
+            })
+        );
+    }
+    #[tokio::test]
+    async fn shared_storage_failures_keep_the_existing_safe_status_and_json_error_contract() {
+        use crate::contexts::media::read::StorageError;
+
+        for (storage, status, code) in [
+            (
+                StorageError::Forbidden,
+                StatusCode::FORBIDDEN,
+                dto::ErrorCode::Forbidden,
+            ),
+            (
+                StorageError::Conflict,
+                StatusCode::CONFLICT,
+                dto::ErrorCode::OperationReused,
+            ),
+            (
+                StorageError::Timeout,
+                StatusCode::SERVICE_UNAVAILABLE,
+                dto::ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Cancelled,
+                StatusCode::SERVICE_UNAVAILABLE,
+                dto::ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Unavailable,
+                StatusCode::SERVICE_UNAVAILABLE,
+                dto::ErrorCode::Unavailable,
+            ),
+        ] {
+            let response = error(ArtworkApplicationError::Object(ImageObjectError::Storage(
+                storage,
+            )));
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert_eq!(
+                response.headers()[header::X_CONTENT_TYPE_OPTIONS],
+                "nosniff"
+            );
+            assert_eq!(response.headers()[header::VARY], "accept");
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+                serde_json::json!({"code": code, "current_revision": null, "issues": []}),
+            );
+        }
     }
     #[tokio::test]
     async fn each_metadata_codec_pair_carries_explicit_clear_and_safe_headers() {

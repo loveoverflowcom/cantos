@@ -1,22 +1,151 @@
-//! Development-only private audio objects. PostgreSQL owns receipts and metadata, never bytes.
+//! Development-only private verified-media objects. PostgreSQL owns metadata, never bytes.
 //!
 //! Files are synchronized before metadata may commit and are never overwritten or removed by
 //! a transaction rollback. A crash or rejected metadata transaction may leave a private orphan.
 //! Cleanup needs a separate, reference-aware retention policy; this adapter never collects it.
-//! This is not an S3/CDN implementation or a publication/delivery path.
+//! This filesystem adapter implements private intake and authorized reads, never publication.
 
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, LazyLock},
+};
+
+use tokio::sync::Semaphore;
 
 use crate::platform::postgres::StoreError;
 
 use super::audio_intake::VerifiedAudio;
+use super::domain::object_storage::{
+    NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError,
+};
+use super::image_intake::VerifiedImage;
+
+mod config;
+pub mod port;
+pub(crate) mod registry;
+mod s3;
+mod sigv4;
+
+use port::{PrivateStorage, StorageFuture, StorageRead, VerifiedPayload};
 
 const MAX_AUDIO_BYTES: u64 = super::audio_intake::MAX_AUDIO_BYTES as u64;
+
+// Hashing and durable writes are bounded independently of decoder admission. The blocking
+// closure owns its permit, so dropping its caller never admits a replacement while it runs.
+static IO_LANES: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
+
+fn bounded_filesystem_io<T: Send + 'static>(
+    lanes: Arc<Semaphore>,
+    operation: impl FnOnce() -> Result<T, StorageError> + Send + 'static,
+) -> StorageFuture<T> {
+    Box::pin(async move {
+        let permit = lanes
+            .try_acquire_owned()
+            .map_err(|_| StorageError::Unavailable)?;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            operation()
+        })
+        .await
+        .map_err(|_| StorageError::Unavailable)?
+    })
+}
 
 #[derive(Clone)]
 pub(crate) struct AudioStorage {
     #[cfg(unix)]
     inner: std::sync::Arc<unix::PrivateDirectories>,
+}
+
+impl PrivateStorage for AudioStorage {
+    fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()> {
+        let storage = self.clone();
+        bounded_filesystem_io(IO_LANES.clone(), move || {
+            let stored = match &payload {
+                VerifiedPayload::Audio(audio) => storage.persist(audio),
+                VerifiedPayload::Image(image) => storage.persist_image(image),
+            }
+            .map_err(storage_error)?;
+            if stored.object_key != payload.sha256() {
+                return Err(StorageError::DigestMismatch);
+            }
+            Ok(())
+        })
+    }
+
+    fn verify(&self, key: ObjectKey, integrity: ObjectIntegrity) -> StorageFuture<()> {
+        let storage = self.clone();
+        bounded_filesystem_io(IO_LANES.clone(), move || {
+            storage.verified_file(&key, &integrity).map(|_| ())
+        })
+    }
+
+    fn open_verified(
+        &self,
+        key: ObjectKey,
+        integrity: ObjectIntegrity,
+        range: Option<NormalizedByteRange>,
+    ) -> StorageFuture<StorageRead> {
+        let storage = self.clone();
+        Box::pin(async move {
+            use futures_util::StreamExt;
+            use std::io::{Seek, SeekFrom};
+            use tokio::io::AsyncReadExt;
+            use tokio_util::io::ReaderStream;
+
+            let range = range
+                .map(Ok)
+                .unwrap_or_else(|| {
+                    crate::contexts::media::domain::object_storage::NormalizedByteRange::full(
+                        integrity.byte_length(),
+                    )
+                })
+                .map_err(|_| StorageError::InvalidIntegrity)?;
+            if range.total_byte_length() != integrity.byte_length() {
+                return Err(StorageError::LengthMismatch);
+            }
+            let file = bounded_filesystem_io(IO_LANES.clone(), move || {
+                // Hash, metadata checks and named-inode verification retain this exact handle.
+                // Never verify-close-reopen: the name could select a different inode afterward.
+                let mut file = storage.verified_file(&key, &integrity)?;
+                file.seek(SeekFrom::Start(range.first()))
+                    .map_err(|_| StorageError::Unavailable)?;
+                Ok::<_, StorageError>(file)
+            })
+            .await?;
+            let reader = tokio::fs::File::from_std(file).take(range.byte_length());
+            let stream = ReaderStream::with_capacity(reader, 16 * 1024)
+                .map(|chunk| chunk.map_err(|_| StorageError::Unavailable));
+            Ok(StorageRead {
+                stream: Box::pin(stream),
+                byte_length: range.byte_length(),
+            })
+        })
+    }
+}
+
+/// The original synchronous compatibility surface uses the shared StoreError vocabulary.
+/// New capability consumers receive the storage port's typed failures directly.
+fn storage_error(error: StoreError) -> StorageError {
+    match error {
+        StoreError::Storage(error) => error,
+        StoreError::NotFound => StorageError::NotFound,
+        StoreError::Forbidden | StoreError::Unauthenticated => StorageError::Forbidden,
+        StoreError::InvalidRequest | StoreError::InvalidRequestFields(_) => {
+            StorageError::InvalidIntegrity
+        }
+        StoreError::CorruptRevision => StorageError::DigestMismatch,
+        StoreError::OperationReused => StorageError::Conflict,
+        StoreError::Unavailable
+        | StoreError::InvalidScript(_)
+        | StoreError::EvidenceUnavailable
+        | StoreError::StaleRevision(_)
+        | StoreError::ProposalAlreadySubmitted
+        | StoreError::StaleProductionInputs
+        | StoreError::ProductionBlocked(_)
+        | StoreError::AudioRejected(_)
+        | StoreError::AudioInspectionUnavailable(_) => StorageError::Unavailable,
+    }
 }
 
 pub(crate) struct StoredAudio {
@@ -53,21 +182,38 @@ impl AudioStorage {
         }
     }
 
-    /// Re-open and hash the bounded stored object before returning a receipt or metadata.
-    pub(crate) fn verify(
-        &self,
-        object_key: &str,
-        sha256: &str,
-        byte_length: u64,
-    ) -> Result<(), StoreError> {
+    fn persist_image(&self, verified: &VerifiedImage) -> Result<StoredAudio, StoreError> {
         #[cfg(unix)]
         {
-            self.inner.verify(object_key, sha256, byte_length, None)
+            self.inner.persist_image(verified)
         }
         #[cfg(not(unix))]
         {
-            let _ = (object_key, sha256, byte_length);
+            let _ = verified;
             Err(StoreError::Unavailable)
+        }
+    }
+
+    fn verified_file(
+        &self,
+        key: &ObjectKey,
+        integrity: &ObjectIntegrity,
+    ) -> Result<std::fs::File, StorageError> {
+        if key.as_str() != integrity.sha256() {
+            return Err(StorageError::DigestMismatch);
+        }
+        #[cfg(unix)]
+        {
+            self.inner.verified_file(
+                key.as_str(),
+                integrity.sha256(),
+                integrity.byte_length(),
+                None,
+            )
+        }
+        #[cfg(not(unix))]
+        {
+            Err(StorageError::Unavailable)
         }
     }
 }
@@ -87,7 +233,10 @@ mod unix {
 
     use sha2::{Digest, Sha256};
 
-    use super::{StoreError, StoredAudio, VerifiedAudio, MAX_AUDIO_BYTES};
+    use super::{
+        storage_error, StorageError, StoreError, StoredAudio, VerifiedAudio, VerifiedImage,
+        MAX_AUDIO_BYTES,
+    };
 
     pub(super) struct PrivateDirectories {
         // Pin both directory inodes: object operations never traverse a mutable absolute path.
@@ -131,7 +280,15 @@ mod unix {
             self.persist_bytes(verified.bytes(), &metadata.sha256, metadata.byte_length)
         }
 
-        // Kept private: tests exercise storage semantics without forging audio-admission proof.
+        pub(super) fn persist_image(
+            &self,
+            verified: &VerifiedImage,
+        ) -> Result<StoredAudio, StoreError> {
+            let metadata = verified.metadata();
+            self.persist_bytes(verified.bytes(), metadata.sha256(), metadata.byte_length())
+        }
+
+        // Kept private: tests exercise storage semantics without forging media-admission proof.
         fn persist_bytes(
             &self,
             bytes: &[u8],
@@ -211,25 +368,52 @@ mod unix {
             byte_length: u64,
             expected_bytes: Option<&[u8]>,
         ) -> Result<(), StoreError> {
+            self.verified_file(object_key, sha256, byte_length, expected_bytes)
+                .map(|_| ())
+                .map_err(|error| match error {
+                    StorageError::Unavailable | StorageError::Timeout | StorageError::Cancelled => {
+                        StoreError::Unavailable
+                    }
+                    StorageError::InvalidTarget
+                    | StorageError::InvalidKey
+                    | StorageError::InvalidIntegrity
+                    | StorageError::DigestMismatch
+                    | StorageError::LengthMismatch
+                    | StorageError::Conflict
+                    | StorageError::NotFound
+                    | StorageError::Forbidden
+                    | StorageError::UnsupportedCapability(_) => StoreError::CorruptRevision,
+                })
+        }
+
+        pub(super) fn verified_file(
+            &self,
+            object_key: &str,
+            sha256: &str,
+            byte_length: u64,
+            expected_bytes: Option<&[u8]>,
+        ) -> Result<File, StorageError> {
             if !valid_digest(object_key)
                 || object_key != sha256
                 || byte_length == 0
                 || byte_length > MAX_AUDIO_BYTES
             {
-                return Err(StoreError::CorruptRevision);
+                return Err(StorageError::InvalidIntegrity);
             }
-            self.check_directories()?;
-            let name = CString::new(object_key).map_err(|_| StoreError::CorruptRevision)?;
+            self.check_directories().map_err(storage_error)?;
+            let name = CString::new(object_key).map_err(|_| StorageError::InvalidKey)?;
             let mut file = open_file(self.objects.as_raw_fd(), &name, libc::O_RDONLY, 0)
                 .map_err(object_open_error)?;
-            let before = file.metadata().map_err(|_| StoreError::Unavailable)?;
+            let before = file.metadata().map_err(|_| StorageError::Unavailable)?;
             // O_NONBLOCK prevents a substituted FIFO from blocking before this type check.
             if !before.is_file()
                 || before.uid() != effective_uid()
                 || before.mode() & 0o7777 != 0o400
-                || before.len() != byte_length
             {
-                return Err(StoreError::CorruptRevision);
+                return Err(StorageError::DigestMismatch);
+            }
+            if before.len() != byte_length {
+                return Err(StorageError::LengthMismatch);
             }
             let mut hash = Sha256::new();
             let mut length = 0_u64;
@@ -237,40 +421,43 @@ mod unix {
             loop {
                 let read = file
                     .read(&mut buffer)
-                    .map_err(|_| StoreError::Unavailable)?;
+                    .map_err(|_| StorageError::Unavailable)?;
                 if read == 0 {
                     break;
                 }
                 let next = length + read as u64;
                 if next > byte_length || next > MAX_AUDIO_BYTES {
-                    return Err(StoreError::CorruptRevision);
+                    return Err(StorageError::LengthMismatch);
                 }
                 if let Some(expected) = expected_bytes {
                     if expected.get(length as usize..next as usize) != Some(&buffer[..read]) {
-                        return Err(StoreError::CorruptRevision);
+                        return Err(StorageError::Conflict);
                     }
                 }
                 hash.update(&buffer[..read]);
                 length = next;
             }
-            let after = file.metadata().map_err(|_| StoreError::Unavailable)?;
-            if length != byte_length
-                || format!("{:x}", hash.finalize()) != sha256
-                || after.len() != before.len()
-                || after.mode() != before.mode()
+            let after = file.metadata().map_err(|_| StorageError::Unavailable)?;
+            if length != byte_length || after.len() != before.len() {
+                return Err(StorageError::LengthMismatch);
+            }
+            if format!("{:x}", hash.finalize()) != sha256 {
+                return Err(StorageError::DigestMismatch);
+            }
+            if after.mode() != before.mode()
                 || after.uid() != before.uid()
                 || after.mtime() != before.mtime()
                 || after.mtime_nsec() != before.mtime_nsec()
             {
-                return Err(StoreError::CorruptRevision);
+                return Err(StorageError::Conflict);
             }
             // Also sync an equal existing object: accepting a duplicate must not assume the
             // original writer reached its durability boundary. Link/unlink changes ctime, so
             // ctime is deliberately not an integrity oracle for concurrent equal uploads.
-            file.sync_all().map_err(|_| StoreError::Unavailable)?;
+            file.sync_all().map_err(|_| StorageError::Unavailable)?;
             let named = open_file(self.objects.as_raw_fd(), &name, libc::O_RDONLY, 0)
                 .map_err(object_open_error)?;
-            let named = named.metadata().map_err(|_| StoreError::Unavailable)?;
+            let named = named.metadata().map_err(|_| StorageError::Unavailable)?;
             if named.dev() != before.dev()
                 || named.ino() != before.ino()
                 || named.len() != after.len()
@@ -279,9 +466,9 @@ mod unix {
                 || named.mtime() != after.mtime()
                 || named.mtime_nsec() != after.mtime_nsec()
             {
-                return Err(StoreError::CorruptRevision);
+                return Err(StorageError::Conflict);
             }
-            Ok(())
+            Ok(file)
         }
 
         fn check_directories(&self) -> Result<(), StoreError> {
@@ -369,17 +556,13 @@ mod unix {
         Ok(unsafe { File::from_raw_fd(descriptor) })
     }
 
-    fn object_open_error(error: io::Error) -> StoreError {
+    fn object_open_error(error: io::Error) -> StorageError {
         match error.raw_os_error() {
-            Some(
-                libc::ENOENT
-                | libc::ELOOP
-                | libc::ENOTDIR
-                | libc::EACCES
-                | libc::EPERM
-                | libc::ENXIO,
-            ) => StoreError::CorruptRevision,
-            _ => StoreError::Unavailable,
+            Some(libc::ENOENT) => StorageError::NotFound,
+            Some(libc::ELOOP | libc::ENOTDIR | libc::EACCES | libc::EPERM | libc::ENXIO) => {
+                StorageError::DigestMismatch
+            }
+            _ => StorageError::Unavailable,
         }
     }
 
@@ -422,6 +605,296 @@ mod unix {
 
         fn digest(bytes: &[u8]) -> String {
             format!("{:x}", Sha256::digest(bytes))
+        }
+
+        fn async_storage(scratch: &Scratch, bytes: &[u8]) -> super::super::AudioStorage {
+            let storage = super::super::AudioStorage::new(&scratch.0).unwrap();
+            storage
+                .inner
+                .persist_bytes(bytes, &digest(bytes), bytes.len() as u64)
+                .unwrap();
+            storage
+        }
+
+        async fn collect_read(mut read: super::super::port::StorageRead) -> Vec<u8> {
+            use futures_util::StreamExt;
+            let mut bytes = Vec::new();
+            while let Some(chunk) = read.stream.next().await {
+                let chunk = chunk.unwrap();
+                assert!(chunk.len() <= 16 * 1024);
+                bytes.extend_from_slice(&chunk);
+            }
+            assert_eq!(bytes.len() as u64, read.byte_length);
+            bytes
+        }
+
+        #[tokio::test]
+        async fn inspected_images_survive_conditional_replay_restart_and_exact_private_reads() {
+            use super::super::{AudioStorage, ObjectIntegrity, ObjectKey, PrivateStorage};
+            use crate::contexts::media::{
+                domain::{image::ImageMime, object_storage::ByteRange},
+                image_intake::ImageAdmission,
+                storage::port::VerifiedPayload,
+            };
+
+            let scratch = Scratch::new();
+            let storage = AudioStorage::new(&scratch.0).unwrap();
+            for (bytes, mime) in [
+                (
+                    include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice(),
+                    ImageMime::Png,
+                ),
+                (
+                    include_bytes!("image_intake/fixtures/pillow-rgb-2x3.jpg").as_slice(),
+                    ImageMime::Jpeg,
+                ),
+            ] {
+                for _ in 0..2 {
+                    let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                        tokio::sync::Semaphore::new(1),
+                    ))
+                    .unwrap()
+                    .inspect(bytes.to_vec(), mime)
+                    .await
+                    .unwrap();
+                    storage
+                        .put_if_absent(VerifiedPayload::Image(image))
+                        .await
+                        .unwrap();
+                }
+                let key = ObjectKey::for_bytes(bytes);
+                let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
+                let restarted = AudioStorage::new(&scratch.0).unwrap();
+                restarted
+                    .verify(key.clone(), integrity.clone())
+                    .await
+                    .unwrap();
+                let read = restarted
+                    .open_verified(key.clone(), integrity.clone(), None)
+                    .await
+                    .unwrap();
+                assert_eq!(collect_read(read).await, bytes);
+                let range = ByteRange::parse("bytes=3-10")
+                    .unwrap()
+                    .normalize(bytes.len() as u64)
+                    .unwrap();
+                let read = restarted
+                    .open_verified(key, integrity, Some(range))
+                    .await
+                    .unwrap();
+                assert_eq!(collect_read(read).await, &bytes[3..11]);
+                assert_eq!(fs::read(scratch.object(&digest(bytes))).unwrap(), bytes);
+                assert_eq!(
+                    fs::metadata(scratch.object(&digest(bytes)))
+                        .unwrap()
+                        .permissions()
+                        .mode()
+                        & 0o7777,
+                    0o400
+                );
+            }
+            assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 2);
+        }
+
+        #[tokio::test]
+        async fn replay_of_an_inspected_image_rejects_corruption_without_overwriting_it() {
+            use super::super::{AudioStorage, PrivateStorage};
+            use crate::contexts::media::{
+                domain::image::ImageMime, image_intake::ImageAdmission,
+                storage::port::VerifiedPayload,
+            };
+
+            let bytes = include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice();
+            let scratch = Scratch::new();
+            let storage = AudioStorage::new(&scratch.0).unwrap();
+            let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            ))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+            storage
+                .put_if_absent(VerifiedPayload::Image(image))
+                .await
+                .unwrap();
+            let object = scratch.object(&digest(bytes));
+            fs::set_permissions(&object, Permissions::from_mode(0o600)).unwrap();
+            let mut corrupt = bytes.to_vec();
+            corrupt[bytes.len() - 1] ^= 1;
+            fs::write(&object, &corrupt).unwrap();
+            fs::set_permissions(&object, Permissions::from_mode(0o400)).unwrap();
+
+            let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
+                tokio::sync::Semaphore::new(1),
+            ))
+            .unwrap()
+            .inspect(bytes.to_vec(), ImageMime::Png)
+            .await
+            .unwrap();
+            assert_eq!(
+                storage.put_if_absent(VerifiedPayload::Image(image)).await,
+                Err(StorageError::DigestMismatch)
+            );
+            assert_eq!(fs::read(&object).unwrap(), corrupt);
+            assert_eq!(fs::read_dir(scratch.0.join("objects")).unwrap().count(), 1);
+        }
+
+        #[tokio::test]
+        async fn cancelled_blocking_io_keeps_its_lane_until_the_operation_actually_finishes() {
+            use super::super::bounded_filesystem_io;
+            use std::{sync::mpsc, time::Duration};
+            use tokio::sync::{oneshot, Semaphore};
+
+            // An isolated pool tests the production boundary without occupying other tests'
+            // global lanes. Observable channels fence the crash point; no timing sleep is used.
+            let lanes = Arc::new(Semaphore::new(1));
+            let (started, has_started) = oneshot::channel();
+            let (release, proceed) = mpsc::channel();
+            let worker = tokio::spawn(bounded_filesystem_io(lanes.clone(), move || {
+                let _ = started.send(());
+                proceed.recv().map_err(|_| StorageError::Unavailable)?;
+                Ok(())
+            }));
+            has_started.await.unwrap();
+            worker.abort();
+            assert!(worker.await.unwrap_err().is_cancelled());
+            assert_eq!(lanes.available_permits(), 0);
+            assert_eq!(
+                bounded_filesystem_io(lanes.clone(), || Ok(())).await,
+                Err(StorageError::Unavailable)
+            );
+            release.send(()).unwrap();
+            let returned =
+                tokio::time::timeout(Duration::from_secs(2), lanes.clone().acquire_owned())
+                    .await
+                    .unwrap()
+                    .unwrap();
+            drop(returned);
+            assert_eq!(lanes.available_permits(), 1);
+        }
+
+        #[tokio::test]
+        async fn private_port_reads_full_first_middle_final_and_suffix_ranges_in_bounded_chunks() {
+            use super::super::{ObjectIntegrity, ObjectKey, PrivateStorage};
+            use crate::contexts::media::domain::object_storage::ByteRange;
+
+            let scratch = Scratch::new();
+            let bytes: Vec<_> = (0..50_000).map(|index| (index % 251) as u8).collect();
+            let storage = async_storage(&scratch, &bytes);
+            let key = ObjectKey::for_bytes(&bytes);
+            let integrity = ObjectIntegrity::for_bytes(&bytes).unwrap();
+            let read = storage
+                .open_verified(key.clone(), integrity.clone(), None)
+                .await
+                .unwrap();
+            assert_eq!(collect_read(read).await, bytes);
+            for (raw, expected) in [
+                ("bytes=0-1023", &bytes[..1024]),
+                ("bytes=20000-21023", &bytes[20_000..21_024]),
+                ("bytes=48976-", &bytes[48_976..]),
+                ("bytes=-1024", &bytes[48_976..]),
+            ] {
+                let range = ByteRange::parse(raw)
+                    .unwrap()
+                    .normalize(bytes.len() as u64)
+                    .unwrap();
+                let read = storage
+                    .open_verified(key.clone(), integrity.clone(), Some(range))
+                    .await
+                    .unwrap();
+                assert_eq!(collect_read(read).await, expected);
+            }
+            assert!(storage
+                .temporary_read(key, integrity, 60)
+                .await
+                .unwrap()
+                .is_none());
+        }
+
+        #[tokio::test]
+        async fn verified_stream_retains_the_hashed_inode_when_the_object_name_is_replaced() {
+            use super::super::{ObjectIntegrity, ObjectKey, PrivateStorage};
+
+            let scratch = Scratch::new();
+            let bytes = b"the accepted immutable audio bytes";
+            let storage = async_storage(&scratch, bytes);
+            let key = ObjectKey::for_bytes(bytes);
+            let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
+            let read = storage
+                .open_verified(key.clone(), integrity.clone(), None)
+                .await
+                .unwrap();
+            let path = scratch.object(key.as_str());
+            fs::rename(&path, scratch.0.join("original-inode")).unwrap();
+            fs::write(&path, vec![b'x'; bytes.len()]).unwrap();
+            fs::set_permissions(&path, Permissions::from_mode(0o400)).unwrap();
+            assert_eq!(collect_read(read).await, bytes);
+            assert_eq!(
+                PrivateStorage::verify(&storage, key, integrity).await,
+                Err(StorageError::DigestMismatch)
+            );
+        }
+
+        #[tokio::test]
+        async fn cancelled_stream_does_not_delete_or_mutate_the_private_object() {
+            use super::super::{ObjectIntegrity, ObjectKey, PrivateStorage};
+            use futures_util::StreamExt;
+
+            let scratch = Scratch::new();
+            let bytes = vec![42; 50_000];
+            let storage = async_storage(&scratch, &bytes);
+            let key = ObjectKey::for_bytes(&bytes);
+            let integrity = ObjectIntegrity::for_bytes(&bytes).unwrap();
+            let inode = fs::metadata(scratch.object(key.as_str())).unwrap().ino();
+            let mut read = storage
+                .open_verified(key.clone(), integrity.clone(), None)
+                .await
+                .unwrap();
+            assert!(read.stream.next().await.unwrap().unwrap().len() <= 16 * 1024);
+            drop(read);
+            assert_eq!(
+                fs::metadata(scratch.object(key.as_str())).unwrap().ino(),
+                inode
+            );
+            assert_eq!(fs::read(scratch.object(key.as_str())).unwrap(), bytes);
+            assert_eq!(
+                PrivateStorage::verify(&storage, key, integrity).await,
+                Ok(())
+            );
+        }
+
+        #[tokio::test]
+        async fn private_port_rejects_missing_wrong_length_and_another_objects_normalized_range() {
+            use super::super::{NormalizedByteRange, ObjectIntegrity, ObjectKey, PrivateStorage};
+
+            let scratch = Scratch::new();
+            let bytes = b"exact accepted bytes";
+            let storage = async_storage(&scratch, bytes);
+            let key = ObjectKey::for_bytes(bytes);
+            let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
+            let missing = ObjectIntegrity::for_bytes(b"absent bytes").unwrap();
+            assert_eq!(
+                PrivateStorage::verify(&storage, ObjectKey::for_bytes(b"absent bytes"), missing)
+                    .await,
+                Err(StorageError::NotFound)
+            );
+            assert_eq!(
+                PrivateStorage::verify(
+                    &storage,
+                    key.clone(),
+                    ObjectIntegrity::new(key.as_str(), bytes.len() as u64 + 1).unwrap(),
+                )
+                .await,
+                Err(StorageError::LengthMismatch)
+            );
+            let other_range = NormalizedByteRange::full(bytes.len() as u64 + 1).unwrap();
+            assert!(matches!(
+                storage
+                    .open_verified(key, integrity, Some(other_range))
+                    .await,
+                Err(StorageError::LengthMismatch)
+            ));
         }
 
         #[test]

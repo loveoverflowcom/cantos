@@ -26,6 +26,7 @@ use crate::{
     platform::postgres::{Store, StoreError},
 };
 
+mod objects;
 mod postgres;
 
 #[derive(Debug)]
@@ -74,6 +75,7 @@ pub enum ImageObjectError {
     NotFound,
     Unavailable,
     Corrupt,
+    Storage(super::domain::object_storage::StorageError),
 }
 impl std::fmt::Display for ImageObjectError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -81,6 +83,7 @@ impl std::fmt::Display for ImageObjectError {
             Self::NotFound => "private image unavailable",
             Self::Unavailable => "private image storage unavailable",
             Self::Corrupt => "private image integrity mismatch",
+            Self::Storage(error) => error.code(),
         })
     }
 }
@@ -202,21 +205,6 @@ pub(super) trait ImageObjects: Send + Sync {
     fn open(&self, asset: StoredImageAsset) -> ImageObjectFuture<OpenImage>;
 }
 
-/// Safe default until the separately reviewed PR90 boundary is integrated. This cannot pretend
-/// to persist/verify bytes. Host routes remain unmounted while that dependency is pending.
-struct UnavailableImageObjects;
-impl ImageObjects for UnavailableImageObjects {
-    fn persist(&self, _image: VerifiedImage) -> ImageObjectFuture<RecordedImageLocation> {
-        Box::pin(async { Err(ImageObjectError::Unavailable) })
-    }
-    fn verify(&self, _asset: StoredImageAsset) -> ImageObjectFuture<()> {
-        Box::pin(async { Err(ImageObjectError::Unavailable) })
-    }
-    fn open(&self, _asset: StoredImageAsset) -> ImageObjectFuture<OpenImage> {
-        Box::pin(async { Err(ImageObjectError::Unavailable) })
-    }
-}
-
 #[derive(Clone)]
 pub struct ArtworkService {
     repository: Arc<dyn ArtworkRepository>,
@@ -224,9 +212,10 @@ pub struct ArtworkService {
 }
 impl ArtworkService {
     pub fn new(store: Store) -> Self {
+        let objects = objects::SharedImageObjects::new(store.media_storage.clone());
         Self {
             repository: Arc::new(postgres::PgArtworkRepository(store)),
-            objects: Arc::new(UnavailableImageObjects),
+            objects: Arc::new(objects),
         }
     }
     pub async fn prepare(

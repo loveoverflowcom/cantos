@@ -213,6 +213,12 @@ use std::{collections::BTreeSet, io::{Cursor, Read}};
 use crate::{script_ir::read_script, contexts::editorial::domain::EvidenceKind};
 """), [])
 
+    def test_oidc_core_is_pure_and_session_facts_are_platform_owned(self):
+        self.assertEqual(self.errors("platform/studio_oidc/core.rs", "use crate::platform::identity::domain::ExternalIdentityKey;"), [])
+        self.assertRejected("platform/studio_oidc/core.rs", "use reqwest::Client;", "pure domain must not depend on I/O")
+        self.assertRejected("platform/studio_oidc/core.rs", "use super::provider::Provider;", "pure domain may use only")
+        self.assertRejected("contexts/editorial/postgres/read.rs", 'const Q: &str = "SELECT * FROM studio_oidc_sessions";', "SQL table studio_oidc_sessions belongs to platform")
+
     def test_identity_domain_is_pure_and_registry_table_is_platform_owned(self):
         self.assertEqual(self.errors("platform/identity/domain.rs", """
 use serde::{Deserialize, Serialize};
@@ -420,6 +426,32 @@ fn error(e: CatalogStoreError) { match e { CatalogStoreError::Domain(CatalogErro
                 self.assertRejected("interfaces/http/studio/catalog.rs",
                     f"fn f() {{ crate::contexts::catalog::{symbol}(input); }}",
                     "HTTP must delegate business decisions")
+
+    def test_media_http_allows_the_reviewed_private_read_facade(self):
+        self.assertEqual(self.errors("interfaces/http/studio/audio_reads.rs", """
+use crate::contexts::media::read::{
+    AudioReadScope, ByteRange, NormalizedByteRange, RangeError, StorageCapability, StorageError, StorageStream,
+};
+fn ranges() { ByteRange::parse(raw); NormalizedByteRange::byte_length(range); }
+fn errors(e: StorageError) { match e { StorageError::NotFound => {}, StorageError::UnsupportedCapability(StorageCapability::RangeRead) => {}, _ => {} } }
+fn read() { AudioReadScope::ScriptIntent { script, intent }; state.store.authorize_audio_read(scope); }
+"""), [])
+
+    def test_media_http_facade_keeps_domain_adapters_and_unreviewed_types_private(self):
+        for dependency in (
+            "domain::object_storage::ByteRange",
+            "domain::object_storage::StorageError",
+            "domain::object_storage::StorageCapability",
+            "read_application::AudioReadScope",
+            "storage::port::StorageStream",
+            "storage::s3::S3Storage",
+            "read::StorageRegistry",
+            "read::PrivateObjectRef",
+        ):
+            with self.subTest(dependency=dependency):
+                self.assertRejected("interfaces/http/studio/audio_reads.rs",
+                    f"use crate::contexts::media::{dependency};",
+                    "HTTP must delegate business decisions through application use cases")
 
     def test_publication_http_allows_only_typed_errors_and_host_composition(self):
         self.assertEqual(self.errors("interfaces/http/studio/publication.rs", """

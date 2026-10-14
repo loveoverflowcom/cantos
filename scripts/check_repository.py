@@ -92,6 +92,12 @@ HTTP_PURE_BOUNDARIES = {
     ("contexts", "production", "production_catalog"),
     ("script_ir", "read_script"),
 }
+# Media's concrete private-read facade admits HTTP ranges and exposes only application scope,
+# safe errors and a bounded byte stream. This never permits direct domain/adapter dependencies.
+MEDIA_READ_HTTP_TYPES = {
+    "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageCapability", "StorageError",
+    "StorageStream",
+}
 TABLE_OWNER = {
     "scripts": "editorial", "script_members": "editorial",
     "script_revisions": "editorial", "script_reviews": "editorial",
@@ -99,6 +105,7 @@ TABLE_OWNER = {
     "revision_evidence": "editorial", "source_records": "ingestion",
     "actors": "platform", "sessions": "platform", "cantos_migrations": "platform",
     "actor_external_identities": "platform",
+    "studio_oidc_flows": "platform", "studio_oidc_sessions": "platform",
     "speech_clips": "synthesis",
     "audio_upload_intents": "media", "audio_intake_receipts": "media",
     "media_image_intents": "media", "media_image_assets": "media",
@@ -522,6 +529,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "catalog", "CatalogCursor"),
             ("contexts", "catalog", "CatalogCursor", "decode"),
         }
+        media_read = (path[:3] == ("contexts", "media", "read") and len(path) >= 4
+                      and path[3] in MEDIA_READ_HTTP_TYPES)
         publication_error = path[:3] in {
             ("contexts", "media", "PublicationStoreError"),
             ("contexts", "media", "PublicationDependencyError"),
@@ -560,7 +569,9 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "media", "domain", "image", "ImageError"),
         } or path[:4] == ("contexts", "media", "image_intake", "ImageIntakeError")
         if http and path not in HTTP_PURE_BOUNDARIES and not (
-            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition or listener_composition or artwork_composition or artwork_error
+            catalog_wire or catalog_error or catalog_input_type or media_read
+            or publication_error or publication_composition or listener_composition
+            or artwork_composition or artwork_error
         ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:
@@ -594,7 +605,7 @@ def check_api_architecture(root=ROOT):
             owner and parts[2] in {"domain", "domain.rs"}
         )
         domain = domain or relative == Path("platform/ids.rs")
-        domain = domain or relative == Path("platform/identity/domain.rs")
+        domain = domain or relative in {Path("platform/identity/domain.rs"), Path("platform/studio_oidc/core.rs")}
         http = parts[:2] == ("interfaces", "http")
         module = parts[:-1] + (() if file.stem == "mod" else (file.stem,))
         content = file.read_text(encoding="utf-8")

@@ -51,6 +51,8 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Studio Kanidm operator plan or read-only OIDC metadata check; no automatic bootstrap.
+    Kanidm(crate::kanidm::KanidmArgs),
     /// Explicit Podman local infrastructure lifecycle; never used by build/test/run.
     Services(crate::services::ServicesArgs),
     /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.

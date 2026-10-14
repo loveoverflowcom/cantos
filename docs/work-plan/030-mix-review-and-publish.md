@@ -6,15 +6,30 @@
 
 ## Current narrow implementation
 
-[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) reuses private development
-intake and binds server-inspected bytes to exact Catalog Content/Brief/profile/rights declarations.
+[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
+script-revision-bound private intake with four explicit Opus profiles and immutable receipts.
+[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound
+submissions, scoped upload permissions, admitted renditions, named review and private candidates.
+[Private storage](../architecture/object-storage.md) adds filesystem/S3 adapters, durable original
+targets and owner-authorized exact preview. The [read contract](../../packages/contracts/private-content-reads-v1.md)
+and [storage evidence](../evidence/provider-independent-storage.md) identify actual behavior and
+verification separately. Real-provider policies/performance, stronger rights/listening review,
+public delivery and reference-aware retention remain their own acceptance boundaries.
+
 [Publication v1](../../packages/contracts/publication-v1.md) adds authenticated owner distribution
 clearance/approval, complete blockers, immutable releases, atomic active pointers and withdrawal.
 [Core evidence](../evidence/publication-core.md) distinguishes actual passing unit/property/Kani/
-Router evidence from failed PostgreSQL startup and NOT_RUN migration/concurrency acceptance.
+Router evidence from its initial failed PostgreSQL startup and unrun migration/concurrency acceptance.
 Default delivery is unavailable; real public activation remains blocked. The
-[successor handoff](publication-discovery-handoff.md) keeps independent private storage PR90,
-public delivery/retention, legal/listening policy and Theatre implementation as explicit dependencies.
+[successor handoff](publication-discovery-handoff.md) records the separate storage,
+public delivery/retention, legal/listening policy and Theatre acceptance boundaries.
+
+Media owns private storage/preview and the Publication core's approved immutable manifests and
+atomic active-release changes. Prioritize actual private-provider acceptance and exact review
+bindings before deployment, then #11's delivery/isolation/retention decisions. A private object,
+candidate or preview grant is never a publication witness. One wholly private bucket is enough
+for intake; public delivery needs reviewed policy/physical isolation and must not widen access
+to private drafts.
 
 ## Why
 

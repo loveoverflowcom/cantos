@@ -17,6 +17,7 @@ use crate::contexts::listening::{
     auth::{DenyListenerAuthentication, ListenerAuthenticator},
     LibraryService,
 };
+use crate::contexts::media::read::StorageError;
 use crate::contexts::media::{
     ArtworkService, ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
 };
@@ -92,8 +93,7 @@ pub fn router_with_listener_identity(
     router_with_identity_services(state, dist, publication, listener, authenticator)
 }
 
-/// Trusted composition for the private-artwork adapter. The default executable keeps these
-/// routes unmounted until the reviewed shared private storage boundary is integrated.
+/// Trusted composition override for the private-artwork application capability.
 pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: ArtworkService) -> Router {
     let publication = PublicationService::new(state.store.clone());
     let listener = ListenerService::new(state.store.clone());
@@ -114,7 +114,13 @@ fn router_with_identity_services(
     listener: ListenerService,
     authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
 ) -> Router {
-    router_with_identity_and_artwork(state, dist, publication, listener, authenticator, None)
+    // The existing operator-selected private storage topology is the activation boundary.
+    // No new provider/configuration path or public artwork delivery is introduced.
+    let artwork = state
+        .store
+        .audio_storage_is_enabled()
+        .then(|| ArtworkService::new(state.store.clone()));
+    router_with_identity_and_artwork(state, dist, publication, listener, authenticator, artwork)
 }
 
 fn router_with_identity_and_artwork(
@@ -151,7 +157,7 @@ fn router_with_identity_and_artwork(
     let host = if state.store.audio_storage_is_enabled() || artwork.is_some() {
         // ServeDir follows nested symlinks. An intake-enabled process therefore serves no
         // static files at all, even if public and private root paths appear disjoint.
-        // The explicit artwork host has the same rule before private image activation.
+        // Every private artwork composition follows the same API-only rule.
         host.fallback(not_found)
     } else {
         host.fallback_service(ServeDir::new(dist))
@@ -172,35 +178,94 @@ async fn not_found() -> Response {
     failure(ErrorCode::NotFound, StatusCode::NOT_FOUND)
 }
 
-fn cookie_token(headers: &HeaderMap) -> Result<String, StoreError> {
-    let cookies = headers
-        .get(header::COOKIE)
-        .and_then(|h| h.to_str().ok())
-        .ok_or(StoreError::Unauthenticated)?;
-    let mut tokens = cookies
-        .split(';')
-        .filter_map(|part| part.trim().strip_prefix("cantos_session="));
-    let token = tokens.next().ok_or(StoreError::Unauthenticated)?;
-    if tokens.next().is_some() {
-        return Err(StoreError::Unauthenticated);
+fn cookie_token(headers: &HeaderMap, store: &Store) -> Result<String, StoreError> {
+    let name = store
+        .studio_oidc()
+        .map_or("cantos_session", |oidc| oidc.session_name());
+    cookie_token_for_name(headers, name)
+}
+
+fn cookie_token_for_name(headers: &HeaderMap, expected: &str) -> Result<String, StoreError> {
+    let mut found = None;
+    for name in ["cantos_session", "__Secure-cantos_studio"] {
+        let value =
+            studio::auth::unique_cookie(headers, name).map_err(|_| StoreError::Unauthenticated)?;
+        if let Some(value) = value {
+            if name != expected || found.is_some() {
+                return Err(StoreError::Unauthenticated);
+            }
+            found = Some(value);
+        }
     }
-    Ok(token.to_owned())
+    found.ok_or(StoreError::Unauthenticated)
 }
 
 async fn authenticated(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    let result = match cookie_token(request.headers()) {
-        Ok(token) => state.store.authenticate(&token).await,
-        Err(error) => Err(error),
+    let token = match cookie_token(request.headers(), &state.store) {
+        Ok(token) => token,
+        Err(error) => return error_response(error),
     };
-    match result {
-        Ok(_) => next.run(request).await,
-        Err(error) => error_response(error),
+    if let Err(error) = state.store.authenticate(&token).await {
+        return error_response(error);
     }
+    let session_id = match state.store.studio_session_id(&token).await {
+        Ok(id) => id,
+        Err(error) => return error_response(error),
+    };
+    let mut query_fences = url::form_urlencoded::parse(
+        request
+            .uri()
+            .path_and_query()
+            .and_then(axum::http::uri::PathAndQuery::query)
+            .unwrap_or("")
+            .as_bytes(),
+    )
+    .filter(|(name, _)| name == "studio_session_id");
+    let query_matches = match query_fences.next() {
+        None => true,
+        Some((_, value)) => {
+            query_fences.next().is_none() && Some(value.as_ref()) == session_id.as_deref()
+        }
+    };
+    if !query_matches || !studio_fence_matches(request.headers(), session_id.as_deref()) {
+        return studio_fenced_response(
+            failure(ErrorCode::Unauthenticated, StatusCode::CONFLICT),
+            session_id.as_deref(),
+        );
+    }
+    studio_fenced_response(next.run(request).await, session_id.as_deref())
+}
+
+pub(super) const STUDIO_SESSION_HEADER: &str = "x-cantos-studio-session";
+
+pub(super) fn studio_fence_matches(headers: &HeaderMap, actual: Option<&str>) -> bool {
+    let mut values = headers.get_all(STUDIO_SESSION_HEADER).iter();
+    match values.next() {
+        None => true, // Legacy explicit clients remain compatible; the current UI always fences.
+        Some(value) => {
+            values.next().is_none()
+                && value
+                    .to_str()
+                    .ok()
+                    .is_some_and(|value| Some(value) == actual)
+        }
+    }
+}
+
+pub(super) fn studio_fenced_response(mut response: Response, session_id: Option<&str>) -> Response {
+    if let Some(id) = session_id.and_then(|id| HeaderValue::from_str(id).ok()) {
+        response.headers_mut().insert(STUDIO_SESSION_HEADER, id);
+    }
+    response
 }
 
 async fn origin_and_cache(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let read =
         request.method() == axum::http::Method::GET || request.method() == axum::http::Method::HEAD;
+    let valid_config = state
+        .store
+        .studio_oidc()
+        .is_none_or(|oidc| oidc.web_origin() == state.web_origin);
     let valid_origin = request
         .headers()
         .get(header::ORIGIN)
@@ -213,7 +278,9 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let theatre_request = original_path.starts_with("/api/v1/theatre/");
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
-    let mut response = if !read && !valid_origin && !anonymous_playback && !bearer_mutation {
+    let mut response = if !valid_config
+        || (!read && !valid_origin && !anonymous_playback && !bearer_mutation)
+    {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {
         match tokio::time::timeout(std::time::Duration::from_secs(15), next.run(request)).await {
@@ -230,6 +297,10 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     response.headers_mut().insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
+    );
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
     );
     response
 }
@@ -304,6 +375,7 @@ fn error_response(error: StoreError) -> Response {
             None,
             issues,
         ),
+        StoreError::Storage(error) => return storage_error_response(error),
         StoreError::Unavailable => (
             StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::Unavailable,
@@ -350,4 +422,143 @@ fn error_response(error: StoreError) -> Response {
         }),
     )
         .into_response()
+}
+
+fn storage_error_response(error: StorageError) -> Response {
+    let level = match error {
+        StorageError::NotFound => "DEBUG",
+        StorageError::Forbidden
+        | StorageError::Conflict
+        | StorageError::Timeout
+        | StorageError::Cancelled => "WARN",
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => "ERROR",
+    };
+    eprintln!(
+        "level={level} event=private_storage_operation_failed outcome={}",
+        error.code()
+    );
+    let (status, code) = match error {
+        StorageError::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
+        StorageError::Forbidden => (StatusCode::FORBIDDEN, ErrorCode::Forbidden),
+        StorageError::Conflict => (StatusCode::CONFLICT, ErrorCode::OperationReused),
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::CorruptRevision,
+        ),
+        StorageError::Timeout
+        | StorageError::Cancelled
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => {
+            (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Unavailable)
+        }
+    };
+    failure(code, status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::contexts::media::read::StorageCapability;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn private_storage_errors_map_to_safe_existing_api_codes_without_internal_facts() {
+        for (error, expected_status, expected_code) in [
+            (
+                StorageError::NotFound,
+                StatusCode::NOT_FOUND,
+                ErrorCode::NotFound,
+            ),
+            (
+                StorageError::Forbidden,
+                StatusCode::FORBIDDEN,
+                ErrorCode::Forbidden,
+            ),
+            (
+                StorageError::Conflict,
+                StatusCode::CONFLICT,
+                ErrorCode::OperationReused,
+            ),
+            (
+                StorageError::InvalidTarget,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::InvalidKey,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::InvalidIntegrity,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::DigestMismatch,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::LengthMismatch,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::Timeout,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Cancelled,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Unavailable,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::ConditionalCreate),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::RangeRead),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::TemporaryRead),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+        ] {
+            let response = error_response(StoreError::Storage(error));
+            assert_eq!(response.status(), expected_status, "{error:?}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let actual: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                actual,
+                serde_json::json!({
+                    "code": expected_code,
+                    "current_revision": null,
+                    "issues": [],
+                }),
+                "{error:?}"
+            );
+        }
+    }
 }

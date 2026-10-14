@@ -4,6 +4,7 @@ use super::{
     application::storage,
     domain::{
         lifecycle::{AudioRendition, AudioReview, ReleaseCandidate, ReleaseCandidateId},
+        object_storage::{PrivateObjectRef, StorageError},
         publication::*,
     },
     lifecycle_application,
@@ -61,6 +62,7 @@ struct Subject {
     s: super::domain::lifecycle::AudioSubmission,
     content: ProductionContent,
     r: AudioRendition,
+    location: PrivateObjectRef,
     c: ReleaseCandidate,
     reviews: Vec<AudioReview>,
     current: bool,
@@ -120,6 +122,7 @@ async fn subject(
     let r = lifecycle_sql::rendition(tx, &s)
         .await?
         .ok_or(StoreError::CorruptRevision)?;
+    let location = lifecycle_sql::location(tx, &r).await?;
     let raw = lifecycle_sql::load_candidate(tx, candidate, &r)
         .await?
         .ok_or(StoreError::NotFound)?;
@@ -134,6 +137,7 @@ async fn subject(
         s,
         content,
         r,
+        location,
         c,
         reviews,
         current,
@@ -162,38 +166,59 @@ pub(super) struct Observations {
 async fn observe(
     store: &Store,
     delivery: &dyn PublicationDelivery,
-    r: &AudioRendition,
+    subject: &Subject,
 ) -> Result<Observations, PublicationStoreError> {
-    let object = observe_private(store, r).await?;
-    let delivery = observe_delivery(delivery, r).await?;
+    let object = observe_private(store, &subject.r, &subject.location).await?;
+    let delivery = observe_delivery(delivery, &subject.r).await?;
     Ok(Observations { object, delivery })
 }
 async fn observe_private(
     store: &Store,
     r: &AudioRendition,
+    location: &PrivateObjectRef,
 ) -> Result<ObjectObservation, PublicationStoreError> {
     let metadata = &r.document().verified_media;
     let object = match storage(store) {
-        Ok(objects) => {
-            let sha256 = metadata.sha256.clone();
-            let len = metadata.byte_length;
-            match tokio::task::spawn_blocking(move || objects.verify(&sha256, &sha256, len))
-                .await
-                .map_err(|_| StoreError::Unavailable)?
-            {
-                Ok(()) => ObjectObservation::Verified {
-                    sha256: Sha256::parse(&metadata.sha256)?,
-                    byte_length: len,
-                },
-                Err(StoreError::CorruptRevision) => ObjectObservation::IntegrityMismatch,
-                Err(StoreError::Unavailable) => ObjectObservation::Unverified,
-                Err(e) => return Err(e.into()),
-            }
-        }
+        Ok(objects) => match objects.verify(location).await {
+            Ok(()) => ObjectObservation::Verified {
+                sha256: Sha256::parse(&metadata.sha256)?,
+                byte_length: metadata.byte_length,
+            },
+            Err(e) => private_failure_observation(e)?,
+        },
         Err(StoreError::Unavailable) => ObjectObservation::Unverified,
         Err(e) => return Err(e.into()),
     };
     Ok(object)
+}
+fn private_failure_observation(error: StoreError) -> Result<ObjectObservation, StoreError> {
+    match error {
+        StoreError::CorruptRevision => Ok(ObjectObservation::IntegrityMismatch),
+        StoreError::Storage(StorageError::NotFound) => Ok(ObjectObservation::Missing),
+        StoreError::Storage(
+            StorageError::InvalidKey
+            | StorageError::InvalidIntegrity
+            | StorageError::DigestMismatch
+            | StorageError::LengthMismatch
+            | StorageError::Conflict,
+        ) => Ok(ObjectObservation::IntegrityMismatch),
+        StoreError::Unavailable
+        | StoreError::Storage(
+            StorageError::InvalidTarget
+            | StorageError::Forbidden
+            | StorageError::Timeout
+            | StorageError::Cancelled
+            | StorageError::Unavailable
+            | StorageError::UnsupportedCapability(_),
+        ) => Ok(ObjectObservation::Unverified),
+        error => Err(error),
+    }
+}
+fn recheck_observed_object(initial: &Subject, fresh: &Subject) -> Result<(), StoreError> {
+    if initial.r != fresh.r || initial.location != fresh.location {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(())
 }
 pub(super) async fn observe_delivery(
     delivery: &dyn PublicationDelivery,
@@ -326,13 +351,11 @@ impl PublicationService {
         let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
         tx.commit().await?;
         drop(client);
-        let observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Share).await?;
-        if initial.r != fresh.r {
-            return Err(StoreError::CorruptRevision.into());
-        }
+        recheck_observed_object(&initial, &fresh)?;
         let rights = sql::latest_clearance(&tx, &fresh.c).await?;
         let approval = sql::latest_approval(&tx, &fresh.c).await?;
         let pointer =
@@ -421,7 +444,30 @@ impl PublicationService {
         normalized_uuid(&request.operation_id)?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
+        let initial = subject(&tx, token, unit, candidate, LockMode::Share).await?;
+        let actor = initial.content.work.owner_id().as_str();
+        if let Some(prior) =
+            sql::prior_approval(&tx, actor, &request.operation_id, &initial.c).await?
+        {
+            if prior.document().request != request {
+                return Err(StoreError::OperationReused.into());
+            }
+            authenticate(&tx, token).await?;
+            tx.commit().await?;
+            return Ok(prior.document().clone());
+        }
+        authenticate(&tx, token).await?;
+        tx.commit().await?;
+        drop(client);
+        let object = if request.decision == dto::PublicationApprovalDecision::Approved {
+            Some(observe_private(&self.store, &initial.r, &initial.location).await?)
+        } else {
+            None
+        };
+        let mut client = self.store.connection().await?;
+        let tx = client.transaction().await?;
         let s = subject(&tx, token, unit, candidate, LockMode::Update).await?;
+        recheck_observed_object(&initial, &s)?;
         let actor = s.content.work.owner_id().as_str();
         if let Some(prior) = sql::prior_approval(&tx, actor, &request.operation_id, &s.c).await? {
             if prior.document().request != request {
@@ -439,11 +485,6 @@ impl PublicationService {
                 dto::PublicationBlocker::ApprovalStale,
             ]));
         }
-        let object = if request.decision == dto::PublicationApprovalDecision::Approved {
-            Some(observe_private(&self.store, &s.r).await?)
-        } else {
-            None
-        };
         let now = lifecycle_sql::now(&tx).await?;
         if let Some(object) = object {
             let observations = Observations {
@@ -509,14 +550,12 @@ impl PublicationService {
         }
         tx.commit().await?;
         drop(client);
-        let mut observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, candidate, LockMode::Update).await?;
         let actor = fresh.content.work.owner_id().as_str();
-        if initial.r != fresh.r {
-            return Err(StoreError::CorruptRevision.into());
-        }
+        recheck_observed_object(&initial, &fresh)?;
         if let Some(prior) = sql::prior(&tx, actor, &request.operation_id, "publish").await? {
             if prior.request_digest != digest || prior.unit != unit {
                 return Err(StoreError::OperationReused.into());
@@ -529,7 +568,6 @@ impl PublicationService {
                 release: Some(release.document().clone()),
             });
         }
-        observations.object = observe_private(&self.store, &fresh.r).await?;
         let rights = sql::latest_clearance(&tx, &fresh.c).await?;
         let approval = sql::latest_approval(&tx, &fresh.c).await?;
         let pointer = sql::pointer(&tx, unit, actor, true).await?;
@@ -593,10 +631,11 @@ impl PublicationService {
         let release = bound_release(&tx, id, &initial).await?;
         tx.commit().await?;
         drop(client);
-        let observations = observe(&self.store, self.delivery.as_ref(), &initial.r).await?;
+        let observations = observe(&self.store, self.delivery.as_ref(), &initial).await?;
         let mut client = self.store.connection().await?;
         let tx = client.transaction().await?;
         let fresh = subject(&tx, token, unit, &candidate, LockMode::Share).await?;
+        recheck_observed_object(&initial, &fresh)?;
         let current =
             sql::pointer(&tx, unit, fresh.content.work.owner_id().as_str(), false).await?;
         if current != pointer {

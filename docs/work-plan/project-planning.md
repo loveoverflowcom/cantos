@@ -22,7 +22,7 @@ because a proposal or AI prompt exists.
 | 3 | [#7 — External audio intake](https://github.com/loveoverflowcom/cantos/issues/7) | Scoped producer credentials, private upload/finalize, verified bytes and immutable receipt | #6, #66 |
 | 4 | [#8 — Studio audio UI](https://github.com/loveoverflowcom/cantos/issues/8) | Upload state, private preview, correction, stale-brief status | #6, #7 |
 | 5 | [#9 — QC review](https://github.com/loveoverflowcom/cantos/issues/9) | Measured-vs-declared QC and named editorial review of externally produced audio | #7, #51 |
-| 6 | [#10 — Storage and delivery](https://github.com/loveoverflowcom/cantos/issues/10) | Verified private object lifecycle and ready-for-release delivery | #7; coordinate #9 |
+| 6 | [#10 — Storage and delivery](https://github.com/loveoverflowcom/cantos/issues/10) | Private target/adapters/owner preview, provider acceptance and ready-for-release delivery | #7; coordinate #9 |
 | 7 | [#11 — Publication](https://github.com/loveoverflowcom/cantos/issues/11) | Atomic manifest/approval gate, immutable published rendition, safe replacement | #8, #9, #10 |
 | 8 | [#12 — Listener APIs](https://github.com/loveoverflowcom/cantos/issues/12) | Discovery/progress/entitlement across published releases | #11 |
 | 9 | [#13 — Theatre Web](https://github.com/loveoverflowcom/cantos/issues/13) | Streaming, seek, progress/resume | #12 |
@@ -38,6 +38,15 @@ It can progress independently but must not add runtime TTS back to Cantos.
 The previous 010 editorial/import/Script IR work (#1–#5) is retained as a source/review
 foundation. Planning-only casting is optional guidance, **not a prerequisite for plain narration
 or human-recorded podcast media**.
+
+The [private storage/read slice](../architecture/object-storage.md) supplies Media-owned
+target resolution and authorized preview, with [separate evidence](../evidence/provider-independent-storage.md).
+Next for #10, prioritize operator identity/private policy and actual provider capability/range/
+expiry/capacity acceptance. Keep named review/rights under #9, approved immutable publication
+and retention under #11, then separate listener authorization/projections under #12. Private
+S3 admission cannot satisfy a publication or listener prerequisite. A future migration must
+copy, verify and register a ready location before a controlled read switch; it is not a default
+configuration change. GitHub continues to own assignments and status.
 
 ## External producer craft and audio profile
 

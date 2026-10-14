@@ -1,5 +1,9 @@
 //! Media-owned row admission. Corrupt snapshots never masquerade as proof values.
 use super::super::domain::lifecycle::*;
+use super::super::domain::object_storage::{
+    ObjectIntegrity, ObjectKey, PrivateObjectRef, StorageTargetId,
+};
+use super::super::storage::registry::RegistryStoredObject;
 use crate::platform::postgres::{StoreError, Tx};
 use cantos_contracts as dto;
 use serde::{de::DeserializeOwned, Serialize};
@@ -165,20 +169,48 @@ pub(in crate::contexts::media) async fn rendition(
     }
     Ok(Some(value))
 }
+/// Resolve the exact accepted rendition's persisted target, never the active write default.
+pub(in crate::contexts::media) async fn location(
+    tx: &Tx<'_>,
+    value: &AudioRendition,
+) -> Result<PrivateObjectRef, StoreError> {
+    let d = value.document();
+    let row = tx.query_opt(
+        "SELECT object_key,storage_target_id FROM audio_renditions WHERE id=$1 AND submission_id=$2",
+        &[&d.id, &d.submission_id],
+    ).await?.ok_or(StoreError::CorruptRevision)?;
+    let key: String = row
+        .try_get("object_key")
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let target: String = row
+        .try_get("storage_target_id")
+        .map_err(|_| StoreError::CorruptRevision)?;
+    let key = ObjectKey::parse(&key).map_err(|_| StoreError::CorruptRevision)?;
+    let target = StorageTargetId::parse(&target).map_err(|_| StoreError::CorruptRevision)?;
+    let integrity = ObjectIntegrity::new(&d.verified_media.sha256, d.verified_media.byte_length)
+        .map_err(|_| StoreError::CorruptRevision)?;
+    PrivateObjectRef::new(target, key, integrity).map_err(|_| StoreError::CorruptRevision)
+}
+
 pub(in crate::contexts::media) async fn insert_rendition(
     tx: &Tx<'_>,
     value: &AudioRendition,
+    stored: &RegistryStoredObject,
 ) -> Result<(), StoreError> {
     let d = value.document();
+    if stored.object_key != d.verified_media.sha256 {
+        return Err(StoreError::CorruptRevision);
+    }
     let bytes = serde_json::to_vec(d).map_err(|_| StoreError::CorruptRevision)?;
     tx.execute(
-        "INSERT INTO audio_renditions VALUES($1,$2,$3,$4,$5)",
+        "INSERT INTO audio_renditions(id,submission_id,object_key,snapshot,digest,storage_target_id) VALUES($1,$2,$3,$4,$5,$6)",
         &[
             &d.id,
             &d.submission_id,
-            &d.verified_media.sha256,
+            &stored.object_key,
             &bytes,
             &d.digest,
+            &stored.storage_target.as_str(),
         ],
     )
     .await?;

@@ -1,6 +1,34 @@
 use cantos_contracts::{ApiError, ErrorCode, RevisionResponse};
 
 #[test]
+fn studio_auth_configuration_is_closed_and_contains_no_credential_or_actor() {
+    use cantos_contracts::{StudioAuthenticationConfiguration, StudioAuthenticationMode};
+    for (mode, literal) in [
+        (StudioAuthenticationMode::Development, "development"),
+        (StudioAuthenticationMode::Oidc, "oidc"),
+    ] {
+        let value = serde_json::json!({"mode":literal});
+        assert_eq!(
+            serde_json::from_value::<StudioAuthenticationConfiguration>(value.clone())
+                .unwrap()
+                .mode,
+            mode
+        );
+        assert_eq!(
+            serde_json::to_value(StudioAuthenticationConfiguration { mode }).unwrap(),
+            value
+        );
+    }
+    for value in [
+        serde_json::json!({"mode":"admin"}),
+        serde_json::json!({"mode":"oidc","actor_id":"forged"}),
+        serde_json::json!({"mode":"oidc","secret":"forged"}),
+    ] {
+        assert!(serde_json::from_value::<StudioAuthenticationConfiguration>(value).is_err());
+    }
+}
+
+#[test]
 fn shared_consumer_decodes_the_committed_v1_revision_and_error_fixtures() {
     let bytes = include_str!("../../fixtures/studio/v1/revision.json");
     let revision: RevisionResponse = serde_json::from_str(bytes).unwrap();

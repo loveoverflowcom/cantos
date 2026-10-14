@@ -135,3 +135,32 @@ fn failed_replacement_has_no_pointer_effect_and_preserves_prior_manifest() {
     assert_eq!(prior.document(), &snapshot);
     assert_eq!(pointer.version, 1);
 }
+
+#[test]
+fn storage_failures_remain_publication_blockers_without_fabricating_verified_bytes() {
+    for error in [
+        StorageError::Forbidden,
+        StorageError::Timeout,
+        StorageError::Cancelled,
+        StorageError::Unavailable,
+    ] {
+        assert!(matches!(
+            private_failure_observation(StoreError::Storage(error)).unwrap(),
+            ObjectObservation::Unverified
+        ));
+    }
+    for error in [
+        StorageError::DigestMismatch,
+        StorageError::LengthMismatch,
+        StorageError::Conflict,
+    ] {
+        assert!(matches!(
+            private_failure_observation(StoreError::Storage(error)).unwrap(),
+            ObjectObservation::IntegrityMismatch
+        ));
+    }
+    assert!(matches!(
+        private_failure_observation(StoreError::Unauthenticated),
+        Err(StoreError::Unauthenticated)
+    ));
+}

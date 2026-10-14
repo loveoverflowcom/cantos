@@ -800,27 +800,35 @@ name = "cantos-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64",
  "bytes",
  "cantos-contracts",
+ "chrono",
  "dbsp",
  "deadpool-postgres",
  "flate2",
  "futures-util",
  "getrandom 0.3.4",
+ "hmac 0.12.1",
  "http-body-util",
  "image",
  "jsonschema",
  "libc",
  "proptest",
  "quick-xml 0.38.4",
+ "reqwest",
+ "ring",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tokio",
  "tokio-postgres",
+ "tokio-util",
+ "toml",
  "tower",
  "tower-http",
  "unicode-normalization",
+ "url",
  "uuid",
  "zip 4.6.1",
 ]
@@ -2365,6 +2373,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
+ "webpki-roots 1.0.9",
 ]
 
 [[package]]
@@ -4195,6 +4204,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+ "webpki-roots 0.26.11",
  "windows-registry",
 ]
 
@@ -6167,6 +6177,7 @@ dependencies = [
  "sha2 0.10.9",
  "signal-hook",
  "toml",
+ "url",
 ]
 
 [[package]]

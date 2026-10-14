@@ -61,15 +61,9 @@ fn number_matches(row: &Row, column: &str, value: u64) -> Result<(), StoreError>
     }
     Ok(())
 }
-/// Grammar inspected from PR90; replace only the boundary conversion with its final checked
-/// StorageTargetId after the parent supplies the reviewed integration SHA.
+/// Restore the final reviewed shared storage identity; no parallel target grammar.
 pub(super) fn target_valid(value: &str) -> bool {
-    (1..=63).contains(&value.len())
-        && value.as_bytes()[0].is_ascii_lowercase()
-        && !value.ends_with('-')
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    crate::contexts::media::domain::object_storage::StorageTargetId::parse(value).is_ok()
 }
 fn insert_error(error: tokio_postgres::Error) -> StoreError {
     if error.code() == Some(&SqlState::UNIQUE_VIOLATION) {
