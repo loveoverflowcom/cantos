@@ -243,6 +243,7 @@ and additive migration checksums. Current local/mock acceptance belongs in evide
 production provider/client preparation, native runtime acceptance and explicit cross-client
 identity linking remain separate prerequisites. Equal email or subject text across different
 issuers never establishes a shared actor. GitHub owns execution status.
+
 ## Private Work cover API/DB acceptance
 
 The user-requested [issue104 MVP plan](012-private-work-artwork.md) selects one durable,
@@ -261,3 +262,12 @@ the reviewed private-storage boundary. The next scoped acceptance is disposable 
 upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG
 restart faults. The [dated evidence ledger](../evidence/private-work-artwork.md) separates those
 remaining gates from current core, decoder, filesystem and controlled-peer checks.
+
+
+## Editor workspace hygiene
+
+[VS Code workspace settings](../../.vscode/settings.json) now exclude generated outputs
+and caches from Explorer, search and recursive watching when the repository root is open.
+This tooling change does not reorder the product queue. Verify Explorer/Search behavior
+on a VS Code host before editor acceptance, including separately opened Theatre Mobile,
+UI-system CMP and Android preview Gradle roots; GitHub owns PR execution status.
