@@ -91,9 +91,11 @@ The examples here illustrate assertions, not newly installed test helpers.
 sealed exhaustiveness, distinct identities, inaccessible constructors and relevant diagnostics.
 Good: `openEpisode(episodeId)`; negative probe `openEpisode(publicationId)` must fail.
 New sealed cases must expose missing `when` branches.
-**Oracle/status:** pinned Kotlin compiler diagnostics; review ARC-01 imports. No automated
-compile-negative/import harness, warning-as-error policy or Kotlin lint gate exists today.
-**Exception:** manual import review is legitimate until a real gate exists, reported as review.
+**Oracle/status:** pinned Kotlin compiler diagnostics; review ARC-01 imports. The repository
+import guard is bounded and lexical; no compiler-backed negative harness, warning-as-error
+policy or Kotlin lint gate exists today.
+**Exception:** manual import review remains legitimate outside the guard's declared lexical
+scope, reported as review.
 Compilation cannot establish every runtime invariant; docs-only changes need no app compile.
 
 ### VER-02 — factories, invariants and transactional rejection
