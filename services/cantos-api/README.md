@@ -104,8 +104,8 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–22,24,25 (24 migrations), including original private storage0015 and Admin0022.
-Artwork0023 remains reserved and absent; historical SQL bytes/checksums are unchanged.
+versions 1–25 (25 migrations), including original private storage0015, Admin0022 and coordinated
+private Artwork0023. Historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in

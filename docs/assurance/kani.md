@@ -312,6 +312,12 @@ stubs, loop-domain truncations or added unreachable allowances. Thirteen covers 
 minimum, encoded/dimension/pixel/output maxima, exact sixteen-bit output bounds, every
 refusal partition and full machine-width maxima.
 
+### Historical 13 October execution
+
+The original ignored raw artifacts became unavailable after the dot snapshot replacement.
+The following identities/counts are preserved historical claims, not a rechecked current-tree
+proof. A fresh final integrated execution appears below.
+
 Actual canonical command, executed 2026-10-13 UTC:
 
 ```sh
@@ -334,8 +340,9 @@ verifier reports `Complete - 1 successfully verified harnesses, 0 failures, 1 to
 | Approved configuration before and after | `cf0098bad897468f2d51337d289c7aa1e35d3d0363e496ee9127e3c75f902ef2` |
 | Raw verifier output | `ad4c2ce3eb68e181c4c226bd49a750a849df0951a743d64d7f1057ac7a2eb058` |
 
-Full raw output, exact tool/command metadata and before/after identities are retained in the
-ignored task record `kani-5ac1cd8ad3444b72ada2fdcaaf80345f`. Later evidence-only commits or
+Full raw output, exact tool/command metadata and before/after identities were originally
+retained in ignored task record `kani-5ac1cd8ad3444b72ada2fdcaaf80345f`; that raw record is now
+unavailable after recovery. Later evidence-only commits or
 Git-data publication may have different Git identities; they do not imply a fresh proof.
 Exact tree/ordered-parent mappings must remain explicit when publishing through the connector.
 
@@ -344,3 +351,41 @@ establish actual decoder correctness, total RSS/CPU, byte verification, owner/se
 SQL constraints/races, storage target/version resolution, HTTP behavior, provider execution,
 32-bit/WASM arithmetic or production readiness. Those scopes retain their separate evidence
 and pending I/O acceptance in the [artwork implementation record](../evidence/private-work-artwork.md).
+
+
+### Fresh final integrated execution — 14 October 2026 UTC
+
+The same canonical command actually ran on clean local
+`e09c7fd071eaf888386d21be5a6acb42867b36bf`, tree
+`6920f130784c726f05b22c16cf4e41428a385f7b`, incorporating final stable develop
+`6359e819dcbd5877b50e164a7c67f04e9017d66c`. The exact code tree maps to Git-data commit
+`c2f6c378c57b38708e3e3073c0772e038cbacd7c`, with ordered parents
+`013a0709b41572399ebb6f2414bff3c343976bc5` then
+`6359e819dcbd5877b50e164a7c67f04e9017d66c`. Subsequent evidence-only commits are not reruns.
+
+Artifact `kani-73377143ed8c4f71a97fb2591238fcfe` and outer
+`issue104-integration/image-bounds-final-stable.log` record **PASS** in 42.258747756 seconds:
+one exact production harness, nine SUCCESS checks, all 13 SATISFIED covers, zero UNREACHABLE
+results or allowances. Four checks are acceptance/refinement and exact-count assertions;
+the remainder are overflow and compiler-unreachable safety properties. There are no authored
+assumptions/stubs, restricted input domains or disabling flags. The invocation retains the
+same Kani 0.68.0 / CBMC 6.11.0 / pinned nightly / 64-bit target / unwind 2 and normal safety
+checks described above. Pinned-nightly unstable/macro-semicolon warnings remain in raw output.
+
+| Fresh final binding | SHA-256 |
+| --- | --- |
+| Production image.rs | `3956b927e14377858fefdaf88fed6d0429a8c467e448a8f7944ed5be39195f86` |
+| Cargo.lock before/after | `678a4b669deb3edcc8595f09684a3e8c569f8df94060e108446d5ca094900303` |
+| All 266 model inputs before/after | `14835e83addfad5660e4dab1cbf87f99cba71a8e1b31e6dfea19e149dbc3b5e0` |
+| Approved config/absence before/after | `239b2eea1db2fdc75a682597395b4bcd12ea25c799db596d0221f4202c5f1912` |
+| Raw verifier output | `35a52ae612a88fc2d6dcac791f11c19d7e34d1f3131cb973b5f9d8e3606c380e` |
+| Metadata | `f0fbdc770eb7afaf78f528536bd777cec883e8908db3b3259a89f3d15f758917` |
+| Outer canonical xtask log | `276e5cff10591f1c337a8a4f5bb08be1aeaa4e24ee959162e2a7c314d1472a9f` |
+
+Independent read-only audit matched every model input against both current and committed
+bytes, every approved config/presence candidate, source, lock, canonical digests, invocation,
+check/cover results and clean executed Git identity. It found no concrete integrity gap or
+unsupported numeric claim, and ran no duplicate proof or I/O. Numeric acceptance/rejection
+and exact counts on 64-bit x86_64 remain the entire proof scope. Exact error-variant precedence,
+32-bit acceptance, actual decoder/resource safety, SQL/storage/auth/HTTP/restart and production
+readiness remain outside it; see the separate current [layered evidence](../evidence/private-work-artwork.md).

@@ -1,0 +1,854 @@
+{
+  "record_version": 1,
+  "recorded_utc_date": "2026-10-14",
+  "scope": "Bounded issue104 private owner PNG/JPEG Work-cover MVP; no production acceptance claim",
+  "final_develop": {
+    "commit": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+    "tree": "39194a8db5e69f0926723d4498c421eefe7f6e08",
+    "pr90_merge": "edbd7c7f6f0494e0d01dc5b4139134052b07ed07"
+  },
+  "executed_code": {
+    "local_commit": "e09c7fd071eaf888386d21be5a6acb42867b36bf",
+    "tree": "6920f130784c726f05b22c16cf4e41428a385f7b",
+    "clean_for_canonical_rust_contracts_repository_kani": true,
+    "remote_code_object": "c2f6c378c57b38708e3e3073c0772e038cbacd7c",
+    "ordered_remote_parents": [
+      "013a0709b41572399ebb6f2414bff3c343976bc5",
+      "6359e819dcbd5877b50e164a7c67f04e9017d66c"
+    ]
+  },
+  "product_layers": {
+    "media_domain": {
+      "status": "PASS",
+      "tests": 86
+    },
+    "actual_png_jpeg_inspection": {
+      "status": "PASS",
+      "tests": 17
+    },
+    "actual_image_application": {
+      "status": "PASS",
+      "tests": 26,
+      "ignored_sql_cases": 1,
+      "scope": "21 named-port-fake application cases plus five real-filesystem/pure bridge cases"
+    },
+    "shared_storage": {
+      "status": "PASS",
+      "tests": 54,
+      "scope": "synthetic filesystem and controlled loopback S3 peers; no live provider"
+    },
+    "artwork_http_unit": {
+      "status": "PASS",
+      "tests": 9
+    },
+    "production_router_composition": {
+      "status": "PASS",
+      "tests": 4,
+      "scope": "no authorized owner SQL claim"
+    },
+    "ignored_new_http_sql_filesystem_acceptance": {
+      "status": "NOT_RUN",
+      "compiled_cases": 4,
+      "scope": "new Store/pool/descriptor reopen assertions are not host-kill or PostgreSQL restart"
+    }
+  },
+  "canonical_gates": {
+    "rust": {
+      "status": "FAIL",
+      "format": "PASS",
+      "workspace_clippy": "PASS",
+      "api_library_passed": 389,
+      "api_library_ignored": 65,
+      "xtask_passed": 134,
+      "xtask_failed": 17,
+      "same_failed_names_and_guard_as_clean_reviewed_base": true,
+      "failure_names": [
+        "services::tests::an_exit_before_readiness_reports_the_real_exit_and_retains_resources",
+        "services::tests::changed_effective_ports_or_config_invalidate_restart_but_password_rotation_is_not_claimed",
+        "services::tests::drift_and_missing_retained_volume_abort_restart_before_any_start",
+        "services::tests::first_creation_requires_nocreate_and_remains_bound_to_the_returned_id",
+        "services::tests::foreign_container_blocks_down_logs_and_health_without_mutation",
+        "services::tests::foreign_or_image_incompatible_volume_is_never_attached",
+        "services::tests::foreign_volume_replacement_after_create_is_refused_before_server_start",
+        "services::tests::generated_argv_binds_only_loopback_and_keeps_secrets_out_of_values",
+        "services::tests::healthy_restart_reuses_the_same_inspected_container_id_and_volume",
+        "services::tests::kanidm_configtest_uses_private_readonly_config_and_temporary_data_without_network",
+        "services::tests::private_input_permissions_symlinks_and_malformed_ports_fail_before_effects",
+        "services::tests::read_only_private_mounts_never_relabel_operator_inputs",
+        "services::tests::readiness_caps_all_observation_and_probe_calls_by_the_remaining_budget",
+        "services::tests::status_uses_inspected_state_and_logs_include_both_streams_from_owned_id",
+        "services::tests::stop_targets_inspected_id_and_preserves_container_and_volume",
+        "services::tests::supported_nocreate_refusal_is_a_failure_instead_of_an_upgrade_instruction",
+        "services::tests::unsupported_nocreate_and_configtest_failure_leave_owned_volume_for_recovery"
+      ]
+    },
+    "contracts": {
+      "status": "PASS",
+      "selected_rust_contract_tests": 186,
+      "independent_protobuf_goldens": {
+        "pilot": 13,
+        "artwork": 38
+      },
+      "actual_ogg_opus_cases": 2
+    },
+    "repository_before_final_evidence_only_delta": {
+      "status": "PASS",
+      "text_files": 590,
+      "skills": 18,
+      "python_tests": 340
+    },
+    "available_preflight": {
+      "status": "PASS",
+      "passed_steps": 9,
+      "explicitly_skipped_NOT_RUN_steps": 8,
+      "skip_selectors": [
+        "rust-tests",
+        "postgres",
+        "web-build",
+        "ui-preview",
+        "mutation",
+        "cmp-ui-preview",
+        "theatre-cmp-demo"
+      ],
+      "does_not_establish_no_skip_required_preflight": true,
+      "dbsp_doctests_passed": 25,
+      "both_web_wasm_lints": "PASS"
+    },
+    "mutation": {
+      "status": "FAIL",
+      "mutants_executed": 0,
+      "unchanged_baseline_budget_seconds": 60,
+      "clean_reviewed_base_also_timed_out": true,
+      "current_cleanup_error_after_timeout": "OSError39 directory not empty"
+    },
+    "web_bundles_and_leptos_preview": {
+      "status": "NOT_RUN",
+      "reason": "Missing wasm-bindgen CLI0.2.100. Official vendor asset/checksum recovery and its one exact retry both timed out in automatic permission review before process creation. Action stopped; no trust/TLS changes."
+    },
+    "postgres_authorized_http_and_restart": {
+      "status": "NOT_RUN",
+      "reason": "Original disposable PostgreSQL Unix-socket creation denial remains unresolved. Detailed original rationale/raw event unavailable after snapshot replacement. No retry, alternate TCP or inherited database."
+    }
+  },
+  "kani": {
+    "status": "PASS",
+    "artifact": "artifacts/agent-runs/kani-73377143ed8c4f71a97fb2591238fcfe",
+    "outer_artifact": "artifacts/agent-runs/issue104-integration/image-bounds-final-stable.log",
+    "harness": "contexts::media::domain::image::kani_proofs::image_bounds_admission",
+    "tools": {
+      "version": "Kani Rust Verifier 0.68.0 (cargo plugin)\nCBMC 6.11.0",
+      "compiler": "rustc 1.100.0-nightly (8925ea358 2026-08-20)",
+      "host": "x86_64-unknown-linux-gnu",
+      "bundle": "/workspace/scratch/429f9ca90843/cantos-verification-tools/kani/kani-0.68.0"
+    },
+    "unwind": 2,
+    "checks": 9,
+    "application_assertions": 4,
+    "safety_checks": 5,
+    "covers_satisfied": 13,
+    "unreachable": [],
+    "elapsed_seconds": 42.25874775600096,
+    "source_sha256": "3956b927e14377858fefdaf88fed6d0429a8c467e448a8f7944ed5be39195f86",
+    "lock_before": "678a4b669deb3edcc8595f09684a3e8c569f8df94060e108446d5ca094900303",
+    "lock_after": "678a4b669deb3edcc8595f09684a3e8c569f8df94060e108446d5ca094900303",
+    "model_files": 266,
+    "model_before_sha256": "14835e83addfad5660e4dab1cbf87f99cba71a8e1b31e6dfea19e149dbc3b5e0",
+    "model_after_sha256": "14835e83addfad5660e4dab1cbf87f99cba71a8e1b31e6dfea19e149dbc3b5e0",
+    "configuration_before_sha256": "239b2eea1db2fdc75a682597395b4bcd12ea25c799db596d0221f4202c5f1912",
+    "configuration_after_sha256": "239b2eea1db2fdc75a682597395b4bcd12ea25c799db596d0221f4202c5f1912",
+    "raw_sha256": "35a52ae612a88fc2d6dcac791f11c19d7e34d1f3131cb973b5f9d8e3606c380e",
+    "metadata_sha256": "f0fbdc770eb7afaf78f528536bd777cec883e8908db3b3259a89f3d15f758917",
+    "outer_sha256": "276e5cff10591f1c337a8a4f5bb08be1aeaa4e24ee959162e2a7c314d1472a9f",
+    "independent_read_only_audit": "Matched all 266 current and committed model bytes, all 14 configuration candidates, source/lock/digests/outputs and clean executed identity; no rerun",
+    "claim_scope": "Numeric acceptance/rejection and exact counts on 64-bit x86_64 only; not error precedence, 32-bit, decoder/resources, auth/SQL/storage/HTTP/restart"
+  },
+  "migrations": {
+    "count": 25,
+    "versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "registry_sha256": "28b26090f23ac86282a38e480d5650f9297ffac714d80aec46f163325cafdefa",
+    "parent_pinned_files": [
+      {
+        "path": "services/cantos-api/migrations/0001_script_revisions.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "e2ba782cb354536e933568d30bbbce43f2f10e2257e632963333b217b0d4a36c"
+      },
+      {
+        "path": "services/cantos-api/migrations/0002_editorial_handoff.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "a311b2890ae74205277f751446b63c5cb17aa3d7c95c2b6d2e19c09872b3cfac"
+      },
+      {
+        "path": "services/cantos-api/migrations/0003_manuscript_import.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "7d5df383da104e727343cb4b3d535dca3651df861ff5fecc52036b412ff8a453"
+      },
+      {
+        "path": "services/cantos-api/migrations/0004_ai_adaptation.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "f80fe245bbf5785387779f9aa055096dcb0a249ae39aa6da7b2cc8a024f6da32"
+      },
+      {
+        "path": "services/cantos-api/migrations/0005_caller_adaptation.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "43f3fa6dda3216e5c257c72e8c8eee44318cbbd00a7c29cf3f14ddd2ef4b5ae2"
+      },
+      {
+        "path": "services/cantos-api/migrations/0006_production_inputs.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "0d5886f6d4e14714e4eaacceaa34cae049dd048b63157127b8e07926099bd980"
+      },
+      {
+        "path": "services/cantos-api/migrations/0007_durable_jobs.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "ebab18ee1cf5fa694921d3a518e4ab0e0325e09b3c9bf58e984380cf4e190f0a"
+      },
+      {
+        "path": "services/cantos-api/migrations/0008_speech_clips.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "c4c24a041dc27c1192f61d48bfab703aad864169d23783c20f2528e401b79c50"
+      },
+      {
+        "path": "services/cantos-api/migrations/0009_durable_step_changes.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "df9f352679c43ff409887197f56eeb93b0ca4ffc534ad6c39671fe8dac6650bb"
+      },
+      {
+        "path": "services/cantos-api/migrations/0010_studio_audio_intake.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "afc799315314e97583bebc67390a17320c6abdcfff8ff124e0d8d59406f5c6bd"
+      },
+      {
+        "path": "services/cantos-api/migrations/0011_catalog.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "461c6d337cd0e19a8cb1025f3ddd2fdc581d44ad709359e250b4931c6a3f844c"
+      },
+      {
+        "path": "services/cantos-api/migrations/0012_content_identity.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "16606377c10cdd52671386dfcde52fd136d692059350a0f1bd3ba91d9bf00158"
+      },
+      {
+        "path": "services/cantos-api/migrations/0013_production_briefs.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "d8867dada4e8cd9f06d312b3832918461187292f461d954af2a842609409af5c"
+      },
+      {
+        "path": "services/cantos-api/migrations/0014_audio_lifecycle.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "bd02160f43938dfa3d696880ce0c19d4f71f3244f9f46abd5b5f374e50380386"
+      },
+      {
+        "path": "services/cantos-api/migrations/0015_media_storage_targets.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "d154e7c8ef90fc70611d4015d85bb01a095ec31b399cf699e13b83e80d9caa5e"
+      },
+      {
+        "path": "services/cantos-api/migrations/0016_audio_publication.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "b118cd7c1720cd9b1e4fb34cc9fbfdaca995a8f96f36a6b81b08b22ae8cdf02c"
+      },
+      {
+        "path": "services/cantos-api/migrations/0017_listener_discovery.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "d6910a5b48afe4f135819eee832dfe85391b4c17cab5e47f0f97805ef8b43756"
+      },
+      {
+        "path": "services/cantos-api/migrations/0018_actor_external_identities.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "2e2073306693616530f273dffe9a05346f0aa9ee1bc1830a572d3da5eff18860"
+      },
+      {
+        "path": "services/cantos-api/migrations/0019_listener_library_progress.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "d262afe4d7f114e4684d8cf94875870d284c415f08f05862e7002b15575340ce"
+      },
+      {
+        "path": "services/cantos-api/migrations/0020_studio_oidc.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "2792b8133cee9d16be38b33d6a5ffd9e95baa9f7d09cced333e6f5a9a22e8b55"
+      },
+      {
+        "path": "services/cantos-api/migrations/0021_theatre_identity.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "a5b47ff71f0d2faa0b0e056e851b6c74906c2f2ae4db1e7a577e4cb2d51e927a"
+      },
+      {
+        "path": "services/cantos-api/migrations/0022_admin_authorization_audit.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "17cdd04fac01fba7b6e1d194bff569cb9f0a56a0798d7c982f785b270e940ce0"
+      },
+      {
+        "path": "services/cantos-api/migrations/0023_private_work_artwork.sql",
+        "parent": "cd1097d6bc76e3b584ddaa43516bbe844afb3ea4",
+        "sha256": "df98caf0122d39842ff58abd749a5b25970481a69b817cb926aeb3a6f49c4c18"
+      },
+      {
+        "path": "services/cantos-api/migrations/0024_theatre_native_identity.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "2bbfbc2e9addcee42a64e352aa7188f00602d7e8d31e2cb21d9fda305f402ff5"
+      },
+      {
+        "path": "services/cantos-api/migrations/0025_studio_oidc_final_time.sql",
+        "parent": "6359e819dcbd5877b50e164a7c67f04e9017d66c",
+        "sha256": "f3a8bceeb1bfa720b8907386a7d89c76560798f0e21a93b55018c1131a3631b1"
+      }
+    ]
+  },
+  "artifact_hashes": [
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/rust-final-stable.log",
+      "sha256": "2868b1e62240af427412022e65042232622bfa774a0087fd4dbc14920450a46e"
+    },
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/contracts-final-stable.log",
+      "sha256": "f7dec8b19db2962fa7471c679c664d91ac9a3ace286ddb856ce75afbc3ee63f3"
+    },
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/repository-final-stable.log",
+      "sha256": "ba27dc5e858de987ad58cdddefc9343ae3b7c34cf32435dd9995631a56f85ef4"
+    },
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/image-bounds-final-stable.log",
+      "sha256": "276e5cff10591f1c337a8a4f5bb08be1aeaa4e24ee959162e2a7c314d1472a9f"
+    },
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/preflight-final-stable-available.log",
+      "sha256": "8956f1685c4a102685439bcb67d21a63a587c982353dcacc1f8ff6a94c53280b"
+    },
+    {
+      "artifact": "artifacts/agent-runs/issue104-integration/mutation-final.log",
+      "sha256": "e70d9747d2413fa068f1451d2c9bc3cabb21a8484363f5a20cadaa43d236bd39"
+    },
+    {
+      "baseline_artifact": "xtask-services-baseline.log",
+      "source": "edbd7c7f6f0494e0d01dc5b4139134052b07ed07",
+      "sha256": "fe2fa1ea29ad3f65a662802a172d091873f55d5e488f02baa0d17d556126be55"
+    },
+    {
+      "baseline_artifact": "mutation-reviewed-baseline.log",
+      "source": "edbd7c7f6f0494e0d01dc5b4139134052b07ed07",
+      "sha256": "deccea55fbd0272c037b65554f0cee47051413b48c1ac6305c1757cad23e6e21"
+    }
+  ],
+  "historical_2026_10_13": "Original raw ignored logs unavailable after snapshot replacement; historical PASS rows are not rechecked current-source evidence",
+  "jvm_final": {
+    "status": "PASS",
+    "summary": {
+      "manifest": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/final-jvm-evidence.json",
+      "manifest_sha256": "8a5918fe93bfa5212370f9b3ff15cc4a3d6491c78c3bdd18c23d95b6c625f604",
+      "source_revision": "e09c7fd071eaf888386d21be5a6acb42867b36bf",
+      "source_tree": "6920f130784c726f05b22c16cf4e41428a385f7b",
+      "tracked_input_count": 227,
+      "tracked_input_digest_sha256": "5f026d0bf90a8cc8a2c5e30a3a6a3ce4acb77361bc62e6e3c304b1b9351fb863",
+      "gates": [
+        {
+          "gate": "cmp-ui-preview",
+          "status": "PASS",
+          "suite_count": 12,
+          "counts": {
+            "tests": 87,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "testcase_count": 87
+          },
+          "log_sha256": "fee13abfec22033be8bd0035250e8b74e42a724722d97b24bcbf6423c2eb55e0",
+          "xml_manifest_sha256": "bb68bbe532eadbb5dc284d42aa2b380743f9caf1e3b19f8678dcc82aaf62b8a7",
+          "ordered_suite_xml_hashes_sha256": "cd6e2b198d48c8a249fdbea7c058acc235197009d50a559bf5f5987ccb783080"
+        },
+        {
+          "gate": "theatre-cmp-demo",
+          "status": "PASS",
+          "suite_count": 27,
+          "counts": {
+            "tests": 210,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "testcase_count": 210
+          },
+          "log_sha256": "c21d52a79b43f57be60411ac534c6aa9a532acaec89f0aef2a36b3855256e042",
+          "xml_manifest_sha256": "1c0100431869bef7fe5f559336b8707710a87c23d8504a0267973023e303e932",
+          "ordered_suite_xml_hashes_sha256": "724a6ee5a7281ff83ba1b441fb813e62ec5162f9718493837094b983d22072c5"
+        }
+      ],
+      "identity_tests": 28,
+      "native_session_fixture_sha256": "bb457e56dcf34c603c73614bdb48238fb438a0e59cbfa9d0cb00fc8a376dd086"
+    },
+    "tracked_inputs_unchanged_from_committed_code": true,
+    "documentation_only_worktree_delta_during_execution": true,
+    "actual_test_tasks_executed": true,
+    "scope": "Common/JVM assertions; not Android/iOS runtime,live identity/provider or visual inspection",
+    "individual_xml_files": [
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.AvatarContractTest.xml",
+        "sha256": "a5b81881c7f8e648582f5ba01e4b626208c2d40a3113411cf55dbdf862fc9f87",
+        "suite": "com.cantos.ui.AvatarContractTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:51.792Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.ChoiceContractTest.xml",
+        "sha256": "bae7dfa9b7d3a8623e2ae95e994a847d3ad45b6d319e76f5d1e6131a2324e385",
+        "suite": "com.cantos.ui.ChoiceContractTest",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:51.884Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.ComponentSemanticsTest.xml",
+        "sha256": "236e3245dc66c65349936eaa5091255c16a596188f8d341b24bafc49a128b80f",
+        "suite": "com.cantos.ui.ComponentSemanticsTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:51.948Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.FieldContractTest.xml",
+        "sha256": "9d57d706a4d36cb3bad062dca28e5bfc2551248a23818495d3892aec48fad390",
+        "suite": "com.cantos.ui.FieldContractTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:54.907Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.FoundationCaptureTest.xml",
+        "sha256": "c163b592121963618ad6be525f1462df65360d9ad7fc1b29515f3d01a4268655",
+        "suite": "com.cantos.ui.FoundationCaptureTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:54.910Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.FoundationComponentTest.xml",
+        "sha256": "cfc10cda6c6a5f16ae42ee6c41d2bcdc1815f68866febe3662839eaccf02a122",
+        "suite": "com.cantos.ui.FoundationComponentTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:56.021Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.InteractionCaptureTest.xml",
+        "sha256": "c9d5ef15dd9c11a39154182b7a0a9802acb3ab29a1cb5fbd2acaff31e64b7ea3",
+        "suite": "com.cantos.ui.InteractionCaptureTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:57.256Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.InteractionComponentTest.xml",
+        "sha256": "b24954780101cfd1b0f4fdc1fc3694b2f823ef5abac3e43a8f5da856ecb0f468",
+        "suite": "com.cantos.ui.InteractionComponentTest",
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:21:58.306Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.PreviewCaptureTest.xml",
+        "sha256": "f0b4297d96d1bfef2cd069595a7e6ccb4423128d8f0161c7dd7d4fc0cc231647",
+        "suite": "com.cantos.ui.PreviewCaptureTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:22:01.853Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.PreviewModelTest.xml",
+        "sha256": "b23b67a407594479719ba0d84bb723fec61c5fb81ec4d433526363e9eda95a92",
+        "suite": "com.cantos.ui.PreviewModelTest",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:22:02.735Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.ThemeFoundationTest.xml",
+        "sha256": "8445211e399d9c0e6fb0d257d1a25bca902755706db815614034cfc01f0ce6e6",
+        "suite": "com.cantos.ui.ThemeFoundationTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:22:02.746Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/cmp/TEST-com.cantos.ui.UiPreferencesTest.xml",
+        "sha256": "3eec7c6b3122cfd7d32e6e6971b299cdd50179855179a267f0cadf379da0fe67",
+        "suite": "com.cantos.ui.UiPreferencesTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:22:02.836Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.adapters.http.ListenerClientTest.xml",
+        "sha256": "f45c2b85466f24b92034d78d8d8bb9d67d4bdd09d2dc725eca56c4ff49c17f7f",
+        "suite": "com.cantos.theatre.adapters.http.ListenerClientTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:02.325Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.adapters.http.NativeIdentityClientTest.xml",
+        "sha256": "8fc8425fbc95b9f8286a38f06187ac5713e1faf7e43a52ba236b42f814cbd3ee",
+        "suite": "com.cantos.theatre.adapters.http.NativeIdentityClientTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:02.578Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.adapters.protobuf.StudioPilotCodecTest.xml",
+        "sha256": "c73d6bf0bae0d5c7293e20bb9d12274a357cec852eb7d9f35bdde3c0e7fa0112",
+        "suite": "com.cantos.theatre.adapters.protobuf.StudioPilotCodecTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:02.639Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.AppContainerTest.xml",
+        "sha256": "9aee3c03a12063560a34f02d31d075361ad140ec0d40c86123c3545275648466",
+        "suite": "com.cantos.theatre.app.AppContainerTest",
+        "tests": 17,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:03.268Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.ArtworkResourceTest.xml",
+        "sha256": "6a2a7f917237c88e8bae1723eb35319afe194d23a8ef7a8973e8e44aa55e4e20",
+        "suite": "com.cantos.theatre.app.ArtworkResourceTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:03.447Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.DemoCaptureTest.xml",
+        "sha256": "966cefc63e7409a4da24d54692571b772aa050ff1f4ceeb7b36f9d56ab1edf92",
+        "suite": "com.cantos.theatre.app.DemoCaptureTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:03.789Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.DemoCopyTest.xml",
+        "sha256": "17aa042da7525aa94a8983c6d2c651e6443063241ce5c92250542763070fc9d2",
+        "suite": "com.cantos.theatre.app.DemoCopyTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:19.055Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.DemoInteractionTest.xml",
+        "sha256": "14eaca7f4ac4a32c7364f061557cb50282da243705e0e614d3d3158bf0dcffbe",
+        "suite": "com.cantos.theatre.app.DemoInteractionTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:19.112Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.DemoLayoutTest.xml",
+        "sha256": "f2f70091c4e3336fe4c0ae8b0d756c2bb3d5d3acb6d1eef07d18e63b190db191",
+        "suite": "com.cantos.theatre.app.DemoLayoutTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:30.779Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.DemoPresentationTest.xml",
+        "sha256": "89df9605dc0e8d1ea7fbabde79d7a640ec1d3d6610af25c16910f513b1454f3c",
+        "suite": "com.cantos.theatre.app.DemoPresentationTest",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:32.259Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.ListenerHttpTransportTest.xml",
+        "sha256": "86ceea0947b96394abe27175b880f89477107924a15e8be84c31aa59dbdc469e",
+        "suite": "com.cantos.theatre.app.ListenerHttpTransportTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:38.185Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.MiniPlayerShapeTest.xml",
+        "sha256": "570e5867ee7a2c39fb09e6a5bc5e6a347de24e8a44ce31b970675badc5b00883",
+        "suite": "com.cantos.theatre.app.MiniPlayerShapeTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:38.327Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.app.NavigationTest.xml",
+        "sha256": "7df5ce3cdd19987868dab546671d86519e9c097671c399a10d0d22d21c464fcb",
+        "suite": "com.cantos.theatre.app.NavigationTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.180Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.catalog.CatalogControllerTest.xml",
+        "sha256": "a9bd191d1e7f40ae2ebf014fc3b10e3ffd7918afee9a1ed8f5609b65b64a45e6",
+        "suite": "com.cantos.theatre.application.catalog.CatalogControllerTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.185Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.identity.AccountLifecycleTest.xml",
+        "sha256": "6f85717c18e3ada3e91d447ffbb688b3fdb27003cd901f39506269a2f6d93716",
+        "suite": "com.cantos.theatre.application.identity.AccountLifecycleTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.196Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.identity.NativeAccountControllerTest.xml",
+        "sha256": "d6d695f190d003e0cbba1ccf0c1dbc043b30e60470b26b18ed2482fc7b1a072a",
+        "suite": "com.cantos.theatre.application.identity.NativeAccountControllerTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.241Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.identity.NativeLoginControllerTest.xml",
+        "sha256": "58e919014eb67fe332b36a35560778cdddcb5dab862dd35972c486f43c68f50c",
+        "suite": "com.cantos.theatre.application.identity.NativeLoginControllerTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.592Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.listening.ListeningControllerTest.xml",
+        "sha256": "78191e366bdc2c4dd07f11dbd012df39404e15e7d1f71d43f962c27dc63b7c32",
+        "suite": "com.cantos.theatre.application.listening.ListeningControllerTest",
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.681Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.playback.PlaybackControllerTest.xml",
+        "sha256": "3b983c646f3db2ba8ea8b92b99fbeaf9f70171607a3af9943d0756c24bfd957c",
+        "suite": "com.cantos.theatre.application.playback.PlaybackControllerTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.764Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.application.preferences.PreferencesControllerTest.xml",
+        "sha256": "466d24887243f3838037573bf9cc5bdb2de31a6112cf23c46c5c5c71f8d91d2e",
+        "suite": "com.cantos.theatre.application.preferences.PreferencesControllerTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.802Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.artworkfixtures.ArtworkFixtureCompatibilityTest.xml",
+        "sha256": "c9a6127f0072c14aa01e53bc48ddf746638781d9424a9c3176db15a178f91511",
+        "suite": "com.cantos.theatre.artworkfixtures.ArtworkFixtureCompatibilityTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.804Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.demo.DemoStateTest.xml",
+        "sha256": "934ba137a2a615f5c81f9a3281c7244ab68da156664da2265ab222397ee2c2f8",
+        "suite": "com.cantos.theatre.demo.DemoStateTest",
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:40.994Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.domain.identity.NativeCallbackQueryTest.xml",
+        "sha256": "00dd1c56baade46ba34b0d932b5274d0c93ae9c8c68a54c6b241201b3e32de69",
+        "suite": "com.cantos.theatre.domain.identity.NativeCallbackQueryTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:41.001Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.domain.listening.ListeningRecordsTest.xml",
+        "sha256": "fa28611e803f52cfbead40b2cd341102fa461b1952fc50c6001e0083a1b4d2fd",
+        "suite": "com.cantos.theatre.domain.listening.ListeningRecordsTest",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:41.006Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.domain.playback.PlaybackReducerTest.xml",
+        "sha256": "cc031220c08cf0e60c4568f3ce9d8efa1a868c6de94a9f835d556961eed5a9cf",
+        "suite": "com.cantos.theatre.domain.playback.PlaybackReducerTest",
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:41.010Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.domain.playback.PlaybackVectorTest.xml",
+        "sha256": "81675de1c0c8c8622b19a6d52f1e6a40537cae2ffbf0e99c86c9445a593d64ed",
+        "suite": "com.cantos.theatre.domain.playback.PlaybackVectorTest",
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:41.088Z"
+      },
+      {
+        "preserved_file": "artifacts/agent-runs/issue104-final-jvm-e09c7fd/xml/theatre/TEST-com.cantos.theatre.domain.publication.MockCatalogTest.xml",
+        "sha256": "1d964f50fb6395a971bfc662ca3ff53d9cc92cb7c325e9317cd98426a30580bb",
+        "suite": "com.cantos.theatre.domain.publication.MockCatalogTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "timestamp": "2026-10-14T05:24:41.290Z"
+      }
+    ]
+  },
+  "exact_publication_code_objects": [
+    {
+      "local_commit": "8c228eee52c986bbfe8a0a2d846734c1df312e2a",
+      "remote_commit": "765f1ca7dfcd3af35691f763dc0ad87c245ec38a",
+      "tree": "de4e8871b70c3b73a80bca252ad966b63c89d4a2",
+      "remote_parents": [
+        "cd1097d6bc76e3b584ddaa43516bbe844afb3ea4",
+        "edbd7c7f6f0494e0d01dc5b4139134052b07ed07"
+      ]
+    },
+    {
+      "local_commit": "055e47f0732a86def76a74bc58fb980fe254e3b5",
+      "remote_commit": "e987d4717c2d6aec21879f7128c16afc88887d16",
+      "tree": "31f96dc51faf2bbfc6cf99e456be2f1d6101c91e",
+      "remote_parents": [
+        "765f1ca7dfcd3af35691f763dc0ad87c245ec38a",
+        "6fc8fc9b7c4ffb8072fd94804a319d65710fc8ea"
+      ]
+    },
+    {
+      "local_commit": "05c917a869e1fc55ece8477e1add755091d2fccd",
+      "remote_commit": "013a0709b41572399ebb6f2414bff3c343976bc5",
+      "tree": "376491153c7d4e6f1caf71d3675b165aa996cc52",
+      "remote_parents": [
+        "e987d4717c2d6aec21879f7128c16afc88887d16",
+        "648c5b76ca229f2ba84cd724e3202580e22b39c9"
+      ]
+    },
+    {
+      "local_commit": "e09c7fd071eaf888386d21be5a6acb42867b36bf",
+      "remote_commit": "c2f6c378c57b38708e3e3073c0772e038cbacd7c",
+      "tree": "6920f130784c726f05b22c16cf4e41428a385f7b",
+      "remote_parents": [
+        "013a0709b41572399ebb6f2414bff3c343976bc5",
+        "6359e819dcbd5877b50e164a7c67f04e9017d66c"
+      ]
+    }
+  ],
+  "exact_publication_code_objects_verified_by": "Git-data creation and commit readback verified exact trees and ordered remote parents; final branch-ref verification is a separate publication step",
+  "final_evidence_only_delta": {
+    "status": "PASS",
+    "command": "cargo xtask preflight --changed-only --base e09c7fd071eaf888386d21be5a6acb42867b36bf",
+    "steps": {
+      "repository": "PASS",
+      "rust-format": "PASS"
+    },
+    "text_files": 591,
+    "skills": 18,
+    "python_tests": 340,
+    "artifact": "artifacts/agent-runs/issue104-integration/preflight-final-evidence-only.log",
+    "artifact_sha256": "792ac92135cf81f12f5033a6e2daf47b4f6e279c6417bd94ab08895b526e0ffb",
+    "scope": "Documentation-only delta against executed product source; not a replacement for incomplete full required gates"
+  }
+}

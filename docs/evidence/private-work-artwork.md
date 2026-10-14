@@ -2,7 +2,9 @@
 
 ## Current integration checkpoint — 14 October 2026 UTC
 
-The separately reviewed storage dependency is now incorporated from develop
+The final stable develop base is `6359e819dcbd5877b50e164a7c67f04e9017d66c`, tree
+`39194a8db5e69f0926723d4498c421eefe7f6e08`, verified by an ordinary read-only fetch and
+ancestry check. It contains the separately reviewed storage merge
 `edbd7c7f6f0494e0d01dc5b4139134052b07ed07`, tree
 `6bc5900899e44afd706b717756a91867dc54dc75` (PR90 final head
 `ea7aee5857577f12752e0d66a55bac08a72a00d3`). Integration preserves the published PR105
@@ -40,15 +42,27 @@ New tools and final source evidence are regenerated in the recovered isolated wo
   Admin, producer or public image path is added. Final Studio cookie namespace and session
   header/query fences run before extraction/effects, and application reauthorization remains
   after inspection/storage and before mutation/response.
-- The registry is additive and sorted: 22 entries, versions 1–20, 23 and 25. Migration 0023 is still
-  this slice's reserved sidecar. Every one of the 22 migration files is byte-identical to its
-  proper published parent, including PR90's 0015 and Studio identity's 0020/0025. Nothing is
-  renumbered or rewritten.
+- The registry is additive and sorted: 25 entries, versions 1–25. Migration0023 is this slice's
+  coordinated sidecar. All 25 migration files are byte-identical to their proper published
+  parents: 0023 from the original PR105 checkpoint, all other files from final develop 6359e819.
+  The catalog and editorial upgrade expectations both retain all 25 entries; no migration is
+  renumbered or rewritten. Separate Theatre/Admin credentials confer no Studio owner authority.
+
+The [machine-readable current ledger](private-work-artwork-results.json) preserves exact
+source/parent identities, gate scopes and raw-artifact hashes.
 
 ### Fresh independent-layer execution
 
-All commands below execute on the recovered integrated source. Full new logs are retained in
-ignored `artifacts/agent-runs/issue104-integration/`; old missing logs are not substituted.
+The final canonical repository/contracts/Rust/Kani reruns execute on clean local
+`e09c7fd071eaf888386d21be5a6acb42867b36bf`,
+tree `6920f130784c726f05b22c16cf4e41428a385f7b`. Git-data publication preserves that exact tree
+as code commit `c2f6c378c57b38708e3e3073c0772e038cbacd7c`, with ordered parents
+`013a0709b41572399ebb6f2414bff3c343976bc5`, `6359e819dcbd5877b50e164a7c67f04e9017d66c`.
+The prior local→remote mappings are 8c228eee→765f1ca7, 055e47f0→e987d471 and
+05c917a8→013a0709; their full identities/ordered parents are preserved in the publication
+manifest. Final evidence-only commits do not represent another product/proof run. Full new
+logs remain in ignored `artifacts/agent-runs/issue104-integration/`; old missing logs are not
+substituted. These rows describe observed commands, not unexecuted acceptance.
 
 | Scope | Actual result | Evidence boundary |
 | --- | --- | --- |
@@ -57,13 +71,17 @@ ignored `artifacts/agent-runs/issue104-integration/`; old missing logs are not s
 | Image application | PASS | 26 passed; 21 actual-service cases use named repository/storage fakes, five bridge cases exercise real private filesystem bytes; one real SQL case ignored |
 | Shared storage | PASS | 54 tests, retaining all reviewed PR90 cases plus eight image regressions; real synthetic filesystem and controlled loopback S3 peers, no live provider |
 | Artwork HTTP | PASS | Nine adapter/extractor unit probes plus four actual production-router composition probes; lazy pools do not establish authenticated owner SQL |
-| Actual repository gate | PASS | 570 text files/18 skills and 337 Python tests; initial forbidden fixture import and lexical alias findings fixed in source without weakening the checker |
-| All API test targets | PASS | Fresh `cargo test -p cantos-api --tests --locked --no-run`, including four new ignored production HTTP/service/SQL/filesystem tests; compilation only |
+| Actual repository gate | PASS | 590 text files/18 skills and 340 Python tests; initial forbidden fixture import and lexical alias findings fixed in source without weakening the checker |
+| All API test targets | PASS | Final workspace test run compiles every API test target, including four new ignored production HTTP/service/SQL/filesystem cases; compile/discovery only for those cases |
 | Fresh reviewed-base service fixtures | FAIL | Clean detached edbd7c7, own base-built xtask target: 8 passed/17 failed; same private-input checkout guard failures, no feature source and no weakened guard |
-| Canonical contracts | PASS | Fresh Script IR reference, Python/prost metadata oracle, 91 Rust contract tests, actual WAV oracle and two Ogg/Opus inspection cases |
-| Canonical Rust aggregate | FAIL | Format/all-target workspace lint PASS; API library 376 passed/65 ignored and four artwork composition tests passed; xtask 134 passed/17 known private-fixture failures independently reproduced above |
+| Canonical contracts | PASS | Fresh Script IR reference, Python/prost metadata oracle, 186 selected Rust contract tests, actual WAV oracle and two Ogg/Opus inspection cases |
+| Canonical Rust aggregate | FAIL | Format/all-target workspace lint PASS; API library 389 passed/65 ignored and four artwork composition tests passed; xtask 134 passed/17 known private-fixture failures independently reproduced above |
 | Preflight planning | PASS | Actual changed-only dry-run selected all 17 gates conservatively; planning is not gate execution |
-| Final preflight/Kani | NOT_RUN | Fresh execution/proof outcomes will be appended after actual completion; the October 13 rows below are historical |
+| Numeric Kani | PASS | One exact production-kernel harness, 9 checks and 13 satisfied covers, no unreachable allowances; clean final source/266 model files/config/lock bound below |
+| Available final preflight | PASS | Actual terminal summary: 9 passed steps, 8 explicitly skipped NOT_RUN steps; DBSP feature tests/doctests and both Web WASM lints pass; this is not a no-skip preflight |
+| CMP/Theatre JVM | PASS | Actual canonical desktopTest executions: CMP 12 suites/87 cases and Theatre 27 suites/210 cases, zero failures/errors/skips; all 227 tracked inputs match e09c7fd; prior 055e47f 182 is historical |
+| Selected Script IR mutation | FAIL | Fresh isolated baseline exceeded the unchanged 60s budget before any mutant; independently reproduced from clean reviewed edbd7c7 |
+| Web bundles/Leptos preview | NOT_RUN | wasm-bindgen CLI0.2.100 recovery and its one exact retry timed out before process creation; no completed Trunk bundle/preview |
 | Disposable PostgreSQL/authorized HTTP/restart | NOT_RUN | Prior Unix-socket startup denial remains unresolved; no retry, alternate TCP, inherited DB or mock substitution |
 
 The first repository run failed the prohibited inline HTTP fixture import and a test alias
@@ -81,12 +99,98 @@ real races/read plans, authenticated HTTP/rights/session acceptance, host-kill a
 faults. Restored PG17.4 executable availability and Doctor's runnable row do not resolve access.
 Live provider, issuer/TLS/native runtime and public delivery remain outside this acceptance.
 
-Independent source review inspected the shared bridge/payload/ownership/MIME, original-target
-reads, configured-storage activation, final identity fences and all 22 unchanged migrations.
+The initial integration source review inspected the shared bridge/payload/ownership/MIME,
+original-target reads, configured-storage activation, then-current identity fences and its
+22 unchanged migrations.
 At 03:00:56 UTC its bounded 47-file path+NUL+bytes+NUL hash was
 `13c11606424ca3b4816b3e470cef6202a4bdb22a3a8823ff08453c7607f1a304`.
 It found no remaining confirmed source defect after the inline fixture correction and ran no
 build, database, provider or proof. This is a source snapshot pin, separate from execution.
+
+### Final proof and remaining gate failures
+
+The final actual `cargo xtask verify kani --harness image-bounds` run used Kani 0.68.0,
+CBMC 6.11.0, CaDiCaL, pinned nightly 2026-08-21 and the 64-bit x86_64 target with unwind 2 and
+normal safety checks. Artifact `kani-73377143ed8c4f71a97fb2591238fcfe` reports PASS in
+42.258747756 seconds: exactly 9 SUCCESS checks, all 13 SATISFIED covers, zero UNREACHABLE
+results/allowances. Four checks are acceptance/exact-count assertions; the other five are
+arithmetic/compiler-unreachable safety checks. There are no authored assumptions/stubs or
+flags disabling checks. Pinned-nightly macro-semicolon/unstable warnings are retained in raw
+output. This proves numeric accept/reject and exact counts on that target, not error-variant
+precedence, decoder/resources, 32-bit arithmetic, authorization or I/O.
+
+| Final proof binding | SHA-256 |
+| --- | --- |
+| Production image.rs | `3956b927e14377858fefdaf88fed6d0429a8c467e448a8f7944ed5be39195f86` |
+| Cargo.lock before/after | `678a4b669deb3edcc8595f09684a3e8c569f8df94060e108446d5ca094900303` |
+| 266 model inputs before/after | `14835e83addfad5660e4dab1cbf87f99cba71a8e1b31e6dfea19e149dbc3b5e0` |
+| Approved configuration before/after | `239b2eea1db2fdc75a682597395b4bcd12ea25c799db596d0221f4202c5f1912` |
+| Raw verifier | `35a52ae612a88fc2d6dcac791f11c19d7e34d1f3131cb973b5f9d8e3606c380e` |
+| Metadata | `f0fbdc770eb7afaf78f528536bd777cec883e8908db3b3259a89f3d15f758917` |
+
+Fresh full Rust failure names/reasons match the 17 private-input checkout-guard failures on
+clean reviewed develop; the feature never weakens those guards. The mutation runner's unchanged
+cold offline baseline times out at 60 seconds before any mutant, both on this recovered branch
+and a separately built clean edbd7c7. Its current-source run additionally reports temporary
+cleanup OSError 39 after timeout. This is FAIL with zero executed mutants, not a mutation PASS,
+waived budget or attribution to new product code.
+
+Fresh canonical `cargo xtask ui-preview cmp verify` and `cargo xtask theatre-demo verify`
+actually execute desktopTest after preserving/moving only prior generated reports. CMP has
+12 XML suites/87 tests and Theatre has 27 suites/210 tests, all with zero failures/errors/skips.
+Theatre includes the five merged identity suites/28 tests and the three artwork fixture
+compatibility tests. All 227 tracked JVM/shared inputs match committed e09c7fd before/after;
+concurrent working changes are evidence/README documentation only. Original stale-proxy and
+native-font failure logs remain preserved, not erased or relabeled. Corrected execution uses
+the recovered official toolchain and unchanged repository Noto fonts through process-local
+font configuration; no TLS/trust/security setting is changed. Exact individual XML hashes,
+log hashes and source binding are retained in the machine-readable ledger. These are common/JVM
+assertions, not Android/iOS runtime, visual inspection, live issuer or production acceptance.
+Combined final JVM manifest SHA-256 is
+`8a5918fe93bfa5212370f9b3ff15cc4a3d6491c78c3bdd18c23d95b6c625f604`; all 227 input digest is
+`5f026d0bf90a8cc8a2c5e30a3a6a3ce4acb77361bc62e6e3c304b1b9351fb863`.
+
+The final available command was:
+
+```sh
+cargo xtask preflight --changed-only --base origin/develop \
+  --skip rust-tests --skip postgres --skip web-build --skip ui-preview \
+  --skip mutation --skip cmp-ui-preview --skip theatre-cmp-demo
+```
+
+It terminated with `preflight: PASS with 8 explicitly skipped (NOT_RUN) step(s)`:
+repository, format, Script IR reference, Protobuf reference, Rust lint, DBSP, WAV reference,
+actual audio inspection and both Web WASM lints passed. `web-build` expands to two client
+steps; the seven skip selectors therefore yield eight NOT_RUN steps. Rust aggregate and
+mutation remain the separately recorded FAIL outcomes, and PostgreSQL/Web bundle acceptance
+remains blocked. JVM commands are rerun separately with preserved XML; their independent
+results do not change this preflight's printed skips. No complete/no-skip required preflight
+or production-ready claim follows from this bounded successful command.
+
+The evidence-only documentation delta additionally passed a changed-only preflight against
+executed code e09c7fd: repository and Rust format, with 591 text files and 340 Python tests.
+This bounded documentation check does not replace the incomplete broader required gates.
+
+The earlier broad preflight stopped during the official wasm-bindgen 0.2.100 download after
+Studio WASM compilation; it has no terminal aggregate result. The authorized bounded vendor
+asset/SHA recovery command and its sole exact retry both failed automatic permission-review
+**deadline** before process creation. The target was the official wasm-bindgen GitHub 0.2.100
+musl archive/checksum and the project tool directory. The tool stated that a deadline alone
+was not an unsafe-action determination. No download/extraction occurred, no security/TLS/trust
+settings changed, and the action is stopped after that one retry. Thus Web bundles and Leptos
+preview remain NOT_RUN. A WASM compile/lint result does not establish Trunk bundling or runtime.
+
+Final independent read-only review pinned clean e09c7fd/tree6920f13. Nineteen critical
+artwork/Studio/owner/media-bridge files are byte-identical across the Admin merge; the separate
+Admin role/credential/revocation path never changes Studio sessions, actors or resource ownership.
+All 25 migration files match the exact parents named above. Registry SHA-256 is
+`28b26090f23ac86282a38e480d5650f9297ffac714d80aec46f163325cafdefa`; the ordered migration
+path+NUL+bytes+NUL aggregate is
+`e8db7bbcb8d3a87eaae6c889f9c6a4ff4999a883ee00f16de75e5cee56ec5e35`.
+The reviewer also independently matched all 266 proof inputs against current and committed
+bytes, every configuration candidate, lock/digests and raw/outer outputs. Two stale upstream
+current-registry descriptions were corrected to 25 entries, including 0023. No confirmed
+product finding remained; source/proof audit did not execute SQL, runtime acceptance or providers.
 
 A targeted decoder dependency metadata review used the actual normal-edge `cargo tree -p image`
 closure (19 locked package/version pairs) and official RustSec database commit
