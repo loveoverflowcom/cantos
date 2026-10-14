@@ -86,6 +86,24 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 ## Development
 
 The default branch is `develop`; create feature branches and PRs against it.
+
+Open the repository root in VS Code to apply [workspace settings](.vscode/settings.json).
+Generated Rust/Gradle/Web outputs, dependency caches, Python bytecode, local Xcode
+DerivedData, Android Studio/Xcode user metadata, temporary files and agent-run logs are hidden in Explorer and excluded from
+search and recursive file watching. Search also respects `.gitignore`. Source files,
+contracts, skills, lockfiles, configuration and other evidence remain visible. To inspect
+an excluded path, open it directly or temporarily set its exclude entry to `false` in
+workspace settings; in Search, turn off **Use Exclude Settings and Ignore Files**.
+These editor settings neither delete files nor change Git tracking or build behavior.
+
+The same CMP-specific excludes apply when opening the [Theatre Mobile Gradle root](apps/cantos-theatre/mobile/.vscode/settings.json),
+[UI-system CMP Gradle root](packages/ui-system/cmp/.vscode/settings.json) or its
+[isolated Android preview root](packages/ui-system/cmp/android-preview/.vscode/settings.json)
+directly in VS Code. Root settings do not automatically apply to separately opened subfolders.
+Gradle wrapper files, Kotlin/Swift sources, Compose resources, Xcode projects/shared schemes
+and editable `local.properties` remain visible. Generated vectors, Compose captures, APKs
+and Kotlin/Native frameworks already live under excluded module `build` directories.
+
 Use Rust 1.87, a local PostgreSQL 17 cluster for database tests, and Trunk for Leptos Web.
 
 ```sh
