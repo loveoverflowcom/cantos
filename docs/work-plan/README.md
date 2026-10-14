@@ -327,6 +327,18 @@ backup/retention. Native playback, durable Library/outbox, guest import, explici
 linking and broader synchronization keep their separate owners. Production stays disabled;
 GitHub owns PR execution/merge status and broader issues remain open.
 
+## Theatre mobile architecture dependency guard
+
+`check_theatre_architecture` in [check_repository.py](../../scripts/check_repository.py) runs in
+the `repository` gate (and CI) and rejects import, fully qualified-name and package/directory
+violations for `domain`, `ports`, `application`, `features` and `demo` under
+`apps/cantos-theatre/mobile/shared/src/*Main`; `adapters` and `app` are explicitly unguarded.
+`DemoCopy` moved to the leaf `demo` package to remove a `features` → `app` import cycle. The
+guard is lexical (no overload/alias resolution) and does not prove behavior such as clocks or
+random sources in `domain`. Evidence: `statically-checked, example-tested`
+(negative fixtures plus real-tree mutants). This tooling change does not reorder the product
+queue; GitHub owns PR execution status.
+
 ## Editor workspace hygiene
 
 [VS Code workspace settings](../../.vscode/settings.json) now exclude generated outputs

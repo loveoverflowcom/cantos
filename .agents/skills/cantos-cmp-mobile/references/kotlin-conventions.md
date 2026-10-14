@@ -15,8 +15,9 @@ optional. Record an exception's scope, invariant, reason, compensating evidence 
 PR. An exception never silently weakens a contract or changes production scope.
 
 Enforcement today: Kotlin 2.2.20 compiles the isolated mock; compiler exhaustiveness/visibility
-and existing tests cover specific claims. Import restrictions and broader rules are
-review-enforced. No Detekt/ktlint, compile-negative harness or Kotlin property/mutation runner
+and existing tests cover specific claims. Theatre mobile layer imports are checked lexically by
+`check_theatre_architecture` in the `repository` gate (`statically-checked, example-tested`);
+broader rules are review-enforced. No Detekt/ktlint, compile-negative harness or Kotlin property/mutation runner
 is configured. See [testing](cmp-testing.md) and [dependency evaluation](cmp-tooling.md).
 Examples are illustrative unless explicitly identified as current code.
 

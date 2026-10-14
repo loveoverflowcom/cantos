@@ -33,9 +33,12 @@ Feature packages cannot manipulate another feature's internal state. No circular
 
 Good Kotlin: `fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransition`
 uses plain domain values. Counterexample: `domain/playback` importing `android.media.*`,
-`Composable` or `application.PlaybackController`. Verify import/source-set edges manually and
-compile the touched targets; package boundaries inside the shared Gradle module are not
-automatically compiler-enforced. Exception: framework code belongs in presentation/adapter
+`Composable` or `application.PlaybackController`. The `repository` gate
+(`check_theatre_architecture`) rejects import, fully qualified-name and package/directory
+violations for `domain`, `ports`, `application`, `features` and `demo`; compile the touched
+targets as well, because package boundaries inside the shared Gradle module are not
+compiler-enforced and the guard is lexical (it does not resolve overloads, and `adapters` and
+`app` are unguarded). Exception: framework code belongs in presentation/adapter
 source, never in domain; a small feature may colocate declarations while preserving import
 direction. DDD boundaries follow capability and invariant owners, not a mandatory class hierarchy.
 

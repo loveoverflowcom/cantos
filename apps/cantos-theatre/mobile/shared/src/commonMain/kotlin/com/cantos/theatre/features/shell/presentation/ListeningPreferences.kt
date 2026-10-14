@@ -30,9 +30,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import com.cantos.theatre.app.CopyKey
-import com.cantos.theatre.app.DemoCopy
+import com.cantos.theatre.demo.CopyKey
 import com.cantos.theatre.demo.DemoCatalogMode
+import com.cantos.theatre.demo.DemoCopy
 import com.cantos.theatre.demo.DemoEvent
 import com.cantos.theatre.demo.DemoLocale
 import com.cantos.theatre.demo.DemoState

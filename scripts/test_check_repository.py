@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for skill structure and API architecture checks in check_repository.py.
+"""Tests for skill structure and API/Theatre architecture checks in check_repository.py.
 
 Run from the repository root:
 
@@ -7,6 +7,7 @@ Run from the repository root:
 """
 
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -584,6 +585,219 @@ mod tests { use super::canonical_uuid; }
 const DOC: &str = r##"A \"quote\" and reqwest::get are examples"##;
 fn f<'a>(value: &'a str) { let quote = '\"'; let letter = 'a'; }
 """), [])
+
+
+class TheatreArchitectureTest(unittest.TestCase):
+    PREFIX = "com/cantos/theatre"
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def write(self, location, content, root=None):
+        file = (root or self.root) / checks.THEATRE_SOURCE / location
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(content, encoding="utf-8")
+
+    def errors(self, location, body, package=None, root=None):
+        """Write one Kotlin file under <source set>/<layer path>; the package follows the path."""
+        if root is None:
+            shutil.rmtree(self.root / checks.THEATRE_SOURCE, ignore_errors=True)
+        source_set, _, layer_path = location.partition("/")
+        directory = layer_path.rsplit("/", 1)[0]
+        package = package or f"com.cantos.theatre.{directory.replace('/', '.')}"
+        self.write(f"{source_set}/kotlin/{self.PREFIX}/{layer_path}", f"package {package}\n\n{body}", root)
+        return checks.check_theatre_architecture(root or self.root)
+
+    def assertRejected(self, location, body, reason, package=None):
+        errors = self.errors(location, body, package)
+        label = f"{checks.THEATRE_SOURCE}/{location.partition('/')[0]}/kotlin/{self.PREFIX}/{location.partition('/')[2]}:"
+        self.assertEqual(len(errors), 1, errors)
+        self.assertTrue(errors[0].startswith(label) and reason in errors[0], errors)
+
+    def test_domain_rejects_other_layers_and_platform_imports(self):
+        for body, reason in (
+            ("import com.cantos.theatre.application.playback.PlaybackController", "domain may import only"),
+            ("import com.cantos.theatre.ports.MediaEngine", "domain may import only"),
+            ("import com.cantos.theatre.adapters.mock.MockCatalog", "domain may import only"),
+            ("import androidx.compose.runtime.Composable", "domain may import only"),
+            ("import android.media.MediaPlayer", "domain may import only"),
+            ("import java.time.Instant", "domain may import only"),
+            ("import kotlinx.coroutines.flow.Flow", "domain may import only"),
+            ("import com.cantos.ui.CantosColors", "domain may import only"),
+        ):
+            with self.subTest(body=body):
+                self.assertRejected("commonMain/domain/playback/Reducer.kt", body, reason)
+
+    def test_domain_rejects_ios_platform_import_in_ios_source_set(self):
+        self.assertRejected("iosMain/domain/playback/Reducer.kt", "import platform.AVFoundation.AVPlayer",
+                            "domain may import only")
+
+    def test_import_forms_cannot_hide_a_forbidden_namespace(self):
+        for body in (
+            "import com.cantos.theatre.application.playback.PlaybackController as Controller",
+            "import com.cantos.theatre.application.playback.*",
+            "import com.cantos.theatre.`application`.playback.PlaybackController",
+            "import com.cantos.theatre . application . playback . PlaybackController",
+            "import com.cantos.theatre\n    .application\n    .playback.PlaybackController",
+            "val unused = 1;import com.cantos.theatre.application.X",
+        ):
+            with self.subTest(body=body):
+                self.assertRejected("commonMain/domain/playback/Reducer.kt", body, "domain may import only")
+
+    def test_fully_qualified_names_need_no_import_to_be_caught(self):
+        for body in (
+            "@androidx.compose.runtime.Composable\nfun f() {}",
+            "val player: android.media.MediaPlayer? = null",
+            "val player = platform.AVFoundation.AVPlayer()",
+            "val controller: com.cantos.theatre.application.playback.PlaybackController? = null",
+            "val x = androidx . compose . runtime . Composable",
+            "val x = `androidx`.compose.runtime.Composable",
+            'val text = "${java.time.Instant.now()}"',
+        ):
+            with self.subTest(body=body):
+                self.assertRejected("commonMain/domain/playback/Reducer.kt", body, "domain may import only")
+
+    def test_ports_and_application_layers(self):
+        self.assertRejected("commonMain/ports/MediaEngine.kt",
+                            "import com.cantos.theatre.adapters.mock.MockCatalog", "ports may import only")
+        self.assertRejected("commonMain/ports/MediaEngine.kt",
+                            "import com.cantos.theatre.application.playback.PlaybackController",
+                            "ports may import only")
+        self.assertRejected("commonMain/ports/MediaEngine.kt", "import androidx.compose.runtime.Composable",
+                            "ports may import only")
+        self.assertRejected("commonMain/application/playback/Controller.kt",
+                            "import com.cantos.theatre.adapters.mock.MockCatalog", "application may import only")
+        self.assertRejected("commonMain/application/playback/Controller.kt",
+                            "import com.cantos.theatre.features.shell.presentation.Root",
+                            "application may import only")
+        self.assertRejected("commonMain/application/playback/Controller.kt",
+                            "import androidx.compose.runtime.mutableStateOf", "application may import only")
+
+    def test_features_cannot_reach_app_adapters_ports_or_other_features(self):
+        base = "commonMain/features/shell/presentation/Root.kt"
+        for body, reason in (
+            ("import com.cantos.theatre.app.CopyKey", "features must not depend on app"),
+            ("import com.cantos.theatre.adapters.mock.MockCatalog", "features must not depend on adapters"),
+            ("import com.cantos.theatre.ports.MediaEngine", "features must not depend on ports"),
+            ("import com.cantos.theatre.features.catalog.presentation.Shelf",
+             "features must not import another feature"),
+            ("import android.content.Context", "must not use platform namespace android"),
+            ("import platform.UIKit.UIView", "must not use platform namespace platform"),
+            ("import java.util.UUID", "must not use platform namespace java"),
+            ("import javax.crypto.Cipher", "must not use platform namespace javax"),
+            ("val x: com.cantos.theatre.app.CopyKey? = null", "features must not depend on app"),
+        ):
+            with self.subTest(body=body):
+                self.assertRejected(base, body, reason)
+
+    def test_demo_is_a_leaf_package(self):
+        self.assertRejected("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.app.Navigation",
+                            "demo may import only")
+        self.assertRejected("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.domain.playback.X",
+                            "demo may import only")
+
+    def test_package_must_match_the_directory_in_both_directions(self):
+        self.assertRejected("commonMain/domain/playback/Reducer.kt", "internal val x = 1",
+                            "does not match directory com.cantos.theatre.domain.playback",
+                            package="com.cantos.theatre.application.playback")
+        self.assertRejected("commonMain/application/playback/Controller.kt", "internal val x = 1",
+                            "does not match directory com.cantos.theatre.application.playback",
+                            package="com.cantos.theatre.domain.playback")
+        self.write(f"commonMain/kotlin/{self.PREFIX}/domain/NoPackage.kt", "internal val x = 1\n")
+        self.assertTrue(any("package (none) does not match" in error
+                            for error in checks.check_theatre_architecture(self.root)))
+
+    def test_unknown_layer_and_misplaced_sources_need_a_policy(self):
+        self.write(f"commonMain/kotlin/{self.PREFIX}/newlayer/X.kt", "package com.cantos.theatre.newlayer\n")
+        self.write(f"commonMain/kotlin/{self.PREFIX}/Top.kt", "package com.cantos.theatre\n")
+        self.write("commonMain/kotlin/com/other/X.kt", "package com.other\n")
+        self.write(f"commonMain/kotlin/{self.PREFIX}/features/Loose.kt", "package com.cantos.theatre.features\n")
+        errors = checks.check_theatre_architecture(self.root)
+        self.assertEqual(sum("explicit layer policy" in error for error in errors), 2, errors)
+        self.assertEqual(sum("must live under commonMain/kotlin/com/cantos/theatre" in error for error in errors), 1, errors)
+        self.assertEqual(sum("belongs in features/<feature>/" in error for error in errors), 1, errors)
+
+    def test_valid_dependencies_for_every_layer_pass(self):
+        for location, body in (
+            ("commonMain/domain/playback/Reducer.kt",
+             "import com.cantos.theatre.domain.publication.WorkKey\nimport kotlin.math.max\nimport kotlin.collections.*"),
+            ("commonMain/ports/MediaEngine.kt",
+             "import com.cantos.theatre.domain.playback.Phase\nimport com.cantos.theatre.ports.Other\n"
+             "import kotlinx.coroutines.flow.Flow\nimport kotlin.Result"),
+            ("commonMain/application/playback/Controller.kt",
+             "import com.cantos.theatre.domain.playback.Phase\nimport com.cantos.theatre.ports.MediaEngine\n"
+             "import com.cantos.theatre.application.catalog.Catalog\nimport kotlinx.coroutines.CoroutineScope\n"
+             "import kotlinx.coroutines.channels.Channel"),
+            ("commonMain/features/shell/presentation/Root.kt",
+             "import androidx.compose.runtime.Composable\nimport com.cantos.theatre.demo.DemoState\n"
+             "import com.cantos.theatre.features.shell.presentation.Other\nimport com.cantos.ui.CantosColors\n"
+             "import com.cantos.theatre.resources.Res\nimport org.jetbrains.compose.resources.stringResource"),
+            ("androidMain/features/shell/presentation/Native.kt", "import android.content.Context"),
+            ("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.demo.DemoState\nimport kotlin.math.max"),
+            ("commonMain/adapters/mock/Mock.kt", "import com.cantos.theatre.app.X\nimport android.os.Build"),
+            ("commonMain/app/App.kt", "import com.cantos.theatre.adapters.mock.Mock\nimport java.util.UUID"),
+        ):
+            with self.subTest(location=location):
+                self.assertEqual(self.errors(location, body), [])
+
+    def test_inert_text_and_member_access_are_not_dependencies(self):
+        self.assertEqual(self.errors("commonMain/domain/playback/Reducer.kt", """
+// import com.cantos.theatre.application.X
+/* import android.os.Build
+   val x: androidx.compose.runtime.Composable */
+val doc = "import com.cantos.theatre.adapters.X and android.os.Build"
+val raw = \"\"\"
+import platform.AVFoundation.AVPlayer
+\"\"\"
+val a = 'x'
+fun f(platform: Platform) = platform.name.length + this.platform.android.os
+fun g(x: kotlin.collections.List<kotlin.Int>) = x
+"""), [])
+
+    def test_test_source_sets_are_not_scanned(self):
+        for source_set in ("commonTest", "desktopTest"):
+            self.write(f"{source_set}/kotlin/{self.PREFIX}/domain/playback/ReducerTest.kt",
+                       "package com.cantos.theatre.domain.playback\nimport androidx.compose.runtime.Composable\n")
+        self.assertEqual(checks.check_theatre_architecture(self.root), [])
+
+    def test_reported_line_follows_comments_and_multiline_strings(self):
+        errors = self.errors("commonMain/domain/playback/Reducer.kt", """/* header
+ * two lines */
+import com.cantos.theatre.domain.publication.WorkKey
+val text = \"\"\"a
+b ${1 +
+2}\"\"\"
+import com.cantos.theatre.application.X
+""")
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("Reducer.kt:9: com.cantos.theatre.application.X", errors[0])
+
+    def test_real_tree_is_clean_and_each_layer_mutant_fails_on_its_own_file(self):
+        self.assertEqual(checks.check_theatre_architecture(checks.ROOT), [])
+        source = checks.ROOT / checks.THEATRE_SOURCE
+        mutants = (
+            ("domain/playback/PlaybackReducer.kt", "import com.cantos.theatre.application.playback.PlaybackController", "domain"),
+            ("ports/MediaEngine.kt", "import com.cantos.theatre.adapters.mock.MockCatalogAdapter", "ports"),
+            ("application/playback/PlaybackController.kt", "import androidx.compose.runtime.Composable", "application"),
+            ("features/shell/presentation/PlayerSection.kt", "import com.cantos.theatre.app.CopyKey", "features"),
+            ("demo/DemoCopy.kt", "import com.cantos.theatre.app.Navigation", "demo"),
+        )
+        for location, forbidden, layer in mutants:
+            with self.subTest(layer=layer), tempfile.TemporaryDirectory() as directory:
+                copy = Path(directory)
+                shutil.copytree(source, copy / checks.THEATRE_SOURCE)
+                target = copy / checks.THEATRE_SOURCE / "commonMain/kotlin/com/cantos/theatre" / location
+                text = target.read_text(encoding="utf-8")
+                package_end = text.index("\n", text.index("package "))
+                target.write_text(text[:package_end + 1] + forbidden + "\n" + text[package_end + 1:], encoding="utf-8")
+                errors = checks.check_theatre_architecture(copy)
+                self.assertEqual(len(errors), 1, errors)
+                self.assertIn(location, errors[0])
+                self.assertIn(forbidden.split()[1], errors[0])
 
 
 if __name__ == "__main__":

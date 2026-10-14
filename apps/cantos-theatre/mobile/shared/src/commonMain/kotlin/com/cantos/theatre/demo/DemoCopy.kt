@@ -1,8 +1,6 @@
-package com.cantos.theatre.app
+package com.cantos.theatre.demo
 
-import com.cantos.theatre.demo.DemoLocale
-
-/** App-owned mock resources. Content titles remain Vietnamese in either UI locale. */
+/** Demo-owned mock resources. Content titles remain Vietnamese in either UI locale. */
 internal enum class CopyKey(val vi: String, val en: String) {
     Brand("Cantos", "Cantos"),
     DemoBadge("BẢN XEM THỬ", "DEMO"),

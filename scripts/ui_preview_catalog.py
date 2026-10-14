@@ -222,11 +222,13 @@ def validate_evidence(entry, renderer, path, tokens_sha256, root=ROOT, declarati
         raise ValueError(f"{entry['id']}/{renderer}: unsupported cannot be qualified")
 
 
-def kotlin_source_regions(content):
+def kotlin_source_regions(content, keep_lines=False):
     """Separate ordinary code from executable template expressions, ignoring inert text.
 
     This is a bounded lexical walk, not a Kotlin parser. String/comment delimiters and
     balanced expression braces are enough to keep static namespaces out of admission.
+    With keep_lines, each inert region keeps its newlines so offsets in the returned
+    code map back to source line numbers.
     """
     code, expressions, index = [], [], 0
     stack = [["code", 0]]
@@ -236,13 +238,15 @@ def kotlin_source_regions(content):
         if mode in {"string", "triple"}:
             delimiter = '"""' if mode == "triple" else '"'
             if content.startswith(delimiter, index):
-                stack.pop()
+                lines = stack.pop()[2]
                 index += len(delimiter)
                 if mode == "triple":
                     # Kotlin's TRIPLE_QUOTE_CLOSE consumes the complete closing run;
                     # extra quotes are literal content, never a following string opener.
                     while index < len(content) and content[index] == '"':
                         index += 1
+                if keep_lines:
+                    (expressions if stack[-1][0] == "expression" else code).append("\n" * lines)
             elif mode == "string" and content[index] == "\\":
                 index += 2
             elif content.startswith("${", index):
@@ -250,6 +254,7 @@ def kotlin_source_regions(content):
                 stack.append(["expression", 1])
                 index += 2
             else:
+                stack[-1][2] += content[index] == "\n"
                 index += 1
             continue
 
@@ -259,7 +264,7 @@ def kotlin_source_regions(content):
             index = len(content) if end < 0 else end
             output.append(" ")
         elif content.startswith("/*", index):
-            depth, index = 1, index + 2
+            start, depth, index = index, 1, index + 2
             while index < len(content) and depth:
                 if content.startswith("/*", index):
                     depth, index = depth + 1, index + 2
@@ -267,13 +272,13 @@ def kotlin_source_regions(content):
                     depth, index = depth - 1, index + 2
                 else:
                     index += 1
-            output.append(" ")
+            output.append(" " + "\n" * content.count("\n", start, index) * keep_lines)
         elif literal := characters.match(content, index):
             index = literal.end()
             output.append(" ")
         elif content.startswith('"', index):
             triple = content.startswith('"""', index)
-            stack.append(["triple" if triple else "string", 0])
+            stack.append(["triple" if triple else "string", 0, 0])
             index += 3 if triple else 1
             output.append(" ")
         elif mode == "expression" and content[index] == "}":
@@ -287,6 +292,8 @@ def kotlin_source_regions(content):
         else:
             if mode == "expression" and content[index] == "{":
                 stack[-1][1] += 1
+            if mode == "expression" and content[index] == "\n":
+                stack[-2][2] += 1
             output.append(content[index])
             index += 1
     return "".join(code), "".join(expressions)
