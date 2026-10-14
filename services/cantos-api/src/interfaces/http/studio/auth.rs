@@ -22,6 +22,8 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/auth/callback", get(callback))
 }
 
+pub(in crate::interfaces::http) use crate::interfaces::http::cookies::unique_cookie;
+
 async fn configuration(State(state): State<AppState>) -> Json<StudioAuthenticationConfiguration> {
     Json(StudioAuthenticationConfiguration {
         mode: if state.store.studio_oidc().is_some() {
@@ -30,25 +32,6 @@ async fn configuration(State(state): State<AppState>) -> Json<StudioAuthenticati
             StudioAuthenticationMode::Development
         },
     })
-}
-
-pub(in crate::interfaces::http) fn unique_cookie(
-    headers: &HeaderMap,
-    name: &str,
-) -> Result<Option<String>, AuthError> {
-    let mut found = None;
-    for value in headers.get_all(header::COOKIE) {
-        let value = value.to_str().map_err(|_| AuthError::State)?;
-        for part in value.split(';') {
-            if let Some(value) = part.trim().strip_prefix(&format!("{name}=")) {
-                if found.is_some() {
-                    return Err(AuthError::State);
-                }
-                found = Some(value.into());
-            }
-        }
-    }
-    Ok(found)
 }
 
 fn cookie_count(headers: &HeaderMap, name: &str) -> usize {

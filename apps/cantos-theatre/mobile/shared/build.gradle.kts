@@ -91,8 +91,13 @@ val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
 
 val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVectors") {
     val fixture = rootProject.file("../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json")
+    val nativeSessionFixture = rootProject.file("../../../packages/contracts/fixtures/theatre-identity/v1/native-session.json")
+    // Reviewed canonical bytes; update only with an intentional shared contract-fixture change.
+    val nativeSessionSha256 = "bb457e56dcf34c603c73614bdb48238fb438a0e59cbfa9d0cb00fc8a376dd086"
     val outputDirectory = layout.buildDirectory.dir("generated/client-boundary/commonTest")
     inputs.file(fixture)
+    inputs.file(nativeSessionFixture)
+    inputs.property("nativeSessionSha256", nativeSessionSha256)
     outputs.dir(outputDirectory)
     doLast {
         val raw = fixture.readText(Charsets.UTF_8)
@@ -100,6 +105,15 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
         val output = outputDirectory.get().asFile.resolve("com/cantos/theatre/adapters/http/CanonicalClientBoundary.kt")
         output.parentFile.mkdirs()
         output.writeText("package com.cantos.theatre.adapters.http\ninternal object CanonicalClientBoundary { val json: String = \"$escaped\" }\n", Charsets.UTF_8)
+        val nativeBytes = nativeSessionFixture.readBytes()
+        val actualNativeHash = MessageDigest.getInstance("SHA-256").digest(nativeBytes)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        check(actualNativeHash == nativeSessionSha256) { "Canonical native identity fixture hash mismatch" }
+        val nativeJson = nativeBytes.toString(Charsets.UTF_8)
+        check(nativeJson.toByteArray(Charsets.UTF_8).contentEquals(nativeBytes)) { "Invalid UTF-8 native identity fixture" }
+        val nativeEscaped = nativeJson.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$").replace("\n", "\\n").replace("\r", "\\r")
+        val nativeOutput = outputDirectory.get().asFile.resolve("com/cantos/theatre/adapters/http/CanonicalNativeIdentity.kt")
+        nativeOutput.writeText("package com.cantos.theatre.adapters.http\ninternal object CanonicalNativeIdentity { val json: String = \"$nativeEscaped\" }\n", Charsets.UTF_8)
     }
 }
 

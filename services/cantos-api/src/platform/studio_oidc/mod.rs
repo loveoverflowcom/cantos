@@ -1,15 +1,15 @@
 //! Studio BFF only. No Listener/Admin identity, no production activation, no credential DTO.
 mod config;
-mod core;
+use crate::platform::oidc::core;
 mod postgres;
 mod provider;
 #[cfg(test)]
 mod tests;
 
+pub use crate::platform::oidc::config::OidcConfig;
+pub use crate::platform::oidc::core::{AuthError, CLIENT_ID};
 use crate::platform::postgres::Store;
-pub use config::OidcConfig;
 use core::{session_expiry, FLOW_SECONDS, SESSION_SECONDS};
-pub use core::{AuthError, CLIENT_ID};
 use provider::Provider;
 
 pub const MAX_BROWSER_FLOWS: usize = 8;

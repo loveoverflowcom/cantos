@@ -87,6 +87,8 @@ impl Store {
             pool,
             media_storage: None,
             studio_oidc: None,
+            theatre_identity: None,
+            theatre_native: None,
         })
     }
 

@@ -36,6 +36,7 @@ pub enum AuthError {
 struct Header {
     alg: String,
     kid: String,
+    typ: Option<String>,
     #[serde(default)]
     crit: Vec<String>,
 }
@@ -72,20 +73,92 @@ pub(crate) struct Jwk {
 
 /// Not Deserialize/Serialize/Clone; fields and constructor stay private to the verifier.
 /// Only the sibling application may consume the facts via getters.
-pub(super) struct VerifiedIdentity {
+pub(crate) struct VerifiedIdentity {
     key: ExternalIdentityKey,
     expires: u64,
     digest: Vec<u8>,
 }
 
-impl VerifiedIdentity {
-    pub(super) fn key(&self) -> &ExternalIdentityKey {
+/// Resource-token witness: an ID token or a registry row cannot construct it.
+pub(crate) struct VerifiedAccess {
+    key: ExternalIdentityKey,
+    expires: u64,
+}
+impl VerifiedAccess {
+    pub(crate) fn key(&self) -> &ExternalIdentityKey {
         &self.key
     }
-    pub(super) fn expires(&self) -> u64 {
+    pub(crate) fn expires(&self) -> u64 {
         self.expires
     }
-    pub(super) fn digest(&self) -> &[u8] {
+}
+
+#[derive(Deserialize)]
+struct AccessClaims {
+    iss: String,
+    sub: String,
+    aud: String,
+    client_id: String,
+    exp: u64,
+    iat: u64,
+    nbf: u64,
+    jti: String,
+    scope: String,
+}
+
+pub(crate) fn verify_native_access(
+    token: &str,
+    keys: &JwkSet,
+    issuer: &str,
+    client_id: &str,
+    now: u64,
+) -> Result<VerifiedAccess, AuthError> {
+    let parts: Vec<_> = token.split('.').collect();
+    if parts.len() != 3 {
+        return Err(AuthError::InvalidToken);
+    }
+    let header: Header =
+        serde_json::from_slice(&segment(parts[0], 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref() != Some("at+jwt") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verified_payload(token, keys)?;
+    let claims: AccessClaims =
+        serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.client_id != client_id {
+        return Err(AuthError::Audience);
+    }
+    if now >= claims.exp || claims.exp <= claims.iat {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf > now {
+        return Err(AuthError::NotYetValid);
+    }
+    if claims.jti.is_empty()
+        || claims.jti.len() > 128
+        || claims.jti.chars().any(char::is_control)
+        || !claims.scope.split_ascii_whitespace().any(|v| v == "openid")
+    {
+        return Err(AuthError::InvalidToken);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedAccess {
+        key,
+        expires: claims.exp,
+    })
+}
+
+impl VerifiedIdentity {
+    pub(crate) fn key(&self) -> &ExternalIdentityKey {
+        &self.key
+    }
+    pub(crate) fn expires(&self) -> u64 {
+        self.expires
+    }
+    pub(crate) fn digest(&self) -> &[u8] {
         &self.digest
     }
 }
@@ -119,13 +192,46 @@ pub(crate) fn token_kid(token: &str) -> Result<String, AuthError> {
     Ok(header.kid)
 }
 
-pub(super) fn verify(
+pub(crate) fn verify_for_client(
     token: &str,
     keys: &JwkSet,
     issuer: &str,
+    client_id: &str,
     nonce: &str,
     now: u64,
 ) -> Result<VerifiedIdentity, AuthError> {
+    let encoded = token.split('.').next().ok_or(AuthError::InvalidToken)?;
+    let header: Header =
+        serde_json::from_slice(&segment(encoded, 2048)?).map_err(|_| AuthError::InvalidToken)?;
+    if header.typ.as_deref().is_some_and(|v| v != "JWT") {
+        return Err(AuthError::InvalidToken);
+    }
+    let body = verified_payload(token, keys)?;
+    let claims: Claims = serde_json::from_slice(&body).map_err(|_| AuthError::InvalidToken)?;
+    if claims.iss != issuer {
+        return Err(AuthError::Issuer);
+    }
+    if claims.aud != client_id || claims.azp.as_deref().is_some_and(|azp| azp != client_id) {
+        return Err(AuthError::Audience);
+    }
+    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
+        return Err(AuthError::Expired);
+    }
+    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
+        return Err(AuthError::NotYetValid);
+    }
+    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
+        return Err(AuthError::Nonce);
+    }
+    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
+    Ok(VerifiedIdentity {
+        key,
+        expires: claims.exp,
+        digest: Sha256::digest(token).to_vec(),
+    })
+}
+
+fn verified_payload(token: &str, keys: &JwkSet) -> Result<Vec<u8>, AuthError> {
     let kid = token_kid(token)?;
     let parts: Vec<_> = token.split('.').collect();
     if parts.len() != 3 {
@@ -156,30 +262,7 @@ pub(super) fn verify(
     UnparsedPublicKey::new(&ECDSA_P256_SHA256_FIXED, public)
         .verify(message.as_bytes(), &signature)
         .map_err(|_| AuthError::Signature)?;
-    let claims: Claims =
-        serde_json::from_slice(&segment(parts[1], 12_000)?).map_err(|_| AuthError::InvalidToken)?;
-    if claims.iss != issuer {
-        return Err(AuthError::Issuer);
-    }
-    if claims.aud != CLIENT_ID || claims.azp.as_deref().is_some_and(|azp| azp != CLIENT_ID) {
-        return Err(AuthError::Audience);
-    }
-    // No ambient clock/leeway. A callback proof must have been minted in the flow's lifetime.
-    if now >= claims.exp || now >= claims.iat.saturating_add(FLOW_SECONDS) {
-        return Err(AuthError::Expired);
-    }
-    if claims.iat > now || claims.nbf.is_some_and(|nbf| nbf > now) {
-        return Err(AuthError::NotYetValid);
-    }
-    if nonce.is_empty() || !constant_time_equal(claims.nonce.as_bytes(), nonce.as_bytes()) {
-        return Err(AuthError::Nonce);
-    }
-    let key = ExternalIdentityKey::new(claims.iss, claims.sub).map_err(|_| AuthError::Subject)?;
-    Ok(VerifiedIdentity {
-        key,
-        expires: claims.exp,
-        digest: Sha256::digest(token).to_vec(),
-    })
+    segment(parts[1], 12_000)
 }
 
 fn constant_time_equal(a: &[u8], b: &[u8]) -> bool {
@@ -202,4 +285,15 @@ pub(crate) fn session_expiry(now: u64, proof: u64, access: u64) -> Result<u64, A
         return Err(AuthError::Expired);
     }
     Ok(expires)
+}
+
+#[cfg(test)]
+pub(crate) fn verify(
+    token: &str,
+    keys: &JwkSet,
+    issuer: &str,
+    nonce: &str,
+    now: u64,
+) -> Result<VerifiedIdentity, AuthError> {
+    verify_for_client(token, keys, issuer, CLIENT_ID, nonce, now)
 }

@@ -2,10 +2,10 @@ use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
     features::{
-        account::Account,
+        account::{Account, LiveAccount},
         common::*,
         discovery::Discover,
-        library::{History, Library},
+        library::{History, Library, LiveLibrary},
         player::{MiniPlayer, Player},
         queue::Queue,
         work_detail::WorkDetail,
@@ -266,76 +266,68 @@ mod tests {
     }
 
     #[test]
-    fn source_guard_probe_admission_precedes_aborting_current_transport() {
-        // Source-level ordering evidence only: native tests cannot execute browser callbacks.
-        let live = include_str!("view.rs")
-            .split("\n#[component]\npub fn LiveBoundary()")
-            .nth(1)
-            .unwrap();
-        let (check, rest) = live.split_once("\"Check API availability\"").unwrap();
-        assert!(check.rfind(".begin()").unwrap() < check.rfind("abort.update_value").unwrap());
-        let (cancel, _) = rest.split_once("\"Cancel\"").unwrap();
-        assert!(cancel.find(".cancel()").unwrap() < cancel.find("abort.update_value").unwrap());
+    fn live_shell_mounts_account_and_library_without_mock_media_or_studio_authority() {
+        Owner::new().with(|| {
+            let html = view! { <LiveBoundary/> }.to_html();
+            assert!(html.contains("theatre-live-account-heading"));
+            assert!(html.contains("theatre-live-library-heading"));
+            assert!(html.contains("href=\"?mode=mock\""));
+            assert!(html.contains("role=\"status\""));
+            for forbidden in [
+                "Cantos Theatre",
+                "<audio",
+                "<video",
+                "session-token",
+                "/studio",
+                "Người giữ tiếng chuông",
+            ] {
+                assert!(!html.contains(forbidden), "{forbidden}");
+            }
+        });
     }
 }
 
-/// The live boundary never creates the mock catalog or fake root media engine.
+/// Real listener account bootstrap, with the mock catalog/media remaining explicitly separate.
 #[component]
 pub fn LiveBoundary() -> impl IntoView {
-    use crate::live::{Failure, ProbePhase, ProbeState};
-    let state = RwSignal::new(ProbeState::default());
-    let english = RwSignal::new(false);
+    use crate::application::account_view::AccountViewState;
+    let state = RwSignal::new(AccountViewState::default());
+    let locale = RwSignal::new(Locale::Vietnamese);
+    let main = NodeRef::<leptos::html::Main>::new();
     #[cfg(target_arch = "wasm32")]
-    let abort = StoredValue::new_local(None::<web_sys::AbortController>);
-    #[cfg(target_arch = "wasm32")]
-    on_cleanup(move || {
-        abort.update_value(|c| {
-            if let Some(c) = c.take() {
-                c.abort();
-            }
-        })
+    crate::live::runtime::mount(state);
+    Effect::new(move |_| {
+        platform::set_title(&messages::format(
+            Key::PageTitle,
+            locale.get(),
+            &[(
+                "page",
+                messages::text(Key::Account, locale.get()).to_owned(),
+            )],
+        ));
     });
-    view! {<UiRoot class="theatre-shell"><Container width=ContainerWidth::Reading>
-        <main class="theatre-main" lang=move ||if english.get(){"en"}else{"vi-VN"}>
-            <h1>"Cantos"</h1><button class="cui-button" type="button" on:click=move |_|english.update(|e| *e = !*e)>"Tiếng Việt / English"</button>
-            <p>{move ||if english.get(){"Published audio and listener identity are not available on this API yet."}else{"API hiện chưa có âm thanh đã phát hành và phiên người nghe."}}</p>
-            <p role="status" aria-live="polite">{move ||match state.get().phase() {
-                ProbePhase::Idle=>if english.get(){"Live mode: no request sent."}else{"Chế độ thật: chưa gửi yêu cầu."},
-                ProbePhase::Pending=>if english.get(){"Checking the listener boundary…"}else{"Đang kiểm tra ranh giới người nghe…"},
-                ProbePhase::Unsupported(_)=>if english.get(){"Unsupported: listener API not implemented. Playback, downloads and progress remain unavailable."}else{"Chưa hỗ trợ: API người nghe chưa triển khai. Phát, tải và đồng bộ tiến độ chưa khả dụng."},
-                ProbePhase::Failed(Failure::Unauthenticated|Failure::Forbidden)=>if english.get(){"Listener access refused. A Studio session cannot authorize listening."}else{"Quyền người nghe bị từ chối. Phiên Studio không cấp quyền nghe."},
-                ProbePhase::Failed(_)=>if english.get(){"Cannot verify the API boundary. No demo results were substituted."}else{"Chưa xác minh được ranh giới API. Không thay bằng dữ liệu minh họa."},
-            }}</p>
-            <button class="cui-button" type="button" on:click=move |_| {
-                #[cfg(target_arch="wasm32")]
-                {
-                    let Some(next) = state.get_untracked().begin() else { return; };
-                    let Ok(controller) = web_sys::AbortController::new() else { return; };
-                    state.set(next);
-                    abort.update_value(|current| {
-                        if let Some(current) = current.take() {
-                            current.abort();
-                        }
-                    });
-                    abort.set_value(Some(controller.clone()));
-                    leptos::task::spawn_local(async move {
-                        let phase = crate::live::browser::probe(controller).await;
-                        let _ = state.try_update(|s| *s = s.finish(next.generation(), phase));
-                    });
-                }
-            }>{move ||if english.get(){"Check API availability"}else{"Kiểm tra khả năng API"}}</button>
-            <button class="cui-button" type="button" on:click=move |_| {
-                if let Some(next) = state.get_untracked().cancel() {
-                    state.set(next);
-                    #[cfg(target_arch="wasm32")]
-                    abort.update_value(|current| {
-                        if let Some(current) = current.take() {
-                            current.abort();
-                        }
-                    });
-                }
-            }>{move ||if english.get(){"Cancel"}else{"Hủy"}}</button>
-            <p><a href="?mode=mock">{move ||if english.get(){"Open isolated mock preview"}else{"Mở bản xem thử minh họa riêng"}}</a></p>
-        </main>
-    </Container></UiRoot>}
+    view! {
+        <UiRoot class="theatre-shell"><Container width=ContainerWidth::Wide>
+            <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main" lang=move || locale.get().lang()>
+                <a class="theatre-skip" href="#theatre-main" on:click=move |event| {
+                    event.prevent_default();
+                    platform::focus_main(main);
+                }>{move || messages::text(Key::SkipContent, locale.get())}</a>
+                <h1>"Cantos"</h1>
+                <Select id="theatre-live-locale" label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
+                    value=Signal::derive(move || locale.get().lang().to_owned())
+                    on_input=Callback::new(move |value: String| match value.as_str() {
+                        "vi-VN" => locale.set(Locale::Vietnamese),
+                        "en" => locale.set(Locale::English),
+                        _ => (),
+                    })>
+                    <option value="vi-VN">"Tiếng Việt"</option><option value="en">"English"</option>
+                </Select>
+                <p>{move || messages::text(Key::LiveNotice, locale.get())}</p>
+                <LiveAccount state locale/>
+                <LiveLibrary state locale/>
+                <p><a class="theatre-text-link" href="?mode=mock">{move || messages::text(Key::OpenMock, locale.get())}</a></p>
+            </main>
+        </Container></UiRoot>
+    }
 }
