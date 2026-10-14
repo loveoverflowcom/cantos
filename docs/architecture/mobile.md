@@ -109,6 +109,10 @@ Test native semantics and focus order, readable time/position, large text, scree
 
 Before feature implementation, add an ADR identifying supported OS versions; CMP/Kotlin versions; Android/iOS media integration; local metadata store; native background download strategy; credential storage; codec/delivery strategy; offline rights policy; and API generation approach. Pin dependencies only after checking official documentation and testing the intended integrations. This document does not prescribe currently verified APIs.
 
+[ADR 0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) covers the local
+storage part: per-layer test doubles, directory classes and the gates for adopting a metadata
+store or file-system library with its consuming slice. It selects no library.
+
 ## Future acceptance matrix
 
 | Area | Required scenarios on Android and iOS | Evidence to collect |
