@@ -28,6 +28,7 @@ vocabulary and report; none of them redefines these.
   Inspect commands; see [local execution](references/local-execution.md).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
   Studio is web-only. Exclude Studio Mobile from implementation, scaffolding and build/test/preview automation unless explicitly requested in a future roadmap; retain Theatre Web/Mobile and shared libraries.
+- For registered stateful expectations/scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md); keep model and implementation evidence separate.
 - **Distinguish three states** in code, docs and reports: *proposed* design, *implemented*
   behavior and *verified* behavior with a named evidence level.
 - **Keep the stack.** Rust + Axum + PostgreSQL modular monolith, Leptos Web, CMP mobile with
@@ -289,7 +290,6 @@ A report with an empty residual-risk line is a report nobody can act on.
 | reviewing an existing PR, range, patch or local diff | [`diff-review.md`](references/diff-review.md), entered through [`cantos-code-review`](../cantos-code-review/SKILL.md) |
 
 ## Compose with
-
 Domain owners: [`cantos-script-ir`](../cantos-script-ir/SKILL.md),
 [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md),
 [`cantos-publication`](../cantos-publication/SKILL.md),

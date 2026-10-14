@@ -1,5 +1,5 @@
 //! External tool detection. A missing tool makes a step UNSUPPORTED before anything runs;
-//! xtask never installs toolchains, SDKs or databases.
+//! Detection never installs tools. Only explicit behavior --setup installs its locked npm dev tool.
 
 use std::{
     cell::RefCell,
@@ -34,10 +34,12 @@ pub enum Tool {
     Ffprobe,
     AndroidCli,
     Kani,
+    BehaviorRuntime,
+    Quint,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 19] = [
+    pub const ALL: [Tool; 21] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -57,6 +59,8 @@ impl Tool {
         Tool::Ffprobe,
         Tool::AndroidCli,
         Tool::Kani,
+        Tool::BehaviorRuntime,
+        Tool::Quint,
     ];
 
     pub fn label(self) -> &'static str {
@@ -80,6 +84,8 @@ impl Tool {
             Tool::Ffprobe => "ffprobe",
             Tool::AndroidCli => "android",
             Tool::Kani => "Kani 0.68.0 / CBMC 6.11.0",
+            Tool::BehaviorRuntime => "locked Node/npm behavior runtime",
+            Tool::Quint => "locked Quint behavior tool",
         }
     }
 
@@ -105,6 +111,8 @@ impl Tool {
                 "the isolated root/shared Gradle project and common/desktop sources must exist in apps/cantos-theatre/mobile"
             }
             Tool::Kani => "prepare the official Kani 0.68.0 bundle with its matching nightly and CBMC 6.11.0 separately; set KANI_HOME; xtask never installs or runs the installer proxy",
+            Tool::BehaviorRuntime => "install the exact Node/npm versions in tools/behavior/package.json separately",
+            Tool::Quint => "provide pinned Node/npm, then run cargo xtask verify behavior --setup explicitly",
             Tool::Python3 => "install Python 3",
             Tool::Git => "install Git",
             Tool::Ffmpeg | Tool::Ffprobe => {
@@ -122,7 +130,7 @@ impl Tool {
             Tool::Cargo => Some(("cargo", &["--version"])),
             Tool::Rustfmt => Some(("cargo", &["fmt", "--version"])),
             Tool::Clippy => Some(("cargo", &["clippy", "--version"])),
-            Tool::Wasm32Target | Tool::Kani => None,
+            Tool::Wasm32Target | Tool::Kani | Tool::Quint | Tool::BehaviorRuntime => None,
             Tool::Trunk => Some(("trunk", &["--version"])),
             Tool::Gradle => Some(("gradle", &["--no-daemon", "--version"])),
             Tool::Java => Some(("java", &["-version"])),
@@ -179,6 +187,17 @@ impl SystemTools {
         ) {
             return self.available(tool).then(|| "available".to_owned());
         }
+        if matches!(tool, Tool::Quint | Tool::BehaviorRuntime) {
+            let output = crate::behavior::probe_command(&self.root, tool == Tool::BehaviorRuntime)
+                .to_command()
+                .stdin(Stdio::null())
+                .output()
+                .ok()?;
+            return output
+                .status
+                .success()
+                .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned());
+        }
         if tool == Tool::Kani {
             let output = crate::kani::probe_command(&self.root)
                 .to_command()
@@ -233,9 +252,13 @@ impl SystemTools {
             Tool::Java => self
                 .version(tool)
                 .is_some_and(|version| java_version_supported(&version)),
-            Tool::Rustfmt | Tool::Clippy | Tool::Ffmpeg | Tool::Ffprobe | Tool::Kani => {
-                self.version(tool).is_some()
-            }
+            Tool::Rustfmt
+            | Tool::Clippy
+            | Tool::Ffmpeg
+            | Tool::Ffprobe
+            | Tool::Kani
+            | Tool::Quint
+            | Tool::BehaviorRuntime => self.version(tool).is_some(),
             other => find_on_path(other.label()).is_some(),
         }
     }

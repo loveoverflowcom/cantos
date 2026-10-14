@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use clap::ValueEnum;
 
 use crate::{
+    behavior,
     build::{self, Profile},
     cli::VerifySuite,
     command::CommandSpec,
@@ -23,6 +24,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ValueEnum)]
 pub enum GateKind {
     Repository,
+    Behavior,
     RustFormat,
     ScriptIrReference,
     ProtobufReference,
@@ -70,6 +72,11 @@ impl Scope {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Gate {
     Repository,
+    Behavior {
+        capability: Option<String>,
+        setup: bool,
+        conformance: bool,
+    },
     RustFormat,
     ScriptIrReference,
     ProtobufReference,
@@ -117,6 +124,7 @@ impl Gate {
     pub fn kind(&self) -> GateKind {
         match self {
             Gate::Repository => GateKind::Repository,
+            Gate::Behavior { .. } => GateKind::Behavior,
             Gate::RustFormat => GateKind::RustFormat,
             Gate::ScriptIrReference => GateKind::ScriptIrReference,
             Gate::ProtobufReference => GateKind::ProtobufReference,
@@ -160,6 +168,23 @@ impl Gate {
     pub fn tools(&self) -> Vec<Tool> {
         match self {
             Gate::Repository => vec![Tool::Cargo, Tool::Python3, Tool::Git],
+            Gate::Behavior {
+                setup, conformance, ..
+            } => {
+                let mut tools = vec![
+                    Tool::Python3,
+                    Tool::Git,
+                    if *setup {
+                        Tool::BehaviorRuntime
+                    } else {
+                        Tool::Quint
+                    },
+                ];
+                if *conformance {
+                    tools.push(Tool::Cargo);
+                }
+                tools
+            }
             Gate::RustFormat => vec![Tool::Cargo, Tool::Rustfmt],
             Gate::Kani(_) => vec![Tool::Cargo, Tool::Python3, Tool::Git, Tool::Kani],
             Gate::ScriptIrReference => vec![Tool::Python3],
@@ -208,6 +233,18 @@ impl Gate {
                 CommandSpec::new("git", root).args(["diff", "--check"]),
                 CommandSpec::new("git", root).args(["diff", "--cached", "--check"]),
             ],
+            Gate::Behavior {
+                capability,
+                setup,
+                conformance,
+            } => {
+                vec![behavior::command(
+                    workspace,
+                    capability.as_deref(),
+                    *setup,
+                    *conformance,
+                )]
+            }
             Gate::RustFormat => vec![cargo(&["fmt", "--all", "--", "--check"])],
             Gate::Kani(kernel) => vec![kernel.command(workspace)],
             Gate::ScriptIrReference => vec![python(&["scripts/reference_script_ir.py"])],
@@ -345,6 +382,15 @@ pub fn full() -> Vec<Gate> {
 /// The gates behind one `cargo xtask verify <suite>` command.
 pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
+        VerifySuite::Behavior {
+            capability,
+            setup,
+            conformance,
+        } => vec![Gate::Behavior {
+            capability: capability.clone(),
+            setup: *setup,
+            conformance: *conformance,
+        }],
         VerifySuite::Kani { harness } => {
             let kernels: BTreeSet<_> = if harness.is_empty() {
                 kani::Kernel::ALL.into()
@@ -439,6 +485,58 @@ mod tests {
             ]
         );
         assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
+    }
+
+    #[test]
+    fn behavior_reuses_pipeline_tools_and_keeps_setup_explicit() {
+        let model = Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: false,
+        };
+        assert_eq!(model.kind(), GateKind::Behavior);
+        assert_eq!(lines(&model), ["python3 scripts/verify_behavior.py"]);
+        assert_eq!(model.tools(), [Tool::Python3, Tool::Git, Tool::Quint]);
+        let setup = Gate::Behavior {
+            capability: Some("cantos.media.private-audio-admission".into()),
+            setup: true,
+            conformance: false,
+        };
+        assert_eq!(lines(&setup), ["python3 scripts/verify_behavior.py --setup --capability cantos.media.private-audio-admission"]);
+        assert_eq!(
+            setup.tools(),
+            [Tool::Python3, Tool::Git, Tool::BehaviorRuntime]
+        );
+        let conformance = Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: true,
+        };
+        assert_eq!(
+            lines(&conformance),
+            ["python3 scripts/verify_behavior.py --conformance"]
+        );
+        assert_eq!(
+            conformance.tools(),
+            [Tool::Python3, Tool::Git, Tool::Quint, Tool::Cargo]
+        );
+        assert_eq!(
+            verify_suite(&VerifySuite::Behavior {
+                capability: None,
+                setup: false,
+                conformance: true
+            }),
+            [conformance]
+        );
+        assert!(!full().contains(&model));
+        assert_eq!(
+            verify_suite(&VerifySuite::Behavior {
+                capability: None,
+                setup: false,
+                conformance: false
+            }),
+            [model]
+        );
     }
 
     #[test]
@@ -623,7 +721,7 @@ mod tests {
     }
 
     #[test]
-    fn full_selection_is_ordered_and_excludes_only_focused_tests_and_optional_kani() {
+    fn full_selection_is_ordered_and_excludes_focused_tests_and_opt_in_model_gates() {
         let gates = full();
         let mut sorted = gates.clone();
         sorted.sort();
@@ -633,7 +731,7 @@ mod tests {
         // Workspace tests already run every focused contract test target.
         assert_eq!(
             all.difference(&kinds).copied().collect::<Vec<_>>(),
-            [GateKind::ContractTests, GateKind::Kani]
+            [GateKind::Behavior, GateKind::ContractTests, GateKind::Kani]
         );
     }
 

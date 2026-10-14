@@ -150,6 +150,18 @@ pub enum Task {
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum VerifySuite {
+    /// Locked Quint model checks, optionally replayed against the registered pure core.
+    Behavior {
+        /// Select one stable executable capability from specs/behavior/catalog.json.
+        #[arg(long, value_name = "ID")]
+        capability: Option<String>,
+        /// Explicitly install the locked development tool from the official npm registry.
+        #[arg(long)]
+        setup: bool,
+        /// Replay complete Quint traces against independent production-core observations.
+        #[arg(long)]
+        conformance: bool,
+    },
     /// Exact registered API bounded proofs; no normal build or CI requirement.
     Kani {
         /// Select a registered proposition (repeatable); omission selects all registered kernels.
@@ -189,6 +201,42 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn behavior_has_explicit_setup_capability_and_conformance_selection() {
+        assert!(matches!(
+            parse("verify behavior").unwrap(),
+            Task::Verify {
+                suite: VerifySuite::Behavior {
+                    capability: None,
+                    setup: false,
+                    conformance: false
+                }
+            }
+        ));
+        assert!(
+            matches!(parse("verify behavior --setup --capability cantos.media.private-audio-admission").unwrap(), Task::Verify {
+            suite: VerifySuite::Behavior { capability: Some(id), setup: true, conformance: false }
+        } if id == "cantos.media.private-audio-admission")
+        );
+        assert!(matches!(
+            parse("verify behavior --conformance").unwrap(),
+            Task::Verify {
+                suite: VerifySuite::Behavior {
+                    capability: None,
+                    setup: false,
+                    conformance: true
+                }
+            }
+        ));
+        for line in [
+            "verify behavior --backend rust",
+            "verify behavior --seed 7",
+            "verify behavior --skip-witnesses",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
     }
 
     #[test]

@@ -2,6 +2,9 @@ use super::*;
 use crate::contexts::catalog::{content::wire, domain::content::*};
 use crate::contexts::production::domain::brief::rights_digest;
 use proptest::prelude::*;
+#[path = "quint_conformance_tests.rs"]
+mod quint_conformance_tests;
+
 const WORK: &str = "10000000-0000-4000-8000-000000000001";
 const UNIT: &str = "20000000-0000-4000-8000-000000000002";
 const CONTENT: &str = "30000000-0000-4000-8000-000000000003";

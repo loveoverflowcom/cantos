@@ -11,6 +11,7 @@
 | [Content Identity](decisions/0019-content-identity.md) | Work/unit/content/script authority split and immutable content; [evidence](evidence/content-identity.md), [Production Brief handoff](work-plan/content-identity-production-brief-handoff.md) |
 | [Publication core](evidence/publication-core.md) | Studio publication contracts, immutable release/rights gates, source-bound proof evidence and pending SQL/public delivery acceptance; [successor handoff](work-plan/publication-discovery-handoff.md) |
 | [Business rules](product/business-rules.md) | Domain invariants, rights, revisions and approvals |
+| [Quint foundation evidence](evidence/quint-behavior-foundation.md) | Executed draft-model scenarios, witnesses, negative controls, locked provenance and separate implementation-conformance/runtime gaps |
 | [External audio handoff pipeline](product/production-pipeline.md) | Versioned producer briefs, private upload/finalize, QC and immutable publication; no in-backend synthesis |
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
@@ -68,6 +69,7 @@
 | [Decision 0022](decisions/0022-cantos-forge-producer-cli.md) | Proposed: Cantos Forge, a producer-side CLI outside the API runtime; API/Studio/Theatre still never execute generation |
 | [Decision 0025](decisions/0025-actor-identity-root.md) | Proposed: `ActorId` as the root of owner and listener identity; listener slice implemented, Studio slices pending |
 | [Decision 0026](decisions/0026-theatre-mobile-local-storage-sandbox.md) | Proposed: Theatre Mobile per-layer storage test doubles, directory classes and adoption gates; `ProgressPort` contract suite implemented, no storage library adopted |
+| [Executable behavior](../specs/behavior/README.md) / [ADR 0027](decisions/0027-quint-executable-behavior.md) | Quint catalog and private admission model with independent pure-core observations; [PR B observation handoff](work-plan/quint-conformance-handoff.md), DB/API/runtime acceptance separate |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |
