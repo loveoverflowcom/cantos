@@ -848,7 +848,7 @@ def check():
     skills = len(skill_directories(ROOT))
     print(
         f"Repository checks passed: {checked} text files and {skills} skills; "
-        "local links, JSON syntax, skill structure and API architecture valid."
+        "local links, JSON syntax, skill structure and API and Theatre architecture valid."
     )
     return 0
 
