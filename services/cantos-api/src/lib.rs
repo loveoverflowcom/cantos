@@ -39,3 +39,6 @@ extern crate self as cantos_api;
 #[cfg(test)]
 #[path = "../tests/catalog_http_postgres.rs"]
 mod listener_postgres_test_fixture;
+
+#[cfg(test)]
+mod playback_transport_tests;

@@ -74,21 +74,18 @@ fn request() -> dto::CreateAudioSubmissionRequest {
         expires_at: 5000,
     }
 }
-fn submission() -> AudioSubmission {
-    AudioSubmission::create(
-        &request(),
-        &brief(),
-        &OwnerId::parse("alice").unwrap(),
-        3000,
-    )
-    .unwrap()
-}
-fn rendition() -> AudioRendition {
+fn rendition_with_media(sha256: &str, byte_length: u64) -> AudioRendition {
+    let mut request = request();
+    request.expected_sha256 = sha256.into();
+    request.expected_byte_length = byte_length;
+    let submission =
+        AudioSubmission::create(&request, &brief(), &OwnerId::parse("alice").unwrap(), 3000)
+            .unwrap();
     AudioRendition::create(
-        &submission(),
+        &submission,
         dto::AudioMediaMetadata {
-            sha256: "a".repeat(64),
-            byte_length: 100,
+            sha256: sha256.into(),
+            byte_length,
             container: "ogg".into(),
             codec: "opus".into(),
             channels: 1,
@@ -102,8 +99,7 @@ fn rendition() -> AudioRendition {
     )
     .unwrap()
 }
-fn review(kind: dto::AudioReviewKind) -> dto::AudioReviewDocument {
-    let r = rendition();
+fn review_for(kind: dto::AudioReviewKind, r: &AudioRendition) -> dto::AudioReviewDocument {
     record_review(
         dto::AudioReviewDocument {
             id: ID.into(),
@@ -115,7 +111,7 @@ fn review(kind: dto::AudioReviewKind) -> dto::AudioReviewDocument {
             request: dto::CreateAudioReviewRequest {
                 operation_id: OP.into(),
                 rendition_digest: r.document().digest.clone(),
-                sha256: "a".repeat(64),
+                sha256: r.document().verified_media.sha256.clone(),
                 kind,
                 decision: dto::AudioReviewDecision::Approved,
                 notes: "Synthetic approval; no listening claim".into(),
@@ -123,7 +119,7 @@ fn review(kind: dto::AudioReviewKind) -> dto::AudioReviewDocument {
             },
             digest: String::new(),
         },
-        &r,
+        r,
     )
     .unwrap()
 }
@@ -141,6 +137,10 @@ pub(crate) struct Fixture {
     pub(crate) actor: OwnerId,
 }
 pub(crate) fn fixture() -> Fixture {
+    fixture_with_media(&"a".repeat(64), 100)
+}
+/// Contract-only metadata authority; this does not perform actual-byte codec admission.
+pub(crate) fn fixture_with_media(sha256: &str, byte_length: u64) -> Fixture {
     let work = Work::new(NewWork {
         id: WorkId::parse(WORK).unwrap(),
         owner_id: OwnerId::parse("alice").unwrap(),
@@ -172,7 +172,7 @@ pub(crate) fn fixture() -> Fixture {
         },
     )
     .unwrap();
-    let r = rendition();
+    let r = rendition_with_media(sha256, byte_length);
     let reviews: Vec<_> = [
         dto::AudioReviewKind::Qc,
         dto::AudioReviewKind::Rights,
@@ -181,7 +181,7 @@ pub(crate) fn fixture() -> Fixture {
     .into_iter()
     .enumerate()
     .map(|(i, k)| {
-        let mut raw = review(k);
+        let mut raw = review_for(k, &r);
         raw.id = format!("70000000-0000-4000-8000-{:012}", i);
         raw.sequence = i as u64 + 1;
         raw.operation_id = raw.id.clone();
@@ -195,7 +195,7 @@ pub(crate) fn fixture() -> Fixture {
             rendition_id: r.document().id.clone(),
             rendition_digest: r.document().digest.clone(),
             binding: r.document().binding.clone(),
-            sha256: "a".repeat(64),
+            sha256: sha256.into(),
             work_metadata_revision: 1,
             unit_metadata_revision: 1,
             review_ids: reviews.iter().map(|r| r.document().id.clone()).collect(),
@@ -259,14 +259,14 @@ pub(crate) fn fixture() -> Fixture {
         rights,
         approval,
         object: ObjectObservation::Verified {
-            sha256: Sha256::parse(&"a".repeat(64)).unwrap(),
-            byte_length: 100,
+            sha256: Sha256::parse(sha256).unwrap(),
+            byte_length,
         },
         delivery: DeliveryObservation::Verified(
             DeliveryEvidence::new(
                 "publication-fixture".into(),
-                Sha256::parse(&"a".repeat(64)).unwrap(),
-                100,
+                Sha256::parse(sha256).unwrap(),
+                byte_length,
                 4800,
                 9000,
             )

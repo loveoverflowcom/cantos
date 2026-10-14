@@ -1,10 +1,8 @@
 //! Binary private audio delivery is independent of JSON/MessagePack metadata negotiation.
 use super::StudioPath;
 use crate::{
-    contexts::media::read::{
-        AudioReadScope, ByteRange, NormalizedByteRange, RangeError, StorageError, StorageStream,
-    },
-    interfaces::http::{cookie_token, error_response, failure, AppState},
+    contexts::media::read::AudioReadScope,
+    interfaces::http::{audio_transport, cookie_token, error_response, failure, AppState},
     platform::postgres::StoreError,
 };
 use axum::{
@@ -16,12 +14,8 @@ use axum::{
     Router,
 };
 use cantos_contracts::ErrorCode;
-use futures_util::StreamExt;
-use std::{
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use std::sync::{Arc, LazyLock};
+use tokio::sync::Semaphore;
 
 static READ_REQUESTS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(4)));
 
@@ -145,6 +139,14 @@ async fn read(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    audio_transport::private_response(read_private(state, scope, method, headers).await)
+}
+async fn read_private(
+    state: AppState,
+    scope: AudioReadScope,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
     let permit = match READ_REQUESTS.clone().try_acquire_owned() {
         Ok(permit) => permit,
         Err(_) => return error_response(StoreError::Unavailable),
@@ -157,224 +159,134 @@ async fn read(
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
-    let length = authorized.byte_length();
-    let etag = format!("\"{}\"", authorized.sha256());
-    let range = match selected_range(&headers, &method, &etag, length) {
-        Ok(range) => range,
-        Err(RangeError::Unsatisfiable) => {
-            let mut response =
-                failure(ErrorCode::InvalidRequest, StatusCode::RANGE_NOT_SATISFIABLE);
-            if insert_header(
-                response.headers_mut(),
-                header::CONTENT_RANGE,
-                &format!("bytes */{length}"),
-            )
-            .is_err()
-            {
-                return error_response(StoreError::CorruptRevision);
-            }
-            return response;
-        }
-        Err(RangeError::Invalid | RangeError::MultipleRanges | RangeError::Overflow) => {
-            return error_response(StoreError::InvalidRequest)
-        }
+    let plan = match audio_transport::plan(
+        &headers,
+        &method,
+        authorized.sha256(),
+        authorized.byte_length(),
+    ) {
+        Ok(plan) => plan,
+        Err(error) => return transport_error_response(error, &method),
     };
+    if !plan.requires_storage() {
+        let rejection = failure(ErrorCode::InvalidRequest, plan.status());
+        return match audio_transport::metadata_response(plan, &method, permit, rejection) {
+            Ok(response) => response,
+            Err(error) => transport_error_response(error, &method),
+        };
+    }
+    // The owning application opens only this authorized immutable object and then rechecks
+    // the same owner/resource binding. Shared HTTP mechanics supply no read authority.
     let stored = match state
         .store
-        .open_audio_read(&token, &authorized, range)
+        .open_audio_read(&token, &authorized, plan.range())
         .await
     {
         Ok(value) => value,
         Err(error) => return error_response(error),
     };
-    let expected = range.map_or(length, NormalizedByteRange::byte_length);
-    if stored.byte_length != expected {
-        return error_response(StoreError::CorruptRevision);
+    match audio_transport::response(stored, plan, &method, permit) {
+        Ok(response) => response,
+        Err(error) => transport_error_response(error, &method),
     }
-    let body = if method == Method::HEAD {
-        Body::empty()
-    } else {
-        Body::from_stream(bounded_stream(stored.stream, expected, permit))
-    };
-    let mut response = Response::new(body);
-    *response.status_mut() = if range.is_some() {
-        StatusCode::PARTIAL_CONTENT
-    } else {
-        StatusCode::OK
-    };
-    let headers = response.headers_mut();
-    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("audio/ogg"));
-    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-    for (name, value) in [
-        (header::CONTENT_LENGTH, expected.to_string()),
-        (header::ETAG, etag),
-    ] {
-        if insert_header(headers, name, &value).is_err() {
-            return error_response(StoreError::CorruptRevision);
-        }
-    }
-    if let Some(range) = range {
-        if insert_header(
-            headers,
-            header::CONTENT_RANGE,
-            &format!("bytes {}-{}/{length}", range.first(), range.last()),
-        )
-        .is_err()
-        {
-            return error_response(StoreError::CorruptRevision);
-        }
-    }
-    response
 }
-fn insert_header(headers: &mut HeaderMap, name: header::HeaderName, value: &str) -> Result<(), ()> {
-    headers.insert(name, HeaderValue::from_str(value).map_err(|_| ())?);
-    Ok(())
-}
-fn selected_range(
-    headers: &HeaderMap,
+
+fn transport_error_response(
+    error: audio_transport::AudioTransportError,
     method: &Method,
-    etag: &str,
-    length: u64,
-) -> Result<Option<NormalizedByteRange>, RangeError> {
-    if *method == Method::HEAD {
-        return Ok(None);
-    }
-    if headers.get_all(header::RANGE).iter().count() > 1
-        || headers.get_all(header::IF_RANGE).iter().count() > 1
-    {
-        return Err(RangeError::Invalid);
-    }
-    if headers
-        .get(header::IF_RANGE)
-        .is_some_and(|value| value.to_str().ok() != Some(etag))
-    {
-        return Ok(None);
-    }
-    let Some(value) = headers.get(header::RANGE) else {
-        return Ok(None);
+) -> Response {
+    use audio_transport::AudioTransportError;
+    let error = match error {
+        AudioTransportError::MalformedRange
+        | AudioTransportError::MalformedIfRange
+        | AudioTransportError::MalformedIfMatch
+        | AudioTransportError::MalformedIfNoneMatch
+        | AudioTransportError::UnsupportedMethod => StoreError::InvalidRequest,
+        AudioTransportError::InvalidRepresentation
+        | AudioTransportError::InconsistentPlan
+        | AudioTransportError::DeclaredLengthMismatch => StoreError::CorruptRevision,
     };
-    let value = value.to_str().map_err(|_| RangeError::Invalid)?;
-    let (unit, specification) = value.split_once('=').ok_or(RangeError::Invalid)?;
-    // RFC9110 range units are case-insensitive; unrecognized units must be ignored.
-    if !unit.eq_ignore_ascii_case("bytes") {
-        return Ok(None);
+    let mut response = error_response(error);
+    if *method == Method::HEAD {
+        *response.body_mut() = Body::empty();
     }
-    ByteRange::parse(&format!("bytes={specification}"))
-        .and_then(|range| range.normalize(length))
-        .map(Some)
-}
-fn bounded_stream(
-    stream: StorageStream,
-    length: u64,
-    permit: OwnedSemaphorePermit,
-) -> StorageStream {
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
-    let stream = futures_util::stream::unfold(
-        (Some(stream), length, permit),
-        move |(stream, remaining, permit)| async move {
-            let mut stream = stream?;
-            match tokio::time::timeout_at(deadline, stream.next()).await {
-                Ok(Some(Ok(bytes))) if bytes.len() as u64 <= remaining => {
-                    let remaining = remaining - bytes.len() as u64;
-                    Some((Ok(bytes), (Some(stream), remaining, permit)))
-                }
-                Ok(Some(Ok(_))) => Some((Err(StorageError::LengthMismatch), (None, 0, permit))),
-                Ok(Some(Err(error))) => Some((Err(error), (None, 0, permit))),
-                Ok(None) if remaining == 0 => None,
-                Ok(None) => Some((Err(StorageError::LengthMismatch), (None, 0, permit))),
-                Err(_) => Some((Err(StorageError::Timeout), (None, 0, permit))),
-            }
-        },
-    );
-    Box::pin(stream)
+    audio_transport::private_response(response)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    #[test]
-    fn http_ranges_follow_case_insensitive_units_if_range_and_head_semantics() {
-        let etag = "\"content-sha\"";
-        let mut headers = HeaderMap::new();
-        headers.insert(header::RANGE, HeaderValue::from_static("Bytes=2-4"));
-        let range = selected_range(&headers, &Method::GET, etag, 10)
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            (range.first(), range.last(), range.byte_length()),
-            (2, 4, 3)
-        );
-        assert_eq!(selected_range(&headers, &Method::HEAD, etag, 10), Ok(None));
-        headers.insert(header::IF_RANGE, HeaderValue::from_static("\"different\""));
-        assert_eq!(selected_range(&headers, &Method::GET, etag, 10), Ok(None));
-        headers.insert(
-            header::IF_RANGE,
-            HeaderValue::from_static("W/\"content-sha\""),
-        );
-        assert_eq!(selected_range(&headers, &Method::GET, etag, 10), Ok(None));
-        headers.insert(
-            header::IF_RANGE,
-            HeaderValue::from_static("\"content-sha\""),
-        );
-        assert_eq!(
-            selected_range(&headers, &Method::GET, etag, 10),
-            Ok(Some(range))
-        );
-        headers.remove(header::IF_RANGE);
-        headers.insert(header::RANGE, HeaderValue::from_static("items=0-2"));
-        assert_eq!(selected_range(&headers, &Method::GET, etag, 10), Ok(None));
-        headers.insert(header::RANGE, HeaderValue::from_static("bytes=10-"));
-        assert_eq!(
-            selected_range(&headers, &Method::GET, etag, 10),
-            Err(RangeError::Unsatisfiable)
-        );
-        headers.insert(header::RANGE, HeaderValue::from_static("bytes=0-2,5-7"));
-        assert_eq!(
-            selected_range(&headers, &Method::GET, etag, 10),
-            Err(RangeError::MultipleRanges)
-        );
-        headers.insert(header::RANGE, HeaderValue::from_static("bytes=0-2"));
-        headers.append(header::RANGE, HeaderValue::from_static("bytes=5-7"));
-        assert_eq!(
-            selected_range(&headers, &Method::GET, etag, 10),
-            Err(RangeError::Invalid)
-        );
-    }
+    use audio_transport::AudioTransportError;
+    use axum::body::to_bytes;
+
     #[tokio::test]
-    async fn stream_lengths_and_cancellation_never_release_a_live_stream_lane_early() {
-        let lanes = Arc::new(Semaphore::new(1));
-        let chunks: StorageStream =
-            Box::pin(futures_util::stream::iter([Ok(Bytes::from_static(b"abc"))]));
-        let mut stream = bounded_stream(chunks, 3, lanes.clone().try_acquire_owned().unwrap());
-        assert_eq!(lanes.available_permits(), 0);
-        assert_eq!(
-            stream.next().await.unwrap().unwrap(),
-            Bytes::from_static(b"abc")
-        );
-        assert_eq!(lanes.available_permits(), 0);
-        assert!(stream.next().await.is_none());
-        assert_eq!(lanes.available_permits(), 1);
-        for (chunk, expected) in [(b"ab".as_slice(), 3), (b"abcd".as_slice(), 3)] {
-            let source: StorageStream = Box::pin(futures_util::stream::iter([Ok(
-                Bytes::copy_from_slice(chunk),
-            )]));
-            let mut stream =
-                bounded_stream(source, expected, lanes.clone().try_acquire_owned().unwrap());
-            let first = stream.next().await.unwrap();
-            let error = if first.is_ok() {
-                stream.next().await.unwrap()
-            } else {
-                first
-            };
-            assert_eq!(error, Err(StorageError::LengthMismatch));
-            drop(stream);
-            assert_eq!(lanes.available_permits(), 1);
+    async fn studio_projects_every_transport_error_to_its_own_safe_wire_contract() {
+        for (error, status, code) in [
+            (
+                AudioTransportError::MalformedRange,
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+            ),
+            (
+                AudioTransportError::MalformedIfRange,
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+            ),
+            (
+                AudioTransportError::MalformedIfMatch,
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+            ),
+            (
+                AudioTransportError::MalformedIfNoneMatch,
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+            ),
+            (
+                AudioTransportError::UnsupportedMethod,
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+            ),
+            (
+                AudioTransportError::InvalidRepresentation,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "corrupt_revision",
+            ),
+            (
+                AudioTransportError::InconsistentPlan,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "corrupt_revision",
+            ),
+            (
+                AudioTransportError::DeclaredLengthMismatch,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "corrupt_revision",
+            ),
+        ] {
+            let response = transport_error_response(error, &Method::GET);
+            assert_eq!(response.status(), status);
+            assert_eq!(
+                response.headers()[header::CACHE_CONTROL],
+                "private, no-store, no-transform"
+            );
+            assert!(!response.headers().contains_key(header::CONTENT_ENCODING));
+            let body = to_bytes(response.into_body(), 1024).await.unwrap();
+            let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(
+                value,
+                serde_json::json!({"code": code, "current_revision": null, "issues": []})
+            );
         }
-        let source: StorageStream = Box::pin(futures_util::stream::pending());
-        let stream = bounded_stream(source, 3, lanes.clone().try_acquire_owned().unwrap());
-        assert_eq!(lanes.available_permits(), 0);
-        drop(stream);
-        assert_eq!(lanes.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn studio_head_transport_errors_have_no_body() {
+        let response =
+            transport_error_response(AudioTransportError::MalformedIfMatch, &Method::HEAD);
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

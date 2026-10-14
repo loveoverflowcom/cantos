@@ -57,6 +57,10 @@ impl Store {
         scope: AudioReadScope,
     ) -> Result<AuthorizedAudioRead, StoreError> {
         let object = self.resolve_audio_read(token, &scope).await?;
+        // Resolve owner authority first, then reject an already-known unavailable reader before
+        // HTTP validators/ranges can answer 304/412/416 for an unservable representation.
+        // This is configured capability readiness, not proof of remote object availability.
+        self.media_storage.as_ref().ok_or(StoreError::Unavailable)?;
         Ok(AuthorizedAudioRead { object, scope })
     }
     async fn reauthorize_audio_read(

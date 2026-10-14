@@ -205,7 +205,16 @@ async fn preview(
         .oneshot(request.body(Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(response.headers()["cache-control"], "no-store");
+    let expected_cache = if response
+        .headers()
+        .get("content-type")
+        .is_some_and(|value| value == "audio/ogg")
+    {
+        "private, no-store, no-transform"
+    } else {
+        "no-store"
+    };
+    assert_eq!(response.headers()["cache-control"], expected_cache);
     assert_eq!(response.headers()["x-content-type-options"], "nosniff");
     let status = response.status();
     let headers = response.headers().clone();
@@ -235,6 +244,29 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
         "/api/v1/studio{}/{submission}/renditions/{rendition_id}/bytes",
         a.path()
     );
+    // Historical accepted metadata must not let conditional responses bypass an already-known
+    // missing reader. This host shares the disposable DB/session, but has no storage registry.
+    let mut no_storage_config = a.h.config.clone();
+    no_storage_config.user("cantos_app");
+    let no_storage_app = router(
+        AppState {
+            store: Store::new(no_storage_config).unwrap(),
+            web_origin: ORIGIN.into(),
+        },
+        "unused-public-root",
+    );
+    for method in ["GET", "HEAD"] {
+        for conditions in [
+            vec![],
+            vec![("if-none-match", "*")],
+            vec![("if-match", "\"other\"")],
+            vec![("range", "bytes=9999999-")],
+        ] {
+            let (status, _, _) =
+                preview(&no_storage_app, method, &path, Some(ALICE), &conditions).await;
+            assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        }
+    }
     let (status, headers, body) = preview(&a.h.app, "GET", &path, Some(ALICE), &[]).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, bytes);
@@ -348,11 +380,9 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
         &[("range", "bytes=0-1,5-7")],
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(
-        serde_json::from_slice::<Value>(&body).unwrap()["code"],
-        "invalid_request"
-    );
+    // Valid multipart Range is deliberately ignored, never advertised as multipart support.
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_slice(), bytes.as_slice());
 
     let access_path = path.strip_suffix("/bytes").unwrap().to_owned() + "/read-access";
     let (status, headers, body) = preview(&a.h.app, "GET", &access_path, Some(ALICE), &[]).await;

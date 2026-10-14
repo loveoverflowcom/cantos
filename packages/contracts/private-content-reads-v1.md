@@ -33,26 +33,36 @@ before object I/O and again before returning the stream. Producer bearer credent
 preview access. Object I/O never holds a metadata transaction open.
 
 Full GET returns `200`, `Content-Type: audio/ogg`, exact `Content-Length`, `Accept-Ranges: bytes`,
-a quoted strong ETag containing the accepted SHA-256, `Cache-Control: no-store` and `nosniff`.
+a quoted strong ETag containing the accepted SHA-256, `Cache-Control: private, no-store, no-transform` and `nosniff`.
 All current admitted profiles are the existing four mono Ogg/Opus envelopes. Profile/duration/
 checksum metadata remains on the JSON receipt/rendition; delivery neither transcodes nor changes it.
 
 Single closed (`bytes=0-1023`), open (`bytes=1024-`) and suffix (`bytes=-1024`) ranges return `206`
 with exact interval length and `Content-Range: bytes <first>-<last>/<whole-length>`. Range-unit
 names are case-insensitive. Unknown units are ignored/full `200`, as required by
-[RFC9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-14.2). Unsupported multiple ranges,
-malformed byte ranges, duplicate Range/If-Range fields and integer overflow return `400` with
-existing `invalid_request`. A valid unsatisfiable range returns `416` and
+[RFC9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-14.2). A syntactically valid
+multiple-range request is ignored in its entirety and returns full `200`; multipart bodies are
+not supported. Malformed byte ranges, duplicate Range/If-Range fields and integer overflow
+return `400` with existing `invalid_request`. A valid unsatisfiable range returns `416` and
 `Content-Range: bytes */<whole-length>`. HEAD ignores Range and returns full metadata with no body.
 If-Range with the exact strong ETag allows a range; a differing/weak/date validator falls back
-to full `200`. Other conditional request fields have no implemented cache-validation behavior.
+to full `200`. Malformed evaluated If-Range returns `400`. Strong `If-Match` failure returns
+`412` with `invalid_request`; weak `If-None-Match` equality (including `*`) returns empty `304`.
+Entity-tag preconditions are evaluated before Range, after current authorization. Repeated
+list-valued entity-tag fields are combined with bounded parsing: at most 128 list members and
+8 KiB per evaluated field-set, including two bytes of bookkeeping per header line. Irrelevant
+headers remain ignored according to precondition precedence and HEAD semantics. No Last-Modified fact is
+invented; date preconditions are ignored. All response paths remain no-store. These transport
+helpers confer no publication access; see the [bounded prototype evidence](../../docs/evidence/playback-range-transport.md).
 
 Unauthorized session `401`, wrong owner/resource or absent accepted rendition `404`, storage
 access denial `403`, missing object `404`, timeout/outage/unsupported capability/busy `503`, and
 corrupt recorded object `500` are explicit. Errors contain only existing safe API codes. Before
 headers, preparation errors become those responses; a failure/truncation after headers aborts
-the body and cannot change its already-sent status. The stream has a 60-second wall-clock bound,
-exact-length enforcement and four request lanes retained until completion/drop. The registry
+the body and cannot change its already-sent status. The stream has a 60-second deadline checked
+when demand-polled, exact-length enforcement and four request lanes retained until EOF/error/drop.
+An unpolled body retains its lane until the next poll or drop; this is not an idle-client eviction
+watchdog, and deployment must accept its transport idle/slow-client policy separately. The registry
 separately caps all object operations at four; filesystem blocking work retains its own permit
 through cancellation. Local range delivery hashes in bounded chunks then seeks the same verified
 inode. S3 verifies all actual bytes then pins the delivered GET by version or strong opaque ETag;

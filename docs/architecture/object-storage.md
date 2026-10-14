@@ -287,3 +287,13 @@ upload/replay/conflict, actual bytes, Range `206`/`416`, version-pinned presign 
 CORS, connection concurrency, cancellation/timeouts, latency and throughput. A CDN needs its own
 delivery-path acceptance. Every unrun item remains `NOT_RUN`; declarations and mocks are not
 live passes.
+
+## Shared HTTP mechanics, separate delivery authority
+
+Owner audio preview now consumes `interfaces/http/audio_transport.rs`, with the same private
+application authorization/open/recheck ordering. It owns HTTP conditional/range responses and
+pull-driven exact-length bodies, not storage scope or listener authority. The
+[transport record](../evidence/playback-range-transport.md) separates its deterministic evidence
+from a test-only Theatre publication fixture. No private target, `PrivateStorage`, Studio
+preview or presigned URL is promoted or exposed to Theatre by sharing this helper. Publication
+composition stays fail-closed until the [delivery decisions and live gates](../decisions/0027-publication-streaming-evidence-gates.md) are accepted.
