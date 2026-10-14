@@ -1,5 +1,8 @@
 # Admin PR4 → combined identity review
 
+Current resumed status is in the [14 October appendix](#resumed-integration-handoff--14-october-2026); earlier sections
+retain their historical source, counts, hashes and blockers.
+
 The delegated PR4 delivers the [bounded Admin slice](../architecture/admin-authorization.md):
 dedicated verified resource credential, exact registry actor, allowlisted/current system-group
 role, separate capability and Admin-only revocation, atomic append-only audit and operation replay.
@@ -137,3 +140,55 @@ Admin unavailable if the custom live contract is unproved; never use token-time 
 Local Admin blocks remain immutable and grant/unblock/global logout are outside this slice.
 No issue is closed, provider/account permission changed or complete four-PR merge claimed here.
 GitHub owns execution status; the queue owns recommended order and rationale.
+
+## Resumed integration handoff — 14 October 2026
+
+PR101 is merged at develop `98f247e`; the specifically authorized Android INTERNET/callback/
+Application/MainActivity source is applied and compiled. The previous pending-source/dependency
+statements above are historical. Actual device/system-browser/Keystore/Keychain/lifecycle/
+provider acceptance is NOT_RUN, canonical iOS 2.2.20 remains UNSUPPORTED, and production is closed.
+The [resumed evidence](../evidence/admin-authorization.md#resumed-integrated-review-and-acceptance--14-october-2026)
+owns new results; the old 13 Admin PG+1 restart counts/hashes are not rewritten.
+
+Admin normally consumes reviewed develop `98f247e`, storage PR90, IDE PR107 and Theatre through merge
+`eccf31684524572eef3048e75a9abd08d52c6581`. Tested source `eccf31684524572eef3048e75a9abd08d52c6581`, tree `d3f3b31ba7ab28969b47a1008d2200bf8b7bed92`,
+retains exact separate credential purposes, Studio wire negotiation/UUID fences and scoped
+resource ACLs. Migration union is 24 entries: 1–22,24,25, including unchanged Storage0015/Admin0022;
+artwork0023 remains absent. Resumed repairs/assurance: preserved the AdminService Arc in composition, corrected the 24-entry registry integration and aligned inherited test oracles; the valid issued-Admin credential test adds isolation assurance rather than a confirmed production defect or fail-before claim.
+
+The signed-mock-issued valid Admin resource credential returns capability 200 before and after
+10 exact Studio rendition `bytes`/`read-access` bearer/cookie/relabel requests. Each refused
+request returns 401 with safe JSON and no redirect, Set-Cookie or read-grant headers. The refusal
+window changes no authority/media/audit rows and triggers no extra Admin introspection; the
+legitimate capability requests retain their own required allowed audits. Test-local SELECT on
+empty Studio sessions distinguishes authentication refusal from a missing-grant fixture 503.
+No production grant, seeded media/storage IO or fail-before defect is claimed by this assurance.
+
+Actual full local preflight: **PASS: all 17 gates, no skips; 332 repository Python tests**. Actual Admin PG/restart:
+**PASS: 14 Admin tests plus 1 actual database-restart recovery**; inherited integration suites:
+**PASS: 16 Theatre Web, 7 native, 18 Studio OIDC tests and all inherited HTTP/process-kill/PostgreSQL-restart/storage/migration/replay/codec/publication suites**. Final manifest `/private/tmp/cantos-identity-campaign/resume-20261014/pr103-resumed-acceptance-manifest.json`, SHA256
+`1a0336cf7b598ee416fc91dc5f70936bdd6c8a56447fa0cfafb0a3d179e507dc`, binds those exact inputs/results and retained old failures.
+No pending/expected count is represented as PASS.
+
+Next acceptance owners must prove the live Admin current-group/removal/rotation contract and
+operator credential/TLS delivery, then audit/at-rest/backup/retention/recovery budgets. Remote
+membership remains a bounded observation, never SQL-atomic; unsupported/missing proof leaves
+Admin unavailable. Native/device/secure-store/provider/playback, durable outbox, guest import and
+explicit cross-client linking keep their separate gates. Admin remains local block/capability/
+append-only audit only, without role grant/unblock/global logout or resource rights bypass.
+GitHub owns publication/merge and issue status.
+
+Later develop PR108 CMP presentation extraction at `648c5b76ca229f2ba84cd724e3202580e22b39c9`
+was normally integrated at `980fca66d94a58fbadbf0154e255d3616e891bc0`, tree
+`fdb22b5a246ab718b9c7b01e2a04aa7177ecf544`. Actual proportional preflight based on `eccf316`
+passed all three selected gates: repository, rust-format and theatre-cmp-demo, with no skips.
+Common tests passed207/0failures/0errors/0skips; the canonical mock Android build also passed
+(61 executed tasks,21seconds). Independent reviewers found all25 existing presentation functions
+unchanged except necessary visibility and edge whitespace; identity/controller/Android-host
+source bytes and the prior Admin source pins remain unchanged. This is source/build/mock evidence,
+not a new visual, device or live-provider acceptance.
+
+The supplement `/private/tmp/cantos-identity-campaign/resume-20261014/pr103-final-integration-supplement.json`,
+SHA256 `527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`, binds the two new logs
+and26 preserved JUnit XML files outside build output. The full17 result remains exactly scoped
+to `eccf316`; the later source has the named proportional checks above.

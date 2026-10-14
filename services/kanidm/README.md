@@ -165,15 +165,19 @@ These are documentation/test grants, not an executed persistent role configurati
 Native `cantos-theatre-native` has an opt-in public-client code path with exact callback
 `com.cantos.theatre:/oauth2/callback`; no Studio/Web secret enters the app. Bounded token exchange,
 access-token signature/purpose verification, current introspection, exact registry issuance and
-separate opaque native sessions are implemented source, awaiting current combined gates. Runtime
-needs SELECT on `actors`/`theatre_native_sessions`, UPDATE(revoked,revocation_pending) on native
+separate opaque native sessions are implemented; scoped local evidence is recorded in the
+[resumed Theatre ledger](../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+Runtime needs SELECT on `actors`/`theatre_native_sessions`, UPDATE(revoked,revocation_pending) on native
 sessions, SELECT/INSERT/UPDATE on native flows, and EXECUTE on
 `theatre_native_finish(uuid,text,text,text,bytea,bytea,text,bigint,uuid)` plus the existing Listener
 lock/Library grants. These are reviewed deployment requirements, not live role changes.
-iOS host code is opt-in; Android source manifest/host activation remains held after automatic
-approval rejection. Provider public-client registration/scopes, OS storage/browser/device
-acceptance, TLS/credentials and production activation are unperformed gates. Do not issue Web
-BFF sessions as native bearer tokens. See
+iOS host code remains opt-in; the canonical local iOS framework gate is UNSUPPORTED without the
+required installed Kotlin/Native 2.2.20 compiler. The user-authorized Android manifest and
+Application/MainActivity source is mounted and its canonical mock Android build passed. This
+source integration installed no app and changed no OS/device network or TLS setting. Provider
+public-client registration/scopes, OS storage/system-browser/device/lifecycle acceptance,
+live TLS/credentials and production activation remain NOT_RUN/closed. Do not issue Web BFF
+sessions as native bearer tokens. See
 [Theatre architecture](../../docs/architecture/theatre-identity.md) and
 [handoff](../../docs/work-plan/theatre-identity-handoff.md).
 

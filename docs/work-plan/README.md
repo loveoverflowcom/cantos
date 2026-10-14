@@ -337,8 +337,22 @@ complete native playback, durable outbox, guest-import/linking policy, broad lis
 the four-PR merge campaign. GitHub owns execution/merge status; this queue records the next work.
 
 Current Admin integration normally consumes reviewed develop `98f247e`, including storage0015,
-editor workspace hygiene and the authorized Theatre Android source. Its combined migration
-registry is1–22,24,25 (24 entries) with historical bytes unchanged. Fresh Admin local gate/head/
-evidence binding remains pending; the historical 17-gate record above is not a new result.
+editor workspace hygiene and the authorized Theatre Android source. Its combined registry is
+1–22,24,25 (24 entries) with historical bytes unchanged. Tested source `eccf31684524572eef3048e75a9abd08d52c6581`,
+tree `d3f3b31ba7ab28969b47a1008d2200bf8b7bed92`, passed all 17 local gates without skips: 332 repository
+Python tests, 9 killed/0 survived Script IR mutants, 207 common/JVM tests with 0 failures/errors/skips,
+and actual PostgreSQL 14 Admin+1 restart, 16 Theatre Web/7 native/18 Studio plus all inherited
+HTTP/process-kill/restart/storage/migration/replay/codec/publication suites. The
+[resumed Admin evidence](../evidence/admin-authorization.md#resumed-integrated-review-and-acceptance--14-october-2026)
+pins the 10-record/12-source/67-raw-proof manifest at SHA256
+`1a0336cf7b598ee416fc91dc5f70936bdd6c8a56447fa0cfafb0a3d179e507dc`. The 10 issued-Admin rendition
+401 cases are isolation assurance, not a reproduced production defect or storage IO claim.
+GitHub owns PR103 push/merge status; local evidence does not close the separate acceptance gates.
+Later develop PR108 CMP extraction `648c5b76` was normally integrated at `980fca66`, tree
+`fdb22b5a`. Its actual proportional preflight passed repository/rust-format/theatre-cmp-demo,
+including207 common tests; the canonical mock Android build passed. The independent source review
+preserves25 existing function bodies/signatures, apart from required visibility. The exact
+`eccf316` full17 record remains separate from this later supplement, SHA256
+`527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`.
 Production stays closed until live current-group/client/credential/rotation and named native
 OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.

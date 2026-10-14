@@ -1,5 +1,8 @@
 # Admin authorization evidence
 
+Current resumed status is in the [14 October appendix](#resumed-integrated-review-and-acceptance--14-october-2026); earlier sections
+retain their historical source, counts, hashes and blockers.
+
 Evidence for the bounded [Admin policy](../architecture/admin-authorization.md) and
 [wire contract](../../packages/contracts/admin-v1.md). Final command results are recorded below
 only after execution. Live Kanidm/custom current-group semantics, Admin login/UI, provider/device
@@ -266,3 +269,73 @@ native system-browser/secure-store/crash/device/playback and live-provider gates
 The inherited Studio/Theatre browser evidence is not Admin login/UI evidence; Admin has no UI.
 No identity-specific Kani proof, complete mobile acceptance, remote merge or whole-campaign
 completion is inferred from these local/mock results. GitHub owns PR execution status.
+
+## Resumed integrated review and acceptance — 14 October 2026
+
+This appendix supersedes the prior Android dependency blocker/current migration inventory for
+the resumed snapshot only. Historical 13 October source, gate counts, fail-before results and
+manifests above remain unchanged evidence of their exact inputs. PR101 is merged at develop
+`98f247ebf144fe413c1ddcaf1d4f655f08cc1b4d`; its specifically authorized Android source is applied
+and compiled. It supplies no new device/system-browser/secure-store/provider acceptance or iOS
+framework PASS. Canonical Kotlin/Native 2.2.20 remains UNSUPPORTED and production stays closed.
+
+Admin normally merged that develop snapshot at `eccf31684524572eef3048e75a9abd08d52c6581`, preserving storage PR90,
+IDE PR107 and the reviewed Theatre/Studio dependency history. Final tested Admin source:
+`eccf31684524572eef3048e75a9abd08d52c6581`, tree `d3f3b31ba7ab28969b47a1008d2200bf8b7bed92`. The combined migration registry is
+**24 entries: 1–22,24,25**, including original Storage0015 and Admin0022; artwork0023 is absent.
+Historical SQL/checksums are unchanged. Studio keeps JSON-default/opt-in Protobuf/legacy
+MessagePack and immutable session fences; Admin remains JSON with a dedicated confidential
+resource credential and no Studio/Theatre/producer authority or resource ACL bypass.
+
+Reviewed repairs/assurance in this resumed source: preserved the AdminService Arc in composition, corrected the 24-entry registry integration and aligned inherited test oracles; the valid issued-Admin credential test adds isolation assurance rather than a confirmed production defect or fail-before claim.
+The signed-mock-issued valid Admin resource credential returns capability 200 before and after
+10 exact Studio rendition `bytes`/`read-access` bearer/cookie/relabel requests. Each refused
+request returns 401 with safe JSON and no redirect, Set-Cookie or read-grant headers. The refusal
+window changes no authority/media/audit rows and triggers no extra Admin introspection; the
+legitimate capability requests retain their own required allowed audits. Test-local SELECT on
+empty Studio sessions distinguishes authentication refusal from a missing-grant fixture 503.
+No production grant, seeded media/storage IO or fail-before defect is claimed by this assurance.
+
+Named fail-before evidence, if any, remains scoped to the actual executed old kernel/fixture;
+new assurance cases are not described as confirmed bugs without reproduced evidence.
+
+| Executed resumed scope | Actual result | Raw artifact |
+| --- | --- | --- |
+| Final `cargo xtask preflight --changed-only` | **PASS: all 17 gates, no skips; 332 repository Python tests** | `resume-20261014/admin-preflight-frozen-head.log` |
+| Actual Admin PostgreSQL/runtime-role and restart suites | **PASS: 14 Admin tests plus 1 actual database-restart recovery** | `resume-20261014/admin-frozen-head-pg-raw/manifest.json` |
+| Inherited Theatre/Studio and full HTTP/process-kill/PG-restart/migration/replay/codec/storage/publication suites | **PASS: 16 Theatre Web, 7 native, 18 Studio OIDC tests and all inherited HTTP/process-kill/PostgreSQL-restart/storage/migration/replay/codec/publication suites** | `resume-20261014/admin-frozen-head-pg-raw/manifest.json` |
+| Mutation/other relevant exact gates | **PASS: 9 Script IR mutants killed/0 survived and 207 common/JVM tests with 0 failures/errors/skips** | `resume-20261014/admin-preflight-frozen-head.log` |
+
+Final resumed evidence manifest: `/private/tmp/cantos-identity-campaign/resume-20261014/pr103-resumed-acceptance-manifest.json`, SHA256
+`1a0336cf7b598ee416fc91dc5f70936bdd6c8a56447fa0cfafb0a3d179e507dc`, 10 top-level records, 12 source pins and 67 raw PostgreSQL proofs. It binds the final source,
+actual logs, reviewed regressions and preserved failure evidence. Owned-process stop records:
+`resume-20261014/admin-frozen-owned-process-stop.json`. Inherited services, unique fixtures/databases/WAL and
+historical evidence remain preserved. The earlier 13 Admin PG+1 restart count is historical;
+no earlier PASS is promoted to this integration's result.
+
+Admin capability/revoke routes still affect only current dedicated Admin authority, a local
+Admin block/operation receipt and required redacted append-only audit. Replay reauthenticates;
+missing evidence/audit/provider availability fails closed. Current membership is an observation
+with a witness valid at most five seconds and final local SQL-time fencing, not atomic remote-group/
+SQL authorization. Live Kanidm custom current-group semantics, confidential credential delivery,
+issuer rotation/TLS, audit retention/quotas/tamper/recovery and bearer/backup protection remain
+**NOT_RUN/unaccepted**. Missing configuration keeps Admin unavailable. No role grant/unblock,
+global SSO logout, OAuth registration/account mutation or production activation is supplied.
+Native OS/store/browser/playback/accessibility acceptance remains separate and unrun; inherited
+Web observations are not Admin UI/login evidence. No broader issue or whole-campaign completion
+is claimed here. GitHub owns PR execution/merge status.
+
+Later develop PR108 CMP presentation extraction at `648c5b76ca229f2ba84cd724e3202580e22b39c9`
+was normally integrated at `980fca66d94a58fbadbf0154e255d3616e891bc0`, tree
+`fdb22b5a246ab718b9c7b01e2a04aa7177ecf544`. Actual proportional preflight based on `eccf316`
+passed all three selected gates: repository, rust-format and theatre-cmp-demo, with no skips.
+Common tests passed207/0failures/0errors/0skips; the canonical mock Android build also passed
+(61 executed tasks,21seconds). Independent reviewers found all25 existing presentation functions
+unchanged except necessary visibility and edge whitespace; identity/controller/Android-host
+source bytes and the prior Admin source pins remain unchanged. This is source/build/mock evidence,
+not a new visual, device or live-provider acceptance.
+
+The supplement `/private/tmp/cantos-identity-campaign/resume-20261014/pr103-final-integration-supplement.json`,
+SHA256 `527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`, binds the two new logs
+and26 preserved JUnit XML files outside build output. The full17 result remains exactly scoped
+to `eccf316`; the later source has the named proportional checks above.
