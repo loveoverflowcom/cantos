@@ -15,7 +15,7 @@ Working-method owner for registered stateful behavior contracts, shared by API, 
 CMP agents. It adds no product rule or outward-action permission. Compose
 [the foundation](../cantos-engineering/SKILL.md) for L1–L5 order, evidence vocabulary and report.
 Product rationale/unresolved decisions stay in owning docs; accepted `.qnt` declarations own
-executable expectations. [ADR 0025](../../../docs/decisions/0025-quint-executable-behavior.md)
+executable expectations. [ADR 0027](../../../docs/decisions/0027-quint-executable-behavior.md)
 and [the inventory](../../../specs/behavior/inventory.md) explain that division.
 
 ## Required order

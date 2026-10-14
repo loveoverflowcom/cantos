@@ -1,15 +1,25 @@
 # Quint behavior foundation evidence — 14 October 2026
 
 Related: [issue 106](https://github.com/loveoverflowcom/cantos/issues/106),
-[ADR 0025](../decisions/0025-quint-executable-behavior.md),
+[ADR 0027](../decisions/0027-quint-executable-behavior.md),
 [capability inventory](../../specs/behavior/inventory.md) and
 [separate implementation-conformance handoff](../work-plan/quint-conformance-handoff.md).
 This is **PR A: executable model foundation**, not implementation or production acceptance.
 
+PR 117 was rebased from original head `0b6c3db04ed47f371cb9158e0328a0a7f322b625`
+onto develop `1c1d2107f1ca1aacac8c66b7b418c1070b35160c`. The records below remain
+historical evidence for their named inputs; fresh gate results for the rebased source are
+recorded separately in the PR ledger. Quint now uses ADR 0027, preserving Actor identity
+ADR 0025 and Theatre Mobile storage ADR 0026.
+
 ## Scope and provenance
 
-- Branch: `feat/issue106-quint-behavior-foundation`, rebased onto develop
+- Branch: `feat/issue106-quint-behavior-foundation`, initially verified against develop
   `83f06f9e449df854bc8632562e3c94bb4ccae43e` (including merged PR 112 and PR 114).
+  The historical integration at `d76cdb51258b874ff3f68d987de64d7aa690402e` incorporated
+  develop `e2267357de156e906c3e5eb6123a5b5d55388806` (PR 115 and PR 116), preserved Actor
+  identity ADR 0025 and then renumbered Quint to ADR 0026. That reconciliation was
+  documentation-only; the model/runner/catalog were unchanged.
 - One draft capability: `cantos.media.private-audio-admission`, starting with one valid
   synthetic prepared submission. Approved private-intake requirements, actual pure seams,
   finite assumptions and deferred boundaries are separated in the inventory.
@@ -64,8 +74,12 @@ proof, Rust refinement, actual bytes/storage acceptance or device verification.
 
 ## Native repository gate ledger
 
-The final PR description records the complete changed-only preflight summary and exact final
-commit. Focused runs already executed:
+The historical PR description records exact commits and the complete changed-only preflight
+summary on the pre-integration source tree. Its sixteen PASS gates are not upgraded to a
+full-preflight PASS: the existing Script IR mutation baseline timed out, and the independent
+PostgreSQL attempt failed before SQL suites because the executor rejected its Unix socket.
+Repository, behavior and formatting reconciliation checks are distinct from broader native
+results, which retain their original source identity. Focused runs:
 
 - `python3 -m unittest discover -s scripts -p 'test_verify_behavior.py'`: PASS, 21 tests.
 - `cargo test -p xtask --locked --offline`: initial attempt 139 passed/17 failed because the
@@ -83,7 +97,7 @@ missing local evidence.
 
 | Layer | Status and reason | Next step / owner |
 | --- | --- | --- |
-| Real Rust implementation conformance | NOT_RUN: no observation adapter in PR A | Separate requested PR B consumes exact model/tool/input/schema identities and production pure decisions; Media domain owner, assignee not yet designated |
+| Real Rust implementation conformance | Historical PR A: NOT_RUN; no observation adapter in that slice | The [PR B record](quint-code-conformance.md) holds the later independent pure-core evidence, now included in PR 117; fresh rebased results remain separate |
 | Constructor, foreign-binding and numeric/hash completeness | Outside this finite already-valid submission model | Preserve existing typed native regressions; any wider model requires reviewed scope |
 | Real authentication, SQL/concurrent commits, byte inspection, private provider and restart | No such implementation call in the model gate | Existing Media/intake/storage acceptance owners retain their own native/local/live tests; other preflight tests are separate evidence |
 | Leptos/CMP UI, accessibility and native-device runtime | NOT_RUN for model scenarios: no UI or device implementation changed | Later shared stable-ID scenarios with real independent observations, preserving native/platform tests |

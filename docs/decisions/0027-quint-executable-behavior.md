@@ -1,4 +1,4 @@
-# ADR 0025: Quint executable stateful behavior contracts
+# ADR 0027: Quint executable stateful behavior contracts
 
 - Status: Proposed for model/architecture review; tool selection is authorized by issue 106.
 - Date: 2026-10-14

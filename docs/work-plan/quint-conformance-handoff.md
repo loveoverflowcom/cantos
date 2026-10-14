@@ -1,9 +1,11 @@
 # Quint PR B: independent implementation observations
 
-[Issue 106](https://github.com/loveoverflowcom/cantos/issues/106) keeps two sequential review
-boundaries: [PR A foundation](../../specs/behavior/README.md), then a separate implementation-
-conformance session/PR. Wider API/Leptos/CMP scenarios stay deferred. GitHub owns execution
-status; this document owns the recommended order, scope and rejection criteria.
+[Issue 106](https://github.com/loveoverflowcom/cantos/issues/106) originally separated the
+[PR A foundation](../../specs/behavior/README.md) and a subsequent implementation-conformance
+session/PR. [PR 123](https://github.com/loveoverflowcom/cantos/pull/123) now supplies that pure-core
+observer inside [PR 117](https://github.com/loveoverflowcom/cantos/pull/117), rebased onto develop
+`1c1d2107f1ca1aacac8c66b7b418c1070b35160c`. The criteria below retain their original scope;
+wider API/Leptos/CMP scenarios stay deferred. GitHub owns execution status.
 
 ## Real seam and one outcome
 
@@ -66,14 +68,15 @@ actual-media/storage/client/device layers independently. Do not change the model
 mismatch without reviewed requirement evidence. Real-provider private policy, byte inspection,
 concurrent transactions, restart and public delivery remain their existing acceptance owners.
 
-## Dependency strategy
+## Historical dependency strategy
 
-Prefer PR B from latest develop after PR A is merged. If PR A remains unmerged and continued
+The original split delivery recommended PR B from latest develop after PR A merged. If PR A remained unmerged and continued
 work is authorized, branch PR B from PR A's exact published head and target the PR A branch
 while developing; label it stacked/dependent. Do not copy/cherry-pick the foundation into a
 second unrelated develop PR or merge PR A without permission. After PR A merges, rebase the
 conformance branch onto current develop, retarget and rerun all affected evidence on final
-inputs before a clean handoff. The parent schedules the separate requested session.
+inputs before a clean handoff. This split-PR strategy is historical now that PR 123 is included
+in PR 117; current integrated results belong in the PR ledger.
 
 ## PR B implementation checkpoint
 
@@ -82,5 +85,6 @@ The [observation protocol](../../specs/behavior/observation-protocol.md), regist
 [`--conformance` primitive](../../scripts/verify_behavior_conformance.py) implement the bounded
 pure-core handoff. [Evidence](../evidence/quint-code-conformance.md) records executed scope
 and residual acceptance. No production semantics or API/Protobuf/database fields changed.
-PR B remains stacked/dependent on PR A; follow the dependency strategy above after merge.
+PR B's pure-core changes are included in rebased PR 117; their earlier results retain their
+original source identities and do not establish fresh acceptance of the rebased inputs.
 The original handoff is retained as review criteria, not authority to widen to application/IO.

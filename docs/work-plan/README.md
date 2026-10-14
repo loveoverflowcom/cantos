@@ -16,8 +16,11 @@ product feature or replace the backend sequence below. The
 [foundation evidence](../evidence/quint-behavior-foundation.md) separates model stages;
 [PR B evidence](../evidence/quint-code-conformance.md) records independently observed pure-core
 conformance. Application/IO, provider/SQL and shared API/Leptos/CMP runtime remain later
-review boundaries, not implied by either gate. PR B is stacked on unmerged PR A and must
-be rebased/retargeted with fresh evidence after the foundation is accepted.
+review boundaries, not implied by either gate. [PR 123](https://github.com/loveoverflowcom/cantos/pull/123)'s
+pure-core conformance is now included in [PR 117](https://github.com/loveoverflowcom/cantos/pull/117),
+which reconciles both slices with latest develop `1c1d2107f1ca1aacac8c66b7b418c1070b35160c`
+and preserves existing identity/storage ADRs by assigning Quint ADR 0027. Earlier results
+remain historical; fresh rebased gates are recorded separately. Issue 106 remains open.
 
 ## Ordered implementation
 

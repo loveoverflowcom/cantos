@@ -7,8 +7,9 @@ model, never another reducer. Product prose accepts requirements and explains co
 Protobuf owns transport/schema; native tests keep their implementation/platform boundaries.
 
 The private AudioSubmission pilot is **PR A model foundation plus PR B pure-core observations of issue 106**. Its lifecycle is draft:
-passing execution neither accepts the model nor demonstrates Rust/DB/API/client conformance.
-Read [ADR 0025](../../docs/decisions/0025-quint-executable-behavior.md) and the
+model-only PASS neither accepts the model nor demonstrates Rust/DB/API/client conformance.
+`--conformance` reports independent Rust pure-core observations separately; it does not establish DB/API/client acceptance.
+Read [ADR 0027](../../docs/decisions/0027-quint-executable-behavior.md) and the
 [PR B observation handoff](../../docs/work-plan/quint-conformance-handoff.md).
 
 ## Run locally

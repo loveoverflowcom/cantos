@@ -1,11 +1,19 @@
 # Quint pure-core conformance — 14 October 2026
 
-[Issue 106](https://github.com/loveoverflowcom/cantos/issues/106), PR B, stacked on unmerged
+[Issue 106](https://github.com/loveoverflowcom/cantos/issues/106), historical PR B,
+originally stacked on unmerged
 [PR 117](https://github.com/loveoverflowcom/cantos/pull/117) at
 `d76cdb51258b874ff3f68d987de64d7aa690402e`, tree `74ab82662aad645b907a53f0880b9ecd870f8ae6`.
-Target its feature branch, not develop. No merge or moving-base reconciliation is included.
-See [ADR 0026](../decisions/0026-quint-executable-behavior.md) and the
+That slice targeted the foundation feature branch and did not include moving-base reconciliation.
+See [ADR 0027](../decisions/0027-quint-executable-behavior.md) and the
 [observation protocol](../../specs/behavior/observation-protocol.md).
+
+[PR 123](https://github.com/loveoverflowcom/cantos/pull/123)'s conformance changes are now
+included in PR 117. PR 117 was rebased from original head
+`0b6c3db04ed47f371cb9158e0328a0a7f322b625` onto develop
+`1c1d2107f1ca1aacac8c66b7b418c1070b35160c`. Results below remain historical and retain
+their original source identities; fresh gate results for the rebased source are recorded
+separately in the PR ledger.
 
 ## Invariant and boundary
 
@@ -23,7 +31,8 @@ No production function, dependency, transport/Protobuf field or database schema 
 `a1357b8f06634ec2177ccd59c98f54818d5a076b`, tree `435c66f2946057e682882d47823e947f9b82dc28`.
 Bundle: `target/verification/behavior/cantos.media.private-audio-admission-75348259c6294166ab593802f5517163/`.
 Original bytes, hashes, commands, logs, ITF, actual observations and first mismatches are retained.
-This evidence correction changes only this document; final-head checks belong in the PR ledger.
+This historical evidence correction changed only this document; final-head checks belong
+in the PR ledger.
 
 - Model: six stages PASS, 19 named runs, seven bounded sampled properties, 11 witnesses and
   seven typechecked model controls. This is still model-only evidence, not proof of code.
@@ -86,8 +95,9 @@ by this observer. Native broader gates retain their separate scope. No exhaustiv
 solver/fairness/liveness proof. Endpoint freshness cannot isolate mutate-and-restore writes.
 Retain native constructor, foreign binding, clock/hash and explicit event-matrix regressions.
 
-Mutation and PostgreSQL are NOT_RUN here; PR A records cold mutation-baseline and Unix-socket
-blockers. Rerun their existing gates on a suitable host. Capacity no longer blocks staging or
-final-head checks; report the final published commit/tree and its fresh dispositions in the PR.
+Mutation and PostgreSQL were NOT_RUN in this historical slice; PR A records cold
+mutation-baseline and Unix-socket blockers. Rerun their existing gates on a suitable host.
+Capacity no longer blocked staging or final-head checks in that record; report the final
+published commit/tree and its fresh dispositions in the PR.
 No merge, provider call, paid production, persistent credentials or public media access.
 Issue 106 stays open.

@@ -3,7 +3,7 @@
 The [catalog](catalog.json) owns stable IDs and model lifecycle. This inventory separates
 **approved requirement**, **implemented code**, **model assumption** and **needs-decision**.
 A model PASS neither accepts a draft requirement nor demonstrates implementation conformance.
-The [decision](../../docs/decisions/0025-quint-executable-behavior.md) adopts Quint for reviewed
+The [decision](../../docs/decisions/0027-quint-executable-behavior.md) adopts Quint for reviewed
 executable stateful expectations while preserving Protobuf and native test boundaries.
 
 ## Selected pilot: `cantos.media.private-audio-admission`
