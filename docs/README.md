@@ -66,6 +66,7 @@
 | [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Proposed: position-free speech fingerprint, verified clip registry and attempt-less reuse, regeneration plan |
 | [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Historical opt-in local DBSP TTS job-summary experiment (runtime adapter retired); production adoption gated |
 | [Decision 0022](decisions/0022-cantos-forge-producer-cli.md) | Proposed: Cantos Forge, a producer-side CLI outside the API runtime; API/Studio/Theatre still never execute generation |
+| [Decision 0025](decisions/0025-actor-identity-root.md) | Proposed: `ActorId` as the root of owner and listener identity; listener slice implemented, Studio slices pending |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |

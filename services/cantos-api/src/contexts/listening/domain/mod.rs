@@ -1,7 +1,7 @@
 //! Pure revisioned listener registers. No Axum, SQL, runtime, clocks or authentication effects.
 use crate::{
-    contexts::catalog::domain::{ContentUnitId, OwnerId, WorkId},
-    platform::ids::canonical_uuid,
+    contexts::catalog::domain::{ContentUnitId, WorkId},
+    platform::{identity::domain::ActorId, ids::canonical_uuid},
 };
 use cantos_contracts::listener_library as dto;
 pub(crate) mod projection;
@@ -37,11 +37,12 @@ uuid_id!(DeviceId);
 uuid_id!(PublicationId);
 uuid_id!(RenditionId);
 uuid_id!(EngineSessionId);
-/// Parsing identity does not authenticate. Only an authenticator may bind this to a principal.
+/// The account scope of listener state: a registry actor acting as a listener, never a catalog
+/// owner. Parsing identity does not authenticate. Only an authenticator may bind this to a principal.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ListenerId(OwnerId);
+pub struct ListenerId(ActorId);
 impl ListenerId {
-    pub(crate) fn from_actor(actor: OwnerId) -> Self {
+    pub(crate) fn from_actor(actor: ActorId) -> Self {
         Self(actor)
     }
     pub fn as_str(&self) -> &str {

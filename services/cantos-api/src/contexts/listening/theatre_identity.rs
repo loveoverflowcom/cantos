@@ -1,14 +1,11 @@
 //! Actual Library seam adapter. A registry row or raw actor is never sufficient authority.
 use crate::platform::theatre_identity::AuthError;
 use crate::{
-    contexts::{
-        catalog::domain::OwnerId,
-        listening::auth::{
-            AuthenticatedListener, AuthenticationError, AuthenticationFuture,
-            ListenerAuthenticator, ListenerCredentials,
-        },
+    contexts::listening::auth::{
+        AuthenticatedListener, AuthenticationError, AuthenticationFuture, ListenerAuthenticator,
+        ListenerCredentials,
     },
-    platform::postgres::Store,
+    platform::{identity::domain::ActorId, postgres::Store},
 };
 pub struct TheatreListenerAuthenticator {
     store: Store,
@@ -33,7 +30,7 @@ impl ListenerAuthenticator for NativeListenerAuthenticator {
                 .await
                 .map_err(authentication_error)?;
             let actor =
-                OwnerId::parse(&view.actor_id).map_err(|_| AuthenticationError::Unavailable)?;
+                ActorId::new(view.actor_id).map_err(|_| AuthenticationError::Unavailable)?;
             Ok(AuthenticatedListener::from_verified_actor(actor))
         })
     }
@@ -76,7 +73,7 @@ impl ListenerAuthenticator for TheatreListenerAuthenticator {
                 .authenticate(&store, credentials.expose_to_verifier())
                 .await
                 .map_err(authentication_error)?;
-            let actor = OwnerId::parse(&actor).map_err(|_| AuthenticationError::Unavailable)?;
+            let actor = ActorId::new(actor).map_err(|_| AuthenticationError::Unavailable)?;
             Ok(AuthenticatedListener::from_verified_actor(actor))
         })
     }

@@ -1,10 +1,10 @@
 //! Production use cases with a named transactional-memory persistence double, never account-sync acceptance.
 use super::*;
-use crate::contexts::{
-    catalog::domain::OwnerId,
-    listening::domain::{
+use crate::{
+    contexts::listening::domain::{
         reconcile_progress, reconcile_saved, AudioIdentity, HistoryState, Revision,
     },
+    platform::identity::domain::ActorId,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -280,7 +280,7 @@ fn intent(n: u64) -> dto::Operation {
     }
 }
 fn principal(actor: &str) -> AuthenticatedListener {
-    AuthenticatedListener::from_verified_actor(OwnerId::parse(actor).unwrap())
+    AuthenticatedListener::from_verified_actor(ActorId::new(actor).unwrap())
 }
 fn audio() -> dto::AudioIdentity {
     dto::AudioIdentity {

@@ -2,7 +2,6 @@
 use super::*;
 use crate::{
     contexts::{
-        catalog::domain::OwnerId,
         listening::auth::{
             AuthenticatedListener, AuthenticationFuture, ListenerAuthenticator, ListenerCredentials,
         },
@@ -10,6 +9,7 @@ use crate::{
     },
     interfaces::http::{router_with_listener_identity, AppState},
     listener_postgres_test_fixture::audio_lifecycle_http::publication_http::PublishedFixture,
+    platform::identity::domain::ActorId,
 };
 use axum::{
     body::Body,
@@ -24,7 +24,7 @@ fn uid(v: u64) -> String {
     format!("00000000-0000-4000-8000-{v:012x}")
 }
 fn principal(actor: &str) -> AuthenticatedListener {
-    AuthenticatedListener::from_verified_actor(OwnerId::parse(actor).unwrap())
+    AuthenticatedListener::from_verified_actor(ActorId::new(actor).unwrap())
 }
 fn intent(sequence: u64, device: u64) -> dto::Operation {
     dto::Operation {

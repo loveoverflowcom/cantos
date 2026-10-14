@@ -38,11 +38,40 @@ row or denial variant with no owning sentence is a gap in the plan, not a free c
 
 ## Repository reality
 
-No listener API, schema, player reducer, outbox, vector corpus or migration exists. Every route,
-type, table, path and command in this skill and its references is a **proposal** for the 040 and
-050 work items. Discover the real manifests, crates, Gradle modules and scripts before citing
-one. Libraries named here (proptest, kotest, sqlx, utoipa, openapi-generator, Media3,
-AVFoundation…) are candidates that need a recorded decision and a pinned, verified version.
+Inspect the code before citing it; this table is the status at the last sync, not proof.
+
+| Surface | Implemented | Owning contract / code |
+|---|---|---|
+| Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../packages/contracts/theatre-discovery-v1.md); `contexts/media` (`ListenerService`, `domain/listening.rs`); `interfaces/http/theatre.rs` |
+| Library and progress | Continue, Saved, History, playback starts, clear, progress, operation receipts | [Library v1](../../../packages/contracts/listener-library-v1.md); `contexts/listening`; `interfaces/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
+| Listener admission | sealed `AuthenticatedListener`, default `DenyListenerAuthentication`, Theatre Web cookie and native bearer adapters | [Theatre identity v1](../../../packages/contracts/theatre-identity-v1.md); `listening/{auth,theatre_identity}.rs`; `theatre_auth::bff_identity` |
+| Wire contract | JSON Schema `schema/theatre/library/v1.schema.json`, strict Rust DTOs `cantos_contracts::listener_library`, 22 fixtures in `fixtures/theatre/library/v1/` | `packages/contracts/api/tests/listener_library_wire.rs` |
+| Mock player | Rust `core/playback/reducer.rs` (Theatre Web) and Kotlin `reducePlayback` (CMP) both run the `theatre-mock-playback@1` corpus | `packages/contracts/fixtures/theatre/playback/v1/` |
+| Clients | Theatre Web reads Continue/Saved/History (`live/library.rs`); no client sends Library mutations or keeps an outbox | — |
+
+**Not implemented (still proposals here):** bookmarks and their tombstones, downloads (manifest,
+grant, authorization), receipt expiry (`operation_expired`), the production player and native
+engine adapters, OpenAPI with generated or drift-checked Kotlin, and the behavioral
+"listening is free" row-count test. Real PostgreSQL and account-sync acceptance follow the
+[Library evidence](../../../docs/evidence/listener-library-progress.md); never infer them from this
+table. Libraries named here (utoipa, openapi-generator, Media3, AVFoundation…) are candidates that
+need a recorded decision and a pinned, verified version; proptest and Kani are already in use.
+
+## Identity vocabulary
+
+| Term | Meaning | Code |
+|---|---|---|
+| Actor | one row of the platform registry `actors(id)`: 1–64 lowercase ASCII letters, digits, `_`, `-` | `platform::identity::domain::ActorId` |
+| Owner | the actor who owns a Studio work, unit or asset; a Studio authorization fact | `catalog::domain::OwnerId` (same grammar, Studio-side) |
+| Listener | an actor acting as a Theatre account; the scope of all listener state | `listening::domain::ListenerId(ActorId)` |
+| Authenticated listener | sealed proof that an issuer adapter verified the credential | `listening::auth::AuthenticatedListener`, crate-only constructor |
+| Device, operation, engine session | client-minted canonical UUIDs; context, never authority | `DeviceId`, `OperationId`, `EngineSessionId` |
+
+The account is never a request field: handlers derive `ListenerId` only from
+`AuthenticatedListener`, and the database stores it as `listener_id` referencing `actors(id)`.
+A listener is never typed as an `OwnerId`, and a Studio session or cookie never yields a listener.
+[ADR 0025](../../../docs/decisions/0025-actor-identity-root.md) (proposed) records the touchpoint
+inventory and the remaining Studio slices that root `OwnerId` in `ActorId`.
 
 ## The required order — listening overlay
 
@@ -73,17 +102,20 @@ cross the real boundary: PostgreSQL conditional write, storage/CDN delivery, dev
 report contract version, vectors, conflict scenarios and the platforms that ran them
 ```
 
-## Four decisions, four pure cores
+## Durable decisions, pure cores
 
 Each durable listening decision has exactly one owner and is callable from a plain unit test with
 no runtime, database, media engine or network ([functional core](../cantos-engineering/references/functional-core.md)).
 
-| Decision | Pure core (proposed) | Implemented in | Shell around it |
+| Decision | Pure core | Status | Shell around it |
 |---|---|---|---|
-| What the player does next | `reduce(PlayerState, PlayerEvent) -> (PlayerState, Vec<PlayerEffect>)` | Rust for Theatre Web, Kotlin for CMP — two implementations agreeing through one vector corpus | media element or native engine adapter, timers, local persistence |
-| Whether a progress write is accepted | `reconcile(Option<&ProgressRecord>, &ProgressCandidate) -> ProgressOutcome` | Rust backend only; clients render the outcome | Axum handler, operation log, conditional `UPDATE` |
-| Whether a download may be authorized | `decide_download(&Entitlement, &ListenerPublication, &OfflinePolicy, ServerInstant) -> Result<DownloadGrant, DownloadDenial>` | Rust backend only | entitlement lookup, URL signer, grant row |
-| Whether a listener may see a publication | `ListenerPublication` witness, constructible only from the active complete release | Rust backend only | catalog and manifest queries |
+| What the player does next | `reduce(PlayerState, Event) -> Transition` (Rust), `reducePlayback(PlaybackState, PlaybackEvent)` (Kotlin) | implemented for the mock corpus; production player proposed | media element or native engine adapter, timers, local persistence |
+| Whether a progress write is accepted | `listening::domain::reconcile_progress(Option<&ProgressRecord>, &ProgressCandidate, now, order) -> Result<ProgressOutcome, DomainError>` over the Kani-checked kernel `reconcile::classify` | implemented, Rust backend only | `PgLibrary::mutate`: account lock, receipt, sequence guard, conditional `UPDATE` |
+| Whether a Saved desire is accepted | `reconcile_saved(&SavedRecord, &SavedCandidate, now, order) -> Result<SavedOutcome, DomainError>` | implemented | same transaction |
+| Whether a playback start or clear changes history | `HistoryState::start(&HistoryStart, seen_session)` and `HistoryState::clear(&HistoryClear) -> Result<HistoryOutcome, DomainError>` | implemented | session tombstones, history rows |
+| What a stored progress may resume | `resume_status(stored, exact, current_unit_audio) -> ResumeStatus`; Continue via `projection::continue_records` | implemented, read-only | page queries over current publications |
+| Whether a listener may see a publication | `media::domain::listening::ListenerPublication::resolve(ListenerFacts)` | implemented | discovery, manifest and Library admission queries |
+| Whether a download may be authorized | `decide_download(&Entitlement, &ListenerPublication, &OfflinePolicy, ServerInstant) -> Result<DownloadGrant, DownloadDenial>` | proposed | entitlement lookup, URL signer, grant row |
 
 The playback reducer is the deliberate exception to "one implementation per policy": it is
 presentation-adjacent state that must run offline inside each client. Its meaning is shared
@@ -93,22 +125,22 @@ Progress reconciliation and download authorization are policy and stay server-si
 ## Rules this skill owns
 
 Status values: **manual** (review checklist only), **proposed** (automated check designed here,
-not implemented), **implemented** (exists in the repository — none yet). Full rule cards with a
-good example, a counterexample and the exception live in the linked reference.
+not implemented), **implemented** (exists in the repository, with the scope stated). Full rule
+cards with a good example, a counterexample and the exception live in the linked reference.
 
 | ID | Rule | Failure it prevents | Oracle | Status |
 |---|---|---|---|---|
-| L1 | Listener identifiers (`work_id`, `episode_id`, `publication_id`) are opaque, typed and immutable; never titles, slugs or storage paths | a rename or storage migration orphans progress, bookmarks and downloads | newtype barriers; fixture with a renamed title keeps every ID | proposed |
-| L2 | The committed OpenAPI/JSON Schema is the reviewed contract; Rust and Kotlin wire types are generated or drift-checked; no hand-copied DTOs | silent client/server divergence | regenerate-and-diff; every fixture decodes in every client | proposed |
-| L3 | Every retriable write carries an operation ID created at intent time and persisted before the first send | a retry after a crash double-applies a write | duplicate delivery replays the original response; key reuse with a new body → `idempotency_key_reused` | proposed |
-| L4 | Only the active, complete release is listable, fetchable or authorizable; drafts, staged and unapproved releases are indistinguishable from absent | unapproved audio reaches listeners | visibility matrix against real PostgreSQL | proposed |
-| L5 | A play, manifest, authorization or progress request creates no production job, attempt, cost reservation or provider call | listening silently costs money | row-count test plus zero fake-provider calls — a test, not a comment | proposed |
-| L6 | Authorization is decided in the backend; signed URLs are minted after it, short-lived, redacted, never stored as identity | hidden buttons treated as security; leaked credentials | denial-variant handler tests; log-capture test | proposed |
-| L7 | One closed status vocabulary with a separate pause cause and failure reason; listener intent is a separate fact from engine state | an interruption shown as a user pause; buffering shown as paused | exhaustive matches; shared vectors | proposed |
-| L8 | Rust and Kotlin reducers agree through a reviewed vector corpus; unknown event kinds fail the harness | the two players mean different things by "paused" | vector run on each platform, named in the report | proposed |
-| L9 | Cold launch, sleep-timer expiry, explicit pause and remote progress never start or move playback | unexpected audio; the playhead jumps under the listener | vectors plus a property over random event sequences | proposed |
-| L10 | A session plays one immutable publication; a new release is an offer, never a silent swap | the listener lands in mismatched timing | vector `active-release-changed-while-playing` | proposed |
-| L11 | A progress write is accepted only against the current server revision; otherwise the response carries the current record. No max-position merge; device clocks are context | a late offline device erases newer progress, or rewinds are lost | conflict table, interleaving property, PostgreSQL concurrency test | proposed |
+| L1 | Listener identifiers (`work_id`, `unit_id`, `publication_id`, `rendition_id`) are opaque, typed and immutable; never titles, slugs or storage paths | a rename or storage migration orphans progress, bookmarks and downloads | newtype barriers; fixture with a renamed title keeps every ID | implemented server-side (canonical UUID newtypes, `AudioIdentity`); client domain types proposed |
+| L2 | The committed OpenAPI/JSON Schema is the reviewed contract; Rust and Kotlin wire types are generated or drift-checked; no hand-copied DTOs | silent client/server divergence | regenerate-and-diff; every fixture decodes in every client | implemented for JSON Schema + strict Rust DTO fixtures; OpenAPI and Kotlin proposed |
+| L3 | Every retriable write carries an operation ID created at intent time and persisted before the first send | a retry after a crash double-applies a write | duplicate delivery replays the original response; key reuse with a new body → `idempotency_key_reused` | implemented server-side (`listener_operations`); client outbox proposed |
+| L4 | Only the active, complete release is listable, fetchable or authorizable; drafts, staged and unapproved releases are indistinguishable from absent | unapproved audio reaches listeners | visibility matrix against real PostgreSQL | implemented (`ListenerPublication`, Library re-admission); evidence per contract |
+| L5 | A play, manifest, authorization or progress request creates no production job, attempt, cost reservation or provider call | listening silently costs money | row-count test plus zero fake-provider calls — a test, not a comment | structural half statically-checked (`listening` may import only `catalog`, `media`); row-count test proposed |
+| L6 | Authorization is decided in the backend; signed URLs are minted after it, short-lived, redacted, never stored as identity | hidden buttons treated as security; leaked credentials | denial-variant handler tests; log-capture test | implemented (sealed principal, default deny, redacted delivery URL `Debug`); log-capture test proposed |
+| L7 | One closed status vocabulary with a separate pause cause and failure reason; listener intent is a separate fact from engine state | an interruption shown as a user pause; buffering shown as paused | exhaustive matches; shared vectors | implemented for the mock player |
+| L8 | Rust and Kotlin reducers agree through a reviewed vector corpus; unknown event kinds fail the harness | the two players mean different things by "paused" | vector run on each platform, named in the report | implemented for `theatre-mock-playback@1` |
+| L9 | Cold launch, sleep-timer expiry, explicit pause and remote progress never start or move playback | unexpected audio; the playhead jumps under the listener | vectors plus a property over random event sequences | partial: mock `restore-session` vectors; property and sleep timer proposed |
+| L10 | A session plays one immutable publication; a new release is an offer, never a silent swap | the listener lands in mismatched timing | vector `active-release-changed-while-playing` | proposed (server side: `resume_status` never substitutes) |
+| L11 | A progress write is accepted only against the current server revision; otherwise the response carries the current record. No max-position merge; device clocks are context | a late offline device erases newer progress, or rewinds are lost | conflict table, interleaving property, PostgreSQL concurrency test | implemented server-side; see [`progress-sync.md`](references/progress-sync.md) |
 | L12 | Bookmark deletion is a tombstone; replayed creates cannot resurrect it | deleted bookmarks reappear after offline replay | property over replays; tombstone table | proposed |
 | L13 | A download is identified by immutable publication and asset checksums; signed URLs are disposable; revocation limits are stated honestly, with no DRM claim | corrupt or mismatched offline files; promises the product cannot keep | manifest immutability test; denial table; copy review | proposed / manual |
 
@@ -184,16 +216,19 @@ Foundation techniques these references build on:
 ## Decoupling map
 
 ```text
-packages/contracts/ (schema, fixtures, player vectors, conflict tables)   ← reviewed spec, no code
-        ↑ generated or drift-checked from
-backend listening module      reads the active release via cantos-publication; never imports
-        ↑                     production orchestration, provider ports or job enqueue APIs
+packages/contracts/ (schema, fixtures, player vectors)   ← reviewed spec; Rust DTOs in api/
+        ↑ strict Rust DTOs today; generated or drift-checked Kotlin proposed
+contexts/listening            domain: catalog::domain IDs + platform::identity::domain::ActorId;
+        ↑                     adapter: media's current-publication reads (library_public_work,
+        ↑                     library_publications) and catalog's lock; never production
+interfaces/http/theatre_library.rs ← theatre_auth::bff_identity admits the sealed principal
 Theatre Web player core (Rust, no Leptos/web-sys import) ← Leptos shell, media element adapter
 CMP player core (Kotlin common, no Compose/engine import) ← native Android/iOS media adapters
 ```
 
-- The listening module depends on publication read models, never the reverse, and never on
-  production. That import edge is the structural half of L5.
+- `contexts/listening` may depend only on `catalog` and `media`
+  (`CONTEXT_UPSTREAM` in `scripts/check_repository.py`), never the reverse, and never on
+  production. That import edge is the statically-checked structural half of L5.
 - Client player cores import neither their UI framework nor their media engine; adapters
   translate engine and OS callbacks into `PlayerEvent`s and execute `PlayerEffect`s.
 - Clients depend on the contract, never on server domain modules, SQL types or Rust layouts.
