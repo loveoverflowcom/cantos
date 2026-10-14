@@ -29,14 +29,14 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import com.cantos.theatre.app.CopyKey
-import com.cantos.theatre.app.DemoCopy
-import com.cantos.theatre.app.clockTime
+import com.cantos.theatre.demo.CopyKey
 import com.cantos.theatre.demo.DemoCatalogView
+import com.cantos.theatre.demo.DemoCopy
 import com.cantos.theatre.demo.DemoEvent
 import com.cantos.theatre.demo.DemoProgress
 import com.cantos.theatre.demo.DemoRoute
 import com.cantos.theatre.demo.DemoState
+import com.cantos.theatre.demo.clockTime
 import com.cantos.theatre.demo.continuingProgress
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp

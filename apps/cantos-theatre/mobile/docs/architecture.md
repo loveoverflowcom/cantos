@@ -36,6 +36,7 @@ still needs device/simulator evidence; compiled common/JVM tests prove the app w
 | `application/playback` | one serialized event loop and a separate ordered effect worker | only observation callbacks enter MediaEngine.events; matching source/generation required |
 | `application/listening` | one ordered memory-write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted |
 | `application/preferences` / `app/Navigation` | independent preferences and pure navigation state | StateFlow.update functions perform pure transitions only |
+| `demo` | `DemoState`/`DemoCatalogView` projection and `DemoCopy` vi/en resources (`CopyKey`, `clockTime`) | leaf package: imports only `demo` and `kotlin`, so presentation reads it without depending on `app` (no `features` ↔ `app` cycle) |
 | `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosDemoPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `AccountSection.kt` as same-package, state-free section files (a file split, not new owners) |
 
 The root derives `DemoState` for rendering; it does not own a writable aggregate mirroring the
