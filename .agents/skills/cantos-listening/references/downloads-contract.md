@@ -16,7 +16,9 @@ resumable, integrity-checked, subject to access rules; document what happens aft
 expiry or withdrawal) and the [050 acceptance criteria](../../../../docs/work-plan/050-cmp-native-listening.md#acceptance-criteria).
 Streaming rights and offline rights are different: permission to publish does not grant offline
 redistribution ([`rights-and-provenance.md`](../../cantos-publication/references/rights-and-provenance.md)).
-Nothing here exists; every route, type and field is a **proposal**. Open decisions are listed in
+Nothing here exists; every route, type and field is a **proposal**. The implemented Library
+(progress, Saved, History) and the `ListenerPublication` witness are the only listener pieces it
+can build on ([Library v1](../../../../packages/contracts/listener-library-v1.md)). Open decisions are listed in
 § 10 and must be recorded before they are encoded.
 
 ## 1. What a download is

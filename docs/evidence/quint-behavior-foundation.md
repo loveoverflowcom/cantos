@@ -1,15 +1,18 @@
 # Quint behavior foundation evidence — 14 October 2026
 
 Related: [issue 106](https://github.com/loveoverflowcom/cantos/issues/106),
-[ADR 0025](../decisions/0025-quint-executable-behavior.md),
+[ADR 0026](../decisions/0026-quint-executable-behavior.md),
 [capability inventory](../../specs/behavior/inventory.md) and
 [separate implementation-conformance handoff](../work-plan/quint-conformance-handoff.md).
 This is **PR A: executable model foundation**, not implementation or production acceptance.
 
 ## Scope and provenance
 
-- Branch: `feat/issue106-quint-behavior-foundation`, rebased onto develop
+- Branch: `feat/issue106-quint-behavior-foundation`, initially verified against develop
   `83f06f9e449df854bc8632562e3c94bb4ccae43e` (including merged PR 112 and PR 114).
+  A bounded final integration incorporates develop `e2267357de156e906c3e5eb6123a5b5d55388806`
+  (PR 115 and PR 116), preserves Actor identity ADR 0025 and renumbers Quint to ADR 0026.
+  Its own reconciliation changes are documentation-only; the model/runner/catalog are unchanged.
 - One draft capability: `cantos.media.private-audio-admission`, starting with one valid
   synthetic prepared submission. Approved private-intake requirements, actual pure seams,
   finite assumptions and deferred boundaries are separated in the inventory.
@@ -64,8 +67,12 @@ proof, Rust refinement, actual bytes/storage acceptance or device verification.
 
 ## Native repository gate ledger
 
-The final PR description records the complete changed-only preflight summary and exact final
-commit. Focused runs already executed:
+The final PR description records exact commits and the complete changed-only preflight
+summary on the pre-integration source tree. Its sixteen PASS gates are not upgraded to a
+full-preflight PASS: the existing Script IR mutation baseline timed out, and the independent
+PostgreSQL attempt failed before SQL suites because the executor rejected its Unix socket.
+Final repository, behavior and formatting checks are repeated after the bounded documentation
+reconciliation; broader native results retain their original source identity. Focused runs:
 
 - `python3 -m unittest discover -s scripts -p 'test_verify_behavior.py'`: PASS, 21 tests.
 - `cargo test -p xtask --locked --offline`: initial attempt 139 passed/17 failed because the

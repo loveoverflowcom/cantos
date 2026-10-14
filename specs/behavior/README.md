@@ -8,7 +8,7 @@ Protobuf owns transport/schema; native tests keep their implementation/platform 
 
 The private AudioSubmission pilot is **model-only PR A of issue 106**. Its lifecycle is draft:
 passing execution neither accepts the model nor demonstrates Rust/DB/API/client conformance.
-Read [ADR 0025](../../docs/decisions/0025-quint-executable-behavior.md) and the
+Read [ADR 0026](../../docs/decisions/0026-quint-executable-behavior.md) and the
 [PR B observation handoff](../../docs/work-plan/quint-conformance-handoff.md).
 
 ## Run locally

@@ -99,7 +99,10 @@ shared/src/commonMain/kotlin/com/cantos/theatre/
   domain/            pure publication/playback/listening models and transitions
   application/       independent catalog/listening/preferences owners and one playback loop
   ports/             CatalogPort, ProgressPort and observation-only MediaEngine
-  adapters/mock/     synthetic fixtures, catalog/memory/fake-storage adapters and fake acknowledgements
+  adapters/mock/     synthetic catalog fixtures/mapping, MockCatalogPort and MockMediaEngine
+    sandbox/         memory-only mock app sandbox shared by demo hosts, previews and tests
+      database/      FakeStorageDatabase and FakePersistentProgressPort behind ProgressPort
+      sessions/      FakeStorageSession presets: Demo (AppContainer.mock default), Fresh, Restored
   features/          stateless app-screen presentation
   demo/              immutable diagnostic seeds and presentation metadata
 shared/src/commonTest/      canonical vectors, reducers, fake-port/lifetime/reset regressions
@@ -178,12 +181,26 @@ JVM tests capture the same app under `shared/build/reports/theatre-demo`, or the
 
 ## Fake storage simulator
 
-`adapters/mock/FakeStorageDatabase` is a deterministic, **memory-only** session store for testing
-the Nghe tiếp / Đã lưu / Lịch sử / Dấu trang UX before a local metadata store is chosen.
-`FakePersistentProgressPort(database, FakeStorageConfig(...))` implements the unchanged
-`ProgressPort`; several ports and recreated `ListeningController`s may share one database, and
-a recreated owner sees stored data only after an explicit `reload()`. A new database starts
-empty, like `MemoryProgressPort`, and process death discards both.
+The mock app sandbox under `adapters/mock/sandbox/` is the one local-storage simulation used by
+the demo hosts, Android `@Preview` wrappers and tests. It is **memory-only**; process death
+discards it.
+
+| Part | Location | Role |
+| --- | --- | --- |
+| Mock database | `sandbox/database/` | `FakeStorageDatabase`, its read-only `FakeStorageState` and the `FakePersistentProgressPort` connection behind the unchanged `ProgressPort` |
+| Mock sessions / presets | `sandbox/sessions/` | `FakeStorageSession` seeds: `Demo` (the `AppContainer.mock` default), `Fresh` and `Restored` |
+| Mock app documents / directory | absent | no file I/O consumer exists; a fake file system for download staging waits for the downloads/local metadata ADR |
+
+`FakeStorageDatabase` is a deterministic session store for testing the Nghe tiếp / Đã lưu /
+Lịch sử / Dấu trang UX before a local metadata store is chosen.
+`FakePersistentProgressPort(database, FakeStorageConfig(...))` implements `ProgressPort`;
+several ports and recreated `ListeningController`s may share one database, and a recreated
+owner sees stored data only after an explicit `reload()`. A new database holds only its seed.
+`AppContainer.mock(scope, seed, storage)` always connects the listening owner to one database
+created by `storage` from the controller's exact start snapshot. With its default zero latency
+and no faults, that database behaves as the former single-port `MemoryProgressPort` did (load
+returns the last committed snapshot, store returns `Stored`), so the separate memory adapter
+was removed rather than kept as a second fake.
 
 - Every read and write, including its opt-in read/write latency (default `0`, never negative),
   runs inside one fair mutex owned by the database. Operations from all ports therefore commit
@@ -194,10 +211,13 @@ empty, like `MemoryProgressPort`, and process death discards both.
 - `reset(seed)` replaces the contents immediately and fences every write requested before it;
   a fenced write returns `Unavailable` and consumes no fault. Cancellation propagates, never
   commits and consumes no fault. `database.state` is a read-only inspection value.
-- `FakeStorageSessionApp(Fresh | Restored)` mounts the production `CantosDemoApp` through
-  `AppContainer.mock(..., progressPort = ...)` with a database seeded from exactly the
-  controller's start snapshot. The two Android `@Preview` wrappers and the JVM UI/capture tests
-  render that same function. There are no interactive storage controls in the app UI.
+- `app/FakeStorageSessionApp.kt` is composition-root wiring, not part of the sandbox package:
+  `mountFakeStorageSession(scope, preset)` builds the container through `AppContainer.mock` and
+  exposes its database; `FakeStorageSessionApp(preset)` mounts the production `CantosDemoApp`
+  over that mount. Keeping it in `app` means sandbox code never imports the composition root.
+  The `Fresh`/`Restored` Android `@Preview` wrappers and the JVM UI/capture tests render that
+  function; `CantosDemoApp()` and the Android, iOS and desktop hosts use `AppContainer.mock(scope)`,
+  the `Demo` preset over its own database. There are no interactive storage controls in the app UI.
 
 `cargo xtask theatre-demo verify` runs these common/JVM tests. They are `example-tested` /
 `mock-integration-tested` evidence over a fake: they establish no durable persistence, SQLite

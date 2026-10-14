@@ -322,6 +322,33 @@ fn refined_restore_rejects_corruption_and_revision_arithmetic_never_wraps() {
     bad.device_sequence = 0;
     assert_eq!(Intent::new(&bad), Err(DomainError::InvalidSequence));
 }
+#[test]
+fn listener_scope_admits_exactly_the_registry_actor_grammar_studio_owners_already_use() {
+    use crate::{contexts::catalog::domain::OwnerId, platform::identity::domain::ActorId};
+    let mut inputs: Vec<String> = ["", "alice", "author_1", "creator-one", "Alice", "a b", "đ"]
+        .into_iter()
+        .map(String::from)
+        .chain([0, 1, 63, 64, 65].map(|n| "a".repeat(n)))
+        .collect();
+    let alphabet: Vec<char> = (0u8..=255).map(char::from).collect();
+    for first in &alphabet {
+        inputs.push(first.to_string());
+        for second in &alphabet[..128] {
+            inputs.push(format!("{first}{second}"));
+        }
+    }
+    for raw in inputs {
+        let actor = ActorId::new(raw.as_str()).ok();
+        assert_eq!(
+            actor.is_some(),
+            OwnerId::parse(&raw).is_ok(),
+            "listener and catalog grammars diverge for {raw:?}"
+        );
+        if let Some(actor) = actor {
+            assert_eq!(ListenerId::from_actor(actor).as_str(), raw);
+        }
+    }
+}
 proptest! {
     #[test]
     fn revision_classification_matches_independent_partition(base in any::<u64>(), current in any::<u64>(), same in any::<bool>(), protected in any::<bool>(), checkpoint in any::<bool>()) {

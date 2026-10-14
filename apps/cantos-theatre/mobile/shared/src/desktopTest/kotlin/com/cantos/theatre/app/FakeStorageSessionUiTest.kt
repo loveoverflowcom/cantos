@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
+import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
 import org.junit.Test
 
 /** The Android preview fixtures rendered by the JVM desktop renderer; not Android rendering. */

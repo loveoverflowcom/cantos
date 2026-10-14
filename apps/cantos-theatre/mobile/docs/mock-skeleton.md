@@ -7,6 +7,11 @@ This scoped record follows
 the [ADR template](../../../../templates/adr.md) and engineering/UI/CMP evidence vocabulary;
 it selects no production media, storage, credentials or API library.
 
+Current tree: this checkpoint predates the layered packages. Mock adapters now live in
+`commonMain/.../adapters/mock`, with simulated storage and presets in its
+`sandbox/{database,sessions}` subpackages; `AppContainer.mock`, previews and tests share it.
+The [mock app sandbox](architecture.md#mock-app-sandbox) section owns that tree.
+
 ## Context and invariant
 
 Android, iOS and the JVM diagnostic host mount the same deterministic Kotlin presentation.

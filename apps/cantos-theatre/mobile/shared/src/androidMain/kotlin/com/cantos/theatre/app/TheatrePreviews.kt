@@ -2,6 +2,7 @@ package com.cantos.theatre.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoEpisodeId
 import com.cantos.theatre.demo.DemoProgress

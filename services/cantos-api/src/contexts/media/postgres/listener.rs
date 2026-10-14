@@ -13,7 +13,7 @@ use crate::{
         listener_metadata, restore_content, ListenerMetadata, ListenerMetadataRequest,
         LISTENER_CURRENT_FILTER,
     },
-    platform::postgres::{checked_number, StoreError, Tx, LISTENER_ACTOR_FILTER},
+    platform::postgres::{checked_number, StoreError, Tx, RELEASE_OWNER_ACTIVE_FILTER},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use tokio_postgres::Row;
@@ -342,7 +342,7 @@ pub(in crate::contexts::media) async fn works(
     };
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
     let sql=format!("SELECT * FROM (SELECT DISTINCT ON (x.work_id COLLATE \"C\") {COLUMNS} {from} AND ($2::bigint IS NULL OR anchor.first_published_at<$2 OR (anchor.first_published_at=$2 AND x.work_id COLLATE \"C\">$3::text COLLATE \"C\")) ORDER BY x.work_id COLLATE \"C\",x.published_at DESC,x.release_id COLLATE \"C\" ASC) selected WHERE ($4::text IS NULL OR kind=$4) AND ($5::text IS NULL OR language=$5) AND position($6 in search_text)>0 ORDER BY first_published_at DESC,work_id COLLATE \"C\" ASC LIMIT $7");
     let limit = (q.limit() + 1) as i64;
     let rows = tx
@@ -369,7 +369,7 @@ pub(in crate::contexts::media) async fn work(
 ) -> Result<(Vec<ReadItem>, Option<Keyset>), ListenerError> {
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
     let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=$2 ORDER BY x.published_at DESC,x.release_id COLLATE \"C\" ASC LIMIT 1");
     let rows = tx
         .query(&sql, &[&now, &id])
@@ -395,7 +395,7 @@ pub(in crate::contexts::media) async fn units(
     };
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
     let sql=format!("SELECT {COLUMNS} {from} AND x.work_id=$2 AND ($3::bigint IS NULL OR (ordering.first_position,x.unit_id COLLATE \"C\")>($3,$4::text COLLATE \"C\")) ORDER BY ordering.first_position,x.unit_id COLLATE \"C\" LIMIT $5");
     let rows = tx
         .query(&sql, &[&now, &work, &position, &id, &((limit + 1) as i64)])
@@ -410,7 +410,7 @@ pub(in crate::contexts::media) async fn publication(
 ) -> Result<Option<ReadItem>, ListenerError> {
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
     let sql = format!("SELECT {COLUMNS} {from} AND x.release_id=$2");
     let rows = tx
         .query(&sql, &[&now, &id])
@@ -486,7 +486,7 @@ pub(crate) async fn library_publications(
     }
     let from = FROM
         .replace("{current_filter}", LISTENER_CURRENT_FILTER)
-        .replace("{actor_filter}", LISTENER_ACTOR_FILTER);
+        .replace("{actor_filter}", RELEASE_OWNER_ACTIVE_FILTER);
     let sql = format!("SELECT {COLUMNS} {from} AND x.unit_id=ANY($2)");
     let rows = tx
         .query(&sql, &[&now, &units])

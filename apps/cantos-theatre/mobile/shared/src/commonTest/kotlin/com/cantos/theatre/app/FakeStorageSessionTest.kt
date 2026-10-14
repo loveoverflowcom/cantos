@@ -1,8 +1,9 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.adapters.mock.FakePersistentProgressPort
-import com.cantos.theatre.adapters.mock.FakeStorageDatabase
-import com.cantos.theatre.adapters.mock.FakeStorageState
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageState
+import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
+import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
 import com.cantos.theatre.application.listening.ListeningState
 import com.cantos.theatre.demo.DemoBookmark
 import com.cantos.theatre.demo.DemoEpisodeId
@@ -34,10 +35,14 @@ class FakeStorageSessionTest {
     private val sonHa03Ms = 1_722_000L
 
     @Test
-    fun fresh_and_restored_sessions_seed_the_database_with_the_controllers_exact_start_snapshot() = runTest {
+    fun every_preset_seeds_the_database_with_the_controllers_exact_start_snapshot() = runTest {
         val denKhuya01 = EpisodeKey(WorkKey("den-khuya"), 0)
         val points = listOf(ProgressRecord(denKhuya01, 91_000, 1_260_000), ProgressRecord(sonHa03, 768_000, sonHa03Ms))
         val expected = mapOf(
+            FakeStorageSession.Demo to ListeningSnapshot(
+                savedWorks = setOf(SavedWork(sonHa)),
+                progress = listOf(ProgressRecord(sonHa03, 768_000, sonHa03Ms)),
+            ),
             FakeStorageSession.Fresh to ListeningSnapshot(),
             FakeStorageSession.Restored to ListeningSnapshot(
                 savedWorks = setOf(SavedWork(sonHa), SavedWork(denKhuya01.work)),
@@ -56,6 +61,28 @@ class FakeStorageSessionTest {
             } finally {
                 mount.app.close()
             }
+        }
+    }
+
+    @Test
+    fun the_default_mock_mount_is_the_demo_preset_and_stores_through_its_database() = runTest {
+        var database: FakeStorageDatabase? = null
+        val default = AppContainer.mock(this) { start -> FakeStorageDatabase(start).also { database = it } }
+        val demo = mountFakeStorageSession(this, FakeStorageSession.Demo)
+        try {
+            advanceUntilIdle()
+            assertEquals(demo.app.listening.state.value, default.listening.state.value)
+            assertEquals(demo.app.navigation.value, default.navigation.value)
+            assertEquals(demo.app.playback.state.value.session?.snapshot(), default.playback.state.value.session?.snapshot())
+            default.setSaved(WorkKey("den-khuya"), saved = true)
+            advanceUntilIdle()
+            val stored = checkNotNull(database).state.value
+            assertEquals(1L, stored.revision)
+            assertEquals(default.listening.state.value.snapshot, stored.snapshot)
+            assertEquals(0L, demo.database.state.value.revision)
+        } finally {
+            default.close()
+            demo.app.close()
         }
     }
 
@@ -84,7 +111,7 @@ class FakeStorageSessionTest {
         )
         assertEquals(stored, first.database.state.value.snapshot)
 
-        val second = AppContainer.mock(this, FakeStorageSession.Fresh.seed()) { FakePersistentProgressPort(first.database) }
+        val second = AppContainer.mock(this, FakeStorageSession.Fresh.seed()) { first.database }
         try {
             advanceUntilIdle()
             assertEquals(ListeningState(ListeningSnapshot()), second.listening.state.value)
@@ -109,7 +136,7 @@ class FakeStorageSessionTest {
             second.close()
         }
 
-        val fresh = AppContainer.mock(this, FakeStorageSession.Fresh.seed()) { FakePersistentProgressPort(FakeStorageDatabase()) }
+        val fresh = AppContainer.mock(this, FakeStorageSession.Fresh.seed()) { FakeStorageDatabase() }
         try {
             fresh.listening.reload()
             advanceUntilIdle()

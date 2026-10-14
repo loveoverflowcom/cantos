@@ -1,4 +1,4 @@
-package com.cantos.theatre.adapters.mock
+package com.cantos.theatre.adapters.mock.sandbox.database
 
 import com.cantos.theatre.domain.listening.Bookmark
 import com.cantos.theatre.domain.listening.ListeningSnapshot

@@ -80,12 +80,12 @@ impl CursorVault {
 mod tests {
     use super::*;
     use crate::{
-        contexts::catalog::domain::OwnerId, contexts::listening::auth::AuthenticatedListener,
+        contexts::listening::auth::AuthenticatedListener, platform::identity::domain::ActorId,
     };
     #[test]
     fn cursors_cannot_cross_accounts_routes_limits_expiry_or_restart() {
-        let a = AuthenticatedListener::from_verified_actor(OwnerId::parse("alice").unwrap());
-        let b = AuthenticatedListener::from_verified_actor(OwnerId::parse("bob").unwrap());
+        let a = AuthenticatedListener::from_verified_actor(ActorId::new("alice").unwrap());
+        let b = AuthenticatedListener::from_verified_actor(ActorId::new("bob").unwrap());
         let vault = CursorVault::default();
         let anchor = PageAnchor {
             upper_order: 10,

@@ -121,4 +121,7 @@ pub(crate) async fn active_actors(
         .collect()
 }
 
-pub(crate) const LISTENER_ACTOR_FILTER: &str = "listener_actor_active(release.owner_id)";
+/// Discovery visibility requires the release owner's (creator's) actor to be active. The SQL
+/// function name predates the actor/owner/listener split: it checks any `actors.id`, and here it
+/// is applied to the owner, never to the listener.
+pub(crate) const RELEASE_OWNER_ACTIVE_FILTER: &str = "listener_actor_active(release.owner_id)";

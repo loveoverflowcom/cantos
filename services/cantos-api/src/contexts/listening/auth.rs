@@ -1,6 +1,6 @@
 //! Listener-specific authentication seam. Registry mapping never authenticates a request.
 use super::domain::ListenerId;
-use crate::contexts::catalog::domain::OwnerId;
+use crate::platform::identity::domain::ActorId;
 use std::{fmt, future::Future, pin::Pin};
 /// Bearer-only input, redacted in diagnostics. Cookies never enter this port.
 pub struct ListenerCredentials(String);
@@ -22,8 +22,8 @@ impl fmt::Debug for ListenerCredentials {
 }
 /// Sealed account scope. Parsing actor IDs or receiving a Studio cookie cannot construct it.
 /// ```compile_fail,E0624
-/// use cantos_api::contexts::{catalog::domain::OwnerId, listening::auth::AuthenticatedListener};
-/// let forged = AuthenticatedListener::from_verified_actor(OwnerId::parse("alice").unwrap());
+/// use cantos_api::{contexts::listening::auth::AuthenticatedListener, platform::identity::domain::ActorId};
+/// let forged = AuthenticatedListener::from_verified_actor(ActorId::new("alice").unwrap());
 /// ```
 /// ```compile_fail,E0277
 /// use cantos_api::contexts::listening::auth::AuthenticatedListener;
@@ -35,7 +35,7 @@ impl AuthenticatedListener {
     // Trusted issuer adapter seam, deliberately inaccessible to callers. The default adapter
     // cannot mint a principal. The identity successor must earn all issuer/session checks first.
     #[allow(dead_code)]
-    pub(crate) fn from_verified_actor(actor: OwnerId) -> Self {
+    pub(crate) fn from_verified_actor(actor: ActorId) -> Self {
         Self(ListenerId::from_actor(actor))
     }
     pub fn listener(&self) -> &ListenerId {
