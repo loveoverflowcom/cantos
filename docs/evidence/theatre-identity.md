@@ -1,5 +1,8 @@
 # PR3 Theatre identity evidence
 
+Current resumed status is in the [14 October appendix](#resumed-native-identity-acceptance--14-october-2026); earlier sections
+retain the results and blockers of their original snapshots.
+
 Review boundary: separate opt-in Web BFF→actual sealed Library identity, Web/CMP account lifecycle
 cores and native OS/protocol groundwork. Native resource IO is **incomplete/fail closed**, not
 accepted from device absence. [Architecture](../architecture/theatre-identity.md),
@@ -282,3 +285,107 @@ mutation or provider container launch was performed.
 All task-owned API/provider/runtime-PG and retained `--keep` verification-PG processes were
 stopped; their databases, WAL and unique fixture/evidence data were preserved. Stop records are
 included in the final manifest. Only the inspector's own disposable Chrome profile was removed.
+
+## Resumed native identity acceptance — 14 October 2026
+
+This appendix supersedes the held Android source blocker and provisional native gate status
+for the resumed snapshot only. The 13 October hashes, failures, counts and Web runtime ledger
+above remain historical evidence of their exact source. No new Web/device runtime result is
+inferred from retaining that unchanged frontend.
+
+Fresh `develop` storage commit `edbd7c7f6f0494e0d01dc5b4139134052b07ed07` was normally merged as
+`b5ba2c58fb79687fc6dd5b21d01fcd274b9468ed`, tree
+`fda7318054cb7f26fe45cc1af270d6ad235c4ce9`. The resumed source is
+`1e2adae537d6b94ee824a5eb8f290a9dbdfa170a`, tree `ab556046cc5922d933c8792c6e7a037b2d595ec2`. The pre-final-gate nine-source manifest
+is `resume-20261014/source-before-final-gates/manifest.json`, SHA256
+`16bb38d01300da4dedb38b65a93b600fefb40eebdf9c6a9545eb247ad08eab4a`.
+The current pre-Admin registry has **23** entries: 1–21, 24 and 25. Storage 0015 is now inherited
+from develop; all existing SQL bytes/checksums remain unchanged and no migration 22/23 is
+invented in this branch.
+
+### Authorized source and confirmed repairs
+
+The user explicitly authorized the held Android INTERNET permission, callback filter and
+Application/MainActivity source patch. The same scoped source operation was successfully
+retried; the earlier automatic-review rejection/proposal records remain preserved.
+`resume-20261014/android-authorization-resolved.json` records the resolution, SHA256
+`d47fe7fcb94ed69061050a9a614aed37887cc93c808a4a97419c5f05eb0cc415`.
+This is repository source authorization. It registers no live OAuth client or origin, installs
+no app, configures no persistent credential and changes no OS/device network or TLS setting.
+
+The Android host now owns the opt-in controller at process lifetime, dispatches the exact
+callback through `onCreate`/`onNewIntent` with `singleTask`, and mounts identity only when both
+operator-supplied nonsecret HTTPS configuration values validate. Unconfigured/invalid hosts
+retain the isolated mock. The raw callback-query guard rejects duplicate, encoded-alias,
+unknown, malformed and oversized field names before Android URI value getters; it neither
+verifies pending state nor creates account authority.
+
+Two cleanup defects were repaired in the actual `NativeAccountController`: failed OS persistence
+must retain the exact exchanged token for a later acknowledged revoke, and a pending or
+unavailable denial marker must not be cleared merely because its credential is lost/corrupt.
+The fixed controller keeps private account projection closed and forbids restore/new login
+through that barrier. A missing/corrupt credential after process death has no manufactured
+remote acknowledgement; controlled recovery remains unassigned and is not implemented here.
+
+### Actual execution ledger
+
+All resumed paths below are relative to `/private/tmp/cantos-identity-campaign/`. These are
+executed local/common/build results, not live provider or native OS acceptance.
+
+| Named scope | Observed result | Retained artifact |
+| --- | --- | --- |
+| Same new regressions against the preserved old production controller | **FAIL before repair:** 207 tests, 4 failures, 0 errors, 0 skips | `resume-20261014/native-cleanup-fail-before/command.log`, `execution.json`, XML reports |
+| Hash-restored fixed controller and current common/JVM suite | **PASS:** 207 tests, 0 failures/errors/skips; identity subset 28 = NativeAccount11 + NativeLogin3 + CallbackQuery4 + NativeIdentityClient7 + AccountLifecycle3 | `resume-20261014/theatre-cmp-fixed.log`, `native-cleanup-fixed-test-results/manifest.json` |
+| Preserved pre-mount Android manifest against the same static contract | **FAIL before repair:** 2 tests, 2 failures, 0 errors | `resume-20261014/android-manifest-fail-before/unit.log`, `execution.json` |
+| Mounted Android source manifest contract | **PASS:** 2 tests; static source assertions only | `resume-20261014/android-manifest-fixed-unit.log` |
+| Rust format/lint/workspace tests on the resumed tree | **PASS** in the retained executed run | `resume-20261014/theatre-rust-integrated.log` |
+| `cargo xtask theatre-demo android-build` | **PASS — Theatre mock Android build:** 61 actionable tasks, 20 executed and 41 up-to-date, 1m52s | `resume-20261014/theatre-android-host-build.log` |
+| Built APK manifest inspected with existing `aapt2` | INTERNET, Application/MainActivity, callback VIEW/BROWSABLE scheme and `singleTask` are present in the packaged manifest; no OS dispatch claim | `resume-20261014/android-packaged-manifest.txt` |
+| `cargo xtask theatre-demo ios-build --kotlin-native-home <required-2.2.20>` | **UNSUPPORTED:** required installed 2.2.20 path lacks executable `bin/konanc`; existing other-version distributions untouched | `resume-20261014/theatre-ios-availability-explicit.log` |
+| Final full `cargo xtask preflight --changed-only` | **PASS: all 17 gates, no skips; repository 331 tests; mutation 9 killed/0 survived** | `resume-20261014/theatre-preflight-frozen-head.log` |
+| Final PostgreSQL gate and inherited restart suites | **PASS: 16 Theatre Web, 7 native, 18 Studio OIDC tests and all inherited HTTP/process-kill/PostgreSQL-restart/migration/replay/codec/storage/publication suites** | `resume-20261014/theatre-preflight-frozen-head.log` |
+
+The 16 Web/7 native suites include assurance using two actual signed-mock-issued credentials,
+each with its own session GET returning 200 before and after the exercise. All 20 requests to
+the exact Studio rendition `bytes`/`read-access` routes (bearer, cookie and cookie relabeling)
+return 401 with safe JSON, no redirect/read-grant headers, unchanged authority/media row counts
+and zero additional Theatre/native introspection. Test-local SELECT on the empty Studio
+`sessions` table distinguishes actual authentication rejection from a missing-grant fixture 503;
+no production grant, media fixture or storage/media IO acceptance is claimed. These are added
+assurance cases, not a confirmed bug or a fail-before claim.
+
+The four old-controller failures are named
+`failed_persistence_retains_exchange_token_until_exact_revoke_is_acknowledged`,
+`restart_with_pending_marker_and_lost_token_never_invents_revoke_acknowledgement`,
+`pending_marker_with_corrupt_or_invalid_token_stays_closed_without_unknown_revoke`, and
+`unavailable_marker_stops_before_store_or_remote_or_browser_effects`. The baseline controller
+SHA256 is `eaf7e50375a3dee01bec433622fa4f68bafad967af632718d6a999ef4c9aa02c`; the fixed bytes were
+restored by SHA256 `76213f53ae2c07838e1ae035614fc13aa5547923ad181d64db8a9667a9691a0d` before the
+passing run. This experiment changes only the selected production controller under the same
+new fixture; it is not an original whole-branch acceptance run.
+
+The fixed 26-suite XML manifest is SHA256
+`a4301a6f415a6408c0d624c4f501923f6be32120d715df2adcef3ffd232970d4`.
+The final manifest contains **27 top-level records**, including the nested **64-record**
+PostgreSQL raw-output manifest. Final resumed evidence manifest: `/private/tmp/cantos-identity-campaign/resume-20261014/pr101-resumed-acceptance-manifest.json`, SHA256
+`ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. It binds the final source, executed gate outputs,
+fail-before/restoration records and packaged-manifest evidence. Owned process/database stop
+records are `resume-20261014/theatre-frozen-owned-process-stop.json`; unique fixtures, databases/WAL and evidence remain
+preserved. The stop record observes zero task-owned processes and leaves inherited PostgreSQL
+PID 741 untouched. Stopped build-cache cleanup retained hashes/proofs; the later free-space
+snapshot was 10,381,979,648 bytes.
+
+### Remaining acceptance and recovery boundaries
+
+Device/system-browser callback dispatch, Keystore/Keychain read/write/invalidation, process
+recreation/crash/lifecycle, native UI/text scaling/screen reader, live provider and native
+playback acceptance remain **NOT_RUN**. Android build and fake-port tests do not establish those
+semantics. iOS source inclusion remains distinct from its **UNSUPPORTED** framework build.
+The 13 October Web observations keep their original statuses; no new Web runtime was executed
+for this source-only native change.
+
+Production activation stays closed. Live client registration/provider/TLS/grants, explicit
+cross-client issuer linking, controlled lost-credential recovery, pending-revocation operations,
+backend at-rest/backup/retention and durable Library/outbox/guest-import/playback acceptance
+retain separate owners and gates. This resumed source handoff closes the held Android source
+step, not the whole mobile client or broader issues. GitHub owns PR execution/merge status.

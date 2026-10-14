@@ -70,6 +70,10 @@ grants, credentials, TLS, network, container or production activation is provisi
 
 ## Web and CMP lifecycle
 
+The original pre-integration helper description below is retained as context. Current mounted
+consumers and native acceptance are recorded in the campaign section and the
+[14 October evidence appendix](../evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+
 Theatre Web has an unmounted same-origin BFF port and an account lifecycle core. Account/session
 generation fences success and failure callbacks, clears projection immediately on leaving and
 retains immutable account-owned intents. Once dispatched, unknown outcomes require receipt lookup
@@ -88,9 +92,11 @@ Android adapter uses ACTION_VIEW, exact Uri parser, SecureRandom/SHA256 and none
 AndroidKeyStore AES-GCM; ciphertext lives in AtomicFile under noBackupFilesDir, bounded/redacted
 with no plaintext fallback. A cancelled external browser may remain open; protocol state rejects
 its callback. iOS adapter source uses ASWebAuthenticationSession/cancel correlation and Keychain
-AfterFirstUnlockThisDeviceOnly, no synchronization/file fallback. Swift source is not mounted in
-the mock Xcode host; Kotlin/Swift bridge, lifecycle and native exchange/resource transport remain
-deferred. Compile evidence is not simulator/device/secure-store persistence acceptance.
+AfterFirstUnlockThisDeviceOnly, no synchronization/file fallback. Swift adapters are included in
+the Xcode Sources phase and mounted through the Kotlin/Swift bridge and `IosNativeOwner`; the
+native exchange/resource transport is implemented. The canonical Kotlin/Native 2.2.20 simulator
+framework build is UNSUPPORTED here. OS lifecycle and secure-store persistence acceptance remain
+NOT_RUN; source mounting or compilation does not establish simulator/device behavior.
 
 ## Read assessment
 
@@ -175,10 +181,14 @@ The common client/controller has strict DTO decoding, fenced callbacks, unknown-
 refusal and explicit restore only after server validation. Keystore/Keychain hold only the
 native credential; a nonsecret durable marker prevents restoration after uncertain logout.
 iOS mounts the Swift system browser/URLSession/Keychain bridge with both pinned HTTPS config
-fields. Android manifest activation awaits a source-only human exception after automatic
-approval review rejected the INTERNET/callback source change; no cleartext/TLS override or
-deployed network setting was changed.
+fields. The user-authorized Android INTERNET/callback/Application/MainActivity source is now
+mounted and the canonical mock Android build passed. Its packaged manifest confirms the callback
+routing declaration and `singleTask`; actual OS dispatch remains unverified. Missing/invalid
+operator configuration retains the isolated mock. No live origins, app installation, cleartext/TLS
+override or deployed/OS network setting was introduced.
 
-Native builds, OS storage/browser/cancellation/crash/restart, devices, accessibility and provider
-acceptance remain separate unrun gates. The host remains development/loopback-only; absent
-`CANTOS_THEATRE_NATIVE_ISSUER` keeps native routes disabled.
+Android build PASS is separate from OS storage/browser/cancellation/crash/restart, device,
+accessibility and provider acceptance, which remain NOT_RUN. The canonical iOS framework gate
+remains UNSUPPORTED. A pending native denial marker with lost/corrupt credentials stays closed;
+controlled recovery is unassigned and no acknowledgement/reset is invented. The API host remains
+development/loopback-only; absent `CANTOS_THEATRE_NATIVE_ISSUER` keeps native routes disabled.

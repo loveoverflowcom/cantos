@@ -101,18 +101,23 @@ and adds exact external keys with explicit operator registration/linking. The bo
 adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
 account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
 all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
-accessibility/provider gates explicit. The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
+accessibility/provider gates explicit.
+
+The following Theatre ledger describes the **13 October snapshot**, superseded by the
+[resumed native appendix](#resumed-native-identity-source-and-next-acceptance--14-october-2026).
+The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
 now records the mounted readonly Web account/Library consumer and native exchange/resource/
-registry/session implementation. Its [integrated evidence](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
+registry/session implementation. Its [13 October integrated evidence](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
 records fourth full preflight 16 PASS/PostgreSQL FAIL, corrected full PostgreSQL PASS and final
 8 selected preflight PASS with no skips; this is not one 17-green invocation. Actual Web runtime
 is 14 PASS/0 FAIL/2 INCONCLUSIVE/7 NOT_RUN with 12 inspected PNGs. Android mock compile PASS
-does not activate the held manifest/host source; PR101 stays draft pending its direct human
-exception. iOS is UNSUPPORTED without required Kotlin/Native 2.2.20. Complete the held Android
-source step and named OS/provider/secure-store/accessibility gates before production activation
+did not activate the then-held manifest/host source; PR101 stayed draft pending its direct human
+exception in that snapshot. iOS is UNSUPPORTED without required Kotlin/Native 2.2.20. The Android
+source step is now resolved as recorded below; named
+OS/provider/secure-store/accessibility gates remain required before production activation
 or broader playback/synchronization acceptance. Registry lookup grants no surface authority;
 explicit client linking and operator-prepared live provider/client/TLS acceptance remain separate.
-GitHub owns execution status; the final evidence manifest is SHA256
+GitHub owns execution status; that historical evidence manifest is SHA256
 `e507afad65f29c01f9959b36f52de564171cce26ea0de27bda5e80fa2c216591`.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
@@ -255,9 +260,42 @@ The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.
 reviewed registry/Studio dependencies and the merged Listener Library seam. Preserve the latest
 [Studio integrated acceptance](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
 and its HTTP negotiation/session fences while integrating Theatre's separate Web BFF, account
-fencing and native public-client exchange/resource IO in migration0024. Current combined Theatre
-verification is pending. Android INTERNET/callback registration and host mounting remain
-unapplied after automatic approval review rejected the source activation; the direct human
-exception is pending. Provider/device/secure-store and native playback acceptance remain separate.
+fencing and native public-client exchange/resource IO in migration0024. In the 13 October
+snapshot, combined Theatre
+verification was pending and Android INTERNET/callback registration and host mounting were
+unapplied after automatic approval review rejected the source activation. The direct human
+exception and those source steps are now resolved in the resumed appendix below.
+Provider/device/secure-store and native playback acceptance remain separate.
 Admin0022 follows in PR4; this queue does not claim the four-PR campaign complete or accept a
 guest-import policy.
+
+## Resumed native identity source and next acceptance — 14 October 2026
+
+The [resumed Theatre handoff](theatre-identity-handoff.md#resumed-native-identity-handoff--14-october-2026)
+and [fresh evidence appendix](../evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026)
+supersede the previously held Android source exception. The user authorized the exact
+INTERNET/callback/Application/MainActivity source patch; it is applied and the actual opt-in
+host builds. Common/JVM verification passed 207 tests (28 identity) with zero failures/errors/skips;
+the same new
+regressions failed against the preserved old cleanup controller before hash-restored repair.
+The source manifest contract passed 2 tests and packaged-manifest inspection confirms the
+permission, callback and `singleTask` mount. Android is **PASS — Theatre mock Android build**;
+iOS remains **UNSUPPORTED** for unavailable canonical Kotlin/Native 2.2.20. Final resumed local
+preflight is **PASS: all 17 gates, no skips**, including 331 repository tests and mutation
+9 killed/0 survived. PostgreSQL is **PASS**: 16 Theatre Web, 7 native and 18 Studio OIDC tests plus
+all inherited HTTP/process-kill/PostgreSQL-restart/migration/replay/codec/storage/publication
+suites, on source
+`1e2adae537d6b94ee824a5eb8f290a9dbdfa170a`/tree `ab556046cc5922d933c8792c6e7a037b2d595ec2`; retained manifest SHA256
+`ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. The previous 13 October Web/runtime counts and manifest
+remain historical, not a new native acceptance record.
+
+The current branch normally inherits storage migration0015 from develop and retains the sorted
+23-entry registry 1–21,24,25 without editing historical bytes. Failed persistence/unknown revoke
+retains the exact native credential for acknowledged retry; pending/unavailable denial with
+lost/corrupt credentials remains closed and controlled recovery is still unassigned. No live
+provider, app install or OS/TLS/credential configuration was performed. Next recommended order
+is named device/system-browser/Keystore/Keychain/process-lifecycle/accessibility acceptance,
+then authorized provider/public-client/current-rights acceptance and reviewed recovery/at-rest/
+backup/retention. Native playback, durable Library/outbox, guest import, explicit cross-client
+linking and broader synchronization keep their separate owners. Production stays disabled;
+GitHub owns PR execution/merge status and broader issues remain open.

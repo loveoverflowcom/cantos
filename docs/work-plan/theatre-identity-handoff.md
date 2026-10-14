@@ -1,5 +1,8 @@
 # Theatre identity PR3 → Admin and native resource IO
 
+Current resumed status is in the [14 October appendix](#resumed-native-identity-handoff--14-october-2026); earlier sections
+retain the results and blockers of their original snapshots.
+
 Initial fresh develop was b09c180 (Publication merged); published PR98 exact
 `9794ed9ddcd376680a01b37938eabdde564290e1`, tree
 `c48d4e0c050a669f09addf46541c0cc82b19f87b`, was normal-merged in ad8b7a3.
@@ -159,3 +162,53 @@ secure-store lifecycle gates, followed by authorized live-provider setup and pro
 at-rest/recovery/retention review. Durable outbox, guest-import, client-linking and broad playback
 acceptance keep their existing owners; no issue is closed by this handoff. GitHub owns PR execution
 status and the queue records only the next recommended work.
+
+## Resumed native identity handoff — 14 October 2026
+
+This appendix supersedes the prior pending Android source exception for the resumed snapshot;
+the 13 October ledger/hashes remain unchanged historical evidence. Fresh develop storage
+`edbd7c7` was normally merged at `b5ba2c58`, tree `fda73180`. Final reviewed resumed source:
+`1e2adae537d6b94ee824a5eb8f290a9dbdfa170a`, tree `ab556046cc5922d933c8792c6e7a037b2d595ec2`. The additive registry is now 23 entries
+(1–21,24,25), including inherited storage0015; historical migration bytes/checksums stay intact.
+See the [resumed execution record](../evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+
+The trusted user authorized the exact held Android INTERNET/callback/Application/MainActivity
+source operation. It was applied successfully and the real Android host now owns/mounts the
+opt-in account controller and dispatches `singleTask` callbacks. Operator-supplied validated
+nonsecret origins remain required; no live values, OAuth client registration, credential
+configuration, app installation or OS network/TLS change was performed.
+
+The native cleanup controller retains its exact token after failed persistence or ambiguous
+revocation. Pending/unavailable denial markers with lost/corrupt credentials remain closed;
+there is no invented revoke acknowledgement, automatic reset or unsafe new-account escape.
+Controlled lost-credential recovery remains unassigned. The production raw-query guard refuses
+encoded name aliases before Android URI getters; common tests cover its bounded parsing only.
+
+Actual common/JVM verification passed 207 tests (28 identity), with zero failures/errors/skips.
+The same new fixture against the preserved old controller produced four failures before repair,
+and fixed source was restored by hash before passing. The original manifest failed both new
+static contract tests; the mounted source passed both. The Android gate is **PASS — Theatre mock
+Android build** (61 actionable tasks: 20 executed/41 up-to-date, 1m52s); packaged-manifest inspection
+confirms permission/callback/singleTask. iOS is **UNSUPPORTED** without installed canonical
+Kotlin/Native 2.2.20 `bin/konanc`; no other version substituted. Final full preflight is **PASS:
+all 17 gates, no skips**, including 331 repository tests and mutation 9 killed/0 survived.
+Full PostgreSQL is **PASS**: 16 Theatre Web, 7 native and 18 Studio OIDC tests plus all inherited
+HTTP/process-kill/PostgreSQL-restart/migration/replay/codec/storage/publication suites.
+
+Those Web/native suites also use actual signed-mock-issued credentials whose own session GETs
+remain 200 before/after 20 exact Studio rendition bytes/read-access 401 cases, including bearer,
+cookie and relabeling variants. Safe JSON has no redirect/read-grant headers; authority/media
+counts and Theatre/native introspection counts stay unchanged. A test-local SELECT on empty
+Studio sessions makes this real authentication refusal rather than fixture 503, with no
+production grant or storage/media IO claim. This is assurance coverage, not a confirmed finding
+or fail-before regression.
+
+Final resumed evidence manifest: `/private/tmp/cantos-identity-campaign/resume-20261014/pr101-resumed-acceptance-manifest.json`, SHA256
+`ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. Prior Web runtime evidence is historical and unchanged,
+not a new native/device result. Device/system-browser/secure-store/OS lifecycle/accessibility,
+live provider and native playback acceptance remain **NOT_RUN**; production activation is closed.
+Next owners should perform named native OS/secure-store lifecycle acceptance and the authorized
+provider/public-client matrix, then review controlled cleanup recovery and at-rest/backup/
+retention. Durable outbox, guest-import, explicit issuer linking, broad playback/synchronization
+and whole-mobile completion keep their existing scope; no broader issue is closed here.
+GitHub owns publication/merge status.
