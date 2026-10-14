@@ -6,6 +6,14 @@
     objects = {
 
 /* Begin PBXBuildFile section */
+        A10000000000000000000015 /* LaunchScreen.storyboard in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000016;
+        };
+        A10000000000000000000017 /* Assets.xcassets in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000018;
+        };
         A10000000000000000000001 /* CantosDemoApp.swift in Sources */ = {
             isa = PBXBuildFile;
             fileRef = A10000000000000000000002 /* CantosDemoApp.swift */;
@@ -17,6 +25,18 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        A10000000000000000000016 /* LaunchScreen.storyboard */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = file.storyboard;
+            path = LaunchScreen.storyboard;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000018 /* Assets.xcassets */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = folder.assetcatalog;
+            path = Assets.xcassets;
+            sourceTree = "<group>";
+        };
         A10000000000000000000002 /* CantosDemoApp.swift */ = {
             isa = PBXFileReference;
             lastKnownFileType = sourcecode.swift;
@@ -58,7 +78,7 @@
         };
         A10000000000000000000006 /* CantosDemo */ = {
             isa = PBXGroup;
-            children = (A10000000000000000000002 /* CantosDemoApp.swift */, A10000000000000000000014 /* TheatreIdentity.swift */);
+            children = (A10000000000000000000002 /* CantosDemoApp.swift */, A10000000000000000000014 /* TheatreIdentity.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */);
             path = CantosDemo;
             sourceTree = "<group>";
         };
@@ -114,7 +134,7 @@
         A1000000000000000000000B /* Resources */ = {
             isa = PBXResourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = ();
+            files = (A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */);
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXResourcesBuildPhase section */
@@ -180,7 +200,7 @@
                 INFOPLIST_KEY_CFBundleDisplayName = Cantos;
                 INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
                 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 MARKETING_VERSION = 0.1.0;
@@ -205,7 +225,7 @@
                 INFOPLIST_KEY_CFBundleDisplayName = Cantos;
                 INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
                 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
                 MARKETING_VERSION = 0.1.0;

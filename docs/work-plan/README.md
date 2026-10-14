@@ -439,3 +439,16 @@ preserves25 existing function bodies/signatures, apart from required visibility.
 `527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`.
 Production stays closed until live current-group/client/credential/rotation and named native
 OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.
+
+## Theatre native launch handoff
+
+The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
+synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP
+presentation. Do not introduce a timer or a remote readiness gate to make that frame visible.
+Next, prioritize shared logo/component admission in [#127](https://github.com/loveoverflowcom/cantos/issues/127),
+then the configured identity/guest-shell composition in [#130](https://github.com/loveoverflowcom/cantos/issues/130),
+coordinating [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s release isolation.
+Native launch acceptance still needs the pinned iOS toolchain, API23 fallback, OS callbacks,
+restoration and screen-reader observations. The evidence record distinguishes the diagnostic
+Android runtime from JVM captures; it does not accept production native listening or change
+the backend sequence above. GitHub owns implementation and acceptance status.

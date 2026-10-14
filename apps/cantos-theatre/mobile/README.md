@@ -64,6 +64,28 @@ remain **NOT_RUN**. See the [resumed evidence](../../../docs/evidence/theatre-id
 Native playback, durable Library synchronization, downloads and broad issue acceptance remain
 deferred.
 
+## Local launch presentation
+
+Android's real launcher installs pinned AndroidX SplashScreen compat before `super.onCreate`,
+with canonical light/dark backgrounds and the official symbol in the no-icon-background safe
+canvas. There is no keep condition, splash Activity or animation hold. iOS uses a background-only
+adaptive-color launch storyboard; the Swift application owner is unchanged.
+
+`CantosLocalLaunch` is an app-owned presentation seam, independent of mock models. Ready content
+replaces the optional tonal/logo/tagline frame on the next composition, without an exit wait or
+navigation event. The current native owners initialize synchronously before UI creation, so they
+always bypass that optional CMP frame. Pending mode is exercised only by static previews and
+controlled JVM tests; no fake timer or asynchronous bootstrap is introduced. Destination network
+and account failures remain destination concerns. An eventual real local loader must supply its
+own terminal readiness/recovery and native OS motion preference before enabling pending mode.
+
+The first diagnostic frame initializes the existing preferences owner from system appearance;
+subsequent mounts retain the same owner. Official logo curves are converted into local vector
+resources from the issue's supplied kit, with [provenance and evidence](../../../docs/evidence/theatre-cmp-launch.md).
+No shared wrapper is newly qualified. Shared Logo Kit/component admission (#127), configured
+identity's guest-shell composition (#130) and release/sandbox isolation (#122) remain separate
+acceptance work. This launcher change does not complete production mobile or those issues.
+
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;

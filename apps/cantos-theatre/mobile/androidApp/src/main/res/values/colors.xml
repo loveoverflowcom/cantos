@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Native mapping of canonical color.background; drift is checked by repository tests. -->
+<resources>
+    <color name="cantos_launch_background">#f7f3eb</color>
+</resources>

@@ -35,7 +35,7 @@ distinguishes connected forms from deferred controls and user acceptance. Theatr
 to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
 selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
-native audio and live client integration remain deferred; public media delivery is fail-closed.
+native audio and live client integration remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
 
 [Private object storage](docs/architecture/object-storage.md) implements filesystem and generic
 S3-compatible adapters, durable original targets and [exact owner-authorized audio reads](packages/contracts/private-content-reads-v1.md).
