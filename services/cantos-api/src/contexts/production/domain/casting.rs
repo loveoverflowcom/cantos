@@ -1,5 +1,6 @@
-//! Casting resolution: every spoken line becomes one exact synthesis input with its voice,
-//! effective text after pronunciation, performance and the adapter contract it is frozen for.
+//! Casting resolution: every spoken line becomes one exact production instruction with its
+//! voice, effective text after pronunciation, performance and the provider instruction contract
+//! it is frozen for. An external producer synthesizes it; Cantos never does.
 use std::collections::{BTreeMap, BTreeSet};
 
 use cantos_contracts::{
@@ -10,7 +11,9 @@ use serde::Deserialize;
 use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
-use super::catalog::{casting_contract, ADAPTER_VERSION, OUTPUT_CONTRACT};
+use super::catalog::{
+    provider_instruction_contract, OUTPUT_CONTRACT, REFERENCE_INSTRUCTION_VERSION,
+};
 use super::issue;
 use crate::script_ir::ScriptContent;
 
@@ -137,7 +140,7 @@ pub(super) fn resolve_inputs(
                     .unwrap_or(facts.delivery.intensity_permille),
             ),
         };
-        let contract = casting_contract(&binding.provider_id);
+        let contract = provider_instruction_contract(&binding.provider_id);
         if let Some(contract) = &contract {
             if performance.emotion.as_deref() != Some("neutral")
                 || performance.intensity_permille != Some(0)
@@ -166,7 +169,9 @@ pub(super) fn resolve_inputs(
             voice_id: binding.voice_id.clone(),
             voice_rights_record_id: binding.voice_rights_record_id.clone(),
             adapter_version: contract
-                .map_or(ADAPTER_VERSION, |contract| contract.adapter_version)
+                .map_or(REFERENCE_INSTRUCTION_VERSION, |contract| {
+                    contract.instruction_version
+                })
                 .into(),
             output_contract: contract
                 .map_or(OUTPUT_CONTRACT, |contract| contract.output_contract)

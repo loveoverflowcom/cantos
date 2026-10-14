@@ -1,4 +1,4 @@
-package com.cantos.theatre.adapters.protobuf
+package com.cantos.theatre.studiopilotfixtures
 
 /** Transport values only. Presence is checked, but identity, rights and content are untrusted. */
 sealed interface StudioPilotValue

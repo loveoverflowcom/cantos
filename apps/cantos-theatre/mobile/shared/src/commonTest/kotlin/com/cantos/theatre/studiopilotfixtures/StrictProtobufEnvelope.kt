@@ -1,4 +1,4 @@
-package com.cantos.theatre.adapters.protobuf
+package com.cantos.theatre.studiopilotfixtures
 
 /** Bounded scan of buffered bytes before kotlinx constructs message values, strings or lists. */
 internal class StrictProtobufEnvelope(private val bytes: ByteArray) {

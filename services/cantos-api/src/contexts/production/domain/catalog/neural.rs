@@ -5,7 +5,7 @@ use unicode_normalization::UnicodeNormalization;
 pub const PROVIDER_ID: &str = "vieneu-nano-local";
 pub const MODEL_REVISION: &str = "aba295eb96a6fa6003ebe417cc1f2802a7adc1dc";
 pub const MODEL_ID: &str = "vieneu-nano-aba295eb96a6fa6003ebe417cc1f2802a7adc1dc";
-pub const ADAPTER_VERSION: &str = "vieneu-nano-local-v1";
+pub const INSTRUCTION_VERSION: &str = "vieneu-nano-local-v1";
 pub const OUTPUT_CONTRACT: &str = "wav-pcm-s16le-mono-24000-vieneu-v1";
 pub const MAX_TEXT_BYTES: usize = 2_000;
 /// Explicit SDK presets Đức Trí and Mỹ Duyên; no arbitrary speaker or cloning input.
@@ -50,7 +50,7 @@ pub fn validate_resolved(input: &ResolvedSynthesisInput) -> Result<(), NeuralReq
         ),
         (input.model_id == MODEL_ID, NeuralRequestError::WrongModel),
         (
-            input.adapter_version == ADAPTER_VERSION,
+            input.adapter_version == INSTRUCTION_VERSION,
             NeuralRequestError::WrongAdapter,
         ),
         (

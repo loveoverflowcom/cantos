@@ -112,8 +112,8 @@ async fn inspected_image_writes_and_historical_reads_share_the_existing_target_r
     std::fs::create_dir(&scratch.0).unwrap();
     let origin_root = scratch.0.join("origin");
     let replacement_root = scratch.0.join("replacement");
-    let origin = Arc::new(AudioStorage::new(&origin_root).unwrap());
-    let replacement = Arc::new(AudioStorage::new(&replacement_root).unwrap());
+    let origin = Arc::new(FilesystemStorage::new(&origin_root).unwrap());
+    let replacement = Arc::new(FilesystemStorage::new(&replacement_root).unwrap());
     let mut registry = StorageRegistry {
         active: target("origin-private"),
         targets: BTreeMap::from([

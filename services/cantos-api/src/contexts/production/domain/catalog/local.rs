@@ -1,10 +1,11 @@
-//! Exact implemented local adapter identity; no process, provider SDK or network dependency.
+//! Exact local eSpeak instruction identity for an external producer; no process, provider SDK
+//! or network dependency.
 use cantos_contracts::ProductionCapability;
 use unicode_normalization::UnicodeNormalization;
 
 pub const PROVIDER_ID: &str = "espeak-ng-local";
 pub const MODEL_ID: &str = "espeak-ng-1.52.0";
-pub const ADAPTER_VERSION: &str = "espeak-ng-local-v1";
+pub const INSTRUCTION_VERSION: &str = "espeak-ng-local-v1";
 pub const OUTPUT_CONTRACT: &str = "wav-pcm-s16le-mono-22050-v1";
 pub const MAX_TEXT_BYTES: usize = 2_000;
 
@@ -21,7 +22,7 @@ pub fn valid_text(text: &str) -> bool {
         && !text.contains("[[")
 }
 
-/// Adapter support, not a claim that the runtime is installed on every server.
+/// Instructable support, not a claim that the runtime is installed on any server.
 pub fn capability() -> ProductionCapability {
     ProductionCapability {
         provider_id: PROVIDER_ID.into(),

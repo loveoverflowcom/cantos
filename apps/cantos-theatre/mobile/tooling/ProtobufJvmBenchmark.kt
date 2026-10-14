@@ -1,8 +1,8 @@
 // Optional JVM measurement primitive for the existing verification flow. No Native claim.
-import com.cantos.theatre.adapters.protobuf.ProtobufResult
-import com.cantos.theatre.adapters.protobuf.StudioPilotCodec
-import com.cantos.theatre.adapters.protobuf.StudioPilotKind
-import com.cantos.theatre.adapters.protobuf.ValidateScriptRequest
+import com.cantos.theatre.studiopilotfixtures.ProtobufResult
+import com.cantos.theatre.studiopilotfixtures.StudioPilotCodec
+import com.cantos.theatre.studiopilotfixtures.StudioPilotKind
+import com.cantos.theatre.studiopilotfixtures.ValidateScriptRequest
 import java.lang.management.ManagementFactory
 import com.sun.management.ThreadMXBean
 

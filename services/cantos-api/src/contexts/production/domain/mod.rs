@@ -15,7 +15,9 @@ mod rights;
 mod settings;
 
 pub use casting::{MAX_EFFECTIVE_LINE_BYTES, MAX_RESOLVED_BYTES};
-pub use catalog::{production_catalog, ADAPTER_VERSION, CATALOG_VERSION, OUTPUT_CONTRACT};
+pub use catalog::{
+    production_catalog, CATALOG_VERSION, OUTPUT_CONTRACT, REFERENCE_INSTRUCTION_VERSION,
+};
 pub use commands::*;
 pub use eligibility::{
     authorize_inputs, evaluate_for_owner, evaluate_snapshot, AuthorizedProductionInputs,

@@ -16,7 +16,7 @@ use crate::platform::postgres::StoreError;
 
 use super::audio_intake::VerifiedAudio;
 use super::domain::object_storage::{
-    NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError,
+    NormalizedByteRange, ObjectIntegrity, ObjectKey, StorageError, MAX_OBJECT_BYTES,
 };
 use super::image_intake::VerifiedImage;
 
@@ -27,8 +27,6 @@ mod s3;
 mod sigv4;
 
 use port::{PrivateStorage, StorageFuture, StorageRead, VerifiedPayload};
-
-const MAX_AUDIO_BYTES: u64 = super::audio_intake::MAX_AUDIO_BYTES as u64;
 
 // Hashing and durable writes are bounded independently of decoder admission. The blocking
 // closure owns its permit, so dropping its caller never admits a replacement while it runs.
@@ -51,18 +49,19 @@ fn bounded_filesystem_io<T: Send + 'static>(
     })
 }
 
+/// Development filesystem target for every verified private payload (audio and image alike).
 #[derive(Clone)]
-pub(crate) struct AudioStorage {
+pub(crate) struct FilesystemStorage {
     #[cfg(unix)]
     inner: std::sync::Arc<unix::PrivateDirectories>,
 }
 
-impl PrivateStorage for AudioStorage {
+impl PrivateStorage for FilesystemStorage {
     fn put_if_absent(&self, payload: VerifiedPayload) -> StorageFuture<()> {
         let storage = self.clone();
         bounded_filesystem_io(IO_LANES.clone(), move || {
             let stored = match &payload {
-                VerifiedPayload::Audio(audio) => storage.persist(audio),
+                VerifiedPayload::Audio(audio) => storage.persist_audio(audio),
                 VerifiedPayload::Image(image) => storage.persist_image(image),
             }
             .map_err(storage_error)?;
@@ -148,12 +147,13 @@ fn storage_error(error: StoreError) -> StorageError {
     }
 }
 
-pub(crate) struct StoredAudio {
+/// A durably written private object of any verified media kind.
+pub(crate) struct StoredObject {
     /// Internal content identity, not a public URL or a caller-selected filename.
     pub(crate) object_key: String,
 }
 
-impl AudioStorage {
+impl FilesystemStorage {
     /// The explicit absolute root must be owned by the current Unix user and mode 0700.
     /// Only the final root directory may be created; existing permissions are never widened.
     pub(crate) fn new(root: &Path) -> Result<Self, StoreError> {
@@ -170,10 +170,13 @@ impl AudioStorage {
         }
     }
 
-    pub(crate) fn persist(&self, verified: &VerifiedAudio) -> Result<StoredAudio, StoreError> {
+    pub(crate) fn persist_audio(
+        &self,
+        verified: &VerifiedAudio,
+    ) -> Result<StoredObject, StoreError> {
         #[cfg(unix)]
         {
-            self.inner.persist(verified)
+            self.inner.persist_audio(verified)
         }
         #[cfg(not(unix))]
         {
@@ -182,7 +185,7 @@ impl AudioStorage {
         }
     }
 
-    fn persist_image(&self, verified: &VerifiedImage) -> Result<StoredAudio, StoreError> {
+    fn persist_image(&self, verified: &VerifiedImage) -> Result<StoredObject, StoreError> {
         #[cfg(unix)]
         {
             self.inner.persist_image(verified)
@@ -234,8 +237,8 @@ mod unix {
     use sha2::{Digest, Sha256};
 
     use super::{
-        storage_error, StorageError, StoreError, StoredAudio, VerifiedAudio, VerifiedImage,
-        MAX_AUDIO_BYTES,
+        storage_error, StorageError, StoreError, StoredObject, VerifiedAudio, VerifiedImage,
+        MAX_OBJECT_BYTES,
     };
 
     pub(super) struct PrivateDirectories {
@@ -275,7 +278,10 @@ mod unix {
             Ok(Self { root, objects })
         }
 
-        pub(super) fn persist(&self, verified: &VerifiedAudio) -> Result<StoredAudio, StoreError> {
+        pub(super) fn persist_audio(
+            &self,
+            verified: &VerifiedAudio,
+        ) -> Result<StoredObject, StoreError> {
             let metadata = verified.metadata();
             self.persist_bytes(verified.bytes(), &metadata.sha256, metadata.byte_length)
         }
@@ -283,7 +289,7 @@ mod unix {
         pub(super) fn persist_image(
             &self,
             verified: &VerifiedImage,
-        ) -> Result<StoredAudio, StoreError> {
+        ) -> Result<StoredObject, StoreError> {
             let metadata = verified.metadata();
             self.persist_bytes(verified.bytes(), metadata.sha256(), metadata.byte_length())
         }
@@ -294,10 +300,10 @@ mod unix {
             bytes: &[u8],
             sha256: &str,
             byte_length: u64,
-        ) -> Result<StoredAudio, StoreError> {
+        ) -> Result<StoredObject, StoreError> {
             if byte_length != bytes.len() as u64
                 || byte_length == 0
-                || byte_length > MAX_AUDIO_BYTES
+                || byte_length > MAX_OBJECT_BYTES
                 || !valid_digest(sha256)
                 || format!("{:x}", Sha256::digest(bytes)) != sha256
             {
@@ -346,7 +352,7 @@ mod unix {
                 self.objects
                     .sync_all()
                     .map_err(|_| StoreError::Unavailable)?;
-                Ok(StoredAudio { object_key: key })
+                Ok(StoredObject { object_key: key })
             })();
             // Delete only this request's staging name. Never unlink the immutable object name.
             // SAFETY: the descriptor and C string remain owned and valid during unlinkat.
@@ -396,7 +402,7 @@ mod unix {
             if !valid_digest(object_key)
                 || object_key != sha256
                 || byte_length == 0
-                || byte_length > MAX_AUDIO_BYTES
+                || byte_length > MAX_OBJECT_BYTES
             {
                 return Err(StorageError::InvalidIntegrity);
             }
@@ -426,7 +432,7 @@ mod unix {
                     break;
                 }
                 let next = length + read as u64;
-                if next > byte_length || next > MAX_AUDIO_BYTES {
+                if next > byte_length || next > MAX_OBJECT_BYTES {
                     return Err(StorageError::LengthMismatch);
                 }
                 if let Some(expected) = expected_bytes {
@@ -585,7 +591,7 @@ mod unix {
                 // Resolve the test parent's platform alias; the configured storage root itself
                 // still must have no symlink components.
                 let parent = fs::canonicalize(std::env::temp_dir()).unwrap();
-                Self(parent.join(format!("cantos-audio-storage-{}", uuid::Uuid::new_v4())))
+                Self(parent.join(format!("cantos-private-storage-{}", uuid::Uuid::new_v4())))
             }
 
             fn storage(&self) -> PrivateDirectories {
@@ -607,8 +613,8 @@ mod unix {
             format!("{:x}", Sha256::digest(bytes))
         }
 
-        fn async_storage(scratch: &Scratch, bytes: &[u8]) -> super::super::AudioStorage {
-            let storage = super::super::AudioStorage::new(&scratch.0).unwrap();
+        fn async_storage(scratch: &Scratch, bytes: &[u8]) -> super::super::FilesystemStorage {
+            let storage = super::super::FilesystemStorage::new(&scratch.0).unwrap();
             storage
                 .inner
                 .persist_bytes(bytes, &digest(bytes), bytes.len() as u64)
@@ -630,7 +636,7 @@ mod unix {
 
         #[tokio::test]
         async fn inspected_images_survive_conditional_replay_restart_and_exact_private_reads() {
-            use super::super::{AudioStorage, ObjectIntegrity, ObjectKey, PrivateStorage};
+            use super::super::{FilesystemStorage, ObjectIntegrity, ObjectKey, PrivateStorage};
             use crate::contexts::media::{
                 domain::{image::ImageMime, object_storage::ByteRange},
                 image_intake::ImageAdmission,
@@ -638,7 +644,7 @@ mod unix {
             };
 
             let scratch = Scratch::new();
-            let storage = AudioStorage::new(&scratch.0).unwrap();
+            let storage = FilesystemStorage::new(&scratch.0).unwrap();
             for (bytes, mime) in [
                 (
                     include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice(),
@@ -664,7 +670,7 @@ mod unix {
                 }
                 let key = ObjectKey::for_bytes(bytes);
                 let integrity = ObjectIntegrity::for_bytes(bytes).unwrap();
-                let restarted = AudioStorage::new(&scratch.0).unwrap();
+                let restarted = FilesystemStorage::new(&scratch.0).unwrap();
                 restarted
                     .verify(key.clone(), integrity.clone())
                     .await
@@ -698,7 +704,7 @@ mod unix {
 
         #[tokio::test]
         async fn replay_of_an_inspected_image_rejects_corruption_without_overwriting_it() {
-            use super::super::{AudioStorage, PrivateStorage};
+            use super::super::{FilesystemStorage, PrivateStorage};
             use crate::contexts::media::{
                 domain::image::ImageMime, image_intake::ImageAdmission,
                 storage::port::VerifiedPayload,
@@ -706,7 +712,7 @@ mod unix {
 
             let bytes = include_bytes!("image_intake/fixtures/python-rgb-2x3.png").as_slice();
             let scratch = Scratch::new();
-            let storage = AudioStorage::new(&scratch.0).unwrap();
+            let storage = FilesystemStorage::new(&scratch.0).unwrap();
             let image = ImageAdmission::from_test_lanes(std::sync::Arc::new(
                 tokio::sync::Semaphore::new(1),
             ))
@@ -1035,7 +1041,7 @@ mod unix {
                     Err(StoreError::CorruptRevision)
                 ));
             }
-            for length in [0, MAX_AUDIO_BYTES + 1, u64::MAX] {
+            for length in [0, MAX_OBJECT_BYTES + 1, u64::MAX] {
                 assert!(matches!(
                     storage.verify(&expected, &expected, length, None),
                     Err(StoreError::CorruptRevision)
