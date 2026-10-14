@@ -1,0 +1,35 @@
+# Long Vân S3 private target: non-secret topology only. NOT accepted until the live runbook in
+# docs/evidence/longvan-s3-acceptance.md passes against the real account.
+# Credentials are read from the named environment variables at startup, never from this file.
+#
+# Observed without credentials on 2026-10-14: the HTTPS endpoint answers S3 XML errors in
+# path-style addressing. Everything else is UNVERIFIED: signing region, whether a duplicate
+# create is rejected (conditional PUT), Range reads, bucket versioning and the body-size limit.
+version = 1
+[storage]
+active_write_target = "longvan-hn1"
+
+# Keep every historical target that already has accepted records configured for reads, e.g.:
+# [storage.targets.legacy-filesystem]
+# driver = "filesystem"
+# private_root = "/var/lib/cantos/private"
+
+[storage.targets.longvan-hn1]
+driver = "s3"
+endpoint = "https://s3-hn1-r1.longvan.net"
+# Replace with the signing region Long Vân confirms. Do not infer it from the hostname.
+region = "confirm-with-longvan"
+# A wholly private bucket (or one this account owns exclusively). Never loosen access to it.
+private_bucket = "replace-with-private-bucket"
+force_path_style = true
+access_key_env = "CANTOS_S3_ACCESS_KEY_ID"
+secret_key_env = "CANTOS_S3_SECRET_ACCESS_KEY"
+connect_timeout_ms = 3000
+request_timeout_ms = 10000
+# Declared, not proven: the live runbook must observe a rejected duplicate create (412).
+conditional_put = true
+# Declared, not proven: the live runbook must observe exact 206 and Content-Range.
+range_reads = true
+# Direct grants need a version-pinned bucket and passing grant/expiry acceptance; until then
+# delivery stays on the protected API stream.
+presigned_reads = false

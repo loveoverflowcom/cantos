@@ -264,7 +264,10 @@ locations do not cross it. Theatre cannot reuse Studio cookies/handlers or invok
 | Publication | Unimplemented | Not implied by private S3 intake | Separate manifest/identity/isolation/CDN boundary after #11/#12 |
 
 Long Vân, R2 and B2 are configuration targets, not domain variants. This slice has no live
-acceptance for any of them. A one-bucket plan that cannot isolate future publication policy
+acceptance for any of them. The [Long Vân profile](../../services/cantos-api/config/storage.longvan.example.toml)
+and the operator-run live-acceptance harness are recorded in the
+[Long Vân evidence](../evidence/longvan-s3-acceptance.md); until that harness passes against the
+real account, the profile is a declaration, not acceptance. A one-bucket plan that cannot isolate future publication policy
 from private drafts cannot host that publication model; retain private-only intake or choose
 separate delivery storage. Never loosen private access for a bucket limit.
 
@@ -275,7 +278,9 @@ named fake-registry orchestration, controlled S3 HTTP boundaries, real PostgreSQ
 filesystem evidence. Mocked responses establish no vendor durability, privacy or performance.
 
 Live provider acceptance needs explicit operator authorization/credentials and disposable owned
-keys. Record account/endpoint class, fixture digest, observations and retention/cleanup owner
+keys. An ignored, operator-run test over this adapter (`live_private_bucket_acceptance`, never part
+of a gate) produces the redacted ledger for a provider; its commands are in the
+[Long Vân evidence](../evidence/longvan-s3-acceptance.md#operator-procedure). Record account/endpoint class, fixture digest, observations and retention/cleanup owner
 outside Git. Check manual HEAD (a provider probe, not a port operation), full GET, conditional
 upload/replay/conflict, actual bytes, Range `206`/`416`, version-pinned presign expiry/scoping,
 CORS, connection concurrency, cancellation/timeouts, latency and throughput. A CDN needs its own

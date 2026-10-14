@@ -646,6 +646,11 @@ fn status_error(status: StatusCode, capability: Option<StorageCapability>) -> St
     }
 }
 
+// Operator-run acceptance against a real provider; ignored and never selected by a gate.
+#[cfg(test)]
+#[path = "s3_live_acceptance.rs"]
+mod live_acceptance;
+
 #[cfg(test)]
 mod tests {
     use std::{

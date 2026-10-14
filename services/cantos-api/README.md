@@ -137,7 +137,9 @@ S3 assets; rollback after remote writes requires a compatible reader.
 ## Private audio storage
 
 Set an absolute `CANTOS_STORAGE_CONFIG` path to checked non-secret TOML; see
-[storage.example.toml](config/storage.example.toml) and the
+[storage.example.toml](config/storage.example.toml) (a Long Vân target profile is in
+[storage.longvan.example.toml](config/storage.longvan.example.toml), unaccepted until its
+[live acceptance](../../docs/evidence/longvan-s3-acceptance.md) runs) and the
 [configuration contract](../../docs/architecture/object-storage.md#checked-configuration-and-switching).
 Credentials use named environment inputs outside Git. Every configured target is validated at
 startup, including historical read targets, with no provider fallback. The preceding absolute

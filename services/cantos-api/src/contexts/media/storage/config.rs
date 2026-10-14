@@ -194,6 +194,30 @@ mod tests {
         }
     }
     #[test]
+    fn long_van_profile_parses_as_non_secret_topology_with_conservative_capabilities() {
+        let text = include_str!("../../../../config/storage.longvan.example.toml");
+        let config = StorageConfig::parse(text).unwrap();
+        let id = StorageTargetId::parse("longvan-hn1").unwrap();
+        assert_eq!(config.active, id);
+        let Some(TargetConfig::S3 {
+            settings,
+            access_key_env,
+            secret_key_env,
+            session_token_env,
+        }) = config.targets.get(&id)
+        else {
+            panic!("the Long Vân profile must be an S3 target");
+        };
+        assert!(settings.endpoint.starts_with("https://"));
+        assert!(settings.force_path_style && settings.conditional_put && settings.range_reads);
+        // Direct grants stay off until live version-pin, scoping and expiry acceptance passes.
+        assert!(!settings.presigned_reads);
+        assert_eq!(access_key_env, "CANTOS_S3_ACCESS_KEY_ID");
+        assert_eq!(secret_key_env, "CANTOS_S3_SECRET_ACCESS_KEY");
+        assert!(session_token_env.is_none());
+    }
+
+    #[test]
     fn credential_source_names_are_checked_without_reading_environment() {
         for name in ["CANTOS_ACCESS_KEY", "A1"] {
             assert!(valid_secret_name(name));
