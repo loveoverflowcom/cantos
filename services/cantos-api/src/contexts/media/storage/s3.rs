@@ -20,9 +20,10 @@ use super::{
     sigv4::{canonical_query, Signer, EMPTY_PAYLOAD_SHA256},
 };
 
-// Historical audio locations use this fixed private namespace. Images share it so reads keep
-// selecting only the recorded target/key; MIME never becomes a caller-selected path segment.
-const PRIVATE_PREFIX: &str = "private/audio";
+// One fixed private namespace for every verified media kind. The literal keeps its historical
+// `private/audio` spelling so recorded audio locations never move (object-storage.md); images
+// share it so reads select only the recorded target/key and MIME never becomes a path segment.
+const PRIVATE_OBJECT_NAMESPACE: &str = "private/audio";
 
 /// Non-secret transport options. The composition root resolves secret injection and chooses
 /// targets; this adapter never reads environment variables or changes a target's identity.
@@ -132,7 +133,7 @@ impl S3Storage {
         let mut url = self.endpoint.clone();
         if self.settings.force_path_style {
             url.set_path(&format!(
-                "/{}/{PRIVATE_PREFIX}/{}",
+                "/{}/{PRIVATE_OBJECT_NAMESPACE}/{}",
                 self.settings.bucket,
                 key.as_str()
             ));
@@ -141,7 +142,7 @@ impl S3Storage {
             let host = format!("{}.{host}", self.settings.bucket);
             url.set_host(Some(&host))
                 .map_err(|_| StorageError::InvalidTarget)?;
-            url.set_path(&format!("/{PRIVATE_PREFIX}/{}", key.as_str()));
+            url.set_path(&format!("/{PRIVATE_OBJECT_NAMESPACE}/{}", key.as_str()));
         }
         Ok(url)
     }
@@ -912,6 +913,12 @@ mod tests {
         .unwrap();
         assert!(!format!("{storage:?}").contains("sentinel"));
         assert!(!format!("{storage:?}").contains("private-bucket"));
+    }
+
+    #[test]
+    fn private_object_namespace_keeps_the_historical_audio_location() {
+        // Renaming the constant must never move recorded objects of any media kind.
+        assert_eq!(PRIVATE_OBJECT_NAMESPACE, "private/audio");
     }
 
     #[test]

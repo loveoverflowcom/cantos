@@ -12,7 +12,7 @@ use super::{
 };
 use super::{
     port::{PrivateStorage, VerifiedPayload},
-    AudioStorage,
+    FilesystemStorage,
 };
 use crate::platform::postgres::StoreError;
 use std::{
@@ -42,7 +42,7 @@ pub(crate) struct StorageRegistry {
 impl StorageRegistry {
     pub(crate) fn filesystem(root: &Path) -> Result<Self, StoreError> {
         let active = StorageTargetId::parse("legacy-filesystem").map_err(storage_error)?;
-        let adapter = AudioStorage::new(root)?;
+        let adapter = FilesystemStorage::new(root)?;
         Ok(Self {
             active: active.clone(),
             targets: BTreeMap::from([(active, Arc::new(adapter) as Arc<dyn PrivateStorage>)]),
@@ -60,7 +60,7 @@ impl StorageRegistry {
         let mut targets: BTreeMap<StorageTargetId, Arc<dyn PrivateStorage>> = BTreeMap::new();
         for (id, target) in config.targets {
             let adapter: Arc<dyn PrivateStorage> = match target {
-                TargetConfig::Filesystem(root) => Arc::new(AudioStorage::new(&root)?),
+                TargetConfig::Filesystem(root) => Arc::new(FilesystemStorage::new(&root)?),
                 TargetConfig::S3 {
                     settings,
                     access_key_env,
@@ -88,7 +88,7 @@ impl StorageRegistry {
             .cloned()
             .ok_or(StoreError::Storage(StorageError::Unavailable))
     }
-    pub(crate) async fn persist(
+    pub(crate) async fn persist_audio(
         &self,
         verified: VerifiedAudio,
     ) -> Result<RegistryStoredObject, StoreError> {

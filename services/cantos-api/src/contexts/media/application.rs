@@ -399,7 +399,7 @@ pub(super) async fn inspect_and_store(
     tokio::spawn(async move {
         let _permit = permit;
         let metadata = media(&verified);
-        let stored = objects.persist(verified).await?;
+        let stored = objects.persist_audio(verified).await?;
         Ok((metadata, stored))
     })
     .await

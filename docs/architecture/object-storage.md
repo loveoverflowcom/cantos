@@ -63,7 +63,8 @@ bytes come from that witness: Ogg/Opus audio or PNG/JPEG image, never a caller-s
 Images retain their separate 8 MiB encoded/64 MiB decoded admission policy; the shared
 32 MiB object envelope does not widen that policy. `persist_image` reuses the same registry,
 conditional writes, filesystem descriptors, S3 transport and bounded lanes. The historical
-S3 `private/audio/` prefix remains an internal shared namespace so old locations do not move.
+S3 `private/audio/` prefix (`PRIVATE_OBJECT_NAMESPACE` in the adapter, pinned by a unit test)
+remains an internal shared namespace so old locations do not move.
 Owner image preview exposes neither temporary grants nor ranges in this MVP.
 
 For image PUT, owner-backed `Bytes` retains `Arc<VerifiedImage>` through every transport
