@@ -10,6 +10,10 @@ pub enum ButtonVariant {
     Secondary,
     Text,
     Danger,
+    /// Capsule CTA for auth/account only; ordinary actions keep their existing geometry.
+    AuthPrimary,
+    AuthSecondary,
+    AuthOutlined,
 }
 
 impl ButtonVariant {
@@ -20,6 +24,9 @@ impl ButtonVariant {
             Self::Secondary => "secondary",
             Self::Text => "text",
             Self::Danger => "danger",
+            Self::AuthPrimary => "auth-primary",
+            Self::AuthSecondary => "auth-secondary",
+            Self::AuthOutlined => "auth-outlined",
         }
     }
 }
@@ -186,7 +193,7 @@ pub fn Button(
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>
-                {icon.map(|name| view! { <Icon name=name/> })}
+                {icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true"><Icon name=name/></span> })}
                 <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()

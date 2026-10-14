@@ -1,7 +1,11 @@
 package com.cantos.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -45,16 +49,20 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 )
 
 @Composable
-private fun Modifier.fieldSemantics(messages: FieldMessages): Modifier = fillMaxWidth()
-    .cantosFocus("shape.field")
+private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant): Modifier = fillMaxWidth()
+    .then(if (variant == TextFieldVariant.AuthTonal) Modifier.heightIn(min = tokenDp("size.authField")) else Modifier)
+    .cantosFocus(if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field")
+    .then(if (variant == TextFieldVariant.AuthTonal && messages.error != null) Modifier.border(
+        BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error")), CantosShapes.authField,
+    ) else Modifier)
     .semantics {
         if (messages.description.isNotBlank()) stateDescription = messages.description
         messages.error?.let { error(it) }
     }
 
 @Composable
-private fun fieldColors(state: FieldState): TextFieldColors {
-    val container = tokenColor(if (state == FieldState.ReadOnly) "color.surfaceContainer" else "color.surfaceContainerHigh")
+private fun fieldColors(state: FieldState, variant: TextFieldVariant): TextFieldColors {
+    val container = tokenColor(if (state == FieldState.ReadOnly || variant == TextFieldVariant.AuthTonal) "color.surfaceContainer" else "color.surfaceContainerHigh")
     val content = tokenColor("color.onSurface")
     val secondary = tokenColor("color.onSurfaceVariant")
     val error = tokenColor("color.error")
@@ -72,7 +80,7 @@ private fun fieldColors(state: FieldState): TextFieldColors {
         focusedIndicatorColor = Color.Transparent,
         unfocusedIndicatorColor = Color.Transparent,
         disabledIndicatorColor = Color.Transparent,
-        errorIndicatorColor = error,
+        errorIndicatorColor = if (variant == TextFieldVariant.AuthTonal) Color.Transparent else error,
         focusedLabelColor = tokenColor("color.primary"),
         unfocusedLabelColor = secondary,
         disabledLabelColor = secondary,
@@ -90,6 +98,25 @@ private fun fieldSupportingText(messages: FieldMessages): (@Composable () -> Uni
         }
     })
 
+/** Auth help remains readable outside the functional boundary and focus paint. */
+@Composable
+private fun FieldFrame(
+    modifier: Modifier,
+    variant: TextFieldVariant,
+    messages: FieldMessages,
+    content: @Composable (Modifier) -> Unit,
+) {
+    if (variant == TextFieldVariant.Regular) {
+        content(modifier)
+    } else {
+        val supportGap = tokenDp("size.focusOffset") + tokenDp("size.focusWidth") + tokenDp("space.xs")
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(supportGap)) {
+            content(Modifier)
+            fieldSupportingText(messages)?.invoke()
+        }
+    }
+}
+
 @Composable
 private fun ControlledTextField(
     label: String,
@@ -104,26 +131,30 @@ private fun ControlledTextField(
     keyboardActions: KeyboardActions,
     minLines: Int = 1,
     maxLines: Int = Int.MAX_VALUE,
+    variant: TextFieldVariant = TextFieldVariant.Regular,
+    controlModifier: Modifier = Modifier,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
-    MaterialTextField(
-        value = value,
-        onValueChange = { if (state.acceptsInput()) onValueChange(it) },
-        modifier = modifier.fieldSemantics(messages),
-        label = { Text(label) },
-        enabled = state.isEnabled(),
-        readOnly = state == FieldState.ReadOnly,
-        isError = messages.error != null,
-        singleLine = singleLine,
-        minLines = minLines,
-        maxLines = maxLines,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions.guardedBy(state),
-        shape = CantosShapes.reading,
-        colors = fieldColors(state),
-        supportingText = fieldSupportingText(messages),
-    )
+    FieldFrame(modifier, variant, messages) { frameModifier ->
+        MaterialTextField(
+            value = value,
+            onValueChange = { if (state.acceptsInput()) onValueChange(it) },
+            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant),
+            label = { Text(label) },
+            enabled = state.isEnabled(),
+            readOnly = state == FieldState.ReadOnly,
+            isError = messages.error != null,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions.guardedBy(state),
+            shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
+            colors = fieldColors(state, variant),
+            supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
+        )
+    }
 }
 
 @Composable
@@ -140,26 +171,30 @@ private fun ControlledTextField(
     keyboardActions: KeyboardActions,
     minLines: Int = 1,
     maxLines: Int = Int.MAX_VALUE,
+    variant: TextFieldVariant = TextFieldVariant.Regular,
+    controlModifier: Modifier = Modifier,
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
-    MaterialTextField(
-        value = value,
-        onValueChange = { if (state.acceptsValueChange(value, it)) onValueChange(it) },
-        modifier = modifier.fieldSemantics(messages),
-        label = { Text(label) },
-        enabled = state.isEnabled(),
-        readOnly = state == FieldState.ReadOnly,
-        isError = messages.error != null,
-        singleLine = singleLine,
-        minLines = minLines,
-        maxLines = maxLines,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions.guardedBy(state),
-        shape = CantosShapes.reading,
-        colors = fieldColors(state),
-        supportingText = fieldSupportingText(messages),
-    )
+    FieldFrame(modifier, variant, messages) { frameModifier ->
+        MaterialTextField(
+            value = value,
+            onValueChange = { if (state.acceptsValueChange(value, it)) onValueChange(it) },
+            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant),
+            label = { Text(label) },
+            enabled = state.isEnabled(),
+            readOnly = state == FieldState.ReadOnly,
+            isError = messages.error != null,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions.guardedBy(state),
+            shape = if (variant == TextFieldVariant.AuthTonal) CantosShapes.authField else CantosShapes.reading,
+            colors = fieldColors(state, variant),
+            supportingText = if (variant == TextFieldVariant.AuthTonal) null else fieldSupportingText(messages),
+        )
+    }
 }
 
 /** Controlled raw text; the native field owns cursor/selection internally. */
@@ -174,6 +209,8 @@ fun TextField(
     error: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    variant: TextFieldVariant = TextFieldVariant.Regular,
+    controlModifier: Modifier = Modifier,
 ) {
     ControlledTextField(
         label = label,
@@ -186,6 +223,8 @@ fun TextField(
         singleLine = true,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
+        variant = variant,
+        controlModifier = controlModifier,
     )
 }
 
@@ -201,6 +240,8 @@ fun TextField(
     error: String? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    variant: TextFieldVariant = TextFieldVariant.Regular,
+    controlModifier: Modifier = Modifier,
 ) {
     ControlledTextField(
         label = label,
@@ -213,6 +254,8 @@ fun TextField(
         singleLine = true,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
+        variant = variant,
+        controlModifier = controlModifier,
     )
 }
 

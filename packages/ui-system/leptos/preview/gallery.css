@@ -150,3 +150,10 @@
 }
 .cui-gallery-avatars { flex-wrap: wrap; }
 .cui-gallery-avatars > span { display: inline-flex; align-items: center; gap: var(--cantos-space-sm); min-inline-size: 0; }
+
+/* Scoped diagnostic CTA layout, not a production form or screen. */
+:where(.cantos-ui) .cui-auth-specimen .cui-button-field {
+  display: grid;
+  inline-size: 100%;
+  justify-items: stretch;
+}

@@ -30,6 +30,7 @@ pub enum SurfaceTone {
     Container,
     High,
     Reading,
+    PrimaryContainer,
 }
 
 impl SurfaceTone {
@@ -39,6 +40,30 @@ impl SurfaceTone {
             Self::Container => "container",
             Self::High => "high",
             Self::Reading => "reading",
+            Self::PrimaryContainer => "primary-container",
+        }
+    }
+}
+
+/// Scoped auth/account geometry; regular listening/editor containment remains unchanged.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SurfaceVariant {
+    #[default]
+    Regular,
+    Auth,
+    Profile,
+    Membership,
+    AccountGroup,
+}
+
+impl SurfaceVariant {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Regular => "regular",
+            Self::Auth => "auth",
+            Self::Profile => "profile",
+            Self::Membership => "membership",
+            Self::AccountGroup => "account-group",
         }
     }
 }
@@ -48,12 +73,13 @@ impl SurfaceTone {
 pub fn Surface(
     children: Children,
     #[prop(optional)] tone: SurfaceTone,
+    #[prop(optional)] variant: SurfaceVariant,
     #[prop(default = Space::Md)] inset: Space,
     #[prop(optional, into)] class: Signal<String>,
 ) -> impl IntoView {
     view! {
         <div class=move || format!("cui-surface {}", class.get())
-            data-tone=tone.as_str() data-inset=inset.as_str()>{children()}</div>
+            data-tone=tone.as_str() data-variant=variant.as_str() data-inset=inset.as_str()>{children()}</div>
     }
 }
 

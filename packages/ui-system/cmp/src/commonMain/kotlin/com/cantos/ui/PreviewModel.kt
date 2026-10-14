@@ -34,7 +34,9 @@ enum class PreviewExample(val id: String) {
     Container("container"),
     Dialog("dialog"),
     Icon("icon"),
-    Avatar("avatar");
+    Avatar("avatar"),
+    BackButton("back-button"),
+    Logo("logo");
 
     companion object {
         fun fromId(id: String): PreviewExample? = entries.firstOrNull { it.id == id }

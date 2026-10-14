@@ -225,6 +225,98 @@
 :where(.cantos-ui) .cui-icon-button {
   padding: var(--cantos-space-sm);
 }
+/* Issue 127: opt-in auth/account roles. Ordinary controls retain the Web mapping above.
+   Native :active and focus interrupt without a timer; this is a CSS transition, not a spring. */
+:where(.cantos-ui) .cui-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+:where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
+  border-radius: var(--cantos-shape-pill);
+  min-block-size: var(--cantos-size-auth-secondary);
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-button[data-variant="auth-primary"] {
+  min-block-size: var(--cantos-size-auth-primary);
+}
+:where(.cantos-ui) .cui-button[data-variant="auth-primary"] .cui-button-icon {
+  inline-size: var(--cantos-size-auth-icon);
+  block-size: var(--cantos-size-auth-icon);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-on-primary);
+  color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-button[data-variant="auth-secondary"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-button[data-variant="auth-outlined"] {
+  border: var(--cantos-size-auth-outline) solid var(--cantos-color-outline);
+  background: transparent;
+  color: var(--cantos-color-primary);
+}
+:where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]):active:not(:disabled) {
+  border-radius: var(--cantos-shape-auth-pressed);
+}
+:where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]):disabled {
+  background: var(--cantos-color-surface-container);
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-button[data-variant="auth-primary"]:disabled .cui-button-icon {
+  background: var(--cantos-color-on-surface-variant);
+  color: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui) .cui-back-button {
+  min-block-size: var(--cantos-size-back-control);
+  padding: 0;
+  background: transparent;
+  color: var(--cantos-color-primary);
+  border-radius: var(--cantos-shape-pill);
+}
+:where(.cantos-ui) .cui-back-button .cui-button-icon {
+  inline-size: var(--cantos-size-back-control);
+  block-size: var(--cantos-size-back-control);
+  border-radius: var(--cantos-shape-pill);
+  background: var(--cantos-color-surface-container);
+  transition: border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-back-button:active:not(:disabled) .cui-button-icon {
+  border-radius: var(--cantos-shape-auth-pressed);
+}
+:where(.cantos-ui) .cui-back-button-icon-only { gap: 0; }
+:where(.cantos-ui) .cui-surface[data-tone="primary-container"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+/* Metadata inside a primary container inherits its paired foreground, not muted ink. */
+:where(.cantos-ui) .cui-surface[data-tone="primary-container"] :where(.cui-field-help, .cui-button-reason) {
+  color: inherit;
+}
+:where(.cantos-ui) .cui-surface[data-variant="auth"] { border-radius: var(--cantos-shape-auth-container); }
+:where(.cantos-ui) .cui-surface[data-variant="profile"] { border-radius: var(--cantos-shape-profile-container); }
+:where(.cantos-ui) .cui-surface[data-variant="membership"] { border-radius: var(--cantos-shape-membership-container); }
+:where(.cantos-ui) .cui-surface[data-variant="account-group"] { border-radius: var(--cantos-shape-account-group); }
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control {
+  min-block-size: var(--cantos-size-auth-field);
+  border-radius: var(--cantos-shape-auth-field);
+}
+/* Invalid input retains the existing errorContainer cue. Read-only/disabled already use
+   this quiet container tone and keep their native semantics and foreground unchanged. */
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:not([aria-invalid="true"]) {
+  background: var(--cantos-color-surface-container);
+}
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+  background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) { transition: none; }
+  :where(.cantos-ui) .cui-back-button .cui-button-icon { transition: none; }
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-button[data-variant="auth-outlined"] { border: var(--cantos-size-auth-outline) solid ButtonText; }
+}
 :where(.cantos-ui) .cui-sr-only {
   position: absolute;
   inline-size: 1px;
@@ -667,3 +759,12 @@
   scroll-margin-block-start: var(--cantos-space-lg);
 }
 :where(.cantos-ui) .cui-gallery-page .cui-surface > p + p { margin-block-start: var(--cantos-space-sm); }
+
+/* Official SVG lockups retain their natural viewBox ratio and transparent negative space. */
+:where(.cantos-ui) .cui-logo {
+  display: block;
+  max-inline-size: 100%;
+  block-size: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}

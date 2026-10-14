@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -17,6 +18,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.generated.CantosIcons
 import com.cantos.ui.generated.CantosTokens
+
+/** Metadata remains muted on regular surfaces; an explicit paired surface may override it. */
+internal val LocalSupportingTextRole = staticCompositionLocalOf { "color.onSurfaceVariant" }
 
 @Composable
 fun UiRoot(
@@ -37,7 +41,7 @@ fun FieldLabel(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun FieldHelp(text: String, modifier: Modifier = Modifier) {
     if (text.isBlank()) return
-    Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = tokenColor("color.onSurfaceVariant"))
+    Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = tokenColor(LocalSupportingTextRole.current))
 }
 
 @Composable

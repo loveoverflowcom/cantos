@@ -1,7 +1,6 @@
 package com.cantos.ui.preview
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,11 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,17 +42,17 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import com.cantos.ui.Announcement
-import com.cantos.ui.SelectOption
-import com.cantos.ui.Space
 import com.cantos.ui.AccessibleName
+import com.cantos.ui.Announcement
 import com.cantos.ui.Avatar
 import com.cantos.ui.AvatarInitials
 import com.cantos.ui.AvatarSize
+import com.cantos.ui.BackButton
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
+import com.cantos.ui.CantosTheme
 import com.cantos.ui.Checkbox
 import com.cantos.ui.Container
 import com.cantos.ui.ContainerWidth
@@ -72,6 +72,9 @@ import com.cantos.ui.IconButton
 import com.cantos.ui.Link
 import com.cantos.ui.LoadingState
 import com.cantos.ui.LocalUiPreferences
+import com.cantos.ui.Logo
+import com.cantos.ui.LogoTone
+import com.cantos.ui.LogoVariant
 import com.cantos.ui.NavItem
 import com.cantos.ui.NavTabs
 import com.cantos.ui.NumberField
@@ -79,27 +82,31 @@ import com.cantos.ui.PreviewExample
 import com.cantos.ui.Radio
 import com.cantos.ui.RangeField
 import com.cantos.ui.Select
+import com.cantos.ui.SelectOption
+import com.cantos.ui.Space
 import com.cantos.ui.Stack
 import com.cantos.ui.StackDirection
 import com.cantos.ui.Status
 import com.cantos.ui.StatusTone
 import com.cantos.ui.Surface
 import com.cantos.ui.SurfaceTone
+import com.cantos.ui.SurfaceVariant
 import com.cantos.ui.Switch
 import com.cantos.ui.TextArea
 import com.cantos.ui.TextField
+import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.UiRoot
 import com.cantos.ui.filterComponents
-import com.cantos.ui.resolvePreviewSelection
 import com.cantos.ui.generated.CantosIcons
 import com.cantos.ui.generated.CantosTokens
 import com.cantos.ui.generated.PreviewCatalog
 import com.cantos.ui.generated.PreviewComponent
 import com.cantos.ui.generated.TokenValue
-import com.cantos.ui.tokenColor
 import com.cantos.ui.parseTokenColor
+import com.cantos.ui.resolvePreviewSelection
+import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 import com.cantos.ui.typeStyle
 
@@ -376,7 +383,38 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
                 }
             }
         }
-        PreviewExample.Button -> Stack {
+        PreviewExample.BackButton -> {
+            val name = if (state == "long-vietnamese" || state == "large-text") {
+                "Quay lại Tài khoản của Nguyễn Thị Minh Phương · giữ nguyên nội dung đã nhập · Ỗ, Ữ"
+            } else "Quay lại Tài khoản"
+            val preferences = LocalUiPreferences.current
+            CantosTheme(preferences.copy(
+                textScale = if (state == "large-text") 2f else preferences.textScale,
+                theme = when (state) { "light" -> Theme.Light; "dark" -> Theme.Dark; else -> preferences.theme },
+            )) {
+                BackButton(
+                    AccessibleName.of(name), onPress, state = buttonState,
+                    iconOnly = state !in listOf("named", "long-vietnamese", "large-text"),
+                    controlModifier = modifier,
+                    interactionSource = rememberSamplePress(state == "pressed"),
+                )
+            }
+        }
+        PreviewExample.Logo -> {
+            Logo(variant = LogoVariant.Cantos,
+                tone = if (LocalUiPreferences.current.theme == Theme.Dark) LogoTone.Dark else LogoTone.Light)
+            LogoSamples(state)
+        }
+        PreviewExample.Button -> if (state in listOf("auth-primary", "auth-secondary", "auth-outlined", "pressed", "long-vietnamese", "large-text")) {
+            val preferences = LocalUiPreferences.current
+            CantosTheme(preferences.copy(textScale = if (state == "large-text") 2f else preferences.textScale)) {
+                AuthActionSample(when (state) {
+                    "pressed" -> "auth-pressed"
+                    "long-vietnamese", "large-text" -> "auth-long-label"
+                    else -> state
+                }, onPress, modifier)
+            }
+        } else Stack {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                 ButtonVariant.entries.forEach { variant ->
@@ -419,7 +457,14 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             choice, { choice = it; onEvent("Tab: $it") }, modifier,
             groupName = AccessibleName.of("Các phần bản nháp"), state = buttonState)
         PreviewExample.TextField -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            if (state == "selection" || state == "ime-action") {
+            if (state in listOf("auth-tonal", "long-vietnamese", "large-text")) {
+                val preferences = LocalUiPreferences.current
+                CantosTheme(preferences.copy(textScale = if (state == "large-text") 2f else preferences.textScale)) {
+                    TextField("Tên hiển thị của Nguyễn Thị Minh Phương · Ỗ, Ữ", richText, { richText = it },
+                        help = "Nội dung chỉ là minh họa; không mở form mật khẩu hay gửi thông tin.",
+                        variant = TextFieldVariant.AuthTonal, controlModifier = modifier)
+                }
+            } else if (state == "selection" || state == "ime-action") {
                 TextField("Tên tác phẩm", richText, { richText = it }, modifier,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { onEvent("TextField · Done · ${richText.text}") }))
@@ -427,6 +472,9 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             } else {
                 TextField("Tên tác phẩm", title, { title = it; onEvent("TextField: value updated") }, modifier, fieldState,
                     "Tên có dấu được giữ nguyên, không chuẩn hóa khi gõ.", error)
+                TextField("Tên hiển thị minh họa", title, { title = it; onEvent("Auth TextField: value updated") },
+                    state = fieldState, help = "Giữ nguyên nội dung đã nhập và dấu tiếng Việt.", error = error,
+                    variant = TextFieldVariant.AuthTonal)
             }
         }
         PreviewExample.TextArea -> Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -518,11 +566,23 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             "container" -> SurfaceTone.Container
             "high" -> SurfaceTone.Raised
             "reading" -> SurfaceTone.Reading
+            "profile", "primary-container" -> SurfaceTone.PrimaryContainer
+            "membership" -> SurfaceTone.Container
             else -> SurfaceTone.Surface
-        }, inset = if (state == "inset-none") Space.None else Space.Md) {
+        }, inset = if (state == "inset-none") Space.None else Space.Md,
+            variant = when (state) {
+                "auth" -> SurfaceVariant.Auth
+                "profile", "primary-container" -> SurfaceVariant.Profile
+                "membership" -> SurfaceVariant.Membership
+                "account-group", "large-text" -> SurfaceVariant.AccountGroup
+                else -> SurfaceVariant.Regular
+            }) {
             val text = "Ánh đèn cuối sân khấu · Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên dấu tiếng Việt trong lời thoại dài."
-            Text(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text,
-                style = if (state == "reading") typeStyle("editor", editorial = true) else MaterialTheme.typography.bodyMedium)
+            val preferences = LocalUiPreferences.current
+            CantosTheme(preferences.copy(textScale = if (state == "large-text") 2f else preferences.textScale)) {
+                Text(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text,
+                    style = if (state == "reading") typeStyle("editor", editorial = true) else MaterialTheme.typography.bodyMedium)
+            }
         }
         PreviewExample.Stack -> Stack(modifier, when (state) {
             "horizontal" -> StackDirection.Horizontal
