@@ -59,6 +59,8 @@ impl ListenerAuthenticator for DenyListenerAuthentication {
         Box::pin(async { Err(AuthenticationError::Unauthenticated) })
     }
 }
+pub use super::theatre_identity::{NativeListenerAuthenticator, TheatreListenerAuthenticator};
+
 #[cfg(test)]
 mod tests {
     use super::*;

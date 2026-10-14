@@ -1,0 +1,39 @@
+package com.cantos.theatre.ports
+
+enum class NativeApiFailure { Unavailable, Unauthorized, Denied, Protocol, UnknownOutcome, SessionChanged }
+sealed interface NativeApiResult<out T> {
+    class Accepted<T>(val value: T) : NativeApiResult<T>
+    data class Refused(val reason: NativeApiFailure) : NativeApiResult<Nothing>
+}
+class NativeFlow(val id: String, val authorizationUrl: String) {
+    override fun toString(): String = "NativeFlow([redacted])"
+}
+class NativeSession(val actor: String, val session: String, val expiresAt: Long, val credential: String?) {
+    override fun toString(): String = "NativeSession([redacted])"
+}
+interface NativeIdentityApi {
+    suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow>
+    suspend fun exchange(flow: String, state: String, code: String, verifier: String): NativeApiResult<NativeSession>
+    suspend fun session(credential: String): NativeApiResult<NativeSession>
+    suspend fun revoke(credential: String): NativeApiResult<Unit>
+    suspend fun saved(credential: String, session: String): NativeApiResult<Int>
+}
+
+/** Platform HTTP boundary. Requests and responses never stringify bearer/body values. */
+class NativeHttpRequest internal constructor(val method: String, val url: String, val body: String?, val bearer: String?, val expectedSession: String? = null) {
+    override fun toString(): String = "NativeHttpRequest([redacted])"
+}
+class NativeHttpResponse(val status: Int, val contentType: String?, val body: String?, val failure: String?, val actualSession: String? = null) {
+    override fun toString(): String = "NativeHttpResponse([redacted])"
+}
+interface NativeRequestHandle { fun cancel() }
+interface NativeHttpPort {
+    fun send(request: NativeHttpRequest, completion: (NativeHttpResponse) -> Unit): NativeRequestHandle
+}
+enum class LogoutBarrierRead { Clear, Pending, Unavailable }
+/** Nonsecret durable logout intent only. Written before HTTP revocation or OS deletion. */
+interface LogoutBarrier {
+    fun read(): LogoutBarrierRead
+    fun mark(): CredentialFailure?
+    fun clear(): CredentialFailure?
+}

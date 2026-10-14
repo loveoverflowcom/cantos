@@ -2,7 +2,8 @@
 use super::common::*;
 use crate::{
     app::{context::TheatreContext, routes::Route},
-    messages::Key,
+    application::account_view::{AccountFailure, AccountViewState, LibraryPhase, SessionPhase},
+    messages::{self, Key, Locale},
 };
 use leptos::prelude::*;
 
@@ -78,6 +79,89 @@ pub(crate) fn Account(ctx: TheatreContext) -> impl IntoView {
     }
 }
 
+pub(crate) fn account_failure_key(failure: AccountFailure) -> Key {
+    match failure {
+        AccountFailure::SignedOut => Key::LiveGuestStatus,
+        AccountFailure::SessionChanged => Key::AccountSessionChanged,
+        AccountFailure::Unavailable => Key::AccountUnavailable,
+        AccountFailure::Protocol => Key::AccountProtocol,
+        AccountFailure::Navigation => Key::AccountNavigation,
+        AccountFailure::LogoutPending => Key::AccountLogoutRetryHelp,
+    }
+}
+
+fn live_status_key(state: &AccountViewState) -> Key {
+    match state.phase() {
+        SessionPhase::Idle | SessionPhase::Checking => Key::AccountChecking,
+        SessionPhase::Guest => Key::LiveGuestStatus,
+        SessionPhase::SignedIn => Key::SignedInListener,
+        SessionPhase::Failed(failure) => account_failure_key(failure),
+        SessionPhase::LogoutPending => {
+            if state.cleanup_in_flight() {
+                Key::AccountLogoutPending
+            } else {
+                Key::AccountLogoutRetryHelp
+            }
+        }
+    }
+}
+
+#[component]
+pub(crate) fn LiveAccount(
+    state: RwSignal<AccountViewState>,
+    locale: RwSignal<Locale>,
+) -> impl IntoView {
+    view! {
+        <section id="account" class="theatre-account" aria-labelledby="theatre-live-account-heading">
+            <div class="theatre-panel theatre-account-identity">
+                <span class="theatre-avatar" data-size="large" aria-hidden="true"><PersonGlyph/></span>
+                <div class="theatre-account-name">
+                    <h2 id="theatre-live-account-heading">{move || messages::text(Key::Account, locale.get())}</h2>
+                    <p id="theatre-live-account-status" role="status" aria-live="polite">
+                        {move || messages::text(live_status_key(&state.get()), locale.get())}
+                    </p>
+                    {move || state.get().actor().map(|actor| view! {
+                        <p class="theatre-muted">{messages::format(Key::AccountReference, locale.get(), &[("actor", actor.to_owned())])}</p>
+                    })}
+                </div>
+            </div>
+            <div class="theatre-account-content theatre-panel">
+                <div class="theatre-actions">
+                    <Show when=move || state.get().can_login()>
+                        <button type="button" class="theatre-action" on:click=move |_| {
+                            #[cfg(target_arch = "wasm32")]
+                            crate::live::runtime::login(state);
+                        }><span class="cui-control-label">{move || messages::text(Key::SignIn, locale.get())}</span></button>
+                    </Show>
+                    <Show when=move || state.get().phase() == SessionPhase::SignedIn>
+                        <button type="button" class="theatre-action" on:click=move |_| {
+                            #[cfg(target_arch = "wasm32")]
+                            crate::live::runtime::logout(state);
+                        }><span class="cui-control-label">{move || messages::text(Key::SignOut, locale.get())}</span></button>
+                    </Show>
+                    <Show when=move || state.get().can_retry_logout()>
+                        <button type="button" class="theatre-action" on:click=move |_| {
+                            #[cfg(target_arch = "wasm32")]
+                            crate::live::runtime::logout(state);
+                        }><span class="cui-control-label">{move || messages::text(Key::AccountLogoutRetry, locale.get())}</span></button>
+                    </Show>
+                    <button type="button" class="theatre-action theatre-action-tonal"
+                        aria-describedby="theatre-live-account-status"
+                        disabled=move || {
+                            let current = state.get();
+                            matches!(current.phase(), SessionPhase::Checking | SessionPhase::LogoutPending)
+                                || current.library_phase() == LibraryPhase::Loading
+                        }
+                        on:click=move |_| {
+                            #[cfg(target_arch = "wasm32")]
+                            crate::live::runtime::refresh(state);
+                        }><span class="cui-control-label">{move || messages::text(Key::AccountRefresh, locale.get())}</span></button>
+                </div>
+            </div>
+        </section>
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,6 +209,37 @@ mod tests {
                 assert!(html.contains(text), "{text}");
             }
             assert!(!html.contains("Người nghe khách"));
+        });
+    }
+
+    #[test]
+    fn live_guest_offers_login_only_after_cookie_cleanup_and_pending_logout_explains_retry() {
+        Owner::new().with(|| {
+            let state = RwSignal::new(AccountViewState::default());
+            let locale = RwSignal::new(Locale::Vietnamese);
+            let issued = state.write().begin_refresh().unwrap();
+            let crate::application::account_view::SessionCompletion::Cleanup(cleanup) = state
+                .write()
+                .finish_session(issued, Err(AccountFailure::SignedOut))
+                .unwrap()
+            else {
+                panic!("401 requires cleanup")
+            };
+            let pending = view! { <LiveAccount state locale/> }.to_html();
+            assert!(pending.contains("Đang đăng xuất"));
+            assert!(!pending.contains("Đăng nhập"));
+            state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable));
+            let retry = view! { <LiveAccount state locale/> }.to_html();
+            assert!(retry.contains("Hoàn tất đăng xuất"));
+            assert!(!retry.contains("Đăng nhập"));
+            state.write().finish_logout(cleanup, Ok(()));
+            let guest = view! { <LiveAccount state locale/> }.to_html();
+            assert!(guest.contains("Đăng nhập"));
+            for forbidden in ["Cantos Theatre", "access_token", "session_id", "/studio"] {
+                assert!(!guest.contains(forbidden), "{forbidden}");
+            }
         });
     }
 }

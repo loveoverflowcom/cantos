@@ -10,6 +10,10 @@
             isa = PBXBuildFile;
             fileRef = A10000000000000000000002 /* CantosDemoApp.swift */;
         };
+        A10000000000000000000013 /* TheatreIdentity.swift in Sources */ = {
+            isa = PBXBuildFile;
+            fileRef = A10000000000000000000014 /* TheatreIdentity.swift */;
+        };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -17,6 +21,12 @@
             isa = PBXFileReference;
             lastKnownFileType = sourcecode.swift;
             path = CantosDemoApp.swift;
+            sourceTree = "<group>";
+        };
+        A10000000000000000000014 /* TheatreIdentity.swift */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = sourcecode.swift;
+            path = TheatreIdentity.swift;
             sourceTree = "<group>";
         };
         A10000000000000000000003 /* CantosDemo.app */ = {
@@ -48,7 +58,7 @@
         };
         A10000000000000000000006 /* CantosDemo */ = {
             isa = PBXGroup;
-            children = (A10000000000000000000002 /* CantosDemoApp.swift */);
+            children = (A10000000000000000000002 /* CantosDemoApp.swift */, A10000000000000000000014 /* TheatreIdentity.swift */);
             path = CantosDemo;
             sourceTree = "<group>";
         };
@@ -127,7 +137,7 @@
         A1000000000000000000000A /* Sources */ = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A10000000000000000000001 /* CantosDemoApp.swift in Sources */);
+            files = (A10000000000000000000001 /* CantosDemoApp.swift in Sources */, A10000000000000000000013 /* TheatreIdentity.swift in Sources */);
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXSourcesBuildPhase section */

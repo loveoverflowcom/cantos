@@ -3,9 +3,9 @@ use super::{classify, Failure, ProbePhase};
 use gloo_net::http::Request;
 use web_sys::wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{AbortController, RequestCredentials};
-struct Deadline {
+pub(super) struct Deadline {
     window: web_sys::Window,
-    controller: AbortController,
+    pub(super) controller: AbortController,
     timer: i32,
     _callback: Closure<dyn FnMut()>,
 }
@@ -41,7 +41,7 @@ pub async fn probe(controller: AbortController) -> ProbePhase {
         Err(_) => ProbePhase::Failed(Failure::Transport),
     }
 }
-fn deadline(controller: AbortController) -> Result<Deadline, ()> {
+pub(super) fn deadline(controller: AbortController) -> Result<Deadline, ()> {
     let window = web_sys::window().ok_or(())?;
     let abort = controller.clone();
     let callback = Closure::wrap(Box::new(move || abort.abort()) as Box<dyn FnMut()>);

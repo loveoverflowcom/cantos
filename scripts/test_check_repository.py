@@ -214,10 +214,11 @@ use crate::{script_ir::read_script, contexts::editorial::domain::EvidenceKind};
 """), [])
 
     def test_oidc_core_is_pure_and_session_facts_are_platform_owned(self):
-        self.assertEqual(self.errors("platform/studio_oidc/core.rs", "use crate::platform::identity::domain::ExternalIdentityKey;"), [])
-        self.assertRejected("platform/studio_oidc/core.rs", "use reqwest::Client;", "pure domain must not depend on I/O")
-        self.assertRejected("platform/studio_oidc/core.rs", "use super::provider::Provider;", "pure domain may use only")
+        self.assertEqual(self.errors("platform/oidc/core.rs", "use crate::platform::identity::domain::ExternalIdentityKey;"), [])
+        self.assertRejected("platform/oidc/core.rs", "use reqwest::Client;", "pure domain must not depend on I/O")
+        self.assertRejected("platform/oidc/core.rs", "use super::provider::Provider;", "pure domain may use only")
         self.assertRejected("contexts/editorial/postgres/read.rs", 'const Q: &str = "SELECT * FROM studio_oidc_sessions";', "SQL table studio_oidc_sessions belongs to platform")
+        self.assertRejected("contexts/editorial/postgres/read.rs", 'const Q: &str = "SELECT * FROM theatre_identity_sessions";', "SQL table theatre_identity_sessions belongs to platform")
 
     def test_identity_domain_is_pure_and_registry_table_is_platform_owned(self):
         self.assertEqual(self.errors("platform/identity/domain.rs", """
@@ -479,7 +480,7 @@ fn error(e: PublicationStoreError) { match e { PublicationStoreError::Domain(Pub
         self.assertEqual(self.errors("interfaces/http/theatre_library.rs", """
 use crate::contexts::listening::{LibraryService, LibraryError};
 use crate::contexts::listening::auth::{ListenerAuthenticator, ListenerCredentials, AuthenticatedListener};
-fn f() { crate::contexts::listening::LibraryService::new(store); }
+fn f() { crate::contexts::listening::LibraryService::new(store); crate::contexts::listening::auth::TheatreListenerAuthenticator::new(store); }
 """), [])
         for symbol in ("reconcile_progress", "projection::continue_records"):
             self.assertRejected("interfaces/http/theatre_library.rs",

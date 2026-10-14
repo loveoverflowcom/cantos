@@ -198,8 +198,7 @@ fn config_and_cookie_policy_cannot_enable_remote_http_or_cross_origin_metadata()
     assert_eq!(oidc.cookie(oidc.flow_name(),"opaque","Lax",300),"__Secure-cantos_oidc=opaque; HttpOnly; SameSite=Lax; Path=/api/v1/studio; Max-Age=300; Secure");
 }
 
-#[path = "../../../tests/support/oidc_provider.rs"]
-mod mock;
+use crate::platform::oidc::mock;
 
 #[test]
 fn immutable_browser_inventory_is_bounded_duplicate_free_and_has_no_identity_authority() {

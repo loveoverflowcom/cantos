@@ -3,8 +3,66 @@
 This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens, an Android
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
 in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
-commands; no API, authentication, native media engine, audio, downloads, sync, billing, provider
-or durable persistence is connected. Studio is web-only.
+commands; the default mock has no API, authentication, native media engine, audio, downloads,
+sync, billing, provider or durable persistence. The separate opt-in native identity boundary
+below never feeds authenticated data into mock state. Studio is web-only.
+
+## Opt-in native identity
+
+`NativeAccountController` owns the native protocol and account lifecycle on the process/main
+dispatcher. `NativeIdentityClient` calls separate `/api/v1/theatre/native/*` endpoints over
+the exact configured HTTPS API origin. The native client is public: no Studio/Web client
+secret is embedded. Fresh state/nonce/verifier and S256 bind the system-browser callback to a
+durable server flow. The client consumes its pending flow before one exchange and never retries
+a code after an unknown outcome. Provider credentials remain on the backend; the OS store
+contains only a distinct opaque Cantos native-session credential.
+
+Restore is an explicit user action, never automatic on launch. It requires an absent durable
+logout marker, a successful OS-store read and a fresh native session GET. Logout clears the
+account projection immediately and writes a **nonsecret** durable denial marker before HTTP
+revocation or OS deletion. Unknown HTTP revocation retains the same credential for an idempotent
+DELETE retry. Failed deletion retains the marker and blocks restore/new login until cleanup is
+acknowledged. Returning account requests carry `X-Cantos-Theatre-Session`; a mismatched response
+is discarded before decoding and triggers session revalidation without revoking another account.
+Signed-in mode reads the actual Saved page only; no mock list, history event or playback is
+created by signing in.
+
+Android uses Keystore AES-GCM and an encrypted AtomicFile under `noBackupFilesDir`, external
+ACTION_VIEW, bounded/no-cookie/no-redirect HttpURLConnection and a separately synced nonsecret
+marker. iOS uses Keychain `AfterFirstUnlockThisDeviceOnly`, ASWebAuthenticationSession, bounded
+ephemeral URLSession with no cookies/cache/redirects, and a synced backup-excluded nonsecret
+marker. Swift adapters are now included in the Xcode Sources phase and injected into the shared
+`IosNativeOwner`; no credential enters SwiftUI state, preferences or plaintext files.
+
+Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `CantosNativeIssuer`,
+read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must
+be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callback is exactly
+`com.cantos.theatre:/oauth2/callback`. This repository supplies no live values, OAuth registration,
+credentials or TLS override. The user authorized the previously held Android INTERNET,
+callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
+are now mounted: one process owner, `singleTask` callback delivery and an opt-in identity screen
+when both validated configuration keys are present. Missing or invalid configuration keeps the
+memory-only mock. No live origins are supplied in the manifest, and no app was installed or OS
+network/TLS setting changed by this source integration.
+
+The cleanup controller retains the exact exchanged credential even when OS persistence fails
+or revocation has an unknown outcome. A pending durable denial marker with a missing, corrupt
+or invalid credential stays closed: it cannot manufacture a revoke acknowledgement or clear
+its own barrier to start another account. Controlled recovery for a lost credential is still
+unassigned; no automatic reset or deletion workaround is supplied.
+
+Common/JVM regression tests exercise actual controller/client code with deterministic HTTP/OS
+ports, including one-time exchange, unknown outcomes, logout deletion/restart barriers, late
+account results and strict session/Library decoding. The 14 October resumed run passed all 207
+common/JVM tests, including 28 identity tests. Four production callback-query tests reject
+encoded field-name aliases before Android URI value decoding; platform callback dispatch still
+needs OS evidence. The canonical Android gate passed as **Theatre mock Android build** and the
+packaged manifest confirms INTERNET, callback routing and `singleTask`. The iOS simulator
+framework gate is **UNSUPPORTED** without the required installed Kotlin/Native 2.2.20 compiler.
+Keychain/Keystore IO, device/system-browser/lifecycle flows and UI/accessibility acceptance
+remain **NOT_RUN**. See the [resumed evidence](../../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+Native playback, durable Library synchronization, downloads and broad issue acceptance remain
+deferred.
 
 ## Screens and behavior
 

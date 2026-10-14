@@ -274,3 +274,13 @@ unchanged. `cargo xtask verify contracts` checks independent Python goldens, exa
 prost drift and production Rust codec tests; schema/fixture changes also select common/JVM
 Kotlin tests in preflight. [The migration ledger](../../docs/evidence/protobuf-wire-migration.md)
 records deferred browser/SQL/Native acceptance, measured costs and JSON rollback.
+
+## Theatre Identity
+
+[Theatre Identity v1](theatre-identity-v1.md) keeps Web cookie and native opaque bearer purposes
+separate. Native public-client flow/exchange/session DTOs share the strict
+[native schema](schemas/theatre-native-identity-v1.schema.json) and [nonsecret session fixture](fixtures/theatre-identity/v1/native-session.json).
+The provider bearer never reaches either client. Session UUID headers reject late account
+intents and correlate private responses; they are fences, never authentication evidence.
+Combined Theatre verification is pending; the Android host activation exception and actual
+Web/device/provider/secure-store acceptance remain separate from these implemented contracts.

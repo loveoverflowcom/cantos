@@ -2,6 +2,8 @@
 pub mod identity;
 pub mod ids;
 pub mod incremental;
+pub(crate) mod oidc;
 pub mod operator;
 pub mod postgres;
 pub mod studio_oidc;
+pub mod theatre_identity;

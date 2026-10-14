@@ -30,7 +30,11 @@ pub(super) fn routes() -> Router<AppState> {
 async fn principal(
     auth: &dyn ListenerAuthenticator,
     headers: &HeaderMap,
+    trusted: Option<Extension<AuthenticatedListener>>,
 ) -> Result<AuthenticatedListener, LibraryError> {
+    if let Some(Extension(principal)) = trusted {
+        return Ok(principal);
+    }
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let one = values.next().ok_or(LibraryError::Unauthenticated)?;
     if values.next().is_some() {
@@ -124,10 +128,11 @@ type RawJson<T> = Result<Json<T>, axum::extract::rejection::JsonRejection>;
 async fn continue_listening(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     query: PageInput,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -145,10 +150,11 @@ async fn continue_listening(
 async fn saved_works(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     query: PageInput,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -166,10 +172,11 @@ async fn saved_works(
 async fn history(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     query: PageInput,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -187,10 +194,11 @@ async fn history(
 async fn progress(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     Path(publication): Path<String>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -202,10 +210,11 @@ async fn progress(
 async fn saved(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     Path(work): Path<String>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -217,10 +226,11 @@ async fn saved(
 async fn receipt(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     Path(operation): Path<String>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -232,11 +242,12 @@ async fn receipt(
 async fn put_progress(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     Path(publication): Path<String>,
     body: RawJson<dto::ProgressWrite>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -248,11 +259,12 @@ async fn put_progress(
 async fn set_saved(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     Path(work): Path<String>,
     body: RawJson<dto::SavedWrite>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -264,10 +276,11 @@ async fn set_saved(
 async fn playback_started(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     body: RawJson<dto::HistoryStart>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };
@@ -279,10 +292,11 @@ async fn playback_started(
 async fn clear_history(
     Extension(service): Extension<LibraryService>,
     Extension(auth): Extension<Arc<dyn ListenerAuthenticator>>,
+    trusted: Option<Extension<AuthenticatedListener>>,
     headers: HeaderMap,
     body: RawJson<dto::HistoryClear>,
 ) -> Response {
-    let p = match principal(auth.as_ref(), &headers).await {
+    let p = match principal(auth.as_ref(), &headers, trusted).await {
         Ok(p) => p,
         Err(e) => return error(e),
     };

@@ -113,7 +113,6 @@ Provider disable cannot be atomic with local writes; document its introspection 
 Live production adoption must additionally resolve bearer at-rest protection, pending remote
 revocation recovery, retention/rate limits and provider SSO versus local/access logout semantics.
 
-
 ## PR2 independent integration handoff
 
 The reviewed Studio source `850a820e7db224c41e2f4fd534301e83c0e1d5bf` incorporates merged
@@ -132,3 +131,26 @@ per-flow private browser binders and lineage serialization do not authorize acto
 Keep Theatre Web/native credentials, resource ownership and cancellation scopes independent.
 The work queue continues PR3 then PR4; linked PRs own execution status. No production client,
 credential, grant or network configuration was created by this integration.
+
+## PR3 Theatre implementation → Admin
+
+[Theatre identity handoff](theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
+Web/CMP integration and exact implemented/deferred matrix. This source integration inherits the
+reviewed Studio/develop branch above, with Publication/Discovery/Library originals and Library's
+actual sealed authority seam. Its migration union is1–14,16–21,24,25 (22 entries);0020/0021 and
+all historical checksums remain unchanged. Native0024 and Studio0025 are additive. Admin0022
+belongs to the succeeding PR4; artwork0023 remains reserved and absent here.
+
+Shared `platform/oidc` reuses crypto/transport while Studio/Theatre session policies and SQL
+remain independent. Studio/Theatre Web use confidential clients; the exact native public client
+does not weaken their verification or Admin purpose/admission/role+audit decisions. Neither
+Studio nor Theatre cookies/sessions, native bearers or producer grants confer Admin authority.
+Preserve the current Studio UUID fences, JSON default/opt-in Protobuf and legacy MessagePack
+contract when resolving shared code.
+
+Current combined Theatre verification and independent acceptance are pending. Android INTERNET,
+callback registration and host mounting remain unapplied after automatic approval review
+rejected the source activation; the source-only proposal awaits a direct human exception.
+Live provider/client/grants/credentials/TLS and actual Web/native device/secure-store acceptance
+remain explicit gates. The parent review continues PR3 then PR4; this handoff claims neither
+completion of the four-PR campaign nor production activation.

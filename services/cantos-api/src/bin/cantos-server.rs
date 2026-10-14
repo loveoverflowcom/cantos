@@ -47,6 +47,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some() {
         return Err("OIDC secret requires explicit issuer".into());
     }
+    if let Ok(issuer) = env::var("CANTOS_THEATRE_OIDC_ISSUER") {
+        let secret = env::var("CANTOS_THEATRE_OIDC_SECRET")
+            .map_err(|_| "Theatre OIDC requires its separate operator-supplied client secret")?;
+        let identity = cantos_api::platform::theatre_identity::TheatreIdentity::new(
+            &issuer,
+            &web_origin,
+            secret,
+        )
+        .map_err(|_| "invalid Theatre OIDC configuration")?;
+        store = store.with_theatre_identity(identity);
+    } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some() {
+        return Err("Theatre secret requires explicit issuer".into());
+    }
+    if let Ok(issuer) = env::var("CANTOS_THEATRE_NATIVE_ISSUER") {
+        let native = cantos_api::platform::theatre_identity::NativeIdentity::new(&issuer)
+            .map_err(|_| "invalid separate native public-client identity configuration")?;
+        store = store.with_theatre_native(native);
+    }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");

@@ -876,6 +876,7 @@ dependencies = [
  "gloo-net",
  "leptos",
  "serde_json",
+ "uuid",
  "web-sys",
 ]
 
