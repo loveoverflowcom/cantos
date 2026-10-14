@@ -4,12 +4,21 @@ use std::path::Path;
 
 use crate::{command::CommandSpec, workspace::Workspace};
 
+pub const CONFORMANCE_SCRIPT: &str = "scripts/verify_behavior_conformance.py";
+pub const OBSERVER: &str = "services/cantos-api/src/contexts/media/quint_conformance_tests.rs";
+
 pub const SCRIPT: &str = "scripts/verify_behavior.py";
 
-pub fn command(workspace: &Workspace, capability: Option<&str>, setup: bool) -> CommandSpec {
+pub fn command(
+    workspace: &Workspace,
+    capability: Option<&str>,
+    setup: bool,
+    conformance: bool,
+) -> CommandSpec {
     let mut command = CommandSpec::new("python3", workspace.root())
         .args([SCRIPT])
-        .arg_if(setup, "--setup");
+        .arg_if(setup, "--setup")
+        .arg_if(conformance, "--conformance");
     if let Some(capability) = capability {
         command = command.args(["--capability", capability]);
     }
@@ -29,12 +38,13 @@ mod tests {
     #[test]
     fn plans_only_the_narrow_existing_model_primitive() {
         let workspace = Workspace::discover().unwrap();
-        assert_eq!(command(&workspace, None, false).args, [SCRIPT]);
+        assert_eq!(command(&workspace, None, false, false).args, [SCRIPT]);
         assert_eq!(
             command(
                 &workspace,
                 Some("cantos.media.private-audio-admission"),
-                true
+                true,
+                false
             )
             .args,
             [

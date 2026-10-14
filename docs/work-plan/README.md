@@ -13,8 +13,11 @@
 private AudioSubmission core; keep publishing/listening and wider UI/CMP scenarios deferred
 until their exact requirements/observations are reviewed. A model PASS does not accept a
 product feature or replace the backend sequence below. The
-[foundation evidence](../evidence/quint-behavior-foundation.md) separates executed model
-stages from the conformance/runtime work still required.
+[foundation evidence](../evidence/quint-behavior-foundation.md) separates model stages;
+[PR B evidence](../evidence/quint-code-conformance.md) records independently observed pure-core
+conformance. Application/IO, provider/SQL and shared API/Leptos/CMP runtime remain later
+review boundaries, not implied by either gate. PR B is stacked on unmerged PR A and must
+be rebased/retargeted with fresh evidence after the foundation is accepted.
 
 ## Ordered implementation
 

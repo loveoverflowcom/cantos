@@ -51,8 +51,8 @@ valid private AudioSubmission. It does not migrate schema, HTTP or database beha
 7. Follow the shared [behavior skill](../../.agents/skills/cantos-behavior/SKILL.md) for API,
    Leptos and CMP work. Generate scenarios from accepted declarations and retain their IDs;
    treat counterexamples as evidence to investigate, never permission to rewrite requirements.
-   [PR B](../work-plan/quint-conformance-handoff.md) will compare independent observations
-   from existing production seams. Wider shared UI/CMP scenarios remain later work.
+   [PR B](../work-plan/quint-conformance-handoff.md) compares independent test-only observations
+   from existing production pure seams through the [registered protocol](../../specs/behavior/observation-protocol.md). Wider shared UI/CMP scenarios remain later work.
 
 The CLI distinguishes [sampled simulation and solver checking](https://quint.sh/docs/quint).
 This gate is deterministic bounded **sampled sequential model evidence**, not exhaustive
@@ -77,7 +77,7 @@ proof, fairness/liveness, Rust refinement, SQL/provider acceptance or device evi
   bounds and existing POSIX owned-process cleanup. Partial/failing records are retained.
   Child processes clear ambient global module lookup and reject Node preloads/options;
   npm uses isolated empty user/global config and the official registry.
-- Deferred questions: real observation codec and implementation conformance; provider/SQL/
+- Deferred questions: application/I/O observation and wider implementation conformance; provider/SQL/
   authorization/byte acceptance; complete publication/listening and cross-client migration.
 
 ## Validation and revisit conditions

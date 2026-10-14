@@ -74,3 +74,13 @@ while developing; label it stacked/dependent. Do not copy/cherry-pick the founda
 second unrelated develop PR or merge PR A without permission. After PR A merges, rebase the
 conformance branch onto current develop, retarget and rerun all affected evidence on final
 inputs before a clean handoff. The parent schedules the separate requested session.
+
+## PR B implementation checkpoint
+
+The [observation protocol](../../specs/behavior/observation-protocol.md), registered test-only
+[observer](../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs) and
+[`--conformance` primitive](../../scripts/verify_behavior_conformance.py) implement the bounded
+pure-core handoff. [Evidence](../evidence/quint-code-conformance.md) records executed scope
+and residual acceptance. No production semantics or API/Protobuf/database fields changed.
+PR B remains stacked/dependent on PR A; follow the dependency strategy above after merge.
+The original handoff is retained as review criteria, not authority to widen to application/IO.

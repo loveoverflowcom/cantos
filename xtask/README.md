@@ -48,7 +48,7 @@ cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
-cargo xtask verify behavior [--capability ID] [--setup] # opt-in model-only Quint
+cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile]...
 
@@ -235,7 +235,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `verify` suite | Gates |
 | --- | --- |
 | `repository` | repository |
-| `behavior` | behavior (locked model-only tool, named runs, properties, witnesses, negative controls) |
+| `behavior` | behavior (locked model tool, named runs/properties/witnesses/controls; optional pure-core conformance) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
@@ -300,7 +300,9 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Non-document `specs/behavior`, `tools/behavior` and `scripts/verify_behavior.py` inputs select
-  the model-only behavior gate; their Markdown needs only the always-on gates.
+  the default model-only behavior gate; their Markdown needs only the always-on gates.
+- Registered observer/codec and private admission/projection seam changes select behavior
+  with `--conformance`, preserving the ordinary affected native Cargo gates.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. The service
   manifest, PostgreSQL/Kanidm examples and configuration docs are statically validated by
@@ -323,13 +325,17 @@ The shared tool probe validates the exact installed versions/lock before pipelin
 Missing/incompatible tools are `UNSUPPORTED`; partial/error/zero-evidence model runs are `FAIL`.
 The Python primitive uses existing bounded POSIX process cleanup and retains fresh commands,
 seeds, type/effect output, raw ITF, input/tool hashes and counterexamples under ignored
-`target/verification/behavior/`. It checks sampled sequential models only; implementation
-conformance and exhaustive proof are NOT_RUN. See [scope and reproduction](../specs/behavior/README.md).
+`target/verification/behavior/`. By default it checks sampled sequential models only; implementation
+conformance and exhaustive proof are NOT_RUN. `--conformance` adds a separately reported
+test-only observer of actual private-admission pure-core decisions, with synthetic shell
+effects and full immutable receipts; it never proves IO/database/runtime acceptance. See [scope and reproduction](../specs/behavior/README.md).
 
 This gate is outside full preflight/CI until its toolchain is separately provisioned.
 Non-document model/catalog/tool inputs and the behavior primitive select it in changed-only
 preflight. Shared verification changes retain conservative full selection, including behavior when
-changed model/tool inputs select it; other behavior-tool changes need the explicit suite too; no production code or database/provider process is started.
+changed model/tool or registered observation inputs select it. The optional conformance
+observer runs production pure functions in a unit-test binary, never a database/provider
+process. See the [observation protocol](../specs/behavior/observation-protocol.md).
 
 ### Optional targeted Kani proofs
 
@@ -460,7 +466,7 @@ separates the original mock adapter checks from real rendering recorded in the
 
 | Module | Responsibility |
 | --- | --- |
-| `behavior.rs` | narrow model-only command/probe plans; catalog/Quint own semantics, Python owns bounded evidence |
+| `behavior.rs` | narrow model/optional conformance command and read-only probe plans; Quint owns expectations |
 | `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |
 | `workspace.rs`, `config.rs` | root discovery; ports, packages, directories and versions, checked against the repository by tests |
 | `command.rs` | immutable `CommandSpec` values and the `Runner` abstraction |

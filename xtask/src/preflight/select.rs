@@ -83,7 +83,8 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         Some([]) => return full("no changed paths, so impact is unknown"),
         Some(paths) => paths,
     };
-    let behavior_changed = paths.iter().any(|path| behavior_input(path));
+    let conformance_changed = paths.iter().any(|path| conformance_input(path));
+    let behavior_changed = conformance_changed || paths.iter().any(|path| behavior_input(path));
     let mut impact = Impact::default();
     for path in paths {
         classify(path, graph, &mut impact);
@@ -93,6 +94,7 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
                 selection.gates.push(Gate::Behavior {
                     capability: None,
                     setup: false,
+                    conformance: conformance_changed,
                 });
                 selection.gates.sort();
             }
@@ -100,6 +102,16 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         }
     }
 
+    if conformance_changed {
+        impact
+            .gates
+            .retain(|gate| !matches!(gate, Gate::Behavior { .. }));
+        impact.gates.insert(Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: true,
+        });
+    }
     let affected = graph.dependents_closure(&impact.packages);
     let mut gates: BTreeSet<Gate> = [Gate::Repository, Gate::RustFormat].into();
     gates.extend(impact.gates);
@@ -146,11 +158,26 @@ fn full(reason: &str) -> Selection {
     }
 }
 
+fn conformance_input(path: &str) -> bool {
+    [
+        crate::behavior::CONFORMANCE_SCRIPT,
+        crate::behavior::OBSERVER,
+        "scripts/test_verify_behavior_conformance.py",
+        "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+        "services/cantos-api/src/contexts/media/lifecycle_tests.rs",
+        "services/cantos-api/src/contexts/production/domain/brief.rs",
+        "packages/contracts/api/src/audio_lifecycle.rs",
+        "packages/contracts/api/src/audio_intake.rs",
+    ]
+    .contains(&path)
+}
+
 fn behavior_input(path: &str) -> bool {
     !path.ends_with(".md")
         && (within(path, "specs/behavior")
             || within(path, "tools/behavior")
-            || path == crate::behavior::SCRIPT)
+            || path == crate::behavior::SCRIPT
+            || path == crate::behavior::CONFORMANCE_SCRIPT)
 }
 
 fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
@@ -163,6 +190,7 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         impact.gates.insert(Gate::Behavior {
             capability: None,
             setup: false,
+            conformance: false,
         });
     } else if within(path, CONTRACTS) {
         // Fixtures (Markdown manuscripts included) and schemas are read by Rust tests.
@@ -278,6 +306,60 @@ mod tests {
     }
 
     #[test]
+    fn registered_observation_inputs_select_conformance_without_losing_native_impact() {
+        for path in [
+            crate::behavior::CONFORMANCE_SCRIPT,
+            "scripts/test_verify_behavior_conformance.py",
+            crate::behavior::OBSERVER,
+            "services/cantos-api/src/contexts/media/domain/lifecycle.rs",
+        ] {
+            let selection = pick(&[path]);
+            assert!(
+                selection.gates.contains(&Gate::Behavior {
+                    capability: None,
+                    setup: false,
+                    conformance: true
+                }),
+                "{path}"
+            );
+            assert_eq!(
+                selection
+                    .gates
+                    .iter()
+                    .filter(|gate| matches!(gate, Gate::Behavior { .. }))
+                    .count(),
+                1
+            );
+            if path.starts_with("services/") {
+                assert!(
+                    selection
+                        .gates
+                        .iter()
+                        .any(|gate| matches!(gate, Gate::RustTests(_))),
+                    "{path}"
+                );
+                assert!(
+                    selection.gates.contains(&Gate::Postgres { keep: false }),
+                    "{path}"
+                );
+            }
+        }
+        let mut expected = gate::full();
+        expected.push(Gate::Behavior {
+            capability: None,
+            setup: false,
+            conformance: true,
+        });
+        expected.sort();
+        for paths in [
+            [crate::behavior::OBSERVER, "xtask/src/gate.rs"],
+            ["xtask/src/gate.rs", crate::behavior::OBSERVER],
+        ] {
+            assert_eq!(pick(&paths).gates, expected);
+        }
+    }
+
+    #[test]
     fn registered_behavior_inputs_select_model_only_without_infrastructure() {
         for path in [
             "specs/behavior/catalog.json",
@@ -306,6 +388,7 @@ mod tests {
         expected.push(Gate::Behavior {
             capability: None,
             setup: false,
+            conformance: false,
         });
         expected.sort();
         for paths in [

@@ -6,7 +6,7 @@ for accepted capabilities. Companion `_tests.qnt` files contain named runs of th
 model, never another reducer. Product prose accepts requirements and explains context.
 Protobuf owns transport/schema; native tests keep their implementation/platform boundaries.
 
-The private AudioSubmission pilot is **model-only PR A of issue 106**. Its lifecycle is draft:
+The private AudioSubmission pilot is **PR A model foundation plus PR B pure-core observations of issue 106**. Its lifecycle is draft:
 passing execution neither accepts the model nor demonstrates Rust/DB/API/client conformance.
 Read [ADR 0025](../../docs/decisions/0025-quint-executable-behavior.md) and the
 [PR B observation handoff](../../docs/work-plan/quint-conformance-handoff.md).
@@ -20,6 +20,8 @@ cargo xtask verify behavior --setup
 # Installed tool only: no npm fetch, Rust evaluator, solver, browser or service.
 cargo xtask verify behavior
 cargo xtask verify behavior --capability cantos.media.private-audio-admission
+# Add real pure-core observations, semantic sensitivity and fresh implementation inputs.
+cargo xtask verify behavior --conformance --capability cantos.media.private-audio-admission
 ```
 
 Each executable capability runs type/effect checks, all selected named runs, the fixed
@@ -32,7 +34,9 @@ traces, missing evidence, stale sources/tools and syntax/runtime failures fail c
 
 The official Quint CLI is used unchanged. The runner only validates selected declarations,
 output contracts and the raw ITF envelope/hashes. It does not parse a new model language,
-evaluate actions, decode a conformance codec or reproduce the state machine in Python/Rust.
+evaluate actions or reproduce expected state transitions in Python/Rust. With `--conformance`,
+the [registered codec](../../scripts/verify_behavior_conformance.py) decodes existing ITF outputs
+and compares an [event-only Rust observer](../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs).
 The existing POSIX bounded process primitive owns timeout/output/group cleanup. Current
 execution requires POSIX with waitid/WNOWAIT; another host is UNSUPPORTED at tool probing.
 The behavior gate is opt-in outside full preflight/CI. Non-document changes under
@@ -95,4 +99,8 @@ must validate identity/schema/actions and complete observations before comparing
 PASS means type/effect-checked, named-example-tested and bounded sampled model properties,
 plus witnessed reachability and mutation sensitivity. It is not exhaustive/temporal proof,
 shrinking assurance, SQL/provider/actual-media acceptance or native device evidence.
-`implementation-conformance` stays NOT_RUN until PR B implements and executes its adapter.
+Default `implementation-conformance` remains NOT_RUN. `--conformance` separately writes
+`conformance.json` with identity, original-trace replay, model-mutant sensitivity, observer-fault
+sensitivity and freshness stages. It calls real Rust decisions/constructors only in test code,
+with synthetic external effects; read the [protocol and limits](observation-protocol.md). A
+model-only PASS cannot substitute for an independently PASS conformance report.
