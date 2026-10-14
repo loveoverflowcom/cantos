@@ -1,10 +1,10 @@
 package com.cantos.theatre.application.listening
 
-import com.cantos.theatre.adapters.mock.FakePersistentProgressPort
-import com.cantos.theatre.adapters.mock.FakeStorageConfig
-import com.cantos.theatre.adapters.mock.FakeStorageDatabase
-import com.cantos.theatre.adapters.mock.FakeStorageState
-import com.cantos.theatre.adapters.mock.WriteFaults
+import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageConfig
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageState
+import com.cantos.theatre.adapters.mock.sandbox.database.WriteFaults
 import com.cantos.theatre.domain.listening.Bookmark
 import com.cantos.theatre.domain.listening.ListeningEvent
 import com.cantos.theatre.domain.listening.ListeningSnapshot

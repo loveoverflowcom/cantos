@@ -1,4 +1,4 @@
-package com.cantos.theatre.adapters.mock
+package com.cantos.theatre.adapters.mock.sandbox.database
 
 import com.cantos.theatre.domain.listening.ListeningSnapshot
 import com.cantos.theatre.ports.ProgressOutcome
@@ -13,7 +13,7 @@ data class FakeStorageConfig(val readLatencyMs: Long = 0L, val writeLatencyMs: L
 
 /**
  * One connection to a shared [FakeStorageDatabase]. A recreated port or controller on the same
- * database reads what earlier ones stored; a new database starts empty, like the memory mock.
+ * database reads what earlier ones stored; a new database starts with only its seed.
  */
 class FakePersistentProgressPort(
     private val database: FakeStorageDatabase,

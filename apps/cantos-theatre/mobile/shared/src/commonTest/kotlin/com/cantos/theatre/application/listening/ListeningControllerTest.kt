@@ -1,6 +1,7 @@
 package com.cantos.theatre.application.listening
 
-import com.cantos.theatre.adapters.mock.MemoryProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
 import com.cantos.theatre.domain.listening.Bookmark
 import com.cantos.theatre.domain.listening.ListeningEvent
 import com.cantos.theatre.domain.listening.ListeningSnapshot
@@ -29,9 +30,9 @@ class ListeningControllerTest {
     private val episode = EpisodeKey(work, 0)
 
     @Test
-    fun memory_adapter_and_controller_record_independent_values_and_reset() = runTest {
+    fun storage_adapter_and_controller_record_independent_values_and_reset() = runTest {
         val initial = ListeningSnapshot(savedWorks = setOf(SavedWork(work)))
-        val port = MemoryProgressPort(initial)
+        val port = FakePersistentProgressPort(FakeStorageDatabase(initial))
         val controller = ListeningController(backgroundScope, port, initial)
         val bookmark = Bookmark(episode, 20_000, 60_000)
         val progress = ProgressRecord(episode, 5_000, 60_000)

@@ -37,10 +37,11 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.cantos.theatre.adapters.mock.MemoryProgressPort
 import com.cantos.theatre.adapters.mock.MockCatalogPort
 import com.cantos.theatre.adapters.mock.MockMediaEngine
 import com.cantos.theatre.adapters.mock.mockInventory
+import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
 import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.adapters.mock.toPlaybackSource
 import com.cantos.theatre.domain.listening.ListeningSnapshot
@@ -356,7 +357,7 @@ class DemoInteractionTest {
                     AppContainer(
                         scope,
                         MockCatalogPort(inventory),
-                        MemoryProgressPort(snapshot),
+                        FakePersistentProgressPort(FakeStorageDatabase(snapshot)),
                         MockMediaEngine(),
                         AppStartState(
                             inventory,
