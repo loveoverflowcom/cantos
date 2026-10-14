@@ -1,11 +1,17 @@
 //! Content/Brief-bound Audio Lifecycle shell. All uploads share PR69's inspector/storage.
 use super::{
     application::{inspect_and_store, storage},
-    domain::lifecycle::*,
+    domain::{
+        lifecycle::*,
+        object_storage::{decide_owner_read, PrivateObjectRef},
+    },
     postgres::lifecycle as sql,
 };
 use crate::contexts::{
-    catalog::{domain::OwnerId, ProductionContent},
+    catalog::{
+        domain::{ContentUnitId, OwnerId},
+        ProductionContent,
+    },
     production::{
         self,
         domain::brief::{fingerprint, ProductionBrief},
@@ -90,13 +96,6 @@ async fn facts(
     }
     Ok(result)
 }
-async fn verify(store: &Store, r: &AudioRendition) -> Result<(), StoreError> {
-    let objects = storage(store)?;
-    let m = r.document().verified_media.clone();
-    tokio::task::spawn_blocking(move || objects.verify(&m.sha256, &m.sha256, m.byte_length))
-        .await
-        .map_err(|_| StoreError::Unavailable)?
-}
 async fn scoped(
     tx: &Tx<'_>,
     id: &str,
@@ -140,19 +139,21 @@ pub(super) async fn owner(
     let (facts, _, current) = facts(tx, Some(token), &row.value, lock).await?;
     Ok((row.value, facts, current))
 }
+/// SQL-only snapshot. Actual object verification runs after these locks are released.
 async fn snapshot(
-    store: &Store,
     tx: &Tx<'_>,
     s: AudioSubmission,
     current: bool,
-) -> Result<dto::AudioSubmissionResponse, StoreError> {
+) -> Result<(dto::AudioSubmissionResponse, Option<PrivateObjectRef>), StoreError> {
     let revoked = sql::revoked(tx, &s.document().id).await?;
     let r = sql::rendition(tx, &s).await?;
-    let reviews = if let Some(r) = &r {
-        verify(store, r).await?;
-        checked_reviews(tx, &s, r).await?
+    let (reviews, location) = if let Some(r) = &r {
+        (
+            checked_reviews(tx, &s, r).await?,
+            Some(sql::location(tx, r).await?),
+        )
     } else {
-        vec![]
+        (vec![], None)
     };
     let state = submission_state(
         sql::now(tx).await?,
@@ -161,13 +162,144 @@ async fn snapshot(
         current,
         r.is_some(),
     );
-    Ok(dto::AudioSubmissionResponse {
-        submission: s.document().clone(),
-        state,
-        rendition: r.map(|r| r.document().clone()),
-        reviews: latest_reviews(&reviews).into_iter().cloned().collect(),
-    })
+    Ok((
+        dto::AudioSubmissionResponse {
+            submission: s.document().clone(),
+            state,
+            rendition: r.map(|r| r.document().clone()),
+            reviews: latest_reviews(&reviews).into_iter().cloned().collect(),
+        },
+        location,
+    ))
 }
+
+async fn refresh_snapshot(
+    tx: &Tx<'_>,
+    s: &AudioSubmission,
+    current: bool,
+    reply: &mut dto::AudioSubmissionResponse,
+    location: Option<&PrivateObjectRef>,
+) -> Result<(), StoreError> {
+    if s.document() != &reply.submission {
+        return Err(StoreError::CorruptRevision);
+    }
+    if let Some(location) = location {
+        let r = sql::rendition(tx, s)
+            .await?
+            .ok_or(StoreError::CorruptRevision)?;
+        if reply.rendition.as_ref() != Some(r.document())
+            || sql::location(tx, &r).await? != *location
+        {
+            return Err(StoreError::CorruptRevision);
+        }
+        let reviews = checked_reviews(tx, s, &r).await?;
+        reply.reviews = latest_reviews(&reviews).into_iter().cloned().collect();
+    } else if reply.rendition.is_some() {
+        return Err(StoreError::CorruptRevision);
+    }
+    // Preserve the observed immutable rendition snapshot; refresh access-sensitive state.
+    reply.state = submission_state(
+        sql::now(tx).await?,
+        s.document().expires_at,
+        sql::revoked(tx, &s.document().id).await?,
+        current,
+        reply.rendition.is_some(),
+    );
+    Ok(())
+}
+
+async fn finish_owner_snapshot(
+    store: &Store,
+    token: &str,
+    unit: &str,
+    mut reply: dto::AudioSubmissionResponse,
+    location: Option<PrivateObjectRef>,
+) -> Result<dto::AudioSubmissionResponse, StoreError> {
+    if let Some(location) = &location {
+        storage(store)?.verify(location).await?;
+    }
+    let mut client = store.connection().await?;
+    let tx = client.transaction().await?;
+    let (s, _, current) = owner(&tx, token, unit, &reply.submission.id, LockMode::Share).await?;
+    refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
+    authenticate(&tx, token).await?;
+    tx.commit().await?;
+    Ok(reply)
+}
+
+async fn finish_producer_snapshot(
+    store: &Store,
+    bearer: &str,
+    mut reply: dto::AudioSubmissionResponse,
+    location: Option<PrivateObjectRef>,
+) -> Result<dto::AudioSubmissionResponse, StoreError> {
+    if let Some(location) = &location {
+        storage(store)?.verify(location).await?;
+    }
+    let mut client = store.connection().await?;
+    let tx = client.transaction().await?;
+    let (s, current) = scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
+    refresh_snapshot(&tx, &s, current, &mut reply, location.as_ref()).await?;
+    scoped(&tx, &reply.submission.id, bearer, LockMode::Share).await?;
+    tx.commit().await?;
+    Ok(reply)
+}
+
+async fn checked_rendition(
+    tx: &Tx<'_>,
+    s: &AudioSubmission,
+    verified: &AudioRendition,
+    location: &PrivateObjectRef,
+) -> Result<AudioRendition, StoreError> {
+    let r = sql::rendition(tx, s)
+        .await?
+        .ok_or(StoreError::CorruptRevision)?;
+    if r != *verified || sql::location(tx, &r).await? != *location {
+        return Err(StoreError::CorruptRevision);
+    }
+    Ok(r)
+}
+
+/// The object is checked before a review/candidate transaction, which then rechecks this exact
+/// immutable rendition and location under the current owner's Catalog fence.
+async fn verified_owner_rendition(
+    store: &Store,
+    token: &str,
+    unit: &str,
+    id: &str,
+) -> Result<(AudioRendition, PrivateObjectRef), StoreError> {
+    let mut client = store.connection().await?;
+    let tx = client.transaction().await?;
+    let (s, _, _) = owner(&tx, token, unit, id, LockMode::Share).await?;
+    let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
+    let location = sql::location(&tx, &r).await?;
+    authenticate(&tx, token).await?;
+    tx.commit().await?;
+    drop(client);
+    storage(store)?.verify(&location).await?;
+    Ok((r, location))
+}
+
+async fn verified_producer_rendition(
+    store: &Store,
+    bearer: &str,
+    s: &AudioSubmission,
+    r: AudioRendition,
+    location: PrivateObjectRef,
+) -> Result<dto::AudioRenditionDocument, StoreError> {
+    storage(store)?.verify(&location).await?;
+    let mut client = store.connection().await?;
+    let tx = client.transaction().await?;
+    let (locked, _) = scoped(&tx, &s.document().id, bearer, LockMode::Share).await?;
+    if locked != *s {
+        return Err(StoreError::CorruptRevision);
+    }
+    checked_rendition(&tx, &locked, &r, &location).await?;
+    scoped(&tx, &s.document().id, bearer, LockMode::Share).await?;
+    tx.commit().await?;
+    Ok(r.document().clone())
+}
+
 pub(super) async fn checked_reviews(
     tx: &Tx<'_>,
     s: &AudioSubmission,
@@ -248,10 +380,11 @@ impl Store {
             }
             let (_, _, fresh) =
                 self::facts(&tx, Some(token), &prior.value, LockMode::Update).await?;
-            let response = snapshot(self, &tx, prior.value, fresh).await?;
+            let (response, location) = snapshot(&tx, prior.value, fresh).await?;
             authenticate(&tx, token).await?;
             tx.commit().await?;
-            return Ok(response);
+            drop(client);
+            return finish_owner_snapshot(self, token, unit, response, location).await;
         }
         if !current {
             return Err(StoreError::StaleProductionInputs);
@@ -277,10 +410,11 @@ impl Store {
         )
         .map_err(invalid)?;
         sql::insert(&tx, &s, &token_hash, &request_digest).await?;
-        let reply = snapshot(self, &tx, s, current).await?;
+        let (reply, location) = snapshot(&tx, s, current).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
-        Ok(reply)
+        drop(client);
+        finish_owner_snapshot(self, token, unit, reply, location).await
     }
     pub async fn load_audio_submission(
         &self,
@@ -292,11 +426,49 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (s, _, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
-        let reply = snapshot(self, &tx, s, current).await?;
+        let (reply, location) = snapshot(&tx, s, current).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
-        Ok(reply)
+        drop(client);
+        finish_owner_snapshot(self, token, unit, reply, location).await
     }
+    /// Resolve one immutable rendition under the current Work owner, including stale briefs.
+    /// Accepted historical audio stays private and readable; upload eligibility is separate.
+    pub(crate) async fn audio_rendition_object(
+        &self,
+        token: &str,
+        unit: &str,
+        submission: &str,
+        rendition: &str,
+    ) -> Result<PrivateObjectRef, StoreError> {
+        let unit = ContentUnitId::parse(unit).map_err(|_| StoreError::InvalidRequest)?;
+        let submission = AudioSubmissionId::parse(submission).map_err(invalid)?;
+        let rendition = AudioRenditionId::parse(rendition).map_err(invalid)?;
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let (s, _, _) = owner(
+            &tx,
+            token,
+            unit.as_str(),
+            submission.as_str(),
+            LockMode::Share,
+        )
+        .await?;
+        let actor = authenticate(&tx, token).await?;
+        let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
+        let resource_owner =
+            OwnerId::parse(&s.document().owner_id).map_err(|_| StoreError::CorruptRevision)?;
+        decide_owner_read(&actor, &resource_owner).map_err(StoreError::Storage)?;
+        let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
+        if r.document().id != rendition.as_str() {
+            return Err(StoreError::NotFound);
+        }
+        let object = sql::location(&tx, &r).await?;
+        authenticate(&tx, token).await?;
+        tx.commit().await?;
+        Ok(object)
+    }
+
     pub async fn producer_audio_submission(
         &self,
         bearer: &str,
@@ -306,10 +478,11 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (s, current) = scoped(&tx, id, bearer, LockMode::Share).await?;
-        let reply = snapshot(self, &tx, s, current).await?;
+        let (reply, location) = snapshot(&tx, s, current).await?;
         scoped(&tx, id, bearer, LockMode::Share).await?;
         tx.commit().await?;
-        Ok(reply)
+        drop(client);
+        finish_producer_snapshot(self, bearer, reply, location).await
     }
     pub async fn revoke_audio_submission(
         &self,
@@ -368,14 +541,15 @@ impl Store {
         .map_err(invalid)?;
         if decision == AdmissionDecision::Replay {
             let r = settled.ok_or(StoreError::CorruptRevision)?;
-            verify(self, &r).await?;
+            let location = sql::location(&tx, &r).await?;
             scoped(&tx, id, bearer, LockMode::Share).await?;
             tx.commit().await?;
-            return Ok(r.document().clone());
+            drop(client);
+            return verified_producer_rendition(self, bearer, &s, r, location).await;
         }
         tx.commit().await?;
         drop(client);
-        let (metadata, _stored) = inspect_and_store(objects, bytes, s.binding().profile()).await?;
+        let (metadata, stored) = inspect_and_store(objects, bytes, s.binding().profile()).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (locked, current) = scoped(&tx, id, bearer, LockMode::Update).await?;
@@ -397,10 +571,11 @@ impl Store {
             if prior.document().verified_media != metadata {
                 return Err(StoreError::OperationReused);
             }
-            verify(self, &prior).await?;
+            let location = sql::location(&tx, &prior).await?;
             scoped(&tx, id, bearer, LockMode::Update).await?;
             tx.commit().await?;
-            return Ok(prior.document().clone());
+            drop(client);
+            return verified_producer_rendition(self, bearer, &s, prior, location).await;
         }
         let r = AudioRendition::create(
             &s,
@@ -414,7 +589,7 @@ impl Store {
             SubmissionEvent::Admit,
         )
         .map_err(invalid)?;
-        sql::insert_rendition(&tx, &r).await?;
+        sql::insert_rendition(&tx, &r, &stored).await?;
         scoped(&tx, id, bearer, LockMode::Update).await?;
         tx.commit().await?;
         Ok(r.document().clone())
@@ -427,14 +602,14 @@ impl Store {
         request: dto::CreateAudioReviewRequest,
     ) -> Result<dto::AudioReviewDocument, StoreError> {
         AudioSubmissionId::parse(id).map_err(invalid)?;
+        let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (s, _, current) = owner(&tx, token, unit, id, LockMode::Update).await?;
         if !current || sql::revoked(&tx, id).await? {
             return Err(StoreError::StaleProductionInputs);
         }
-        let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
-        verify(self, &r).await?;
+        let r = checked_rendition(&tx, &s, &verified, &location).await?;
         validate_review(&request, &r).map_err(invalid)?;
         let reviews = checked_reviews(&tx, &s, &r).await?;
         let actor = &s.document().owner_id;
@@ -484,11 +659,11 @@ impl Store {
         request: dto::CreateReleaseCandidateRequest,
     ) -> Result<dto::ReleaseCandidateResponse, StoreError> {
         normalized_uuid(&request.operation_id)?;
+        let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (s, facts, current) = owner(&tx, token, unit, id, LockMode::Update).await?;
-        let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
-        verify(self, &r).await?;
+        let r = checked_rendition(&tx, &s, &verified, &location).await?;
         if request.rendition_digest != r.document().digest {
             return Err(invalid(AudioError::DigestMismatch));
         }
@@ -551,11 +726,11 @@ impl Store {
         candidate: &str,
     ) -> Result<dto::ReleaseCandidateResponse, StoreError> {
         ReleaseCandidateId::parse(candidate).map_err(invalid)?;
+        let (verified, location) = verified_owner_rendition(self, token, unit, id).await?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let (s, facts, current) = owner(&tx, token, unit, id, LockMode::Share).await?;
-        let r = sql::rendition(&tx, &s).await?.ok_or(StoreError::NotFound)?;
-        verify(self, &r).await?;
+        let r = checked_rendition(&tx, &s, &verified, &location).await?;
         let candidate = sql::load_candidate(&tx, candidate, &r)
             .await?
             .ok_or(StoreError::NotFound)?;

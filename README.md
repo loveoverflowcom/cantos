@@ -28,14 +28,21 @@ routes with shared contracts; see the [Catalog API](packages/contracts/catalog-v
 [Content Identity](packages/contracts/content-v1.md) adds immutable text/source/script/recording
 revisions with separate metadata/content sequences and full revision pinning.
 [Production Brief v1](packages/contracts/production-brief-v1.md) adds immutable instructions
-and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Public publication/delivery remains unimplemented.
+and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Publication, Discovery and Library have backend cores; public media delivery remains unavailable.
 Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
 private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
 distinguishes connected forms from deferred controls and user acceptance. Theatre Web defaults
 to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
 selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
-there is no live listener resource, native audio or publication/delivery integration.
+native audio and live client integration remain deferred; public media delivery is fail-closed.
+
+[Private object storage](docs/architecture/object-storage.md) implements filesystem and generic
+S3-compatible adapters, durable original targets and [exact owner-authorized audio reads](packages/contracts/private-content-reads-v1.md).
+Changing the write target preserves historical location resolution and moves no bytes.
+Canonical text, imports and Script IR stay in their existing PostgreSQL stores. Private previews
+and scoped grants supply no listener/publication access; real-provider and deployment acceptance
+remain separate in the [evidence record](docs/evidence/provider-independent-storage.md).
 
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
 No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.
@@ -52,7 +59,8 @@ Studio: verify object and metadata → human/editorial approval → immutable re
 Theatre: discover → stream/download → resume
 ```
 
-Production Brief export/read grants and private Audio Lifecycle are implemented for the development host. Public releases remain proposals.
+Production Brief export/read grants, private Audio Lifecycle and the Publication core are
+implemented for the development host. Unconfigured public delivery cannot activate a release.
 No live routes should be inferred from [the proposed contract](packages/contracts/external-audio-handoff-v1.md).
 
 ## Repository
@@ -70,7 +78,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
-- `packages/contracts`: versioned Script IR, Catalog/Content/Brief and private Audio Lifecycle contracts; public release remains proposed.
+- `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.
 - `xtask`: canonical repository verification and local development commands.

@@ -696,7 +696,7 @@ async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_faile
             .await
             .unwrap()
             .get::<_, i64>(0),
-        20
+        21
     );
     assert_eq!(
         admin

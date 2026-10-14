@@ -17,6 +17,7 @@ use crate::contexts::listening::{
     auth::{DenyListenerAuthentication, ListenerAuthenticator},
     LibraryService,
 };
+use crate::contexts::media::read::StorageError;
 use crate::contexts::media::{
     ListenerService, PlaybackDelivery, PublicationDelivery, PublicationService,
 };
@@ -336,6 +337,7 @@ fn error_response(error: StoreError) -> Response {
             None,
             issues,
         ),
+        StoreError::Storage(error) => return storage_error_response(error),
         StoreError::Unavailable => (
             StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::Unavailable,
@@ -382,4 +384,143 @@ fn error_response(error: StoreError) -> Response {
         }),
     )
         .into_response()
+}
+
+fn storage_error_response(error: StorageError) -> Response {
+    let level = match error {
+        StorageError::NotFound => "DEBUG",
+        StorageError::Forbidden
+        | StorageError::Conflict
+        | StorageError::Timeout
+        | StorageError::Cancelled => "WARN",
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => "ERROR",
+    };
+    eprintln!(
+        "level={level} event=private_storage_operation_failed outcome={}",
+        error.code()
+    );
+    let (status, code) = match error {
+        StorageError::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
+        StorageError::Forbidden => (StatusCode::FORBIDDEN, ErrorCode::Forbidden),
+        StorageError::Conflict => (StatusCode::CONFLICT, ErrorCode::OperationReused),
+        StorageError::InvalidTarget
+        | StorageError::InvalidKey
+        | StorageError::InvalidIntegrity
+        | StorageError::DigestMismatch
+        | StorageError::LengthMismatch => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ErrorCode::CorruptRevision,
+        ),
+        StorageError::Timeout
+        | StorageError::Cancelled
+        | StorageError::Unavailable
+        | StorageError::UnsupportedCapability(_) => {
+            (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Unavailable)
+        }
+    };
+    failure(code, status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::contexts::media::read::StorageCapability;
+    use http_body_util::BodyExt;
+
+    #[tokio::test]
+    async fn private_storage_errors_map_to_safe_existing_api_codes_without_internal_facts() {
+        for (error, expected_status, expected_code) in [
+            (
+                StorageError::NotFound,
+                StatusCode::NOT_FOUND,
+                ErrorCode::NotFound,
+            ),
+            (
+                StorageError::Forbidden,
+                StatusCode::FORBIDDEN,
+                ErrorCode::Forbidden,
+            ),
+            (
+                StorageError::Conflict,
+                StatusCode::CONFLICT,
+                ErrorCode::OperationReused,
+            ),
+            (
+                StorageError::InvalidTarget,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::InvalidKey,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::InvalidIntegrity,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::DigestMismatch,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::LengthMismatch,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ErrorCode::CorruptRevision,
+            ),
+            (
+                StorageError::Timeout,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Cancelled,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::Unavailable,
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::ConditionalCreate),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::RangeRead),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+            (
+                StorageError::UnsupportedCapability(StorageCapability::TemporaryRead),
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::Unavailable,
+            ),
+        ] {
+            let response = error_response(StoreError::Storage(error));
+            assert_eq!(response.status(), expected_status, "{error:?}");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let actual: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                actual,
+                serde_json::json!({
+                    "code": expected_code,
+                    "current_revision": null,
+                    "issues": [],
+                }),
+                "{error:?}"
+            );
+        }
+    }
 }
