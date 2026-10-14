@@ -42,7 +42,7 @@ Inspect the code before citing it; this table is the status at the last sync, no
 
 | Surface | Implemented | Owning contract / code |
 |---|---|---|
-| Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../packages/contracts/theatre-discovery-v1.md); `contexts/media` (`ListenerService`, `domain/listening.rs`); `interfaces/http/theatre.rs` |
+| Discovery and playback authorization | `/api/v1/theatre/{works,search,works/{work},works/{work}/units,publications/{publication},publications/{publication}/playback-authorizations}`; `ListenerPublication` witness | [Discovery v1](../../../packages/contracts/theatre-discovery-v1.md); `contexts/media` (`ListenerService`, pure `domain/listening.rs`, wire mapping `listener_projection.rs`); `interfaces/http/theatre.rs` |
 | Library and progress | Continue, Saved, History, playback starts, clear, progress, operation receipts | [Library v1](../../../packages/contracts/listener-library-v1.md); `contexts/listening`; `interfaces/http/theatre_library.rs`; migration `0019_listener_library_progress.sql` |
 | Listener admission | sealed `AuthenticatedListener`, default `DenyListenerAuthentication`, Theatre Web cookie and native bearer adapters | [Theatre identity v1](../../../packages/contracts/theatre-identity-v1.md); `listening/{auth,theatre_identity}.rs`; `theatre_auth::bff_identity` |
 | Wire contract | JSON Schema `schema/theatre/library/v1.schema.json`, strict Rust DTOs `cantos_contracts::listener_library`, 22 fixtures in `fixtures/theatre/library/v1/` | `packages/contracts/api/tests/listener_library_wire.rs` |

@@ -7,6 +7,7 @@ use super::super::{
     },
     listener_application::ListenerError,
     listener_cursor::Keyset,
+    listener_projection::publication_manifest,
 };
 use crate::{
     contexts::catalog::{
@@ -505,7 +506,7 @@ pub(crate) async fn library_publications(
     items.retain(|r| r.publication.valid_at(fresh));
     Ok(items
         .into_iter()
-        .map(|r| r.publication.manifest())
+        .map(|r| publication_manifest(&r.publication))
         .collect())
 }
 pub(crate) async fn library_public_work(

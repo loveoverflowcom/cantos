@@ -3,6 +3,7 @@ use super::{
     domain::listening::{after_work, DiscoveryQuery, ListenerDomainError},
     listener_cursor::{CursorVault, Keyset},
     listener_delivery::{PlaybackDelivery, PlaybackPermit, UnavailablePlayback},
+    listener_projection::{publication_manifest, unit_summary, work_summary},
     postgres::listener::{PgRead, ReadItem},
 };
 use crate::platform::{
@@ -131,10 +132,10 @@ impl ListenerService {
             .await?;
         let mut items = Vec::new();
         for r in snapshot.items {
-            let summary = r.publication.summary(r.first_at);
-            if !query.matches(&summary) {
+            if !query.matches(&r.publication.discoverable()) {
                 return Err(ListenerError::Corrupt);
             }
+            let summary = work_summary(&r.publication, r.first_at);
             if let Some(Keyset::Works { time, id: after_id }) = &after {
                 let current = uuid::Uuid::parse_str(&summary.work_id)
                     .map_err(|_| ListenerError::Corrupt)?
@@ -161,7 +162,7 @@ impl ListenerService {
         snapshot
             .items
             .first()
-            .map(|r| r.publication.summary(r.first_at))
+            .map(|r| work_summary(&r.publication, r.first_at))
             .ok_or(ListenerError::NotFound)
     }
     pub async fn units(
@@ -195,11 +196,7 @@ impl ListenerService {
         let mut items: Vec<_> = snapshot
             .items
             .into_iter()
-            .map(|r| {
-                let mut unit = r.publication.unit();
-                unit.position = r.position;
-                unit
-            })
+            .map(|r| unit_summary(&r.publication, r.position))
             .collect();
         items.truncate(query.limit());
         let next_cursor = snapshot
@@ -224,7 +221,7 @@ impl ListenerService {
             .into_iter()
             .next()
             .ok_or(ListenerError::NotFound)?;
-        if p.publication.manifest().publication_id != publication {
+        if p.publication.release().document().id != publication {
             return Err(ListenerError::Corrupt);
         }
         Ok((p, snapshot.now))
@@ -233,7 +230,8 @@ impl ListenerService {
         &self,
         publication: &str,
     ) -> Result<dto::PublicationManifest, ListenerError> {
-        Ok(self.resolve(publication).await?.0.publication.manifest())
+        let (item, _) = self.resolve(publication).await?;
+        Ok(publication_manifest(&item.publication))
     }
     pub async fn authorize_playback(
         &self,
@@ -257,7 +255,7 @@ impl ListenerService {
         let grant = self.delivery.grant(permit).await?;
         // Re-read from a fresh PG transaction after external signing. A stale snapshot cannot grant.
         let (fresh, fresh_now) = self.resolve(publication).await?;
-        if fresh.publication.manifest() != initial.publication.manifest()
+        if publication_manifest(&fresh.publication) != publication_manifest(&initial.publication)
             || grant.expires <= fresh_now
             || grant.expires > until
             || !grant.range
@@ -409,6 +407,57 @@ mod tests {
             s.authorize_playback(ID).await.unwrap_err(),
             ListenerError::RenditionUnavailable
         );
+    }
+    /// Returns the resolved fixture under a listing anchor that differs from its Studio position.
+    struct AnchoredRead(u32);
+    impl ListenerRead for AnchoredRead {
+        fn read(&self, _request: ReadRequest) -> ReadFuture {
+            let position = self.0;
+            Box::pin(async move {
+                let mut anchored = item();
+                anchored.position = position;
+                Ok(ReadSnapshot {
+                    now: 5000,
+                    items: vec![anchored],
+                    next_key: None,
+                })
+            })
+        }
+    }
+    #[tokio::test]
+    async fn discovery_projects_resolved_publications_with_listing_anchors() {
+        let s = ListenerService {
+            read: Arc::new(AnchoredRead(9)),
+            cursors: Arc::new(CursorVault::default()),
+            delivery: Arc::new(UnavailablePlayback),
+        };
+        let work_id = item().publication.work().id().as_str().to_owned();
+        let page = s
+            .works("ÁNH ĐÈN", Some("podcast"), Some("vi-VN"), 20, None)
+            .await
+            .unwrap();
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].work_id, work_id);
+        assert_eq!(page.items[0].kind, dto::WorkKind::Podcast);
+        assert_eq!(page.items[0].title, "Ánh đèn cuối sân khấu");
+        assert_eq!(page.items[0].first_published_at_ms, 5000);
+        assert_eq!(s.work(&work_id).await.unwrap(), page.items[0]);
+        let units = s.units(&work_id, 20, None).await.unwrap();
+        assert_eq!(units.items.len(), 1);
+        assert_eq!(units.items[0].position, 9);
+        assert_eq!(units.items[0].kind, dto::UnitKind::Episode);
+        assert_eq!(units.items[0].publication_id, ID);
+        // A read adapter that returns a publication the query excludes is corrupt, not a result.
+        for (search, kind, language) in [
+            ("không có", None, None),
+            ("", Some("novel"), None),
+            ("", None, Some("en-US")),
+        ] {
+            assert_eq!(
+                s.works(search, kind, language, 20, None).await.unwrap_err(),
+                ListenerError::Corrupt
+            );
+        }
     }
     #[tokio::test]
     async fn empty_catalog_and_private_or_absent_release_are_distinct() {

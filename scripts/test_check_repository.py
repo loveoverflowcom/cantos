@@ -262,6 +262,21 @@ use std::fmt;
             with self.subTest(path=path):
                 self.assertEqual(self.errors(path, "use std::collections::BTreeSet;"), [])
 
+    def test_domain_cannot_build_theatre_wire_dtos_in_any_import_form(self):
+        # Persisted canonical documents stay admitted; the application layer owns projection.
+        self.assertEqual(self.errors("contexts/media/domain/publication.rs",
+                                     "use cantos_contracts as dto;"), [])
+        self.assertEqual(self.errors("contexts/media/listener_projection.rs",
+                                     "use cantos_contracts::theatre as dto;"), [])
+        for content in (
+            "use cantos_contracts::theatre as dto;",
+            "use cantos_contracts::{theatre::WorkSummary, FieldIssue};",
+            "fn f() -> cantos_contracts::theatre::PublicationManifest { todo!() }",
+        ):
+            with self.subTest(content=content):
+                self.assertRejected("contexts/media/domain/listening.rs", content,
+                                    "pure domain must not build Theatre wire DTOs")
+
     def test_nested_import_cannot_hide_filesystem_dependency(self):
         self.assertRejected("contexts/editorial/domain/revisions.rs", """
 use std::{collections::BTreeSet, fs::{self as disk, File}};
