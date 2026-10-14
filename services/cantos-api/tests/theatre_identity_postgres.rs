@@ -199,6 +199,130 @@ async fn verified_theatre_registry_binding_mints_actual_sealed_listener_and_bff_
 
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL"]
+async fn issued_theatre_web_cookie_never_authorizes_private_studio_rendition_reads() {
+    let h = Harness::new().await;
+    // Exercise Studio's real empty-session lookup, rather than accepting a missing SQL grant
+    // as proof that a Theatre token cannot become a Studio credential by cookie relabeling.
+    h.admin
+        .batch_execute("GRANT SELECT ON sessions TO cantos_app")
+        .await
+        .unwrap();
+    let (token, actor) = h.login(None).await;
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), 1);
+    let theatre_cookie = format!("cantos_theatre={token}");
+    let response = request(
+        &h,
+        "GET",
+        "/api/v1/theatre/session",
+        Some(&theatre_cookie),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let session: cantos_contracts::theatre_identity::Session =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(session.actor_id, actor);
+
+    // No media/storage fixture is needed: the exact 401 must precede object lookup, rather
+    // than treating a missing rendition or disabled storage adapter as an authorization proof.
+    const AUTHORITY_AND_MEDIA: &str = "SELECT jsonb_build_object('actors',(SELECT count(*) FROM actors),'bindings',(SELECT count(*) FROM actor_external_identities),'theatre_sessions',(SELECT count(*) FROM theatre_identity_sessions),'theatre_revoked',(SELECT count(*) FROM theatre_identity_sessions WHERE revoked),'studio_sessions',(SELECT count(*) FROM sessions),'script_members',(SELECT count(*) FROM script_members),'producer_grants',(SELECT count(*) FROM production_producer_grants),'intents',(SELECT count(*) FROM audio_upload_intents),'receipts',(SELECT count(*) FROM audio_intake_receipts),'submissions',(SELECT count(*) FROM audio_submissions),'renditions',(SELECT count(*) FROM audio_renditions))::text";
+    let before: String = h
+        .admin
+        .query_one(AUTHORITY_AND_MEDIA, &[])
+        .await
+        .unwrap()
+        .get(0);
+    let initial: serde_json::Value = serde_json::from_str(&before).unwrap();
+    let introspections_before = h.mock.data.introspection_calls.load(Ordering::SeqCst);
+    assert_eq!(initial["theatre_sessions"], 1);
+    assert_eq!(initial["theatre_revoked"], 0);
+    for field in [
+        "studio_sessions",
+        "script_members",
+        "producer_grants",
+        "intents",
+        "receipts",
+        "submissions",
+        "renditions",
+    ] {
+        assert_eq!(initial[field], 0, "fixture unexpectedly has {field}");
+    }
+    let studio_cookie = format!("cantos_session={token}");
+    let secure_studio_cookie = format!("__Secure-cantos_studio={token}");
+    let id = "00000000-0000-4000-8000-000000000001";
+    for suffix in ["bytes", "read-access"] {
+        let path = format!(
+            "/api/v1/studio/content-units/{id}/audio-submissions/{id}/renditions/{id}/{suffix}"
+        );
+        for (case, cookie, bearer) in [
+            ("Theatre cookie", Some(theatre_cookie.as_str()), None),
+            ("Studio cookie relabel", Some(studio_cookie.as_str()), None),
+            (
+                "secure Studio cookie relabel",
+                Some(secure_studio_cookie.as_str()),
+                None,
+            ),
+            ("Theatre token as bearer", None, Some(token.as_str())),
+            (
+                "Theatre cookie and bearer",
+                Some(theatre_cookie.as_str()),
+                Some(token.as_str()),
+            ),
+        ] {
+            let response = request(&h, "GET", &path, cookie, None, bearer).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::UNAUTHORIZED,
+                "{case} {suffix}"
+            );
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            assert!(!response.headers().contains_key(header::LOCATION));
+            assert!(!response.headers().contains_key("x-cantos-read-expires-at"));
+            let body: serde_json::Value =
+                serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            assert_eq!(
+                body,
+                serde_json::json!({"code":"unauthenticated","current_revision":null,"issues":[]}),
+                "{case} {suffix}"
+            );
+        }
+    }
+    let after: String = h
+        .admin
+        .query_one(AUTHORITY_AND_MEDIA, &[])
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        after, before,
+        "private reads changed authority or media state"
+    );
+    assert_eq!(
+        h.mock.data.introspection_calls.load(Ordering::SeqCst),
+        introspections_before,
+        "Studio private reads must not admit through Theatre provider authentication"
+    );
+    assert_eq!(
+        request(
+            &h,
+            "GET",
+            "/api/v1/theatre/session",
+            Some(&theatre_cookie),
+            None,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "the actual Theatre cookie remains valid for its own surface"
+    );
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL"]
 async fn cookies_bearers_csrf_and_surface_purposes_are_separate_and_default_deny() {
     let h = Harness::new().await;
     let (token, _) = h.login(None).await;

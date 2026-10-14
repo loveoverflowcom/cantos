@@ -265,6 +265,136 @@ async fn native_public_exchange_and_resource_seam_verify_real_crypto_without_a_c
 }
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL"]
+async fn issued_native_opaque_credential_never_authorizes_private_studio_rendition_reads() {
+    let h = Harness::new().await;
+    // Enable the ordinary Studio session lookup without issuing any Studio session: a denied
+    // relabeled cookie must be 401, not a missing SQL privilege reported as unavailable.
+    h.admin
+        .batch_execute("GRANT SELECT ON sessions TO cantos_app")
+        .await
+        .unwrap();
+    let login = h.login("nguyễn-minh-native-private-denial").await;
+    assert_eq!(h.provider.data.token_calls.load(Ordering::SeqCst), 1);
+    let response = h
+        .request(
+            "GET",
+            "/api/v1/theatre/native/session",
+            Some(&login.access_token),
+            None,
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let session: NativeSession =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(session.actor_id, login.actor_id);
+    assert_eq!(session.session_id, login.session_id);
+
+    // These empty media tables make admission itself the oracle: no missing object or storage
+    // configuration may mask an incorrectly admitted cross-surface credential as a 404/503.
+    const AUTHORITY_AND_MEDIA: &str = "SELECT jsonb_build_object('actors',(SELECT count(*) FROM actors),'bindings',(SELECT count(*) FROM actor_external_identities),'native_sessions',(SELECT count(*) FROM theatre_native_sessions),'native_revoked',(SELECT count(*) FROM theatre_native_sessions WHERE revoked),'studio_sessions',(SELECT count(*) FROM sessions),'script_members',(SELECT count(*) FROM script_members),'producer_grants',(SELECT count(*) FROM production_producer_grants),'intents',(SELECT count(*) FROM audio_upload_intents),'receipts',(SELECT count(*) FROM audio_intake_receipts),'submissions',(SELECT count(*) FROM audio_submissions),'renditions',(SELECT count(*) FROM audio_renditions))::text";
+    let before: String = h
+        .admin
+        .query_one(AUTHORITY_AND_MEDIA, &[])
+        .await
+        .unwrap()
+        .get(0);
+    let initial: serde_json::Value = serde_json::from_str(&before).unwrap();
+    let introspections_before = h.provider.data.introspection_calls.load(Ordering::SeqCst);
+    assert_eq!(initial["native_sessions"], 1);
+    assert_eq!(initial["native_revoked"], 0);
+    for field in [
+        "studio_sessions",
+        "script_members",
+        "producer_grants",
+        "intents",
+        "receipts",
+        "submissions",
+        "renditions",
+    ] {
+        assert_eq!(initial[field], 0, "fixture unexpectedly has {field}");
+    }
+    let studio_cookie = format!("cantos_session={}", login.access_token);
+    let secure_studio_cookie = format!("__Secure-cantos_studio={}", login.access_token);
+    let theatre_cookie = format!("cantos_theatre={}", login.access_token);
+    let id = "00000000-0000-4000-8000-000000000001";
+    for suffix in ["bytes", "read-access"] {
+        let path = format!(
+            "/api/v1/studio/content-units/{id}/audio-submissions/{id}/renditions/{id}/{suffix}"
+        );
+        for (case, bearer, cookie) in [
+            ("native bearer", Some(login.access_token.as_str()), None),
+            ("Studio cookie relabel", None, Some(studio_cookie.as_str())),
+            (
+                "secure Studio cookie relabel",
+                None,
+                Some(secure_studio_cookie.as_str()),
+            ),
+            (
+                "Theatre cookie relabel",
+                None,
+                Some(theatre_cookie.as_str()),
+            ),
+            (
+                "bearer and Studio cookie relabel",
+                Some(login.access_token.as_str()),
+                Some(studio_cookie.as_str()),
+            ),
+        ] {
+            let response = h.request("GET", &path, bearer, cookie, None, None).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::UNAUTHORIZED,
+                "{case} {suffix}"
+            );
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            assert!(!response.headers().contains_key(header::LOCATION));
+            assert!(!response.headers().contains_key("x-cantos-read-expires-at"));
+            let body: serde_json::Value =
+                serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            assert_eq!(
+                body,
+                serde_json::json!({"code":"unauthenticated","current_revision":null,"issues":[]}),
+                "{case} {suffix}"
+            );
+        }
+    }
+    let after: String = h
+        .admin
+        .query_one(AUTHORITY_AND_MEDIA, &[])
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        after, before,
+        "private reads changed authority or media state"
+    );
+    assert_eq!(
+        h.provider.data.introspection_calls.load(Ordering::SeqCst),
+        introspections_before,
+        "Studio private reads must not admit through native provider authentication"
+    );
+    assert_eq!(
+        h.request(
+            "GET",
+            "/api/v1/theatre/native/session",
+            Some(&login.access_token),
+            None,
+            None,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "the actual native credential remains valid for its own surface"
+    );
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL"]
 async fn native_pkce_state_replay_and_remote_unknown_outcomes_never_redispatch_a_code() {
     let h = Harness::new().await;
     let (flow, body) = h.flow("A").await;

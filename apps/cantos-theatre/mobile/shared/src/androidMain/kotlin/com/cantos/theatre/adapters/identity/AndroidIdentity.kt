@@ -9,6 +9,7 @@ import android.util.AtomicFile
 import android.util.Base64
 import com.cantos.theatre.domain.identity.LoginSecret
 import com.cantos.theatre.domain.identity.NativeCallback
+import com.cantos.theatre.domain.identity.hasCanonicalNativeCallbackQuery
 import com.cantos.theatre.ports.CredentialFailure
 import com.cantos.theatre.ports.CredentialRead
 import com.cantos.theatre.ports.CredentialStore
@@ -118,6 +119,6 @@ class AndroidSystemBrowser(private val context: Context) : SystemBrowser {
 fun parseAndroidCallback(uri: Uri): NativeCallback? {
     if (uri.toString().length > 16384) return null
     if (uri.fragment != null || uri.toString().substringBefore('?') != "com.cantos.theatre:/oauth2/callback") return null
-    if (uri.queryParameterNames.any { it !in setOf("state", "code", "error", "error_description") || uri.getQueryParameters(it).size != 1 }) return null
+    if (!hasCanonicalNativeCallbackQuery(uri.encodedQuery)) return null
     return NativeCallback(uri.toString().substringBefore('?'), uri.getQueryParameter("state") ?: return null, uri.getQueryParameter("code") ?: "", uri.getQueryParameter("error") != null)
 }

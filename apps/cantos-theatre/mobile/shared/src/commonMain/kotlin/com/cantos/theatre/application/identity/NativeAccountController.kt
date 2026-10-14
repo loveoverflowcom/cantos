@@ -70,6 +70,11 @@ class NativeAccountController(
     private fun fail(reason: NativeAccountFailure) { mutableState.value = NativeAccountState.Failed(reason) }
     /** Marker precedes the first effect; unknown revoke outcomes retain the exact credential. */
     private suspend fun cleanup(issued: Long): Boolean {
+        val previousBarrier = barrier.read()
+        if (previousBarrier == LogoutBarrierRead.Unavailable) {
+            if (current(issued)) mutableState.value = NativeAccountState.CleanupRequired
+            return false
+        }
         if (barrier.mark() != null) { if (current(issued)) mutableState.value = NativeAccountState.CleanupRequired; return false }
         var token = cleanupCredential
         if (token == null) {
@@ -83,6 +88,11 @@ class NativeAccountController(
                 }
                 CredentialRead.Missing -> Unit
             }
+        }
+        // After process death, an empty/corrupt store cannot acknowledge a pending revoke.
+        if (token == null && previousBarrier != LogoutBarrierRead.Clear) {
+            if (current(issued)) mutableState.value = NativeAccountState.CleanupRequired
+            return false
         }
         if (token != null) {
             cleanupCredential = token
@@ -134,6 +144,8 @@ class NativeAccountController(
                                 fail(NativeAccountFailure.Protocol); return@launch
                             }
                             if (result.value.expiresAt <= now()) { api.revoke(token); fail(NativeAccountFailure.Expired); return@launch }
+                            // Keep the verified token for cleanup even when OS persistence never saves it.
+                            cleanupCredential = token
                             if (barrier.mark() != null || store.write(token) != null || barrier.clear() != null) {
                                 api.revoke(token)
                                 if (current(issued)) mutableState.value = NativeAccountState.CleanupRequired
@@ -153,6 +165,7 @@ class NativeAccountController(
         if (session.expiresAt <= now()) { fail(NativeAccountFailure.Expired); return }
         if (accounts.enter(account) != null) { fail(NativeAccountFailure.Exhausted); return }
         credential = token
+        cleanupCredential = null
         mutableState.value = NativeAccountState.SignedIn(session.actor, session.expiresAt)
     }
     /** Explicit user action; a local credential alone never establishes an account. */
