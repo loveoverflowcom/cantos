@@ -4,7 +4,7 @@ use std::{env, fs, path::PathBuf, process::Command, time::Duration};
 
 use axum::{
     body::Body,
-    http::{Request, StatusCode},
+    http::{HeaderMap, Request, StatusCode},
     Router,
 };
 use cantos_api::{
@@ -847,7 +847,7 @@ async fn new_script_revision_blocks_pending_acceptance_and_preserves_historical_
         pending
     );
     assert_eq!(
-        h.upload(&accepted, Some(ALICE), bytes).await.0,
+        h.upload(&accepted, Some(ALICE), bytes.clone()).await.0,
         StatusCode::CONFLICT
     );
     assert_eq!(
@@ -856,6 +856,22 @@ async fn new_script_revision_blocks_pending_acceptance_and_preserves_historical_
             .1["receipt"],
         original.1
     );
+    for method in ["GET", "HEAD"] {
+        let (status, headers, delivered) =
+            owner_audio_request(&h.app, method, &accepted.upload_path, vec![]).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers["content-type"], "audio/ogg");
+        assert_eq!(headers["content-length"], bytes.len().to_string());
+        assert_eq!(
+            headers["etag"],
+            format!("\"{}\"", original.1["media"]["sha256"].as_str().unwrap())
+        );
+        if method == "GET" {
+            assert_eq!(delivered, bytes);
+        } else {
+            assert!(delivered.is_empty());
+        }
+    }
     assert_eq!(h.counts().await, (2, 1));
 }
 
@@ -1397,5 +1413,270 @@ async fn audio_enabled_host_blocks_nested_symlinks_and_regular_static_files() {
             assert_eq!(bytes.as_ref(), b"synthetic public file");
         }
     }
+    assert_eq!(h.counts().await, (1, 1));
+}
+
+/// Real HTTP transport for binary reads and upload responses, independent of JSON helpers.
+async fn owner_audio_request(
+    app: &Router,
+    method: &str,
+    path: &str,
+    bytes: Vec<u8>,
+) -> (StatusCode, HeaderMap, Vec<u8>) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("cookie", session_cookie(ALICE))
+        .header("origin", ORIGIN);
+    if method == "PUT" {
+        request = request.header("content-type", "application/octet-stream");
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::from(bytes)).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    assert_eq!(headers["cache-control"], "no-store");
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes()
+        .to_vec();
+    (status, headers, bytes)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ReceiptStorageRecord {
+    target: String,
+    object_key: String,
+    bytes: Vec<u8>,
+    digest: String,
+}
+
+async fn receipt_storage_record(h: &Harness, intent: &str) -> ReceiptStorageRecord {
+    let row = h.admin.query_one(
+        "SELECT storage_target_id,object_key,receipt_bytes,receipt_digest FROM audio_intake_receipts WHERE intent_id=$1",
+        &[&intent],
+    ).await.unwrap();
+    ReceiptStorageRecord {
+        target: row.get("storage_target_id"),
+        object_key: row.get("object_key"),
+        bytes: row.get("receipt_bytes"),
+        digest: row.get("receipt_digest"),
+    }
+}
+
+/// Non-secret test topology. Neither environment credentials nor any network adapter is used.
+fn switched_filesystem_topology(h: &Harness, next: &PrivateRoot, include_legacy: bool) -> PathBuf {
+    let old_root = fs::canonicalize(&h.root.0).unwrap();
+    let new_root = fs::canonicalize(&next.0).unwrap();
+    let mut contents = format!(
+        "version = 1\n[storage]\nactive_write_target = \"next-filesystem\"\n[storage.targets.next-filesystem]\ndriver = \"filesystem\"\nprivate_root = {}\n",
+        serde_json::to_string(new_root.to_str().unwrap()).unwrap(),
+    );
+    if include_legacy {
+        contents.push_str(&format!(
+            "[storage.targets.legacy-filesystem]\ndriver = \"filesystem\"\nprivate_root = {}\n",
+            serde_json::to_string(old_root.to_str().unwrap()).unwrap(),
+        ));
+    }
+    let path = old_root.join(format!("storage-topology-{include_legacy}.toml"));
+    fs::write(&path, contents).unwrap();
+    path
+}
+
+#[tokio::test]
+#[ignore = "new disposable PostgreSQL cluster and ffmpeg required"]
+async fn changing_the_write_target_preserves_exact_historical_reads_without_copying_or_fallback() {
+    let h = Harness::new().await;
+    let old_intent = h.intent().await;
+    let old_bytes = opus();
+    let (status, original) = h.upload(&old_intent, Some(ALICE), old_bytes.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    let original: AudioReceiptResponse = serde_json::from_value(original).unwrap();
+    let before = receipt_storage_record(&h, &old_intent.id).await;
+    assert_eq!(before.target, "legacy-filesystem");
+    assert_eq!(before.bytes, serde_json::to_vec(&original).unwrap());
+
+    let next = PrivateRoot::new();
+    let topology = switched_filesystem_topology(&h, &next, true);
+    let switched = h.restart().with_storage_config(&topology).unwrap();
+    let app = make_router(switched.clone());
+    assert_eq!(fs::read_dir(next.0.join("objects")).unwrap().count(), 0);
+
+    // The old object must be readable before the new target contains any object at all.
+    let (status, headers, delivered) =
+        owner_audio_request(&app, "GET", &old_intent.upload_path, vec![]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["content-length"], old_bytes.len().to_string());
+    assert_eq!(delivered, old_bytes);
+    assert_eq!(fs::read_dir(next.0.join("objects")).unwrap().count(), 0);
+    assert_eq!(
+        switched
+            .load_audio_intent(ALICE, &h.script, &old_intent.id)
+            .await
+            .unwrap()
+            .receipt,
+        Some(original.clone()),
+    );
+
+    let new_intent = switched
+        .create_audio_intent(ALICE, &h.script, h.intent_request())
+        .await
+        .unwrap();
+    let new_bytes = synthetic_media(880, 1, true);
+    let (status, _, response) =
+        owner_audio_request(&app, "PUT", &new_intent.upload_path, new_bytes.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    let new_receipt: AudioReceiptResponse = serde_json::from_slice(&response).unwrap();
+    assert_ne!(new_receipt.media.sha256, original.media.sha256);
+    let new_record = receipt_storage_record(&h, &new_intent.id).await;
+    assert_eq!(new_record.target, "next-filesystem");
+    assert_eq!(
+        fs::read(next.0.join("objects").join(&new_record.object_key)).unwrap(),
+        new_bytes
+    );
+    assert!(!h
+        .root
+        .0
+        .join("objects")
+        .join(&new_record.object_key)
+        .exists());
+    assert!(!next.0.join("objects").join(&before.object_key).exists());
+
+    // A retry still returns the first receipt and uses its original accepted location.
+    assert_eq!(
+        switched
+            .upload_audio_intent(ALICE, &h.script, &old_intent.id, old_bytes.clone())
+            .await
+            .unwrap(),
+        original,
+    );
+    assert_eq!(receipt_storage_record(&h, &old_intent.id).await, before);
+    assert!(!next.0.join("objects").join(&before.object_key).exists());
+    for (intent, expected) in [(&old_intent, &old_bytes), (&new_intent, &new_bytes)] {
+        let (status, headers, delivered) =
+            owner_audio_request(&app, "GET", &intent.upload_path, vec![]).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers["content-type"], "audio/ogg");
+        assert_eq!(headers["content-length"], expected.len().to_string());
+        assert_eq!(&delivered, expected);
+    }
+
+    // Removing an historical target never makes the active target a fallback for its rows.
+    let missing_topology = switched_filesystem_topology(&h, &next, false);
+    let missing_target = h.restart().with_storage_config(&missing_topology).unwrap();
+    let missing_app = make_router(missing_target);
+    let (status, _, body) =
+        owner_audio_request(&missing_app, "GET", &old_intent.upload_path, vec![]).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["code"],
+        "unavailable"
+    );
+    let (status, _, delivered) =
+        owner_audio_request(&missing_app, "GET", &new_intent.upload_path, vec![]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(delivered, new_bytes);
+    assert_eq!(receipt_storage_record(&h, &old_intent.id).await, before);
+    assert_eq!(h.counts().await, (2, 2));
+}
+
+#[tokio::test]
+#[ignore = "new disposable PostgreSQL cluster and ffmpeg required"]
+async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_digests_and_reads() {
+    let h = Harness::new().await;
+    let intent = h.intent().await;
+    let bytes = opus();
+    let (status, accepted) = h.upload(&intent, Some(ALICE), bytes.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    let accepted: AudioReceiptResponse = serde_json::from_value(accepted).unwrap();
+    let before = receipt_storage_record(&h, &intent.id).await;
+    let migration_rows = h
+        .admin
+        .query(
+            "SELECT version,checksum FROM cantos_migrations WHERE version<15 ORDER BY version",
+            &[],
+        )
+        .await
+        .unwrap();
+    let original_migrations: Vec<(i32, Vec<u8>)> = migration_rows
+        .iter()
+        .map(|row| (row.get(0), row.get(1)))
+        .collect();
+    assert_eq!(original_migrations.len(), 14);
+
+    // Only this newly created disposable database is reconstructed to the pre-0015 shape.
+    // The accepted receipt, object and all earlier migration checksums remain untouched.
+    h.admin
+        .batch_execute(
+            "BEGIN;
+         ALTER TABLE audio_intake_receipts DROP COLUMN storage_target_id;
+         ALTER TABLE audio_renditions DROP COLUMN storage_target_id;
+         DELETE FROM cantos_migrations WHERE version=15;
+         COMMIT;",
+        )
+        .await
+        .unwrap();
+    let row = h.admin.query_one(
+        "SELECT object_key,receipt_bytes,receipt_digest FROM audio_intake_receipts WHERE intent_id=$1", &[&intent.id],
+    ).await.unwrap();
+    assert_eq!(row.get::<_, String>(0), before.object_key);
+    assert_eq!(row.get::<_, Vec<u8>>(1), before.bytes);
+    assert_eq!(row.get::<_, String>(2), before.digest);
+
+    migrate(&h.config).await.unwrap();
+    migrate(&h.config).await.unwrap();
+    assert_eq!(receipt_storage_record(&h, &intent.id).await, before);
+    assert_eq!(before.target, "legacy-filesystem");
+    let migrated_rows = h
+        .admin
+        .query(
+            "SELECT version,checksum FROM cantos_migrations WHERE version<15 ORDER BY version",
+            &[],
+        )
+        .await
+        .unwrap();
+    let retained_migrations: Vec<(i32, Vec<u8>)> = migrated_rows
+        .iter()
+        .map(|row| (row.get(0), row.get(1)))
+        .collect();
+    assert_eq!(retained_migrations, original_migrations);
+    assert_eq!(
+        h.admin
+            .query_one(
+                "SELECT count(*) FROM cantos_migrations WHERE version=15",
+                &[]
+            )
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        1
+    );
+    let target_columns: i64 = h.admin.query_one(
+        "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('audio_intake_receipts','audio_renditions') AND column_name='storage_target_id' AND is_nullable='NO' AND column_default LIKE '%legacy-filesystem%'", &[],
+    ).await.unwrap().get(0);
+    assert_eq!(target_columns, 2);
+
+    let restarted = h.restart();
+    assert_eq!(
+        restarted
+            .load_audio_intent(ALICE, &h.script, &intent.id)
+            .await
+            .unwrap()
+            .receipt,
+        Some(accepted)
+    );
+    let app = make_router(restarted);
+    let (status, headers, delivered) =
+        owner_audio_request(&app, "GET", &intent.upload_path, vec![]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers["content-length"], bytes.len().to_string());
+    assert_eq!(delivered, bytes);
     assert_eq!(h.counts().await, (1, 1));
 }

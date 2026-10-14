@@ -33,15 +33,29 @@ errors; `platform` owns pool/session/migrations/IDs and generic incremental comp
 not business-context shortcuts. The source checker in `scripts/check_repository.py`
 enforces the allowed context edges.
 
+`src/composition.rs` owns the concrete application `Store` and aggregate `StoreError`. It
+joins the PostgreSQL pool with Media's private-storage registry; it is not a new context or
+generic repository framework. `platform/postgres` implements connection/session plumbing and
+retains compatibility reexports of those types, with no Media import. Application use cases
+map their owned errors into the aggregate; pure domain decisions do not construct it.
+
+Media owns the private read facade used by Studio HTTP. Its use cases resolve owner-authorized
+exact receipt/rendition locations, perform object I/O outside transactions and reauthorize the
+same location before delivery. The HTTP shell consumes reviewed scope/range/stream types from
+that facade; it never imports the storage registry, selects a provider or resolves arbitrary
+object keys. See [private storage](object-storage.md) and
+[ADR 0022](../decisions/0022-provider-independent-private-storage.md).
+
 ## API surfaces
 
 | Prefix | Who uses it | State |
 | --- | --- | --- |
-| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; owner-session development intake | Partially implemented |
-| `/api/v1/theatre/*` | Listener discovery/playback/progress | Public Discovery/Playback core implemented; delivery, identity and progress acceptance pending |
+| `/api/v1/studio/*` | Studio Web catalog/editorial/import/adaptation/planning; private intake, exact owner reads and publication authority | Partially implemented; opt-in Studio OIDC sessions |
+| `/api/v1/theatre/*` | Listener discovery/playback/progress | Public Discovery/Playback and Library/Progress cores implemented; default playback unavailable and listener authentication denied; production acceptance pending |
 | `/api/v1/admin/*` | Administrative operations | Reserved; not implemented |
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
-| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; publication absent |
+| Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; separate [Publication v1](../../packages/contracts/publication-v1.md) core with default unavailable delivery |
+| Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../packages/contracts/private-content-reads-v1.md): protected GET/HEAD/Range and refreshable access; no listener access |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
@@ -49,9 +63,10 @@ defines work/content-unit mutations, deterministic pages and immutable Work hist
 [Content Identity](../../packages/contracts/content-v1.md) adds separate immutable content,
 plain text/recording support and exact owned source/Script IR bindings in the same context.
 
-The legacy alias `/api/v1/*` points to the same Studio handlers; avoid adding a new route
-to both spaces by duplicating code. New handler contracts belong in `packages/contracts/api`
-only when implemented. Do not invent implemented route claims from proposal documents.
+The legacy alias `/api/v1/*` retains preceding Studio handlers. New private byte/read-access
+routes exist only under Studio; they are not added to the deprecated alias. Do not duplicate
+handlers or invent implemented route claims from proposal documents. Shared DTOs remain in
+`packages/contracts/api`; binary delivery has its own versioned HTTP contract.
 
 ## Current contexts
 
@@ -64,9 +79,14 @@ only when implemented. Do not invent implemented route claims from proposal docu
   Catalog-bound [Production Briefs](../../packages/contracts/production-brief-v1.md) and scoped
   read-only producer grants. Source/export bytes are copied through owning-context entrypoints.
   Existing provider catalog entries are **reference planning metadata**, not live adapters.
-- `media`: structural WAV inspection plus explicit profile/binding rules, bounded Opus-byte
-  inspection, owner-session private development intake and filesystem objects. No admitted file
-  is implicitly QC/rights-reviewed or published; see [ADR 0020](../decisions/0020-studio-private-audio-intake.md).
+- `media`: structural WAV inspection, explicit profile/binding rules, bounded Opus-byte
+  inspection, private intake/admission/review, immutable location metadata, filesystem and
+  generic S3-compatible adapters, exact owner-authorized preview, publication authority and
+  public release eligibility. Private content-addressed bytes stay distinct from approved
+  publication objects; default public delivery is unavailable.
+  [ADR 0020](../decisions/0020-studio-private-audio-intake.md)
+  retains intake safeguards; [ADR 0022](../decisions/0022-provider-independent-private-storage.md)
+  describes the storage extension and separate real-provider acceptance.
 
 ## Listener account state
 
@@ -74,7 +94,9 @@ only when implemented. Do not invent implemented route claims from proposal docu
 conditional revisions and durable operation receipts; Media continues to own public eligibility,
 publication and playback delivery. Its [v1 contract](../../packages/contracts/listener-library-v1.md)
 and [consumer handoff](../work-plan/listener-library-progress-handoff.md) define separate bearer
-identity with default-deny composition and PostgreSQL authority. No new actor registry exists.
+identity with default-deny composition and PostgreSQL authority. The separate
+[Platform identity registry](identity-registry.md) binds external identities but supplies no
+listener credential verification or authority from a Studio session.
 Catalog/Media exports provide owned transaction fences and bounded eligibility batches; Listening
 never reads their private tables directly. HTTP can compose the service/auth port, validate bearer
 syntax and map typed errors, but cannot mint principals or run domain reconciliation.
@@ -86,10 +108,13 @@ This narrow test seam does not admit interface calls from production Listening a
 
 ## Next contexts
 
-Implement Studio catalog Web acceptance against the real API separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) now links Catalog-bound Briefs and private admission/review. Next implement `publication`
-(approval and atomic manifest pointer) and Theatre read models. Favor typed IDs, pure state
+Complete broader Studio Web, provider delivery and Theatre identity/native acceptance
+separately. The bounded [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) links
+Catalog-bound Briefs and private admission/review; Media's
+[Publication core](../../packages/contracts/publication-v1.md) owns approvals and atomic manifest
+pointers, and Listening owns account read models. Favor typed IDs, pure state
 machines and immutable versioned records. No TTS worker queue, local neural runtime,
-commercial provider adapter, synthesis retry system or speech-clip registry belongs here.
+commercial speech-provider adapter, synthesis retry system or speech-clip registry belongs here.
 
 ## Transactions and external effects
 

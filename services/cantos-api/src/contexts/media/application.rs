@@ -5,6 +5,7 @@ use cantos_contracts::{
     CreateAudioIntentRequest, FieldIssue,
 };
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use tokio::sync::Semaphore;
 use uuid::Uuid;
 
@@ -12,8 +13,10 @@ use super::audio_intake::{
     inspect_audio, AudioIntakeError, DeliveryProfile, VerifiedAudio, MAX_AUDIO_BYTES,
 };
 use super::domain::intake::{decide_prepare, IntentBinding, PrepareDecision};
+use super::domain::object_storage::{decide_owner_read, PrivateObjectRef};
 use super::postgres;
-use super::storage::AudioStorage;
+use super::storage::registry::{RegistryStoredAudio, StorageRegistry};
+use crate::contexts::catalog::domain::OwnerId;
 use crate::contexts::editorial::{authorize, find_revision, Action};
 use crate::platform::postgres::{
     authenticate, checked_number, normalized_uuid, LockMode, Store, StoreError, Tx,
@@ -58,20 +61,53 @@ fn current(intent: &AudioIntentResponse, head: u64) -> Result<(), StoreError> {
     Ok(())
 }
 
-pub(super) fn storage(store: &Store) -> Result<AudioStorage, StoreError> {
-    AudioStorage::new(store.audio_root.as_deref().ok_or(StoreError::Unavailable)?)
+pub(super) fn storage(store: &Store) -> Result<Arc<StorageRegistry>, StoreError> {
+    store.media_storage.clone().ok_or(StoreError::Unavailable)
 }
 
-async fn verify_object(
-    storage: AudioStorage,
-    receipt: &postgres::StoredReceipt,
+async fn reauthorize_intent(
+    store: &Store,
+    token: &str,
+    intent: &AudioIntentResponse,
+    accepted: Option<&postgres::StoredReceipt>,
+    require_current: bool,
 ) -> Result<(), StoreError> {
-    let key = receipt.object_key.clone();
-    let digest = receipt.receipt.media.sha256.clone();
-    let length = receipt.receipt.media.byte_length;
-    tokio::task::spawn_blocking(move || storage.verify(&key, &digest, length))
-        .await
-        .map_err(|_| StoreError::Unavailable)?
+    let mut client = store.connection().await?;
+    let tx = client.transaction().await?;
+    let (actor, head) = owner(&tx, token, &intent.script_id, LockMode::Share).await?;
+    let locked = postgres::find_intent(&tx, &actor, &intent.script_id, &intent.id)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    if locked != *intent {
+        return Err(StoreError::CorruptRevision);
+    }
+    bound_revision(&tx, &locked).await?;
+    if require_current {
+        current(&locked, head)?;
+    }
+    if let Some(expected) = accepted {
+        let settled = postgres::receipt(&tx, &locked)
+            .await?
+            .ok_or(StoreError::CorruptRevision)?;
+        if settled.receipt != expected.receipt || settled.location() != expected.location() {
+            return Err(StoreError::CorruptRevision);
+        }
+    }
+    authenticate(&tx, token).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// A settled replay resolves its recorded target, verifies outside SQL, then rechecks authority.
+async fn verified_receipt(
+    store: &Store,
+    token: &str,
+    intent: &AudioIntentResponse,
+    accepted: postgres::StoredReceipt,
+) -> Result<AudioReceiptResponse, StoreError> {
+    storage(store)?.verify(accepted.location()).await?;
+    reauthorize_intent(store, token, intent, Some(&accepted), true).await?;
+    Ok(accepted.receipt)
 }
 
 fn media(verified: &VerifiedAudio) -> AudioMediaMetadata {
@@ -101,8 +137,13 @@ impl Store {
     /// Opt in to an owned, private development object root. Existing editorial APIs do not
     /// require one; private intake writes fail closed when it is absent.
     pub fn with_audio_storage(mut self, root: &std::path::Path) -> Result<Self, StoreError> {
-        AudioStorage::new(root)?;
-        self.audio_root = Some(root.to_path_buf());
+        self.media_storage = Some(Arc::new(StorageRegistry::filesystem(root)?));
+        Ok(self)
+    }
+
+    /// Checked topology and secret-variable references select adapters only at composition.
+    pub fn with_storage_config(mut self, path: &std::path::Path) -> Result<Self, StoreError> {
+        self.media_storage = Some(Arc::new(StorageRegistry::from_config(path)?));
         Ok(self)
     }
 
@@ -113,7 +154,37 @@ impl Store {
     /// Enabling private storage makes the development API host API-only. Static Web files
     /// must be served by a separate host whose public tree cannot reference private objects.
     pub fn audio_storage_is_enabled(&self) -> bool {
-        self.audio_root.is_some()
+        self.media_storage.is_some()
+    }
+
+    /// Resolve an owner's exact accepted historical receipt. This grants no publication or
+    /// producer access and performs no object I/O while the authorization transaction is open.
+    pub(crate) async fn audio_intent_object(
+        &self,
+        token: &str,
+        script: &str,
+        id: &str,
+    ) -> Result<PrivateObjectRef, StoreError> {
+        let script = normalized_uuid(script)?;
+        let id = normalized_uuid(id)?;
+        let mut client = self.connection().await?;
+        let tx = client.transaction().await?;
+        let (actor, _) = owner(&tx, token, &script, LockMode::Share).await?;
+        let intent = postgres::find_intent(&tx, &actor, &script, &id)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let actor = OwnerId::parse(&actor).map_err(|_| StoreError::CorruptRevision)?;
+        let resource_owner =
+            OwnerId::parse(&intent.created_by).map_err(|_| StoreError::CorruptRevision)?;
+        decide_owner_read(&actor, &resource_owner).map_err(StoreError::Storage)?;
+        bound_revision(&tx, &intent).await?;
+        let receipt = postgres::receipt(&tx, &intent)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let object = receipt.location().clone();
+        authenticate(&tx, token).await?;
+        tx.commit().await?;
+        Ok(object)
     }
 
     /// The script owner pins one immutable, canonical profile separately from its byte upload.
@@ -204,11 +275,13 @@ impl Store {
             .ok_or(StoreError::NotFound)?;
         bound_revision(&tx, &intent).await?;
         let stored = postgres::receipt(&tx, &intent).await?;
-        if let Some(receipt) = &stored {
-            verify_object(storage(self)?, receipt).await?;
-        }
         authenticate(&tx, token).await?;
         tx.commit().await?;
+        drop(client);
+        if let Some(receipt) = &stored {
+            storage(self)?.verify(receipt.location()).await?;
+        }
+        reauthorize_intent(self, token, &intent, stored.as_ref(), false).await?;
         Ok(AudioIntentStatusResponse {
             intent,
             receipt: stored.map(|stored| stored.receipt),
@@ -239,8 +312,8 @@ impl Store {
             .ok_or(StoreError::NotFound)?;
         bound_revision(&tx, &intent).await?;
         current(&intent, head)?;
-        // Replaying settled bytes needs no decoder invocation, but still verifies the stored
-        // object and current authority under the same locked script/session facts.
+        // A settled replay needs no decoder. Release SQL locks before storage verification,
+        // then recheck the same immutable intent and current session/revision before returning.
         if let Some(prior) = postgres::receipt(&tx, &intent).await? {
             let sha256 = format!("{:x}", Sha256::digest(&bytes));
             if prior.receipt.media.sha256 != sha256
@@ -248,10 +321,10 @@ impl Store {
             {
                 return Err(StoreError::OperationReused);
             }
-            verify_object(objects, &prior).await?;
             authenticate(&tx, token).await?;
             tx.commit().await?;
-            return Ok(prior.receipt);
+            drop(client);
+            return verified_receipt(self, token, &intent, prior).await;
         }
         tx.commit().await?;
         drop(client);
@@ -275,13 +348,14 @@ impl Store {
         bound_revision(&tx, &locked).await?;
         current(&locked, head)?;
         if let Some(prior) = postgres::receipt(&tx, &locked).await? {
-            if prior.receipt.media != media || prior.object_key != stored.object_key {
+            if prior.receipt.media != media || prior.location().key().as_str() != stored.object_key
+            {
                 return Err(StoreError::OperationReused);
             }
-            verify_object(storage(self)?, &prior).await?;
             authenticate(&tx, token).await?;
             tx.commit().await?;
-            return Ok(prior.receipt);
+            drop(client);
+            return verified_receipt(self, token, &locked, prior).await;
         }
         let receipt = AudioReceiptResponse {
             id: Uuid::new_v4().to_string(),
@@ -295,7 +369,7 @@ impl Store {
             accepted_at: postgres::now(&tx).await?,
             media,
         };
-        postgres::insert_receipt(&tx, &receipt, &stored.object_key).await?;
+        postgres::insert_receipt(&tx, &receipt, &stored).await?;
         authenticate(&tx, token).await?;
         tx.commit().await?;
         Ok(receipt)
@@ -304,18 +378,28 @@ impl Store {
 
 /// One inspector/storage path shared by legacy Script intake and Content/Brief admission.
 pub(super) async fn inspect_and_store(
-    objects: AudioStorage,
+    objects: Arc<StorageRegistry>,
     bytes: Vec<u8>,
     profile: DeliveryProfile,
-) -> Result<(AudioMediaMetadata, super::storage::StoredAudio), StoreError> {
+) -> Result<(AudioMediaMetadata, RegistryStoredAudio), StoreError> {
     let permit = INSPECTION_LANES
         .try_acquire()
         .map_err(|_| StoreError::Unavailable)?;
-    tokio::task::spawn_blocking(move || {
-        let _permit = permit;
+    let (verified, permit) = tokio::task::spawn_blocking(move || {
+        // Returning the permit keeps canceled requests from releasing a decoder lane early.
         let verified = inspect_audio(&bytes, profile).map_err(rejected)?;
+        Ok::<_, StoreError>((verified, permit))
+    })
+    .await
+    .map_err(|_| StoreError::Unavailable)??;
+    // Filesystem persistence may continue in a blocking task after HTTP cancellation. This
+    // owned operation retains the lane until the bounded adapter finishes, just as inspection
+    // does. Cancellation can leave a private orphan, but cannot accept metadata or free a lane
+    // while its object I/O still runs.
+    tokio::spawn(async move {
+        let _permit = permit;
         let metadata = media(&verified);
-        let stored = objects.persist(&verified)?;
+        let stored = objects.persist(verified).await?;
         Ok((metadata, stored))
     })
     .await

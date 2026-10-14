@@ -182,6 +182,255 @@ async fn upload(app: Router, id: &str, token: &str, bytes: Vec<u8>) -> Reply {
     );
     Reply { status, body }
 }
+
+async fn preview(
+    app: &Router,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    headers: &[(&str, &str)],
+) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("origin", ORIGIN);
+    if let Some(token) = token {
+        request = request.header("cookie", format!("cantos_session={token}"));
+    }
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.headers()["cache-control"], "no-store");
+    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, headers, bytes.to_vec())
+}
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL + trusted media tools required"]
+async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surface_authorization() {
+    let a = AudioHarness::new(true, "opus-mono-24-v1").await;
+    let bytes = a.root.encode("24k");
+    let expected_sha256 = format!("{:x}", Sha256::digest(&bytes));
+    let expected_length = bytes.len();
+    let expected_etag = format!("\"{expected_sha256}\"");
+    let request = a.request(&bytes).await;
+    let submission = request["id"].as_str().unwrap();
+    a.prepare(request.clone()).await;
+    let rendition = upload(a.h.app.clone(), submission, UPLOAD, bytes.clone())
+        .await
+        .success(StatusCode::OK);
+    assert_eq!(rendition["verified_media"]["sha256"], expected_sha256);
+    assert_eq!(rendition["verified_media"]["byte_length"], expected_length);
+    assert_eq!(rendition["verified_media"]["profile_id"], "opus-mono-24-v1");
+    let rendition_id = rendition["id"].as_str().unwrap();
+    let path = format!(
+        "/api/v1/studio{}/{submission}/renditions/{rendition_id}/bytes",
+        a.path()
+    );
+    let (status, headers, body) = preview(&a.h.app, "GET", &path, Some(ALICE), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, bytes);
+    assert_eq!(format!("{:x}", Sha256::digest(&body)), expected_sha256);
+    assert_eq!(headers["content-type"], "audio/ogg");
+    assert_eq!(headers["content-length"], expected_length.to_string());
+    assert_eq!(headers["accept-ranges"], "bytes");
+    assert_eq!(headers["etag"], expected_etag);
+    assert!(!headers.contains_key("content-range"));
+    assert!(!headers.contains_key("content-encoding"));
+
+    let invalid_head_range = format!("bytes={expected_length}-");
+    let (status, headers, body) = preview(
+        &a.h.app,
+        "HEAD",
+        &path,
+        Some(ALICE),
+        &[("range", &invalid_head_range)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.is_empty());
+    assert_eq!(headers["content-length"], expected_length.to_string());
+    assert_eq!(headers["content-type"], "audio/ogg");
+    assert_eq!(headers["etag"], expected_etag);
+    assert!(!headers.contains_key("content-range"));
+
+    let middle = expected_length / 2;
+    let final_first = expected_length - 32;
+    for (range, first, last) in [
+        ("bytes=0-31".to_owned(), 0, 31),
+        (
+            format!("bytes={middle}-{}", middle + 31),
+            middle,
+            middle + 31,
+        ),
+        ("bytes=-32".to_owned(), final_first, expected_length - 1),
+        (
+            format!("bytes={final_first}-"),
+            final_first,
+            expected_length - 1,
+        ),
+        (
+            format!("bytes={final_first}-{}", expected_length + 100),
+            final_first,
+            expected_length - 1,
+        ),
+        ("Bytes=0-31".to_owned(), 0, 31),
+    ] {
+        let (status, headers, body) =
+            preview(&a.h.app, "GET", &path, Some(ALICE), &[("range", &range)]).await;
+        assert_eq!(status, StatusCode::PARTIAL_CONTENT);
+        assert_eq!(body, bytes[first..=last]);
+        assert_eq!(headers["content-length"], (last - first + 1).to_string());
+        assert_eq!(
+            headers["content-range"],
+            format!("bytes {first}-{last}/{expected_length}")
+        );
+        assert_eq!(headers["content-type"], "audio/ogg");
+        assert_eq!(headers["etag"], expected_etag);
+    }
+    let (status, headers, body) = preview(
+        &a.h.app,
+        "GET",
+        &path,
+        Some(ALICE),
+        &[("range", "bytes=0-31"), ("if-range", &expected_etag)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::PARTIAL_CONTENT);
+    assert_eq!(body, bytes[..32]);
+    assert_eq!(
+        headers["content-range"],
+        format!("bytes 0-31/{expected_length}")
+    );
+    for extra in [
+        vec![("range", "items=0-31")],
+        vec![
+            ("range", "bytes=0-31"),
+            ("if-range", "\"different-sha256\""),
+        ],
+    ] {
+        let (status, headers, body) = preview(&a.h.app, "GET", &path, Some(ALICE), &extra).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, bytes);
+        assert_eq!(headers["content-length"], expected_length.to_string());
+        assert!(!headers.contains_key("content-range"));
+    }
+    let (status, headers, body) = preview(
+        &a.h.app,
+        "GET",
+        &path,
+        Some(ALICE),
+        &[("range", &invalid_head_range)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(
+        headers["content-range"],
+        format!("bytes */{expected_length}")
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["code"],
+        "invalid_request"
+    );
+    let (status, _, body) = preview(
+        &a.h.app,
+        "GET",
+        &path,
+        Some(ALICE),
+        &[("range", "bytes=0-1,5-7")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["code"],
+        "invalid_request"
+    );
+
+    let access_path = path.strip_suffix("/bytes").unwrap().to_owned() + "/read-access";
+    let (status, headers, body) = preview(&a.h.app, "GET", &access_path, Some(ALICE), &[]).await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert_eq!(headers["location"], path);
+    assert!(!headers.contains_key("x-cantos-read-expires-at"));
+    assert!(body.is_empty());
+
+    let mut pending = a.request(&bytes).await;
+    pending["upload_token"] = json!("e".repeat(64));
+    let pending_id = pending["id"].as_str().unwrap().to_owned();
+    a.prepare(pending).await;
+    let wrong_rendition = operation();
+    let wrong_unit = operation();
+    let pending_path = format!(
+        "/api/v1/studio{}/{pending_id}/renditions/{rendition_id}/bytes",
+        a.path()
+    );
+    let wrong_rendition_path = path.replace(rendition_id, &wrong_rendition);
+    let wrong_unit_path = path.replace(&a.unit, &wrong_unit);
+    let theatre_path = path.replace("/api/v1/studio/", "/api/v1/theatre/");
+    for (target, token, extra, expected) in [
+        (path.as_str(), Some(BOB), vec![], StatusCode::NOT_FOUND),
+        (path.as_str(), None, vec![], StatusCode::UNAUTHORIZED),
+        (
+            path.as_str(),
+            None,
+            vec![("authorization", format!("Bearer {UPLOAD}"))],
+            StatusCode::UNAUTHORIZED,
+        ),
+        (
+            pending_path.as_str(),
+            Some(ALICE),
+            vec![],
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            wrong_rendition_path.as_str(),
+            Some(ALICE),
+            vec![],
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            wrong_unit_path.as_str(),
+            Some(ALICE),
+            vec![],
+            StatusCode::NOT_FOUND,
+        ),
+        (
+            theatre_path.as_str(),
+            Some(ALICE),
+            vec![],
+            StatusCode::NOT_FOUND,
+        ),
+    ] {
+        let extra = extra
+            .iter()
+            .map(|(name, value)| (*name, value.as_str()))
+            .collect::<Vec<_>>();
+        let (status, _, body) = preview(&a.h.app, "GET", target, token, &extra).await;
+        assert_eq!(status, expected);
+        let error: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            error["code"],
+            if expected == StatusCode::UNAUTHORIZED {
+                "unauthenticated"
+            } else {
+                "not_found"
+            }
+        );
+        if target == theatre_path.as_str() {
+            assert_eq!(error, json!({"code": "not_found", "retryable": false}));
+        } else {
+            schema("ApiError", &error);
+        }
+    }
+}
+
 fn review_request(r: &Value, kind: &str, decision: &str) -> Value {
     json!({"operation_id":operation(),"rendition_digest":r["digest"],"sha256":r["verified_media"]["sha256"],"kind":kind,"decision":decision,"notes":"Named fixture review only; no listening acceptance","evidence_refs":["synthetic-test-evidence"]})
 }

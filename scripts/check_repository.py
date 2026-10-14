@@ -92,6 +92,12 @@ HTTP_PURE_BOUNDARIES = {
     ("contexts", "production", "production_catalog"),
     ("script_ir", "read_script"),
 }
+# Media's concrete private-read facade admits HTTP ranges and exposes only application scope,
+# safe errors and a bounded byte stream. This never permits direct domain/adapter dependencies.
+MEDIA_READ_HTTP_TYPES = {
+    "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageCapability", "StorageError",
+    "StorageStream",
+}
 TABLE_OWNER = {
     "scripts": "editorial", "script_members": "editorial",
     "script_revisions": "editorial", "script_reviews": "editorial",
@@ -523,6 +529,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "catalog", "CatalogCursor"),
             ("contexts", "catalog", "CatalogCursor", "decode"),
         }
+        media_read = (path[:3] == ("contexts", "media", "read") and len(path) >= 4
+                      and path[3] in MEDIA_READ_HTTP_TYPES)
         publication_error = path[:3] in {
             ("contexts", "media", "PublicationStoreError"),
             ("contexts", "media", "PublicationDependencyError"),
@@ -553,7 +561,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
         } or path[:3] == ("contexts", "listening", "LibraryError") or path[:4] == (
             "contexts", "listening", "auth", "AuthenticationError")
         if http and path not in HTTP_PURE_BOUNDARIES and not (
-            catalog_wire or catalog_error or catalog_input_type or publication_error or publication_composition or listener_composition
+            catalog_wire or catalog_error or catalog_input_type or media_read
+            or publication_error or publication_composition or listener_composition
         ):
             return "HTTP must delegate business decisions through application use cases"
     if http and path[0] in DOMAIN_EXTERNAL - {"axum", "tokio", "tower", "tower_http"}:

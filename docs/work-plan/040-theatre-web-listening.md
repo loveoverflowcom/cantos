@@ -18,6 +18,14 @@ Recommendation engines, subscriptions/payments, social feeds, live broadcasting,
 
 [030 — Mix, review, upload, and publish an episode](030-mix-review-and-publish.md). Inspect actual publication/delivery contracts and retention rules before choosing player and progress behavior. Confirm supported browsers and authentication/session conventions.
 
+The [private content-read contract](../../packages/contracts/private-content-reads-v1.md)
+documents a proposed publication-bound projection only. Media's owner preview/storage capability
+supplies no listener access. [#11](https://github.com/loveoverflowcom/cantos/issues/11) must
+provide the approved immutable manifest and isolation/retention authority;
+[#12](https://github.com/loveoverflowcom/cantos/issues/12) must provide separate listener
+identity, authorization and exact publication reads. Keep the Theatre API unavailable until
+those owning boundaries exist; neither Studio cookies nor a private S3 grant is a substitute.
+
 ## Suggested sequence
 
 1. Connect discovery and episode navigation to real published data.

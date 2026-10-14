@@ -31,10 +31,16 @@ or in-backend mixing should remain.
   [Scope and contract](../../packages/contracts/studio-audio-intake-v1.md),
   [ADR 0020](../../docs/decisions/0020-studio-private-audio-intake.md). Required Rust and
   disposable-PostgreSQL evidence was originally **NOT_RUN** in PR69; [Audio Lifecycle evidence](../../docs/evidence/audio-lifecycle.md) records this Mac session.
+- Provider-independent private Media storage: checked target/key/integrity values, filesystem
+  and generic S3-compatible adapters, durable original target metadata and owner-authorized
+  exact GET/HEAD/Range plus refreshable read access. [Architecture](../../docs/architecture/object-storage.md),
+  [read contract](../../packages/contracts/private-content-reads-v1.md) and
+  [evidence](../../docs/evidence/provider-independent-storage.md) distinguish the implemented
+  private capability from separate live-provider/publication acceptance.
 - [Publication v1](../../packages/contracts/publication-v1.md): owner distribution decisions,
   exact approval/readiness, immutable release snapshots, atomic CAS active pointers and withdrawal.
   [Core evidence](../../docs/evidence/publication-core.md) is CORE_VERIFIED / IO_ACCEPTANCE_PENDING:
-  real PostgreSQL acceptance is blocked and default public delivery is unavailable.
+  the initial real PostgreSQL acceptance attempt was blocked and default public delivery is unavailable.
 - Separate HTTP surfaces: `/api/v1/studio/*` implemented in part; `/api/v1/theatre/*`
   contains Discovery/Library and separate opt-in Web/native identity routes; `/api/v1/admin/*`
   remains reserved until its independent PR4. Pre-split Studio aliases remain deprecated.
@@ -52,7 +58,10 @@ from deferred Kanidm, unobserved runtime/accessibility and production acceptance
 
 ## Planned functionality (not implemented)
 
-Studio catalog Web UI, production identity/credential delivery, S3/CDN storage, stronger rights/QC policy, real publication delivery and Theatre listener API. [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
+Broader Studio Web acceptance, production identity/credential delivery, real-provider/CDN
+acceptance, stronger rights/QC policy, public publication delivery and Theatre identity/native
+listening acceptance.
+[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) implements development upload permissions/private admission, named review and private candidates. Read the
 [external handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) before
 creating routes or DTOs. A proposal is not an existing API.
 
@@ -60,6 +69,7 @@ creating routes or DTOs. A proposal is not an existing API.
 
 ```text
 src/
+  composition.rs            # concrete Store/use-case errors joining pool and Media storage
   script_ir/                # pure structured text contract
   contexts/
     catalog/                # works/units, permissions and immutable history
@@ -67,8 +77,9 @@ src/
     ingestion/              # import and source preservation
     adaptation/             # external proposal acceptance
     production/             # planning-only guidance and rights
-    media/                  # private intake, inspection, review and publication authority
-      domain/               # pure lifecycle/publication/profile rules and WAV inspection
+    media/                  # private intake/review/read/storage and publication authority
+      domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
+    listening/              # separate account-owned Library/progress/history
   interfaces/http/          # separate Studio/Theatre routes; Admin remains reserved for PR4
   platform/                 # postgres/session/IDs/migrations/generic incremental
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
@@ -84,7 +95,7 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions1–14,16–21,24,25 (22 migrations); private storage0015 remains separate. Admin0022 belongs
+versions1–21,24,25 (23 migrations), including original private storage0015. Admin0022 belongs
 to its independent succeeding PR; artwork0023 remains reserved and absent from this registry.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
@@ -102,9 +113,23 @@ and UPDATE(revision_id,revision) on heads. Brief grants add SELECT/INSERT on `pr
 `production_producer_grants`, `production_producer_revocations` and UPDATE(brief_id,version)
 on Brief heads only. Deployment role provisioning remains separate.
 
-## Development audio storage
+Migration0015 adds `storage_target_id` to receipt/rendition location metadata without rewriting
+immutable snapshots or digests. Existing rows name `legacy-filesystem`; new rows record the
+configured target explicitly. Preserve the original root for that historical target. The old
+filesystem-only application can still write local rows using the default, but cannot read new
+S3 assets; rollback after remote writes requires a compatible reader.
 
-Intake writes require an explicit absolute `CANTOS_AUDIO_ROOT`. The Unix adapter creates only
+## Private audio storage
+
+Set an absolute `CANTOS_STORAGE_CONFIG` path to checked non-secret TOML; see
+[storage.example.toml](config/storage.example.toml) and the
+[configuration contract](../../docs/architecture/object-storage.md#checked-configuration-and-switching).
+Credentials use named environment inputs outside Git. Every configured target is validated at
+startup, including historical read targets, with no provider fallback. The preceding absolute
+`CANTOS_AUDIO_ROOT` option remains compatible and selects `legacy-filesystem`; setting both is
+an error. Without either option, private storage is unavailable.
+
+For filesystem targets, the Unix adapter creates only
 its final root directory and `objects` child; existing directories must be owned by the process
 user and mode 0700. An intake-enabled API host disables all same-process static serving,
 including nested public symlinks; `CANTOS_WEB_DIST` is unused for delivery in that mode.
@@ -113,11 +138,19 @@ Serve Studio separately through its existing Trunk proxy and set the matching
 away from private objects. Unconfigured hosts retain existing editorial/static behavior but
 fail audio writes closed.
 
-Stored keys are SHA-256-derived, immutable and absent from wire responses. Files remain private
-and read-only; every accepted receipt read checks stored integrity. Objects are synchronized
+Object identities are SHA-256-derived and private; metadata exposes existing content IDs rather
+than keys. A short-lived authorized S3 grant can reveal its scoped location to its holder and
+must never be logged or persisted. Files remain private/read-only; accepted receipt reads check
+stored integrity. Filesystem objects are synchronized
 before metadata acceptance, but filesystem/SQL are not one transaction. Crash/rollback may
 leave private orphans; no request deletes a shared object. Reference-aware cleanup, retention,
-production isolation and S3/CDN integration are deferred. No producer should receive a Studio cookie and no uploaded object becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations, renditions, reviews and candidates; its application-role grants are SELECT/INSERT only. Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
+production isolation and real-provider/CDN acceptance are deferred. S3 conditional writes verify
+actual bytes; protected reads pin by version or strong ETag. Direct grants require a usable
+version ID, otherwise refreshable access redirects to the protected API stream. Switching new
+writes never migrates old bytes. No producer receives a Studio cookie and no upload/preview
+becomes a release. Migration0014 adds immutable Content/Brief submissions, revocations,
+renditions, reviews and candidates; its application-role grants are SELECT/INSERT only.
+Brief read-grant issuance also needs SELECT on `audio_submissions` for credential-separation checks.
 
 ## Local verification
 
