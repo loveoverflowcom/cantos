@@ -5,6 +5,17 @@
 > the listener Web/CMP client. Backend TTS, provider workers and in-server mixing are removed.
 > Older TTS implementation evidence and GitHub issue history remain archival.
 
+## Executable behavior review boundary
+
+[Issue 106](https://github.com/loveoverflowcom/cantos/issues/106) introduces the bounded
+[Quint foundation](../../specs/behavior/README.md) before its separate
+[implementation-observation handoff](quint-conformance-handoff.md). Start with the existing
+private AudioSubmission core; keep publishing/listening and wider UI/CMP scenarios deferred
+until their exact requirements/observations are reviewed. A model PASS does not accept a
+product feature or replace the backend sequence below. The
+[foundation evidence](../evidence/quint-behavior-foundation.md) separates executed model
+stages from the conformance/runtime work still required.
+
 ## Ordered implementation
 
 1. **Catalog / editorial identity:** work types `novel | story | podcast`, stable

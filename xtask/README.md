@@ -20,7 +20,9 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
 | GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
 
-xtask does not install toolchains, initialize/start Podman Machine, change connections, call
+Tool detection never installs anything. Explicit `verify behavior --setup` alone installs its
+locked npm development dependency; ordinary verification never fetches it. xtask does not
+install other toolchains, initialize/start Podman Machine, change connections, call
 providers, create cloud resources, publish or deploy. Only explicit `services up` starts local
 container infrastructure; build/test/run/preflight never do.
 
@@ -46,6 +48,7 @@ cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
+cargo xtask verify behavior [--capability ID] [--setup] # opt-in model-only Quint
 cargo xtask verify postgres [--keep]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile]...
 
@@ -232,6 +235,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `verify` suite | Gates |
 | --- | --- |
 | `repository` | repository |
+| `behavior` | behavior (locked model-only tool, named runs, properties, witnesses, negative controls) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
@@ -295,6 +299,8 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
+- Non-document `specs/behavior`, `tools/behavior` and `scripts/verify_behavior.py` inputs select
+  the model-only behavior gate; their Markdown needs only the always-on gates.
 - Primitive scripts select the gate that exercises them; a script with no known impact selects every gate.
 - Documents, templates, skills and issue forms need only the always-on gates. The service
   manifest, PostgreSQL/Kanidm examples and configuration docs are statically validated by
@@ -307,6 +313,23 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
 `--skip GATE` (repeatable) is the only way to leave out a selected gate. The gate is reported as
 `NOT_RUN`, never `PASS`. Use it, for example, for `postgres` on a machine without PostgreSQL, and
 state it in the pull request.
+
+### Executable behavior models
+
+`cargo xtask verify behavior` selects executable entries in [the stable catalog](../specs/behavior/catalog.json);
+`--capability ID` narrows the selection and `--setup` explicitly installs the official integrity-locked
+Quint npm development tool with lifecycle scripts disabled. Node/npm are provided separately.
+The shared tool probe validates the exact installed versions/lock before pipeline execution.
+Missing/incompatible tools are `UNSUPPORTED`; partial/error/zero-evidence model runs are `FAIL`.
+The Python primitive uses existing bounded POSIX process cleanup and retains fresh commands,
+seeds, type/effect output, raw ITF, input/tool hashes and counterexamples under ignored
+`target/verification/behavior/`. It checks sampled sequential models only; implementation
+conformance and exhaustive proof are NOT_RUN. See [scope and reproduction](../specs/behavior/README.md).
+
+This gate is outside full preflight/CI until its toolchain is separately provisioned.
+Non-document model/catalog/tool inputs and the behavior primitive select it in changed-only
+preflight. Shared verification changes retain conservative full selection, including behavior when
+changed model/tool inputs select it; other behavior-tool changes need the explicit suite too; no production code or database/provider process is started.
 
 ### Optional targeted Kani proofs
 
@@ -437,6 +460,7 @@ separates the original mock adapter checks from real rendering recorded in the
 
 | Module | Responsibility |
 | --- | --- |
+| `behavior.rs` | narrow model-only command/probe plans; catalog/Quint own semantics, Python owns bounded evidence |
 | `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |
 | `workspace.rs`, `config.rs` | root discovery; ports, packages, directories and versions, checked against the repository by tests |
 | `command.rs` | immutable `CommandSpec` values and the `Runner` abstraction |

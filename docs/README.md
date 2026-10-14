@@ -11,6 +11,7 @@
 | [Content Identity](decisions/0019-content-identity.md) | Work/unit/content/script authority split and immutable content; [evidence](evidence/content-identity.md), [Production Brief handoff](work-plan/content-identity-production-brief-handoff.md) |
 | [Publication core](evidence/publication-core.md) | Studio publication contracts, immutable release/rights gates, source-bound proof evidence and pending SQL/public delivery acceptance; [successor handoff](work-plan/publication-discovery-handoff.md) |
 | [Business rules](product/business-rules.md) | Domain invariants, rights, revisions and approvals |
+| [Quint foundation evidence](evidence/quint-behavior-foundation.md) | Executed draft-model scenarios, witnesses, negative controls, locked provenance and separate implementation-conformance/runtime gaps |
 | [External audio handoff pipeline](product/production-pipeline.md) | Versioned producer briefs, private upload/finalize, QC and immutable publication; no in-backend synthesis |
 | [Story workspace](production/story-workspace.md) | Agent-operated Drive/local story folders, indexes, synchronization and offline recovery |
 | [Radio score](production/radio-score.md) | Dialogue adaptation, proper-name mapping and performance cues using Script IR |
@@ -66,6 +67,7 @@
 | [Decision 0016](decisions/0016-speech-fingerprint-and-clip-reuse.md) | Proposed: position-free speech fingerprint, verified clip registry and attempt-less reuse, regeneration plan |
 | [Decision 0017](decisions/0017-experimental-dbsp-job-summary.md) | Historical opt-in local DBSP TTS job-summary experiment (runtime adapter retired); production adoption gated |
 | [Decision 0022](decisions/0022-cantos-forge-producer-cli.md) | Proposed: Cantos Forge, a producer-side CLI outside the API runtime; API/Studio/Theatre still never execute generation |
+| [Executable behavior](../specs/behavior/README.md) / [ADR 0025](decisions/0025-quint-executable-behavior.md) | Quint catalog and model-only private admission pilot; [PR B observation handoff](work-plan/quint-conformance-handoff.md), no implementation conformance claim |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |
 | [Audio drama quality plan](work-plan/audio-drama-quality.md) | Research reconciliation and ordered issues improving the adaptation process and audio output |

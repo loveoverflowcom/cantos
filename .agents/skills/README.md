@@ -5,13 +5,14 @@
 > instructions and accepts private verified files for review/publication. Historical provider
 > worker contracts are NOT current backend implementation guidance.
 
-Eighteen skills shared by every agent runtime in this repository: eight **rule owners** and ten
+Nineteen skills shared by every agent runtime in this repository: nine **rule owners** and ten
 **task entrypoints** that compose them. They change what an agent *does* while working on Cantos;
 they are not product documentation and they do not implement anything.
 
 ```text
 cantos-engineering                 ← foundation: invariants, decoupling, immutability, types,
         ↑                             functional core, tests, evidence vocabulary, residual risk
+        ├── cantos-behavior              ← shared Quint catalog, scenario generation, non-vacuity and model evidence
         ├── cantos-script-ir             ← Script IR, editorial revisions, import/adaptation boundary
         ├── cantos-production-pipeline   ← external audio handoff, profiles, QC intake and producer isolation
         ├── cantos-publication           ← rights, approvals, staged publication, manifests, delivery
@@ -38,11 +39,12 @@ cantos-story-audit                 ← artifact coverage, naming, audio and sync
 Arrows point from a skill to the owner it composes. Owners never route back to the skill that
 loaded them, and a task entrypoint cites owner references directly instead of restating them.
 
-## Two kinds of truth
+## Requirements, executable expectations and method
 
 | Truth | Owner | Rule |
 |---|---|---|
 | Product behavior: hierarchy, business rules, pipeline gates, mobile behavior, UI requirements | [`docs/`](../../docs/README.md) | Link the owning document; never copy a competing version of a rule into a skill |
+| Accepted executable stateful expectations | [`specs/behavior/`](../../specs/behavior/README.md) | Catalog owns IDs/lifecycle; accepted `.qnt` owns executable outcomes; draft model PASS never accepts requirements or proves implementation |
 | Working method: order of work, decoupling, evidence selection, test technique, reporting | these skills | One canonical definition per method, in exactly one skill |
 
 When a skill and an owning document disagree, the document wins for product behavior. Report the
@@ -82,6 +84,7 @@ completeness, orphaned references and local links. Passing it proves skill hygie
 
 | The task is about… | Load |
 |---|---|
+| registered stateful behavior, Quint models, shared API/Leptos/CMP scenarios, witnesses and counterexamples | [`cantos-behavior`](cantos-behavior/SKILL.md), composing the foundation |
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
 | layered verification, independently verified core delivery, unavailable infrastructure or deferred acceptance | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification strategy](cantos-engineering/references/verification-strategy.md#layered-verification) and [local handoff](cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion) |
 | typed functional errors, refinement-preserving composition, cancellation, retry and boundary translation | [`cantos-engineering`](cantos-engineering/SKILL.md), then [typed errors and composition](cantos-engineering/references/typed-errors-and-composition.md); add the CMP/Web application reference only for that platform |
