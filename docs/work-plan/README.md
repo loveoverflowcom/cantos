@@ -299,3 +299,11 @@ then authorized provider/public-client/current-rights acceptance and reviewed re
 backup/retention. Native playback, durable Library/outbox, guest import, explicit cross-client
 linking and broader synchronization keep their separate owners. Production stays disabled;
 GitHub owns PR execution/merge status and broader issues remain open.
+
+## Editor workspace hygiene
+
+[VS Code workspace settings](../../.vscode/settings.json) now exclude generated outputs
+and caches from Explorer, search and recursive watching when the repository root is open.
+This tooling change does not reorder the product queue. Verify Explorer/Search behavior
+on a VS Code host before editor acceptance, including separately opened Theatre Mobile,
+UI-system CMP and Android preview Gradle roots; GitHub owns PR execution status.
