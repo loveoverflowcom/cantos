@@ -29,7 +29,7 @@ pub(crate) mod read {
         ByteRange, NormalizedByteRange, RangeError, StorageError,
     };
     pub(crate) use super::read_application::AudioReadScope;
-    pub(crate) use super::storage::port::StorageStream;
+    pub(crate) use super::storage::port::{StorageRead, StorageStream};
 }
 mod publication_application;
 pub(crate) mod publication_delivery;
@@ -42,6 +42,8 @@ mod listener_application;
 mod listener_cursor;
 mod listener_delivery;
 mod listener_projection;
+#[cfg(test)]
+pub(crate) use listener_application::PlaybackFixtureEligibility;
 pub use listener_application::{ListenerError, ListenerService};
 pub use listener_delivery::{MediaGrant, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit};
 

@@ -24,6 +24,16 @@ pub(super) fn routes() -> Router<AppState> {
         .fallback(theatre_not_found)
         .layer(DefaultBodyLimit::max(32 * 1024))
 }
+/// The crate-root fixture exercises these production handlers without a database or host switch.
+#[cfg(test)]
+pub(super) fn playback_contract_routes() -> Router {
+    Router::new()
+        .route("/publications/{publication}", get(manifest))
+        .route(
+            "/publications/{publication}/playback-authorizations",
+            post(playback),
+        )
+}
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 struct WorkQuery {

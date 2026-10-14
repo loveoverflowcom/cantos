@@ -95,6 +95,12 @@ defines the next two separately reviewed slices and the independent
 Keep #9/#10/#11 open through real storage, SQL/concurrency, listening/rights and public acceptance;
 Studio audit manifests do not themselves authorize Theatre playback.
 
+The bounded [Range transport prototype](../evidence/playback-range-transport.md) links #120's
+contract-fixture groundwork to that same sequence. Before connecting live Theatre audio, accept
+#10/#11's publication-class object isolation, version pinning and per-fetch expiry/withdrawal
+checks under the [proposed delivery decision gates](../decisions/0027-publication-streaming-evidence-gates.md).
+Shared Studio transport and mocked publication bytes do not replace those dependencies.
+
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact

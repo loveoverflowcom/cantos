@@ -93,6 +93,41 @@ pub struct ListenerService {
     cursors: Arc<CursorVault>,
     delivery: Arc<dyn PlaybackDelivery>,
 }
+
+/// Named external-read double for the crate-root transport contract fixture only.
+/// No runtime switch or public constructor of publication authority is created.
+#[cfg(test)]
+#[derive(Clone, Copy, Default)]
+pub(crate) enum PlaybackFixtureEligibility {
+    #[default]
+    Current,
+    Withdrawn,
+    Revoked,
+    Superseded,
+    OwnerDisabled,
+}
+
+#[cfg(test)]
+impl ListenerService {
+    pub(crate) fn playback_contract_fixture(
+        delivery: Arc<dyn PlaybackDelivery>,
+        sha256: String,
+        byte_length: u64,
+        eligibility: Arc<std::sync::Mutex<PlaybackFixtureEligibility>>,
+        now: Arc<std::sync::atomic::AtomicI64>,
+    ) -> Self {
+        Self {
+            read: Arc::new(tests::FixtureRead {
+                sha256,
+                byte_length,
+                eligibility,
+                now,
+            }),
+            cursors: Arc::new(CursorVault::default()),
+            delivery,
+        }
+    }
+}
 impl ListenerService {
     pub fn new(store: Store) -> Self {
         Self {
@@ -247,15 +282,17 @@ impl ListenerService {
         let permit = PlaybackPermit {
             publication_id: d.id.clone(),
             rendition_id: m.rendition_id.clone(),
+            manifest_digest: m.digest.clone(),
             sha256: m.media.sha256.clone(),
             object_id: m.delivery_object_id.clone(),
             byte_length: m.media.byte_length,
             valid_until: until,
         };
-        let grant = self.delivery.grant(permit).await?;
+        let grant = self.delivery.grant(permit.clone()).await?;
         // Re-read from a fresh PG transaction after external signing. A stale snapshot cannot grant.
         let (fresh, fresh_now) = self.resolve(publication).await?;
         if publication_manifest(&fresh.publication) != publication_manifest(&initial.publication)
+            || grant.permit != permit
             || grant.expires <= fresh_now
             || grant.expires > until
             || !grant.range
@@ -274,11 +311,11 @@ impl ListenerService {
     }
 }
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::super::{
         domain::{
             listening::{ListenerFacts, ListenerPublication},
-            publication::{decide, tests::fixture, AudioRelease, ReleaseId},
+            publication::{decide, AudioRelease, ReleaseId},
         },
         listener_delivery::{MediaGrant, PlaybackDeliveryFuture},
     };
@@ -286,7 +323,22 @@ mod tests {
     use crate::contexts::catalog::domain::{NewWork, Visibility, Work};
     use std::sync::Mutex;
     fn item() -> ReadItem {
-        let mut f = fixture();
+        item_with_media(
+            &"a".repeat(64),
+            100,
+            PlaybackFixtureEligibility::Current,
+            5000,
+        )
+        .unwrap()
+    }
+    pub(super) fn item_with_media(
+        sha256: &str,
+        byte_length: u64,
+        eligibility: PlaybackFixtureEligibility,
+        now: i64,
+    ) -> Option<ReadItem> {
+        let mut f =
+            super::super::domain::publication::tests::fixture_with_media(sha256, byte_length);
         let mut details = f.work.details().clone();
         details.visibility = Visibility::Public;
         f.work = Work::new(NewWork {
@@ -313,18 +365,42 @@ mod tests {
             current_unit: &f.unit,
             rights: Some(&f.rights),
             approval: Some(&f.approval),
-            active: true,
-            owner_active: true,
-            withdrawn: false,
-            submission_revoked: false,
-            now: 5000,
+            active: !matches!(eligibility, PlaybackFixtureEligibility::Superseded),
+            owner_active: !matches!(eligibility, PlaybackFixtureEligibility::OwnerDisabled),
+            withdrawn: matches!(eligibility, PlaybackFixtureEligibility::Withdrawn),
+            submission_revoked: matches!(eligibility, PlaybackFixtureEligibility::Revoked),
+            now,
         })
-        .unwrap()
-        .unwrap();
-        ReadItem {
+        .unwrap()?;
+        Some(ReadItem {
             publication: p,
             first_at: 5000,
             position: 1,
+        })
+    }
+
+    pub(super) struct FixtureRead {
+        pub(super) sha256: String,
+        pub(super) byte_length: u64,
+        pub(super) eligibility: Arc<Mutex<PlaybackFixtureEligibility>>,
+        pub(super) now: Arc<std::sync::atomic::AtomicI64>,
+    }
+    impl ListenerRead for FixtureRead {
+        fn read(&self, _request: ReadRequest) -> ReadFuture {
+            let now = self.now.load(std::sync::atomic::Ordering::SeqCst);
+            let item = item_with_media(
+                &self.sha256,
+                self.byte_length,
+                *self.eligibility.lock().unwrap(),
+                now,
+            );
+            Box::pin(async move {
+                Ok(ReadSnapshot {
+                    now,
+                    items: item.into_iter().collect(),
+                    next_key: None,
+                })
+            })
         }
     }
     struct SequencedRead(Mutex<Vec<bool>>);
@@ -350,7 +426,8 @@ mod tests {
             let expires = self.expires;
             let range = self.range;
             Box::pin(async move {
-                MediaGrant::verified(
+                MediaGrant::verified_for(
+                    &permit,
                     "https://synthetic.invalid/approved-media".into(),
                     expires,
                     range,
@@ -407,6 +484,43 @@ mod tests {
             s.authorize_playback(ID).await.unwrap_err(),
             ListenerError::RenditionUnavailable
         );
+    }
+
+    struct ForeignGrant(usize);
+    impl PlaybackDelivery for ForeignGrant {
+        fn grant(&self, mut permit: PlaybackPermit) -> PlaybackDeliveryFuture {
+            // Model an adapter replaying a grant issued for another immutable permit.
+            match self.0 {
+                0 => permit.publication_id = "90000000-0000-4000-8000-000000000009".into(),
+                1 => permit.rendition_id = "90000000-0000-4000-8000-000000000009".into(),
+                2 => permit.manifest_digest = "other-manifest-version".into(),
+                3 => permit.sha256 = "b".repeat(64),
+                4 => permit.object_id = "other-publication-object".into(),
+                5 => permit.byte_length = 101,
+                6 => permit.valid_until = 9999,
+                _ => unreachable!("finite test mutation domain"),
+            }
+            Box::pin(async move {
+                MediaGrant::verified_for(
+                    &permit,
+                    "https://synthetic.invalid/approved-media".into(),
+                    9000,
+                    true,
+                )
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn adapter_replay_cannot_substitute_any_field_of_the_sealed_permit() {
+        for dimension in 0..7 {
+            let service = service(vec![true, true], Arc::new(ForeignGrant(dimension)));
+            assert_eq!(
+                service.authorize_playback(ID).await.unwrap_err(),
+                ListenerError::RenditionUnavailable,
+                "identity dimension {dimension}"
+            );
+        }
     }
     /// Returns the resolved fixture under a listing anchor that differs from its Studio position.
     struct AnchoredRead(u32);

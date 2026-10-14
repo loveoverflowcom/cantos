@@ -97,7 +97,7 @@ HTTP_PURE_BOUNDARIES = {
 # safe errors and a bounded byte stream. This never permits direct domain/adapter dependencies.
 MEDIA_READ_HTTP_TYPES = {
     "AudioReadScope", "ByteRange", "NormalizedByteRange", "RangeError", "StorageCapability", "StorageError",
-    "StorageStream",
+    "StorageRead", "StorageStream",
 }
 TABLE_OWNER = {
     "scripts": "editorial", "script_members": "editorial",

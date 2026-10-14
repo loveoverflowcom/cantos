@@ -24,6 +24,7 @@ use crate::contexts::media::{
 use crate::platform::postgres::{Store, StoreError};
 
 mod admin;
+pub(crate) mod audio_transport;
 mod cookies;
 mod studio;
 mod theatre;
@@ -31,6 +32,11 @@ mod theatre_auth;
 mod theatre_library;
 mod theatre_native_auth;
 mod wire;
+
+#[cfg(test)]
+pub(crate) fn playback_contract_router(listener: ListenerService) -> Router {
+    theatre::playback_contract_routes().layer(axum::extract::Extension(listener))
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -55,6 +61,9 @@ pub fn router_with_publication_delivery(
 }
 
 fn router_with_publication(state: AppState, dist: &str, publication: PublicationService) -> Router {
+    // TODO(issue120, #10/#11): production composition stays unavailable until the proposed
+    // delivery-mode ADR, publication-only object adapter and every-fetch eligibility/expiry
+    // checks have real accepted evidence. The cfg(test) transport fixture is not a host mode.
     let listener = ListenerService::new(state.store.clone());
     router_with_services(state, dist, publication, listener)
 }
@@ -310,9 +319,18 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
             Err(_) => failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
         }
     };
+    // Binary audio retains the transport's stricter private/no-transform directives. This
+    // still forces no-store on every response, including errors and conditional responses.
+    let cache_control = if response.headers().get(header::CONTENT_TYPE)
+        == Some(&HeaderValue::from_static("audio/ogg"))
+    {
+        HeaderValue::from_static("private, no-store, no-transform")
+    } else {
+        HeaderValue::from_static("no-store")
+    };
     response
         .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+        .insert(header::CACHE_CONTROL, cache_control);
     response.headers_mut().insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),

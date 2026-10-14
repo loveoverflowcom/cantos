@@ -106,6 +106,22 @@ async fn surfaces_do_not_leak_routes_into_each_other() {
 }
 
 #[tokio::test]
+async fn ordinary_host_never_mounts_contract_fixture_or_publication_bytes() {
+    for path in [
+        "/fixture-bytes".to_owned(),
+        format!("{THEATRE_BASE}/fixture-bytes"),
+        format!("{THEATRE_BASE}/publications/{SCRIPT}/bytes"),
+    ] {
+        for studio_cookie in [false, true] {
+            assert_eq!(
+                call("GET", &path, studio_cookie, "").await.status,
+                StatusCode::NOT_FOUND
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn studio_routes_require_authentication_at_the_current_and_legacy_paths() {
     for suffix in [
         format!("/scripts/{SCRIPT}/head"),

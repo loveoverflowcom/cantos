@@ -84,6 +84,11 @@ rendition, with no invented AAC or automatic quality fallback.
 `PlaybackDelivery` is a distinct trusted adapter consuming a sealed public-only permit. The
 application bounds a grant to 120 seconds and the rights window, then performs a fresh PG
 eligibility read after signing. It rejects stale, expired, out-of-window or non-range grants.
+The trusted Rust adapter constructs `MediaGrant::verified_for` with that exact sealed permit;
+the returned grant must preserve publication/rendition/object, manifest version/digest,
+SHA/length and access window. Replaying another permit fails closed. The constructor rejects
+non-HTTPS or credential-bearing locations, fragments, whitespace/control characters and
+unbounded expiry. This binding is not actual-byte or current-eligibility verification.
 The default adapter returns `rendition_unavailable`, with no URL. A real adapter must validate
 public-object SHA/length/identity and enforce current revocation/withdrawal on every GET/HEAD,
 Range/seek, audio/ogg content type, cache isolation and grant refresh. No public adapter, public
@@ -121,3 +126,13 @@ before claiming Web/CMP wire acceptance. No hand-written Kotlin wire DTO was add
 New endpoints are additive. Earlier Theatre mock playback vectors remain separate. Times are
 explicit Unix milliseconds (`*_at_ms`), not float seconds; these new fields choose the existing
 backend time representation instead of the earlier illustrative RFC3339 listener proposal.
+
+## Shared transport prototype boundary
+
+The [#120 transport draft](../../docs/evidence/playback-range-transport.md) reuses HTTP mechanics
+with the real Studio private-reader consumer and a test-only Theatre JSON/application/byte
+fixture. The fixture pins actual arbitrary transport bytes but mocks publication/SQL/codec
+authority; it is not playable-media admission, a public storage adapter or live delivery.
+No new endpoint, wire field, signer, provider or runtime switch is introduced. The normal
+PlaybackDelivery/PublicationDelivery composition remains unavailable. Production mode and
+cache security remain [proposed evidence-gated decisions](../../docs/decisions/0027-publication-streaming-evidence-gates.md).

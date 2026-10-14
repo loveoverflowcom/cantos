@@ -24,6 +24,9 @@ pub type PublicationDeliveryFuture = Pin<
 /// Concrete consumer: the publication preparation/use case. Production uses UnavailableDelivery;
 /// tests use named deterministic delivery fakes. Provider integration must implement this port
 /// after an approved publication-class object has actually been verified via its delivery path.
+/// TODO(issue120, #10/#11): retain UnavailableDelivery until approved publication-class
+/// promotion/isolation, version-pinned actual-byte verification and the selected delivery-path
+/// Range/expiry/retraction probes are accepted. Private preview readiness cannot satisfy this.
 pub trait PublicationDelivery: Send + Sync {
     fn observe(&self, object: PublicationObject) -> PublicationDeliveryFuture;
 }
