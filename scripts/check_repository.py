@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Check documents, links, fixtures, hygiene, skills and API architecture boundaries.
+"""Check documents, links, fixtures, hygiene, skills and API/Theatre architecture boundaries.
 
 This does not validate application behavior, YAML schemas or audio quality.
 Skill checks cover structure only: portable frontmatter, Codex metadata, the
 README index, reachable references and Claude Code symlinks.
-Architecture checks inspect source dependencies and named SQL tables, not runtime behavior.
+Architecture checks inspect source dependencies (Rust paths, Kotlin imports) and named SQL
+tables, not runtime behavior.
 It uses only Python's standard library and Git.
 """
 
@@ -641,6 +642,141 @@ def check_api_architecture(root=ROOT):
     return sorted(errors)
 
 
+THEATRE_SOURCE = Path("apps/cantos-theatre/mobile/shared/src")
+THEATRE_PACKAGE = ("com", "cantos", "theatre")
+THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo"}
+# Allowlisted layers may import only these namespaces. Features use the denylist in
+# theatre_dependency_error; adapters and app are explicitly unguarded.
+THEATRE_INTERNAL_ALLOWED = {
+    "domain": ("domain",),
+    "ports": ("domain", "ports"),
+    "application": ("domain", "ports", "application"),
+    "demo": ("demo",),
+}
+THEATRE_EXTERNAL_ALLOWED = {
+    "domain": ("kotlin",),
+    "ports": ("kotlin", "kotlinx.coroutines"),
+    "application": ("kotlin", "kotlinx.coroutines"),
+    "demo": ("kotlin",),
+}
+THEATRE_FEATURE_FORBIDDEN = ("app", "adapters", "ports")
+THEATRE_COMMON_FORBIDDEN_ROOTS = {"android", "platform", "java", "javax"}
+THEATRE_QUALIFIED_ROOTS = {"androidx", "android", "java", "javax", "platform", "kotlinx"}
+THEATRE_IDENT = r"(?:[A-Za-z_]\w*|`[^`\n]+`)"
+THEATRE_QUALIFIED = rf"{THEATRE_IDENT}(?:\s*\.\s*{THEATRE_IDENT})*"
+THEATRE_PACKAGE_STATEMENT = re.compile(rf"(?m)^[ \t]*package\s+({THEATRE_QUALIFIED})")
+THEATRE_IMPORT_STATEMENT = re.compile(
+    rf"(?m)(?:^|;)[ \t]*import\s+({THEATRE_QUALIFIED}(?:\s*\.\s*\*)?)(?:\s+as\s+{THEATRE_IDENT})?"
+)
+THEATRE_QUALIFIED_USE = re.compile(rf"(?<![\w.`])({THEATRE_QUALIFIED})")
+
+
+def theatre_names(text):
+    return tuple(part.strip("`") for part in re.sub(r"\s+", "", text).split("."))
+
+
+def under(name, prefix):
+    return name[:len(prefix)] == prefix
+
+
+def theatre_dependency_error(layer, feature, source_set, name):
+    """Return why this layer may not use `name` (a dotted tuple, wildcard stripped)."""
+    if layer in THEATRE_INTERNAL_ALLOWED:
+        allowed = [THEATRE_PACKAGE + (part,) for part in THEATRE_INTERNAL_ALLOWED[layer]]
+        allowed += [tuple(part.split(".")) for part in THEATRE_EXTERNAL_ALLOWED[layer]]
+        if any(under(name, prefix) for prefix in allowed):
+            return None
+        return f"{layer} may import only {', '.join('.'.join(prefix) for prefix in allowed)}"
+    if layer == "features":
+        for target in THEATRE_FEATURE_FORBIDDEN:
+            if under(name, THEATRE_PACKAGE + (target,)):
+                return f"features must not depend on {target}"
+        own = THEATRE_PACKAGE + ("features", feature)
+        if under(name, THEATRE_PACKAGE + ("features",)) and not under(name, own):
+            return f"features must not import another feature (own: {feature})"
+        if source_set == "commonMain" and name[0] in THEATRE_COMMON_FORBIDDEN_ROOTS:
+            return f"commonMain features must not use platform namespace {name[0]}"
+    return None
+
+
+def blank(text):
+    return re.sub(r"[^\n]", " ", text)
+
+
+def check_theatre_architecture(root=ROOT):
+    """Check Theatre mobile import layers, package/directory agreement and qualified names.
+
+    This is lexical, like the API check: it reads package and import statements plus dotted
+    names in code and executable string templates. It does not resolve overloads or prove
+    behavior (a clock or random source in domain, reducer imports from features). The
+    adapters and app packages are explicitly unguarded.
+    """
+    from ui_preview_catalog import kotlin_source_regions
+
+    errors = set()
+    source = root / THEATRE_SOURCE
+    for file in sorted(source.glob("*Main/**/*.kt")):
+        label = file.relative_to(root).as_posix()
+        parts = file.relative_to(source).parts
+        source_set = parts[0]
+        if parts[1] != "kotlin" or parts[2:5] != THEATRE_PACKAGE:
+            errors.add(f"{label}: Kotlin source must live under {source_set}/kotlin/com/cantos/theatre")
+            continue
+        layer = parts[5] if len(parts) > 6 else None
+        if layer not in THEATRE_LAYERS:
+            errors.add(f"{label}: package needs an explicit layer policy; place it directly under "
+                       f"com/cantos/theatre/{{{','.join(sorted(THEATRE_LAYERS))}}}")
+            continue
+        feature = parts[6] if layer == "features" and len(parts) > 7 else None
+        if layer == "features" and not feature:
+            errors.add(f"{label}: features code belongs in features/<feature>/")
+            continue
+
+        content = file.read_text(encoding="utf-8")
+        code, templates = kotlin_source_regions(content, keep_lines=True)
+
+        def report(offset, name, reason):
+            errors.add(f"{label}:{code.count(chr(10), 0, offset) + 1}: {'.'.join(name)}: {reason}")
+
+        directory = parts[2:-1]
+        statement = THEATRE_PACKAGE_STATEMENT.search(code)
+        declared = theatre_names(statement.group(1)) if statement else None
+        if declared != directory:
+            errors.add(f"{label}:{code.count(chr(10), 0, statement.start()) + 1 if statement else 1}: "
+                       f"package {'.'.join(declared) if declared else '(none)'} "
+                       f"does not match directory {'.'.join(directory)}")
+
+        remainder = code
+        for match in THEATRE_IMPORT_STATEMENT.finditer(code):
+            name = theatre_names(match.group(1))
+            name = name[:-1] if name[-1] == "*" else name
+            reason = theatre_dependency_error(layer, feature, source_set, name)
+            if reason:
+                report(match.start(1), name, reason)
+            remainder = remainder[:match.start()] + blank(match.group()) + remainder[match.end():]
+        if statement:
+            remainder = remainder[:statement.start()] + blank(statement.group()) + remainder[statement.end():]
+
+        # Fully qualified use needs no import in Kotlin, so inspect dotted names directly.
+        for text, in_template in ((remainder, False), (templates, True)):
+            for match in THEATRE_QUALIFIED_USE.finditer(text):
+                name = theatre_names(match.group(1))
+                project = name[:2] == THEATRE_PACKAGE[:2] and len(name) > 2
+                platform = (len(name) > 2 and name[0] in THEATRE_QUALIFIED_ROOTS
+                            and any(part[:1].isupper() for part in name))
+                reason = (project or platform) and theatre_dependency_error(layer, feature, source_set, name)
+                if not reason:
+                    continue
+                if in_template:
+                    # Template regions have no line map; find the first literal occurrence.
+                    found = re.search(r"\s*\.\s*".join(re.escape(part) for part in name), content)
+                    line = content.count("\n", 0, found.start()) + 1 if found else 1
+                    errors.add(f"{label}:{line}: {'.'.join(name)}: {reason}")
+                else:
+                    report(match.start(1), name, reason)
+    return sorted(errors)
+
+
 def check():
     errors = []
     for name in REQUIRED:
@@ -690,6 +826,7 @@ def check():
 
     errors += check_skills(ROOT)
     errors += check_api_architecture(ROOT)
+    errors += check_theatre_architecture(ROOT)
 
     # The two diagnostics share one declaration source. Registration never means
     # runtime/design approval; new app imports need fresh evidence on both renderers.

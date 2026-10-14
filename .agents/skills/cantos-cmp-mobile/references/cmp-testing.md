@@ -86,7 +86,8 @@ The examples here illustrate assertions, not newly installed test helpers.
 
 ### VER-01 — compile-time and static checks
 
-**MUST** for touched type/visibility/decision boundaries: compile affected targets and inspect
+**MUST** for touched type/visibility/decision boundaries: run `cargo xtask verify repository`
+(Theatre layer import guard, lexical) and compile affected targets and inspect
 sealed exhaustiveness, distinct identities, inaccessible constructors and relevant diagnostics.
 Good: `openEpisode(episodeId)`; negative probe `openEpisode(publicationId)` must fail.
 New sealed cases must expose missing `when` branches.
