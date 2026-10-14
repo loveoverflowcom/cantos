@@ -24,6 +24,14 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
+[issue #113](https://github.com/loveoverflowcom/cantos/issues/113) as a decision-pending
+architecture comparison, not an implementation slot or replacement for existing producer
+grants. Review the [source-bound RFC](../architecture/work-scoped-delegation-rfc.md) and
+[disposable synthetic evidence](../evidence/work-scoped-delegation-research.md), then choose
+the objective, current-rights/revoke semantics and mechanism before adding a grant API/schema.
+This research can progress independently without reordering the backend dependencies below.
+
 1. **Catalog / editorial identity:** work types `novel | story | podcast`, stable
    chapter/episode records, optional manuscript text or Script IR, ownership and rights.
    Do not force a script/cast workflow on plain narration or uploaded recordings.

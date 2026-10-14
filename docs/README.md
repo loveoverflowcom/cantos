@@ -24,6 +24,7 @@
 | [DBSP job-summary evidence](evidence/dbsp-job-summary.md) | Implemented experimental DBSP read model: differential/failure/authorization tests, mutants, full-suite feature run and bounded benchmark with limits |
 | [Architecture overview](architecture/overview.md) | Planned boundaries, deployment and data ownership |
 | [API context architecture](architecture/api-contexts.md) | Context authorities, concrete composition, private intake/read facade and dependency boundaries; no worker |
+| [Work-scoped delegation RFC](architecture/work-scoped-delegation-rfc.md) | Decision-pending A/B/C/hybrid comparison, actual authority/call-site inventory and proposed typed policy responsibilities; [synthetic research](evidence/work-scoped-delegation-research.md), no implementation or selected credential |
 | [Private object storage](architecture/object-storage.md) / [ADR 0022](decisions/0022-provider-independent-private-storage.md) | Immutable target resolution, filesystem/S3 adapters, checked topology, owner delivery and separate provider/publication acceptance |
 | [API refactor evidence](evidence/api-bounded-contexts.md) | Architecture guard, compatibility and invariant regressions, final local gates and residual limits |
 | [Repository layout](architecture/repository-layout.md) | Apps, services and packages: ownership, dependency direction, status and moved paths |
