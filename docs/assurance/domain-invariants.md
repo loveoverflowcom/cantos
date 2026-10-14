@@ -763,3 +763,39 @@ the unchanged `listener-access` Kani harness was not rerun (no Kani bundle). The
 repository gate under Python 3.9 fails with the same 51 entries as clean develop;
 Python 3.14 passes 355 tests. No browser, IME, cookie-race or listener HTTP/PostgreSQL
 runtime acceptance ran.
+
+## Naming-debt and module-ownership checkpoint (14 October 2026)
+
+Rust names now match what the code owns, with no persisted or wire value changed.
+The filesystem private-storage adapter is `FilesystemStorage` (was `AudioStorage`). It
+returns `StoredObject` (was `StoredAudio`) for audio and image writes, bounds both by the
+domain `MAX_OBJECT_BYTES`, and the registry exposes `persist_audio`/`persist_image`. The
+S3 key namespace constant is `PRIVATE_OBJECT_NAMESPACE`. Its value stays `private/audio`
+and is pinned by `private_object_namespace_keeps_the_historical_audio_location`. The
+existing addressing and image PUT tests still assert full `private/audio/<sha256>` paths.
+The production catalog's `CastingContract`/`casting_contract` became
+`ProviderInstructionContract`/`provider_instruction_contract`, and every `ADAPTER_VERSION`
+became `INSTRUCTION_VERSION` (`REFERENCE_INSTRUCTION_VERSION` for reference entries). The
+docs now describe instructions that an external producer follows, not executable
+adapters. The wire field `adapter_version` and every stored identity, including the
+`google-cloud-tts-synthesize-*` spellings, are unchanged. They are pinned by
+`instruction_identities_keep_their_committed_serialized_values` and the unchanged
+integration literals.
+
+The Theatre Mobile Studio pilot Protobuf codec had no shipping consumer: its only users
+were its own test, the fixture embedding and the JVM measurement primitive. It moved
+unchanged from `commonMain/.../adapters/protobuf` to
+`commonTest/.../studiopilotfixtures`, beside `artworkfixtures`, and
+`kotlinx-serialization-protobuf` moved from `commonMain` to `commonTest`.
+`generateProtobufVectors` now deletes its output first: after the package move, a stale
+generated file under the old directory broke the first desktop test compilation.
+`test_studio_pilot_codec_is_fixture_only_and_never_ships_in_common_main` rejects the codec,
+`StudioPilot` or `kotlinx.serialization.protobuf` in any `*Main` source.
+
+Rust 1.87 `verify rust` passed (workspace tests: 1,391 passed, 0 failed). Changed-only
+preflight passed repository (Python 3.14 via a PATH shim, 356 tests), rust-format,
+rust-lint, rust-tests, dbsp, wav-reference and theatre-cmp-demo. That run had 248 desktop
+tests, including all 14 pilot codec tests under the new package. `theatre-demo android-build`
+passed. PostgreSQL and audio-inspection were skipped (no ffmpeg/ffprobe) and are
+`NOT_RUN`. iOS compilation (no Kotlin/Native), Android device tests and live S3 were not
+run.
