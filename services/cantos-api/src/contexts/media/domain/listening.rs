@@ -1,9 +1,9 @@
 //! Pure listener query and eligibility policy. Anonymous public access grants no Studio rights.
+//! Theatre wire DTOs are projected by the application layer (`listener_projection`), never here.
 use super::publication::{
     retained_release_eligible, AudioRelease, DistributionClearance, PublicationApproval,
 };
-use crate::contexts::catalog::domain::{ContentUnit, Lifecycle, Visibility, Work};
-use cantos_contracts::theatre as dto;
+use crate::contexts::catalog::domain::{ContentUnit, Lifecycle, Visibility, Work, WorkKind};
 use unicode_normalization::UnicodeNormalization;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,7 +16,7 @@ pub enum ListenerDomainError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiscoveryQuery {
     search: String,
-    kind: Option<dto::WorkKind>,
+    kind: Option<WorkKind>,
     language: Option<String>,
     limit: u8,
 }
@@ -34,12 +34,7 @@ impl DiscoveryQuery {
             return Err(ListenerDomainError::InvalidQuery);
         }
         let kind = kind
-            .map(|v| match v {
-                "novel" => Ok(dto::WorkKind::Novel),
-                "story" => Ok(dto::WorkKind::Story),
-                "podcast" => Ok(dto::WorkKind::Podcast),
-                _ => Err(ListenerDomainError::InvalidQuery),
-            })
+            .map(|v| WorkKind::parse(v).map_err(|_| ListenerDomainError::InvalidQuery))
             .transpose()?;
         let language = language
             .map(|v| {
@@ -66,16 +61,12 @@ impl DiscoveryQuery {
         &self.search
     }
     pub fn kind(&self) -> Option<&'static str> {
-        self.kind.map(|k| match k {
-            dto::WorkKind::Novel => "novel",
-            dto::WorkKind::Story => "story",
-            dto::WorkKind::Podcast => "podcast",
-        })
+        self.kind.map(WorkKind::as_str)
     }
     pub fn language(&self) -> Option<&str> {
         self.language.as_deref()
     }
-    pub fn matches(&self, work: &dto::WorkSummary) -> bool {
+    pub fn matches(&self, work: &DiscoverableWork<'_>) -> bool {
         self.kind.is_none_or(|k| k == work.kind)
             && self
                 .language
@@ -84,6 +75,15 @@ impl DiscoveryQuery {
             && normalize_search(&format!("{} {}", work.title, work.description))
                 .contains(&self.search)
     }
+}
+/// The public facts a discovery query filters on: the pinned work's category and text, and the
+/// language of the audio actually published, which may differ from the work's metadata.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DiscoverableWork<'a> {
+    pub kind: WorkKind,
+    pub language: &'a str,
+    pub title: &'a str,
+    pub description: &'a str,
 }
 pub fn normalize_search(value: &str) -> String {
     value
@@ -190,61 +190,21 @@ impl ListenerPublication {
     pub fn release(&self) -> &AudioRelease {
         &self.release
     }
-    pub fn summary(&self, first_published_at_ms: i64) -> dto::WorkSummary {
-        dto::WorkSummary {
-            work_id: self.work.id().as_str().into(),
-            kind: match self.work.kind() {
-                crate::contexts::catalog::domain::WorkKind::Novel => dto::WorkKind::Novel,
-                crate::contexts::catalog::domain::WorkKind::Story => dto::WorkKind::Story,
-                crate::contexts::catalog::domain::WorkKind::Podcast => dto::WorkKind::Podcast,
-            },
-            title: self.work.details().title.clone(),
-            description: self.work.details().synopsis.clone(),
-            language: self.release.document().manifest.language.clone(),
-            first_published_at_ms,
-        }
+    /// The work metadata revision this release was published against, not the current one.
+    pub fn work(&self) -> &Work {
+        &self.work
     }
-    pub fn unit(&self) -> dto::UnitSummary {
-        let d = self.release.document();
-        dto::UnitSummary {
-            unit_id: self.unit.id().as_str().into(),
-            kind: match self.unit.kind() {
-                crate::contexts::catalog::domain::ContentUnitKind::Chapter => {
-                    dto::UnitKind::Chapter
-                }
-                crate::contexts::catalog::domain::ContentUnitKind::Episode => {
-                    dto::UnitKind::Episode
-                }
-            },
-            position: self.unit.position(),
-            title: self.unit.details().title.clone(),
-            description: self.unit.details().description.clone(),
-            publication_id: d.id.clone(),
-            published_at_ms: d.published_at,
-            duration_ms: d.manifest.media.duration_ms,
-        }
+    /// The content unit metadata revision this release was published against.
+    pub fn unit(&self) -> &ContentUnit {
+        &self.unit
     }
-    pub fn manifest(&self) -> dto::PublicationManifest {
-        let d = self.release.document();
-        let m = &d.manifest;
-        let a = &m.media;
-        dto::PublicationManifest {
-            schema_version: "1".into(),
-            publication_id: d.id.clone(),
-            work_id: m.work_id.clone(),
-            unit_id: m.unit_id.clone(),
-            rendition_id: m.rendition_id.clone(),
-            manifest_digest: m.digest.clone(),
-            sha256: a.sha256.clone(),
-            byte_length: a.byte_length,
-            duration_ms: a.duration_ms,
-            container: a.container.clone(),
-            codec: a.codec.clone(),
-            channels: a.channels,
-            sample_rate_hz: a.sample_rate_hz,
-            profile_id: a.profile_id.clone(),
-            language: m.language.clone(),
-            published_at_ms: d.published_at,
+    pub fn discoverable(&self) -> DiscoverableWork<'_> {
+        let details = self.work.details();
+        DiscoverableWork {
+            kind: self.work.kind(),
+            language: &self.release.document().manifest.language,
+            title: &details.title,
+            description: &details.synopsis,
         }
     }
 }
@@ -255,13 +215,11 @@ mod tests {
     #[test]
     fn vietnamese_nfc_nfd_and_case_search_real_metadata() {
         let q = DiscoveryQuery::new("A\u{301}NH ĐÈN", None, None, 20).unwrap();
-        let w = dto::WorkSummary {
-            work_id: "id".into(),
-            kind: dto::WorkKind::Story,
-            title: "Ánh đèn cuối sân khấu".into(),
-            description: "Một lời hẹn".into(),
-            language: "vi-VN".into(),
-            first_published_at_ms: 10,
+        let w = DiscoverableWork {
+            kind: WorkKind::Story,
+            title: "Ánh đèn cuối sân khấu",
+            description: "Một lời hẹn",
+            language: "vi-VN",
         };
         assert!(q.matches(&w));
         assert!(
@@ -272,6 +230,33 @@ mod tests {
         assert!(!DiscoveryQuery::new("", Some("podcast"), None, 1)
             .unwrap()
             .matches(&w));
+    }
+    #[test]
+    fn kind_filter_accepts_exactly_the_catalog_work_kinds() {
+        for (raw, kind) in [
+            ("novel", WorkKind::Novel),
+            ("story", WorkKind::Story),
+            ("podcast", WorkKind::Podcast),
+        ] {
+            let q = DiscoveryQuery::new("", Some(raw), None, 1).unwrap();
+            assert_eq!(q.kind(), Some(raw));
+            for other in [WorkKind::Novel, WorkKind::Story, WorkKind::Podcast] {
+                let w = DiscoverableWork {
+                    kind: other,
+                    title: "Tựa",
+                    description: "",
+                    language: "vi-VN",
+                };
+                assert_eq!(q.matches(&w), other == kind);
+            }
+        }
+        for raw in ["Novel", "chapter", "episode", " story"] {
+            assert_eq!(
+                DiscoveryQuery::new("", Some(raw), None, 1),
+                Err(ListenerDomainError::InvalidQuery)
+            );
+        }
+        assert_eq!(DiscoveryQuery::new("", None, None, 1).unwrap().kind(), None);
     }
     #[test]
     fn invalid_query_partitions_are_exact() {
@@ -339,22 +324,16 @@ mod tests {
             .unwrap();
             assert_eq!(resolved.is_some(), denied == 0);
             if let Some(p) = resolved {
-                let manifest = p.manifest();
-                assert_eq!(manifest.publication_id, release.document().id);
-                assert_eq!(manifest.rendition_id, f.r.document().id);
-                assert_eq!(manifest.sha256, f.r.document().verified_media.sha256);
-                let fields = serde_json::to_value(manifest).unwrap();
-                for forbidden in [
-                    "owner_id",
-                    "candidate_id",
-                    "delivery_object_id",
-                    "binding",
-                    "review_evidence",
-                    "rights_refs",
-                    "url",
-                ] {
-                    assert!(fields.get(forbidden).is_none());
-                }
+                // The decision carries the exact release and pinned metadata it was made for.
+                assert_eq!(p.release().document().id, release.document().id);
+                assert_eq!(
+                    p.release().document().manifest.rendition_id,
+                    f.r.document().id
+                );
+                assert_eq!(p.work().id(), f.work.id());
+                assert_eq!(p.work().revision(), f.work.revision());
+                assert_eq!(p.unit().id(), f.unit.id());
+                assert_eq!(p.unit().revision(), f.unit.revision());
             }
         }
         let private = super::super::publication::tests::fixture();
@@ -481,8 +460,17 @@ mod tests {
         })
         .unwrap()
         .unwrap();
-        assert_eq!(p.manifest().language, "vi-VN");
-        assert_eq!(p.summary(5000).language, "vi-VN");
+        let discoverable = p.discoverable();
+        assert_eq!(discoverable.language, "vi-VN");
+        assert_eq!(discoverable.kind, f.work.kind());
+        assert_eq!(discoverable.title, f.work.details().title);
+        assert_eq!(discoverable.description, f.work.details().synopsis);
+        assert!(DiscoveryQuery::new("", None, Some("vi-VN"), 1)
+            .unwrap()
+            .matches(&discoverable));
+        assert!(!DiscoveryQuery::new("", None, Some("en-US"), 1)
+            .unwrap()
+            .matches(&discoverable));
     }
     #[test]
     fn immutable_anchor_prevents_replacement_duplicates_and_deletion_skips() {

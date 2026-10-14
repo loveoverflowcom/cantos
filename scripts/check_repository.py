@@ -512,6 +512,9 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             return "pure domain may use only pure platform::ids or identity::domain values"
         if path[0] == "interfaces":
             return "pure domain must not depend on an interface"
+        # Persisted canonical documents may live in contracts; listener read projections may not.
+        if path[:2] == ("cantos_contracts", "theatre"):
+            return "pure domain must not build Theatre wire DTOs; project them in the application layer"
     if path[0] == "contexts" and len(path) >= 2:
         target = path[1]
         credential_inquiry = owner == "production" and not domain and path == ("contexts", "media", "upload_token_registered")

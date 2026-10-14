@@ -145,7 +145,7 @@ pub fn RevisionInspector(
     let viewed = Memo::new(move |_| inspector.with(|inspector| inspector.viewed.clone()));
     let sources = Memo::new(move |_| inspector.with(|inspector| inspector.sources.clone()));
     let reviewed = Memo::new(move |_| inspector.with(|inspector| inspector.reviewed.clone()));
-    let remote = Memo::new(move |_| state.with(|editor| editor.remote.clone()));
+    let remote = Memo::new(move |_| state.with(|editor| editor.remote().cloned()));
     let read_blocked =
         move || inspector.with(|inspector| state.with(|editor| !inspector.can_read(editor)));
     let review_blocked = move || {
@@ -161,13 +161,12 @@ pub fn RevisionInspector(
         draft_active()
             || inspector.with(Inspector::has_activity)
             || state.with(|editor| {
-                editor.busy
-                    || editor.pending.is_some()
+                editor.busy()
+                    || editor.pending().is_some()
                     || !editor.can_edit()
                     || editor
-                        .remote
-                        .as_ref()
-                        .is_none_or(|remote| remote.revision == editor.base)
+                        .remote()
+                        .is_none_or(|remote| remote.revision == editor.base())
             })
     };
 
@@ -263,7 +262,7 @@ pub fn RevisionInspector(
                 }>{move || copy().rebase}</button>
                 <p id="inspector-review-help" class="help">{move || workspace(Key::ReviewHelp)}</p>
                 <label class="adaptation-confirm" for="inspector-review-confirm">
-                    <input id="inspector-review-confirm" type="checkbox" disabled=move || draft_active() || inspector.with(Inspector::has_activity) || state.with(|editor| editor.is_dirty() || editor.remote.as_ref().is_none_or(|remote| remote.revision != editor.base) || editor.base == 0 || editor.actor.is_empty() || editor.busy || editor.pending.is_some() || !editor.can_edit())
+                    <input id="inspector-review-confirm" type="checkbox" disabled=move || draft_active() || inspector.with(Inspector::has_activity) || state.with(|editor| editor.is_dirty() || editor.remote().is_none_or(|remote| remote.revision != editor.base()) || editor.base() == 0 || editor.actor().is_empty() || editor.busy() || editor.pending().is_some() || !editor.can_edit())
                         aria-describedby="inspector-review-help inspector-permission-help" prop:checked=move || inspector.with(|inspector| inspector.confirmation.is_some())
                         on:change=move |event| {
                             let checked = event_target_checked(&event);

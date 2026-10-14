@@ -69,7 +69,10 @@ unsupported versions and numbers it cannot preserve exactly; backend admission s
 unsupported Script IR fields. Local structural undo/redo retains 40 immutable snapshots.
 
 The pure `editor.rs` owns immutable save snapshots, actor-bound drafts, request tickets and error
-transitions. A clean read opens the stored head; a dirty read preserves the local draft. A stale save requires a read/compare and explicit
+transitions. Its fields are private; one closed phase (idle, reading, saving, reconciliation
+required, checking session) owns at most one request, and the shell changes it only through named
+transitions such as `checking_session` and `release_session_check`. A read abandoned when a
+session settles can never settle a later save. A clean read opens the stored head; a dirty read preserves the local draft. A stale save requires a read/compare and explicit
 "keep text, use this head as base" action. A timeout preserves the original actor, operation
 key, base and snapshot; retries reconcile that same operation before another save. Session
 denial after an ambiguous attempt does not discard it. A different actor cannot retry it.
@@ -183,7 +186,8 @@ always reports billable dispatch unavailable, including for an approved planning
 
 The pure `production.rs` state and `production/browser.rs` adapter remain consumers of shared
 DTOs and the existing Studio context; server modules do not enter WASM. Explicit mutations
-retain their actor/operation/payload for reconciliation after an uncertain response. Native
+retain their actor/operation/payload for reconciliation after an uncertain response; one private
+closed request (idle, reading, sending, unresolved) prevents a read and a command from overlapping. Native
 fields and localized finding/status labels use the Studio's shared focus/theme/token behavior.
 [Casting evidence](../../../docs/evidence/casting-production-inputs.md) separates reducer/build
 checks from actual browser interaction and inspected viewport/zoom captures.

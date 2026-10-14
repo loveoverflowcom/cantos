@@ -5,7 +5,7 @@ use crate::{
     adaptation::ScriptAdaptation,
     api::{ObservedSession, StudioContext, StudioHttp},
     authoring_view::StructuredEditor,
-    editor::{Editor, Intent, Status, ValidationPreview},
+    editor::{Editor, Intent, ValidationPreview},
     import::ManuscriptImport,
     inspector::RevisionInspector,
     messages::{
@@ -161,12 +161,9 @@ fn begin_session(
 ) -> Option<SessionTicket> {
     let (next, ticket) = session.get_untracked().begin()?;
     session.set(next);
-    state.update(|editor| {
-        // Keep the owner of every mounted workspace. SessionState independently hides and
-        // disables its private projection while authentication is unconfirmed.
-        editor.busy = true;
-        editor.status = Status::Loading;
-    });
+    // Keep the owner of every mounted workspace. SessionState independently hides and
+    // disables its private projection while authentication is unconfirmed.
+    state.update(|editor| *editor = editor.checking_session());
     Some(ticket)
 }
 
@@ -189,7 +186,7 @@ fn settle_session(
             let next = current.settled(ticket, Some(response.response.actor_id));
             let has_unsaved = unsaved.get_untracked();
             let _ = state.try_update(|editor| {
-                *editor = editor.signed_in(next.retained_owner(&editor.actor, has_unsaved))
+                *editor = editor.signed_in(next.retained_owner(editor.actor(), has_unsaved))
             });
             let _ = session.try_set(next);
         }
@@ -279,7 +276,7 @@ pub fn Studio() -> impl IntoView {
     let production_activity = RwSignal::new(false);
     let reviewed = RwSignal::new(false);
     let unsaved = Signal::derive(move || {
-        state.with(|editor| editor.is_dirty() || editor.pending.is_some())
+        state.with(|editor| editor.is_dirty() || editor.pending().is_some())
             || activity.get()
             || proposal_activity.get()
             || production_activity.get()
@@ -291,7 +288,9 @@ pub fn Studio() -> impl IntoView {
             || production_dirty.get()
     });
     let session_pending = Signal::derive(move || {
-        session.with(|session| !session.projects_owner(&state.with(|editor| editor.actor.clone())))
+        session.with(|session| {
+            !session.projects_owner(&state.with(|editor| editor.actor().to_owned()))
+        })
     });
     let api = bootstrap_api.with_denial(Callback::new(move |error: ApiError| {
         // StudioHttp already checked the immutable request UUID and observation epoch. Preserve
@@ -309,7 +308,7 @@ pub fn Studio() -> impl IntoView {
     on_cleanup(move || StudioHttp::accept_fence(None, 0));
     let retained_owner = StoredValue::new(String::new());
     Effect::new(move |_| {
-        let actor = state.with(|editor| editor.actor.clone());
+        let actor = state.with(|editor| editor.actor().to_owned());
         if actor != retained_owner.get_value() {
             retained_owner.set_value(actor);
             // A clean account adoption must also discard the shell's private identifiers,
@@ -320,11 +319,11 @@ pub fn Studio() -> impl IntoView {
             reviewed.set(false);
         }
     });
-    let actor = Signal::derive(move || state.with(|e| e.actor.clone()));
+    let actor = Signal::derive(move || state.with(|e| e.actor().to_owned()));
     let draft = Signal::derive(move || {
         state.with(|e| {
             if e.can_edit() {
-                e.draft.clone()
+                e.draft().to_owned()
             } else {
                 String::new()
             }
@@ -333,7 +332,7 @@ pub fn Studio() -> impl IntoView {
     let copy = move || messages::copy(english.get());
     let blocked = move || {
         session_pending.get()
-            || state.with(|e| e.busy || e.pending.is_some())
+            || state.with(|e| e.busy() || e.pending().is_some())
             || inspector_pending.get()
     };
     let save_blocked = move || {
@@ -352,12 +351,11 @@ pub fn Studio() -> impl IntoView {
     let review_context = Memo::new(move |_| {
         state.with(|editor| {
             (
-                editor.actor.clone(),
-                editor.script.clone(),
-                editor.base,
+                editor.actor().to_owned(),
+                editor.script().to_owned(),
+                editor.base(),
                 editor
-                    .remote
-                    .as_ref()
+                    .remote()
                     .map(|revision| (revision.revision, revision.export_digest.clone())),
             )
         })
@@ -395,7 +393,7 @@ pub fn Studio() -> impl IntoView {
             // Browser-history restoration can carry another tab's old presentation. Preserve
             // in-flight authoring intent; the explicit session check remains available.
             if !session.with_untracked(SessionState::pending)
-                && !state.with_untracked(|editor| editor.busy)
+                && !state.with_untracked(Editor::busy)
                 && !activity.get_untracked()
                 && !proposal_activity.get_untracked()
                 && !content_activity.get_untracked()
@@ -432,12 +430,12 @@ pub fn Studio() -> impl IntoView {
             <details class="session-panel" open=move || authenticated_actor.with(Option::is_none)>
                 <summary>{move || text(Key::Session, english.get())}" · "{move || authenticated_actor.get().unwrap_or_else(||copy().unknown.to_owned())}</summary>
                 <p class="mode">{move || copy().mode}</p>
-                <UiStatus announcement=Announcement::Polite>{move || if session.with(SessionState::pending) { text(Key::SessionChecking, english.get()) } else { messages::status(state.with(|editor| editor.status), english.get()) }}</UiStatus>
+                <UiStatus announcement=Announcement::Polite>{move || if session.with(SessionState::pending) { text(Key::SessionChecking, english.get()) } else { messages::status(state.with(Editor::status), english.get()) }}</UiStatus>
                 <div class="toolbar session-controls">
-                    <ActionButton id="session-refresh" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(|e|e.busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()) on_press=Callback::new(move |_| {
+                    <ActionButton id="session-refresh" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(Editor::busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()) on_press=Callback::new(move |_| {
                         observe_session(state, session, api, unsaved);
                     })>{move ||text(Key::SessionRefresh, english.get())}</ActionButton>
-                    <ActionButton id="session-logout" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(|e|e.busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()||authenticated_actor.with(Option::is_none)) on_press=Callback::new(move |_| {
+                    <ActionButton id="session-logout" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(Editor::busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()||authenticated_actor.with(Option::is_none)) on_press=Callback::new(move |_| {
                         let Some(ticket)=begin_session(state,session) else { return; };
                         let api = api.snapshot();
     spawn_local(async move {
@@ -448,7 +446,7 @@ pub fn Studio() -> impl IntoView {
                 </div>
                 <Show when=move ||session.with(|s|s.mode()==Some(StudioAuthenticationMode::Oidc))>
                     <p class="help">{move ||text(Key::SessionOidcHelp, english.get())}</p>
-                    <ActionButton id="session-oidc" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(|e|e.busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()) on_press=Callback::new(move |_| {
+                    <ActionButton id="session-oidc" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move || state.with(Editor::busy)||activity.get()||proposal_activity.get()||content_activity.get()||production_activity.get()||inspector_pending.get()||import_activity.get()) on_press=Callback::new(move |_| {
                         if unsaved.get_untracked() && !confirm_discard(english.get_untracked()) {return;}
                         let Some(ticket)=begin_session(state,session) else { return; };
                         let api = api.snapshot();
@@ -458,7 +456,7 @@ pub fn Studio() -> impl IntoView {
                                     if !session.try_with_untracked(|s|s.accepts(ticket)).unwrap_or(false) {return;}
                                     // Keep the existing beforeunload guard for retained drafts; the
                                     // auth request itself must not cause a spurious dirty prompt.
-                                    let _=state.try_update(|editor|editor.busy=false);
+                                    let _=state.try_update(|editor|*editor=editor.release_session_check());
                                     let result=api.navigate_to_oidc().map(|()|None);
                                     let result=recover_changed_session(api,result).await; settle_session(state,session,ticket,result,unsaved);
                                 }
@@ -469,7 +467,7 @@ pub fn Studio() -> impl IntoView {
                 </Show>
                 <Show when=move ||session.with(|s|s.mode()==Some(StudioAuthenticationMode::Development))>
                 <form on:submit=move |event| {
-                    event.prevent_default(); if state.with_untracked(|e| e.busy) || activity.get_untracked() || proposal_activity.get_untracked() || content_activity.get_untracked() || production_activity.get_untracked() || inspector_pending.get_untracked() || import_activity.get_untracked() { return; }
+                    event.prevent_default(); if state.with_untracked(Editor::busy) || activity.get_untracked() || proposal_activity.get_untracked() || content_activity.get_untracked() || production_activity.get_untracked() || inspector_pending.get_untracked() || import_activity.get_untracked() { return; }
                     let submitted = token.get_untracked();
                     let Some(ticket)=begin_session(state,session) else {return;};
                     let api = api.snapshot();
@@ -482,7 +480,7 @@ pub fn Studio() -> impl IntoView {
                     <div class="toolbar session-controls">
                         <TextField id="session-token" kind=TextFieldKind::Password autocomplete="off" label=Signal::derive(move || copy().token.to_owned())
                             value=token on_input=Callback::new(move |value| token.set(value)) />
-                        <FormSubmit id="session-submit" english=english blocked=Signal::derive(move || state.with(|e| e.busy) || activity.get() || proposal_activity.get() || content_activity.get() || production_activity.get() || inspector_pending.get() || import_activity.get())>{move || copy().login}</FormSubmit>
+                        <FormSubmit id="session-submit" english=english blocked=Signal::derive(move || state.with(Editor::busy) || activity.get() || proposal_activity.get() || content_activity.get() || production_activity.get() || inspector_pending.get() || import_activity.get())>{move || copy().login}</FormSubmit>
                     </div>
                 </form>
                 </Show>
@@ -499,17 +497,16 @@ pub fn Studio() -> impl IntoView {
                 <form on:submit=move |event| {
                     event.prevent_default(); if blocked() || activity.get_untracked() || production_activity.get_untracked() { return; }
                     let target = selection.get_untracked();
-                    if state.with_untracked(|e| e.script != target) {
+                    if state.with_untracked(|e| e.script() != target) {
                         if (state.with_untracked(Editor::is_dirty) || production_dirty.get_untracked() || content_dirty.get_untracked() || content_activity.get_untracked()) && !confirm_discard(english.get_untracked()) { return; }
                         state.update(|e| *e = e.discard_and_select(target)); issues.set(vec![]); reviewed.set(false); preview.set(ValidationPreview::default());
                     }
-                    let Some(reading) = state.get_untracked().start_read() else { return; };
-                    let script = reading.script.clone(); let ticket = reading.ticket;
+                    let Some((reading, ticket)) = state.get_untracked().start_read() else { return; };
                     state.set(reading);
                     let api = api.snapshot();
     spawn_local(async move {
-                        let result = api.read(&script).await;
-                        let _ = state.try_update(|e| *e = match result { Ok(response) => e.loaded_with_buffer(ticket, response, activity.get_untracked()), Err(error) => e.read_failed(ticket, &error) });
+                        let result = api.read(ticket.script()).await;
+                        let _ = state.try_update(|e| *e = match result { Ok(response) => e.loaded_with_buffer(&ticket, response, activity.get_untracked()), Err(error) => e.read_failed(&ticket, &error) });
                     });
                 }>
                     <FieldLabel for_id="script-id">{move || copy().script}</FieldLabel>
@@ -517,12 +514,12 @@ pub fn Studio() -> impl IntoView {
                         <FormSubmit id="revision-read" english=english blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())>{move || copy().read}</FormSubmit></div>
                 </form>
                 <div class="revision-strip">
-                    <p class="identity"><code>{move || state.with(|e| e.script.clone())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(|e| e.base)}</output></p>
+                    <p class="identity"><code>{move || state.with(|e| e.script().to_owned())}</code>" · "{move || copy().base}<output id="base-revision">{move || state.with(Editor::base)}</output></p>
                     <p>{move || if state.with(Editor::is_dirty) || activity.get() { text(Key::Unsaved, english.get()) } else { text(Key::Saved, english.get()) }}</p>
                 </div>
                 <StructuredEditor draft=draft english=english activity=activity namespace="revision"
-                    readonly=Signal::derive(move || session_pending.get() || state.with(|e| e.busy || !e.can_edit()))
-                    baseline=Signal::derive(move || state.with(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default()))
+                    readonly=Signal::derive(move || session_pending.get() || state.with(|e| e.busy() || !e.can_edit()))
+                    baseline=Signal::derive(move || state.with(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default()))
                     issues=Signal::derive(move || issues.get())
                     on_change=Callback::new(move |text| { state.update(|e| *e = e.edit(text)); issues.set(vec![]); reviewed.set(false); })>
                     <RevisionInspector state=state english=english activity=inspector_pending draft_activity=activity />
@@ -531,14 +528,14 @@ pub fn Studio() -> impl IntoView {
                 <label class="adaptation-confirm" for="revision-reviewed"><input id="revision-reviewed" type="checkbox" disabled=move || blocked() || activity.get() || !preview.with(|p| p.is_current(&actor.get(), &draft.get())) prop:checked=move || reviewed.get()
                     on:change=move |e| reviewed.set(event_target_checked(&e)) /><span>{move || text(Key::ReviewBeforeSave, english.get())}</span></label>
                 <div class="toolbar">
-                    <ActionButton id="revision-save" english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(|e| e.busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
+                    <ActionButton id="revision-save" english=english blocked=Signal::derive(save_blocked) busy=Signal::derive(move || state.with(Editor::busy)) reason=BlockReason::SaveReview described_by="request-reason" on_press=Callback::new(move |_| {
                         if save_blocked() { return; }
                         match operation_id() {
                             Ok(op) => if let Some((saving,intent)) = state.get_untracked().start_save(op) { state.set(saving); issues.set(vec![]); dispatch_save(state,issues,api,intent); },
                             Err(error) => state.update(|e| *e = e.failed(&error)),
                         }
                     })>{move || copy().save}</ActionButton>
-                    <Show when=move || state.with(|e| e.pending.is_some() && !e.busy)><ActionButton id="revision-retry" english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending.as_ref().is_some_and(|i| i.actor != e.actor))) on_press=Callback::new(move |_| {
+                    <Show when=move || state.with(Editor::awaits_reconciliation)><ActionButton id="revision-retry" english=english variant=ButtonVariant::Tonal reason=BlockReason::Pending blocked=Signal::derive(move || session_pending.get() || activity.get() || state.with(|e| e.pending().is_some_and(|i| i.actor != e.actor()))) on_press=Callback::new(move |_| {
                         if session_pending.get_untracked() || activity.get_untracked() { return; }
                         if let Some((saving,intent)) = state.get_untracked().retry() { state.set(saving); dispatch_save(state,issues,api,intent); }
                     })>{move || copy().retry}</ActionButton></Show>
@@ -550,10 +547,10 @@ pub fn Studio() -> impl IntoView {
                             dialog_failure.set(false); discard_open.set(true);
                         })>{move || text(Key::Discard, english.get())}</ActionButton>
                 </div>
-                <p id="request-reason" class="help">{move || state.with(|e| if e.busy { copy().busy } else if e.pending.is_some() { copy().pending } else if e.actor.is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, english.get()) } else { "" })}</p>
+                <p id="request-reason" class="help">{move || state.with(|e| if e.busy() { copy().busy } else if e.pending().is_some() { copy().pending } else if e.actor().is_empty() { copy().sign_in_first } else if save_blocked() { text(Key::ValidateFirst, english.get()) } else { "" })}</p>
                 <p class="help">{move || text(Key::PermissionHelp, english.get())}</p>
             </section>
-            <UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(|e| e.status),english.get())}</span></UiStatus>
+            <UiStatus announcement=Announcement::Polite><span id="status">{move || messages::status(state.with(Editor::status),english.get())}</span></UiStatus>
             <Show when=move || dialog_failure.get()><UiStatus announcement=Announcement::Polite><p>{move || text(Key::DialogFailure, english.get())}</p></UiStatus></Show>
             <DiscardDraftDialog open=discard_open english=english
                 blocked=Signal::derive(move || blocked() || activity.get() || production_activity.get())

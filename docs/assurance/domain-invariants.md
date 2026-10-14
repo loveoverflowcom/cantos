@@ -718,3 +718,48 @@ independent successful runs above do not rewrite its result. PostgreSQL/CMP
 skips remain NOT_RUN; browser/device/audio acceptance and blocked owners remain
 as listed above.
 PR81 stays Draft/open and is not merged into develop by this review.
+
+## Domain/wire boundary and Studio request-phase checkpoint (14 October 2026)
+
+Media listener eligibility no longer builds Theatre wire DTOs. `media::domain::listening`
+keeps `DiscoveryQuery` (now over Catalog `WorkKind`), the `ListenerPublication`
+witness with read-only `work`/`unit`/`release`/`discoverable` facts, and the unchanged
+keyset/access-window kernels. The new application-layer `media::listener_projection`
+alone maps those facts to `cantos_contracts::theatre`; the listener HTTP shapes and
+the Library manifest adapter are unchanged. Persisted canonical documents in
+`domain::{publication,lifecycle,artwork,image}` intentionally keep their contracts
+types. `check_repository.py` now rejects any pure-domain path into
+`cantos_contracts::theatre`; this lexical repository check reports 22 violations on the
+pre-change file and none now. A discovery application test passed unchanged
+against the pre-change code before the move, and projected DTOs validate against the
+published discovery v1 JSON Schema.
+
+F1's `Editor` and `Production` no longer expose independently writable request flags.
+Each keeps one private closed phase: Editor `Idle | Reading | Saving |
+ReconciliationRequired | CheckingSession(held)`, Production `Idle | Reading | Sending |
+Unresolved`; an ambiguous/unknown outcome lives only inside an unresolved save or
+command. Editor fields are private behind read-only accessors, `ReadTicket` replaces
+the raw read counter, and the shell's two direct `busy`/`status` writes became the
+`checking_session`/`release_session_check` transitions (`TYPE_ENFORCED`). "Dirty" stays
+derived from bytes rather than stored.
+
+A temporary, uncommitted differential harness compared the old reducers (oracle) with
+the new ones. Production: no divergence in 209,790 transitions to depth 9. Editor:
+1,376,368 transitions to depth 9, with every divergence in two intended classes:
+`release_session_check` is a no-op outside a check and shows the settled notice instead
+of a stale `Loading`; and a read abandoned when a session settled is never re-accepted by
+a later check. The second class is a latent defect in the old code: a stale read failure
+cleared an in-flight save's retry identity, and a stale load changed its base. It is
+now pinned by `an_abandoned_read_cannot_settle_a_later_save_during_a_session_check`.
+The committed bounded-exhaustive Editor test checks phase/status, retry identity,
+draft-preservation and stale-response invariants over 483,280 transitions (48,157
+worlds, 28 events, depth 8). A one-off run of eight injected Editor mutants killed all
+eight. These are example/bounded-exhaustive and mutation evidence, not `KANI_VERIFIED`.
+
+Rust 1.87 changed-only preflight PASSED rust-format, rust-lint, rust-tests (810 passed,
+0 failed), dbsp, wav-reference, Studio web-lint and web-build. PostgreSQL and
+audio-inspection were `UNSUPPORTED` here (no ffmpeg/ffprobe) and stay `NOT_VERIFIED`;
+the unchanged `listener-access` Kani harness was not rerun (no Kani bundle). The
+repository gate under Python 3.9 fails with the same 51 entries as clean develop;
+Python 3.14 passes 355 tests. No browser, IME, cookie-race or listener HTTP/PostgreSQL
+runtime acceptance ran.

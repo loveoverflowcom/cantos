@@ -41,6 +41,7 @@ pub use publication_delivery::{
 mod listener_application;
 mod listener_cursor;
 mod listener_delivery;
+mod listener_projection;
 pub use listener_application::{ListenerError, ListenerService};
 pub use listener_delivery::{MediaGrant, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit};
 
