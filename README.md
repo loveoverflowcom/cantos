@@ -86,6 +86,16 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 ## Development
 
 The default branch is `develop`; create feature branches and PRs against it.
+
+Open the repository root in VS Code to apply [workspace settings](.vscode/settings.json).
+Generated Rust/Gradle/Web outputs, dependency caches, Python bytecode, local Xcode
+DerivedData, temporary files and agent-run logs are hidden in Explorer and excluded from
+search and recursive file watching. Search also respects `.gitignore`. Source files,
+contracts, skills, lockfiles, configuration and other evidence remain visible. To inspect
+an excluded path, open it directly or temporarily set its exclude entry to `false` in
+workspace settings; in Search, turn off **Use Exclude Settings and Ignore Files**.
+These editor settings neither delete files nor change Git tracking or build behavior.
+
 Use Rust 1.87, a local PostgreSQL 17 cluster for database tests, and Trunk for Leptos Web.
 
 ```sh

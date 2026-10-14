@@ -1,0 +1,45 @@
+{
+  "files.exclude": {
+    "**/target": true,
+    "**/build": true,
+    "**/node_modules": true,
+    "**/.gradle": true,
+    "**/.kotlin": true,
+    "**/__pycache__": true,
+    "**/DerivedData": true,
+    "apps/*/web/dist": true,
+    "artifacts/agent-runs": true,
+    "tmp": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  },
+  "search.useIgnoreFiles": true,
+  "search.exclude": {
+    "**/target": true,
+    "**/build": true,
+    "**/node_modules": true,
+    "**/.gradle": true,
+    "**/.kotlin": true,
+    "**/__pycache__": true,
+    "**/DerivedData": true,
+    "apps/*/web/dist": true,
+    "artifacts/agent-runs": true,
+    "tmp": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  },
+  "files.watcherExclude": {
+    "**/target/**": true,
+    "**/build/**": true,
+    "**/node_modules/**": true,
+    "**/.gradle/**": true,
+    "**/.kotlin/**": true,
+    "**/__pycache__/**": true,
+    "**/DerivedData/**": true,
+    "apps/*/web/dist/**": true,
+    "artifacts/agent-runs/**": true,
+    "tmp/**": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  }
+}
