@@ -211,14 +211,14 @@ pub fn admit_frozen_document(
     let mut reconstructed = prepared.document;
     let historical_google = document.resolved.iter().any(|line| {
         line.provider_id == google_contract::PROVIDER_ID
-            && line.adapter_version == google_contract::HISTORICAL_ADAPTER_VERSION
+            && line.adapter_version == google_contract::HISTORICAL_INSTRUCTION_VERSION
     });
     if historical_google {
-        // A freeze used one adapter version for every Google line. Mixed historical/current
+        // A freeze used one instruction version for every Google line. Mixed historical/current
         // identities fail the complete comparison below instead of being normalized.
         for line in &mut reconstructed.resolved {
             if line.provider_id == google_contract::PROVIDER_ID {
-                line.adapter_version = google_contract::HISTORICAL_ADAPTER_VERSION.into();
+                line.adapter_version = google_contract::HISTORICAL_INSTRUCTION_VERSION.into();
             }
         }
         reconstructed.input_digest = production_input_digest(&reconstructed)?;

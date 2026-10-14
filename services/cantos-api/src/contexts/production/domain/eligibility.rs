@@ -78,7 +78,7 @@ pub fn evaluate_snapshot(
     }
     if document.resolved.iter().any(|line| {
         line.provider_id == google_contract::PROVIDER_ID
-            && line.adapter_version != google_contract::ADAPTER_VERSION
+            && line.adapter_version != google_contract::INSTRUCTION_VERSION
     }) {
         finding(
             &mut findings,

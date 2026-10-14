@@ -1,15 +1,17 @@
-//! Exact Google Cloud TTS adapter identity and declared vi-VN capabilities; no network
-//! dependency. The voice list and control ranges were read from Google's documentation on
-//! [`CAPABILITIES_VERIFIED_ON`]; they are not evidence that a voice is enabled for an account.
+//! Exact Google Cloud TTS instruction identity and declared vi-VN capabilities that an external
+//! producer follows; Cantos has no network dependency or dispatch. The voice list and control
+//! ranges were read from Google's documentation on [`CAPABILITIES_VERIFIED_ON`]; they are not
+//! evidence that a voice is enabled for an account.
 use cantos_contracts::ProductionCapability;
 use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
 
 pub const PROVIDER_ID: &str = "google-cloud-tts";
-/// Bump for any change to the request mapping, controls, output contract or validation.
-pub const ADAPTER_VERSION: &str = "google-cloud-tts-synthesize-3";
+/// Bump for any change to the request mapping, controls, output contract or validation. The
+/// committed `-synthesize-` spelling names Google's API method and stays in serialized lines.
+pub const INSTRUCTION_VERSION: &str = "google-cloud-tts-synthesize-3";
 /// Frozen v2 inputs remain inspectable history; this identity never enables current dispatch.
-pub const HISTORICAL_ADAPTER_VERSION: &str = "google-cloud-tts-synthesize-2";
+pub const HISTORICAL_INSTRUCTION_VERSION: &str = "google-cloud-tts-synthesize-2";
 pub const OUTPUT_CONTRACT: &str = "wav-pcm-s16le-mono-24000-v1";
 /// Google's "total bytes per request" content limit, which cannot be raised.
 pub const MAX_TEXT_BYTES: usize = 5_000;
@@ -154,7 +156,7 @@ pub fn find_voice(name: &str) -> Option<&'static GoogleVoice> {
     VI_VN_VOICES.iter().find(|voice| voice.name == name)
 }
 
-/// Shared admission for the exact text sent to Google, after resolved pronunciation
+/// Shared admission for the exact text a producer sends to Google, after resolved pronunciation
 /// replacements: nonblank NFC plain text without control or line/paragraph separators.
 pub fn valid_text(text: &str) -> bool {
     !text.trim().is_empty()
@@ -165,8 +167,9 @@ pub fn valid_text(text: &str) -> bool {
         && text.nfc().eq(text.chars())
 }
 
-/// Adapter support per voice family. Google has no emotion or intensity control, so only the
-/// explicit `neutral` delivery at intensity 0 is castable; it means the voice's default delivery.
+/// Instructable support per voice family. Google has no emotion or intensity control, so only
+/// the explicit `neutral` delivery at intensity 0 is castable; it means the voice's default
+/// delivery.
 pub fn capabilities() -> Vec<ProductionCapability> {
     VoiceFamily::ALL
         .into_iter()

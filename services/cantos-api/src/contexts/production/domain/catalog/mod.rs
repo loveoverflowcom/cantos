@@ -1,6 +1,7 @@
-//! Provider identities and declared capabilities that casting may bind. These are data, not
-//! adapters: no process, SDK, network or file access lives here. Synthesis adapters conform to
-//! the contracts recorded here; casting never asks an adapter what it supports.
+//! Provider identities and declared capabilities that casting may bind into production
+//! instructions. These are data, not adapters: no process, SDK, network or file access lives
+//! here, and Cantos dispatches no synthesis. An external producer follows the instruction
+//! contract a frozen line records; casting never asks a provider what it supports.
 use cantos_contracts::{ProductionCapability, ProductionCatalogResponse};
 
 pub mod google;
@@ -8,8 +9,8 @@ pub mod local;
 pub mod neural;
 
 pub const CATALOG_VERSION: &str = "production-reference-v1";
-/// Identity of the reference-only planning entries, which no adapter executes.
-pub const ADAPTER_VERSION: &str = "reference-only-no-dispatch-v1";
+/// Instruction identity of the reference-only planning entries, which name no provider request.
+pub const REFERENCE_INSTRUCTION_VERSION: &str = "reference-only-no-dispatch-v1";
 pub const OUTPUT_CONTRACT: &str = "reference-only/no-audio";
 pub(super) const LANGUAGES: [&str; 4] = ["vi", "vi-VN", "en", "en-US"];
 const EMOTIONS: [&str; 6] = ["neutral", "calm", "hopeful", "warm", "sad", "angry"];
@@ -41,14 +42,16 @@ pub fn production_catalog() -> ProductionCatalogResponse {
     }
 }
 
-/// What casting checks before it freezes a line for an executable adapter, and the adapter
-/// identity the frozen line then carries.
+/// What casting checks before it freezes a line into instructions for a provider-bound
+/// external producer, and the instruction identity the frozen line then carries.
 ///
-/// Every executable adapter supports only the explicit `neutral` delivery at intensity 0. For
-/// Google that is the voice's default delivery: nothing is mapped implicitly.
+/// Every provider instruction contract admits only the explicit `neutral` delivery at
+/// intensity 0. For Google that is the voice's default delivery: nothing is mapped implicitly.
 #[derive(Clone, Copy)]
-pub struct CastingContract {
-    pub adapter_version: &'static str,
+pub struct ProviderInstructionContract {
+    /// Request-mapping identity the producer follows. Serialized unchanged in the committed
+    /// `adapter_version` field of a frozen line; the stored values never change meaning.
+    pub instruction_version: &'static str,
     pub output_contract: &'static str,
     /// Admission of the exact text sent, after pronunciation replacements.
     pub valid_text: fn(&str) -> bool,
@@ -58,27 +61,27 @@ pub struct CastingContract {
     pub invalid_text: &'static str,
 }
 
-/// The executable adapter contract for `provider_id`; `None` for reference-only entries.
-pub fn casting_contract(provider_id: &str) -> Option<CastingContract> {
+/// The provider instruction contract for `provider_id`; `None` for reference-only entries.
+pub fn provider_instruction_contract(provider_id: &str) -> Option<ProviderInstructionContract> {
     match provider_id {
-        local::PROVIDER_ID => Some(CastingContract {
-            adapter_version: local::ADAPTER_VERSION,
+        local::PROVIDER_ID => Some(ProviderInstructionContract {
+            instruction_version: local::INSTRUCTION_VERSION,
             output_contract: local::OUTPUT_CONTRACT,
             valid_text: local::valid_text,
             max_text_bytes: local::MAX_TEXT_BYTES,
             text_too_large: "local_text_too_large",
             invalid_text: "invalid_local_text",
         }),
-        google::PROVIDER_ID => Some(CastingContract {
-            adapter_version: google::ADAPTER_VERSION,
+        google::PROVIDER_ID => Some(ProviderInstructionContract {
+            instruction_version: google::INSTRUCTION_VERSION,
             output_contract: google::OUTPUT_CONTRACT,
             valid_text: google::valid_text,
             max_text_bytes: google::MAX_TEXT_BYTES,
             text_too_large: "google_text_too_large",
             invalid_text: "invalid_google_text",
         }),
-        neural::PROVIDER_ID => Some(CastingContract {
-            adapter_version: neural::ADAPTER_VERSION,
+        neural::PROVIDER_ID => Some(ProviderInstructionContract {
+            instruction_version: neural::INSTRUCTION_VERSION,
             output_contract: neural::OUTPUT_CONTRACT,
             valid_text: neural::valid_text,
             max_text_bytes: neural::MAX_TEXT_BYTES,
@@ -89,8 +92,8 @@ pub fn casting_contract(provider_id: &str) -> Option<CastingContract> {
     }
 }
 
-impl CastingContract {
-    /// The rule code for inadmissible `text`, or `None` if the adapter accepts it.
+impl ProviderInstructionContract {
+    /// The rule code for inadmissible `text`, or `None` if the provider admits it.
     pub fn text_issue(&self, text: &str) -> Option<&'static str> {
         if (self.valid_text)(text) {
             None
@@ -107,46 +110,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reference_entries_have_no_executable_contract() {
+    fn reference_entries_have_no_provider_instruction_contract() {
         let catalog = production_catalog();
         for capability in &catalog.capabilities {
             assert_eq!(
-                casting_contract(&capability.provider_id).is_some(),
+                provider_instruction_contract(&capability.provider_id).is_some(),
                 !capability.reference_only,
                 "{}",
                 capability.provider_id
             );
         }
-        assert!(casting_contract("unknown-provider").is_none());
+        assert!(provider_instruction_contract("unknown-provider").is_none());
     }
 
     #[test]
-    fn each_contract_carries_its_adapter_identity_and_rule_codes() {
-        for (provider, adapter, output, max, prefix) in [
+    fn each_contract_carries_its_instruction_identity_and_rule_codes() {
+        for (provider, instruction, output, max, prefix) in [
             (
                 local::PROVIDER_ID,
-                local::ADAPTER_VERSION,
+                local::INSTRUCTION_VERSION,
                 local::OUTPUT_CONTRACT,
                 local::MAX_TEXT_BYTES,
                 "local",
             ),
             (
                 google::PROVIDER_ID,
-                google::ADAPTER_VERSION,
+                google::INSTRUCTION_VERSION,
                 google::OUTPUT_CONTRACT,
                 google::MAX_TEXT_BYTES,
                 "google",
             ),
             (
                 neural::PROVIDER_ID,
-                neural::ADAPTER_VERSION,
+                neural::INSTRUCTION_VERSION,
                 neural::OUTPUT_CONTRACT,
                 neural::MAX_TEXT_BYTES,
                 "neural",
             ),
         ] {
-            let contract = casting_contract(provider).unwrap();
-            assert_eq!(contract.adapter_version, adapter);
+            let contract = provider_instruction_contract(provider).unwrap();
+            assert_eq!(contract.instruction_version, instruction);
             assert_eq!(contract.output_contract, output);
             assert_eq!(contract.max_text_bytes, max);
             assert_eq!(contract.text_issue("Xin chào."), None, "{provider}");
@@ -162,11 +165,28 @@ mod tests {
     }
 
     #[test]
-    fn each_contract_admits_text_with_its_own_adapter_rule() {
+    fn instruction_identities_keep_their_committed_serialized_values() {
+        // Frozen lines and approvals store these exact strings in `adapter_version`; renaming
+        // the Rust identifiers must never change what was or will be persisted.
+        assert_eq!(
+            REFERENCE_INSTRUCTION_VERSION,
+            "reference-only-no-dispatch-v1"
+        );
+        assert_eq!(local::INSTRUCTION_VERSION, "espeak-ng-local-v1");
+        assert_eq!(google::INSTRUCTION_VERSION, "google-cloud-tts-synthesize-3");
+        assert_eq!(
+            google::HISTORICAL_INSTRUCTION_VERSION,
+            "google-cloud-tts-synthesize-2"
+        );
+        assert_eq!(neural::INSTRUCTION_VERSION, "vieneu-nano-local-v1");
+    }
+
+    #[test]
+    fn each_contract_admits_text_with_its_own_provider_rule() {
         // eSpeak reads `[[` as phoneme input; Google and the neural helper refuse controls.
-        let local = casting_contract(local::PROVIDER_ID).unwrap();
-        let google = casting_contract(google::PROVIDER_ID).unwrap();
-        let neural = casting_contract(neural::PROVIDER_ID).unwrap();
+        let local = provider_instruction_contract(local::PROVIDER_ID).unwrap();
+        let google = provider_instruction_contract(google::PROVIDER_ID).unwrap();
+        let neural = provider_instruction_contract(neural::PROVIDER_ID).unwrap();
         assert_eq!(local.text_issue("a [[b"), Some("invalid_local_text"));
         assert_eq!(google.text_issue("a [[b"), None);
         assert_eq!(neural.text_issue("a [[b"), Some("invalid_neural_text"));
