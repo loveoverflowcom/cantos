@@ -17,12 +17,13 @@ preserved unchanged on rejection/replay/assertion. Assertion repeats no decision
 Media domain owns the rules; Python decodes ITF and compares, never decides admission.
 No production function, dependency, transport/Protobuf field or database schema changed.
 
-## Final-input pure-core evidence
+## Published-code pure-core evidence
 
-`cargo xtask verify behavior --conformance`: PASS on exact dirty code inputs, source HEAD
-`d76cdb5`; final publication head must be reported separately, not inferred from this HEAD.
-Bundle: `target/verification/behavior/cantos.media.private-audio-admission-c60b791a8e7c4d34b31bc69704d8a604/`.
+`cargo xtask verify behavior --conformance`: PASS on clean published code HEAD
+`a1357b8f06634ec2177ccd59c98f54818d5a076b`, tree `435c66f2946057e682882d47823e947f9b82dc28`.
+Bundle: `target/verification/behavior/cantos.media.private-audio-admission-75348259c6294166ab593802f5517163/`.
 Original bytes, hashes, commands, logs, ITF, actual observations and first mismatches are retained.
+This evidence correction changes only this document; final-head checks belong in the PR ledger.
 
 - Model: six stages PASS, 19 named runs, seven bounded sampled properties, 11 witnesses and
   seven typechecked model controls. This is still model-only evidence, not proof of code.
@@ -37,8 +38,8 @@ Original bytes, hashes, commands, logs, ITF, actual observations and first misma
 - Legacy/TOML ancestor/global Cargo config, compiler/tool-selection and runner/linker overrides
   are checked/refused; source/HEAD/tool/config identities are rechecked at completion.
 
-Model report SHA-256: `fc6668170db5d1cbe3f01124ccc84a2a10a0660041968eb9b166c60ea884bf6f`.
-Conformance report SHA-256: `4b77eec07c2c6605f791d3cbb7e23ca8bdcce9217d38354d29ec81d6eb5cf624`.
+Model report SHA-256: `2f11ff12af2c170ad7f34c91fdc3055456537d6b8efc03d36bd64ddcf5e52355`.
+Conformance report SHA-256: `68719a7dec94724411fd7a75564db4d743e7fb76c4fa8760a334d7a868652f71`.
 Observer source: `a80afbda012c10b81a38bed4910d1f637f745a23b9308cabb3d3b22ce21a049a`.
 Comparator source: `e503463e978ea275ef31f9b8958ef093db7eb0c2e3e0a20270d476d279c2465c`.
 Model report stays model-only; `conformance.json` owns the separate pure-core result.
@@ -48,7 +49,7 @@ Model report stays model-only; `conformance.json` owns the separate pure-core re
 - Five ordinary observer regressions PASS; ignored replay runs explicitly as exactly one test.
 - Behavior Python contracts: 36 PASS (21 original + 15 codec/identity/comparison/config tests).
 - Independent review rechecked first-run comparisons/hashes, found compiler/config provenance
-  gaps, then confirmed their closure. Final-input execution above follows those fixes.
+  gaps, then confirmed their closure. Published-code execution above follows those fixes.
 - `cargo xtask verify rust`: PASS (format, workspace lint/tests), including 404 API and 157 xtask
   unit tests. DBSP has 409 unit tests PASS; ignored infrastructure/runtime tests remain ignored.
 - Broad `cargo xtask preflight --changed-only --base feat/issue106-quint-behavior-foundation
@@ -56,12 +57,17 @@ Model report stays model-only; `conformance.json` owns the separate pure-core re
   behavior, format, Script IR/Protobuf references, workspace lint/tests, DBSP, WAV/actual Opus,
   Web lint/both bundles, UI preview and both CMP/JVM gates. Not full acceptance.
 - Broad behavior used intermediate bundle `729f8b0e1d1b4560959551d393504607`; later config hardening
-  was rerun in the final-input bundle above, not inherited. Broad log SHA-256:
+  was rerun in retained dirty-input bundle `c60b791a8e7c4d34b31bc69704d8a604` and then the clean
+  published-code bundle above, not inherited. Broad log SHA-256:
   `5e3345b62f569b6673cafcee5b0ae7f2ac302e6f1457da6d6fa6d0b11a755daf`.
-- Explicit `cargo xtask verify contracts`: FAIL at standalone cantos-contracts catalog_wire
+- Initial explicit `cargo xtask verify contracts`: FAIL at standalone cantos-contracts catalog_wire
   compilation with ENOSPC. Script IR/Protobuf references PASS; following WAV/audio stages
   NOT_RUN in that command. Equivalent workspace suites passed earlier, not a substitute for
-  this failed command. Disk is full; no source/audio/evidence deletion is authorized or done.
+  this failed command. After checking process/file use and locking inactive sessions, only seven
+  task-generated incremental cache sessions were reclaimed (1,328,618,515 bytes). Executables,
+  source/audio and every evidence bundle were preserved. The bounded warm retry then PASSED all
+  five contracts stages, including actual Opus inspection; retry log SHA-256:
+  `1cb14b576c747ca09ed210ae470fce333aef226aaad51f5ea734eb57926c6e41`.
 - Earlier temp-root fixture/selector and enum-name lint failures were corrected; guards retained.
 
 ## Deferred acceptance and residual risk
@@ -80,8 +86,8 @@ by this observer. Native broader gates retain their separate scope. No exhaustiv
 solver/fairness/liveness proof. Endpoint freshness cannot isolate mutate-and-restore writes.
 Retain native constructor, foreign binding, clock/hash and explicit event-matrix regressions.
 
-Rerun standalone contracts after restoring disk capacity. Mutation and PostgreSQL are NOT_RUN
-here; PR A records cold mutation-baseline and Unix-socket blockers. Rerun their existing gates
-on a suitable host. Final-head local verification/staging is capacity-blocked; publication
-must state exact remote tree plus dirty-input evidence honestly. No merge, provider call, paid
-production, persistent credentials or public media access. Issue 106 stays open.
+Mutation and PostgreSQL are NOT_RUN here; PR A records cold mutation-baseline and Unix-socket
+blockers. Rerun their existing gates on a suitable host. Capacity no longer blocks staging or
+final-head checks; report the final published commit/tree and its fresh dispositions in the PR.
+No merge, provider call, paid production, persistent credentials or public media access.
+Issue 106 stays open.
