@@ -64,3 +64,16 @@ fun TheatreHistoryLightPreview() {
         history = listOf(DemoProgress(DemoEpisodeId.SonHa03, 768)),
     ))
 }
+
+/** Static storage-simulator fixtures; a preview never simulates a process restart. */
+@Preview(name = "Fresh session · fake storage · vi · light", widthDp = 390, heightDp = 844, locale = "vi")
+@Composable
+fun TheatreFreshSessionPreview() {
+    FakeStorageSessionApp(FakeStorageSession.Fresh)
+}
+
+@Preview(name = "Restored session · fake storage · vi · light", widthDp = 390, heightDp = 844, locale = "vi")
+@Composable
+fun TheatreRestoredSessionPreview() {
+    FakeStorageSessionApp(FakeStorageSession.Restored)
+}

@@ -34,7 +34,7 @@ still needs device/simulator evidence; compiled common/JVM tests prove the app w
 | `domain/listening` | separate SavedWork, Bookmark, ProgressRecord and accepted-play history collections | no completion inference, account, outbox or reconciliation policy |
 | `application/catalog` | immutable catalog StateFlow and monotonic request tags | CatalogPort replies cannot replace a newer/reset request |
 | `application/playback` | one serialized event loop and a separate ordered effect worker | only observation callbacks enter MediaEngine.events; matching source/generation required |
-| `application/listening` | one ordered memory-write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted |
+| `application/listening` | one ordered memory-write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted; the shared fake storage database serializes every port it serves ([fake storage](../README.md#fake-storage-simulator)) |
 | `application/preferences` / `app/Navigation` | independent preferences and pure navigation state | StateFlow.update functions perform pure transitions only |
 | `demo` | `DemoState`/`DemoCatalogView` projection and `DemoCopy` vi/en resources (`CopyKey`, `clockTime`) | leaf package: imports only `demo` and `kotlin`, so presentation reads it without depending on `app` (no `features` ↔ `app` cycle) |
 | `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosDemoPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `AccountSection.kt` as same-package, state-free section files (a file split, not new owners) |
@@ -57,7 +57,7 @@ flowchart LR
   Playback --> Core[Pure playback transition]
   Playback -->|ordered effects| Engine[MediaEngine / MockMediaEngine]
   Engine -->|fenced observations| Playback
-  Listening --> PP[ProgressPort / MemoryProgressPort]
+  Listening --> PP[ProgressPort / MemoryProgressPort or FakePersistentProgressPort]
   Catalog --> View[Derived projection]
   Playback --> View
   Listening --> View
