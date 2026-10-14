@@ -134,6 +134,11 @@ reorder the backend capabilities above or revive DBSP production jobs.
 and official local Logo Kit to both shared renderers, before app-level adoption. Its
 [evidence ledger](../evidence/ui-auth-account-v2.md) keeps implementation tests separate from
 missing runtime/design admission. New primitives and variants remain unqualified and preview-only.
+PR 132's 15 October follow-up repairs Web auth press interpolation and narrow large-text
+layout; real Chrome interaction, both themes and 320 px/200% text now have local evidence.
+CMP desktop motion tests and the SDK 35 preview build also pass. Prioritize the remaining
+Android host/device accessibility and both-renderer qualification before consumer adoption;
+the shared-foundation ordering is unchanged.
 
 Recommended order stays small and reviewable:
 

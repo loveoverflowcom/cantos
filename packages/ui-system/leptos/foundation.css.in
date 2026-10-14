@@ -234,12 +234,22 @@
   flex-shrink: 0;
 }
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
-  border-radius: var(--cantos-shape-pill);
+  --cantos-web-auth-capsule: var(--cantos-shape-pill);
+  border-radius: var(--cantos-web-auth-capsule);
   min-block-size: var(--cantos-size-auth-secondary);
+  /* Wrapped labels need room inside the capsule ends as text grows. */
+  padding-block: max(var(--cantos-space-sm), 1em);
   transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
 }
 :where(.cantos-ui) .cui-button[data-variant="auth-primary"] {
   min-block-size: var(--cantos-size-auth-primary);
+  flex-wrap: wrap;
+}
+/* Preserve a readable label column before moving the decorative icon above it.
+   This text measure is responsive geometry, not a second semantic token. */
+:where(.cantos-ui) .cui-button[data-variant="auth-primary"] .cui-control-label {
+  flex: 1 1 auto;
+  min-inline-size: min(100%, 12ch);
 }
 :where(.cantos-ui) .cui-button[data-variant="auth-primary"] .cui-button-icon {
   inline-size: var(--cantos-size-auth-icon);
@@ -278,7 +288,7 @@
 :where(.cantos-ui) .cui-back-button .cui-button-icon {
   inline-size: var(--cantos-size-back-control);
   block-size: var(--cantos-size-back-control);
-  border-radius: var(--cantos-shape-pill);
+  border-radius: calc(var(--cantos-size-back-control) / 2);
   background: var(--cantos-color-surface-container);
   transition: border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
 }

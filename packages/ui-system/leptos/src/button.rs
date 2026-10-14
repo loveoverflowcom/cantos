@@ -167,9 +167,17 @@ pub fn Button(
 ) -> impl IntoView {
     let reason_id = format!("{id}-reason");
     let reason_id_for_description = reason_id.clone();
+    let button_ref = NodeRef::<leptos::html::Button>::new();
+    #[cfg(target_arch = "wasm32")]
+    if matches!(
+        variant,
+        ButtonVariant::AuthPrimary | ButtonVariant::AuthSecondary | ButtonVariant::AuthOutlined
+    ) {
+        auth_geometry::bind(button_ref);
+    }
     view! {
         <div class="cui-button-field">
-            <button id=id type="button" class=move || component_class("cui-button", &class.get())
+            <button id=id node_ref=button_ref type="button" class=move || component_class("cui-button", &class.get())
                 data-variant=variant.as_str() data-state=move || state.get().as_str()
                 disabled=move || !state.get().can_press()
                 aria-busy=move || state.get().is_busy().then_some("true")
@@ -201,6 +209,56 @@ pub fn Button(
                 {move || state.get().reason().map(|reason| reason.as_str().to_owned()).unwrap_or_default()}
             </span>
         </div>
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+mod auth_geometry {
+    use leptos::{
+        html,
+        prelude::*,
+        wasm_bindgen::{closure::Closure, JsCast},
+    };
+    use web_sys::ResizeObserver;
+
+    /// CSS clamps an oversized pill radius only when painting, after interpolation.
+    /// Measure the actual capsule so every transition frame responds to input. Resize
+    /// observation also covers wrapping, font scaling and hidden gallery sections.
+    pub(super) fn bind(button_ref: NodeRef<html::Button>) {
+        let binding = StoredValue::new_local(None::<(ResizeObserver, Closure<dyn FnMut()>)>);
+        Effect::new(move |_| {
+            let Some(button) = button_ref.get() else {
+                return;
+            };
+            binding.update_value(|current| {
+                if let Some((observer, _)) = current.take() {
+                    observer.disconnect();
+                }
+            });
+            let measured_button = button.clone();
+            let measure = move || {
+                let bounds = measured_button.get_bounding_client_rect();
+                let radius = bounds.width().min(bounds.height()) / 2.0;
+                // Hidden nodes retain their last usable value until they are visible.
+                if radius > 0.0 {
+                    let _ = web_sys::HtmlElement::style(&measured_button)
+                        .set_property("--cantos-web-auth-capsule", &format!("{radius}px"));
+                }
+            };
+            measure();
+            let callback = Closure::wrap(Box::new(measure) as Box<dyn FnMut()>);
+            if let Ok(observer) = ResizeObserver::new(callback.as_ref().unchecked_ref()) {
+                observer.observe(&button);
+                binding.set_value(Some((observer, callback)));
+            }
+        });
+        on_cleanup(move || {
+            binding.try_update_value(|current| {
+                if let Some((observer, _)) = current.take() {
+                    observer.disconnect();
+                }
+            });
+        });
     }
 }
 
