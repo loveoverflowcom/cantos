@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cantos Behavior"
+  short_description: "Quint catalog, scenarios, counterexamples and honest model evidence"
+  default_prompt: "Use $cantos-behavior to find the stable capability and accepted requirements, derive scenarios from Quint, require non-vacuity and sensitive negative controls, and report model and implementation evidence separately."

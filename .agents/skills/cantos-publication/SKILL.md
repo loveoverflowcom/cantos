@@ -38,10 +38,11 @@ conflict and fix the stale side when in scope.
 
 ## Repository reality
 
-No publication module, table, bucket, route, worker or CDN exists. Every name here —
-`decide_publication`, `approval_is_current`, `PublishableRelease`, `release_transition`,
-`episode_publication`, key layouts, blocker codes — is a **proposal**. Discover the real
-manifests, modules and migrations first and adapt to what exists. Storage/CDN vendor, signed
+[Publication v1](../../../packages/contracts/publication-v1.md) and the Media publication
+domain/application/migrations implement the development core: clearance, exact approvals,
+readiness, immutable releases, atomic active pointers and withdrawal. Real public delivery
+and provider acceptance remain separately gated. Names in technique examples are proposals
+unless the actual current code/contract implements them; discover those owners first. Storage/CDN vendor, signed
 versus public delivery, retention, isolation strategy and the integration environment need an
 [ADR](../../../templates/adr.md) before they are treated as settled. Libraries (sqlx, proptest,
 trybuild, cargo-mutants, a failpoint crate, MinIO) are candidates that need a recorded decision
@@ -72,8 +73,10 @@ release listener-visible.
 
 ## Rules this skill owns
 
-Every rule is **proposed** (nothing is implemented). Full rule cards with good example,
-counterexample, oracle and exception live in the linked reference.
+These rows prescribe the working method, not the implementation status of every example.
+Check the current contract and code for the implemented subset described above; delivery and
+provider acceptance remain separate. Full rule cards with good example, counterexample,
+oracle and exception live in the linked reference.
 
 | # | Rule | Failure it prevents | Oracle | Reference |
 |---|---|---|---|---|

@@ -50,6 +50,10 @@ pub fn run(tools: &SystemTools) -> ExitCode {
 
     let mut gates = gate::full();
     gates.push(Gate::ContractTests);
+    gates.push(Gate::Behavior {
+        capability: None,
+        setup: false,
+    });
     gates.extend(crate::kani::Kernel::ALL.into_iter().map(Gate::Kani));
     gates.sort();
     for gate in gates {

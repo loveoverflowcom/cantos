@@ -30,6 +30,9 @@ Product truth lives in [`docs/architecture/mobile.md`](../../../docs/architectur
 [UI system](../../../docs/design/ui-system.md) and
 [business rules 25–29](../../../docs/product/business-rules.md#listening-and-mobile). Link them;
 when this skill and a document disagree, the document wins and the conflict is reported.
+For registered stateful scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md):
+reuse catalog IDs and accepted `.qnt` expectations, keep platform-native tests and observations,
+and never infer client/device acceptance from model simulation.
 
 ## Repository reality
 

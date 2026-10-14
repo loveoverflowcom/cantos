@@ -83,6 +83,10 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.
 - `xtask`: canonical repository verification and local development commands.
 
+The [Quint behavior foundation](specs/behavior/README.md) adds an opt-in executable private
+admission/replay model with named scenarios, witnesses and negative controls. Model execution
+is separate from Rust/SQL/API/client conformance and leaves Protobuf-first transport intact.
+
 ## Development
 
 The default branch is `develop`; create feature branches and PRs against it.

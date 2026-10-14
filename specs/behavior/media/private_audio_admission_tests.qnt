@@ -1,0 +1,53 @@
+module private_audio_admission_tests {
+  import private_audio_admission.* from "./private_audio_admission"
+
+  action check(predicate: bool): bool = all {
+    // A named assertion is a no-effect harness checkpoint, not a second Begin/Complete.
+    assert(predicate), state' = state, before' = state, last' = Assertion, outcome' = NoOutcome
+  }
+
+  run admissionTest = init.then(begin(exact)).then(check(inspected))
+    .then(complete(true)).then(check(admitted and state.admissions == 1))
+  run lostResponseReplayTest = init.then(begin(exact)).then(complete(true))
+    .then(begin(exact)).then(check(replayed and receiptIsImmutable))
+  run digestMismatchTest = init.then(begin({ digest: 1, length: 0 }))
+    .then(check(outcome == Rejected(DigestMismatch) and rejectedPreservesReceipt))
+  run lengthMismatchTest = init.then(begin({ digest: 0, length: 1 }))
+    .then(check(outcome == Rejected(DigestMismatch) and rejectedPreservesReceipt))
+  run contradictoryReplayTest = init.then(begin(exact)).then(complete(true))
+    .then(begin({ digest: 1, length: 0 }))
+    .then(check(operationRejected and rejectedPreservesReceipt))
+  run rejectedMediaRetryTest = init.then(begin(exact)).then(complete(false))
+    .then(check(mediaRejected)).then(begin(exact)).then(complete(true)).then(check(admitted))
+  run abandonedInspectionRetryTest = init.then(begin(exact)).then(abandon)
+    .then(check(outcome == Cancelled and state.receipt == Unsettled))
+    .then(begin(exact)).then(complete(true)).then(check(admitted))
+  run revokeDuringInspectionTest = init.then(begin(exact)).then(revoke)
+    .then(complete(true)).then(check(completionRevoked and state.receipt == Unsettled))
+  run invalidateDuringInspectionTest = init.then(begin(exact)).then(invalidate)
+    .then(complete(true)).then(check(outcome == Rejected(StaleBrief) and state.receipt == Unsettled))
+  run expireDuringInspectionTest = init.then(begin(exact)).then(clock(expiresAt))
+    .then(complete(true)).then(check(outcome == Rejected(PermissionExpired) and state.receipt == Unsettled))
+  run expiredOwnerHistoryTest = init.then(begin(exact)).then(complete(true)).then(clock(expiresAt))
+    .then(check(expiredOwnerHistory)).then(begin(exact))
+    .then(check(outcome == Rejected(PermissionExpired) and receiptIsImmutable))
+  run revokedReplayTest = init.then(begin(exact)).then(complete(true)).then(revoke).then(begin(exact))
+    .then(check(outcome == Rejected(PermissionRevoked) and state.ownerView == Revoked and receiptIsImmutable))
+  run staleRevocationPrecedenceTest = init.then(invalidate).then(revoke)
+    .then(check(staleAndRevoked)).then(begin(exact)).then(check(outcome == Rejected(PermissionRevoked)))
+  run errorPrecedenceTest = init.then(invalidate).then(clock(expiresAt)).then(begin(exact))
+    .then(check(outcome == Rejected(PermissionExpired))).then(revoke).then(begin(exact))
+    .then(check(outcome == Rejected(PermissionRevoked)))
+  run beforeCreationTest = init.then(clock(0)).then(begin(exact))
+    .then(check(clockRejected and state.receipt == Unsettled))
+  run beforeAdmissionReplayTest = init.then(clock(2)).then(begin(exact)).then(complete(true))
+    .then(clock(1)).then(begin(exact)).then(check(clockRejected and receiptIsImmutable))
+  run restoredAuthorityAdmissionTest = init.then(invalidate).then(begin(exact))
+    .then(check(outcome == Rejected(StaleBrief))).then(restoreCurrent).then(check(authorityRestored))
+    .then(begin(exact)).then(complete(true)).then(check(admitted))
+  run restoredAuthorityReplayTest = init.then(begin(exact)).then(complete(true)).then(invalidate)
+    .then(begin(exact)).then(check(outcome == Rejected(StaleBrief) and receiptIsImmutable))
+    .then(restoreCurrent).then(begin(exact)).then(check(replayed and receiptIsImmutable))
+  run revocationSurvivesRestorationTest = init.then(invalidate).then(revoke).then(restoreCurrent)
+    .then(begin(exact)).then(check(outcome == Rejected(PermissionRevoked) and state.ownerView == Revoked))
+}

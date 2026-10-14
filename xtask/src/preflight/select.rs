@@ -83,11 +83,20 @@ pub fn select(changed: Option<&[String]>, graph: &PackageGraph) -> Selection {
         Some([]) => return full("no changed paths, so impact is unknown"),
         Some(paths) => paths,
     };
+    let behavior_changed = paths.iter().any(|path| behavior_input(path));
     let mut impact = Impact::default();
     for path in paths {
         classify(path, graph, &mut impact);
         if let Some(reason) = impact.broaden.take() {
-            return full(&reason);
+            let mut selection = full(&reason);
+            if behavior_changed {
+                selection.gates.push(Gate::Behavior {
+                    capability: None,
+                    setup: false,
+                });
+                selection.gates.sort();
+            }
+            return selection;
         }
     }
 
@@ -137,12 +146,24 @@ fn full(reason: &str) -> Selection {
     }
 }
 
+fn behavior_input(path: &str) -> bool {
+    !path.ends_with(".md")
+        && (within(path, "specs/behavior")
+            || within(path, "tools/behavior")
+            || path == crate::behavior::SCRIPT)
+}
+
 fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
     let is_doc = path.ends_with(".md");
     if SHARED_RUST_INPUTS.contains(&path) {
         impact.broaden = Some(format!("{path} is a shared Cargo input"));
     } else if let Some(dir) = VERIFICATION_TOOLING.iter().find(|dir| within(path, dir)) {
         impact.broaden = Some(format!("{path} changes verification tooling ({dir})"));
+    } else if behavior_input(path) {
+        impact.gates.insert(Gate::Behavior {
+            capability: None,
+            setup: false,
+        });
     } else if within(path, CONTRACTS) {
         // Fixtures (Markdown manuscripts included) and schemas are read by Rust tests.
         if is_doc && !within(path, "packages/contracts/fixtures") {
@@ -254,6 +275,53 @@ mod tests {
 
     fn names(selection: &Selection) -> Vec<String> {
         selection.gates.iter().map(Gate::name).collect()
+    }
+
+    #[test]
+    fn registered_behavior_inputs_select_model_only_without_infrastructure() {
+        for path in [
+            "specs/behavior/catalog.json",
+            "specs/behavior/media/private_audio_admission.qnt",
+            "tools/behavior/package-lock.json",
+            "tools/behavior/.npmrc",
+            "scripts/verify_behavior.py",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                ["repository", "behavior", "rust-format"],
+                "{path}"
+            );
+        }
+        assert_eq!(
+            names(&pick(&["specs/behavior/inventory.md"])),
+            ["repository", "rust-format"]
+        );
+    }
+
+    #[test]
+    fn mixed_behavior_and_tooling_changes_preserve_behavior_in_both_orders() {
+        let mut expected = gate::full();
+        expected.push(Gate::Behavior {
+            capability: None,
+            setup: false,
+        });
+        expected.sort();
+        for paths in [
+            [
+                "xtask/src/gate.rs",
+                "specs/behavior/media/private_audio_admission.qnt",
+            ],
+            [
+                "specs/behavior/media/private_audio_admission.qnt",
+                "xtask/src/gate.rs",
+            ],
+        ] {
+            let selection = pick(&paths);
+            assert!(selection.broadened.is_some(), "{paths:?}");
+            assert_eq!(selection.gates, expected, "{paths:?}");
+        }
     }
 
     #[test]

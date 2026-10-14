@@ -42,8 +42,11 @@ If the domain is finite and small, a bounded exhaustive loop is cheaper and stro
 
 ## State-machine tests
 
-For a lifecycle (production step, release, player, download, progress outbox), generate command
-sequences, run them against the implementation and a tiny model, and check after every step:
+For a registered Cantos lifecycle, read [cantos-behavior](../../cantos-behavior/SKILL.md)
+and use its accepted Quint model as executable expectation. Do not add a hand-maintained
+Rust/Kotlin/JS reducer beside it. Keep existing native tests and distinct codec/numeric oracles.
+For an unmodeled lifecycle, resolve requirements/model ownership before shared scenario work.
+Generate command sequences, observe the actual implementation independently and check after every step:
 
 - accepted commands keep the invariant (at most one accepted artifact per step; an active release
   always points at a ready manifest; a paused player never resumes without a play command);
@@ -51,8 +54,9 @@ sequences, run them against the implementation and a tiny model, and check after
 - the implementation and the model agree on acceptance and on the resulting observable state.
 
 Include crashes, duplicates, cancellations and late completions as commands, not just the happy
-path. The model must be structurally different from the implementation (a list scan instead of
-an index, explicit `if`s instead of a table) or it will share the bug.
+path. Expected stateful outcomes come from the accepted `.qnt` model and actual observations
+come from production seams. A second handwritten reference reducer can mirror both mistakes;
+model and assertions also need independent requirement review and sensitive controls.
 
 ## Golden fixtures and reference data
 
