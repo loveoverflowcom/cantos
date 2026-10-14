@@ -202,6 +202,134 @@ async fn admin_capability_is_existing_registry_actor_with_explicit_source_and_au
 }
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
+async fn valid_admin_resource_credential_never_authorizes_private_studio_rendition_reads() {
+    let h = Harness::new().await;
+    // Allow Studio's real empty-session lookup. A missing test-role SQL privilege (503)
+    // would not prove that relabeling this valid Admin JWT cannot authenticate to Studio.
+    h.db.batch_execute("GRANT SELECT ON sessions TO cantos_app")
+        .await
+        .unwrap();
+    let token = h.token("minh");
+    let (status, capability) = h.request("GET", CAP, Some(&token), None, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(capability["actor_id"], "minh");
+    assert_eq!(capability["role"], "identity_operator");
+    assert_eq!(h.count("admin_audit").await, 1);
+
+    // No private media or storage adapter is configured: exact 401 must precede object
+    // lookup, rather than passing because a rendition is missing or storage is unavailable.
+    const AUTHORITY_AND_MEDIA: &str = "SELECT jsonb_build_object('actors',(SELECT count(*) FROM actors),'bindings',(SELECT count(*) FROM actor_external_identities),'studio_sessions',(SELECT count(*) FROM sessions),'theatre_sessions',(SELECT count(*) FROM theatre_identity_sessions),'native_sessions',(SELECT count(*) FROM theatre_native_sessions),'admin_audit',(SELECT count(*) FROM admin_audit),'admin_operations',(SELECT count(*) FROM admin_operations),'admin_revocations',(SELECT count(*) FROM admin_access_revocations),'script_members',(SELECT count(*) FROM script_members),'producer_grants',(SELECT count(*) FROM production_producer_grants),'intents',(SELECT count(*) FROM audio_upload_intents),'receipts',(SELECT count(*) FROM audio_intake_receipts),'submissions',(SELECT count(*) FROM audio_submissions),'renditions',(SELECT count(*) FROM audio_renditions))::text";
+    let before: String =
+        h.db.query_one(AUTHORITY_AND_MEDIA, &[])
+            .await
+            .unwrap()
+            .get(0);
+    let initial: Value = serde_json::from_str(&before).unwrap();
+    for field in [
+        "studio_sessions",
+        "theatre_sessions",
+        "native_sessions",
+        "admin_operations",
+        "admin_revocations",
+        "script_members",
+        "producer_grants",
+        "intents",
+        "receipts",
+        "submissions",
+        "renditions",
+    ] {
+        assert_eq!(initial[field], 0, "fixture unexpectedly has {field}");
+    }
+    let introspections_before = h.provider.data.introspection_calls.load(Ordering::SeqCst);
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "no-static-fixture",
+    );
+    let studio_cookie = format!("cantos_session={token}");
+    let secure_studio_cookie = format!("__Secure-cantos_studio={token}");
+    let theatre_cookie = format!("cantos_theatre={token}");
+    let id = "00000000-0000-4000-8000-000000000001";
+    for suffix in ["bytes", "read-access"] {
+        let path = format!(
+            "/api/v1/studio/content-units/{id}/audio-submissions/{id}/renditions/{id}/{suffix}"
+        );
+        for (case, cookie, bearer) in [
+            ("Admin bearer", None, Some(token.as_str())),
+            ("Studio cookie relabel", Some(studio_cookie.as_str()), None),
+            (
+                "secure Studio cookie relabel",
+                Some(secure_studio_cookie.as_str()),
+                None,
+            ),
+            (
+                "Theatre cookie relabel",
+                Some(theatre_cookie.as_str()),
+                None,
+            ),
+            (
+                "Studio cookie relabel and Admin bearer",
+                Some(studio_cookie.as_str()),
+                Some(token.as_str()),
+            ),
+        ] {
+            let mut request = Request::builder().uri(&path);
+            if let Some(cookie) = cookie {
+                request = request.header(header::COOKIE, cookie);
+            }
+            if let Some(bearer) = bearer {
+                request = request.header(header::AUTHORIZATION, format!("Bearer {bearer}"));
+            }
+            let response = app
+                .clone()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::UNAUTHORIZED,
+                "{case} {suffix}"
+            );
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+            assert!(!response.headers().contains_key(header::LOCATION));
+            assert!(!response.headers().contains_key(header::SET_COOKIE));
+            assert!(!response.headers().contains_key("x-cantos-read-expires-at"));
+            let body: Value =
+                serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            assert_eq!(
+                body,
+                json!({"code":"unauthenticated","current_revision":null,"issues":[]}),
+                "{case} {suffix}"
+            );
+        }
+    }
+    let after: String =
+        h.db.query_one(AUTHORITY_AND_MEDIA, &[])
+            .await
+            .unwrap()
+            .get(0);
+    assert_eq!(
+        after, before,
+        "private reads changed authority or media state"
+    );
+    assert_eq!(
+        h.provider.data.introspection_calls.load(Ordering::SeqCst),
+        introspections_before,
+        "Studio reads must not admit through the Admin provider verifier"
+    );
+    let (status, capability) = h.request("GET", CAP, Some(&token), None, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(capability["actor_id"], "minh");
+    assert_eq!(capability["role"], "identity_operator");
+    assert_eq!(h.count("admin_audit").await, 2);
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL, actual signed mock HTTP provider"]
 async fn credentials_roles_disable_revocation_and_other_surfaces_fail_closed_with_audit() {
     let h = Harness::new().await;
     for cookie in [

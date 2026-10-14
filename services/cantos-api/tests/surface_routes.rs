@@ -260,3 +260,45 @@ async fn admin_raw_transport_errors_keep_safe_json_contract_without_database_acc
     assert_eq!(reply.status, StatusCode::BAD_REQUEST);
     assert_eq!(reply.body["code"], "invalid_request");
 }
+
+#[tokio::test]
+async fn private_audio_reads_require_studio_authentication_and_have_no_other_surface_alias() {
+    for suffix in [
+        format!("/scripts/{SCRIPT}/audio-intents/{SCRIPT}/bytes"),
+        format!("/scripts/{SCRIPT}/audio-intents/{SCRIPT}/read-access"),
+        format!("/content-units/{SCRIPT}/audio-submissions/{SCRIPT}/renditions/{SCRIPT}/bytes"),
+        format!(
+            "/content-units/{SCRIPT}/audio-submissions/{SCRIPT}/renditions/{SCRIPT}/read-access"
+        ),
+    ] {
+        for method in ["GET", "HEAD"] {
+            for cookie in [false, true] {
+                let current = call(method, &format!("{STUDIO_BASE}{suffix}"), cookie, "").await;
+                assert_eq!(
+                    current.status,
+                    StatusCode::UNAUTHORIZED,
+                    "{method} {STUDIO_BASE}{suffix}"
+                );
+                if method == "GET" {
+                    assert_eq!(current.body["code"], "unauthenticated");
+                }
+                for base in [API_BASE, THEATRE_BASE, ADMIN_BASE] {
+                    let reply = call(method, &format!("{base}{suffix}"), cookie, "").await;
+                    assert_eq!(
+                        reply.status,
+                        StatusCode::NOT_FOUND,
+                        "{method} {base}{suffix}"
+                    );
+                }
+            }
+        }
+        let request = Request::builder()
+            .uri(format!("{STUDIO_BASE}{suffix}"))
+            .header(header::AUTHORIZATION, "Bearer producer-upload-capability")
+            .body(Body::empty())
+            .unwrap();
+        let response = app().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{suffix}");
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    }
+}

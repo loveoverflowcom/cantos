@@ -40,11 +40,36 @@ Named append-only reviews and private candidates expose current blockers; public
 always remains blocked. [Local evidence](../evidence/audio-lifecycle.md) and the
 [frontend handoff](audio-lifecycle-frontend-handoff.md) describe tested boundaries.
 
+[Provider-independent private storage](../architecture/object-storage.md) adds durable original
+target metadata, filesystem/S3 adapters and exact owner-authorized audio preview while retaining
+Catalog/Editorial/Ingestion readers. Its [implementation evidence](../evidence/provider-independent-storage.md)
+separates local and mocked results from real-provider acceptance. It does not complete #10's
+deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
+write target moves no existing objects.
+
+The next private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
+should extend this verified-payload/MIME boundary inside Media and reuse the same storage
+registry, retaining the audio envelope and original-target reads. Keep its additive migration
+0023 separate from storage migration0015; no second S3 adapter or public artwork projection
+is needed for that owner-only outcome.
+
+Recommended backend follow-ups preserve that order:
+
+| Order | Capability owner | Outcome and dependency |
+| --- | --- | --- |
+| 1 | Media/storage; operator deployment boundary (#10) | Accept private policies, conditional writes, version-pinned grants, Range/CORS/expiry and measured capacity on the chosen provider; declarations/mocks cannot establish production behavior |
+| 2 | Media review and rights owners (#9) | Bind named listening/rights/QC findings to exact admitted bytes and revisions; format admission is not approval |
+| 3 | Publication (#11) | Implement approved immutable manifests and atomic replacement/retention, consuming exact verified locations and current approvals; keep private intake isolated |
+| 4 | Listening (#12), then Theatre clients (#13/#14) | Define separate listener identity/access and publication-bound reads before real discovery/playback; never reuse private Studio handlers |
+
+These owners identify architectural responsibility, not assignees. GitHub owns assignment and
+execution status; provider/migration/publication acceptance remains separate from this slice.
+
 The [live client boundary](live-client-api-matrix.md) connects the bounded Studio forms and
 keeps Theatre capabilities unsupported until a reviewed listener/publication contract exists.
 Remaining Studio controls and responsive/keyboard/user acceptance stay with #66; transport
-checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, secure
-identity/storage and stronger rights/QC policy,
+checks do not complete #51/#64. Next: user acceptance of the bounded Studio flow, production
+identity/storage acceptance and stronger rights/QC policy,
 then atomic publication/delivery before Theatre playback. Keep broader #51/#64/#66 acceptance
 separate. No listening/interoperability is settled by admitting an Opus envelope.
 
@@ -76,18 +101,23 @@ and adds exact external keys with explicit operator registration/linking. The bo
 adds actual-cookie confirmation and mode-specific login/logout controls to Studio Web. The independent identity review fixed lock-wait expiry, OAuth Basic encoding and shared-cookie
 account/cancellation races. Studio now has [current integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026):
 all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
-accessibility/provider gates explicit. The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
+accessibility/provider gates explicit.
+
+The following Theatre ledger describes the **13 October snapshot**, superseded by the
+[resumed native appendix](#resumed-native-identity-source-and-next-acceptance--14-october-2026).
+The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
 now records the mounted readonly Web account/Library consumer and native exchange/resource/
-registry/session implementation. Its [integrated evidence](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
+registry/session implementation. Its [13 October integrated evidence](../evidence/theatre-identity.md#independent-integrated-acceptance--13-october-2026)
 records fourth full preflight 16 PASS/PostgreSQL FAIL, corrected full PostgreSQL PASS and final
 8 selected preflight PASS with no skips; this is not one 17-green invocation. Actual Web runtime
 is 14 PASS/0 FAIL/2 INCONCLUSIVE/7 NOT_RUN with 12 inspected PNGs. Android mock compile PASS
-does not activate the held manifest/host source; PR101 stays draft pending its direct human
-exception. iOS is UNSUPPORTED without required Kotlin/Native 2.2.20. Complete the held Android
-source step and named OS/provider/secure-store/accessibility gates before production activation
+did not activate the then-held manifest/host source; PR101 stayed draft pending its direct human
+exception in that snapshot. iOS is UNSUPPORTED without required Kotlin/Native 2.2.20. The Android
+source step is now resolved as recorded below; named
+OS/provider/secure-store/accessibility gates remain required before production activation
 or broader playback/synchronization acceptance. Registry lookup grants no surface authority;
 explicit client linking and operator-prepared live provider/client/TLS acceptance remain separate.
-GitHub owns execution status; the final evidence manifest is SHA256
+GitHub owns execution status; that historical evidence manifest is SHA256
 `e507afad65f29c01f9959b36f52de564171cce26ea0de27bda5e80fa2c216591`.
 
 The [domain assurance hardening](../assurance/domain-invariants.md) strengthens
@@ -102,8 +132,10 @@ or speculative wrappers. GitHub owns publication/review status.
 
 Implementation delivery and named core evidence do not complete broader Studio
 acceptance, rights/QC, publication or listener implementation. Real PostgreSQL
-acceptance remains unrun after denied disposable startup; the full Rust gate still
-fails in upstream service fixtures, with the original port flake retained separately.
+acceptance in that earlier assurance record remains unrun after denied disposable startup;
+its full Rust gate fails in upstream service fixtures, with the original port flake retained
+separately. Later storage/read verification belongs to its own
+[evidence record](../evidence/provider-independent-storage.md).
 Next owners must resolve/recheck those environments without weakening private-input
 guards, then perform the existing browser/IME/cookie/conflict and listener acceptance.
 No broader product feature or CMP refactor is introduced by this assurance work.
@@ -228,19 +260,62 @@ The identity campaign's PR3 [Theatre identity handoff](theatre-identity-handoff.
 reviewed registry/Studio dependencies and the merged Listener Library seam. Preserve the latest
 [Studio integrated acceptance](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
 and its HTTP negotiation/session fences while integrating Theatre's separate Web BFF, account
-fencing and native public-client exchange/resource IO in migration0024. Current combined Theatre
-verification is pending. Android INTERNET/callback registration and host mounting remain
-unapplied after automatic approval review rejected the source activation; the direct human
-exception is pending. Provider/device/secure-store and native playback acceptance remain separate.
+fencing and native public-client exchange/resource IO in migration0024. In the 13 October
+snapshot, combined Theatre
+verification was pending and Android INTERNET/callback registration and host mounting were
+unapplied after automatic approval review rejected the source activation. The direct human
+exception and those source steps are now resolved in the resumed appendix below.
+Provider/device/secure-store and native playback acceptance remain separate.
 The [Admin0022 slice and handoff](admin-authorization-handoff.md) adds dedicated resource-token
 verification, current role decisions, Admin-only access revocation and append-only audit in PR4.
-Its integrated source verification follows the reviewed Theatre branch; this queue does not
-claim the four-PR campaign complete or accept live providers, native playback or a guest-import
-policy. GitHub owns execution/merge status.
+Its fresh combined verification follows the reviewed develop98f247e/Theatre/storage/IDE merge;
+this queue does not claim campaign completion, live-provider/native playback acceptance or a
+guest-import policy. GitHub owns execution/merge status.
 
-## Current Admin integration checkpoint
+## Resumed native identity source and next acceptance — 14 October 2026
 
-This checkpoint supersedes provisional source/gate descriptions in the earlier identity sequence.
+The [resumed Theatre handoff](theatre-identity-handoff.md#resumed-native-identity-handoff--14-october-2026)
+and [fresh evidence appendix](../evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026)
+supersede the previously held Android source exception. The user authorized the exact
+INTERNET/callback/Application/MainActivity source patch; it is applied and the actual opt-in
+host builds. Common/JVM verification passed 207 tests (28 identity) with zero failures/errors/skips;
+the same new
+regressions failed against the preserved old cleanup controller before hash-restored repair.
+The source manifest contract passed 2 tests and packaged-manifest inspection confirms the
+permission, callback and `singleTask` mount. Android is **PASS — Theatre mock Android build**;
+iOS remains **UNSUPPORTED** for unavailable canonical Kotlin/Native 2.2.20. Final resumed local
+preflight is **PASS: all 17 gates, no skips**, including 331 repository tests and mutation
+9 killed/0 survived. PostgreSQL is **PASS**: 16 Theatre Web, 7 native and 18 Studio OIDC tests plus
+all inherited HTTP/process-kill/PostgreSQL-restart/migration/replay/codec/storage/publication
+suites, on source
+`1e2adae537d6b94ee824a5eb8f290a9dbdfa170a`/tree `ab556046cc5922d933c8792c6e7a037b2d595ec2`; retained manifest SHA256
+`ab3f1270317a1db8b6f7640a6df6db048070c8dc92d03135554392b38bb87f67`. The previous 13 October Web/runtime counts and manifest
+remain historical, not a new native acceptance record.
+
+The resumed Theatre snapshot normally inherits storage migration0015 from develop and retains the sorted
+23-entry registry 1–21,24,25 without editing historical bytes. Failed persistence/unknown revoke
+retains the exact native credential for acknowledged retry; pending/unavailable denial with
+lost/corrupt credentials remains closed and controlled recovery is still unassigned. No live
+provider, app install or OS/TLS/credential configuration was performed. Next recommended order
+is named device/system-browser/Keystore/Keychain/process-lifecycle/accessibility acceptance,
+then authorized provider/public-client/current-rights acceptance and reviewed recovery/at-rest/
+backup/retention. Native playback, durable Library/outbox, guest import, explicit cross-client
+linking and broader synchronization keep their separate owners. Production stays disabled;
+GitHub owns PR execution/merge status and broader issues remain open.
+
+## Editor workspace hygiene
+
+[VS Code workspace settings](../../.vscode/settings.json) now exclude generated outputs
+and caches from Explorer, search and recursive watching when the repository root is open.
+This tooling change does not reorder the product queue. Verify Explorer/Search behavior
+on a VS Code host before editor acceptance, including separately opened Theatre Mobile,
+UI-system CMP and Android preview Gradle roots; GitHub owns PR execution status.
+
+## Historical Admin integration checkpoint — 13 October 2026
+
+This historical checkpoint superseded provisional descriptions for its exact source only.
+Fresh verification after the resumed develop merge is pending; these prior results are not
+promoted to current integrated acceptance.
 The [Admin handoff](admin-authorization-handoff.md#current-independent-integration-handoff) and
 [evidence](../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
 pin the normally integrated implementation `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
@@ -251,11 +326,19 @@ Inherited Studio/Theatre HTTP negotiation, private session fences and separately
 remain intact. Admin revocation affects only its local platform access, with current admission,
 operation replay and required append-only audit; it supplies no resource ACL or global logout.
 
-PR101 remains draft while the Android INTERNET/callback/host source exception is unresolved;
-PR103 keeps that dependency boundary. Complete that held source decision before native
-system-browser/secure-store/device acceptance, then authorized live-provider lifecycle and
+In that snapshot, PR101 remained draft while the Android INTERNET/callback/host source
+exception was unresolved and PR103 kept that dependency boundary. The authorized source step
+is now resolved and PR101 merged at develop `98f247e`; the remaining native
+system-browser/secure-store/device acceptance precedes authorized live-provider lifecycle and
 production protection/recovery/retention gates. Admin's live custom current-group contract is
 unaccepted; the five-second observation witness does not make remote membership SQL-atomic.
 Keep activation closed while those facts are unproved. The source and local/mock results do not
 complete native playback, durable outbox, guest-import/linking policy, broad listening issues or
 the four-PR merge campaign. GitHub owns execution/merge status; this queue records the next work.
+
+Current Admin integration normally consumes reviewed develop `98f247e`, including storage0015,
+editor workspace hygiene and the authorized Theatre Android source. Its combined migration
+registry is1–22,24,25 (24 entries) with historical bytes unchanged. Fresh Admin local gate/head/
+evidence binding remains pending; the historical 17-gate record above is not a new result.
+Production stays closed until live current-group/client/credential/rotation and named native
+OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.

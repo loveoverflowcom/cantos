@@ -38,16 +38,31 @@ Operator-owned **nonsecret** configuration keys are `CantosApiOrigin` and `Canto
 read from Android application metadata / iOS Info.plist. Both must be supplied; the issuer must
 be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callback is exactly
 `com.cantos.theatre:/oauth2/callback`. This repository supplies no live values, OAuth registration,
-credentials or TLS override. Android host/manifest mounting is still blocked by automatic
-approval review of the ordinary INTERNET permission and callback filter; the unapplied
-source-only proposal is retained outside Git at `/tmp/cantos-native-android-manifest-proposal.md`.
+credentials or TLS override. The user authorized the previously held Android INTERNET,
+callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
+are now mounted: one process owner, `singleTask` callback delivery and an opt-in identity screen
+when both validated configuration keys are present. Missing or invalid configuration keeps the
+memory-only mock. No live origins are supplied in the manifest, and no app was installed or OS
+network/TLS setting changed by this source integration.
 
-Common regression tests exercise actual controller/client code with deterministic HTTP/OS
+The cleanup controller retains the exact exchanged credential even when OS persistence fails
+or revocation has an unknown outcome. A pending durable denial marker with a missing, corrupt
+or invalid credential stays closed: it cannot manufacture a revoke acknowledgement or clear
+its own barrier to start another account. Controlled recovery for a lost credential is still
+unassigned; no automatic reset or deletion workaround is supplied.
+
+Common/JVM regression tests exercise actual controller/client code with deterministic HTTP/OS
 ports, including one-time exchange, unknown outcomes, logout deletion/restart barriers, late
-account results and strict session/Library decoding. The current patch has not yet run native
-builds, Keychain/Keystore IO, device/browser flows or UI/accessibility acceptance; those are
-separate gates, not established by source integration or fake ports. Native playback, durable
-Library synchronization, downloads and broad issue acceptance remain deferred.
+account results and strict session/Library decoding. The 14 October resumed run passed all 207
+common/JVM tests, including 28 identity tests. Four production callback-query tests reject
+encoded field-name aliases before Android URI value decoding; platform callback dispatch still
+needs OS evidence. The canonical Android gate passed as **Theatre mock Android build** and the
+packaged manifest confirms INTERNET, callback routing and `singleTask`. The iOS simulator
+framework gate is **UNSUPPORTED** without the required installed Kotlin/Native 2.2.20 compiler.
+Keychain/Keystore IO, device/system-browser/lifecycle flows and UI/accessibility acceptance
+remain **NOT_RUN**. See the [resumed evidence](../../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
+Native playback, durable Library synchronization, downloads and broad issue acceptance remain
+deferred.
 
 ## Screens and behavior
 

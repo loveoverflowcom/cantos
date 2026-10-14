@@ -1,0 +1,42 @@
+{
+  "files.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/.kotlin": true,
+    "**/.idea": true,
+    "**/DerivedData": true,
+    "**/xcuserdata": true,
+    "**/__pycache__": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  },
+  "search.useIgnoreFiles": true,
+  "search.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/.kotlin": true,
+    "**/.idea": true,
+    "**/DerivedData": true,
+    "**/xcuserdata": true,
+    "**/__pycache__": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  },
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.gradle/**": true,
+    "**/.kotlin/**": true,
+    "**/.idea/**": true,
+    "**/DerivedData/**": true,
+    "**/xcuserdata/**": true,
+    "**/__pycache__/**": true,
+    "**/*.iml": true,
+    "**/*.xcuserstate": true,
+    "**/*.pyc": true,
+    "**/.DS_Store": true
+  }
+}

@@ -210,6 +210,92 @@ async fn publication_flow_replays_restarts_and_republishes_immutable_history() {
         .await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+#[ignore = "disposable PostgreSQL and trusted media tools required"]
+async fn publication_observes_the_recorded_target_after_switch_and_never_falls_back() {
+    let f = PublishedFixture::new(true).await;
+    let new_root = PrivateRoot::new();
+    let config = new_root.0.join("storage.toml");
+    fs::write(
+        &config,
+        format!(
+            "version=1\n[storage]\nactive_write_target='new-private'\n[storage.targets.legacy-filesystem]\ndriver='filesystem'\nprivate_root='{}'\n[storage.targets.new-private]\ndriver='filesystem'\nprivate_root='{}'\n",
+            f.a.root.0.display(),
+            new_root.0.display()
+        ),
+    )
+    .unwrap();
+    let service =
+        PublicationService::new(f.a.h.store.clone().with_storage_config(&config).unwrap())
+            .with_publication_delivery(Arc::new(VerifiedDeliveryFake));
+    let candidate = f.candidate["id"].as_str().unwrap();
+    let mut approval = f.approval["request"].clone();
+    approval["operation_id"] = json!(operation());
+    service
+        .record_audio_publication_approval(
+            ALICE,
+            &f.a.unit,
+            candidate,
+            serde_json::from_value(approval).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(service
+        .audio_publication_readiness(ALICE, &f.a.unit, candidate)
+        .await
+        .unwrap()
+        .blockers
+        .is_empty());
+    let published = service
+        .publish_audio_release(
+            ALICE,
+            &f.a.unit,
+            candidate,
+            serde_json::from_value(f.publish(0, Value::Null)).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        service
+            .active_audio_release(ALICE, &f.a.unit)
+            .await
+            .unwrap(),
+        published
+    );
+    let snapshot = published.release.unwrap();
+    let digest = f.rendition["verified_media"]["sha256"].as_str().unwrap();
+    let original = f.a.root.0.join("objects").join(digest);
+    fs::copy(&original, new_root.0.join("objects").join(digest)).unwrap();
+    fs::remove_file(original).unwrap();
+    let readiness = service
+        .audio_publication_readiness(ALICE, &f.a.unit, candidate)
+        .await
+        .unwrap();
+    assert!(readiness
+        .blockers
+        .contains(&cantos_contracts::PublicationBlocker::ObjectIntegrityMismatch));
+    assert!(matches!(
+        service.active_audio_release(ALICE, &f.a.unit).await,
+        Err(cantos_api::contexts::media::PublicationStoreError::Blocked(blockers))
+            if blockers == vec![cantos_contracts::PublicationBlocker::ObjectUnverified]
+    ));
+    let stored: Vec<u8> =
+        f.a.h
+            .admin
+            .query_one(
+                "SELECT snapshot FROM audio_releases WHERE id=$1",
+                &[&snapshot.id],
+            )
+            .await
+            .unwrap()
+            .get(0);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&stored).unwrap(),
+        serde_json::to_value(snapshot).unwrap()
+    );
+}
+
 #[tokio::test]
 #[ignore = "disposable PostgreSQL and trusted media tools required"]
 async fn publication_two_publishers_have_one_winner_and_duplicate_requests_one_receipt() {

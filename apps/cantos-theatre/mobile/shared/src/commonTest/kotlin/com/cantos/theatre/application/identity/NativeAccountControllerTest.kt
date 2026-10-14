@@ -47,15 +47,29 @@ class NativeAccountControllerTest {
     private class Store(private val events: MutableList<String>) : CredentialStore {
         var value: String? = null
         var clearFails = false
+        var writeFails = false
         var readDenied = false
-        override fun read(): CredentialRead { events += "read"; return if (readDenied) CredentialRead.Failed(CredentialFailure.Denied) else value?.let { CredentialRead.Found(it) } ?: CredentialRead.Missing }
-        override fun write(value: String): CredentialFailure? { events += "write"; this.value = value; return null }
+        var readCorrupt = false
+        override fun read(): CredentialRead {
+            events += "read"
+            return when {
+                readDenied -> CredentialRead.Failed(CredentialFailure.Denied)
+                readCorrupt -> CredentialRead.Failed(CredentialFailure.Corrupt)
+                else -> value?.let { CredentialRead.Found(it) } ?: CredentialRead.Missing
+            }
+        }
+        override fun write(value: String): CredentialFailure? { events += "write"; if (writeFails) return CredentialFailure.Unavailable; this.value = value; return null }
         override fun clear(): CredentialFailure? { events += "clear"; if (clearFails) return CredentialFailure.Denied; value = null; return null }
     }
     private class Barrier(private val events: MutableList<String>) : LogoutBarrier {
         var pending = false
         var markFails = false
-        override fun read(): LogoutBarrierRead = if (pending) LogoutBarrierRead.Pending else LogoutBarrierRead.Clear
+        var readUnavailable = false
+        override fun read(): LogoutBarrierRead = when {
+            readUnavailable -> LogoutBarrierRead.Unavailable
+            pending -> LogoutBarrierRead.Pending
+            else -> LogoutBarrierRead.Clear
+        }
         override fun mark(): CredentialFailure? { events += "mark"; if (markFails) return CredentialFailure.Unavailable; pending = true; return null }
         override fun clear(): CredentialFailure? { events += "unmark"; pending = false; return null }
     }
@@ -63,6 +77,7 @@ class NativeAccountControllerTest {
         var exchanges = 0
         var exchangeFailure = false
         var revokeFailure = false
+        val revokedCredentials = mutableListOf<String>()
         var observedState = ""
         var savedResult: CompletableDeferred<NativeApiResult<Int>>? = null
         override suspend fun begin(state: String, nonce: String, challenge: String): NativeApiResult<NativeFlow> {
@@ -79,7 +94,7 @@ class NativeAccountControllerTest {
             return NativeApiResult.Accepted(NativeSession(actor, session, 200, null))
         }
         override suspend fun revoke(credential: String): NativeApiResult<Unit> {
-            events += "revoke"; assertEquals(token, credential)
+            events += "revoke"; revokedCredentials += credential; assertEquals(token, credential)
             return if (revokeFailure) NativeApiResult.Refused(NativeApiFailure.UnknownOutcome) else NativeApiResult.Accepted(Unit)
         }
         override suspend fun saved(credential: String, session: String): NativeApiResult<Int> = savedResult?.let { withContext(NonCancellable) { it.await() } } ?: NativeApiResult.Accepted(3)
@@ -130,6 +145,76 @@ class NativeAccountControllerTest {
         assertEquals(listOf("mark", "read", "revoke"), events); assertEquals(token, store.value); assertTrue(barrier.pending)
         api.revokeFailure = false; owner.logout(); runCurrent()
         assertNull(store.value); assertFalse(barrier.pending); assertEquals(NativeAccountState.SignedOut, owner.state.value)
+        owner.close()
+    }
+    @Test fun failed_persistence_retains_exchange_token_until_exact_revoke_is_acknowledged() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); val barrier = Barrier(events); val api = Api(events); val browser = Browser()
+        val owner = NativeAccountController(this, configuration, api, Crypto(), browser, store, barrier) { 100 }
+        owner.beginLogin(); runCurrent()
+        store.writeFails = true; api.revokeFailure = true; events.clear()
+        owner.callback(NativeCallback(configuration.identity.redirect, "a".repeat(64), "code", false)); runCurrent()
+        assertEquals(listOf("exchange", "mark", "write", "revoke"), events)
+        assertEquals(NativeAccountState.CleanupRequired, owner.state.value); assertNull(store.value); assertTrue(barrier.pending)
+
+        events.clear(); owner.logout(); runCurrent()
+        assertEquals(NativeAccountState.CleanupRequired, owner.state.value)
+        assertEquals(listOf("mark", "revoke"), events)
+        owner.beginLogin(); runCurrent()
+        assertEquals(NativeAccountState.CleanupRequired, owner.state.value)
+        assertEquals(listOf("mark", "revoke", "mark", "revoke"), events)
+        assertNull(browser.opened); assertNull(store.value); assertTrue(barrier.pending)
+        assertEquals(listOf(token, token, token), api.revokedCredentials)
+
+        api.revokeFailure = false; events.clear(); owner.logout(); runCurrent()
+        assertEquals(listOf("mark", "revoke", "clear", "unmark"), events)
+        assertEquals(listOf(token, token, token, token), api.revokedCredentials)
+        assertEquals(NativeAccountState.SignedOut, owner.state.value); assertFalse(barrier.pending)
+        events.clear(); owner.beginLogin(); runCurrent()
+        assertEquals(listOf("mark", "read", "clear", "unmark", "begin"), events)
+        assertTrue(browser.opened != null); assertEquals(1, api.exchanges)
+        owner.close()
+    }
+    @Test fun restart_with_pending_marker_and_lost_token_never_invents_revoke_acknowledgement() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); val barrier = Barrier(events); val api = Api(events)
+        val owner = NativeAccountController(this, configuration, api, Crypto(), Browser(), store, barrier) { 100 }
+        owner.beginLogin(); runCurrent(); store.writeFails = true; api.revokeFailure = true
+        owner.callback(NativeCallback(configuration.identity.redirect, "a".repeat(64), "code", false)); runCurrent()
+        assertNull(store.value); assertTrue(barrier.pending); owner.close()
+
+        events.clear(); val browser = Browser()
+        val restarted = NativeAccountController(this, configuration, api, Crypto(), browser, store, barrier) { 100 }
+        assertEquals(NativeAccountState.CleanupRequired, restarted.state.value)
+        restarted.logout(); runCurrent(); restarted.restore(); runCurrent(); restarted.beginLogin(); runCurrent()
+        assertEquals(NativeAccountState.CleanupRequired, restarted.state.value)
+        assertEquals(listOf("mark", "read", "mark", "read"), events)
+        assertEquals(listOf(token), api.revokedCredentials)
+        assertTrue(barrier.pending); assertNull(store.value); assertNull(browser.opened)
+        restarted.close()
+    }
+    @Test fun pending_marker_with_corrupt_or_invalid_token_stays_closed_without_unknown_revoke() = runTest {
+        for (corruptRead in listOf(false, true)) {
+            val events = mutableListOf<String>(); val store = Store(events)
+            store.value = "invalid-credential"; store.readCorrupt = corruptRead
+            val barrier = Barrier(events); barrier.pending = true
+            val api = Api(events); val browser = Browser()
+            val owner = NativeAccountController(this, configuration, api, Crypto(), browser, store, barrier) { 100 }
+            owner.beginLogin(); runCurrent(); owner.logout(); runCurrent(); owner.restore(); runCurrent()
+            assertEquals(NativeAccountState.CleanupRequired, owner.state.value)
+            assertEquals(listOf("mark", "read", "mark", "read"), events)
+            assertEquals("invalid-credential", store.value); assertTrue(barrier.pending)
+            assertEquals(emptyList(), api.revokedCredentials); assertNull(browser.opened)
+            owner.close()
+        }
+    }
+    @Test fun unavailable_marker_stops_before_store_or_remote_or_browser_effects() = runTest {
+        val events = mutableListOf<String>(); val store = Store(events); store.value = token
+        val barrier = Barrier(events); barrier.readUnavailable = true
+        val api = Api(events); val browser = Browser()
+        val owner = NativeAccountController(this, configuration, api, Crypto(), browser, store, barrier) { 100 }
+        owner.beginLogin(); runCurrent(); owner.logout(); runCurrent(); owner.restore(); runCurrent()
+        assertEquals(NativeAccountState.CleanupRequired, owner.state.value)
+        assertEquals(emptyList(), events); assertEquals(token, store.value); assertFalse(barrier.pending)
+        assertEquals(emptyList(), api.revokedCredentials); assertNull(browser.opened)
         owner.close()
     }
     @Test fun marker_failure_stops_before_revocation_or_browser_and_restart_never_auto_restores() = runTest {
