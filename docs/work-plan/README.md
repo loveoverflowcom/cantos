@@ -105,6 +105,12 @@ account/cancellation races. Studio now has [current integrated evidence](../evid
 all17 local preflight gates PASS and11 actual browser observations PASS, with remaining runtime
 accessibility/provider gates explicit.
 
+[ADR 0025](../decisions/0025-actor-identity-root.md) (proposed) roots owner and listener identity
+in the registry `ActorId`. The listener slice is implemented: `ListenerId` wraps `ActorId`, not
+Catalog's `OwnerId`, with no schema or wire change. The two Studio slices (owner as
+`OwnerId(ActorId)`, acting-actor fields as `ActorId`) are recommended as separate cohesive
+refactors before new Studio authorization work, because they only change Rust signatures.
+
 The following Theatre ledger describes the **13 October snapshot**, superseded by the
 [resumed native appendix](#resumed-native-identity-source-and-next-acceptance--14-october-2026).
 The [separate Theatre identity handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)

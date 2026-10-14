@@ -13,6 +13,9 @@ Product rules: [mobile § Playback behavior](../../../../docs/architecture/mobil
 (completion, release changes), [UI system § Theatre](../../../../docs/design/ui-system.md#theatre-compact-listening)
 and [business rules 26 and 28](../../../../docs/product/business-rules.md#listening-and-mobile).
 This file never decides a product rule; it shows how to encode one so both platforms obey it.
+Status: the Rust (`apps/cantos-theatre/web/src/core/playback/reducer.rs`) and Kotlin
+(`reducePlayback`) mock reducers exist; the production player, native engine adapters and every
+`Illustrative, proposed` snippet below do not.
 
 ## Three kinds of fact, one derived status
 
@@ -228,8 +231,14 @@ Open product decisions — encode none of them until the owning doc records it:
 ## Shared contract vectors
 
 The two reducers agree because both pass one **reviewed corpus of data**, not because they
-share code. Proposed location: `packages/contracts/listening/player-vectors/<id>.json`, one scenario per
-file, versioned with the player contract.
+share code. Implemented today: the mock corpus `theatre-mock-playback@1` in
+`packages/contracts/fixtures/theatre/playback/v1/` (index with SHA-256 per scenario, schema
+`schema/theatre/playback/v1.schema.json`), run by Theatre Web `core/playback/vector_tests.rs` and
+the CMP `PlaybackVectorTest` (`shared` commonTest). It keys sources by synthetic demo fixtures, not publication IDs,
+and covers play/pause, buffering, interruption, invalid controls, preparing races, session
+restore and stale responses. The production corpus below — publication-pinned sources, sleep
+timer, completion and release changes — is a proposal that extends it, one scenario per file,
+versioned with the player contract.
 
 ```json
 {

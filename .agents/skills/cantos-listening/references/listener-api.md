@@ -18,26 +18,36 @@ the foundation's [wire codec procedure](../../cantos-engineering/references/wire
 and needs a measured listener payload first. Progress and bookmark semantics are in
 [`progress-sync.md`](progress-sync.md); download grants in [`downloads-contract.md`](downloads-contract.md).
 
-## Resource map (proposed)
+## Resource map
 
-Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`), is
-routed by `http/theatre.rs`, has DTOs in `cantos_contracts::theatre`, and has its own listener
-authentication. It never reuses a Studio route, session or editor `Store` method, and a Studio
-session grants nothing here. The Discovery/Playback core is implemented; see [its actual v1 contract](../../../../packages/contracts/theatre-discovery-v1.md). Anonymous current-public reads and a fail-closed grant port are present; library/progress, production identity, actual public delivery and generated client adoption are still deferred.
+Every listener route lives under `/api/v1/theatre` (`cantos_contracts::routes::THEATRE_BASE`) and
+never reuses a Studio route, session or editor `Store` method; a Studio session grants nothing
+here. Two routers implement it: `interfaces/http/theatre.rs` (anonymous Discovery/Playback, DTOs
+in `cantos_contracts::theatre`) and `interfaces/http/theatre_library.rs` (account-owned Library,
+DTOs in `cantos_contracts::listener_library`). The actual contracts own names and behavior:
+[Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md) and
+[Library v1](../../../../packages/contracts/listener-library-v1.md). Actual public delivery is
+fail-closed unless the host composes `router_with_theatre_delivery`; OpenAPI and drift-checked
+Kotlin generation remain required client acceptance.
 
-The table below remains the broader proposed resource map. The linked actual contract owns
-implemented Discovery/Playback names and behavior; progress/bookmarks/download operations are
-not implemented. OpenAPI and drift-checked Kotlin generation remain required client acceptance.
+| Resource | Operation | Status | Mutability | Caching |
+|---|---|---|---|---|
+| Catalog and search | `GET /works?q&kind&language&limit&cursor`, `GET /search` | implemented | changes when a release activates or is retracted | keyset cursor |
+| Work and units | `GET /works/{work}`, `GET /works/{work}/units` | implemented | changes on (re)publish | keyset cursor |
+| Publication manifest | `GET /publications/{publication}` | implemented | immutable | per Discovery v1 |
+| Playback authorization | `POST /publications/{publication}/playback-authorizations` | implemented, fail-closed without delivery | none durable; mints a short-lived URL | `no-store` |
+| Continue, Saved, History pages | `GET /library/continue`, `GET /library/saved`, `GET /library/history` (`limit`, `cursor`) | implemented, account-only | projections of registers | `no-store` |
+| Saved register | `GET`, `PUT /library/saved/{work}` | implemented | revisioned desired state | `no-store` |
+| Playback start, clear | `POST /library/history/playback-starts`, `POST /library/history/clear` | implemented | history revision and epoch | `no-store` |
+| Progress | `GET`, `PUT /progress/{publication}` | implemented | revisioned; conditional | `no-store` |
+| Operation receipt | `GET /operations/{operation}` | implemented | immutable | `no-store` |
+| Bookmarks | `GET /bookmarks?since=…`, `PUT`, `DELETE /bookmarks/{bookmark_id}` | proposed | revisioned; tombstoned | `no-store` |
+| Download manifest, grants, authorizations | see [`downloads-contract.md`](downloads-contract.md) | proposed | manifest immutable; grant revisioned; URL disposable | `no-store` except the manifest |
 
-| Resource | Illustrative operation | Mutability | Caching |
-|---|---|---|---|
-| Catalog | `GET /api/v1/theatre/works?cursor=…&limit=…` | changes when a release activates or is retracted | short TTL; keyset cursor |
-| Work and episodes | `GET /api/v1/theatre/works/{work_id}` | changes on (re)publish | short TTL |
-| Publication manifest | `GET /api/v1/theatre/publications/{publication_id}` | immutable | cacheable indefinitely; `ETag` = manifest digest |
-| Playback authorization | `POST /api/v1/theatre/publications/{publication_id}/playback-authorizations` | none durable; mints a short-lived URL | `Cache-Control: no-store` |
-| Progress | `GET`, `PUT /api/v1/theatre/progress/{publication_id}` | revisioned | `no-store`; conditional writes |
-| Bookmarks | `GET /api/v1/theatre/bookmarks?since=…`, `PUT`, `DELETE /api/v1/theatre/bookmarks/{bookmark_id}` | revisioned; tombstoned | `no-store` |
-| Download manifest, grants, authorizations | see [`downloads-contract.md`](downloads-contract.md) | manifest immutable; grant revisioned; URL disposable | `no-store` except the manifest |
+Account routes (`/library/*`, `/progress/*`, `/operations/*`) pass through
+`theatre_auth::bff_identity`, which admits either the Theatre Web cookie or the native bearer —
+never both, never a Studio cookie — and refuses everything with the default
+`DenyListenerAuthentication` when neither identity purpose is configured.
 
 Playback authorization is a `POST` because each call makes an access decision and mints a new
 credential; it is not a safe, cacheable read. The immutable manifest never contains a URL with a
@@ -61,9 +71,12 @@ as acceptance oracles for every serving path, including fallback.
 - *Counterexample.* `/works/anh-den-cuoi-san-khau/episodes/1`, or progress keyed by the object
   key `releases/ep01/master.m4a`. Episode *position in a list* is not identity either.
 - *Oracle.* A fixture pair where only titles changed decodes to identical IDs; newtype barriers
-  make a `PublicationId` impossible to pass where an `EpisodeId` is expected (`type-enforced`).
-- *Status.* proposed. *Exception.* A human-readable slug may exist as a presentation alias that
-  the server resolves to an ID; clients never store or send it as a key.
+  make a `PublicationId` impossible to pass where a `ContentUnitId` is expected (`type-enforced`).
+- *Status.* implemented server-side: `listening::domain` parses `OperationId`, `DeviceId`,
+  `PublicationId`, `RenditionId` and `EngineSessionId` from canonical UUID text
+  (`platform::ids::canonical_uuid`) and reuses Catalog's `WorkId` and `ContentUnitId`; client
+  domain types are proposed. *Exception.* A human-readable slug may exist as a presentation alias
+  that the server resolves to an ID; clients never store or send it as a key.
 
 `publication_id` identifies one immutable release of an episode — the release ID of
 [`cantos-publication`](../../cantos-publication/references/staged-publication.md), exposed under
@@ -74,15 +87,11 @@ carry byte-identical audio. Expose the playable assets' checksums in the project
 can tell "audio changed" from "release changed" without comparing titles or IDs.
 
 ```rust
-// Illustrative, proposed. Opaque IDs parsed once at the boundary; no public field.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PublicationId(Uuid);
-
-impl TryFrom<&str> for PublicationId {
-    type Error = ContractError;
-
-    fn try_from(raw: &str) -> Result<Self, Self::Error> {
-        raw.parse().map(Self).map_err(|_| ContractError::MalformedId { kind: IdKind::Publication })
+// Actual shape (listening/domain/mod.rs): private field, fallible parse, no serde.
+pub struct PublicationId(String);
+impl PublicationId {
+    pub fn parse(raw: &str) -> Result<Self, DomainError> {
+        canonical_uuid(raw).map(Self).ok_or(DomainError::InvalidId)
     }
 }
 ```
@@ -97,7 +106,21 @@ value class PublicationId private constructor(val value: String) {
 }
 ```
 
-The ID format (UUID, ULID, prefixed) is a decision for the first schema; the barrier is not.
+Content, publication, rendition, operation, device and engine-session IDs are canonical
+lowercase UUID text. Exact audio timing is the value `AudioIdentity` (work, unit, publication,
+rendition, SHA-256, duration); it is an identity, never an access grant.
+
+### Account identity
+
+The account scope is `ListenerId`, a private newtype over the registry
+`platform::identity::domain::ActorId`, constructed only by `ListenerId::from_actor` inside the
+crate and reached only through `AuthenticatedListener::listener()`. The issuer adapters
+(`TheatreListenerAuthenticator`, `NativeListenerAuthenticator`) validate the verified actor with
+`ActorId::new` and fail closed as `Unavailable` when a stored actor ID is malformed. No request
+body, path or query carries the account; PostgreSQL stores it as `listener_id` referencing
+`actors(id)`. A listener is not a Catalog `OwnerId`: ownership of Studio content and listening
+as an account are different facts that happen to share the actor registry grammar
+(`listener_scope_admits_exactly_the_registry_actor_grammar_studio_owners_already_use`).
 
 ## The schema is the source of truth
 
@@ -113,8 +136,13 @@ The ID format (UUID, ULID, prefixed) is a decision for the first schema; the bar
 - *Oracle.* Regenerate-and-diff (`statically-checked`); every fixture decodes in every
   generated type set (`example-tested`); server responses validate against the schema in handler
   tests.
-- *Status.* proposed. *Exception.* None for wire types. Hand-written **domain** types are
-  expected; they are mapped from generated wire types at the boundary.
+- *Status.* partial. Implemented: the committed JSON Schemas
+  `packages/contracts/schema/theatre/{discovery,library,playback}/v1.schema.json`, strict serde DTOs
+  in the `cantos-contracts` crate (`theatre`, `listener_library`) shared by the API and Theatre
+  Web, and fixture conformance tests (`packages/contracts/api/tests/listener_library_wire.rs`,
+  `theatre_discovery_wire.rs`). Proposed: OpenAPI and generated or drift-checked Kotlin; CMP
+  has no Library wire types yet. *Exception.* None for wire types. Hand-written **domain** types
+  are expected; they are mapped from wire types at the boundary, as `listening::domain` does.
 
 Choose and record (ADR) one production path: **schema-first** (generate Rust and Kotlin from the
 committed file) or **code-first** (Rust annotations emit the schema; CI fails when the emitted
@@ -136,13 +164,16 @@ fun ProgressRecordDto.toDomain(): Decoded<ProgressRecord> {
 }
 ```
 
-Theatre Web is Rust, so it may depend on a generated wire-type crate; it never depends on server
-domain, application or SQL modules. Add TypeScript types only when a JavaScript consumer exists
+Theatre Web is Rust, so it depends on the shared `cantos-contracts` wire crate (today
+`live/library.rs` decodes `ContinuePage`, `SavedPage` and `HistoryPage`); it never depends on
+server domain, application or SQL modules. Add TypeScript types only when a JavaScript consumer exists
 (a service worker, for example), generated from the same schema.
 
 ### Contract fixtures
 
-Keep request/response fixtures per operation (proposed `packages/contracts/listener-api/fixtures/<operation>/<case>.json`):
+Library fixtures live in `packages/contracts/fixtures/theatre/library/v1/` (22 files today: each
+operation's request and response, every closed error code, both conflict kinds and an empty
+page); Discovery and the mock player have sibling directories. Keep for every operation:
 a normal case, each error code the operation can return, a conflict carrying the current record,
 an empty page, the last page and long Vietnamese titles such as `Ánh đèn cuối sân khấu — Tập 1:
 Một lời hẹn`. Each fixture must validate against the schema, decode in Rust and Kotlin wire
@@ -152,7 +183,8 @@ original sample content; never a private manuscript or a real signed URL.
 ## Compatibility
 
 Positions and durations are integer milliseconds (`position_ms`, `duration_ms`); sizes are
-integer bytes; server timestamps are RFC 3339 UTC. Never float seconds: Rust and Kotlin round
+integer bytes. Library server times are integer Unix milliseconds from the database clock
+(`accepted_at_ms`); device times travel only as `device_reported_at_ms` context. Never float seconds: Rust and Kotlin round
 and print floats differently, and the drift appears exactly at seek boundaries.
 
 | Change | Class | Requirement |
@@ -181,81 +213,88 @@ replacement for review.
   key derived from `now()`.
 - *Oracle.* Duplicate delivery returns the original response and leaves the store unchanged;
   reusing a key with a different body returns `idempotency_key_reused` and has no effect.
-- *Status.* proposed. *Exception.* Reads, and the playback/download authorization `POST`s, which
-  have no durable effect beyond an audit row; if they gain one, they gain a key.
+- *Status.* implemented server-side for every Library mutation; client outboxes are proposed.
+  *Exception.* Reads, and the playback/download authorization `POST`s, which have no durable
+  effect beyond an audit row; if they gain one, they gain a key.
 
-Server mechanics: `(account_id, operation_id)` is unique; the operation log row stores a digest
-of the canonical request body and the outcome, written in the **same transaction** as the effect.
-Same key and digest → replay the stored outcome. Same key, different digest → exact error, no
-effect. Claim the key first (insert the log row) so a concurrent duplicate blocks on the unique
-index and then replays, instead of racing to a false conflict; [`progress-sync.md`](progress-sync.md)
-shows the ordering. Retain operation records at least as long as the longest client retry
-horizon, which is itself a recorded decision; an older key returns `operation_expired`, never a
-silent re-apply.
+Server mechanics as implemented: `listener_operations` has primary key
+`(listener_id, operation_id)` and stores the SHA-256 of the canonical JSON
+`("library-v1", route, body)` plus the exact receipt bytes and digest; update, delete and truncate
+are rejected by trigger. Every mutation first locks the account row (`listener_state … FOR
+UPDATE`), so a concurrent duplicate waits and then replays instead of racing. Same key and
+digest → the stored receipt, byte for byte. Same key, different digest → `idempotency_key_reused`,
+no effect. Semantic conflicts are receipts too. `GET /operations/{operation}` returns the original
+receipt after a lost response; [`progress-sync.md`](progress-sync.md) shows the full order. No
+expiry exists: receipts are retained indefinitely until a retry-horizon decision is recorded, so
+`operation_expired` is still a proposal.
 
 ## Errors
 
-Every error body carries a stable machine `code`, a `retryable` flag and, for conflicts, the
-current server state. `message` is developer text; clients localize from `code`, and the copy
-belongs to [`cantos-ui-design`](../../cantos-ui-design/references/localization.md).
+**Implemented (Library).** An error body is exactly `{"code": …, "retryable": …}`
+(`dto::LibraryError`); no message, no SQL or private field. A semantic conflict is **not** an
+error body: it is a `409` receipt carrying the original operation ID, the outcome, the current
+revisioned state and an explicit resolution
+(`fixtures/theatre/library/v1/progress_conflict.json`):
 
 ```json
 {
-  "code": "progress_revision_conflict",
-  "retryable": false,
-  "message": "Progress for this publication changed after base revision 4.",
-  "current": {
-    "publication_id": "pub_7f3a…",
-    "position_ms": 900000,
-    "revision": 5,
-    "accepted_at": "2026-10-09T08:15:02Z"
-  },
-  "resolution": "listener_chooses"
+  "operation_id": "00000000-0000-4000-8000-00000000000a",
+  "outcome": "revision_conflict",
+  "resolution": "listener_chooses",
+  "state": { "resource": "progress", "current": { "position_ms": 15000, "revision": 1, "…": "…" } }
 }
 ```
 
-Proposed codes (the schema review fixes the final set; each one needs a fixture and a test):
+`LibraryError` is closed and mapped to `(status, code, retryable)` by one exhaustive function,
+`theatre_library::error`, whose test asserts every row and the exact body:
 
 | Code | HTTP | Retryable | Client behavior |
 |---|---|---|---|
-| `not_found` | 404 | no | unavailable state; also returned for drafts, staged and unapproved releases |
-| `publication_withdrawn` | 410 | no | explain the change; only for a publication this account was previously authorized for |
-| `access_denied` | 403 | no | explain; never loop |
-| `access_expired` | 401 | after one refresh | refresh session or authorization once, preserve position, then fail |
-| `rendition_unavailable` | 503 | bounded | operational fault; never a trigger for generation or transcoding |
-| `invalid_position` | 422 | no | client defect; position outside `[0, duration_ms]` |
-| `progress_revision_conflict` | 409 | no | reconcile from `current` and `resolution` |
+| `invalid_request` | 400 | no | client defect: malformed ID, body, query or binding |
+| `invalid_cursor` | 400 | no | restart pagination |
+| `unauthenticated` | 401 | no | re-authenticate; never resubmit as another account |
+| `not_found` | 404 | no | absent, other account's, or not current-public for a new key |
+| `invalid_position` | 422 | no | client defect; position outside `[0, duration_ms]` or kind/position mismatch |
 | `idempotency_key_reused` | 422 | no | quarantine the outbox entry and report it |
 | `stale_device_sequence` | 409 | no | outbox or device identity corrupted; quarantine |
-| `bookmark_deleted` | 409 | no | drop the local operation; the tombstone wins |
-| `offline_not_permitted` | 403 | no | disable download with the stated reason |
-| `operation_expired` | 422 | no | discard the operation; resync from the server |
-| `invalid_cursor` | 400 | no | restart pagination |
-| `contract_version_unsupported` | 400 | no | prompt to update the app |
+| `revision_exhausted` | 409 | no | revision reached the signed bigint maximum |
+| `unavailable` | 503 | yes | resend the identical operation, or read its receipt |
+| `corrupt_state` | 500 | no | server invariant failure; report |
+| outcome `revision_conflict` | 409 | — | receipt: reconcile from `state` and `resolution` |
+| outcome `history_epoch_conflict` | 409 | — | receipt: the acknowledgement predates a clear; drop it |
 
-The server's `ListenerError` enum is closed and mapped to `(status, code)` by one exhaustive
-function. Tests assert the exact variant and the exact code per case — never `is_err()` or a bare
-status. Returning `403` for a draft would confirm that it exists; drafts and absent releases must
-return the same status and the same body.
+Discovery/Playback errors are owned by [Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md).
+
+**Proposed, not implemented:** `publication_withdrawn` (410), `access_denied` (403),
+`access_expired` (401 after one refresh), `rendition_unavailable` (503, never a trigger for
+generation or transcoding), `bookmark_deleted` (409), `offline_not_permitted` (403),
+`operation_expired` (422) and `contract_version_unsupported` (400). Each one needs a fixture and
+an exact-code test before it ships. Tests assert the exact variant and code per case — never
+`is_err()` or a bare status. Returning `403` for a draft would confirm that it exists; drafts and
+absent releases must return the same status and the same body.
 
 ## Server revisions and time
 
-Revisioned resources (progress, bookmarks, grants) carry `revision`, a server-assigned integer
-that increases by exactly one per accepted write, and `accepted_at` from the server clock.
-Clients echo `base_revision` on writes; a write response returns the resulting record so a
-client never needs a follow-up read to learn its own revision. A device timestamp, when sent,
-is stored as `device_reported_at` context and is never used for ordering.
+Revisioned registers (progress, Saved, history state) carry `revision`, a server-assigned integer
+that increases by exactly one per accepted write and is bounded by the signed bigint maximum
+(`revision_exhausted`). `base_revision = 0` means "no register yet". Each account also has one
+monotonic `listener_order`, the account-wide order of accepted changes used by pages.
+`accepted_at_ms` comes from the database clock. Every write response is a receipt carrying the
+resulting or current state, so a client never needs a follow-up read to learn its revision.
+`device_reported_at_ms` is context and is never used for ordering.
 
 ## Pagination
 
-- Keyset pagination over an immutable ordering tuple with a unique tie-breaker (for example
-  `(activated_at, publication_id)`); an opaque, tamper-evident cursor; a bounded `limit` with a
-  server maximum; `next_cursor: null` on the last page.
-- Items present for the whole iteration appear exactly once; items activated or retracted during
-  iteration may or may not appear, but never cause a duplicate or a skip. That is a property:
-  generate a catalog and a concurrent sequence of activations and retractions, page through, and
-  assert the law.
-- Visibility is re-applied on every page; a cursor is not an authorization token.
+- **Implemented (Library).** `limit` is `1..=50` (default 20). The cursor is a random 256-bit hex
+  key into a process-memory `CursorVault`, bound to the listener, route, limit, history epoch and
+  an immutable frontier (`upper_order`, last order and Work), expiring after 15 minutes; a process
+  restart invalidates every cursor (`invalid_cursor`). No internal ID or payload is in the
+  token. Order is descending `listener_order`, then C-collated Work UUID.
+- Items present for the whole iteration appear exactly once; items changed during iteration may
+  or may not appear, but never cause a duplicate or a skip. That is a property: generate
+  registers and concurrent changes, page through, and assert the law.
+- Visibility and ownership are re-applied on every page; a cursor is not an authorization token.
+- Discovery pagination is owned by its contract.
 
 ## Listener visibility
 
@@ -275,7 +314,14 @@ is stored as `device_reported_at` context and is never used for ordering.
   `Retracted`, `Abandoned` — and assert every endpoint's result (catalog, work, manifest, playback
   authorization, download manifest, download authorization) as listed, `404` or `410`.
   `integration-tested`. Add a row whenever the lifecycle gains a state.
-- *Status.* proposed. *Exception.* A `Superseded` release stays fetchable by ID for an account
+- *Status.* implemented for anonymous current-public access: `ListenerPublication::resolve`
+  admits only an active, complete, approved, rights-cleared release of a Public work with an
+  active owner, and every other state answers the same `not_found`
+  ([Discovery v1](../../../../packages/contracts/theatre-discovery-v1.md)). Library re-admits a
+  *new* progress key, Saved desire or history start against the current publications before
+  commit; an already-owned register stays readable after access disappears. The retained-release
+  exception below is **proposed**: superseded releases are not resumable today and no `410` exists.
+  *Exception.* A `Superseded` release stays fetchable by ID for an account
   with progress, bookmarks or a grant on it, as far as retention and access allow
   ([mobile § Durable listening progress](../../../../docs/architecture/mobile.md#durable-listening-progress));
   it is never listed in the catalog. A `Retracted` release answers `publication_withdrawn` to such
@@ -299,7 +345,10 @@ response validator), so a new release-manifest field cannot leak by default.
   structural — the listening module imports no production orchestration, provider port or job
   enqueue API (`statically-checked` once a dependency or import check exists); behavioral — the
   test below (`integration-tested`).
-- *Status.* proposed. *Exception.* None.
+- *Status.* structural half implemented: `scripts/check_repository.py` allows `listening` to
+  import only `catalog` and `media`, and Discovery v1 states that playback never invokes
+  production (`statically-checked`, `documented`). The behavioral row-count test below is
+  **proposed**; no such test exists yet. *Exception.* None.
 
 ```rust
 // Illustrative, proposed. Table names come from cantos-production-pipeline, not guesses.
@@ -329,24 +378,31 @@ A code comment saying "this never triggers TTS" is `documented`; only the test i
 
 **A6 — The backend decides access; signed URLs are a consequence, never a credential to keep.**
 
-- Every listener handler resolves a `ListenerAccess` value (account, entitlements) or the
-  anonymous access the publication's policy allows. Progress and bookmarks always require an
-  account; whether published episodes may be heard anonymously is an open product decision.
+- Implemented: Discovery/Playback is anonymous and limited to current public releases.
+  Every Library handler first resolves `AuthenticatedListener` from exactly one credential
+  (Theatre Web cookie or native bearer, a single `Authorization` header, bounded and redacted
+  `ListenerCredentials`); there is no request field naming the account. Entitlements and a
+  `ListenerAccess` value beyond "account + current public" are proposed.
 - The decision is a pure function over access and publication policy returning the exact
   denial. Hiding a button is presentation; tests call the API directly as a non-entitled account.
-- Signed URLs are short-lived and minted after authorization. Model them as a `SignedUrl` type
-  with a redacting `Debug`/`Display` and no persistence mapping, so a log line or a database row
-  cannot hold one by accident. A log-capture test performs a playback authorization and asserts
-  that no captured line contains the signature query parameter.
-- Cross-account access to an account-scoped resource (another account's progress, bookmark or
-  grant ID) returns `404`, not `403`.
+- Signed URLs are short-lived and minted after authorization. The implemented delivery value in
+  `media::listener_delivery` redacts its URL in `Debug`, and the Library stores no URL. The
+  log-capture test that asserts no captured line contains the signature query parameter is
+  proposed.
+- Cross-account access to an account-scoped resource (another account's progress, receipt,
+  bookmark or grant ID) returns `404`, not `403`; Library receipts and registers are looked up
+  only inside the authenticated `listener_id`.
 
 ## Testing ladder for a listener endpoint
 
-1. Pure decisions with exact error variants: access, visibility projection, cursor decoding.
-2. Fixtures decoded and re-encoded by Rust and Kotlin wire types; regenerate-and-diff.
+1. Pure decisions with exact error variants: access, visibility projection, cursor decoding
+   (`cargo test -p cantos-api --lib contexts::listening`, plus the `--doc` compile-fail barriers).
+2. Fixtures decoded and re-encoded by Rust wire types (`cargo xtask verify contracts`); Kotlin
+   and regenerate-and-diff are proposed.
 3. Handler tests against real PostgreSQL: visibility matrix, denials, exact code and status,
-   duplicate replay, key reuse, pagination law.
+   duplicate replay, key reuse, pagination law. The Library's real-database tests are
+   `#[ignore]`d in `listening/postgres/tests.rs` and run only in `cargo xtask verify postgres`;
+   default-deny Router tests run in `tests/listener_library_contract.rs`.
 4. Response conformance: actual handler output validated against the schema.
 5. The no-production-work test.
 6. Real storage/CDN delivery for playback authorization, range requests and expiry, per the
