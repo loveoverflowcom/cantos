@@ -162,6 +162,29 @@ class ProtobufReferenceTests(unittest.TestCase):
         self.assertNotIn('generateArtworkVectors', common_main)
         self.assertIn('kotlin.srcDir(generateArtworkVectors)', common_test)
 
+    def test_studio_pilot_codec_is_fixture_only_and_never_ships_in_common_main(self):
+        mobile = ROOT/'apps/cantos-theatre/mobile'
+        shared = mobile/'shared/src'
+        fixtures = shared/'commonTest/kotlin/com/cantos/theatre/studiopilotfixtures'
+        for name in ['StudioPilotCodec.kt', 'StudioPilotWire.kt', 'StudioPilotValues.kt',
+                     'StrictProtobufEnvelope.kt', 'StudioPilotCodecTest.kt']:
+            self.assertTrue((fixtures/name).is_file(), name)
+        for source in sorted(shared.glob('*Main/**/*.kt')):
+            content = source.read_text(encoding='utf-8')
+            self.assertNotIn('kotlinx.serialization.protobuf', content, source)
+            self.assertNotIn('StudioPilot', content, source)
+        build = (mobile/'shared/build.gradle.kts').read_text()
+        common_main = build.split('        commonMain {', 1)[1].split('        commonTest {', 1)[0]
+        common_test = build.split('        commonTest {', 1)[1].split('        val desktopMain', 1)[0]
+        self.assertNotIn('kotlinx-serialization-protobuf', common_main)
+        self.assertIn('kotlinx-serialization-protobuf', common_test)
+        self.assertIn('kotlin.srcDir(generateProtobufVectors)', common_test)
+        embed = mobile/'tooling/embed_protobuf_fixtures.py'
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)/'CanonicalProtobufVectors.kt'
+            subprocess.run(['python3', str(embed), str(DIRECTORY/'goldens.json'), str(DIRECTORY/'hostile.json'), str(output)], check=True)
+            self.assertIn('package com.cantos.theatre.studiopilotfixtures', output.read_text(encoding='utf-8'))
+
     def test_depth_field_and_envelope_budgets_are_independent_of_schema_shape(self):
         cases = json.loads((ARTWORK_DIRECTORY/'goldens.json').read_text())['cases']
         deepest = next(case for case in cases if case['name']=='intent-admitted-with-asset')

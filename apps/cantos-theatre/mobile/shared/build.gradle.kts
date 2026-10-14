@@ -119,6 +119,7 @@ val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVector
 
 // Embed the shared independent corpus for every configured test target. Python is a primitive
 // of the existing Gradle/xtask verification route, not another repository command surface.
+// The Studio pilot codec it exercises is fixture-only too: commonTest, never shipping code.
 val protobufCorpus = rootProject.file("../../../packages/contracts/fixtures/protobuf/v1")
 val generatedProtobufDirectory = layout.buildDirectory.dir("generated/protobufVectors/commonTest/kotlin")
 val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
@@ -128,10 +129,12 @@ val generateProtobufVectors = tasks.register<Exec>("generateProtobufVectors") {
         ?.let { file(it) } ?: protobufCorpus.resolve("hostile.json")
     inputs.files(generator, goldens, hostile)
     outputs.dir(generatedProtobufDirectory)
+    // Exec never prunes its output: drop vectors left under an earlier package directory.
+    doFirst { delete(generatedProtobufDirectory) }
     commandLine(
         "python3", generator.absolutePath, goldens.absolutePath, hostile.absolutePath,
         generatedProtobufDirectory.get().asFile.resolve(
-            "com/cantos/theatre/adapters/protobuf/CanonicalProtobufVectors.kt",
+            "com/cantos/theatre/studiopilotfixtures/CanonicalProtobufVectors.kt",
         ).absolutePath,
     )
 }
@@ -248,7 +251,6 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.9.0")
                 implementation(compose.foundation)
                 implementation(compose.ui)
                 implementation("org.jetbrains.compose.material3:material3:1.8.2")
@@ -266,6 +268,8 @@ kotlin {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                // Protobuf serves only the Studio pilot and artwork fixtures; shipping code never links it.
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.9.0")
             }
         }
         val desktopMain by getting {

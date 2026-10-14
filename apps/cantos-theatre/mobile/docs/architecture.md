@@ -78,8 +78,9 @@ reviewed consumers, not implementations implied by these interfaces.
 ## Mock app sandbox
 
 All mock and fake adapters are under `adapters/mock`; simulated local storage and its presets
-form one sandbox subpackage. Real adapters (`adapters/http`, `adapters/identity`,
-`adapters/protobuf`) never import it.
+form one sandbox subpackage. Real adapters (`adapters/http`, `adapters/identity`) never import
+it. The Studio pilot Protobuf codec is not an adapter: it is a `commonTest` fixture
+(`studiopilotfixtures`) with no shipping consumer.
 
 ```text
 shared/src/commonMain/kotlin/com/cantos/theatre/

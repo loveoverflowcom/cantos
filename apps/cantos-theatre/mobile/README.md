@@ -105,7 +105,8 @@ shared/src/commonMain/kotlin/com/cantos/theatre/
       sessions/      FakeStorageSession presets: Demo (AppContainer.mock default), Fresh, Restored
   features/          stateless app-screen presentation
   demo/              immutable diagnostic seeds and presentation metadata
-shared/src/commonTest/      canonical vectors, reducers, fake-port/lifetime/reset regressions
+shared/src/commonTest/      canonical vectors, reducers, fake-port/lifetime/reset regressions,
+                            fixture-only Protobuf codecs (studiopilotfixtures, artworkfixtures)
 shared/src/desktopMain/     diagnostic host around the same app
 shared/src/desktopTest/     JVM interaction/semantics and fixed-size app captures
 shared/src/androidMain/     thin @Preview wrappers around the same app
@@ -284,8 +285,10 @@ TalkBack/VoiceOver and iOS framework/resource acceptance remain separate from JV
 
 ## Portable Protobuf fixture harness
 
-The isolated `commonMain` transport adapter and `commonTest` fixtures exercise the four existing
+The Studio pilot codec and its fixtures live only in `commonTest`
+(`com.cantos.theatre.studiopilotfixtures`, beside `artworkfixtures`) and exercise the four existing
 Studio pilot wire contracts under [ADR 0023](../../../docs/decisions/0023-versioned-protobuf-wire.md).
+Shipping `commonMain` neither contains the codec nor links `kotlinx-serialization-protobuf`.
 This adds no Theatre endpoint, Studio Mobile client, authentication or player integration.
 The [compatibility evidence](docs/protobuf-compatibility.md) records exact version pins, independent
 byte/value oracles, hostile-input bounds, reproducible checks and separate JVM/Android/iOS limits.

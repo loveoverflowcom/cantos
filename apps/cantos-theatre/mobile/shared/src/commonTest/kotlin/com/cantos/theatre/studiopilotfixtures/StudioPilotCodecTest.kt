@@ -1,6 +1,6 @@
 @file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 
-package com.cantos.theatre.adapters.protobuf
+package com.cantos.theatre.studiopilotfixtures
 
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlin.test.Test

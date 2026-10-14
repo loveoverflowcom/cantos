@@ -2,7 +2,8 @@
 
 Issue [#97](https://github.com/loveoverflowcom/cantos/issues/97), C4. This is a portable transport
 fixture harness under Theatre Mobile, not a Studio Mobile app, Theatre endpoint or production
-HTTP client. Nothing mounts it in the UI, player, authentication or persistence. The canonical
+HTTP client. Nothing mounts it in the UI, player, authentication or persistence, and since the
+naming-debt/module-ownership cleanup it lives only in the `commonTest` source set. The canonical
 Script IR remains an exact string. Received identifiers, revisions, digests and acceptance fields
 are untrusted transport values, never authentication, authorization or validation witnesses.
 
@@ -11,7 +12,9 @@ are untrusted transport values, never authentication, authorization or validatio
 The authority is [studio_v1.proto](../../../../packages/contracts/protobuf/studio_v1.proto) and
 its [frozen admission policy](../../../../packages/contracts/protobuf/README.md), established at
 `9f0368e18de867c58da31619b6be171478779e9e`. No schema or application contract is changed by C4.
-`commonMain/com/cantos/theatre/adapters/protobuf` contains:
+`commonTest/com/cantos/theatre/studiopilotfixtures` contains (C4 placed it in
+`commonMain/.../adapters/protobuf`; it moved to test sources unchanged because its only consumers
+are these tests, the fixture embedding and the JVM measurement primitive):
 
 - Four exhaustive pilot transport values, plus nested `FieldIssue`, with required public scalars
 - Private nullable proto2 wire representations, explicit `@ProtoNumber` on every field and no
@@ -72,7 +75,7 @@ from the independent Python wire-spec oracle, already cross-checked by generated
 
 | Scope | Result | Evidence / limitation |
 | --- | --- | --- |
-| L1 boundary | documented | Codec isolated in a transport adapter; no app or domain consumer |
+| L1 boundary | documented | Codec isolated in `commonTest`; no app, adapter or domain consumer |
 | L2/L3 focused commonTest on JVM | PASS | Compiled, example-tested and differentially-tested; 14 JUnit tests |
 | Repository hygiene | PASS | `cargo xtask verify repository`; not an app build |
 | Whole Theatre desktop Gradle suite | PASS | 176 tests, zero failures/skips; all 14 protobuf methods executed |
@@ -137,18 +140,17 @@ for reproducing the exact codec-only compiler/test result, not a parallel reposi
 # TEST_TOOLS: official Maven JUnit 4.13.2 / Hamcrest 1.3 jars; OUT: ignored build directory.
 mkdir -p "$OUT"
 MOBILE=apps/cantos-theatre/mobile
-SRC=$MOBILE/shared/src/commonMain/kotlin/com/cantos/theatre/adapters/protobuf
-TEST=$MOBILE/shared/src/commonTest/kotlin/com/cantos/theatre/adapters/protobuf
+TEST=$MOBILE/shared/src/commonTest/kotlin/com/cantos/theatre/studiopilotfixtures
 FIXTURES=packages/contracts/fixtures/protobuf/v1
 python3 "$MOBILE/tooling/embed_protobuf_fixtures.py" "$FIXTURES/goldens.json" \
   "$FIXTURES/hostile.json" "$OUT/CanonicalProtobufVectors.kt"
 CP=$TOOLS/kotlinx-serialization-core-jvm-1.9.0.jar:$TOOLS/kotlinx-serialization-protobuf-jvm-1.9.0.jar
 TCP=$CP:$TOOLS/kotlinc/lib/kotlin-test.jar:$TOOLS/kotlinc/lib/kotlin-test-junit.jar
 TCP=$TCP:$TEST_TOOLS/junit-4.13.2.jar:$TEST_TOOLS/hamcrest-core-1.3.jar
-"$TOOLS/kotlinc/bin/kotlinc" "$SRC"/*.kt "$TEST"/*.kt "$OUT/CanonicalProtobufVectors.kt" \
+"$TOOLS/kotlinc/bin/kotlinc" "$TEST"/*.kt "$OUT/CanonicalProtobufVectors.kt" \
   -jvm-target 17 -cp "$TCP" -Xplugin="$TOOLS/kotlinc/lib/kotlinx-serialization-compiler-plugin.jar" -d "$OUT/tests.jar"
 "$TOOLS/kotlinc/bin/kotlin" -J-Xmx512m -cp "$OUT/tests.jar:$TCP" \
-  org.junit.runner.JUnitCore com.cantos.theatre.adapters.protobuf.StudioPilotCodecTest
+  org.junit.runner.JUnitCore com.cantos.theatre.studiopilotfixtures.StudioPilotCodecTest
 ```
 
 ## Payload measurements: JVM only

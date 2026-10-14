@@ -1,11 +1,14 @@
 @file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 
-package com.cantos.theatre.adapters.protobuf
+package com.cantos.theatre.studiopilotfixtures
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
 
-/** Portable fixture codec. It has no HTTP transport, auth state, persistence or playback hooks. */
+/**
+ * Test-only Studio pilot fixture codec for Protobuf compatibility and JVM measurement. It lives
+ * in `commonTest` so Theatre Mobile never ships it; it has no HTTP, auth, storage or playback.
+ */
 object StudioPilotCodec {
     const val MAX_BYTES = 8 * 1024 * 1024
     const val MAX_DEPTH = 4

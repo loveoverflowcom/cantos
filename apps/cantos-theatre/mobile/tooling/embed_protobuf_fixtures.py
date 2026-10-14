@@ -32,7 +32,7 @@ def main():
     hostile = json.loads(hostile_path.read_text(encoding="utf-8"))
     output = [
         "// Embedded from reviewed independent wire-spec fixtures. Do not edit.",
-        "package com.cantos.theatre.adapters.protobuf",
+        "package com.cantos.theatre.studiopilotfixtures",
         "internal data class PilotGolden(val name: String, val kind: StudioPilotKind, val expected: StudioPilotValue?, val hex: String)",
         "internal data class PilotHostile(val name: String, val kind: StudioPilotKind, val hex: String, val error: ProtobufFailure?)",
         "internal object CanonicalProtobufVectors {",
