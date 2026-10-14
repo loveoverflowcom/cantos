@@ -236,13 +236,13 @@ fn json_error_envelope_remains_exact_on_a_protobuf_request() {
 
 #[test]
 fn malformed_save_response_keeps_exact_intent_and_newer_typing_until_explicit_reconciliation() {
-    let initial = Editor {
-        actor: "alice".into(),
-        script: "script".into(),
-        draft: "Ngày mai 🎭 \"khẽ\"".into(),
-        base: 7,
-        ..Editor::default()
-    };
+    let mut head = revision();
+    head.script_id = "script".into();
+    head.revision = 7;
+    let initial = Editor::default()
+        .signed_in("alice".into())
+        .open_revision(head)
+        .edit("Ngày mai 🎭 \"khẽ\"".into());
     let (saving, intent) = initial.start_save("same-operation".into()).unwrap();
     let newer = saving.edit("newer typing".into());
     assert!(newer.start_save("extra-post".into()).is_none());
@@ -254,12 +254,19 @@ fn malformed_save_response_keeps_exact_intent_and_newer_typing_until_explicit_re
     )
     .unwrap_err();
     let unresolved = newer.failed(&error);
-    assert_eq!(unresolved.status, Status::Unavailable);
-    assert!(unresolved.ambiguous);
-    assert!(!unresolved.busy);
-    assert_eq!(unresolved.pending, Some(intent.clone()));
-    assert_eq!(unresolved.draft, "newer typing");
-    assert_eq!(unresolved.base, 7);
+    assert_eq!(unresolved.status(), Status::Unavailable);
+    assert!(unresolved.awaits_reconciliation());
+    assert!(!unresolved.busy());
+    assert_eq!(unresolved.pending(), Some(&intent));
+    assert_eq!(unresolved.draft(), "newer typing");
+    assert_eq!(unresolved.base(), 7);
+    // Ambiguous: a later authorization denial cannot discard the possibly committed intent.
+    let denied = unresolved.failed(&ApiError {
+        code: ErrorCode::Forbidden,
+        current_revision: None,
+        issues: vec![],
+    });
+    assert_eq!(denied.pending(), Some(&intent));
     assert!(unresolved.start_save("extra-post".into()).is_none());
     assert!(unresolved.signed_in("bob".into()).retry().is_none());
     let (_, retry) = unresolved.retry().unwrap();

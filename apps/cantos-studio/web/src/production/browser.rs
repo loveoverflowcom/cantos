@@ -45,9 +45,7 @@ fn dispatch(state: RwSignal<Production>, api: StudioHttp, intent: Intent) {
                 .map(Receipt::Approve),
         };
         let current = state
-            .try_with_untracked(|s| {
-                s.pending.as_ref() == Some(&intent) && s.context == intent.context
-            })
+            .try_with_untracked(|s| s.pending() == Some(&intent) && s.context == intent.context)
             .unwrap_or(false);
         let _ = state.try_update(|state| {
             *state = match result {
@@ -59,7 +57,7 @@ fn dispatch(state: RwSignal<Production>, api: StudioHttp, intent: Intent) {
             if current
                 && state
                     .try_with_untracked(|s| {
-                        s.context == intent.context && s.pending.is_none() && s.error.is_none()
+                        s.context == intent.context && s.pending().is_none() && s.error.is_none()
                     })
                     .unwrap_or(false)
             {
@@ -271,7 +269,7 @@ pub fn ProductionInputs(
     let form_blocked = move || {
         session_pending.get()
             || state.with(Production::has_activity)
-            || editor.with(|e| e.busy || e.pending.is_some())
+            || editor.with(|e| e.busy() || e.pending().is_some())
             || script_dirty()
             || !state.with(|s| s.context.ready())
     };
@@ -311,7 +309,7 @@ pub fn ProductionInputs(
         <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || state.with(Production::has_activity) || composing.with(|fields| !fields.is_empty()) || !state.with(|s| s.context.ready()) on:click=move |_| {
             if session_pending.get_untracked() {return;}
             let Some((reading, ticket)) = state.get_untracked().start_read(ReadKind::State) else { return; };
-            let script = editor.with_untracked(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default());
+            let script = editor.with_untracked(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default());
             state.set(reading);
             let api = api.snapshot();
     spawn_local(async move {
@@ -325,10 +323,10 @@ pub fn ProductionInputs(
         }>{move ||text(Key::Discard,english.get())}</button>
         <UiStatus announcement=Announcement::Polite>{move || state.with(|s| if let Some(error) = &s.error { messages::status(crate::editor::error_status(&error.code), english.get()) } else if s.busy() { text(Key::Busy, english.get()) } else if s.stored.is_some() { text(Key::Ready, english.get()) } else { "" })}</UiStatus>
         <ul class="production-findings">{move || state.with(|s|s.error.as_ref().map(|e|e.issues.clone()).unwrap_or_default()).into_iter().map(|issue|view!{<li><code>{issue.path}" · "{issue.rule}</code></li>}).collect_view()}</ul>
-        <Show when=move || state.with(|s| s.pending.is_some())><section class="production-pending" aria-describedby="production-pending-help">
+        <Show when=move || state.with(|s| s.pending().is_some())><section class="production-pending" aria-describedby="production-pending-help">
             <p id="production-pending-help">{move || text(Key::PendingHelp, english.get())}</p>
-            <dl class="source-identity"><dt>{move || text(Key::Actor, english.get())}</dt><dd>{move || state.with(|s| s.pending.as_ref().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
-                <dt>{move || text(Key::Operation, english.get())}</dt><dd><code>{move || state.with(|s| s.pending.as_ref().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
+            <dl class="source-identity"><dt>{move || text(Key::Actor, english.get())}</dt><dd>{move || state.with(|s| s.pending().map(|i| i.context.actor.clone()).unwrap_or_default())}</dd>
+                <dt>{move || text(Key::Operation, english.get())}</dt><dd><code>{move || state.with(|s| s.pending().map(|i| i.command.operation_id().to_owned()).unwrap_or_default())}</code></dd></dl>
             <button class="cui-button" data-variant="secondary" type="button" disabled=move || session_pending.get() || !state.with(Production::can_retry) on:click=move |_| { if session_pending.get_untracked() { return; }
                 if let Some((sending,intent)) = state.get_untracked().retry() { state.set(sending); dispatch(state,api,intent); } }>{move || text(Key::Retry,english.get())}</button>
         </section></Show>
@@ -336,7 +334,7 @@ pub fn ProductionInputs(
             <section class="production-settings" aria-labelledby="casting-title"><h3 id="casting-title">{move || text(Key::Settings, english.get())}</h3>
                 <p>{move || text(Key::Stored,english.get())}" · "<output>{saved_version}</output>" · "{move || if state.with(Production::is_dirty) { text(Key::Unsaved,english.get()) } else { "" }}</p>
                 <Show when=move ||state.with(Production::is_dirty)><p class="help">{move ||text(Key::Revalidate,english.get())}</p></Show>
-                <CastingFields state=state english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default())) />
+                <CastingFields state=state english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default())) />
                 <BudgetFields state=state english=english readonly=readonly />
                 <ActionButton id="production-settings-save" english=english blocked=Signal::derive(blocked) reason=BlockReason::ProductionReview described_by="production-dirty-reason" on_press=Callback::new(move |_| {
                     if blocked() { return; }
@@ -359,7 +357,7 @@ pub fn ProductionInputs(
                 })>{move || text(Key::Freeze,english.get())}</ActionButton>
             </section>
         </div>
-        <RightsFields state=state rights=rights rights_dirty=rights_dirty english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote.as_ref().map(|r| r.script_json.clone()).unwrap_or_default())) />
+        <RightsFields state=state rights=rights rights_dirty=rights_dirty english=english readonly=readonly script=Signal::derive(move || editor.with(|e| e.remote().map(|r| r.script_json.clone()).unwrap_or_default())) />
         </Show>
         <section class="production-snapshots" aria-labelledby="production-snapshot-title"><h3 id="production-snapshot-title">{move || text(Key::Snapshot,english.get())}</h3>
             <div class="toolbar"><label for="production-snapshot-id">{move || text(Key::SnapshotId,english.get())}</label><input class="cui-field-control" id="production-snapshot-id" autocomplete="off" spellcheck="false" prop:value=move || snapshot_id.get() on:input=move |e| snapshot_id.set(event_target_value(&e)) />

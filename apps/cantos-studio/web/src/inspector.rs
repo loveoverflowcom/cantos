@@ -21,12 +21,11 @@ pub struct Context {
 impl Context {
     fn from_editor(editor: &Editor) -> Self {
         Self {
-            actor: editor.actor.clone(),
-            script: editor.script.clone(),
+            actor: editor.actor().to_owned(),
+            script: editor.script().to_owned(),
             saved: editor
-                .remote
-                .as_ref()
-                .filter(|remote| remote.script_id == editor.script)
+                .remote()
+                .filter(|remote| remote.script_id == editor.script())
                 .map(|remote| (remote.revision, remote.export_digest.clone())),
         }
     }
@@ -43,23 +42,23 @@ pub struct ReviewSnapshot {
 
 impl ReviewSnapshot {
     fn from_editor(editor: &Editor) -> Option<Self> {
-        if editor.actor.is_empty()
-            || editor.script.is_empty()
-            || editor.base == 0
+        if editor.actor().is_empty()
+            || editor.script().is_empty()
+            || editor.base() == 0
             || editor.is_dirty()
-            || editor.busy
-            || editor.pending.is_some()
+            || editor.busy()
+            || editor.pending().is_some()
             || !editor.can_edit()
         {
             return None;
         }
-        let remote = editor.remote.as_ref()?;
-        if remote.script_id != editor.script || remote.revision != editor.base {
+        let remote = editor.remote()?;
+        if remote.script_id != editor.script() || remote.revision != editor.base() {
             return None;
         }
         Some(Self {
-            actor: editor.actor.clone(),
-            script: editor.script.clone(),
+            actor: editor.actor().to_owned(),
+            script: editor.script().to_owned(),
             revision: remote.revision,
             content_digest: remote.content_digest.clone(),
             export_digest: remote.export_digest.clone(),
@@ -158,10 +157,10 @@ impl Inspector {
 
     pub fn can_read(&self, editor: &Editor) -> bool {
         !self.has_activity()
-            && !editor.busy
-            && editor.pending.is_none()
-            && !editor.actor.is_empty()
-            && !editor.script.is_empty()
+            && !editor.busy()
+            && editor.pending().is_none()
+            && !editor.actor().is_empty()
+            && !editor.script().is_empty()
             && self.context == Context::from_editor(editor)
     }
 
@@ -175,8 +174,7 @@ impl Inspector {
             ReadKind::Sources { ids } => {
                 !ids.is_empty()
                     && editor
-                        .remote
-                        .as_ref()
+                        .remote()
                         .is_some_and(|remote| source_ids(&remote.script_json) == *ids)
             }
         };
@@ -442,17 +440,15 @@ mod tests {
         }
     }
 
+    /// `actor` has opened `response` cleanly, built only from public Editor transitions.
+    fn opened(actor: &str, response: RevisionResponse) -> Editor {
+        Editor::default()
+            .signed_in(actor.into())
+            .open_revision(response)
+    }
+
     fn editor() -> Editor {
-        let remote = revision(3);
-        Editor {
-            actor: "alice".into(),
-            script: "script".into(),
-            base: 3,
-            draft: remote.script_json.clone(),
-            baseline: remote.script_json.clone(),
-            remote: Some(remote),
-            ..Editor::default()
-        }
+        opened("alice", revision(3))
     }
 
     fn sending() -> (Editor, Inspector, ReviewIntent) {
@@ -495,11 +491,17 @@ mod tests {
             .observe_workspace(&editor, false)
             .confirmation
             .is_none());
-        let mut outdated = editor.clone();
-        outdated.base = 2;
+        // A clean draft whose base trails the displayed head (read while the buffer was active).
+        let (reading, ticket) = opened("alice", revision(2)).start_read().unwrap();
+        let outdated = reading.loaded_with_buffer(&ticket, revision(3), true);
+        assert!(!outdated.is_dirty());
+        assert_eq!(
+            (outdated.base(), outdated.remote().unwrap().revision),
+            (2, 3)
+        );
         assert!(confirmed.confirm(&outdated, true).confirmation.is_none());
-        let mut pending = editor.clone();
-        pending.busy = true;
+        let (pending, _) = editor.start_read().unwrap();
+        assert!(pending.busy());
         assert!(confirmed.confirm(&pending, true).confirmation.is_none());
     }
 
@@ -557,8 +559,7 @@ mod tests {
     #[test]
     fn changed_actor_or_script_hides_old_data_and_keeps_review_for_original_actor() {
         let (editor, sending, intent) = sending();
-        let mut other = editor.clone();
-        other.actor = "bob".into();
+        let other = opened("bob", revision(3));
         let changed = sending
             .observe(&other)
             .review_loaded(&intent, review(&intent));
@@ -567,8 +568,7 @@ mod tests {
         assert!(changed.retry().is_none());
         let restored = changed.observe(&editor);
         assert!(restored.can_retry());
-        other = editor.clone();
-        other.script = "other-script".into();
+        let other = editor.discard_and_select("other-script".into());
         assert!(sending.observe(&other).retry().is_none());
     }
 
@@ -608,16 +608,18 @@ mod tests {
             .unwrap();
         let exact = reading.revision_loaded(&ticket, revision(1));
         assert_eq!(exact.viewed.as_ref().unwrap().revision, 1);
-        assert_eq!(editor.draft, editor.baseline);
+        assert!(!editor.is_dirty());
         for (actor, script, version) in [
             ("bob", "script", 3),
             ("alice", "other", 3),
             ("alice", "script", 4),
         ] {
-            let mut changed = editor.clone();
-            changed.actor = actor.into();
-            changed.script = script.into();
-            changed.remote = Some(revision(version));
+            let changed = opened(actor, revision(version));
+            let changed = if script == "script" {
+                changed
+            } else {
+                changed.discard_and_select(script.into())
+            };
             assert!(reading
                 .observe(&changed)
                 .revision_loaded(&ticket, revision(1))
@@ -720,9 +722,10 @@ mod tests {
     #[test]
     fn imported_source_receipt_cannot_cross_the_requested_id_or_signed_actor() {
         use cantos_contracts::{ImportFormat, ImportMetadata, ImportOutcome, ImportProblem};
-        let mut editor = editor();
         let document = r#"{"provenance":[{"source_record_id":"src_example"}]}"#;
-        editor.remote.as_mut().unwrap().script_json = document.into();
+        let mut head = revision(3);
+        head.script_json = document.into();
+        let editor = opened("alice", head);
         let inspector = Inspector::default().observe(&editor);
         let (reading, ticket) = inspector
             .start_read(

@@ -17,13 +17,10 @@ pub struct Context {
 
 impl Context {
     pub fn from_editor(editor: &Editor) -> Self {
-        let saved = editor
-            .remote
-            .as_ref()
-            .filter(|r| r.script_id == editor.script);
+        let saved = editor.remote().filter(|r| r.script_id == editor.script());
         Self {
-            actor: editor.actor.clone(),
-            script: editor.script.clone(),
+            actor: editor.actor().to_owned(),
+            script: editor.script().to_owned(),
             revision: saved.map_or(0, |r| r.revision),
             export_digest: saved.map(|r| r.export_digest.clone()).unwrap_or_default(),
         }
@@ -346,12 +343,41 @@ pub struct Intent {
     pub command: Command,
 }
 
+/// A submitted command whose outcome Production has not observed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PendingCommand {
+    intent: Intent,
+    /// An attempt timed out, so a later retry rejection cannot settle this earlier attempt.
+    outcome_unknown: bool,
+}
+
+/// The one request Production owns; a read and a command can never overlap.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-enum PendingOutcome {
+enum Request {
     #[default]
-    NotAmbiguous,
-    /// A later retry rejection cannot settle this exact earlier attempt.
-    Unknown(Box<Intent>),
+    Idle,
+    Reading(ReadTicket),
+    /// The command is in flight.
+    Sending(PendingCommand),
+    /// The command is not in flight; only an exact retry or matching receipt may settle it.
+    Unresolved(PendingCommand),
+}
+
+impl Request {
+    fn pending(&self) -> Option<&PendingCommand> {
+        match self {
+            Self::Sending(pending) | Self::Unresolved(pending) => Some(pending),
+            Self::Idle | Self::Reading(_) => None,
+        }
+    }
+
+    /// Nothing stays in flight across a context change: a read is abandoned, a command survives.
+    fn settled(&self) -> Self {
+        match self.pending() {
+            Some(pending) => Self::Unresolved(pending.clone()),
+            None => Self::Idle,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -373,17 +399,14 @@ pub struct RetainedForm {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Production {
     pub context: Context,
-    pub sequence: u64,
-    pub reading: Option<ReadTicket>,
+    sequence: u64,
     pub catalog: Option<ProductionCatalogResponse>,
     pub stored: Option<ProductionStateResponse>,
     pub form: Option<SettingsForm>,
     pub preview: Option<ProductionPreviewResponse>,
     pub snapshot: Option<ProductionSnapshotResponse>,
     pub confirmation: Option<(String, String)>,
-    pub pending: Option<Intent>,
-    pending_outcome: PendingOutcome,
-    pub sending: bool,
+    request: Request,
     pub error: Option<ApiError>,
     pub rights_draft_dirty: bool,
     pub input_composing: bool,
@@ -400,8 +423,7 @@ impl Production {
         let mut next = Self {
             context: context.clone(),
             sequence: self.sequence.saturating_add(1),
-            pending: self.pending.clone(),
-            pending_outcome: self.pending_outcome.clone(),
+            request: self.request.settled(),
             ..Self::default()
         };
         if context.script == self.context.script {
@@ -435,11 +457,19 @@ impl Production {
         next
     }
 
+    /// A read or command is in flight.
     pub fn busy(&self) -> bool {
-        self.sending || self.reading.is_some()
+        match self.request {
+            Request::Reading(_) | Request::Sending(_) => true,
+            Request::Idle | Request::Unresolved(_) => false,
+        }
     }
     pub fn has_activity(&self) -> bool {
-        self.busy() || self.pending.is_some()
+        self.request != Request::Idle
+    }
+    /// The unresolved command, whether in flight or awaiting reconciliation.
+    pub fn pending(&self) -> Option<&Intent> {
+        self.request.pending().map(|pending| &pending.intent)
     }
     fn visible_dirty(&self) -> bool {
         self.form.as_ref().is_some_and(|form| {
@@ -509,13 +539,14 @@ impl Production {
         };
         let mut next = self.clone();
         next.sequence = ticket.sequence;
-        next.reading = Some(ticket.clone());
+        next.request = Request::Reading(ticket.clone());
         next.error = None;
         Some((next, ticket))
     }
 
     fn accepts_read(&self, ticket: &ReadTicket) -> bool {
-        self.reading.as_ref() == Some(ticket) && self.context == ticket.context
+        matches!(&self.request, Request::Reading(reading) if reading == ticket)
+            && self.context == ticket.context
     }
 
     pub fn loaded(
@@ -540,7 +571,7 @@ impl Production {
             return self.read_failed(ticket, error(ErrorCode::CorruptRevision));
         }
         let mut next = self.clone();
-        next.reading = None;
+        next.request = Request::Idle;
         if next.form.is_none() || !next.is_dirty() {
             next.form = Some(
                 stored
@@ -563,7 +594,7 @@ impl Production {
             return self.clone();
         }
         let mut next = self.clone();
-        next.reading = None;
+        next.request = Request::Idle;
         next.error = Some(error);
         next
     }
@@ -584,7 +615,7 @@ impl Production {
             return self.clone();
         }
         let mut next = self.clone();
-        next.reading = None;
+        next.request = Request::Idle;
         if preview.script_revision == self.context.revision
             && self
                 .stored
@@ -615,7 +646,7 @@ impl Production {
             return self.read_failed(ticket, error(ErrorCode::CorruptRevision));
         }
         let mut next = self.clone();
-        next.reading = None;
+        next.request = Request::Idle;
         next.snapshot = Some(snapshot);
         next.confirmation = None;
         next
@@ -665,49 +696,69 @@ impl Production {
             command,
         };
         let mut next = self.clone();
-        next.pending = Some(intent.clone());
-        next.pending_outcome = PendingOutcome::NotAmbiguous;
-        next.sending = true;
+        next.request = Request::Sending(PendingCommand {
+            intent: intent.clone(),
+            outcome_unknown: false,
+        });
         next.error = None;
         next.confirmation = None;
         Some((next, intent))
     }
 
     pub fn can_retry(&self) -> bool {
-        !self.busy()
-            && self
-                .pending
-                .as_ref()
-                .is_some_and(|i| i.context.actor == self.context.actor)
+        matches!(&self.request, Request::Unresolved(pending)
+            if pending.intent.context.actor == self.context.actor)
     }
     pub fn retry(&self) -> Option<(Self, Intent)> {
+        let Request::Unresolved(pending) = &self.request else {
+            return None;
+        };
         if !self.can_retry() {
             return None;
         }
-        let intent = self.pending.clone()?;
         let mut next = self.clone();
-        next.sending = true;
+        next.request = Request::Sending(pending.clone());
         next.error = None;
-        Some((next, intent))
+        Some((next, pending.intent.clone()))
     }
 
     pub fn failed(&self, intent: &Intent, failure: ApiError) -> Self {
-        if self.pending.as_ref() != Some(intent) {
+        let Some(pending) = self.request.pending().filter(|p| p.intent == *intent) else {
             return self.clone();
-        }
+        };
+        let unresolved = |outcome_unknown| {
+            Request::Unresolved(PendingCommand {
+                intent: intent.clone(),
+                outcome_unknown,
+            })
+        };
         let mut next = self.clone();
-        next.sending = false;
-        if failure.code == ErrorCode::Unavailable {
-            next.pending_outcome = PendingOutcome::Unknown(Box::new(intent.clone()));
-        } else if failure.code != ErrorCode::Unauthenticated
-            && !matches!(
-                &self.pending_outcome,
-                PendingOutcome::Unknown(unknown) if unknown.as_ref() == intent
-            )
-        {
-            next.pending = None;
-            next.pending_outcome = PendingOutcome::NotAmbiguous;
-        }
+        next.request = match failure.code {
+            ErrorCode::Unavailable => unresolved(true),
+            // Reauthenticate as the submitting actor, then reconcile the same operation.
+            ErrorCode::Unauthenticated => unresolved(pending.outcome_unknown),
+            ErrorCode::NotFound
+            | ErrorCode::Forbidden
+            | ErrorCode::InvalidRequest
+            | ErrorCode::InvalidScript
+            | ErrorCode::EvidenceUnavailable
+            | ErrorCode::StaleRevision
+            | ErrorCode::OperationReused
+            | ErrorCode::ProposalAlreadySubmitted
+            | ErrorCode::CorruptRevision
+            | ErrorCode::StaleProductionInputs
+            | ErrorCode::ProductionBlocked
+            | ErrorCode::InvalidCatalog
+            | ErrorCode::CatalogConflict
+            | ErrorCode::StaleCursor
+            | ErrorCode::AudioRejected => {
+                if pending.outcome_unknown {
+                    unresolved(true)
+                } else {
+                    Request::Idle
+                }
+            }
+        };
         if self.context == intent.context {
             next.error = Some(failure);
         }
@@ -715,7 +766,7 @@ impl Production {
     }
 
     pub fn recorded(&self, intent: &Intent, receipt: Receipt) -> Self {
-        if self.pending.as_ref() != Some(intent) {
+        if self.pending() != Some(intent) {
             return self.clone();
         }
         let valid = match (&intent.command, &receipt) {
@@ -759,9 +810,7 @@ impl Production {
             return self.failed(intent, error(ErrorCode::Unavailable));
         }
         let mut next = self.clone();
-        next.pending = None;
-        next.pending_outcome = PendingOutcome::NotAmbiguous;
-        next.sending = false;
+        next.request = Request::Idle;
         if self.context != intent.context {
             return next;
         }
@@ -911,20 +960,22 @@ mod tests {
     }
 
     fn editor(actor: &str, revision: u64) -> Editor {
-        Editor {
-            actor: actor.into(),
-            script: "script".into(),
-            remote: Some(RevisionResponse {
+        editor_with_export(actor, revision, format!("export-{revision}"))
+    }
+
+    /// `actor` viewing saved `revision`, built only from public Editor transitions.
+    fn editor_with_export(actor: &str, revision: u64, export_digest: String) -> Editor {
+        Editor::default()
+            .signed_in(actor.into())
+            .open_revision(RevisionResponse {
                 script_id: "script".into(),
                 revision,
                 accepted_by: "owner".into(),
                 accepted_at: "2026-10-10T15:00:00Z".into(),
                 content_digest: "content".into(),
-                export_digest: format!("export-{revision}"),
+                export_digest,
                 script_json: "{}".into(),
-            }),
-            ..Editor::default()
-        }
+            })
     }
 
     fn catalog() -> ProductionCatalogResponse {
@@ -1117,11 +1168,11 @@ mod tests {
         let (sending, intent) = original.start(Command::Settings(request())).unwrap();
         assert!(sending.start(Command::Settings(request())).is_none());
         let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
-        assert_eq!(uncertain.pending, Some(intent.clone()));
+        assert_eq!(uncertain.pending(), Some(&intent));
         let (_, retry) = uncertain.retry().unwrap();
         assert_eq!(retry, intent);
         let other = uncertain.observe(&editor("other", 1));
-        assert_eq!(other.pending, Some(intent));
+        assert_eq!(other.pending(), Some(&intent));
         assert!(!other.can_retry());
     }
 
@@ -1138,14 +1189,15 @@ mod tests {
         assert_eq!(replay, intent);
         let denied = retrying.failed(&replay, error(denial.clone()));
         assert_eq!(
-            denied.pending,
-            Some(intent.clone()),
+            denied.pending(),
+            Some(&intent),
             "a retry denial cannot establish the first attempt's outcome"
         );
         assert_eq!(denied.form, original.form);
         assert_eq!(denied.stored, original.stored);
         assert_eq!(denied.error, Some(error(denial.clone())));
-        assert!(!denied.sending);
+        assert!(!denied.busy());
+        assert!(denied.can_retry());
         assert!(denied.has_activity());
         let mut fresh_request = original_request;
         fresh_request.operation_id = "replacement-settings-operation".into();
@@ -1177,21 +1229,20 @@ mod tests {
             assert!(other.form.is_none());
             assert!(other.retry().is_none());
             let rejected_elsewhere = other.failed(&intent, error(denial.clone()));
-            assert_eq!(rejected_elsewhere.pending, Some(intent.clone()));
+            assert_eq!(rejected_elsewhere.pending(), Some(&intent));
             assert_eq!(rejected_elsewhere.error, None);
             let returned = rejected_elsewhere.observe(&editor("owner", 2));
             assert_eq!(returned.form, original.form);
-            let mut original_editor = editor("owner", 1);
-            original_editor.remote.as_mut().unwrap().export_digest =
-                original.context.export_digest.clone();
+            let original_editor =
+                editor_with_export("owner", 1, original.context.export_digest.clone());
             let restored = returned.observe(&original_editor);
             assert_eq!(restored.context, intent.context);
             assert_eq!(restored.form, original.form);
-            assert_eq!(restored.pending, Some(intent.clone()));
+            assert_eq!(restored.pending(), Some(&intent));
             let (retrying, replay) = restored.retry().unwrap();
             assert_eq!(replay, intent);
             let denied = retrying.failed(&replay, error(denial.clone()));
-            assert_eq!(denied.pending, Some(intent.clone()));
+            assert_eq!(denied.pending(), Some(&intent));
             assert_eq!(denied.form, original.form);
             assert_eq!(denied.error, Some(error(denial)));
             assert!(denied.start(Command::Settings(request())).is_none());
@@ -1217,20 +1268,20 @@ mod tests {
         let mut mismatched_receipt = settings_receipt(&request());
         mismatched_receipt.operation_id = "another-operation".into();
         let unresolved = denied.recorded(&intent, Receipt::Settings(mismatched_receipt));
-        assert_eq!(unresolved.pending, Some(intent.clone()));
+        assert_eq!(unresolved.pending(), Some(&intent));
         assert_eq!(unresolved.form, original.form);
         assert_eq!(unresolved.error, Some(error(ErrorCode::Unavailable)));
         let settled = unresolved.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
-        assert!(settled.pending.is_none());
-        assert_eq!(settled.pending_outcome, PendingOutcome::NotAmbiguous);
+        assert!(settled.pending().is_none());
+        assert_eq!(settled.request, Request::Idle);
         assert!(!settled.has_activity());
         let mut next_request = request();
         next_request.operation_id = "next-settings-operation".into();
         next_request.expected_settings_version = 1;
         let (sending, next_intent) = settled.start(Command::Settings(next_request)).unwrap();
         let denied = sending.failed(&next_intent, error(ErrorCode::NotFound));
-        assert!(denied.pending.is_none());
-        assert_eq!(denied.pending_outcome, PendingOutcome::NotAmbiguous);
+        assert!(denied.pending().is_none());
+        assert_eq!(denied.request, Request::Idle);
     }
 
     #[test]
@@ -1239,8 +1290,8 @@ mod tests {
             let original = state();
             let (sending, intent) = original.start(Command::Settings(request())).unwrap();
             let denied = sending.failed(&intent, error(denial.clone()));
-            assert!(denied.pending.is_none());
-            assert_eq!(denied.pending_outcome, PendingOutcome::NotAmbiguous);
+            assert!(denied.pending().is_none());
+            assert_eq!(denied.request, Request::Idle);
             assert_eq!(denied.form, original.form);
             assert_eq!(denied.stored, original.stored);
             assert_eq!(denied.error, Some(error(denial)));
@@ -1256,8 +1307,8 @@ mod tests {
         let uncertain = sending.failed(&intent, error(ErrorCode::Unavailable));
         let switched = uncertain.observe(&editor("other", 1));
         let settled = switched.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
-        assert!(settled.pending.is_none());
-        assert_eq!(settled.pending_outcome, PendingOutcome::NotAmbiguous);
+        assert!(settled.pending().is_none());
+        assert_eq!(settled.request, Request::Idle);
         assert!(!settled.has_activity());
         assert!(settled.form.is_none());
         assert!(settled.stored.is_none());
@@ -1272,7 +1323,7 @@ mod tests {
             changed.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
         assert_eq!(acknowledged.form.as_ref().unwrap().bindings[0].pitch, "3");
         assert!(acknowledged.is_dirty());
-        assert!(acknowledged.pending.is_none());
+        assert!(acknowledged.pending().is_none());
         assert_eq!(
             acknowledged
                 .stored
@@ -1302,7 +1353,7 @@ mod tests {
             switched.recorded(&intent, Receipt::Settings(settings_receipt(&request())));
         assert!(acknowledged.form.is_none());
         assert!(acknowledged.stored.is_none());
-        assert!(acknowledged.pending.is_none());
+        assert!(acknowledged.pending().is_none());
     }
 
     #[test]
@@ -1318,9 +1369,34 @@ mod tests {
                 _ => unreachable!(),
             };
             let result = sending.recorded(&intent, Receipt::Settings(receipt));
-            assert_eq!(result.pending, Some(intent.clone()));
+            assert_eq!(result.pending(), Some(&intent));
             assert_eq!(result.error.unwrap().code, ErrorCode::Unavailable);
         }
+    }
+
+    #[test]
+    fn context_change_abandons_a_read_and_holds_a_command_for_reconciliation() {
+        let (reading, ticket) = state().start_read(ReadKind::State).unwrap();
+        assert!(reading.busy());
+        let moved = reading.observe(&editor("other", 1));
+        assert_eq!(moved.request, Request::Idle);
+        assert!(!moved.has_activity());
+        assert_eq!(
+            moved.read_failed(&ticket, error(ErrorCode::Unavailable)),
+            moved
+        );
+
+        let (sending, intent) = state().start(Command::Settings(request())).unwrap();
+        assert!(sending.busy() && !sending.can_retry());
+        let moved = sending.observe(&editor("other", 1));
+        assert!(!moved.busy());
+        assert_eq!(moved.pending(), Some(&intent));
+        assert!(!moved.can_retry(), "only the submitting actor may retry");
+        let returned = moved.observe(&editor("owner", 1));
+        assert!(returned.can_retry());
+        let (retrying, retried) = returned.retry().unwrap();
+        assert_eq!(retried, intent);
+        assert!(retrying.busy() && retrying.retry().is_none());
     }
 
     #[test]
@@ -1513,7 +1589,7 @@ mod tests {
             document: FrozenProductionDocument {
                 owner_id: "owner".into(),
                 catalog_version: "reference-catalog-v1".into(),
-                revision: editor("owner", 1).remote.unwrap(),
+                revision: editor("owner", 1).remote().cloned().unwrap(),
                 settings: settings_receipt(&request()),
                 rights: vec![],
                 resolved: vec![],
@@ -1586,7 +1662,7 @@ mod tests {
             }),
         );
         assert!(recorded.snapshot.is_none());
-        assert!(recorded.pending.is_none());
+        assert!(recorded.pending().is_none());
         assert!(recorded.confirmation.is_none());
         assert!(recorded
             .start_read(ReadKind::Snapshot("chosen".into()))

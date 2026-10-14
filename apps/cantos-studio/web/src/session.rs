@@ -164,14 +164,15 @@ mod tests {
     }
     #[test]
     fn successful_response_without_owner_echo_retains_the_original_save_intent() {
-        let mut editor = crate::editor::Editor::default().signed_in("alice".into());
-        editor.script = "script".into();
-        editor = editor.edit("private draft".into());
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("private draft".into());
         let (sending, intent) = editor.start_save("original-operation".into()).unwrap();
         let uncertain = sending.save_failed(&intent, &unconfirmed_response());
-        assert_eq!(uncertain.pending.as_ref(), Some(&intent));
+        assert_eq!(uncertain.pending(), Some(&intent));
         assert_eq!(uncertain.retry().unwrap().1, intent);
-        assert_eq!(uncertain.draft, "private draft");
+        assert_eq!(uncertain.draft(), "private draft");
     }
     #[test]
     fn request_snapshot_keeps_account_a_fence_and_rejects_b_or_missing_echo() {
@@ -239,9 +240,10 @@ mod tests {
 
     #[test]
     fn session_boundaries_preserve_original_draft_owner_and_ambiguous_intent() {
-        let mut editor = crate::editor::Editor::default().signed_in("alice".into());
-        editor.script = "script".into();
-        editor = editor.edit("original author text".into());
+        let editor = crate::editor::Editor::default()
+            .signed_in("alice".into())
+            .select_script("script".into())
+            .edit("original author text".into());
         let (saving, _) = editor.start_save("operation".into()).unwrap();
         let ambiguous = saving.failed(&ApiError {
             code: ErrorCode::Unavailable,
@@ -249,15 +251,15 @@ mod tests {
             issues: vec![],
         });
         let signed_out = ambiguous.signed_in(String::new());
-        assert_eq!(signed_out.draft, "original author text");
-        assert_eq!(signed_out.pending, ambiguous.pending);
+        assert_eq!(signed_out.draft(), "original author text");
+        assert_eq!(signed_out.pending(), ambiguous.pending());
         assert!(!signed_out.can_edit());
         let account_b = signed_out.signed_in("bob".into());
         assert!(!account_b.can_edit());
         assert!(account_b.retry().is_none());
         let account_a = account_b.signed_in("alice".into());
         assert!(account_a.can_edit());
-        assert_eq!(account_a.retry().unwrap().1, ambiguous.pending.unwrap());
+        assert_eq!(Some(&account_a.retry().unwrap().1), ambiguous.pending());
     }
 
     #[test]
@@ -285,13 +287,13 @@ mod tests {
             .edit("private A draft".into());
         let (checking, ticket) = SessionState::default().begin().unwrap();
         let account_b = checking.settled(ticket, Some("bob".into()));
-        assert_eq!(account_b.retained_owner(&editor.actor, true), "alice");
-        assert!(!account_b.projects_owner(&editor.actor));
+        assert_eq!(account_b.retained_owner(editor.actor(), true), "alice");
+        assert!(!account_b.projects_owner(editor.actor()));
         let (checking, ticket) = account_b.begin().unwrap();
-        assert!(!checking.projects_owner(&editor.actor));
+        assert!(!checking.projects_owner(editor.actor()));
         let restored = checking.settled(ticket, Some("alice".into()));
-        let editor = editor.signed_in(restored.retained_owner(&editor.actor, true));
-        assert!(restored.projects_owner(&editor.actor));
-        assert_eq!(editor.draft, "private A draft");
+        let editor = editor.signed_in(restored.retained_owner(editor.actor(), true));
+        assert!(restored.projects_owner(editor.actor()));
+        assert_eq!(editor.draft(), "private A draft");
     }
 }
