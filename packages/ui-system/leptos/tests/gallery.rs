@@ -624,3 +624,40 @@ fn v3_workbench_renders_anatomy_states_tokens_and_honest_proposal_limits() {
     assert!(html.contains("data-motion=\"system\""));
     assert!(!html.contains("role=\"tablist\""));
 }
+
+#[test]
+fn scenario_workbench_restores_recipe_environment_and_keeps_unique_production_anatomy() {
+    let html = Owner::new().with(|| view! {
+        <preview::workbench::Workbench initial_query="?v=1&component=auth-primary&state=loading&theme=dark&mode=matrix&locale=en&text=200&frame=320&fixture=long-vietnamese".to_owned()/>
+    }.to_html());
+    assert!(html.contains("data-theme=\"dark\""));
+    assert!(html.contains("data-text-scale=\"200\""));
+    assert!(html.contains("--cui-frame-width: 320px"));
+    assert!(html.contains("data-variant=\"auth-primary\""));
+    assert!(opening_tag(&html, "scenario-auth-primary-loading-control").contains("disabled"));
+    assert!(
+        opening_tag(&html, "scenario-auth-primary-loading-control").contains("aria-busy=\"true\"")
+    );
+    assert!(html.contains("Nguyễn Thị Ánh Nguyệt"));
+    assert!(!html.contains("role=\"tab\""));
+    assert!(!html.contains("<audio"));
+    let mut ids = BTreeSet::new();
+    for attribute in html.split(" id=\"").skip(1) {
+        let id = attribute.split('"').next().unwrap();
+        assert!(ids.insert(id), "duplicate workbench ID {id}");
+    }
+}
+
+#[test]
+fn invalid_scenario_has_visible_fallback_without_echoing_untrusted_query() {
+    let html = Owner::new().with(|| {
+        view! {
+            <preview::workbench::Workbench initial_query="?v=999&private=DO_NOT_ECHO".to_owned()/>
+        }
+        .to_html()
+    });
+    assert!(opening_tag(&html, "scenario-fallback").contains("role=\"alert\""));
+    assert!(html.contains("using the default recipe"));
+    assert!(!html.contains("DO_NOT_ECHO"));
+    assert!(html.contains("data-scenario-component=\"button\""));
+}

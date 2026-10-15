@@ -148,6 +148,100 @@ Runtime focus/dialog/keyboard, exact responsive widths, text scaling, forced col
 screen-reader observations have separate evidence in the [component record](../../../docs/evidence/ui-system-components.md).
 Continue with the [app integration sequence](../../../docs/work-plan/015-leptos-ui-system.md).
 
+## Scenario recipes and replay
+
+The existing preview includes a local scenario workbench. Its bounded pure
+[`Recipe`](preview/recipe.rs) selects a production component, typed state, public fixture and
+presentation environment. The [host](preview/workbench.rs) owns values, callbacks and reset;
+the [browser adapter](preview/platform.rs) owns URL replacement and observed metadata. The
+recipe is diagnostic data, never a route, credential, media URL or service request.
+The full API/token catalog stays available; exact recipe support is intentionally bounded:
+
+| Recipe component | Catalog API / variant | Supported states |
+| --- | --- | --- |
+| `button` | `button` / regular `Button` | `enabled`, `disabled`, `loading` |
+| `auth-primary` | `button` / `ButtonVariant::AuthPrimary` | `enabled`, `disabled`, `loading` |
+| `filter-chip` | `filter-chip` / `FilterChip` | `unselected`, `selected`, `disabled`, `loading` |
+| `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
+| `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
+
+The canonical query is versioned. For example, append this query to the local preview URL:
+
+```text
+?v=1&component=auth-primary&state=enabled&fixture=long-vietnamese&theme=dark&density=compact&locale=vi&text=200&frame=390&motion=system&mode=isolated&playback=live
+```
+
+| Field | Accepted values |
+| --- | --- |
+| `v` | `1`; required for every nonempty query |
+| `component`, `state` | Table above; an omitted state uses the component's first listed state |
+| `fixture` | `standard`, `long-vietnamese`; repository-created text only |
+| `theme`, `density` | `system`, `light`, `dark`; `compact`, `comfortable` |
+| `locale`, `text` | `vi`, `en`; `100`, `200` percent text scale |
+| `frame` | `320`, `390`, `840`, `1440` CSS px specimen width |
+| `motion` | `system`, `reduced`, `force-full` |
+| `mode` | `catalog`, `isolated`, `matrix` |
+| `playback` | `live`, `settled`, `replay` |
+
+No query defaults to Button/enabled, standard fixture, Light/Compact, Vietnamese, 100% text,
+390px frame, System motion, Catalog and Live. With version 1, omitted fields use those defaults,
+apart from state, which uses the selected component's valid default. Unknown versions, fields,
+values, duplicate fields, invalid encoding and incompatible component/state pairs are rejected
+atomically. The host shows a reason and the complete default recipe rather than partially
+applying input. Limits are 1024 query bytes, 12 fields, 16 bytes per key and 32 bytes per value;
+recipes cannot inject arbitrary text, URLs or CSS.
+
+Catalog retains the existing discovery gallery beside the selected specimen. Isolated shows one
+selected component/state; Matrix mounts each supported state for that component. All modes use
+the production APIs above, with unique IDs and persistent preview-owned values. Filtering,
+environment controls and hiding/revealing samples retain edits. Reset restores fixture values,
+state and event history to the currently selected recipe. Changing theme or density is not reset.
+An intent log records callbacks; it never simulates authentication, audio or a backend result.
+
+Frame width is local specimen geometry; narrow browser windows may need to scroll the diagnostic
+frame. It does not resize the browser viewport or alter DPR. Text 200% changes injected font
+scale and does not claim native browser page zoom. Record both the selected frame/scale and
+actual browser viewport/DPR/zoom in evidence. Long Vietnamese deliberately exercises wrapping.
+Locale applies to workbench fixture copy; the full legacy catalog keeps its Vietnamese samples.
+
+System motion preserves `prefers-reduced-motion`; Reduced further suppresses nonessential
+transitions. Force full is a labelled opt-in diagnostic override and must be attributed in the
+result. Settled suppresses transitions for final-state capture. Replay restores the selected
+fixture and event log, then waits for real input; it does not synthesize a press or guarantee a
+recording. Press/release/cancel and selection follow native controls. Dialog uses actual focus
+containment/return and Escape; NavTabs remains ordinary links. No drag-sheet or mini/full-player
+gesture consumer is introduced, so its slop/axis/velocity/snap policy remains unsupported.
+
+Use the existing command surface:
+
+```sh
+cargo xtask ui-preview leptos build
+cargo xtask ui-preview leptos verify
+cargo xtask ui-preview leptos run
+```
+
+Discover the component contract, select a recipe, copy its URL and reload. Drive real pointer and
+keyboard input, check semantic state and callback history, capture and open the affected states,
+then reset/repeat the same recipe and input sequence for a fix. Wait for the local font diagnostic
+to confirm the declared faces are loaded. Motion claims need normal/reduced recordings or frame
+profiles with labelled early/mid/final states and interruption; SSR and still PNGs cannot establish
+timing or cancellation. Browser metadata refresh/export records observed facts separately from
+selected settings. The preview-only `motion_probe.rs` observes trusted Button/FilterChip input,
+records computed styles/bounds at start/middle/end (or an explicit unavailable midpoint), and
+cancels its bounded frame sampler on new input, hidden/offscreen targets, recipe/reset changes
+and unmount. Recipe changes clear old samples so export cannot attribute them to another
+fixture. This sampled profile is not a video, controlled-clock proof or performance benchmark.
+The capture label is local diagnostic text; it never enters a recipe URL. Build-source provenance must identify the actual served source/dirty state;
+an unrecorded build field is not a known SHA. Keep artifacts in the existing ignored evidence
+directory and attribute token/catalog digests, component/variant/state, fixture, fonts, renderer
+and browser along with the recipe. See the
+[replay method](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md#replay-a-preview-scenario)
+and [actual evidence](../../../docs/evidence/leptos-preview-scenarios.md).
+
+Recipe parsing/string-render checks, browser DOM, keyboard/focus, opened pixels and motion
+recordings are separate evidence. This diagnostics feature is absent from product routes and
+does not qualify new APIs, expand shared admission or replace Studio/Theatre acceptance.
+
 Filled text, search, number, textarea and native select controls use `surfaceContainerHigh` with
 persistent labels, help and error descriptions. Hover adds the shared state layer; keyboard focus
 retains the full contrast outline. Invalid controls use an error surface and transient bottom cue
