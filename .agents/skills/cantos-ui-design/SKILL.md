@@ -52,9 +52,12 @@ listener surface for the technical name before calling UI work done.
 
 Studio Web, Theatre Web's scoped live account/Library boundary and isolated Web/CMP listening
 mocks, and `packages/ui-system` Web/CMP previews exist. The
-[Leptos package](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
-owns the current scenario recipe, supported specimens and diagnostic modes; inspect that
-contract and the actual code rather than treating inventory proposals as implemented controls.
+[Leptos package](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay) and
+[CMP package](../../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay) own their
+scenario recipes, supported specimens and diagnostic modes; inspect those contracts and actual
+code rather than treating inventory proposals as implemented controls. The
+[Theatre desktop workbench](../../../apps/cantos-theatre/mobile/README.md#scenario-workbench)
+uses the existing mock composition and memory sessions; it establishes no production persistence.
 The authenticated design handoff supplies palette/font roles and official outlined icons.
 Native listening remains deferred; existing JVM/Studio host captures establish no device
 acceptance. Optional [local PNG comparison](references/visual-review.md#10-reference-pairing-and-local-comparison)
@@ -160,11 +163,12 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
    projections and intents; never hand-edit generated output. Localize visible/accessibility copy
    with semantic keys, parameters and resources; map errors instead of exposing internals.
 5. **Test and inspect previews.** Use the cheapest presentation-mapping/DOM/semantics regression,
-   then select and reload a named recipe through the
+   then select and restore a named recipe through the
    [preview replay method](references/preview-catalog.md#replay-a-preview-scenario). Drive
    state/theme/motion scenarios with realistic Vietnamese content (`Người dẫn chuyện`,
    `Ngày mai, mình có diễn tiếp không?`, `Ánh đèn cuối sân khấu`), the changed states, the
-   viewports, themes and text scales the change can affect; open each image and record findings
+   viewports, themes and text scales the change can affect. Preserve the recipe/version, seed,
+   injected owner, ordered intents and snapshot/import outcome; open each image and record findings
    with [`visual-review.md`](references/visual-review.md).
 6. **Admit, then adopt.** Preserve the required renderer records and freshness checks; unsupported
    or unrun evidence leaves shared APIs unqualified. Product use needs its own flow observations;
@@ -172,7 +176,8 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
 7. **Recheck the same scenario.** Reset to the selected recipe, repeat the same input sequence and
    inspect new captures. Preserve fixture, frame width and actual viewport, theme, locale, text
    scale and motion preference; only the source differs. A scenario changed between runs proves
-   nothing about the fix.
+   nothing about the fix. An owner recreation must cancel the old mount and reject its callbacks;
+   filtering or changing appearance is not an implicit reset.
 8. **Format.** Each touched toolchain's formatter in check mode, then lint and tests.
 9. **Report** every UI field, including what was not observed.
 

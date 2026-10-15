@@ -4,23 +4,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.cantos.theatre.adapters.mock.toDemoEpisodeId
 import com.cantos.theatre.adapters.mock.toDemoView
 import com.cantos.theatre.adapters.mock.toDemoWorkId
-import com.cantos.theatre.adapters.mock.toEpisodeKey
-import com.cantos.theatre.adapters.mock.toWorkKey
 import com.cantos.theatre.application.catalog.CatalogState
 import com.cantos.theatre.application.catalog.CatalogStatus
 import com.cantos.theatre.application.listening.ListeningFailure
 import com.cantos.theatre.application.listening.ListeningState
+import com.cantos.theatre.application.preferences.PreferencesState
 import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
-import com.cantos.theatre.application.preferences.PreferencesState
 import com.cantos.theatre.demo.DemoBookmark
 import com.cantos.theatre.demo.DemoCatalogMode
 import com.cantos.theatre.demo.DemoEvent
@@ -33,11 +29,7 @@ import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoTheme
 import com.cantos.theatre.demo.DemoTimer
 import com.cantos.theatre.demo.PlaybackUiStatus
-import com.cantos.theatre.domain.listening.ListeningEvent
-import com.cantos.theatre.domain.membership.MembershipEvent
-import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.domain.membership.MembershipState
-import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackIntent
 import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.domain.playback.PlaybackStatus
@@ -57,88 +49,38 @@ fun CantosDemoApp(
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     appContainer: AppContainer? = null,
     membershipPreviewState: MembershipState = MembershipState.unavailable(),
+    appSession: DemoAppSession? = null,
+    density: com.cantos.ui.Density = com.cantos.ui.Density.Comfortable,
+    motionPreference: com.cantos.ui.MotionPreference = com.cantos.ui.MotionPreference.Reduced,
 ) {
+    require(appSession == null || appContainer == null || appSession.container === appContainer) {
+        "An injected app session and app container must share the same owner"
+    }
     val parentScope = rememberCoroutineScope()
-    val container = remember(initialState, appContainer) {
-        appContainer ?: AppContainer.mock(parentScope, initialState)
+    val binding = remember(initialState, appContainer, appSession) {
+        AppCompositionBinding(appSession?.container ?: appContainer ?: AppContainer.mock(parentScope, initialState),
+            ownsContainer = appContainer == null && appSession == null)
     }
-    DisposableEffect(container) {
-        onDispose { if (appContainer == null) container.close() }
+    val container = binding.container
+    DisposableEffect(binding) { onDispose { if (binding.ownsContainer) container.close() } }
+    val session = remember(initialState, container, membershipPreviewState, appSession) {
+        appSession ?: DemoAppSession(container, initialState, membershipPreviewState)
     }
-    var query by remember(initialState) { mutableStateOf(initialState.query) }
-    var libraryTab by remember(initialState) { mutableStateOf(initialState.libraryTab) }
-    // Selection only. It schedules no timer and is never sent to a media engine.
-    var timer by remember(initialState) { mutableStateOf(initialState.timer) }
-    // Separate, opt-in preview authority. No native identity/session is projected into it.
-    var membership by remember(initialState, appContainer, membershipPreviewState) { mutableStateOf(membershipPreviewState) }
+    DisposableEffect(session) { onDispose { if (appSession == null) session.close() } }
+    val ui by session.ui.collectAsState()
     val navigation by container.navigation.collectAsState()
     val catalog by container.catalog.state.collectAsState()
     val listening by container.listening.state.collectAsState()
     val playback by container.playback.state.collectAsState()
     val preferences by container.preferences.state.collectAsState()
     val projection = projectDemoState(
-        navigation, catalog, listening, playback, preferences, query, libraryTab, timer, initialState,
+        navigation, catalog, listening, playback, preferences, ui.query, ui.libraryTab, ui.timer, session.seed,
     )
-    val dispatch: (DemoEvent) -> Unit = { event ->
-        when (event) {
-            is DemoEvent.Navigate -> {
-                if (navigation.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
-                    membership = membership.reduce(MembershipEvent.OpenIntro).state
-                }
-                container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
-            }
-            DemoEvent.Back -> if (navigation.route == TheatreRoute.MembershipPreview &&
-                membership.screen != MembershipScreen.Intro && membership.screen != MembershipScreen.Account) {
-                membership = membership.reduce(MembershipEvent.Back).state
-            } else {
-                if (navigation.route == TheatreRoute.MembershipPreview) membership = membership.reduce(MembershipEvent.OpenIntro).state
-                container.navigate(NavigationEvent.Back)
-            }
-            DemoEvent.Reset -> {
-                query = ""
-                libraryTab = DemoLibraryTab.Continuing
-                timer = DemoTimer.Off
-                membership = membership.reduce(MembershipEvent.ClearSession).state
-                container.reset()
-            }
-            is DemoEvent.ResumeEpisode -> if (!container.resumeEpisode(event.id.toEpisodeKey())) {
-                container.navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
-            }
-            is DemoEvent.ResumeHistoryEpisode -> if (!container.resumeHistoryEpisode(event.id.toEpisodeKey())) {
-                container.navigate(NavigationEvent.Navigate(TheatreRoute.Unavailable))
-            }
-            is DemoEvent.SetSaved -> container.setSaved(event.id.toWorkKey(), event.saved)
-            DemoEvent.ClearHistory -> container.clearHistory()
-            DemoEvent.RetryListening -> container.listening.retry()
-            is DemoEvent.OpenEpisode -> container.selectEpisode(event.id.toEpisodeKey())
-            is DemoEvent.OpenBookmark -> container.selectBookmark(
-                event.bookmark.episodeId.toEpisodeKey(), event.bookmark.positionMs,
-            )
-            DemoEvent.ToggleSimulation -> container.playback.toggleIntent()
-            is DemoEvent.Seek -> container.playback.dispatch(PlaybackEvent.SkipRequested(
-                (event.deltaSeconds.toLong() * 1000L).coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt(),
-            ))
-            is DemoEvent.SeekTo -> container.playback.dispatch(PlaybackEvent.SeekRequested(event.seconds.toLong() * 1000L))
-            is DemoEvent.SaveWork -> container.listening.dispatch(ListeningEvent.ToggleSaved(event.id.toWorkKey()))
-            DemoEvent.Bookmark -> container.bookmark()
-            is DemoEvent.SelectLibrary -> libraryTab = event.tab
-            is DemoEvent.Search -> query = event.query
-            is DemoEvent.CatalogMode -> container.setCatalogScenario(event.mode)
-            DemoEvent.Retry -> container.retryCatalog()
-            is DemoEvent.SetTheme -> container.preferences.setTheme(
-                if (event.theme == DemoTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light,
-            )
-            is DemoEvent.SetLocale -> container.preferences.setLocale(
-                if (event.locale == DemoLocale.English) PreferenceLocale.English else PreferenceLocale.Vietnamese,
-            )
-            is DemoEvent.SetSpeed -> container.playback.dispatch(PlaybackEvent.SpeedRequested(event.percent * 10))
-            is DemoEvent.SetTimer -> timer = event.timer
-        }
-    }
+    val dispatch: (DemoEvent) -> Unit = session::dispatch
     CantosDemoPresentation(
         projection, catalog.lastKnownInventory.toDemoView(), dispatch, modifier, textScale, onThemeChanged, backHandler,
         membershipContent = {
-            MembershipPreview(membership, projection.locale, { membership = membership.reduce(it).state },
+            MembershipPreview(ui.membership, projection.locale, session::membership,
                 onExplore = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) })
         },
         membershipHeader = {
@@ -146,9 +88,13 @@ fun CantosDemoApp(
                 onBack = { dispatch(DemoEvent.Back) },
                 onToggleTheme = { dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark)) })
         },
-        membershipScreen = membership.screen,
+        membershipScreen = ui.membership.screen,
+        density = density,
+        motionPreference = motionPreference,
     )
 }
+
+private class AppCompositionBinding(val container: AppContainer, val ownsContainer: Boolean)
 
 /** Derived view only. There is no second writable store mirroring the capability owners. */
 fun projectDemoState(

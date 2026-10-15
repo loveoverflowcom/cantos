@@ -29,39 +29,53 @@ code registration and renderer qualification; adding a proposed specimen changes
 
 ## Replay a preview scenario
 
-Use the renderer package's implemented recipe contract, not an invented screenshot state flag.
-For Leptos, start `cargo xtask ui-preview leptos run` and use the
-[scenario workbench](../../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay).
+Use the renderer package's implemented recipe contract, not an invented screenshot state flag:
+
+| Host | Contract and launch path | Boundary |
+|---|---|---|
+| Leptos gallery | [scenario workbench](../../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay), `cargo xtask ui-preview leptos run` | browser presentation, no native evidence |
+| CMP gallery | [scenario recipes and replay](../../../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay), `cargo xtask ui-preview cmp run` | shared components on a JVM preview root |
+| Theatre CMP composition | [desktop scenario workbench](../../../../apps/cantos-theatre/mobile/README.md#scenario-workbench), its documented `cargo xtask theatre-demo run` opt-in | real mock composition and memory sessions, no durable storage or native audio |
+
 Keep these steps in the evidence record:
 
 1. Discover the component ID/API/variant/state in the existing catalog, then select a supported
-   recipe and fixture. Copy its scenario URL, reload it and check the restored environment and
-   state. An invalid or unknown recipe must show its fallback reason; it never authorizes a
-   service, credential or private-content lookup.
+   recipe and fixture. Restore through the host's URL or snapshot contract and check the restored
+   environment and state. Record unknown/invalid recipe and schema-version outcomes; an import
+   never authorizes a service, credential or private-content lookup or a fallback live adapter.
 2. Choose catalog, isolated specimen or matrix for the claim. All modes use the production
-   components and preview-host-owned state. Theme, density, locale, scale and filtering must
-   retain edits; use explicit reset to restore the selected recipe. A matrix shows supported
+   components and preview-host-owned state. Theme, density, scale and workbench filtering must
+   retain edits; use explicit reset to restore the selected recipe. Record locale as an injected
+   value; a control that selects a new localized fixture must name that seed reset explicitly.
+   Record injected versus owned
+   mounts, their disposal owner and any supported latency/fault preset. A matrix shows supported
    typed states, not a second component implementation or a collection of forced CSS classes.
 3. Drive real keyboard/pointer input and inspect the intent log and final semantic state.
+   Replay only supported typed intents; do not mutate a mock database or manufacture callbacks.
    Include press/release/cancel, rapid reversal, repeated dialog open/close, hidden/revealed
    samples and font wrapping where relevant. Confirm that callbacks commit before motion
    settles; blocked controls and canceled activation must not fabricate an intent.
 4. Capture and **open** the affected states. Attribute source SHA/dirty state, recipe/version,
-   component/variant, fixture, token/catalog digest, theme, locale, density, font readiness/scale,
+   component/variant, seed, ordered intents, snapshot schema, token/catalog digest, theme, locale, density, font readiness/scale,
    specimen frame width, actual CSS viewport/DPR and renderer/browser. Frame-width simulation
    is not a browser viewport or browser zoom. A missing target or recording remains explicitly
    unobserved; source/DOM assertions and still images do not demonstrate motion.
 5. Rerun the identical recipe and input sequence after a fix, including normal/system and
    reduced-motion observations when affected. Open the new artifacts and record the recheck
-   for each finding. Diagnostics do not fill shared admission or product-flow evidence.
+   for each finding. For owner recreation, separately test A→B→A, reset/dispose during delayed
+   work, injected-owner disposal and rejected stale callbacks with controlled time. A memory
+   remount never proves OS process death. Diagnostics do not fill shared admission or product-flow
+   evidence; [#122](https://github.com/loveoverflowcom/cantos/issues/122) still owns production
+   source/dependency and APK/AAB exclusion acceptance.
 
-CMP motion samples use the same discipline without a gallery control: the recipe ID is the
-scenario ID, and the recipe (inputs plus observation marks at virtual times) is replayed on a manual
-clock owned by the test, never by production UI ([motion.md § 7](motion.md#7-replay-recipes-on-a-virtual-clock)).
-The CMP gallery has no replay, pause, seek-to-frame or restart controls yet; the scenario
-workbench owns adding them, so do not describe CMP motion evidence as workbench replay. A sample
-exists only where a real transition does (today the Auth action press and the Theatre launch
-entrance); a planned sheet, dialog or mini ↔ full sample stays `planned` until its consumer exists.
+CMP workbench intent replay is separate from motion-frame replay. Motion recipes (inputs plus
+observation marks at virtual times) run on a manual clock owned by the test, never by production UI
+([motion.md § 7](motion.md#7-replay-recipes-on-a-virtual-clock)). The gallery offers no pause or
+seek-to-frame controls. A sample exists only where a real transition does (today the Auth action
+press and Theatre launch entrance); a planned sheet, dialog or mini ↔ full sample stays `planned`
+until its consumer exists. Snapshot export contains versioned public recipe/fixture data and
+bounded synthetic state only; scopes, controllers, services, paths, credentials and private media
+are never serialized.
 
 Keep recipe schema, available component states, presets and fallback details in the package
 contract linked above. Recipes contain public fixture identifiers and bounded presentation

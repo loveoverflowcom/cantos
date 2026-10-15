@@ -111,6 +111,53 @@ Preview-local geometry (master pane, nested sample roots, narrow-sample cap, tok
 declared once in `PreviewGeometry` with its unit (dp), scope and reason; it is derived from
 canonical breakpoints and is not a token definition. Shared components read tokens only.
 
+## Scenario recipes and replay
+
+The **Workbench** tab renders the same `ComponentExample` used by the catalog and Android preview
+wrappers. It adds recipe orchestration; it declares no new shared component or qualification.
+Start it through `cargo xtask ui-preview cmp run`, then select the component ID, its registered
+state and Catalog, Isolated or StateMatrix mode. A matrix mounts each registered state through
+that same sample function with immutable values. It explicitly excludes the open Dialog modal
+to keep matrix controls reachable; operate modal and keyboard-focus journeys in Isolated mode.
+Interactive `RecipeFrame(interactive = true)` binds the actual focus node for a `focus` recipe;
+static Android roots keep that flag false and never claim a keyboard-focus walkthrough.
+Workbench filtering, theme, density, text scale and reduced-motion
+changes preserve sample values and selection. **Fixture ViVn/En** selects a new localized seed;
+**Reset to selected** explicitly restores the selected seed. The ordinary gallery retains its
+existing filtered-detail selection contract.
+
+`preview/workbench/PreviewRecipe.kt` owns `PreviewRecipe.of`: a catalog-bound component/state,
+mode, nonnegative deterministic seed and injected `PreviewSettings`. Unknown components and
+states return typed rejections. `PreviewSettings` carries Light/Dark/System, compact/comfortable
+density, vi-VN/en fixture language, 1×/1.3×/2× preview font scale, reduced motion and a bounded
+dp constraint frame. The host supplies the system-dark fact; components never query the OS.
+The frame constrains the specimen, independently of the actual window, platform density and
+platform font scale; record each separately in evidence.
+
+`ComponentSampleState` holds immutable synthetic widget values, including text selection and
+composition. `ComponentSampleIntent`, `reduceComponentSample` and `replayComponentSample` own
+pure value replacement and ordered intent replay. Selecting a new recipe starts its seed;
+reset and replay restore the selected recipe rather than an unrelated catalog default.
+Replay is an action/state diagnostic, separate from the manual animation-frame recipes below;
+it supplies no pause or seek-to-frame controls and demonstrates no native timer or background
+behavior. Fixture controls do not send network, auth or media commands.
+
+`PreviewSnapshot(recipe, sample, events)` is detached data. `PreviewSnapshotCodec.encode` returns
+`Exported(payload)` or a typed rejection; `decode` returns `Restored(snapshot)` or a typed rejection.
+The strict `CANTOS-CMP-PREVIEW|1` format accepts at most 256 intents and 16,384 characters.
+It serializes only fixed original fixture text IDs and allowlisted choices, then checks that the
+projection equals replay of the encoded recipe and intents. Free-form edited text stays visible
+in the live specimen but export refuses it, avoiding private text, credentials, paths or URLs in
+the snapshot. Malformed/unsupported versions, oversized content, invalid recipes/intents and
+projection mismatches are rejected before mounting; restore never constructs a live adapter.
+No coroutine scope, controller, port, service or native object is serialized.
+
+Keep component ID/API/variant/state and the reason for any extension in the PR, followed by the
+recipe/schema/seed, ordered intents, theme, locale, density, font readiness/scales, specimen
+constraint and actual renderer/window metadata. Open each attributed capture and rerun the same
+recipe after a repair. Follow [preview admission](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md)
+before product adoption; source registration, replay and a screenshot do not complete it.
+
 ## Design v3 discovery, injected appearance and capture records
 
 The [design inventory](../shared/design-inventory-v3.json) maps all 102 specimens of the offline
@@ -191,8 +238,9 @@ entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM 
 - `AuthButtonReplayTest`: real touch dispatch; asserts the intent before the clock advances a
   frame, the hit box on every sampled frame and writes labelled `cmp-motion-auth-action-*`
   captures with a `frame` sidecar (recipe, mark, time, timebase).
-- `MotionReplay.kt`: the recipe, driver and model helpers. Recipes are owned by tests; production
-  UI never advances the clock and the gallery has no replay controls yet.
+- `MotionReplay.kt`: the animation recipe, driver and model helpers. Motion frames are owned by
+  tests; production UI never advances the clock. The Workbench tab's intent replay does not
+  control this animation clock or offer pause/seek-to-frame controls.
 
 A manual-clock frame proves ordering, retargeting and final state. It is not a recording, frame
 pacing, the OS reduce-motion signal, Android or iOS. See the
@@ -249,19 +297,20 @@ Other specimens are `AndroidChoicesDarkLargePreview`, `AndroidNavigationLightWid
 `AndroidNestedThemeDarkLargePreview`. Each wraps actual shared components and registered fixtures
 with explicit Vietnamese locale, width, theme and platform font scale. Open captured PNGs and
 assert the observed semantics separately; neither capture nor compilation proves interaction,
-IME, TalkBack, Android/iOS runtime or production qualification. The two product mobile directories
-remain guides and all 29 component qualifications remain unapproved. The
+IME, TalkBack, Android/iOS runtime or production qualification. Theatre's isolated mobile mock
+and the catalog's current qualification records retain their separate scopes. The
 [PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records the actual
 build, four inspected PNGs, static semantics assertions and remaining native gates.
 
 ## Tests and evidence boundary
 
-The subsequent three-session Mac sequence has current
+The three-session Mac sequence has attributed historical
 [foundation](../../../docs/evidence/cmp-ui-system-session1.md),
 [interaction](../../../docs/evidence/cmp-ui-system-session2.md) and
 [final review/readiness](../../../docs/evidence/cmp-ui-system-session3.md) records. Its final
-74 executed JVM tests and 26 opened captures establish bounded preview behavior. The registry
-now has 29 APIs and 152 scenarios; production qualification remains 0/29. Range requests are
+74 executed JVM tests and 26 opened captures establish bounded preview behavior for that source.
+That registry snapshot had 29 APIs and 152 scenarios with 0/29 qualified; the current
+[catalog](../shared/preview-catalog.json) owns registration and qualification freshness. Range requests are
 finite/bounded and snapped to native ticks; unchanged physical ticks preserve caller decimal
 aliases without callback/completion. Continuous directional steps fall back to the adjacent
 Float if one percent cannot be represented. OS binding, real IME, screen reader, motion,

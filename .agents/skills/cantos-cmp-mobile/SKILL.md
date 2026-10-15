@@ -38,9 +38,11 @@ and never infer client/device acceptance from model simulation.
 
 - `apps/cantos-theatre/mobile/` contains an isolated memory-only CMP mock: shared Gradle module,
   Android host, SwiftUI/Xcode host and JVM diagnostics. Its pure playback reducer, independent
-  controllers, narrow ports and mock adapters are real code. It has no listener API/auth,
-  native audio, downloads or durable sync/persistence; production `--mobile` remains
-  `UNSUPPORTED`. The sole mobile product is Theatre; Studio is Web-only under the
+  controllers, narrow ports and mock adapters are real code. Its default mock has no native
+  audio, downloads or durable sync/persistence; separate opt-in native identity and listener
+  transport seams retain the [mock guide's](../../../apps/cantos-theatre/mobile/README.md)
+  integration and native acceptance limits. Production `--mobile` remains `UNSUPPORTED`.
+  The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
 - Motion today: the pure `MotionPolicy.kt` (intent × property × preference, token-fed) in the
@@ -85,6 +87,11 @@ proposals are not public APIs. New shared components must be declared/tested in 
 and follow [preview admission](../cantos-ui-design/references/preview-catalog.md) before real app
 adoption; appearance, density, font scale and motion reach components as injected values
 ([CMP design system](references/cmp-design-system.md#injected-preferences-and-scope)).
+The [gallery recipe contract](../../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay)
+and [Theatre desktop workbench](../../../apps/cantos-theatre/mobile/README.md#scenario-workbench)
+own selection, reset, intent replay and synthetic snapshots. The Theatre workbench stays in
+`desktopMain`; [#122](https://github.com/loveoverflowcom/cantos/issues/122) still owns broader
+sandbox extraction and proof that production APK/AABs exclude sandbox sources and dependencies.
 
 | The task | Use |
 |---|---|
@@ -175,16 +182,22 @@ steps. Skipping a step is a decision you state, as the foundation requires.
    the current render in the scenario you will change. For static Android host evidence, prefer
    [Compose preview without an emulator](references/compose-preview.md) when its prerequisites
    exist; keep native runtime gates separate. Use Vietnamese content such as
-   `Người dẫn chuyện` and `Ánh đèn cuối sân khấu`.
+   `Người dẫn chuyện` and `Ánh đèn cuối sân khấu`. For interactive diagnostics, select a validated
+   recipe, restore its bounded snapshot and record the seed, injected appearance, constraint frame
+   and intent sequence using the [preview method](../cantos-ui-design/references/preview-catalog.md#replay-a-preview-scenario).
 4. **Implement at the seam.** Route binds state and effects; screen takes values and `onX`
    events; sections stay dumb. Platform behavior goes behind the existing port, not into a
    composable. Define each effect's owner, keys, cleanup and stale-result rejection. Add a
-   dependency only with a concrete consumer, a gap and verified target support.
+   dependency only with a concrete consumer, a gap and verified target support. Reset-to-selected
+   and replay recreate the recipe's mount; keep owned cleanup separate from borrowed injection,
+   fence old callbacks and preserve editing/scroll state when only filtering or appearance changes.
 5. **Test the changed claim.** Reducer and controller tests in `commonTest` with controlled
    clock and dispatcher; shared JSON vectors from `cantos-listening` for semantics that Web and
    mobile must agree on; Compose UI tests with a named renderer for semantics and interaction;
    device runs for background, lock screen, interruptions, downloads and process death.
-   Zero selected tests or a missing iOS host is blocked. → [cmp-testing.md](references/cmp-testing.md)
+   Test recipe/snapshot rejection and A→B→A/reset/dispose during delayed effects with virtual
+   time; memory recreation is not process-death evidence. Zero selected tests or a missing iOS
+   host is blocked. → [cmp-testing.md](references/cmp-testing.md)
 6. **Open, judge and recheck.** Open the new captures, compare against the baseline using
    [visual review](../cantos-ui-design/references/visual-review.md), fix at the owning component
    or token, and rerun the *same* scenario. A desktop preview never stands in for Android or iOS.
@@ -239,6 +252,8 @@ Display:                dp × dp (the real constraint, never inferred from PNG p
                         theme, locale, reduced motion, screen reader on/off
 Component lookup:       catalog/inventory IDs, variants and states reused or extended; the
                         missing-kind rationale; scenario IDs; qualification or blocker
+Recipe / replay:         schema/version, seed, snapshot/import result, ordered intents,
+                        owned or injected mount and cleanup owner; simulated clock/faults
 Capture record:         JVM sidecar path and png_sha256 | official capture.json (per renderer)
 Media fixture:          publication id, format, live or fake delivery
 Tests:                  selected / executed / skipped, per target

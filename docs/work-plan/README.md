@@ -222,6 +222,16 @@ inventory and token reconciliation: its [first slice](../evidence/issue143-cmp-p
 gallery's Design v3 tab, root-injected Light/Dark/System, named dp evidence constraints and capture
 records; its [order for the remaining batches](016-cmp-ui-system.md#design-v3-cmp-slice-issue-143)
 starts with Theatre compositions over registered primitives.
+The [#144 CMP recipe workbench](../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay)
+and [Theatre desktop scenarios](../../apps/cantos-theatre/mobile/README.md#scenario-workbench)
+make selected component/state or mock composition, synthetic session seed and ordered intents
+reproducible through reset/recreation and versioned snapshots. Use those recipes to close the
+affected renderer/state/lifecycle gaps before expanding #143's proposal batches. Preserve #109's
+memory-session semantics; replay does not implement durable storage, native audio or OS process
+death. Next, complete [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s broader sandbox
+extraction and production APK/AAB source/dependency exclusion acceptance before native product
+rollout. This orchestration slice qualifies no shared API and does not reorder the backend queue;
+GitHub owns implementation and acceptance status.
 
 The bounded [Web Back presentation comparison](../evidence/shared-back-v3-alignment.md) keeps
 blocked Back labels quiet while retaining readable disabled semantics. Its before/after pixel
