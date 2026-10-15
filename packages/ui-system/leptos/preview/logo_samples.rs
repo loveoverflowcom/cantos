@@ -41,6 +41,10 @@ pub fn LogoSamples() -> impl IntoView {
                         })
                     }).collect_view()}
                 </Grid>
+                // The following examples use Light artwork; keep their surface paired even
+                // while the gallery host reviews a dark recipe.
+                <UiRoot theme=Theme::Light>
+                <Surface tone=SurfaceTone::Plain>
                 <div data-logo-state="decorative">
                     <Stack direction=cantos_ui::StackDirection::Horizontal gap=Space::Md>
                         <Logo variant=LogoVariant::Symbol/>
@@ -56,6 +60,8 @@ pub fn LogoSamples() -> impl IntoView {
                     <p>"Khung hẹp vẫn giữ đúng tỷ lệ"</p>
                     <Logo variant=LogoVariant::CantosStudio/>
                 </div>
+                </Surface>
+                </UiRoot>
             </Stack>
         </div>
     }

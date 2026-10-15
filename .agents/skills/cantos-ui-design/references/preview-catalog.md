@@ -27,6 +27,41 @@ compositions stay Web-owned and never scaffold Studio Mobile. Design/proposal st
 [v3 inventory](../../../../packages/ui-system/shared/design-inventory-v3.json) is separate from
 code registration and renderer qualification; adding a proposed specimen changes neither.
 
+## Replay a preview scenario
+
+Use the renderer package's implemented recipe contract, not an invented screenshot state flag.
+For Leptos, start `cargo xtask ui-preview leptos run` and use the
+[scenario workbench](../../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay).
+Keep these steps in the evidence record:
+
+1. Discover the component ID/API/variant/state in the existing catalog, then select a supported
+   recipe and fixture. Copy its scenario URL, reload it and check the restored environment and
+   state. An invalid or unknown recipe must show its fallback reason; it never authorizes a
+   service, credential or private-content lookup.
+2. Choose catalog, isolated specimen or matrix for the claim. All modes use the production
+   components and preview-host-owned state. Theme, density, locale, scale and filtering must
+   retain edits; use explicit reset to restore the selected recipe. A matrix shows supported
+   typed states, not a second component implementation or a collection of forced CSS classes.
+3. Drive real keyboard/pointer input and inspect the intent log and final semantic state.
+   Include press/release/cancel, rapid reversal, repeated dialog open/close, hidden/revealed
+   samples and font wrapping where relevant. Confirm that callbacks commit before motion
+   settles; blocked controls and canceled activation must not fabricate an intent.
+4. Capture and **open** the affected states. Attribute source SHA/dirty state, recipe/version,
+   component/variant, fixture, token/catalog digest, theme, locale, density, font readiness/scale,
+   specimen frame width, actual CSS viewport/DPR and renderer/browser. Frame-width simulation
+   is not a browser viewport or browser zoom. A missing target or recording remains explicitly
+   unobserved; source/DOM assertions and still images do not demonstrate motion.
+5. Rerun the identical recipe and input sequence after a fix, including normal/system and
+   reduced-motion observations when affected. Open the new artifacts and record the recheck
+   for each finding. Diagnostics do not fill shared admission or product-flow evidence.
+
+Keep recipe schema, available component states, presets and fallback details in the package
+contract linked above. Recipes contain public fixture identifiers and bounded presentation
+preferences only; never put tokens, signed URLs, private manuscripts or media in links. Use
+existing `cargo xtask` commands for build/verify/run; any capture automation extends that command
+surface rather than introducing a parallel runner. Planned sheets/player gestures remain
+unsupported until a concrete consumer and its input/focus/cancellation policy exist.
+
 ## Required sequence for a new or extended shared component
 
 1. Complete the lookup above and preserve the existing API/state baseline. Use concrete host-driven

@@ -80,6 +80,14 @@ framework or component-owned service merely to pass preferences. A gesture has t
 intent as its button/keyboard alternative, with explicit cancellation, reversal, focus and input
 semantics; no animation-end callback controls intent delivery.
 
+Preview motion policy is explicit: System follows the real browser preference; Reduced may
+further restrict it. A diagnostic force-full mode, if implemented, must be labelled, opt-in and
+recorded, never a silent override of reduced motion. Use the same recipe and trusted input for
+normal/reduced observations; replay/reset changes the host fixture, not a fake pressed class.
+A dragged consumer needs named policy values with units and ownership for slop, axis, velocity
+and snap thresholds, plus cancel/Escape/keyboard alternatives and no scroll-lock trap. Do not
+add an animator, gesture abstraction or speculative sheet merely to demonstrate motion.
+
 | Remove | Keep |
 |---|---|
 | travel, slide-ins, container transforms | the state change itself, immediately |
@@ -155,7 +163,14 @@ A still image cannot demonstrate smoothness, interruption or reduced motion. Spl
 
 Name the component ID/variant and scenario ID in the admission/PR evidence. Record the same
 fixture, theme, font readiness/scale, viewport/density/DPR, preference and target for full/reduced
-runs. Preview controls and static values are useful diagnostics, not motion observations.
+runs. Include specimen frame width separately from actual browser viewport, plus source and
+token/catalog digests. Follow the
+[preview replay method](preview-catalog.md#replay-a-preview-scenario) for reset and same-scenario
+recheck. Preview controls and static values are useful diagnostics, not motion observations.
+For an affected transition, retain labelled beginning/middle/end frames and the cancellation or
+reversal sequence in a recording or frame profile. A settled capture alone proves no movement,
+timing, smoothness or cleanup. Observe visibility/background/offscreen pause and listener/observer
+cleanup only when the consumer implements a loop or such resources; never infer them from CSS.
 
 | Part of the claim | Evidence | Level |
 |---|---|---|

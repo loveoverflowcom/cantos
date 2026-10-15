@@ -1,0 +1,56 @@
+/* Scenario workbench geometry: requested CSS px are a specimen frame, never a viewport.
+   Controls stay outside text scaling; only the scoped specimen consumes the font roles. */
+:where(.cantos-ui) .cui-workbench {
+  padding: var(--cantos-space-lg);
+  display: grid;
+  gap: var(--cantos-space-md);
+  color: var(--cantos-color-on-surface);
+  background: var(--cantos-color-surface);
+}
+.cui-workbench [hidden], .cui-specimen-frame [hidden] { display: none; }
+.cui-recipe-controls {
+  display: grid;
+  /* Workbench-owned readable inspector column minimum; not product geometry. */
+  --cui-recipe-column-min: 18rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--cui-recipe-column-min)), 1fr));
+  gap: var(--cantos-space-md);
+}
+.cui-workbench :where(code, pre) { overflow-wrap: anywhere; white-space: pre-wrap; }
+.cui-specimen-scroll {
+  overflow-x: auto;
+  min-inline-size: 0;
+  --cui-base-body-size: var(--cantos-type-body-size);
+  --cui-base-label-size: var(--cantos-type-label-size);
+  --cui-base-title-size: var(--cantos-type-title-size);
+}
+.cui-specimen-scroll:focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary);
+}
+.cui-specimen-frame { inline-size: var(--cui-frame-width); box-sizing: border-box; }
+.cui-scenario {
+  padding: var(--cantos-space-md);
+  margin-block-end: var(--cantos-space-md);
+  border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
+  background: var(--cantos-color-surface-container);
+}
+.cui-specimen-frame[data-text-scale="200"] {
+  --cantos-type-body-size: calc(var(--cui-base-body-size) * 2);
+  --cantos-type-label-size: calc(var(--cui-base-label-size) * 2);
+  --cantos-type-title-size: calc(var(--cui-base-title-size) * 2);
+  font-size: 200%;
+}
+/* Opt-in diagnostics only. System leaves the real media preference untouched. */
+.cui-specimen-frame[data-motion="force-full"] .cui-button {
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+.cui-specimen-frame[data-motion="force-full"] .cui-button[data-variant="auth-primary"] {
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+.cui-specimen-frame[data-motion="force-full"] .cui-filter-chip {
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
+}
+.cui-specimen-frame:where([data-motion="reduced"], [data-playback="settled"]) * {
+  transition: none !important;
+  animation-name: none !important;
+}
+/* There are no diagnostic animation loops, observers or background timers. */

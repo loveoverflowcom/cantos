@@ -56,8 +56,11 @@ the browser renders and drives it, the owner decides what is true.
   explicitly isolated listening mock, and the shared `cantos-ui`
   foundation are Leptos CSR packages built with Trunk. Build, serve and verify Web through
   [`cargo xtask`](../../../xtask/README.md) (`build|run|app <app> --web`, `verify web`);
-  native string-render component tests and the package-local searchable development gallery exist;
-  browser observations remain separately recorded. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
+  native string-render component tests and the package-local searchable development gallery exist.
+  Its [scenario contract](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
+  owns supported recipe/mode/state inputs; build, verify and serve diagnostics with
+  `cargo xtask ui-preview leptos build|verify|run`.
+  Browser observations remain separately recorded. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.
@@ -136,7 +139,7 @@ these Web specifics:
               representation fixed by the client's codec constant; typed PortError
 4  async      resource/action states, request key, duplicate-submit policy, retry decision
 5  preview    semantic HTML, controlled values/intents, locale keys, token classes and injected preferences
-6  evidence   cheapest regression first: core → component → real-browser state/theme/motion scenarios
+6  evidence   cheapest regression first: core → component → select/reload recipe → drive browser inputs → capture/open
 7  adopt      admission → product import → documented app command → SAME scenario and opened captures
 8  tidy       formatter and linter of every touched toolchain, in check mode
 9  report     shared UI report + the Web additions below; residual risk never empty

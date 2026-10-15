@@ -51,7 +51,10 @@ listener surface for the technical name before calling UI work done.
 ## Repository reality
 
 Studio Web, Theatre Web's scoped live account/Library boundary and isolated Web/CMP listening
-mocks, and `packages/ui-system` Web/CMP previews exist.
+mocks, and `packages/ui-system` Web/CMP previews exist. The
+[Leptos package](../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
+owns the current scenario recipe, supported specimens and diagnostic modes; inspect that
+contract and the actual code rather than treating inventory proposals as implemented controls.
 The authenticated design handoff supplies palette/font roles and official outlined icons.
 Native listening remains deferred; existing JVM/Studio host captures establish no device
 acceptance. Optional [local PNG comparison](references/visual-review.md#10-reference-pairing-and-local-comparison)
@@ -135,7 +138,7 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
 2  keep domain decisions out of UI: the backend or core decides, the UI renders typed facts
 3  look up API + component ID + variant/state; reuse, extend, or declare and preview a missing kind
 4  implement/localize the owned preview through semantic roles and injected facts/intents
-5  test concrete state/theme/motion scenarios; render, drive, capture and open the affected previews
+5  select a reproducible recipe; drive state/theme/motion inputs, capture and open affected previews
 6  complete admission before product import; then drive and inspect the production surface
 7  fix at the responsible owner and recheck the same scenario, unchanged
 8  format and lint with each touched toolchain
@@ -157,15 +160,19 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
    projections and intents; never hand-edit generated output. Localize visible/accessibility copy
    with semantic keys, parameters and resources; map errors instead of exposing internals.
 5. **Test and inspect previews.** Use the cheapest presentation-mapping/DOM/semantics regression,
-   then drive named state/theme/motion scenarios with realistic Vietnamese content (`Người dẫn chuyện`,
+   then select and reload a named recipe through the
+   [preview replay method](references/preview-catalog.md#replay-a-preview-scenario). Drive
+   state/theme/motion scenarios with realistic Vietnamese content (`Người dẫn chuyện`,
    `Ngày mai, mình có diễn tiếp không?`, `Ánh đèn cuối sân khấu`), the changed states, the
    viewports, themes and text scales the change can affect; open each image and record findings
    with [`visual-review.md`](references/visual-review.md).
 6. **Admit, then adopt.** Preserve the required renderer records and freshness checks; unsupported
    or unrun evidence leaves shared APIs unqualified. Product use needs its own flow observations;
    a gallery pass never proves an application flow.
-7. **Recheck the same scenario.** Same fixture, viewport, theme, locale, text scale and state; only
-   the source differs. A scenario changed between runs proves nothing about the fix.
+7. **Recheck the same scenario.** Reset to the selected recipe, repeat the same input sequence and
+   inspect new captures. Preserve fixture, frame width and actual viewport, theme, locale, text
+   scale and motion preference; only the source differs. A scenario changed between runs proves
+   nothing about the fix.
 8. **Format.** Each touched toolchain's formatter in check mode, then lint and tests.
 9. **Report** every UI field, including what was not observed.
 

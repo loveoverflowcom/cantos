@@ -7,10 +7,13 @@ must inspect their actual starting SHA and disk budget; they are not started by 
 
 ## Why and boundary
 
-Studio has a real editor but only a Studio-specific token generator; Theatre remains a skeleton.
-One validated shared palette and a small composable renderer foundation reduce drift before
-adding components. Preserve backend permissions, unsaved text, revision identity and native
-playback architecture. Do not copy the older client-shell branch over the current apps.
+The original sequence established one shared token source, composable renderers and diagnostic
+previews. Current APIs and consumers are recorded in the
+[Leptos package](../../packages/ui-system/leptos/README.md) and
+[shared catalog](../../packages/ui-system/shared/README.md#preview-registration-and-adoption);
+inspect them before extending the foundation. Preserve backend permissions, unsaved text,
+revision identity and native playback architecture. Do not copy the older client-shell branch
+over the current apps.
 
 ## Sequential ownership
 
@@ -123,3 +126,22 @@ app adoption. These preview checks are not mobile or full CMP production accepta
 The requested follow-up is tracked in [016](016-cmp-ui-system.md), with
 [session 1 evidence](../evidence/cmp-ui-system-session1.md). It keeps Leptos consumers compatible
 and adds companion specimens; application adoption remains gated.
+
+## Reproducible Leptos preview scenarios
+
+[Issue142](https://github.com/loveoverflowcom/cantos/issues/142) adds typed, versioned URL recipes
+to the existing gallery, with catalog/isolated/matrix diagnostics over existing production
+controls. The [package contract](../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay)
+owns supported components/states, environment settings, reset and fallback; the
+[evidence record](../evidence/leptos-preview-scenarios.md) owns actual browser observations and
+remaining acceptance. Frame-width simulation, still inspection and real browser/motion input
+evidence remain separate.
+
+Prioritize replaying exact existing component scenarios before expanding
+[#141](https://github.com/loveoverflowcom/cantos/issues/141)'s proposed component batches. Keep
+future sheet/player gesture consumers deferred until they have a concrete input/focus/cancel
+contract. [#140](https://github.com/loveoverflowcom/cantos/issues/140) owns comparison metrics;
+[#129](https://github.com/loveoverflowcom/cantos/issues/129) and
+[#131](https://github.com/loveoverflowcom/cantos/issues/131) own product rollout. Scenario evidence
+does not refresh shared qualifications, add product diagnostics or complete native/screen-reader
+acceptance. GitHub owns execution status; this sequence records the next review boundary.

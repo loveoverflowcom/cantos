@@ -20,9 +20,13 @@ mod discovery;
 pub mod foundation_samples;
 pub mod interaction_samples;
 mod logo_samples;
+pub mod motion_probe;
+pub mod platform;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
+pub mod recipe;
 pub mod token_sample;
+pub mod workbench;
 
 use auth_samples::{AuthActionSamples, AuthFieldSamples, AuthSurfaceSamples, BackButtonSamples};
 use design_samples::{DesignInventory, PrototypeCompositions};
@@ -50,9 +54,11 @@ pub fn Gallery(
     #[prop(default = "empty")] initial_feedback: &'static str,
     #[prop(default = "all")] initial_family: &'static str,
     #[prop(default = "")] initial_query: &'static str,
+    #[prop(optional)] host_theme: Option<RwSignal<Theme>>,
+    #[prop(optional)] host_density: Option<RwSignal<Density>>,
 ) -> impl IntoView {
-    let theme = RwSignal::new(Theme::Light);
-    let density = RwSignal::new(Density::Compact);
+    let theme = host_theme.unwrap_or_else(|| RwSignal::new(Theme::Light));
+    let density = host_density.unwrap_or_else(|| RwSignal::new(Density::Compact));
     let large_text = RwSignal::new(false);
     let reduced_motion = RwSignal::new(false);
     let token_query = RwSignal::new(String::new());
@@ -514,7 +520,7 @@ pub fn Gallery(
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    leptos::mount::mount_to_body(|| view! { <Gallery/> });
+    leptos::mount::mount_to_body(|| view! { <workbench::Workbench/> });
 }
 
 #[cfg(not(target_arch = "wasm32"))]
