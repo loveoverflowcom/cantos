@@ -7,11 +7,15 @@ This handoff recommends order, not a selected credential/API/schema or new autho
 
 ## One-PR review boundary
 
-Deliver the source-bound RFC comparison and synthetic evidence as **documentation only**.
-Preserve existing Studio/Admin/producer/storage boundaries and production gates. Do not create
-live grants/credentials, migrate a database, change identity/security settings, deploy, close the
-issue or describe the architecture decision as resolved. No final ADR is appropriate until the
-owner selects a direction and accepts the revoke/lifecycle contract.
+PR 136 first delivered the source-bound RFC comparison and synthetic evidence as documentation.
+After the owner selected direction A on 15 October 2026, the same PR adds the bounded first
+backend slice recorded in [ADR 0028](../decisions/0028-work-scoped-delegation.md): additive
+migration 0026, the Catalog delegation core/application/SQL adapter, owner and bearer-only HTTP
+routes and the [delegation v1 contract](../../packages/contracts/delegation-v1.md), with its
+[implementation evidence](../evidence/work-scoped-delegation-implementation.md). Preserve
+existing Studio/Admin/producer/storage boundaries and production gates. Do not create live
+grants/credentials, provision production roles, change identity/security settings, deploy or
+close the issue: everything the ADR does not decide remains open.
 
 The source branch starts at fetched `origin/develop`
 `b6066acc659b6d4cd030badb9c1abdad08b6dcf2`. Re-read current `develop` and issue/comments before
@@ -56,9 +60,11 @@ Mac work are not prerequisites or part of this PR.
 | Mechanism / format | A; PASETO/JWT B; Biscuit/Macaroons C; justified hybrid | Requires evidence, reviewed exact protocol and trusted key custody before dependencies/schema |
 | Optional limits / direct upload | Defer; hard quotas with atomic reservation; separate presigned-media evaluation | Counters/rate checks and provider signatures cannot replace domain admission |
 
-No immediate owner answer is needed to finish this evidence PR. For implementation, start with
-the objective question, then resolve the applicable semantics as one bounded review rather than
-asking the owner to pick a hash/algorithm in isolation.
+Decided for the first slice (ADR 0028): mechanism **A**; attribution to a **registered delegate
+actor**; operations **`work:read`, `content:read`, `content:write`** on one Work; revocation by
+the local Catalog clock fence with archive and actor deactivation denying; issuance by the
+**Studio owner, server-minted and shown once**. Optional limits, direct upload and every action
+outside Catalog remain open; resolve them as one bounded review each rather than per algorithm.
 
 ## Verification and later acceptance
 
@@ -93,6 +99,11 @@ After owner acceptance, later bounded work should proceed in this order:
    actual object integrity/final reauthorization and production identity/operator acceptance.
    A presigned-write optimization needs separate authorized provider acceptance and cannot
    bypass the existing intake inspector, receipt or publication gate.
+
+For the ADR 0028 Catalog slice, steps 3–5 are delivered locally (pure core, application/SQL
+adapter, real PostgreSQL locks and HTTP cross-surface checks; see the evidence). Step 1 (Quint
+capability) and production identity/operator acceptance are **NOT_RUN** for it; step 2 does
+not apply because A adds no dependency. Every further action needs its own pass through 1–5.
 
 Later acceptance commands depend on selected files: `cargo xtask verify behavior` for registered
 models, `cargo xtask verify rust`/`verify contracts` for code/contracts, `verify postgres` for real

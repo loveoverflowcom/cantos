@@ -306,8 +306,14 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
     let anonymous_playback = theatre::public_playback_post(request.method(), original_path);
     let bearer_mutation = theatre_library::bearer_mutation(request.method(), original_path);
     let native_mutation = theatre_native_auth::native_mutation(request.method(), original_path);
+    let delegated_mutation = studio::delegation::bearer_mutation(request.method(), original_path);
     let mut response = if !valid_config
-        || (!read && !valid_origin && !anonymous_playback && !bearer_mutation && !native_mutation)
+        || (!read
+            && !valid_origin
+            && !anonymous_playback
+            && !bearer_mutation
+            && !native_mutation
+            && !delegated_mutation)
     {
         failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN)
     } else {

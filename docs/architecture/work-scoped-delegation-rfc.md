@@ -1,7 +1,10 @@
 # Work-scoped agent delegation — decision-pending RFC
 
-- Status: Research / decision pending. **No mechanism, algorithm, token format, schema,
-  endpoint, TTL or deployment is selected.** This is not an implementation contract or ADR.
+- Status: Research comparison. On 15 October 2026 the owner selected **direction A** for a first
+  Catalog slice, recorded in [ADR 0028](../decisions/0028-work-scoped-delegation.md) and
+  implemented by the [delegation v1 contract](../../packages/contracts/delegation-v1.md). Every
+  question that ADR does not answer stays **decision pending** here; this document itself is
+  not an implementation contract.
 - Issue: [#113](https://github.com/loveoverflowcom/cantos/issues/113).
 - Source baseline: `develop` at `b6066acc659b6d4cd030badb9c1abdad08b6dcf2`, fetched
   14 October 2026. This supersedes the issue's older `3668cb509ff` observation for this review.
@@ -20,6 +23,17 @@ exact unit/revision/Brief/submission, selected operations and bounded time. Stud
 platform Admin credentials must never enter Forge or an untrusted producer environment.
 The [research evidence](../evidence/work-scoped-delegation-research.md) supports comparison,
 not selection; [the handoff](../work-plan/work-scoped-delegation-handoff.md) orders the next gates.
+
+### First slice outcome (ADR 0028)
+
+The owner chose central opaque grants (A) with three Catalog actions (`work:read`,
+`content:read`, `content:write`) on one Work, a registered delegate actor as the recorded
+caller and server-minted, show-once issuance through the Studio owner API. Revocation shares the
+Catalog clock fence; delegated writes are text/recording only. Still open below: unit/revision
+pins, actions outside Catalog (Script, Brief, audio, artwork, publication staging), hybrids
+with the producer upload capability, sub-agent attenuation (B/C), quotas, last-used/denial
+audit, presigned writes, Studio Web UX and the Quint capability. The comparison tables are kept
+as the record of why A fits today and when B/C should be reconsidered.
 
 ## Existing authorities are different
 
@@ -242,5 +256,6 @@ The issue's 5–15 minute TTL is a test hypothesis, not a shipped policy.
 5. Final ADR explicitly selects/rejects alternatives and records migration, rollout/rollback,
    operator/audit/recovery and deferred acceptance. Only then create bounded implementation work.
 
-Until those gates pass, keep all existing credentials, APIs, private storage and production
-activation restrictions unchanged. This RFC neither closes #113 nor enables general delegation.
+Until those gates pass for each further question, keep all existing credentials, APIs, private
+storage and production activation restrictions unchanged. ADR 0028 enables only its bounded
+Catalog slice; this RFC neither closes #113 nor enables general delegation.

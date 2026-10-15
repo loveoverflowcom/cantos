@@ -1,6 +1,7 @@
 //! Pure catalog values and transitions. IDs and authoritative time come from the shell;
 //! ownership, link existence and transaction guards are checked by the application boundary.
 pub mod content;
+pub mod delegation;
 mod error;
 mod ids;
 mod metadata;

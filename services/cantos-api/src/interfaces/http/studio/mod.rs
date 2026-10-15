@@ -29,6 +29,7 @@ pub(super) mod auth;
 mod briefs;
 mod catalog;
 mod content;
+pub(super) mod delegation;
 mod imports;
 mod production;
 mod publication;
@@ -93,6 +94,8 @@ pub(super) fn routes_with_artwork(
             .route_layer(middleware::from_fn_with_state(state, authenticated))
             .merge(briefs::producer_routes())
             .merge(audio_lifecycle::producer_routes())
+            // Bearer-only delegates never pass the cookie middleware above.
+            .merge(delegation::delegate_routes())
             .route("/session", post(login).get(current_session).delete(logout))
             .merge(auth::routes()),
         Mount::Legacy => scripts

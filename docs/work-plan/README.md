@@ -25,12 +25,13 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 ## Ordered implementation
 
 The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
-[issue #113](https://github.com/loveoverflowcom/cantos/issues/113) as a decision-pending
-architecture comparison, not an implementation slot or replacement for existing producer
-grants. Review the [source-bound RFC](../architecture/work-scoped-delegation-rfc.md) and
-[disposable synthetic evidence](../evidence/work-scoped-delegation-research.md), then choose
-the objective, current-rights/revoke semantics and mechanism before adding a grant API/schema.
-This research can progress independently without reordering the backend dependencies below.
+[issue #113](https://github.com/loveoverflowcom/cantos/issues/113). The
+[source-bound RFC](../architecture/work-scoped-delegation-rfc.md) compared the options; the
+owner selected central opaque grants for a first Catalog slice
+([ADR 0028](../decisions/0028-work-scoped-delegation.md), [contract](../../packages/contracts/delegation-v1.md),
+[evidence](../evidence/work-scoped-delegation-implementation.md)). It does not replace producer
+grants. Next, in order: Studio Web grant management UI, the Quint capability for the accepted
+contract, then one bounded review per further action. None reorders the backend dependencies below.
 
 1. **Catalog / editorial identity:** work types `novel | story | podcast`, stable
    chapter/episode records, optional manuscript text or Script IR, ownership and rights.
