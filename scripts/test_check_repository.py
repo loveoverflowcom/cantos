@@ -50,6 +50,8 @@ class SkillTree:
         claude = self.root / ".claude/skills"
         claude.mkdir(parents=True)
         os.symlink("../../.agents/skills/cantos-sample", claude / "cantos-sample")
+        (self.root / "AGENTS.md").write_text("# Shared instructions\n", encoding="utf-8")
+        (self.root / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
 
     def write(self, relative, content):
         path = self.skill / relative
@@ -183,6 +185,42 @@ class CheckSkillsTest(unittest.TestCase):
         claude.rmdir()
         os.symlink("../.agents/skills", claude)
         self.assertSingleError("must be a real directory of per-skill symlinks")
+
+    def test_missing_claude_bootstrap_is_rejected(self):
+        (self.tree.root / "CLAUDE.md").unlink()
+        self.assertSingleError("CLAUDE.md: missing shared-instruction bootstrap")
+
+    def test_claude_bootstrap_must_import_shared_instructions(self):
+        for content in (
+            "Read AGENTS.md before working.\n",
+            "```text\n@AGENTS.md\n```\n",
+            "`@AGENTS.md`\n",
+            "    @AGENTS.md\n",
+            "@somewhere/AGENTS.md\n",
+        ):
+            with self.subTest(content=content):
+                (self.tree.root / "CLAUDE.md").write_text(content, encoding="utf-8")
+                self.assertSingleError("CLAUDE.md: must import @AGENTS.md on its own prose line")
+
+    def test_claude_bootstrap_requires_existing_shared_instructions(self):
+        (self.tree.root / "AGENTS.md").unlink()
+        self.assertSingleError("CLAUDE.md: imported AGENTS.md is missing")
+
+    def test_claude_bootstrap_allows_runtime_guidance_after_import(self):
+        (self.tree.root / "CLAUDE.md").write_text(
+            "@AGENTS.md\n\nInvoke /cantos-sample in Claude Code.\n", encoding="utf-8",
+        )
+        self.assertEqual(self.tree.errors(), [])
+
+    def test_claude_link_reads_canonical_skill_and_reference_updates(self):
+        alias = self.tree.root / ".claude/skills/cantos-sample"
+        self.assertEqual((alias / "SKILL.md").read_bytes(), (self.tree.skill / "SKILL.md").read_bytes())
+        self.tree.write("references/technique.md", "# Updated shared technique\n")
+        self.assertEqual(
+            (alias / "references/technique.md").read_text(encoding="utf-8"),
+            "# Updated shared technique\n",
+        )
+        self.assertEqual(self.tree.errors(), [])
 
 
 class RepositorySkillsTest(unittest.TestCase):

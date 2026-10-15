@@ -3,7 +3,7 @@
 
 This does not validate application behavior, YAML schemas or audio quality.
 Skill checks cover structure only: portable frontmatter, Codex metadata, the
-README index, reachable references and Claude Code symlinks.
+README index, reachable references, Claude Code symlinks and shared-instruction bootstrap.
 Architecture checks inspect source dependencies (Rust paths, Kotlin imports) and named SQL
 tables, not runtime behavior.
 It uses only Python's standard library and Git.
@@ -305,6 +305,20 @@ def check_skill(skill_dir):
     return errors
 
 
+def check_claude_bootstrap(root):
+    """Keep Claude's root memory connected to the canonical repository instructions."""
+    memory = root / "CLAUDE.md"
+    if not memory.is_file():
+        return ["CLAUDE.md: missing shared-instruction bootstrap"]
+    lines = prose_only(memory.read_text(encoding="utf-8")).splitlines()
+    errors = []
+    if "@AGENTS.md" not in lines:
+        errors.append("CLAUDE.md: must import @AGENTS.md on its own prose line")
+    if not (root / "AGENTS.md").is_file():
+        errors.append("CLAUDE.md: imported AGENTS.md is missing")
+    return errors
+
+
 def check_claude_links(root, names):
     """Each skill needs `.claude/skills/<name>` -> `../../.agents/skills/<name>`, nothing else."""
     claude_dir = root / CLAUDE_SKILLS_DIR
@@ -355,6 +369,7 @@ def check_skills(root=ROOT):
         if (skill_dir / "SKILL.md").resolve() not in indexed:
             errors.append(f"{SKILLS_DIR / 'README.md'}: does not link {skill_dir.name}/SKILL.md")
 
+    errors += check_claude_bootstrap(root)
     return errors + check_claude_links(root, [path.name for path in skill_dirs])
 
 

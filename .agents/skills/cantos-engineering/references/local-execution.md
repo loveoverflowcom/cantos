@@ -21,6 +21,31 @@ Cantos has implemented Script IR, revision and Studio slices. Before citing or r
 None implies another. A command written in a skill, a work-plan item or an issue is a proposal
 until the repository implements it. Mark unknown capability as unknown.
 
+## Runtime portability
+
+All Cantos skills share one contract across Codex and Claude Code. A runtime's tool name or UI
+metadata is not a required capability of another runtime. Resolve Markdown links relative to
+the file containing them, using the canonical `.agents/skills/<name>/` directory even when the
+skill was loaded through `.claude/skills/<name>`. Repository commands run from the checkout,
+with its pinned toolchain; a slash command does not change the shell's working directory.
+
+| Step in a skill | Use what the current session actually exposes |
+|---|---|
+| Read, search or edit repository files | Claude Code's Read/Grep/Glob/Edit tools, Codex's available file tools, or shell primitives; preserve the same paths and edit scope |
+| Run a check | The runtime's shell tool (for example Claude Code's Bash); execute the same `cargo xtask` command and retain its exit status and full output |
+| Inspect a rendered UI, image or PDF | An available browser/computer-use or image/PDF reader; shell file existence or a URL fetch does not establish visual inspection |
+| Use Drive, GitHub or another connected service | Discover that session's connector/MCP schema, or use an installed authenticated CLI when it supports the same authorized operation; never reuse a different runtime's tool identifier |
+| Ask for missing input or report results | The runtime's user interaction tool or ordinary conversation; no special Codex question tool is required |
+
+Use an equivalent available capability without changing the workflow's evidence or authority.
+For example, Claude Bash can run `cargo xtask verify repository` and GitHub CLI can read a PR;
+neither requires Codex's shell or GitHub connector. If browser or Drive access is absent during
+story intake, retain the existing local/pending-sync recovery under the
+[story workspace contract](../../../../docs/production/story-workspace.md); do not call a fresh
+HTTP fetch a browser capture or claim a Drive write. Missing runtime capabilities leave the
+dependent step unavailable, while independent local work can proceed. A skill does not grant
+tool permission, configure connectors or authorize paid calls or additional external writes.
+
 Repository-level operations go through [`cargo xtask`](../../../../xtask/README.md); scripts and
 external tools are its primitives, not competing entrypoints. It runs from any directory:
 
