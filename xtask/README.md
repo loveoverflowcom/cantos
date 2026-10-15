@@ -34,6 +34,7 @@ cargo xtask build cantos-api --dbsp-experimental # adds --features dbsp-experime
 cargo xtask build cantos-forge [--release]        # cargo build --locked -p cantos-forge --bins
 cargo xtask build cantos-studio --web [--release]  # trunk build --locked in apps/cantos-studio/web
 cargo xtask build cantos-theatre --web [--release]         # trunk build --locked in apps/cantos-theatre/web
+cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offline asset inventory
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
@@ -91,6 +92,32 @@ deployment; none of those exist yet.
 
 Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
 inherited `NO_COLOR=1`).
+
+### Optional Web release inventory
+
+```sh
+cargo xtask web-performance cantos-theatre
+cargo xtask web-performance cantos-studio --output artifacts/web-performance/studio-baseline
+cargo xtask web-performance cantos-studio --baseline artifacts/web-performance/studio-baseline/inventory.json
+cargo xtask web-performance cantos-theatre --dry-run
+```
+
+This optional command runs the existing locked release Trunk build with explicit app config,
+entrypoint and fresh run-owned `dist`, then records source/build fingerprints and per-asset SHA256,
+raw/gzip/Brotli estimates, HTML/CSS references and static streaming-loader observations. `--output`
+must be new and beneath `artifacts/web-performance`; existing evidence is never overwritten.
+Inherited `TRUNK_*` overrides are refused so a redirected build cannot inventory an old dist.
+Source changes during the build fail measurement. Optional Python Brotli or an installed Brotli
+CLI supplies quality-11 estimates; absent tools are recorded `UNSUPPORTED` in the report, without
+installation. Gzip uses level 9 and mtime 0. Baseline comparison exposes changed bytes under the
+same URL, added/removed URLs and raw-byte delta; it establishes no deployed rollback behavior.
+
+The command creates no service and changes no static-host/API cache policy. It adds no required
+gate: primitive tests run in `repository`, command-plan tests in `rust-tests`. Static filename
+shape never establishes immutable eligibility; expected MIME and loader text do not establish
+HTTP headers or streaming execution. HTML-linked totals are a subset of initial network work.
+Browser timings, V8 cache hits, host compression/headers and deploy/rollback acceptance remain
+`NOT_RUN`. See the [pattern audit and limits](../docs/evidence/web-performance-patterns.md).
 
 ### run and app
 
@@ -482,6 +509,7 @@ separates the original mock adapter checks from real rendering recorded in the
 
 | Module | Responsibility |
 | --- | --- |
+| `web_performance.rs` | optional fresh release-build/inventory plans; the Python primitive records byte identities/estimates, never browser or deployment acceptance |
 | `behavior.rs` | narrow model/optional conformance command and read-only probe plans; Quint owns expectations |
 | `main.rs`, `cli.rs` | clap definitions and dispatch; usage errors exit 2 |
 | `workspace.rs`, `config.rs` | root discovery; ports, packages, directories and versions, checked against the repository by tests |

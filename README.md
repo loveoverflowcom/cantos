@@ -121,12 +121,17 @@ cargo xtask verify rust
 cargo xtask verify contracts
 cargo xtask verify postgres
 cargo xtask build cantos-forge
+cargo xtask web-performance cantos-theatre
 cargo xtask preflight --changed-only
 ```
 
 These commands require a local checkout with the documented toolchain. CI status and test
 evidence must be reported accurately; removing an obsolete TTS worker does not prove new
 upload/playback features exist.
+
+The optional [Web performance inventory](docs/evidence/web-performance-patterns.md) rebuilds a
+release bundle and records asset hashes and offline compression sizes. It establishes no browser
+startup, cache-hit or production delivery result; those require separately attributed observations.
 
 Start with the [product brief](docs/product/brief.md), [business rules](docs/product/business-rules.md),
 [external handoff pipeline](docs/product/production-pipeline.md), [API contexts](docs/architecture/api-contexts.md),

@@ -11,15 +11,13 @@ description: >-
 
 # Cantos engineering
 
-This skill is a **behavioral contract and router**, not a manual. Load the smallest relevant set
-of references, one at a time. Every other Cantos skill composes this one and reuses its order,
-vocabulary and report; none of them redefines these.
+This skill is a **behavioral contract and router**. Load relevant references one at a time.
+Every Cantos skill composes its order, vocabulary and report without redefining them.
 
 ## Ground rules
 
-- **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product or architecture
-  document, the work-plan item and the code you will touch. Product rules live in
-  [`docs/`](../../../docs/README.md); link them, never restate a competing copy.
+- **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product/architecture doc,
+  work item and touched code. Product rules live in [`docs/`](../../../docs/README.md); link, never duplicate them.
 - **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
   audio lifecycle slices, and Leptos Studio exist. Theatre Web is a session-only mock; Theatre
   Mobile has a Gradle CMP mock with Android/iOS hosts and pure playback/controller tests.
@@ -37,8 +35,7 @@ vocabulary and report; none of them redefines these.
 
 ## The required order
 
-Read the owning doc, work item and code, then follow **Layered Verification + Progressive
-Delivery**. Verify the pure core before implementing or verifying the I/O shell:
+Follow **Layered Verification + Progressive Delivery**: verify the pure core before the I/O shell.
 
 | Order | Obligation |
 |---|---|
@@ -57,18 +54,17 @@ defer infrastructure acceptance and report exact evidence and residual risk.
 
 ### Database-backed GET, read and fetch work
 
-Load [PostgreSQL read performance and DBSP evaluation](references/postgresql-read-performance.md)
-before adding or changing a database-backed read, its query, or a write that feeds a read model.
-It owns the mandatory inventory, PostgreSQL baseline, simpler optimization comparison, DBSP
-fit decision, differential/failure checks, benchmark record and acceptance checklist. Prioritize
-hot read paths; adopt incremental views only when measured benefit and semantics justify them.
+Before changing a database-backed read/query or a write feeding a read model, load
+[PostgreSQL read performance and DBSP evaluation](references/postgresql-read-performance.md).
+It owns inventory, PostgreSQL baseline, simpler optimization comparison, DBSP fit,
+differential/failure checks, benchmark record and acceptance. Adopt incremental views only
+when measured benefit and semantics justify them; prioritize hot paths.
 Mutations need a separate overhead/consistency decision. One experimental, feature-gated DBSP read
 model exists ([ADR 0017](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)); production adoption does not.
 
 ## 1. Name the invariant before writing code
 
-State in one sentence the observable behavior or invariant the change alters and what goes wrong
-if it is false. Keep a working ledger while implementing:
+State the altered observable invariant and failure mode in one sentence; keep a working ledger:
 
 | Claim / invariant | Failure mode | Cheapest oracle | Evidence level |
 |---|---|---|---|
@@ -128,11 +124,10 @@ world: HTTP · PostgreSQL · private storage · read-only audio tools · clock �
               decision / effects as data
 ```
 
-When a durable decision sits inside a handler, worker loop, adapter, Leptos component or Kotlin
-screen, extract it before reaching for mocks. Cantos decisions that belong in the core include
-validating a script revision, binding a production brief, classifying an intake/replay decision,
-deciding whether a release may publish and reconciling listener progress. Each must be callable
-from a plain unit test with no async runtime, database or provider. Kotlin uses the same method;
+Extract durable decisions from handlers, worker loops, adapters and components before mocking.
+Core decisions include script validation, brief binding, intake/replay classification, publication
+gates and listener progress reconciliation. Each runs from a plain unit test without an async
+runtime, database or provider. Kotlin uses the same method;
 `reducePlayback` is the current pure-core example. Do not force this on thin CRUD or an adapter
 that only maps types. Logging is a shell effect too: the core returns typed outcomes and the
 shell emits [structured events](references/structured-observability.md) from them.
@@ -212,6 +207,10 @@ is `mock-integration-tested`. Neither is `provider-live-tested`; an in-memory st
 A document check never proves that an app builds. Agent-authored JSON or assertions are not
 verifier output; report only what a tool actually printed.
 
+Performance claims reuse this vocabulary with comparable baseline/delta, sample distribution,
+source/build/fixture/tool/host provenance and named cache conditions; report unrun measurements.
+Numbers add no evidence level. For Web, use [performance and caching](../cantos-leptos-web/references/performance-and-caching.md).
+
 ## 7. Verification tiers
 
 | Tier | What runs |
@@ -255,6 +254,7 @@ Evidence level:            <from § 6>
 Evidence:                  test / property / tool → pass | fail
 Command:                   <exact, reproducible>
 Provenance:                <source revision, fixtures, live vs mocked, artifacts>
+Performance (if affected): <baseline/delta, samples, conditions and provenance; unrun limits>
 Layer gates / verified scope: <independent status, evidence level and covered claims per layer>
 Deferred acceptance:       <unrun DB/API/I/O checks; reason; prerequisites, command, criteria, owner>
 Execution blockers / failures: <environment or dependency gap vs actual failed check>
@@ -262,7 +262,7 @@ Edge classes covered:
 Not covered / residual risk:
 ```
 
-A report with an empty residual-risk line is a report nobody can act on.
+A report must state actionable residual risk.
 
 ## References — load the relevant set, one at a time
 
@@ -294,7 +294,6 @@ Domain owners: [`cantos-script-ir`](../cantos-script-ir/SKILL.md),
 [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md),
 [`cantos-publication`](../cantos-publication/SKILL.md),
 [`cantos-listening`](../cantos-listening/SKILL.md). UI: [`cantos-ui-design`](../cantos-ui-design/SKILL.md)
-with [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) or
-[`cantos-cmp-mobile`](../cantos-cmp-mobile/SKILL.md). When a UI task changes domain state,
+with [`cantos-leptos-web`](../cantos-leptos-web/SKILL.md) or [`cantos-cmp-mobile`](../cantos-cmp-mobile/SKILL.md). When a UI task changes domain state,
 validation, authorization or async decisions, apply this skill first and keep those decisions out
 of presentation code.

@@ -9,6 +9,11 @@ The [library MVP record](../../../docs/evidence/theatre-web-library-mvp.md) scop
 [#35](https://github.com/loveoverflowcom/cantos/issues/35) follow-up to this Web mock; CMP and
 acceptance against real listener data remain separate.
 
+The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
+release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library
+reactive projections. Deterministic work counters and bundle bytes are separate from browser
+latency, actual audio and production static-cache acceptance.
+
 ## Scope and honest behavior
 
 The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample

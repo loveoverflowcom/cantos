@@ -24,6 +24,7 @@ mod theatre_demo;
 mod tools;
 mod ui_preview;
 mod visual_compare;
+mod web_performance;
 mod workspace;
 
 use std::process::ExitCode;
@@ -62,6 +63,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
         Task::VisualCompare(args) => visual_compare::run(&workspace, &args),
+        Task::WebPerformance(args) => web_performance::run(&workspace, &args, &tools, &mut runner),
         Task::Build {
             target,
             surface,
