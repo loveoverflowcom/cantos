@@ -84,6 +84,16 @@ measures attributed pairs without approving UX. Therefore:
 Record each with [`templates/adr.md`](../../../templates/adr.md) or the design issue form; a
 decision made silently inside a component is a defect.
 
+**Current localization is real, not a new first-slice framework choice.** Before
+adding any visible/accessible text, inspect the live owner map and interim workflow in
+[localization.md](references/localization.md#0-current-owners-interim-rules-and-open-choices).
+Reuse the nearest semantic key, update both vi-VN and en, include parameter/accessible
+copy checks, and avoid a new per-feature translation mechanism. Keep all library and
+catalog alternatives open under [#167](https://github.com/loveoverflowcom/cantos/issues/167)
+([Web #168](https://github.com/loveoverflowcom/cantos/issues/168);
+[CMP #169](https://github.com/loveoverflowcom/cantos/issues/169)) until a
+small spike and ADR explicitly accept one.
+
 ## Route the work
 
 | The change touches… | Load next | Evidence boundary |
