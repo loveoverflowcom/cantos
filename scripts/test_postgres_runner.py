@@ -14,6 +14,106 @@ import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_theatre_context_uses_only_its_retained_app_role_url_and_needs_no_private_audio_root(self):
+        config = {"app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial",
+                  "catalog_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_catalog",
+                  "audio_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio",
+                  "theatre_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio",
+                  "retained": True,
+                  "audio_root": "/private/tmp/synthetic-owned-audio"}
+        inherited = {"DATABASE_URL": "production", "CANTOS_TEST_CONTEXT": "theatre",
+                     "CANTOS_WEB_ORIGIN": "http://127.0.0.1:8082"}
+        env = serve_studio.studio_environment(config, inherited)
+        self.assertEqual(env["DATABASE_URL"], config["theatre_app_url"])
+        self.assertEqual(env["CANTOS_WEB_ORIGIN"], inherited["CANTOS_WEB_ORIGIN"])
+        self.assertEqual(env["CANTOS_ENV"], "development")
+        self.assertNotIn("CANTOS_AUDIO_ROOT", env)
+        self.assertEqual(inherited["DATABASE_URL"], "production")
+        self.assertEqual(serve_studio.studio_environment(config, {})["DATABASE_URL"], config["app_url"])
+        self.assertEqual(serve_studio.studio_environment(config, {"CANTOS_TEST_CONTEXT": "catalog"})["DATABASE_URL"], config["catalog_app_url"])
+
+    def test_theatre_context_refuses_old_records_and_urls_outside_the_disposable_app_role(self):
+        inherited = {"CANTOS_TEST_CONTEXT": "theatre"}
+        url = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio"
+        for config in ({}, {"retained": True}, {"theatre_app_url": url},
+                       {"theatre_app_url": url, "retained": False},
+                       {"theatre_app_url": url, "retained": 1}):
+            with self.subTest(config=config), self.assertRaisesRegex(ValueError, "cargo xtask verify postgres --keep"):
+                serve_studio.studio_environment(config, inherited)
+        invalid = [
+            "postgresql://cantos_test_admin@127.0.0.1:12345/cantos_test_audio",
+            "postgresql://cantos_app@example.com:12345/cantos_test_audio",
+            "postgresql://cantos_app:password@127.0.0.1:12345/cantos_test_audio",
+            "postgresql://cantos_app@127.0.0.1:12345/production",
+            "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio?host=example.com",
+            "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio#other",
+        ]
+        for url in invalid:
+            with self.subTest(url=url), self.assertRaisesRegex(ValueError, "expected disposable test database"):
+                serve_studio.studio_environment({"theatre_app_url": url, "retained": True}, inherited)
+
+    def test_theatre_fixture_adds_only_required_discovery_reads_to_the_retained_audio_database(self):
+        environment = {"PATH": "/synthetic/bin"}
+        with patch.object(runner, "run", return_value="GRANT\nGRANT\n0\n") as execute:
+            url = runner.prepare_theatre_fixture(environment, 12345, {"database": "cantos_test_audio"})
+        self.assertEqual(url, "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio")
+        command = execute.call_args.args[0]
+        self.assertEqual(command[:3], ["psql", "-X", "postgresql://cantos_test_admin@127.0.0.1:12345/cantos_test_audio"])
+        self.assertIn("ON_ERROR_STOP=1", command)
+        self.assertEqual(execute.call_args.kwargs["env"], environment)
+        self.assertEqual(command[-1].split("; ")[:2], [
+            "GRANT SELECT ON audio_distribution_clearances,audio_publication_approvals,"
+            "audio_releases,audio_release_withdrawals,audio_publication_pointers,"
+            "audio_listener_works,audio_listener_units,audio_listener_releases TO cantos_app",
+            "GRANT EXECUTE ON FUNCTION catalog_listener_discoverable(text,text),"
+            "listener_actor_active(text) TO cantos_app",
+        ])
+        self.assertIn("SELECT count(*) FROM audio_releases", command[-1])
+        self.assertIn("SELECT count(*) FROM audio_listener_releases", command[-1])
+        for mutation in ("INSERT", "UPDATE", "DELETE", "CREATE", "DROP"):
+            self.assertNotIn(mutation, command[-1])
+
+    def test_theatre_fixture_refuses_unsafe_database_names_and_existing_publications(self):
+        for database in ("production", 'cantos_test_audio";DROP DATABASE postgres;', None):
+            with self.subTest(database=database), patch.object(runner, "run") as execute, \
+                    self.assertRaisesRegex(ValueError, "disposable test database name"):
+                runner.prepare_theatre_fixture({}, 12345, {"database": database})
+            execute.assert_not_called()
+        for observed in ("GRANT\nGRANT\n1\n", "", "GRANT\nGRANT\n"):
+            with self.subTest(observed=observed), patch.object(runner, "run", return_value=observed), \
+                    self.assertRaisesRegex(RuntimeError, "no publications"):
+                runner.prepare_theatre_fixture({}, 12345, {"database": "cantos_test_audio"})
+
+    def test_theatre_probe_requires_exact_anonymous_empty_json_not_an_outage_or_html(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.headers.get_content_type.return_value = "application/json"
+        response.headers.__getitem__.return_value = "no-store"
+        response.read.return_value = b'{"items":[],"next_cursor":null}'
+        opener = MagicMock()
+        opener.open.return_value = response
+        with patch.object(runner.urllib.request, "build_opener", return_value=opener):
+            runner.theatre_probe(12345)
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, "http://127.0.0.1:12345/api/v1/theatre/works?limit=20")
+        self.assertEqual(request.get_header("Accept"), "application/json")
+        self.assertIsNone(request.get_header("Cookie"))
+        self.assertIsNone(request.get_header("Authorization"))
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 3)
+        for status, content_type, body in (
+            (503, "application/json", b'{"code":"unavailable","retryable":true}'),
+            (200, "text/html", b'{"items":[],"next_cursor":null}'),
+            (200, "application/json", b'{"items":[{"invented":"sample"}],"next_cursor":null}'),
+        ):
+            response.status = status
+            response.headers.get_content_type.return_value = content_type
+            response.read.return_value = body
+            with self.subTest(status=status, content_type=content_type, body=body), \
+                    patch.object(runner.urllib.request, "build_opener", return_value=opener), \
+                    self.assertRaises(AssertionError):
+                runner.theatre_probe(12345)
+
     def test_studio_audio_context_uses_its_retained_private_fixture_without_inherited_database(self):
         config = {"app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial",
                   "catalog_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_catalog",

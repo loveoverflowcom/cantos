@@ -177,6 +177,7 @@ Use the existing [xtask commands](../../../xtask/README.md), Rust 1.98.1,
 ```sh
 cargo xtask doctor
 cargo xtask build cantos-theatre --web
+# DATABASE_URL must already name an operator-prepared, migrated local app-role database.
 cargo xtask run cantos-theatre --web
 cargo xtask verify repository
 cargo xtask verify rust
@@ -185,23 +186,79 @@ cargo xtask verify web
 cargo xtask preflight --changed-only
 ```
 
-Run serves `127.0.0.1:8082`; its Trunk proxy forwards `/api/` to the existing API on port8080.
-The frontend-only `run cantos-theatre --web` does not start or provision a backend. For the live
-account boundary, use the existing API/app commands in separate terminals:
+`run cantos-theatre --web` builds/starts the real API on `127.0.0.1:8080`, sets
+`CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then starts Trunk on `127.0.0.1:8082`. Trunk forwards
+`/api/` to 8080. Readiness requires an anonymous JSON catalog envelope directly from 8080 and
+through 8082, plus the frontend HTML. An empty published catalog is a legitimate success;
+connection failure, non-JSON or an unavailable response cannot become an empty-success page.
+The optional `/session` route is not the anonymous Home readiness gate.
+
+**Compatibility proposal — pending review:** this is option A from
+[#183](https://github.com/loveoverflowcom/cantos/issues/183), changing the former frontend-only
+Theatre `run` behavior to match Studio. Use `app cantos-theatre --web` for the previous
+frontend-only workflow or for explicit offline previews. The
+[decision/evidence ledger](../../../docs/evidence/theatre-local-run.md) separates the proposed
+compatibility choice, implemented behavior and actual verification; the Draft PR claims no
+production or playback acceptance.
+
+For a disposable cluster already retained by a successful explicit
+`cargo xtask verify postgres --keep`, the full-stack alternative is:
+
+```sh
+cargo xtask run cantos-theatre --web --test-cluster
+```
+
+It selects the retained Theatre fixture (`CANTOS_TEST_CONTEXT=theatre`, `theatre_app_url`),
+which has bounded discovery read grants and no invented publication. It refuses another DB
+or a record without that field; explicitly rerun disposable verification if the record is too
+old. `run` starts no PostgreSQL service and applies no role grants or migrations.
+
+To reuse an already-running API, use separate terminals. The API terminal requires the same
+operator-prepared `DATABASE_URL` (or its retained test-cluster option):
 
 ```sh
 cargo xtask run cantos-api --web-origin http://127.0.0.1:8082
 cargo xtask app cantos-theatre --web
 ```
 
+`app` starts only Trunk, probes the existing public catalog and prints a prominent `WARNING`
+when the dependency is absent or invalid. Its final readiness message always means
+**frontend-only**, even if that advisory probe succeeded. Open the URL with the desired
+explicit preview query to work without an API; live mode never switches itself to fixtures.
+
 The API needs an operator-supplied migrated local app-role `DATABASE_URL` (or its documented
 retained disposable test-cluster option). Theatre OIDC remains opt-in through the existing
 `CANTOS_THEATRE_OIDC_ISSUER` and separate `CANTOS_THEATRE_OIDC_SECRET`; approved client/callback,
 scope, credentials and TLS/provider acceptance are operator prerequisites, never provisioned by
 these commands. The current development host has one `CANTOS_WEB_ORIGIN`, so this recipe is a
-Theatre-origin profile. Simultaneous Studio on8081 and Theatre on8082 authentication is unverified.
-Without an available/configured identity backend the live view reports failure; it does not
-create a guest account or substitute mock data. The explicit mock works without an API.
+Theatre-origin profile. An explicit `--web-origin` on the full-stack Theatre command must be
+exactly `http://127.0.0.1:8082`; Studio similarly requires its actual `http://127.0.0.1:8081`.
+`localhost` is a different host identity and is rejected for those profiles. Standalone API
+origin selection remains configurable within its loopback contract. Simultaneous Studio
+on 8081 and Theatre on 8082 authentication is unverified. Identity failure does not hide a
+working anonymous catalog, create an account or substitute mock data.
+
+Smoke the public route at both origins without cookies or bearer credentials:
+
+```sh
+curl -i -H 'Accept: application/json' 'http://127.0.0.1:8080/api/v1/theatre/works?limit=20'
+curl -i -H 'Accept: application/json' 'http://127.0.0.1:8082/api/v1/theatre/works?limit=20'
+```
+
+Expect HTTP 200 and the [WorkPage contract](../../../packages/contracts/theatre-discovery-v1.md),
+including a possible empty `items` list. A typed error keeps its status and `code`/`retryable`
+meaning; 404 is not evidence of a disconnected frontend and unavailable is not an empty catalog.
+To see actual works, an operator-approved published Work must already exist; startup does not
+manufacture one or make delivery available.
+
+If startup fails, inspect the named process and readiness route. Check that the operator's
+database is reachable, migrated and readable by the app role; repair issuer configuration only
+when identity is explicitly enabled. A port collision is actionable: stop only a process you
+own, or use `app` to reuse an appropriate API. The API's 60-second and Trunk's 15-minute readiness
+budgets are bounded. Ctrl-C stops only groups started by this invocation. The commands never
+start Podman, Kanidm or S3, create credentials, or print `DATABASE_URL`/password values. Keep
+secret-bearing environment/configuration and retained local evidence outside Git; share only
+redacted diagnostics.
 
 Tests belong to the existing Cargo workspace and `verify rust`: pure reducers, exact
 shared-vector replay, fake ports, stale callbacks, account fences, actual Library fixture decoding,
@@ -247,6 +304,21 @@ and Android/iOS/background/native-engine acceptance remain future work. This moc
 production or UI-system acceptance gate.
 
 ## Explicit live and mock modes
+
+| URL at `http://127.0.0.1:8082/` | Backend use | What it demonstrates |
+| --- | --- | --- |
+| `/` (default live mode) | Real anonymous JSON catalog; independent optional Theatre session/account APIs | Public discovery and explicit live errors; no fixture fallback or live player |
+| `/?mode=mock` | None | Session-only sample catalog/library and simulated player; no audio, persistence or publication evidence |
+| `/?mode=membership-preview` | None | Explicit Membership interest/receipt/plan fixtures; no durable submission, entitlement or payment |
+| `/?mode=auth-preview` | None | Explicit synthetic Home/Auth/Account states; no provider login or registration proof |
+
+Use `cargo xtask app cantos-theatre --web` for these offline previews. Unknown mode values
+remain live; a network refusal never selects a preview. Full-stack startup verifies only the
+bounded discovery path, while browser interaction, real issuer, playback delivery and native
+acceptance retain the owners in [#179](https://github.com/loveoverflowcom/cantos/issues/179),
+[#180](https://github.com/loveoverflowcom/cantos/issues/180),
+[#13](https://github.com/loveoverflowcom/cantos/issues/13) and
+[#170](https://github.com/loveoverflowcom/cantos/issues/170).
 
 Open `?mode=auth-preview` for labeled, no-network Home/Auth/Account diagnostics using the same
 production composition. Its controls explicitly select Guest or synthetic A/B, hold and deliver
