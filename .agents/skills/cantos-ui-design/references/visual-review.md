@@ -55,6 +55,19 @@ state; a scenario edited between runs proves nothing.
 - **Open the image.** An unopened capture is `screenshot-captured`. Open every cited image with an
   image-capable tool, record who or what opened it, when, and what was concretely visible.
 
+### Native launcher icons
+
+Use the canonical Logo Kit guide/provenance in `packages/ui-system/shared/assets/` rather than
+defining another brand palette here. Open the actual source artwork before reviewing generated
+native resources. OS launcher icon, native splash/LaunchScreen and CMP Logo are independent
+surfaces: a splash screenshot or Compose preview cannot accept a launcher icon.
+
+Record source-inspected, packaged and device-tested evidence separately. Inspect installed
+icons in Home, drawer/App Library and Settings, including supported masks, theme/themed modes,
+and fresh install/update/cache behavior. Pin OS/launcher, mask, density and APK/bundle hash.
+Pair the reference at the same displayed scale; OS masking is an intentional platform
+adaptation, not automatically a pixel defect. Missing device/runtime evidence remains pending.
+
 ## 3. The review pass: hierarchy first, then the levers
 
 Work top-down and stop at the first broken level: spacing polish on a screen with no legible
