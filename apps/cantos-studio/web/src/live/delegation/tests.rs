@@ -279,6 +279,43 @@ fn lost_response_retries_the_same_operation_and_a_replay_is_unrecoverable() {
 }
 
 #[test]
+fn ambiguous_delegation_allows_reauthentication_without_adopting_another_owner() {
+    use crate::session::SessionState;
+
+    let state = RequestState::default().context("alice", WORK).unwrap();
+    let (sending, ticket) = state.begin(issue()).unwrap();
+    let activity = request_activity(&sending);
+    assert!(activity.busy && activity.unresolved);
+    let lost = sending.finish(ticket, Err(ClientError::Transport));
+    let activity = request_activity(&lost);
+    assert!(
+        !activity.busy,
+        "An unknown outcome must not block a fresh session check"
+    );
+    assert!(
+        activity.unresolved,
+        "The original grantor still owns the retained intent"
+    );
+
+    let (checking, ticket) = SessionState::default().begin().unwrap();
+    let bob = checking.settled(ticket, Some("bob".into()));
+    let retained = bob.retained_owner(lost.actor(), activity.unresolved);
+    assert_eq!(retained, "alice");
+    assert!(!bob.projects_owner(&retained));
+    let (checking, ticket) = bob.begin().unwrap();
+    let restored = checking.settled(ticket, Some("alice".into()));
+    assert!(restored.projects_owner(&retained));
+    let owner = restored.retained_owner(&retained, activity.unresolved);
+    let recovered = lost.context(&owner, WORK).unwrap();
+    let (retrying, _) = recovered.retry().unwrap();
+    assert_eq!(retrying.actor(), "alice");
+    assert_eq!(
+        retrying.pending().unwrap().json().unwrap(),
+        issue().json().unwrap()
+    );
+}
+
+#[test]
 fn dismissing_or_revoking_clears_the_retained_secret_and_acknowledgement() {
     let created = issue().decode(201, CREATED).unwrap();
     let state = RequestState::default().context("alice", WORK).unwrap();

@@ -19,6 +19,21 @@ pub mod panel;
 mod tests;
 pub mod view;
 
+/// In-flight effects block authentication controls; retained writes only protect their owner.
+#[cfg(any(test, target_arch = "wasm32"))]
+pub(super) struct RequestActivity {
+    pub busy: bool,
+    pub unresolved: bool,
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+pub(super) fn request_activity(state: &RequestState) -> RequestActivity {
+    RequestActivity {
+        busy: state.phase() == Phase::Pending,
+        unresolved: state.pending().is_some(),
+    }
+}
+
 /// Grants per list request; the contract accepts 1..=50.
 pub const PAGE_LIMIT: u8 = 20;
 const TOKEN_PREFIX: &str = "cantos_dlg_";

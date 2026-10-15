@@ -12,6 +12,8 @@ mod tests;
 pub mod workspace;
 
 pub mod copy;
+pub mod dashboard;
+mod dashboard_copy;
 
 mod consent;
 pub use consent::ReviewConsent;

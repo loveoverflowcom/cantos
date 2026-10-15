@@ -194,3 +194,83 @@ body { margin: 0; }
 .studio-shell .delegation-grant-times { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--cantos-space-xs) var(--cantos-space-md); margin: 0 0 var(--cantos-space-sm); }
 .studio-shell .delegation-grant-times dt { font-size: var(--cantos-type-metadata-size); color: var(--cantos-color-on-surface-variant); }
 .studio-shell .delegation-grant-times dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Studio-owned entry and writing-desk composition; shared controls retain their anatomy.
+   Column widths and breakpoints are local reading geometry, not shared token overrides. */
+.studio-shell .studio-header { margin-block-end: var(--cantos-space-xl); }
+.studio-shell .studio-brand { inline-size: 10rem; max-inline-size: 100%; }
+.studio-shell .studio-brand .cui-logo { inline-size: 100%; block-size: auto; }
+.studio-shell .studio-logo-dark { display: none; }
+.studio-shell[data-theme="dark"] .studio-logo-light { display: none; }
+.studio-shell[data-theme="dark"] .studio-logo-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  .studio-shell[data-theme="system"] .studio-logo-light { display: none; }
+  .studio-shell[data-theme="system"] .studio-logo-dark { display: block; }
+}
+.studio-shell .studio-account { max-inline-size: 24rem; }
+.studio-shell .studio-account summary { cursor: pointer; padding: var(--cantos-space-sm); }
+.studio-shell .studio-entry { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: var(--cantos-space-xl); max-inline-size: 72rem; min-block-size: 70vh; margin-inline: auto; padding-block: var(--cantos-space-xl); }
+.studio-shell .entry-story { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); border-radius: var(--cantos-shape-auth-container); overflow: clip; }
+.studio-shell .entry-artwork { display: grid; place-items: center; min-block-size: 18rem; background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); padding: var(--cantos-space-xl); }
+.studio-shell .entry-artwork .cui-logo { inline-size: 11rem; block-size: auto; }
+.studio-shell .entry-story-copy { padding: var(--cantos-space-xl); }
+.studio-shell .entry-story-copy h2 { max-inline-size: 16ch; margin-block: var(--cantos-space-sm); font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); }
+.studio-shell .entry-eyebrow, .studio-shell .dashboard-eyebrow { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); font-weight: 600; letter-spacing: .08em; }
+.studio-shell .entry-form { min-inline-size: 0; padding: var(--cantos-space-lg); }
+.studio-shell .entry-form h1 { margin-block: var(--cantos-space-md); }
+.studio-shell .entry-form > .cui-button-field { inline-size: 100%; margin-block: var(--cantos-space-lg); }
+.studio-shell .entry-form .cui-button[data-variant="auth-primary"] { inline-size: 100%; }
+.studio-shell .entry-form .session-controls { display: grid; grid-template-columns: minmax(0, 1fr); }
+.studio-shell .entry-recovery { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); margin-block-start: var(--cantos-space-md); }
+.studio-shell .studio-workbench { display: grid; grid-template-columns: 13.5rem minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: start; }
+.studio-shell .studio-workbench > .workspace-nav { flex-direction: column; align-items: stretch; background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); margin: 0; }
+.studio-shell .studio-workbench > .workspace-nav .cui-filter-chip { inline-size: 100%; justify-content: start; white-space: normal; text-align: start; }
+.studio-shell .studio-workbench-content { min-inline-size: 0; }
+.studio-shell .studio-pane-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-md); }
+.studio-shell .studio-pane-heading h2 { margin-block: 0; }
+.studio-shell .dashboard-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
+.studio-shell .dashboard-heading h2 { font-family: var(--cantos-type-family-editorial); font-weight: var(--cantos-type-title-weight); margin-block: 0 var(--cantos-space-sm); }
+.studio-shell .dashboard-lead { max-inline-size: 52ch; color: var(--cantos-color-on-surface-variant); }
+.studio-shell .dashboard-actions, .studio-shell .dashboard-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-sm); }
+.studio-shell .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--cantos-space-lg); }
+.studio-shell .dashboard-resume { grid-column: 1 / -1; }
+.studio-shell .dashboard-resume h3 { font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); font-weight: var(--cantos-type-title-weight); margin-block: var(--cantos-space-md); }
+.studio-shell .dashboard-work-list { list-style: none; margin: 0; padding: 0; }
+.studio-shell .dashboard-work-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cantos-space-md); padding-block: var(--cantos-space-md); }
+.studio-shell .dashboard-work-meta { color: var(--cantos-color-on-surface-variant); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .studio-dashboard :where(h2, h3, p, code, button) { overflow-wrap: anywhere; }
+.studio-shell .studio-dashboard .cui-button { max-inline-size: 100%; white-space: normal; }
+@container studio (max-width: 64rem) {
+  .studio-shell .studio-workbench { grid-template-columns: minmax(0, 1fr); gap: var(--cantos-space-md); }
+  .studio-shell .studio-workbench > .workspace-nav { flex-direction: row; flex-wrap: wrap; }
+  .studio-shell .studio-workbench > .workspace-nav > * { flex: 1 1 11rem; }
+}
+@container studio (max-width: 45rem) {
+  .studio-shell .studio-entry { grid-template-columns: minmax(0, 1fr); min-block-size: auto; padding-block: var(--cantos-space-md); }
+  .studio-shell .entry-story { display: none; }
+  .studio-shell .entry-form { padding: var(--cantos-space-sm); }
+  .studio-shell .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .studio-shell .dashboard-resume { grid-column: auto; }
+  .studio-shell .studio-header { align-items: start; margin-block-end: var(--cantos-space-lg); }
+  .studio-shell .studio-header > .toolbar { flex: 1 1 100%; }
+  .studio-shell .dashboard-actions > *, .studio-shell .dashboard-tools > * { flex: 1 1 12rem; }
+}
+
+/* Narrow navigation keeps all mounted workspaces reachable without a tall control rail. */
+.studio-shell .workspace-nav-compact { display: none; }
+.studio-shell .workspace-nav-wide { display: flex; flex-direction: column; gap: var(--cantos-space-sm); }
+.studio-shell .entry-form h1, .studio-shell .entry-story-copy h2 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
+.studio-shell .dashboard-heading > div > h2 { font-size: var(--cantos-type-headline-size); font-weight: var(--cantos-type-headline-weight); line-height: var(--cantos-type-headline-line-height); }
+.studio-shell [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.studio-shell .dashboard-grid { align-items: start; }
+.studio-shell .dashboard-works .dashboard-heading { margin-block-end: var(--cantos-space-md); align-items: center; }
+.studio-shell .dashboard-tools { grid-column: 1 / -1; }
+@container studio (max-width: 64rem) {
+  .studio-shell .workspace-nav-wide { flex-direction: row; flex-wrap: wrap; }
+  .studio-shell .workspace-nav-wide > * { flex: 1 1 11rem; }
+}
+@container studio (max-width: 45rem) {
+  .studio-shell .workspace-nav-wide { display: none; }
+  .studio-shell .workspace-nav-compact { display: block; min-inline-size: 0; inline-size: 100%; }
+  .studio-shell .studio-workbench > .workspace-nav { padding: var(--cantos-space-sm); }
+}

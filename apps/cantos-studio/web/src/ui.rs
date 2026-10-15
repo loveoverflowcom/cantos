@@ -58,8 +58,9 @@ mod work_kind_tests {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum WorkspacePane {
-    Import,
     #[default]
+    Dashboard,
+    Import,
     Proposal,
     Revisions,
     Production,
@@ -67,7 +68,8 @@ pub enum WorkspacePane {
 }
 
 impl WorkspacePane {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
+        Self::Dashboard,
         Self::Import,
         Self::Proposal,
         Self::Revisions,
@@ -77,6 +79,7 @@ impl WorkspacePane {
 
     pub const fn id(self) -> &'static str {
         match self {
+            Self::Dashboard => "workspace-dashboard",
             Self::Import => "workspace-import",
             Self::Proposal => "workspace-proposal",
             Self::Revisions => "workspace-revisions",
@@ -87,6 +90,9 @@ impl WorkspacePane {
 
     pub fn label(self, english: bool) -> &'static str {
         match self {
+            Self::Dashboard => {
+                crate::messages::entry::text(crate::messages::entry::Key::Dashboard, english)
+            }
             Self::Content => crate::live::copy::text(crate::live::copy::Key::Pane, english),
             Self::Import => text(Key::Import, english),
             Self::Proposal => text(Key::Proposal, english),
@@ -110,12 +116,25 @@ pub fn WorkspaceNavigation(
 ) -> impl IntoView {
     view! {
         <nav class="workspace-nav" aria-label=move || text(Key::Workspace, english.get())>
+            <div class="workspace-nav-compact">
+                <Select id="studio-workspace-select" label=Signal::derive(move ||text(Key::Workspace,english.get()).to_owned())
+                    value=Signal::derive(move ||panel.get().id().to_owned())
+                    on_input=Callback::new(move |id: String| {
+                        if let Some(pane)=WorkspacePane::ALL.into_iter().find(|pane|pane.id()==id) {panel.set(pane);}
+                    })>
+                    {WorkspacePane::ALL.into_iter().map(|pane| view! {
+                        <option value=pane.id() selected=move ||panel.get()==pane>{move ||pane.label(english.get())}</option>
+                    }).collect_view()}
+                </Select>
+            </div>
+            <div class="workspace-nav-wide">
             {WorkspacePane::ALL.into_iter().map(|pane| view! {
                 <FilterChip id=format!("{}-control", pane.id()) selected=Signal::derive(move || panel.get() == pane)
                     on_change=pane_selection(panel, pane)>
                     {move || pane.label(english.get())}
                 </FilterChip>
             }).collect_view()}
+            </div>
         </nav>
     }
 }
@@ -376,7 +395,10 @@ mod tests {
             let english = RwSignal::new(false);
             let html = view! { <WorkspaceNavigation panel=panel english=english/> }.to_html();
             assert_eq!(html.matches("aria-pressed=\"true\"").count(), 1);
-            assert_eq!(html.matches("type=\"button\"").count(), 5);
+            assert_eq!(
+                html.matches("type=\"button\"").count(),
+                WorkspacePane::ALL.len()
+            );
             assert!(!html.contains("role=\"tab"));
             for pane in WorkspacePane::ALL {
                 assert!(html.contains(pane.id()));

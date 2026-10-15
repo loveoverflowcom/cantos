@@ -2,7 +2,7 @@
 //! clipboard effect and focus management. Every decision stays with the server.
 use super::{
     copy::{self, text, Key},
-    problems, progress, recovery_focus,
+    problems, progress, recovery_focus, request_activity,
     view::{
         grant_dom_id, CopyState, GrantItem, IssueForm, TokenReveal, UnrecoverableNotice,
         ISSUE_HEADING, LIST_HEADING, RETRY, REVEAL_HEADING, STATUS, TOKEN_FIELD,
@@ -99,6 +99,8 @@ pub fn DelegationPanel(
     session_pending: Signal<bool>,
     /// True while a delegation write is in flight or unresolved; the workspace keeps the Work.
     unresolved: RwSignal<bool>,
+    /// Only the current network attempt blocks session observation or reauthentication.
+    busy: RwSignal<bool>,
     dirty: RwSignal<bool>,
 ) -> impl IntoView {
     let state = RwSignal::new(RequestState::default());
@@ -222,7 +224,11 @@ pub fn DelegationPanel(
             });
         }
     });
-    Effect::new(move |_| unresolved.set(state.with(|s| s.pending().is_some())));
+    Effect::new(move |_| {
+        let activity = state.with(request_activity);
+        busy.set(activity.busy);
+        unresolved.set(activity.unresolved);
+    });
     // Keep this panel mounted with the workspace: context changes reset its facts while its
     // reactive controls retain a stable owner. Cleanup performs only the local abort effect.
     on_cleanup(move || dispatch.abort());
