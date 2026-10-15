@@ -182,12 +182,22 @@ exists, and none may be claimed from a duration token alone.
 
 ## Localization
 
-Policy is owned by [localization.md](../../cantos-ui-design/references/localization.md). On CMP,
-use one typed resource mechanism (Compose Multiplatform resources are a candidate for the ADR):
-semantic keys, format arguments and plurals, never concatenated fragments. Accessibility names
-and state descriptions are resources too. Format numbers and durations with the locale
-("1,25×", "45 phút"). The locale set (vi-VN and en, pending confirmation) and the framework
-decision belong to localization.md; never hard-code a locale or ship a key in only one of them.
+Policy and existing source locations are in
+[localization.md](../../cantos-ui-design/references/localization.md#0-current-owners-interim-rules-and-open-choices).
+CMP **already** has paired vi/en copy in shared `presentation/model/ShellCopy.kt`,
+`AuthCopy.kt` and `MembershipCopy.kt`, and Compose Resources (`values/strings.xml` and
+`values-en/strings.xml`) for the optional launch presentation. Sandbox diagnostic
+overrides are injected from `preview-sandbox/.../app/DemoShellCopy.kt`, not copied into
+`:shared`. Reuse current semantic keys within their actual owner while the
+architecture is undecided; never introduce a competing feature-local catalog
+or hardcode `Text`/accessibility labels. Preserve interpolation tests, format
+numbers/durations for the selected locale (`1,25×`, `45 phút`), and do not
+assume Compose's resource environment equals the in-memory `ShellLocale` or
+`PreferenceLocale`. #169 tracks alignment and persistence; this guidance selects
+neither storage nor locale precedence and supplies no native runtime acceptance.
+Compare Compose Resources, moko-resources, Lyricist and a typed generated
+baseline in [#169](https://github.com/loveoverflowcom/cantos/issues/169) and
+[#167](https://github.com/loveoverflowcom/cantos/issues/167); **none is approved yet**.
 
 ## Component states
 

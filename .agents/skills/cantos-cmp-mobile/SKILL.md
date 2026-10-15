@@ -151,6 +151,21 @@ Kotlin rules below apply its taxonomy, containment and cancellation policy.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
+- **CMP localization before Composables.** Before adding a label, accessible name, state
+  or dialog, search shared `presentation/model/ShellCopy.kt`, `AuthCopy.kt`,
+  `MembershipCopy.kt` and `composeResources/values{,-en}/strings.xml`; sandbox-only
+  diagnostics use injected `DemoShellCopyOverrides` in `:preview-sandbox`.
+  Reuse keys within the actual owner; update both languages and focused parity tests,
+  not a new `*Copy` enum or hard-coded `Text("...")`. The optional launch presentation uses
+  `stringResource`, separately from `ShellLocale` mapped from `PreferenceLocale`:
+  alignment is an **open gap**, not native runtime evidence. Compare Compose Resources,
+  moko-resources and
+  Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
+  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167).
+  Locale persistence/precedence remain proposed, not permission to add a storage port.
+  Keep mock preview state injectable; #122's production APK/AAB exclusion remains
+  **BLOCKED / NOT_RUN**, not accepted by a demo build.
+  Do not translate creator content or clear playback on locale changes.
 - **Honest evidence.** Cheapest deterministic test in `commonTest` first; OS behavior needs a
   named device, emulator or simulator; a missing environment is *blocked*, never *passed*.
   → [cmp-testing.md](references/cmp-testing.md)
