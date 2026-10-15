@@ -86,6 +86,13 @@ Optional Studio identity operator tools are `cargo xtask kanidm reconcile --dry-
 and `cargo xtask kanidm verify` (explicit read-only discovery/JWKS, never login acceptance).
 They never bootstrap accounts, grants, secrets, Podman or TLS; live steps require operator authority.
 
+Tester distribution of the Theatre Android **demo** APK is the explicit, opt-in
+`cargo xtask distribute firebase cantos-theatre --channel demo ...` ([contract](xtask/README.md#distribute-firebase)).
+It is a remote write that may notify testers: `--dry-run` shows the plan, and an agent runs the real
+command only on the user's explicit request naming the Firebase app and recipients. Build, run,
+verify, preflight and ci never invoke it; an uncertain remote outcome is reconciled in the Firebase
+console, never replayed blindly.
+
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
 The table maps affected scope to checks at the applicable milestone, not a sequence to run

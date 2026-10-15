@@ -4,11 +4,13 @@
 
 mod behavior;
 mod build;
+mod capture;
 mod ci;
 mod cli;
 mod command;
 mod compose_preview;
 mod config;
+mod distribute;
 mod doctor;
 mod gate;
 mod kani;
@@ -59,6 +61,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
