@@ -36,15 +36,22 @@ and never infer client/device acceptance from model simulation.
 
 ## Repository reality
 
-- `apps/cantos-theatre/mobile/` contains an isolated memory-only CMP mock: shared Gradle module,
-  Android host, SwiftUI/Xcode host and JVM diagnostics. Its pure playback reducer, independent
-  controllers, narrow ports and mock adapters are real code. Its default mock has no native
+- `apps/cantos-theatre/mobile/` separates production-safe UI/domain/application code and ports
+  in `:shared` from mock adapters, fixtures, previews and diagnostic composition in the KMP
+  `:preview-sandbox` module. Demo Android, SwiftUI/Xcode and JVM hosts select the sandbox explicitly;
+  shared composition has no implicit mock fallback. The pure playback reducer, independent
+  controllers, narrow ports and mock adapters are real code. The demo has no native
   audio, downloads or durable sync/persistence; separate opt-in native identity and listener
   transport seams retain the [mock guide's](../../../apps/cantos-theatre/mobile/README.md)
   integration and native acceptance limits. Production `--mobile` remains `UNSUPPORTED`.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
+- There is no production Android host. [#122's isolation record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
+  distinguishes source/build guards from the **BLOCKED / NOT_RUN** production release classpath
+  and APK/AAB inspection. A demo APK, debug flag or R8 removal cannot accept production exclusion.
+  Use `Mock` for Cantos-owned adapters/fixtures; retain third-party names such as Okio
+  `FakeFileSystem`. Add no directory, SQLite, file-system or HTTP mock dependency without a consumer.
 - Motion today: the pure `MotionPolicy.kt` (intent × property × preference, token-fed) in the
   shared CMP package, adopted by the Auth action press and the Theatre launch entrance and replayed
   on a manual clock in tests. There is no mini ↔ full player, sheet, dialog, drag or seek-thumb
@@ -52,7 +59,7 @@ and never infer client/device acceptance from model simulation.
   `MotionScheme`. Method and labels: [motion.md](../cantos-ui-design/references/motion.md).
 - Discover commands from the [mock guide](../../../apps/cantos-theatre/mobile/README.md#local-commands)
   and [xtask](../../../xtask/README.md#theatre-demo). `theatre-demo verify` runs common/desktop
-  tests, Android build makes a mock APK and iOS build only links a simulator framework.
+  tests in both modules, Android build makes a mock APK and iOS build only links a simulator framework.
   Neither linking nor host tests establish native runtime evidence. Both Theatre mock and
   `ui-system-cmp` have real Android preview wrappers; capture additionally needs CLI/Quail 2+
   readiness. No native runtime test gate exists.
@@ -90,8 +97,9 @@ adoption; appearance, density, font scale and motion reach components as injecte
 The [gallery recipe contract](../../../packages/ui-system/cmp/README.md#scenario-recipes-and-replay)
 and [Theatre desktop workbench](../../../apps/cantos-theatre/mobile/README.md#scenario-workbench)
 own selection, reset, intent replay and synthetic snapshots. The Theatre workbench stays in
-`desktopMain`; [#122](https://github.com/loveoverflowcom/cantos/issues/122) still owns broader
-sandbox extraction and proof that production APK/AABs exclude sandbox sources and dependencies.
+`preview-sandbox/src/desktopMain`; its move preserves the existing replay and ownership semantics.
+[#122](https://github.com/loveoverflowcom/cantos/issues/122) still requires proof that a real
+production host's release graph and APK/AAB exclude sandbox sources and dependencies.
 
 | The task | Use |
 |---|---|
@@ -257,6 +265,8 @@ Recipe / replay:         schema/version, seed, snapshot/import result, ordered i
 Capture record:         JVM sidecar path and png_sha256 | official capture.json (per renderer)
 Media fixture:          publication id, format, live or fake delivery
 Tests:                  selected / executed / skipped, per target
+Isolation:              shared/sandbox source and Gradle graph checks; production release
+                        compile/runtime classpaths and actual APK/AAB inspection, or blocker
 Native gates:           selected / executed / blocked (reason)
 Secrets check:          logs, checkpoints and saved state scanned for tokens and signed URLs
 ```

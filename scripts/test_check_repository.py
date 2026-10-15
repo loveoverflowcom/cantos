@@ -650,24 +650,27 @@ class TheatreArchitectureTest(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def write(self, location, content, root=None):
-        file = (root or self.root) / checks.THEATRE_SOURCE / location
+    def write(self, location, content, root=None, sandbox=False):
+        source = checks.THEATRE_SANDBOX_SOURCE if sandbox else checks.THEATRE_SOURCE
+        file = (root or self.root) / source / location
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content, encoding="utf-8")
 
-    def errors(self, location, body, package=None, root=None):
+    def errors(self, location, body, package=None, root=None, sandbox=False):
         """Write one Kotlin file under <source set>/<layer path>; the package follows the path."""
         if root is None:
             shutil.rmtree(self.root / checks.THEATRE_SOURCE, ignore_errors=True)
+            shutil.rmtree(self.root / checks.THEATRE_SANDBOX_SOURCE, ignore_errors=True)
         source_set, _, layer_path = location.partition("/")
         directory = layer_path.rsplit("/", 1)[0]
         package = package or f"com.cantos.theatre.{directory.replace('/', '.')}"
-        self.write(f"{source_set}/kotlin/{self.PREFIX}/{layer_path}", f"package {package}\n\n{body}", root)
+        self.write(f"{source_set}/kotlin/{self.PREFIX}/{layer_path}", f"package {package}\n\n{body}", root, sandbox)
         return checks.check_theatre_architecture(root or self.root)
 
-    def assertRejected(self, location, body, reason, package=None):
-        errors = self.errors(location, body, package)
-        label = f"{checks.THEATRE_SOURCE}/{location.partition('/')[0]}/kotlin/{self.PREFIX}/{location.partition('/')[2]}:"
+    def assertRejected(self, location, body, reason, package=None, sandbox=False):
+        errors = self.errors(location, body, package, sandbox=sandbox)
+        source = checks.THEATRE_SANDBOX_SOURCE if sandbox else checks.THEATRE_SOURCE
+        label = f"{source}/{location.partition('/')[0]}/kotlin/{self.PREFIX}/{location.partition('/')[2]}:"
         self.assertEqual(len(errors), 1, errors)
         self.assertTrue(errors[0].startswith(label) and reason in errors[0], errors)
 
@@ -749,9 +752,9 @@ class TheatreArchitectureTest(unittest.TestCase):
 
     def test_demo_is_a_leaf_package(self):
         self.assertRejected("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.app.Navigation",
-                            "demo may import only")
+                            "demo may import only", sandbox=True)
         self.assertRejected("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.domain.playback.X",
-                            "demo may import only")
+                            "demo may import only", sandbox=True)
 
     def test_package_must_match_the_directory_in_both_directions(self):
         self.assertRejected("commonMain/domain/playback/Reducer.kt", "internal val x = 1",
@@ -786,16 +789,31 @@ class TheatreArchitectureTest(unittest.TestCase):
              "import com.cantos.theatre.application.catalog.Catalog\nimport kotlinx.coroutines.CoroutineScope\n"
              "import kotlinx.coroutines.channels.Channel"),
             ("commonMain/features/shell/presentation/Root.kt",
-             "import androidx.compose.runtime.Composable\nimport com.cantos.theatre.demo.DemoState\n"
+             "import androidx.compose.runtime.Composable\nimport com.cantos.theatre.presentation.model.ShellState\n"
              "import com.cantos.theatre.features.shell.presentation.Other\nimport com.cantos.ui.CantosColors\n"
              "import com.cantos.theatre.resources.Res\nimport org.jetbrains.compose.resources.stringResource"),
             ("androidMain/features/shell/presentation/Native.kt", "import android.content.Context"),
-            ("commonMain/demo/DemoCopy.kt", "import com.cantos.theatre.demo.DemoState\nimport kotlin.math.max"),
-            ("commonMain/adapters/mock/Mock.kt", "import com.cantos.theatre.app.X\nimport android.os.Build"),
-            ("commonMain/app/App.kt", "import com.cantos.theatre.adapters.mock.Mock\nimport java.util.UUID"),
+            ("commonMain/adapters/identity/Identity.kt", "import com.cantos.theatre.app.X\nimport android.os.Build"),
+            ("commonMain/app/App.kt", "import com.cantos.theatre.ports.MediaEngine\nimport java.util.UUID"),
         ):
             with self.subTest(location=location):
                 self.assertEqual(self.errors(location, body), [])
+        self.assertEqual(self.errors("commonMain/demo/DemoCopy.kt",
+                                    "import com.cantos.theatre.demo.DemoState\nimport kotlin.math.max",
+                                    sandbox=True), [])
+        self.assertEqual(self.errors("commonMain/adapters/mock/Mock.kt",
+                                    "import com.cantos.theatre.app.X\nimport android.os.Build",
+                                    sandbox=True), [])
+
+    def test_neutral_presentation_values_cannot_import_application_or_platform_layers(self):
+        for target in ("com.cantos.theatre.app.AppContainer", "com.cantos.theatre.application.catalog.CatalogController",
+                       "com.cantos.theatre.domain.publication.WorkKey", "com.cantos.theatre.ports.MediaEngine",
+                       "androidx.compose.runtime.Composable"):
+            with self.subTest(target=target):
+                self.assertRejected("commonMain/presentation/model/ShellState.kt", f"import {target}",
+                                    "presentation may import only")
+        self.assertEqual(self.errors("commonMain/presentation/model/ShellState.kt",
+                                    "import com.cantos.theatre.presentation.model.ShellRoute\nimport kotlin.collections.List"), [])
 
     def test_inert_text_and_member_access_are_not_dependencies(self):
         self.assertEqual(self.errors("commonMain/domain/playback/Reducer.kt", """
@@ -831,19 +849,22 @@ import com.cantos.theatre.application.X
 
     def test_real_tree_is_clean_and_each_layer_mutant_fails_on_its_own_file(self):
         self.assertEqual(checks.check_theatre_architecture(checks.ROOT), [])
-        source = checks.ROOT / checks.THEATRE_SOURCE
         mutants = (
             ("domain/playback/PlaybackReducer.kt", "import com.cantos.theatre.application.playback.PlaybackController", "domain"),
             ("ports/MediaEngine.kt", "import com.cantos.theatre.adapters.mock.MockCatalogAdapter", "ports"),
             ("application/playback/PlaybackController.kt", "import androidx.compose.runtime.Composable", "application"),
             ("features/shell/presentation/PlayerSection.kt", "import com.cantos.theatre.app.CopyKey", "features"),
-            ("demo/DemoCopy.kt", "import com.cantos.theatre.app.Navigation", "demo"),
+            ("demo/DemoIdentities.kt", "import com.cantos.theatre.app.Navigation", "demo"),
+            ("presentation/model/ShellState.kt", "import com.cantos.theatre.app.AppContainer", "presentation"),
+            ("app/AppContainer.kt", "import com.cantos.theatre.adapters.mock.MockStorageDatabase", "app"),
+            ("adapters/http/ListenerClient.kt", "import io.ktor.client.engine.mock.MockEngine", "adapters"),
         )
         for location, forbidden, layer in mutants:
             with self.subTest(layer=layer), tempfile.TemporaryDirectory() as directory:
                 copy = Path(directory)
-                shutil.copytree(source, copy / checks.THEATRE_SOURCE)
-                target = copy / checks.THEATRE_SOURCE / "commonMain/kotlin/com/cantos/theatre" / location
+                source = checks.THEATRE_SANDBOX_SOURCE if layer == "demo" else checks.THEATRE_SOURCE
+                shutil.copytree(checks.ROOT / source, copy / source)
+                target = copy / source / "commonMain/kotlin/com/cantos/theatre" / location
                 text = target.read_text(encoding="utf-8")
                 package_end = text.index("\n", text.index("package "))
                 target.write_text(text[:package_end + 1] + forbidden + "\n" + text[package_end + 1:], encoding="utf-8")
@@ -851,6 +872,211 @@ import com.cantos.theatre.application.X
                 self.assertEqual(len(errors), 1, errors)
                 self.assertIn(location, errors[0])
                 self.assertIn(forbidden.split()[1], errors[0])
+
+
+class TheatreSandboxIsolationTest(unittest.TestCase):
+    """Negative source/build graph controls, independent of the real Android toolchain."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.mobile = self.root / checks.THEATRE_MOBILE
+        self.write("settings.gradle.kts", 'include(":shared", ":preview-sandbox", ":androidApp")\n')
+        self.write("shared/build.gradle.kts", 'plugins { kotlin("multiplatform") }\n')
+        self.write("preview-sandbox/build.gradle.kts", '''plugins { kotlin("multiplatform") }
+kotlin { sourceSets { commonMain { dependencies { implementation(project(":shared")) } } } }
+''')
+        self.write("androidApp/build.gradle.kts", '''dependencies {
+    implementation(project(":shared"))
+    implementation(project(":preview-sandbox"))
+}
+''')
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def write(self, location, content):
+        file = self.mobile / location
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(content, encoding="utf-8")
+
+    def source(self, body, module="shared", source_set="commonMain", layer="app", filename="Root.kt"):
+        self.write(f"{module}/src/{source_set}/kotlin/com/cantos/theatre/{layer}/{filename}",
+                   f"package com.cantos.theatre.{layer.replace('/', '.')}\n{body}\n")
+
+    def errors(self):
+        return checks.check_theatre_architecture(self.root)
+
+    def assertViolation(self, fragment):
+        errors = self.errors()
+        self.assertTrue(any(fragment in error for error in errors), errors)
+
+    def test_explicit_sandbox_to_shared_and_demo_host_graph_is_allowed(self):
+        self.source("class Root(val engine: com.cantos.theatre.ports.MediaEngine)")
+        self.source("class MockStorageDatabase", module="preview-sandbox", layer="adapters/mock")
+        self.assertEqual(self.errors(), [])
+
+    def test_main_import_aliases_qualified_and_unqualified_symbols_are_rejected(self):
+        for body in (
+            "import com.cantos.theatre.adapters.mock.MockStorageDatabase as Database",
+            "import com.cantos.theatre.demo.*",
+            "import com.cantos.theatre.features.shell.presentation.model.DemoState as State",
+            "import com.cantos.theatre.adapters.`mock`.MockCatalogPort",
+            "import io.ktor.client.engine.mock.MockEngine as Engine",
+            "import kotlinx.coroutines.test.runTest as run",
+            "import kotlin.test.assertEquals as equal",
+            "val database = com.cantos.theatre.adapters.mock.MockStorageDatabase()",
+            'val database = "${com.cantos.theatre.adapters.mock.MockStorageDatabase()}"',
+            "val database = MockStorageDatabase()",
+            "val database = FakeStorageDatabase()",
+            "val port = FakePersistentProgressPort()",
+            "val fixture = DemoFixtures",
+            "val owner = AppContainer . mock()",
+            "val engine = io.ktor.client.engine.mock.MockEngine()",
+        ):
+            for layer in ("app", "adapters/http"):
+                with self.subTest(body=body, layer=layer):
+                    self.source(body, layer=layer)
+                    self.assertViolation("shared main must not depend")
+
+    def test_boundary_covers_platform_and_custom_main_source_sets(self):
+        for source_set in ("commonMain", "androidMain", "iosMain", "desktopMain", "jvmHttpMain"):
+            with self.subTest(source_set=source_set):
+                self.source("val fixture = DemoFixtures", source_set=source_set)
+                self.assertViolation(f"shared/src/{source_set}/")
+
+    def test_mock_source_and_resource_paths_and_resource_references_are_rejected(self):
+        self.source("val seed = 1", layer="adapters/mock", filename="Seed.kt")
+        self.assertViolation("must not contain preview, mock, demo or sandbox sources")
+        for location, content in (
+            ("shared/src/commonMain/composeResources/files/mock-catalog.json", "{}"),
+            ("shared/src/androidMain/res/raw/demo_audio.ogg", "opaque media"),
+            ("shared/src/commonMain/composeResources/values/strings.xml", '<string name="mock_title">x</string>'),
+            ("shared/src/androidMain/AndroidManifest.xml", '<activity android:name="com.cantos.theatre.demo.Host"/>'),
+        ):
+            with self.subTest(location=location):
+                self.write(location, content)
+                errors = self.errors()
+                self.assertTrue(any(location in error and "resource" in error for error in errors), errors)
+
+    def test_inert_code_text_is_not_a_dependency_and_test_sources_stay_separate(self):
+        self.source('''// import com.cantos.theatre.adapters.mock.MockEngine
+/* DemoFixtures; /* FakeStorageDatabase */ */
+val doc = "MockStorageDatabase and com.cantos.theatre.demo.DemoState are examples"
+val raw = """DemoFixtures and MockEngine"""
+''')
+        self.source("val fixture = MockStorageDatabase()", source_set="commonTest")
+        self.assertEqual(self.errors(), [])
+
+    def test_literal_named_aliased_and_accessor_project_edges_cannot_reverse_the_boundary(self):
+        for declaration in (
+            'dependencies { implementation(project(":preview-sandbox")) }',
+            'dependencies { api(project(path = ":preview-sandbox")) }',
+            'val fixtureModule = project(":preview-sandbox")\ndependencies { implementation(fixtureModule) }',
+            'dependencies { implementation(projects.previewSandbox) }',
+            'kotlin { sourceSets { commonTest { dependencies { implementation(project(":preview-sandbox")) } } } }',
+        ):
+            with self.subTest(declaration=declaration):
+                self.write("shared/build.gradle.kts", declaration)
+                self.assertViolation("shared main dependency reaches sandbox/demo module: :shared -> :preview-sandbox")
+                self.assertViolation("Gradle project dependency cycle")
+
+    def test_indirect_project_edge_and_bridge_main_source_cannot_hide_mock_code(self):
+        self.write("shared/build.gradle.kts", 'dependencies { api(project(":bridge")) }')
+        self.write("bridge/build.gradle.kts", 'dependencies { implementation(project(":preview-sandbox")) }')
+        self.assertViolation(":shared -> :bridge -> :preview-sandbox")
+        self.write("bridge/build.gradle.kts", 'plugins { kotlin("multiplatform") }')
+        self.source("val engine = io.ktor.client.engine.mock.MockEngine()", module="bridge")
+        self.assertViolation("bridge/src/commonMain/kotlin/com/cantos/theatre/app/Root.kt")
+        self.write("bridge/build.gradle.kts", 'dependencies { implementation("io.ktor:ktor-client-mock:3.0.0") }')
+        self.assertViolation("bridge/build.gradle.kts: shared main graph must not include test dependency")
+
+    def test_test_dependencies_cannot_enter_main_through_configuration_or_aliases(self):
+        for dependency in (
+            'implementation("io.ktor:ktor-client-mock:3.0.0")',
+            'implementation("com.squareup.okio:okio-fakefilesystem:3.0.0")',
+            'implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")',
+            'implementation("junit:junit:4.13.2")',
+            'implementation(kotlin("test"))',
+            'implementation(compose.desktop.uiTestJUnit4)',
+            'implementation(libs.ktor.client.mock)',
+        ):
+            with self.subTest(dependency=dependency):
+                self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ dependencies {{ {dependency} }} }} }} }}")
+                self.assertViolation("shared main graph must not include test dependency")
+
+    def test_dependency_val_aliases_are_followed_but_assertion_policy_strings_are_inert(self):
+        self.write("shared/build.gradle.kts", '''val fixtureLibrary = "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1"
+val selectedLibrary = fixtureLibrary
+dependencies { implementation(selectedLibrary) }
+''')
+        self.assertViolation("shared main graph must not include test dependency org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+        self.write("shared/build.gradle.kts", '''tasks.register("assertProductionSafeDependencies") {
+    doLast {
+        val forbidden = "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1"
+        val diagnostic = "project(\\\":preview-sandbox\\\") must never be a dependency"
+        check(forbidden.isNotEmpty())
+    }
+}
+''')
+        self.assertEqual(self.errors(), [])
+
+    def test_canonical_ui_source_inclusion_requires_the_existing_preview_exclusion(self):
+        route = 'kotlin.srcDir(rootProject.file("../../../packages/ui-system/cmp/src/commonMain/kotlin"))'
+        self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}")
+        self.assertViolation("shared UI source inclusion must exclude its preview package")
+        self.write("shared/build.gradle.kts", f'''kotlin {{ sourceSets {{
+commonMain {{ {route} }}
+val desktopMain by getting {{ kotlin.exclude("com/cantos/ui/preview/**") }}
+}} }}''')
+        self.assertViolation("preview package in the same Main source set")
+        self.write("shared/build.gradle.kts", f'''kotlin {{ sourceSets {{ commonMain {{
+{route}
+kotlin.exclude("com/cantos/ui/preview/**")
+}} }} }}''')
+        self.assertEqual(self.errors(), [])
+
+    def test_binary_dependencies_and_non_kotlin_main_sources_require_policy(self):
+        for dependency in ('implementation(files("../preview-sandbox/build/sandbox.jar"))',
+                           'implementation(fileTree("libs"))'):
+            with self.subTest(dependency=dependency):
+                self.write("shared/build.gradle.kts", f"dependencies {{ {dependency} }}")
+                self.assertViolation("local binary dependencies need an explicit production policy")
+        self.write("shared/build.gradle.kts", 'plugins { kotlin("multiplatform") }')
+        self.write("shared/src/androidMain/java/com/cantos/theatre/Hidden.java", "class MockStorageDatabase {}")
+        self.assertViolation("non-Kotlin main sources or binary payloads need an explicit production policy")
+
+    def test_recognized_test_scopes_keep_existing_test_dependencies(self):
+        for heading in ("commonTest", "val desktopTest by getting", 'getByName("commonTest")',
+                        'named("desktopTest").configure'):
+            with self.subTest(heading=heading):
+                self.write("shared/build.gradle.kts", f'''kotlin {{ sourceSets {{ {heading} {{ dependencies {{
+implementation(kotlin("test"))
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+implementation(compose.desktop.uiTestJUnit4)
+}} }} }} }}''')
+                self.assertEqual(self.errors(), [])
+
+    def test_dependency_cycle_is_rejected_even_through_neutral_modules(self):
+        self.write("shared/build.gradle.kts", 'dependencies { api(project(":bridge")) }')
+        self.write("bridge/build.gradle.kts", 'dependencies { api(project(":shared")) }')
+        self.assertViolation("Gradle project dependency cycle")
+
+    def test_sandbox_cannot_be_replaced_by_package_only_separation(self):
+        self.write("settings.gradle.kts", 'include(":shared")\nval example = """include(":preview-sandbox")"""')
+        self.assertViolation(":preview-sandbox must be a separate included Gradle module")
+        self.write("preview-sandbox/build.gradle.kts", 'dependencies { implementation(project(":shared")) }')
+        self.assertViolation("preview-sandbox must be a Kotlin Multiplatform module")
+
+    def test_dynamic_project_targets_and_unreviewed_source_routing_fail_explicitly(self):
+        self.write("shared/build.gradle.kts", 'val target = ":preview-sandbox"\ndependencies { implementation(project(target)) }')
+        self.assertViolation("project dependency requires a literal path")
+        for route in ('kotlin.srcDir("../preview-sandbox/src/commonMain/kotlin")',
+                      'resources.srcDir("../bridge/src/commonMain/resources")',
+                      'kotlin.setSrcDirs(sourceLocations)'):
+            with self.subTest(route=route):
+                self.write("shared/build.gradle.kts", f"kotlin {{ sourceSets {{ commonMain {{ {route} }} }} }}")
+                self.assertViolation("source routing")
 
 
 if __name__ == "__main__":

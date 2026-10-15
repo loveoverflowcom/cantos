@@ -1,34 +1,33 @@
 {
   "source": "https://drive.google.com/file/d/157jbpHUTKZ-tDzNfXD878nvnF4thWmM4/view",
-  "html": "Cantos-Mobile-v2.html",
-  "packageSha256": "bf55c2651c3db82fb1b7d07a44658c930d27175b0ebadc083f58dff865871fc9",
-  "extraction": "Unmodified embedded base64 bytes; cropping happens at render time.",
-  "artworkRights": "User-supplied design assets used for the requested isolated mock repair. The package does not name an artist or independent redistribution license; production rights review remains required.",
-  "fonts": "Noto Sans / Noto Serif 2.015, regular and bold. Copyright 2022 The Noto Project Authors. SIL OFL 1.1; see OFL.txt.",
+  "source_package_sha256": "bf55c2651c3db82fb1b7d07a44658c930d27175b0ebadc083f58dff865871fc9",
+  "upstream": "https://github.com/notofonts/latin-greek-cyrillic",
+  "version": "2.015",
+  "copyright": "Copyright 2022 The Noto Project Authors",
+  "license": "SIL-OFL-1.1",
+  "license_path": "files/OFL.txt",
+  "license_sha256": "e2e177a32561584d4fc13aaa3cd8e53758a12910f013fe9ca125419111722029",
+  "extraction": "Unmodified complete Noto Sans and Noto Serif TrueType faces; no subsetting, conversion or local host lookup.",
   "files": {
-    "drawable/son_ha_moon.png": {
-      "sha256": "388f4770ef5c75d50f1bacd0426563a7546bd23675e5dfeb8f671a58c6dda393",
-      "source": "son-ha-moon.png"
-    },
-    "drawable/den_khuya.png": {
-      "sha256": "f96ae8c1532385499546f21c8bc2ee59d75c127e1e374dff4fa8125a8e2a2760",
-      "source": "den-khuya.png"
-    },
     "font/noto_sans_regular.ttf": {
-      "sha256": "f5f552c8c5edb61fe6efb824baf4d4de47b1a8689ab4925ff43f7bd6a4ebece5",
-      "source": "noto_sans_regular.ttf"
+      "family": "Noto Sans",
+      "weight": 400,
+      "sha256": "f5f552c8c5edb61fe6efb824baf4d4de47b1a8689ab4925ff43f7bd6a4ebece5"
     },
     "font/noto_sans_bold.ttf": {
-      "sha256": "3a08a47daa00cade516425c15c57615aef2fd418ec9811a7b9f465088f92cc05",
-      "source": "noto_sans_bold.ttf"
+      "family": "Noto Sans",
+      "weight": 700,
+      "sha256": "3a08a47daa00cade516425c15c57615aef2fd418ec9811a7b9f465088f92cc05"
     },
     "font/noto_serif_regular.ttf": {
-      "sha256": "19e72cd8d595fae5bd74a5206f5d938512e1183d4fed7abb1ec1be1d7efa5f88",
-      "source": "noto_serif_regular.ttf"
+      "family": "Noto Serif",
+      "weight": 400,
+      "sha256": "19e72cd8d595fae5bd74a5206f5d938512e1183d4fed7abb1ec1be1d7efa5f88"
     },
     "font/noto_serif_bold.ttf": {
-      "sha256": "96656aa5cec8f1d6fd0e804c1fad397e1a1cfa082e6642124e0bda68cd8363ce",
-      "source": "noto_serif_bold.ttf"
+      "family": "Noto Serif",
+      "weight": 700,
+      "sha256": "96656aa5cec8f1d6fd0e804c1fad397e1a1cfa082e6642124e0bda68cd8363ce"
     }
   }
 }

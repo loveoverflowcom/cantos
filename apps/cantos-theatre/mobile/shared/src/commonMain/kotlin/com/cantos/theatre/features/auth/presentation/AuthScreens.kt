@@ -23,9 +23,9 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.cantos.theatre.application.identity.AccountView
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.DemoTheme
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.BackButton
 import com.cantos.ui.Button
@@ -47,7 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 
 /** Explicit listener intents. The app root owns every decision; this layer only emits them. */
-internal sealed interface AuthIntent {
+sealed interface AuthIntent {
     data object BeginLogin : AuthIntent
     data object CancelLogin : AuthIntent
     data object RestoreSession : AuthIntent
@@ -64,27 +64,27 @@ internal sealed interface AuthIntent {
 }
 
 /** Where Back leads, derived from the typed stack below the auth routes, never from a URL. */
-internal enum class AuthReturn(val label: AuthText) {
+enum class AuthReturn(internal val label: AuthText) {
     Home(AuthText.ReturnHome),
     Account(AuthText.ReturnAccount),
     Membership(AuthText.ReturnMembership),
     Login(AuthText.ReturnLogin),
 }
 
-internal fun authReturnFor(stack: List<DemoRoute>): AuthReturn {
-    if (stack.lastOrNull() == DemoRoute.Register) return AuthReturn.Login
-    val origin = stack.getOrNull(stack.indexOfLast { it == DemoRoute.Login } - 1)
+fun authReturnFor(stack: List<ShellRoute>): AuthReturn {
+    if (stack.lastOrNull() == ShellRoute.Register) return AuthReturn.Login
+    val origin = stack.getOrNull(stack.indexOfLast { it == ShellRoute.Login } - 1)
     return when (origin) {
-        DemoRoute.Account -> AuthReturn.Account
-        DemoRoute.MembershipPreview -> AuthReturn.Membership
+        ShellRoute.Account -> AuthReturn.Account
+        ShellRoute.MembershipPreview -> AuthReturn.Membership
         else -> AuthReturn.Home
     }
 }
 
 @Composable
-internal fun AuthHeader(
-    locale: DemoLocale,
-    theme: DemoTheme,
+fun AuthHeader(
+    locale: ShellLocale,
+    theme: ShellTheme,
     destination: AuthReturn,
     onIntent: (AuthIntent) -> Unit,
     modifier: Modifier = Modifier,
@@ -101,12 +101,12 @@ internal fun AuthHeader(
         )
         Logo(
             modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
-            tone = if (theme == DemoTheme.Dark) LogoTone.Dark else LogoTone.Light,
+            tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
             accessibleName = AccessibleName.of(copy.text(AuthText.Brand)),
         )
         IconButton(onClick = { onIntent(AuthIntent.ToggleTheme) }, modifier = Modifier.size(tokenDp("size.backControl")).testTag("auth-theme")) {
             Icon(
-                if (theme == DemoTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
                 contentDescription = copy.text(AuthText.ToggleTheme),
             )
         }
@@ -187,7 +187,7 @@ private fun ErrorText(text: String) {
 }
 
 @Composable
-internal fun LoginScreen(locale: DemoLocale, account: AccountView, nothingSaved: Boolean, onIntent: (AuthIntent) -> Unit) {
+fun LoginScreen(locale: ShellLocale, account: AccountView, nothingSaved: Boolean, onIntent: (AuthIntent) -> Unit) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         AuthHeading(copy.text(AuthText.LoginEyebrow), copy.text(AuthText.LoginHeading), copy.text(AuthText.LoginHelp))
@@ -233,7 +233,7 @@ internal fun LoginScreen(locale: DemoLocale, account: AccountView, nothingSaved:
 
 /** Honest registration: the provider has no verified sign-up entry here, so no form and no success. */
 @Composable
-internal fun RegisterScreen(locale: DemoLocale, onIntent: (AuthIntent) -> Unit) {
+fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         AuthHeading(copy.text(AuthText.RegisterEyebrow), copy.text(AuthText.RegisterHeading), copy.text(AuthText.RegisterHelp))

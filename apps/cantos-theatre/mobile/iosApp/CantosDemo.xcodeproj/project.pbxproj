@@ -144,12 +144,12 @@
             isa = PBXShellScriptBuildPhase;
             buildActionMask = 2147483647;
             files = ();
-            inputPaths = ("$(SRCROOT)/../shared/src/commonMain/composeResources");
+            inputPaths = ("$(SRCROOT)/../shared/src/commonMain/composeResources", "$(SRCROOT)/../preview-sandbox/src/commonMain/composeResources");
             name = "Copy Compose resources";
-            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/com.cantos.theatre.resources");
+            outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/com.cantos.theatre.resources", "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/compose-resources/composeResources/com.cantos.theatre.preview.resources");
             runOnlyForDeploymentPostprocessing = 0;
             shellPath = /bin/sh;
-            shellScript = "set -eu\n# This host links a prebuilt static framework, so Xcode owns its common resource copy.\ncantos_resource_input=\"${SRCROOT}/../shared/src/commonMain/composeResources\"\ncantos_resource_output=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/compose-resources/composeResources/com.cantos.theatre.resources\"\nmkdir -p \"$cantos_resource_output\"\n/usr/bin/ditto \"$cantos_resource_input\" \"$cantos_resource_output\"\n";
+            shellScript = "set -eu\n# This host links a prebuilt static framework, so Xcode owns its common resource copy.\ncantos_resource_input=\"${SRCROOT}/../shared/src/commonMain/composeResources\"\ncantos_resource_output=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/compose-resources/composeResources/com.cantos.theatre.resources\"\nmkdir -p \"$cantos_resource_output\"\n/usr/bin/ditto \"$cantos_resource_input\" \"$cantos_resource_output\"\ncantos_sandbox_input=\"${SRCROOT}/../preview-sandbox/src/commonMain/composeResources\"\ncantos_sandbox_output=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/compose-resources/composeResources/com.cantos.theatre.preview.resources\"\nmkdir -p \"$cantos_sandbox_output\"\n/usr/bin/ditto \"$cantos_sandbox_input\" \"$cantos_sandbox_output\"\n";
         };
 /* End PBXShellScriptBuildPhase section */
 
@@ -194,8 +194,8 @@
                 CANTOS_FRAMEWORK_BUILD_TYPE = debug;
                 CODE_SIGN_STYLE = Automatic;
                 CURRENT_PROJECT_VERSION = 1;
-                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
-                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../preview-sandbox/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../preview-sandbox/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
                 GENERATE_INFOPLIST_FILE = YES;
                 INFOPLIST_KEY_CFBundleDisplayName = Cantos;
                 INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
@@ -219,8 +219,8 @@
                 CANTOS_FRAMEWORK_BUILD_TYPE = release;
                 CODE_SIGN_STYLE = Automatic;
                 CURRENT_PROJECT_VERSION = 1;
-                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
-                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../shared/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/../preview-sandbox/build/bin/iosSimulatorArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
+                "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/../preview-sandbox/build/bin/iosArm64/$(CANTOS_FRAMEWORK_BUILD_TYPE)Framework";
                 GENERATE_INFOPLIST_FILE = YES;
                 INFOPLIST_KEY_CFBundleDisplayName = Cantos;
                 INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";

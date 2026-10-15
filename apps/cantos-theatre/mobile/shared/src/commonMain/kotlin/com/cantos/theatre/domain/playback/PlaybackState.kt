@@ -1,11 +1,8 @@
 package com.cantos.theatre.domain.playback
 
-/** These are synthetic catalog keys, never publication IDs or evidence of authorization. */
-private val demoWorkKeys = setOf("son-ha-ky", "den-khuya", "mong-ho-diep")
-
 const val MAX_PLAYBACK_GENERATION: Long = 4_294_967_295L
 
-/** Immutable mock source with validated units; it deliberately contains no media URL. */
+/** Immutable source metadata with the opaque WorkKey invariant and validated units; no media URL or authorization. */
 @ConsistentCopyVisibility
 data class PlaybackSource private constructor(
     val workId: String,
@@ -14,7 +11,7 @@ data class PlaybackSource private constructor(
 ) {
     companion object {
         fun of(workId: String, episodeIndex: Int, durationMs: Long): PlaybackSource? =
-            if (workId in demoWorkKeys && episodeIndex in 0..65_535 && durationMs in 1..MAX_PLAYBACK_GENERATION) {
+            if (workId.isNotBlank() && episodeIndex in 0..65_535 && durationMs in 1..MAX_PLAYBACK_GENERATION) {
                 PlaybackSource(workId, episodeIndex, durationMs)
             } else {
                 null
@@ -31,7 +28,7 @@ data class PlaybackIdentity private constructor(
 ) {
     companion object {
         fun of(workId: String, episodeIndex: Int, generation: Long): PlaybackIdentity? =
-            if (workId in demoWorkKeys && episodeIndex in 0..65_535 && generation in 0..MAX_PLAYBACK_GENERATION) {
+            if (workId.isNotBlank() && episodeIndex in 0..65_535 && generation in 0..MAX_PLAYBACK_GENERATION) {
                 PlaybackIdentity(workId, episodeIndex, generation)
             } else {
                 null

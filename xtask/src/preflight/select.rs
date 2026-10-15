@@ -636,6 +636,11 @@ mod tests {
             "apps/cantos-theatre/mobile/gradle.properties",
             "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/DemoState.kt",
             "apps/cantos-theatre/mobile/shared/src/desktopTest/kotlin/DemoTest.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/build.gradle.kts",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/MockStorageDatabase.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/commonTest/kotlin/MockStorageDatabaseTest.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/TheatrePreviews.kt",
+            "apps/cantos-theatre/mobile/preview-sandbox/src/desktopMain/kotlin/TheatreWorkbench.kt",
             "apps/cantos-theatre/mobile/androidApp/src/main/AndroidManifest.xml",
             "apps/cantos-theatre/mobile/iosApp/CantosDemo.xcodeproj/project.pbxproj",
         ] {

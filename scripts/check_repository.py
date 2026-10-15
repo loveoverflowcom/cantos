@@ -675,22 +675,26 @@ def check_api_architecture(root=ROOT):
     return sorted(errors)
 
 
-THEATRE_SOURCE = Path("apps/cantos-theatre/mobile/shared/src")
+THEATRE_MOBILE = Path("apps/cantos-theatre/mobile")
+THEATRE_SOURCE = THEATRE_MOBILE / "shared/src"
+THEATRE_SANDBOX_SOURCE = THEATRE_MOBILE / "preview-sandbox/src"
 THEATRE_PACKAGE = ("com", "cantos", "theatre")
-THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo"}
+THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo", "presentation"}
 # Allowlisted layers may import only these namespaces. Features use the denylist in
-# theatre_dependency_error; adapters and app are explicitly unguarded.
+# theatre_dependency_error; adapters and app have only the production/sandbox boundary.
 THEATRE_INTERNAL_ALLOWED = {
     "domain": ("domain",),
     "ports": ("domain", "ports"),
     "application": ("domain", "ports", "application"),
-    "demo": ("demo",),
+    "demo": ("demo", "presentation.model"),
+    "presentation": ("presentation",),
 }
 THEATRE_EXTERNAL_ALLOWED = {
     "domain": ("kotlin",),
     "ports": ("kotlin", "kotlinx.coroutines"),
     "application": ("kotlin", "kotlinx.coroutines"),
     "demo": ("kotlin",),
+    "presentation": ("kotlin",),
 }
 THEATRE_FEATURE_FORBIDDEN = ("app", "adapters", "ports")
 THEATRE_COMMON_FORBIDDEN_ROOTS = {"android", "platform", "java", "javax"}
@@ -702,6 +706,29 @@ THEATRE_IMPORT_STATEMENT = re.compile(
     rf"(?m)(?:^|;)[ \t]*import\s+({THEATRE_QUALIFIED}(?:\s*\.\s*\*)?)(?:\s+as\s+{THEATRE_IDENT})?"
 )
 THEATRE_QUALIFIED_USE = re.compile(rf"(?<![\w.`])({THEATRE_QUALIFIED})")
+THEATRE_SANDBOX_SYMBOL = re.compile(
+    r"(?:Mock[A-Z]\w*|Fake[A-Z]\w*|Demo[A-Z]\w*|CantosDemo\w*)\Z"
+)
+THEATRE_SANDBOX_PART = re.compile(r"(?:mock|demo|sandbox|preview)(?:[-_]|$)", re.I)
+THEATRE_TEST_NAMESPACES = (
+    ("kotlin", "test"), ("kotlinx", "coroutines", "test"), ("org", "junit"),
+    ("junit",), ("io", "mockk"), ("io", "kotest"),
+    ("io", "ktor", "client", "engine", "mock"), ("okio", "fakefilesystem"),
+    ("androidx", "compose", "ui", "test"),
+)
+
+
+def theatre_sandbox_dependency_error(name):
+    """The shared module's main sources have no preview/test escape through app/adapters."""
+    if (any(THEATRE_SANDBOX_SYMBOL.fullmatch(part) for part in name)
+            or under(name, THEATRE_PACKAGE) and any(
+                part.lower() in {"mock", "demo", "sandbox", "preview", "workbench"}
+                for part in name[len(THEATRE_PACKAGE):]
+            ) or under(name, ("com", "cantos", "ui", "preview"))
+            or name[:2] == ("AppContainer", "mock")
+            or any(under(name, prefix) for prefix in THEATRE_TEST_NAMESPACES)):
+        return "shared main must not depend on preview, mock, demo or test code"
+    return None
 
 
 def theatre_names(text):
@@ -715,7 +742,7 @@ def under(name, prefix):
 def theatre_dependency_error(layer, feature, source_set, name):
     """Return why this layer may not use `name` (a dotted tuple, wildcard stripped)."""
     if layer in THEATRE_INTERNAL_ALLOWED:
-        allowed = [THEATRE_PACKAGE + (part,) for part in THEATRE_INTERNAL_ALLOWED[layer]]
+        allowed = [THEATRE_PACKAGE + tuple(part.split(".")) for part in THEATRE_INTERNAL_ALLOWED[layer]]
         allowed += [tuple(part.split(".")) for part in THEATRE_EXTERNAL_ALLOWED[layer]]
         if any(under(name, prefix) for prefix in allowed):
             return None
@@ -736,77 +763,317 @@ def blank(text):
     return re.sub(r"[^\n]", " ", text)
 
 
+def theatre_gradle_main_text(text):
+    """Blank recognized Test source-set blocks; all unknown scopes stay production-visible."""
+    test_scope = re.compile(
+        r'(?:\b\w+Test(?:\s+by\s+(?:getting|creating))?'
+        r'|\b(?:getByName|named|maybeCreate)\s*\(\s*"\w+Test"\s*\))'
+        r'(?:\s*\.\s*\w+(?:\s*\([^{}]*\))?)*\s*$'
+    )
+    tokens = re.finditer(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|[{}]', text)
+    stack, ranges, boundary = [], [], 0
+    for token in tokens:
+        if token.group() == "{":
+            test = bool(stack and stack[-1][1]) or bool(test_scope.search(text[boundary:token.start()]))
+            stack.append((token.start(), test))
+            boundary = token.end()
+        elif token.group() == "}" and stack:
+            start, test = stack.pop()
+            if test and not (stack and stack[-1][1]):
+                ranges.append((start, token.end()))
+            boundary = token.end()
+    for start, end in reversed(ranges):
+        text = text[:start] + blank(text[start:end]) + text[end:]
+    return text
+
+
+def theatre_gradle_projects(text, label):
+    """Conservatively count every project reference, including aliases and Test edges."""
+    edges, errors = set(), []
+    for _, arguments in theatre_gradle_calls(text, lambda name: name == "project"):
+        target = re.fullmatch(r'\s*(?:path\s*=\s*)?"(:[\w:-]+)"\s*,?\s*', arguments)
+        if target:
+            edges.add(target.group(1))
+        else:
+            errors.append(f"{label}: project dependency requires a literal path for architecture inspection")
+    return edges, errors
+
+
+def theatre_gradle_calls(text, select):
+    for name, arguments, _ in theatre_gradle_call_regions(text, select):
+        yield name, arguments
+
+
+def theatre_gradle_call_regions(text, select):
+    """Read balanced calls without interpreting call-shaped text inside policy strings."""
+    tokens = list(re.finditer(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|\w+|[^\s]', text))
+    for index, token in enumerate(tokens[:-1]):
+        if not select(token.group()) or tokens[index + 1].group() != "(":
+            continue
+        depth = 1
+        for end in tokens[index + 2:]:
+            depth += (end.group() == "(") - (end.group() == ")")
+            if not depth:
+                yield token.group(), text[tokens[index + 1].end():end.start()], token.start()
+                break
+
+
+def theatre_gradle_dependencies(text):
+    """Inspect dependency declarations and their simple val aliases, not assertion messages."""
+    declaration = re.compile(r"(?:implementation|api|compileOnly|runtimeOnly|add|"
+                             r"\w+Main(?:Implementation|Api|CompileOnly|RuntimeOnly))\Z")
+    expressions = [arguments for _, arguments in theatre_gradle_calls(text, declaration.fullmatch)]
+    aliases = dict(re.findall(r"\bval\s+(\w+)(?:\s*:[^=\n]+)?\s*=\s*([^\n;]+)", text))
+    included = set()
+    for _ in range(len(aliases)):
+        used = set(re.findall(r"\b\w+\b", " ".join(expressions)))
+        selected = used.intersection(aliases).difference(included)
+        if not selected:
+            break
+        expressions.extend(aliases[name] for name in sorted(selected))
+        included.update(selected)
+    return "\n".join(expressions)
+
+
+def theatre_gradle_main_blocks(text):
+    """Locate literal Main source-set blocks so exclusions cannot leak across siblings."""
+    source_scope = re.compile(
+        r'(?:\b(?P<direct>\w+Main)(?:\s+by\s+(?:getting|creating))?'
+        r'|\b(?:getByName|named|maybeCreate)\s*\(\s*"(?P<named>\w+Main)"\s*\))'
+        r'(?:\s*\.\s*\w+(?:\s*\([^{}]*\))?)*\s*$'
+    )
+    stack, blocks, boundary = [], [], 0
+    for token in re.finditer(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"|[{}]', text):
+        if token.group() == "{":
+            heading = source_scope.search(text[boundary:token.start()])
+            name = (heading.group("direct") or heading.group("named")) if heading else None
+            stack.append((token.start(), name))
+            boundary = token.end()
+        elif token.group() == "}" and stack:
+            start, name = stack.pop()
+            if name:
+                blocks.append((start, token.end(), name))
+            boundary = token.end()
+    return blocks
+
+
+def theatre_production_modules(root):
+    """Inspect the local, literal Gradle graph, independently of Android variant resolution.
+
+    No Gradle is evaluated. Conditional edges count as present; project aliases are caught at
+    their project() declaration. Test project edges also count, preventing a shared Test ->
+    sandbox -> shared cycle. Version catalogs, convention plugins and dynamic source routing
+    require a new explicit policy rather than claiming resolved dependency/artifact evidence.
+    """
+    from ui_preview_catalog import source_text
+
+    mobile = root / THEATRE_MOBILE
+    settings = mobile / "settings.gradle.kts"
+    if not settings.is_file():
+        return {THEATRE_SOURCE}, []
+    settings_text = source_text(settings.read_text(encoding="utf-8"))
+    included = {name for _, call in theatre_gradle_calls(settings_text, lambda name: name == "include")
+                for name in re.findall(r'"(:[\w:-]+)"', call)}
+    build_files = {mobile / "build.gradle.kts"} | set(mobile.glob("*/build.gradle.kts"))
+    build_files.update(mobile / Path(*name.strip(":").split(":")) / "build.gradle.kts" for name in included)
+    errors, builds, graph = [], {}, {}
+    for file in sorted(file for file in build_files if file.is_file()):
+        relative = file.relative_to(mobile)
+        if any(part in {"build", ".gradle", ".kotlin"} for part in relative.parts):
+            continue
+        module = ":" + ":".join(relative.parts[:-1])
+        text = source_text(file.read_text(encoding="utf-8"))
+        builds[module] = (file, text)
+        graph[module], project_errors = theatre_gradle_projects(text, file.relative_to(root))
+        errors.extend(project_errors)
+    accessors = {".".join(re.sub(r"-([a-z])", lambda m: m.group(1).upper(), part)
+                           for part in name.strip(":").split(":")): name for name in builds if name != ":"}
+    for module, (file, text) in builds.items():
+        for accessor in re.findall(r"\bprojects\.([\w.]+)", source_text(text, keep_strings=False)):
+            target = next((name for key, name in accessors.items()
+                           if accessor == key or accessor.startswith(key + ".")), None)
+            if target:
+                graph[module].add(target)
+            else:
+                errors.append(f"{file.relative_to(root)}: unknown project accessor {accessor}")
+
+    for module in (":shared", ":preview-sandbox"):
+        if module not in included or module not in builds:
+            errors.append(f"{THEATRE_MOBILE}/settings.gradle.kts: {module} must be a separate included Gradle module")
+    if ":preview-sandbox" in builds:
+        file, text = builds[":preview-sandbox"]
+        if not re.search(r'\bkotlin\s*\(\s*"multiplatform"\s*\)', text):
+            errors.append(f"{file.relative_to(root)}: preview-sandbox must be a Kotlin Multiplatform module")
+        if ":shared" not in graph[":preview-sandbox"]:
+            errors.append(f"{file.relative_to(root)}: preview-sandbox must depend explicitly on :shared")
+    if ":androidApp" in builds and not {":shared", ":preview-sandbox"} <= graph[":androidApp"]:
+        errors.append(f"{THEATRE_MOBILE}/androidApp/build.gradle.kts: demo host must depend explicitly on shared and preview-sandbox")
+    if re.search(r"\bproject\s*\([^)]*\)\s*\.\s*projectDir\b", settings_text):
+        errors.append(f"{THEATRE_MOBILE}/settings.gradle.kts: projectDir remapping needs an explicit architecture policy")
+
+    production, pending = set(), [(":shared",)]
+    while pending:
+        chain = pending.pop()
+        module = chain[-1]
+        if module in production:
+            continue
+        production.add(module)
+        if module != ":shared" and (module == ":androidApp" or any(
+                THEATRE_SANDBOX_PART.match(part) for part in re.split(r"[:/]+", module) if part)):
+            errors.append(f"{THEATRE_MOBILE}: shared main dependency reaches sandbox/demo module: {' -> '.join(chain)}")
+            continue
+        if module not in builds:
+            errors.append(f"{THEATRE_MOBILE}: unresolved local project dependency: {' -> '.join(chain)}")
+            continue
+        file, text = builds[module]
+        main = theatre_gradle_main_text(text)
+        dependencies = theatre_gradle_dependencies(main)
+        if any(True for _ in theatre_gradle_calls(dependencies, lambda name: name in {"files", "fileTree"})):
+            errors.append(f"{file.relative_to(root)}: local binary dependencies need an explicit production policy")
+        for coordinate in re.findall(r'"([^"\n]+:[^"\n]+)"', dependencies):
+            artifact = coordinate.split(":")[1]
+            if re.search(r"(?:^|[-_.])(?:test\w*|mock\w*|fakefilesystem|junit\w*|kotest)(?:[-_.]|$)", artifact, re.I):
+                errors.append(f"{file.relative_to(root)}: shared main graph must not include test dependency {coordinate}")
+        if re.search(r'\bkotlin\s*\(\s*"test(?:-[^"]*)?"|\bcompose\.\w+(?:\.\w+)*[Tt]est\w*'
+                     r'|\blibs\.(?:\w+\.)*(?:test\w*|mock\w*|junit\w*|kotest)\b', dependencies):
+            errors.append(f"{file.relative_to(root)}: shared main graph must not include test dependency aliases")
+        main_blocks = theatre_gradle_main_blocks(main)
+        for _, arguments, offset in theatre_gradle_call_regions(main, lambda name: name in {"srcDir", "srcDirs", "setSrcDirs"}):
+            paths = re.findall(r'"([^"\n]+)"', arguments)
+            for path in paths:
+                own_main = re.fullmatch(r"src/\w+Main/(?:kotlin|resources|composeResources)", path)
+                canonical_ui = module == ":shared" and path == "../../../packages/ui-system/cmp/src/commonMain/kotlin"
+                if not own_main and not canonical_ui:
+                    errors.append(f"{file.relative_to(root)}: main source routing needs an explicit production policy: {path}")
+                if canonical_ui:
+                    containing = [(start, end) for start, end, _ in main_blocks if start < offset < end]
+                    start, end = min(containing, key=lambda span: span[1] - span[0]) if containing else (0, 0)
+                    scope = main[start:end]
+                    exclusions = {arguments.strip() for _, arguments in theatre_gradle_calls(scope, lambda name: name == "exclude")}
+                    if '"com/cantos/ui/preview/**"' not in exclusions:
+                        errors.append(f"{file.relative_to(root)}: shared UI source inclusion must exclude its preview package in the same Main source set")
+            if not paths:
+                errors.append(f"{file.relative_to(root)}: main source routing requires literal inspected paths")
+        for target in sorted(graph[module]):
+            pending.append(chain + (target,))
+
+    def visit(module, chain):
+        if module in chain:
+            errors.append(f"{THEATRE_MOBILE}: Gradle project dependency cycle: {' -> '.join(chain + (module,))}")
+            return
+        if module in visited:
+            return
+        visited.add(module)
+        for target in sorted(graph.get(module, ())):
+            visit(target, chain + (module,))
+
+    visited = set()
+    for module in sorted(graph):
+        visit(module, ())
+    sources = {THEATRE_MOBILE / Path(*module.strip(":").split(":")) / "src"
+               for module in production if module in builds}
+    return sources | {THEATRE_SOURCE}, errors
+
+
 def check_theatre_architecture(root=ROOT):
     """Check Theatre mobile import layers, package/directory agreement and qualified names.
 
     This is lexical, like the API check: it reads package and import statements plus dotted
     names in code and executable string templates. It does not resolve overloads or prove
     behavior (a clock or random source in domain, reducer imports from features). The
-    adapters and app packages are explicitly unguarded.
+    production-safe shared graph additionally excludes sandbox symbols, resources and local
+    project edges in every main layer, including adapters/app. This does not inspect an APK,
+    resolve a Gradle variant, dynamic DSL, reflection or external dependency metadata.
     """
     from ui_preview_catalog import kotlin_source_regions
 
-    errors = set()
-    source = root / THEATRE_SOURCE
-    for file in sorted(source.glob("*Main/**/*.kt")):
-        label = file.relative_to(root).as_posix()
-        parts = file.relative_to(source).parts
-        source_set = parts[0]
-        if parts[1] != "kotlin" or parts[2:5] != THEATRE_PACKAGE:
-            errors.add(f"{label}: Kotlin source must live under {source_set}/kotlin/com/cantos/theatre")
-            continue
-        layer = parts[5] if len(parts) > 6 else None
-        if layer not in THEATRE_LAYERS:
-            errors.add(f"{label}: package needs an explicit layer policy; place it directly under "
-                       f"com/cantos/theatre/{{{','.join(sorted(THEATRE_LAYERS))}}}")
-            continue
-        feature = parts[6] if layer == "features" and len(parts) > 7 else None
-        if layer == "features" and not feature:
-            errors.add(f"{label}: features code belongs in features/<feature>/")
-            continue
+    production_sources, graph_errors = theatre_production_modules(root)
+    errors = set(graph_errors)
+    for source_path in sorted(production_sources | {THEATRE_SANDBOX_SOURCE}):
+        source = root / source_path
+        production = source_path in production_sources
+        for file in sorted(source.glob("*Main/**/*.kt")):
+            label = file.relative_to(root).as_posix()
+            parts = file.relative_to(source).parts
+            source_set = parts[0]
+            if parts[1] != "kotlin" or parts[2:5] != THEATRE_PACKAGE:
+                errors.add(f"{label}: Kotlin source must live under {source_set}/kotlin/com/cantos/theatre")
+                continue
+            if production and any(THEATRE_SANDBOX_PART.match(part) for part in parts[2:]):
+                errors.add(f"{label}: shared main must not contain preview, mock, demo or sandbox sources")
+                continue
+            layer = parts[5] if len(parts) > 6 else None
+            if layer not in THEATRE_LAYERS:
+                errors.add(f"{label}: package needs an explicit layer policy; place it directly under "
+                           f"com/cantos/theatre/{{{','.join(sorted(THEATRE_LAYERS))}}}")
+                continue
+            feature = parts[6] if layer == "features" and len(parts) > 7 else None
+            if layer == "features" and not feature:
+                errors.add(f"{label}: features code belongs in features/<feature>/")
+                continue
 
-        content = file.read_text(encoding="utf-8")
-        code, templates = kotlin_source_regions(content, keep_lines=True)
+            content = file.read_text(encoding="utf-8")
+            code, templates = kotlin_source_regions(content, keep_lines=True)
 
-        def report(offset, name, reason):
-            errors.add(f"{label}:{code.count(chr(10), 0, offset) + 1}: {'.'.join(name)}: {reason}")
+            def report(offset, name, reason):
+                errors.add(f"{label}:{code.count(chr(10), 0, offset) + 1}: {'.'.join(name)}: {reason}")
 
-        directory = parts[2:-1]
-        statement = THEATRE_PACKAGE_STATEMENT.search(code)
-        declared = theatre_names(statement.group(1)) if statement else None
-        if declared != directory:
-            errors.add(f"{label}:{code.count(chr(10), 0, statement.start()) + 1 if statement else 1}: "
-                       f"package {'.'.join(declared) if declared else '(none)'} "
-                       f"does not match directory {'.'.join(directory)}")
+            directory = parts[2:-1]
+            statement = THEATRE_PACKAGE_STATEMENT.search(code)
+            declared = theatre_names(statement.group(1)) if statement else None
+            if declared != directory:
+                errors.add(f"{label}:{code.count(chr(10), 0, statement.start()) + 1 if statement else 1}: "
+                           f"package {'.'.join(declared) if declared else '(none)'} "
+                           f"does not match directory {'.'.join(directory)}")
 
-        remainder = code
-        for match in THEATRE_IMPORT_STATEMENT.finditer(code):
-            name = theatre_names(match.group(1))
-            name = name[:-1] if name[-1] == "*" else name
-            reason = theatre_dependency_error(layer, feature, source_set, name)
-            if reason:
-                report(match.start(1), name, reason)
-            remainder = remainder[:match.start()] + blank(match.group()) + remainder[match.end():]
-        if statement:
-            remainder = remainder[:statement.start()] + blank(statement.group()) + remainder[statement.end():]
-
-        # Fully qualified use needs no import in Kotlin, so inspect dotted names directly.
-        for text, in_template in ((remainder, False), (templates, True)):
-            for match in THEATRE_QUALIFIED_USE.finditer(text):
+            remainder = code
+            for match in THEATRE_IMPORT_STATEMENT.finditer(code):
                 name = theatre_names(match.group(1))
-                project = name[:2] == THEATRE_PACKAGE[:2] and len(name) > 2
-                platform = (len(name) > 2 and name[0] in THEATRE_QUALIFIED_ROOTS
-                            and any(part[:1].isupper() for part in name))
-                reason = (project or platform) and theatre_dependency_error(layer, feature, source_set, name)
-                if not reason:
-                    continue
-                if in_template:
-                    # Template regions have no line map; find the first literal occurrence.
-                    found = re.search(r"\s*\.\s*".join(re.escape(part) for part in name), content)
-                    line = content.count("\n", 0, found.start()) + 1 if found else 1
-                    errors.add(f"{label}:{line}: {'.'.join(name)}: {reason}")
-                else:
+                name = name[:-1] if name[-1] == "*" else name
+                reason = theatre_dependency_error(layer, feature, source_set, name)
+                if production:
+                    reason = reason or theatre_sandbox_dependency_error(name)
+                if reason:
                     report(match.start(1), name, reason)
+                remainder = remainder[:match.start()] + blank(match.group()) + remainder[match.end():]
+            if statement:
+                remainder = remainder[:statement.start()] + blank(statement.group()) + remainder[statement.end():]
+
+            # Fully qualified use needs no import in Kotlin, so inspect dotted names directly.
+            for text, in_template in ((remainder, False), (templates, True)):
+                for match in THEATRE_QUALIFIED_USE.finditer(text):
+                    name = theatre_names(match.group(1))
+                    project = name[:2] == THEATRE_PACKAGE[:2] and len(name) > 2
+                    platform = (len(name) > 2 and name[0] in THEATRE_QUALIFIED_ROOTS
+                                and any(part[:1].isupper() for part in name))
+                    reason = (project or platform) and theatre_dependency_error(layer, feature, source_set, name)
+                    if production:
+                        reason = reason or theatre_sandbox_dependency_error(name)
+                    if not reason:
+                        continue
+                    if in_template:
+                        # Template regions have no line map; find the first literal occurrence.
+                        found = re.search(r"\s*\.\s*".join(re.escape(part) for part in name), content)
+                        line = content.count("\n", 0, found.start()) + 1 if found else 1
+                        errors.add(f"{label}:{line}: {'.'.join(name)}: {reason}")
+                    else:
+                        report(match.start(1), name, reason)
+        if production:
+            for file in sorted(source.glob("*Main/**/*")):
+                if not file.is_file() or file.suffix == ".kt":
+                    continue
+                label = file.relative_to(root).as_posix()
+                if file.suffix in {".java", ".swift", ".class", ".jar", ".aar"}:
+                    errors.add(f"{label}: non-Kotlin main sources or binary payloads need an explicit production policy")
+                    continue
+                if any(THEATRE_SANDBOX_PART.match(part) for part in file.relative_to(source).parts[1:]):
+                    errors.add(f"{label}: shared main must not contain mock/demo/sandbox resources")
+                    continue
+                if file.suffix in {".xml", ".json", ".properties", ".txt", ".html", ".svg"}:
+                    text = file.read_text(encoding="utf-8")
+                    if re.search(r"\b(?:mock_|demo_|sandbox_|Mock[A-Z]\w*|FakeStorage\w*|DemoFixtures)"
+                                 r"|com\.cantos\.theatre\.(?:demo|sandbox|adapters\.mock)(?:\.|\b)", text):
+                        errors.add(f"{label}: shared main resource references mock/demo/sandbox content")
     return sorted(errors)
 
 

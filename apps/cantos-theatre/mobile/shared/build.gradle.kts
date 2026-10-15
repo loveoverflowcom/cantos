@@ -185,7 +185,7 @@ if (androidEnabled) {
     // independent of AGP and the SDK. This is configuration of its actual extension, not a stub.
     apply(plugin = "com.android.library")
     extensions.getByName("android").withGroovyBuilder {
-        setProperty("namespace", "com.cantos.theatre.demo.shared")
+        setProperty("namespace", "com.cantos.theatre.shared")
         setProperty("compileSdk", 35)
         setProperty("buildToolsVersion", "35.0.0")
         "defaultConfig" {
@@ -223,14 +223,6 @@ if (iosEnabled) {
     }
 }
 
-// Match the supervised foreground JVM. A detached single-use Gradle daemon must not open a
-// demo window outside xtask's owned process group, even when Gradle received --no-daemon.
-if (gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "run" }) {
-    val expectedLauncherPid = System.getProperty("cantos.theatre.demo.launcherPid")?.toLongOrNull()
-    check(expectedLauncherPid != null && expectedLauncherPid == ProcessHandle.current().pid()) {
-        "Cantos demo run requires its owned foreground launcher PID. Use cargo xtask theatre-demo run."
-    }
-}
 
 kotlin {
     jvm("desktop") {
@@ -251,11 +243,7 @@ kotlin {
                 // Missing local LLVM/libffi dependencies fail; they are never downloaded.
                 freeCompilerArgs.add("-Xoverride-konan-properties=airplaneMode=true")
             }
-            target.binaries.framework {
-                baseName = "CantosTheatreDemo"
-                isStatic = true
-                binaryOption("bundleId", "com.cantos.theatre.demo.shared")
-            }
+
         }
     }
 
@@ -295,9 +283,6 @@ kotlin {
         }
         val desktopMain by getting {
             kotlin.srcDir("src/jvmHttpMain/kotlin")
-            // Only the diagnostic host consumes preview settings; Android/iOS and commonMain
-            // keep the existing exclusion of the entire shared preview package.
-            kotlin.srcDir(rootProject.file("../../../packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/workbench/settings"))
             dependencies {
                 implementation(compose.desktop.currentOs)
             }
@@ -311,20 +296,79 @@ kotlin {
         if (androidEnabled) {
             val androidMain by getting {
                 kotlin.srcDir("src/jvmHttpMain/kotlin")
-                dependencies {
-                    implementation("androidx.compose.ui:ui-tooling-preview:1.9.0")
-                }
             }
         }
     }
 }
 
-compose.desktop {
-    application {
-        mainClass = "com.cantos.theatre.app.MainKt"
-    }
-}
 
 compose.resources {
     packageOfResClass = "com.cantos.theatre.resources"
+}
+
+// Inspect the actual resolved library graph before compiling shared or exercising its tests.
+// This proves only :shared's configured boundaries; a future production host still needs its
+// own release graph plus APK/AAB class/resource inspection.
+val assertProductionSafeDependencies = tasks.register("assertProductionSafeDependencies") {
+    group = "verification"
+    description = "Reject sandbox and test-only dependencies from shared main classpaths."
+    val report = layout.buildDirectory.file("reports/production-boundary/resolved-dependencies.txt")
+    outputs.file(report)
+    // Resolve on every invocation: dependency metadata can change without a source edit.
+    outputs.upToDateWhen { false }
+    doLast {
+        val required = mutableListOf(
+            listOf("desktopCompileClasspath"),
+            listOf("desktopRuntimeClasspath"),
+        )
+        if (androidEnabled) {
+            required += listOf("releaseCompileClasspath", "androidReleaseCompileClasspath")
+            required += listOf("releaseRuntimeClasspath", "androidReleaseRuntimeClasspath")
+        }
+        val lines = mutableListOf("Production-safe library dependency boundary: :shared")
+        val violations = mutableListOf<String>()
+        required.forEach { names ->
+            val configuration = names.firstNotNullOfOrNull { configurations.findByName(it) }
+                ?: error("Missing required main configuration: ${names.joinToString(" or ")}")
+            check(configuration.isCanBeResolved) { "Main configuration is not resolvable: ${configuration.name}" }
+            lines += "configuration ${configuration.name}"
+            val unresolved = configuration.incoming.resolutionResult.allDependencies
+                .filterIsInstance<org.gradle.api.artifacts.result.UnresolvedDependencyResult>()
+            check(unresolved.isEmpty()) {
+                "Incomplete shared main graph for ${configuration.name}: " +
+                    unresolved.joinToString { "${it.attempted.displayName}: ${it.failure.message}" }
+            }
+            configuration.incoming.resolutionResult.allComponents.forEach { component ->
+                val id = component.id
+                lines += "  ${id.displayName}"
+                when (id) {
+                    is org.gradle.api.artifacts.component.ProjectComponentIdentifier -> {
+                        if (id.projectPath.split(':').any { it.contains("sandbox", ignoreCase = true) || it.contains("mock", ignoreCase = true) }) {
+                            violations += "${configuration.name}: ${id.displayName}"
+                        }
+                    }
+                    is org.gradle.api.artifacts.component.ModuleComponentIdentifier -> {
+                        if (id.module.startsWith("okio-fakefilesystem") || id.module.startsWith("ktor-client-mock") ||
+                            id.module.startsWith("kotlin-test") || id.module.startsWith("ui-test") ||
+                            id.module.startsWith("kotlinx-coroutines-test") || id.module.startsWith("mockito-") ||
+                            id.group == "io.mockk" || id.group == "io.kotest" ||
+                            id.group == "junit" || id.group.startsWith("org.junit")) {
+                            violations += "${configuration.name}: ${id.displayName}"
+                        }
+                    }
+                }
+            }
+        }
+        report.get().asFile.apply { parentFile.mkdirs(); writeText(lines.joinToString("\n", postfix = "\n")) }
+        lines.filter { it.startsWith("configuration ") }.forEach(::println)
+        println("Shared dependency boundary report: ${report.get().asFile}")
+        check(violations.isEmpty()) { "Forbidden shared main dependencies: ${violations.joinToString()}" }
+    }
+}
+
+tasks.configureEach {
+    if (name == "desktopTest" || name.startsWith("assemble") ||
+        (name.startsWith("compile") && !name.contains("Test", ignoreCase = true))) {
+        dependsOn(assertProductionSafeDependencies)
+    }
 }

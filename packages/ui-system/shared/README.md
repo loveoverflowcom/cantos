@@ -56,7 +56,7 @@ for both products, Noto Sans UI / Noto Serif editorial names, 14/1.55 Web body, 
 navigation. Paper, lavender and muted gold preserve the quiet historical/fantasy character.
 These are the original reference values; current body/target values follow the v3 reconciliation above.
 The Theatre CMP mock now supplies the exact Noto Sans/Serif resource families (SIL OFL 1.1)
-and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
+and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/provenance.json)
 keeps hashes and the outstanding production artwork-rights boundary. The Leptos component preview
 also loads the [same local licensed font bytes](assets/noto-fonts/README.md); product Web hosts
 retain their existing local/system fallbacks. Shared theme callers may inject licensed font families

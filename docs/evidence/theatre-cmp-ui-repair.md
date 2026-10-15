@@ -15,13 +15,15 @@ was downloaded through the user's existing Chrome session after raw connector tr
 Its HTML/CSS, [handoff](https://drive.google.com/file/d/1U55XW5txGamBYOm_MGW3itBH_BehJtfj/view),
 static board and original paintings were read/opened. The board is a design proposal, not runtime
 pixels. Bundled PNG/TTF bytes are unchanged extractions; crops are renderer operations.
-The [asset manifest](../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
+The [asset manifest](../../apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/composeResources/files/provenance.json)
 records their hashes and source. Noto Sans/Serif 2.015 regular/bold identify SIL OFL 1.1 in font
 metadata; the included license comes from the
 [official Noto source](https://github.com/notofonts/latin-greek-cyrillic/blob/main/OFL.txt).
 The package supplies no independent artist/redistribution license for its paintings. Their use
 here is the user's requested mock-design repair; production artwork rights still need review.
 No narrative/audio or private production assets are included.
+The manifest moved to `:preview-sandbox` in #122; its byte/source provenance and this repair's
+historical verification record are unchanged.
 
 ## Bug contract and repair
 

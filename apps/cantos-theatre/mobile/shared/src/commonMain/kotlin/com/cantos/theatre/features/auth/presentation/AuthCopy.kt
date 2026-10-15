@@ -1,10 +1,10 @@
 package com.cantos.theatre.features.auth.presentation
 
 import com.cantos.theatre.application.identity.NativeAccountFailure
-import com.cantos.theatre.demo.DemoLocale
+import com.cantos.theatre.presentation.model.ShellLocale
 
-internal class AuthCopy(private val locale: DemoLocale) {
-    fun text(key: AuthText): String = if (locale == DemoLocale.English) key.en else key.vi
+internal class AuthCopy(private val locale: ShellLocale) {
+    fun text(key: AuthText): String = if (locale == ShellLocale.English) key.en else key.vi
 
     fun failure(reason: NativeAccountFailure): String = text(when (reason) {
         NativeAccountFailure.Configuration -> AuthText.FailureConfiguration

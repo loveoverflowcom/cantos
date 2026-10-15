@@ -269,7 +269,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
-| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest` in the isolated Theatre mock | compatible gradle, java, real Theatre mock project |
+| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` in the isolated Theatre mock | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 
@@ -541,8 +541,8 @@ in `ci.rs`. Release, deployment and provider-backed commands wait for their infr
 An explicitly isolated mock command surface; starts no API, database, identity or audio adapter.
 
 ```sh
-cargo xtask theatre-demo build          # :shared:compileKotlinDesktop
-cargo xtask theatre-demo verify         # :shared:desktopTest; common + JVM Compose tests/captures
+cargo xtask theatre-demo build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
+cargo xtask theatre-demo verify         # :shared:desktopTest + :preview-sandbox:desktopTest
 cargo xtask theatre-demo run            # same app, supervised diagnostic desktop window
 cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:assembleDebug
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
@@ -551,8 +551,16 @@ cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/nati
 Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
 absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
 iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
-then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.
+then links only `:preview-sandbox:linkDebugFrameworkIosSimulatorArm64`, which exports the shared
+core through the existing `CantosTheatreDemo` framework; no compiler/LLVM is downloaded.
 Missing prerequisites are `UNSUPPORTED`, failed executed steps are `FAIL`.
+
+The demo desktop, Android and iOS hosts explicitly consume `:preview-sandbox`; the production-safe
+`:shared` module never depends on it. Verification retains both the independent shared-core suite
+and sandbox port/workbench/UI tests. These commands produce demo evidence only. No production
+Android host exists yet, so production `releaseCompileClasspath` / `releaseRuntimeClasspath` and
+APK/AAB class/resource/manifest exclusion remain `BLOCKED` / `NOT_RUN`; a demo debug APK cannot
+accept those claims. See the [isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 The local `theatre-cmp-demo` preflight gate runs mock common/JVM tests when its source/build
 inputs or consumed CMP/shared tokens change. It does not stand for native acceptance or
