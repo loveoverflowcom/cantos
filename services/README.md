@@ -11,7 +11,7 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
 | `kanidm` | rootless Podman OCI | opt-in evaluation configuration; OIDC and production identity unimplemented | identity operator |
 | `object-storage` | external | planned; current development intake uses private files | storage operator |
-| `edge` | Podman + host DNS updater | operator configuration for `cantoss.duckdns.org`; not an xtask service, routes to no API yet | infrastructure operator |
+| `edge` | Podman + host DNS updater | operator configuration for `cantoss.duckdns.org` (Theatre, `studio.` and `api.` hosts); not an xtask service, routes to no API yet | infrastructure operator |
 
 The API is the one modular backend. Application/domain/API contracts do not depend on the
 container runtime. `services/` holds code, infrastructure configuration and operational guides;

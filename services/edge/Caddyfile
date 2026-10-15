@@ -1,10 +1,87 @@
-# Public HTTPS edge for the Cantos VPS. Caddy obtains and renews the Let's Encrypt
-# certificate itself (HTTP-01 on port 80), so DNS must already point at this host.
-cantoss.duckdns.org {
-	encode zstd gzip
+# Public HTTPS edge for the Cantos VPS. Caddy obtains and renews one Let's Encrypt
+# certificate per host (HTTP-01 on port 80), so DNS must already point at this machine;
+# DuckDNS resolves every subdomain of `cantoss` to the same address.
+#
+#   cantoss.duckdns.org         Cantos Theatre Web (listeners)
+#   studio.cantoss.duckdns.org  Cantos Studio Web (creators)
+#   api.cantoss.duckdns.org     Cantos API for non-browser clients (native apps, producers)
+#
+# Both web apps call the API same-origin under /api/, so each web host proxies /api/* itself
+# instead of using CORS. Theatre and Studio never share a host, cookie or permission.
+#
+# `cantos-api` is the network alias a future production API container must take on the
+# `cantos-edge` Podman network. cantos-server is development-only (loopback, no production
+# mode), so nothing may be attached under that alias yet; until then every API route
+# answers 503 rather than reaching a development host.
 
-	# Placeholder until cantos-api has an accepted production deployment. Replace this
-	# with the reviewed route table (for example `handle /api/v1/* { reverse_proxy ... }`)
-	# only when that service exists; never expose a development host.
-	respond "Cantos is not deployed yet." 503
+(cantos_api) {
+	reverse_proxy cantos-api:8080
+}
+
+# An unattached or unreachable upstream is a dial error (502/504), reported as an honest 503.
+(cantos_errors) {
+	handle_errors {
+		@upstream expression {err.status_code} in [502, 503, 504]
+		handle @upstream {
+			header Content-Type application/json
+			header Retry-After 60
+			respond `{"error":"api_unavailable"}` 503
+		}
+	}
+}
+
+(cantos_security) {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+# Static Trunk builds with client-side routing: serve a real file, else the app shell.
+# Everything revalidates except Trunk's content-hashed assets (`name-<hash>[_bg].ext`).
+(cantos_spa) {
+	root * {args[0]}
+	encode zstd gzip
+	@hashed path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@revalidate not path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
+	header @revalidate Cache-Control "no-cache"
+	try_files {path} /index.html
+	file_server
+}
+
+cantoss.duckdns.org {
+	import cantos_security
+	import cantos_errors
+	handle /api/* {
+		import cantos_api
+	}
+	handle {
+		import cantos_spa /srv/theatre
+	}
+}
+
+studio.cantoss.duckdns.org {
+	import cantos_security
+	import cantos_errors
+	header X-Frame-Options DENY
+	handle /api/* {
+		import cantos_api
+	}
+	handle {
+		import cantos_spa /srv/studio
+	}
+}
+
+api.cantoss.duckdns.org {
+	import cantos_security
+	import cantos_errors
+	# The API surface is /api/v1/{studio,theatre,admin}/*; the root serves no content.
+	handle /api/* {
+		import cantos_api
+	}
+	handle {
+		respond "Cantos API" 404
+	}
 }

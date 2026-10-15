@@ -1,49 +1,93 @@
 # Edge: DuckDNS and Caddy for the Cantos VPS
 
-Operator-owned configuration for the public name **`cantoss.duckdns.org`**. It is not a
+Operator-owned configuration for the public names under **`cantoss.duckdns.org`**. It is not a
 `cargo xtask services` process and is not in [the manifest](../manifest.toml): xtask never
-starts it. It routes to no Cantos service yet; `cantos-api` has no accepted production
-deployment, so the Caddyfile answers `503` rather than proxying a development host.
+starts it. The [Caddyfile](Caddyfile) is the single routing source.
 
-| Piece | Where | Notes |
+| Host | Serves | Source |
 | --- | --- | --- |
-| DNS name | DuckDNS account that owns `cantoss` | A token from another account returns `KO` |
-| Updater | `/root/cantos-services/duckdns/` | [duck.sh.example](duck.sh.example), cron every 30 minutes |
-| TLS and routing | `cantos-edge` Podman container | [Caddyfile](Caddyfile), automatic Let's Encrypt |
+| `cantoss.duckdns.org` | Cantos Theatre Web (listeners; the default site) | `apps/cantos-theatre/web` Trunk build |
+| `studio.cantoss.duckdns.org` | Cantos Studio Web (creators) | `apps/cantos-studio/web` Trunk build |
+| `api.cantoss.duckdns.org` | Cantos API for native apps and external producers | `/api/*` to `cantos-api:8080` |
 
-## One-time DNS and updater
+Both web apps call the API **same-origin** under `/api/` (see their `Trunk.toml` proxies), so each web
+host proxies its own `/api/*`; no CORS is configured. The three hosts stay separate origins, so
+Theatre and Studio share no cookie, permission or UI. The API enforces the
+[surface boundaries](../../docs/decisions/0015-api-surface-boundaries.md) per route group; the edge
+forwards `/api/*` unchanged and adds no authorization.
 
-1. Put the DuckDNS token in `/root/cantos-services/duckdns/cantoss.token` (root, mode 0600).
-   Never commit it or paste it into chat or a command line.
-2. Install the script as `duck-cantoss.sh` (mode 0700) and add
+**The API is not deployed.** `cantos-server` supports `CANTOS_ENV=development`, a loopback bind and
+local PostgreSQL only ([Studio OIDC boundary](../../docs/architecture/studio-oidc.md)). Every `/api/*`
+route therefore answers `503 {"error":"api_unavailable"}` because nothing owns the network alias
+`cantos-api`. Never publish the development host to take its place. When a reviewed production host
+exists, attach it to the `cantos-edge` network with `--network-alias cantos-api` listening on 8080;
+the edge needs no change. The static web apps load without it and show their unavailable states
+(the apps have no mock fallback).
+
+## DNS and updater
+
+DuckDNS resolves every subdomain of `cantoss` to the same address, so one record covers all three
+hosts. The DuckDNS account that owns `cantoss` must supply the token; a token from another account
+returns `KO`.
+
+1. Put the token in `/root/cantos-services/duckdns/cantoss.token` (root, mode 0600). Never commit it
+   or put it on a command line that is logged.
+2. Install [duck.sh.example](duck.sh.example) as `duck-cantoss.sh` (mode 0700) and add
    `*/30 * * * * /root/cantos-services/duckdns/duck-cantoss.sh >/dev/null 2>&1`.
 3. Run it once. `duck-cantoss.log` reads `OK` on success, `KO` for a wrong token/domain and
-   `NO_TOKEN` when the token file is empty. `getent hosts cantoss.duckdns.org` must then show
-   the VPS address. A manual IP change on the DuckDNS site is equivalent for a fixed address.
+   `NO_TOKEN` when the token file is empty. Then `getent hosts cantoss.duckdns.org
+   studio.cantoss.duckdns.org api.cantoss.duckdns.org` must show the VPS address.
 
-## Edge container
+## Publish the web apps
 
-Ports 80 and 443 must be reachable (`ufw allow 80,443/tcp`); this is a deliberate host
-firewall change that the operator makes. Podman is the runtime ([ADR 0021](../../docs/decisions/0021-podman-service-runtime.md)).
+Build optimized bundles through xtask (Trunk 0.21.14 and the `wasm32` target; debug builds are
+several times larger) and copy the `dist/` trees. Do not build on the 2 GB VPS.
 
 ```sh
-install -d -m 700 /root/cantos-services/edge
+cargo xtask build cantos-theatre --web --release
+cargo xtask build cantos-studio --web --release
+rsync -a --delete apps/cantos-theatre/web/dist/ root@HOST:/root/cantos-services/edge/www/theatre/
+rsync -a --delete apps/cantos-studio/web/dist/  root@HOST:/root/cantos-services/edge/www/studio/
+```
+
+Trunk hashes JS/CSS/WASM names, so the Caddyfile caches those immutably and revalidates
+`index.html` and unhashed files; a new release needs no cache purge or Caddy restart.
+`--delete` also removes the previous release's hashed files. Never copy private data, secrets or
+anything but `dist/` into `www/`.
+
+## Run the edge
+
+Ports 80 and 443 must be reachable (`ufw allow 80,443/tcp`); the operator makes that host firewall
+change. Podman is the runtime ([ADR 0021](../../docs/decisions/0021-podman-service-runtime.md)).
+
+```sh
+install -d -m 700 /root/cantos-services/edge/www/theatre /root/cantos-services/edge/www/studio
 cp Caddyfile /root/cantos-services/edge/Caddyfile
+podman network create cantos-edge
 podman volume create cantos-edge-data
-podman run -d --name cantos-edge --restart=always \
+podman run -d --name cantos-edge --restart=always --network cantos-edge \
   -p 80:80 -p 443:443 \
   -v /root/cantos-services/edge/Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v /root/cantos-services/edge/www/theatre:/srv/theatre:ro \
+  -v /root/cantos-services/edge/www/studio:/srv/studio:ro \
   -v cantos-edge-data:/data \
   docker.io/library/caddy:2.11.7-alpine
 ```
 
-Keep `cantos-edge-data`: it holds the issued certificate and ACME account, and losing it
-risks Let's Encrypt rate limits. Check with `podman logs cantos-edge` and
-`curl -i https://cantoss.duckdns.org/` (expects `503` and a valid certificate). Reload after
-editing the Caddyfile with `podman exec cantos-edge caddy reload --config /etc/caddy/Caddyfile`.
-`podman restart` is safe; do not remove the volume.
+Keep `cantos-edge-data`: it holds the issued certificates and ACME account, and losing it risks
+Let's Encrypt rate limits. Reload after editing the Caddyfile with
+`podman exec cantos-edge caddy reload --config /etc/caddy/Caddyfile`. `podman restart` is safe; do
+not remove the volume. `--restart=always` needs `podman-restart.service` enabled on the host to
+survive a reboot.
+
+Checks: `podman logs cantos-edge`, `curl -I https://cantoss.duckdns.org/` (200, valid certificate),
+the same for `studio.`, and `curl -i https://api.cantoss.duckdns.org/api/v1/theatre/x` (503 JSON
+until an API is attached).
 
 ## Evidence boundary
 
-This documents the configuration. Certificate issuance, reachability and routing to
-`cantos-api` are observed only when the checks above are run on the host.
+The Caddyfile was validated with the pinned image (`caddy validate`) and its routing was exercised
+against a local plain-HTTP copy with stub static trees: SPA fallback, `application/wasm`,
+immutable versus revalidating cache headers, and `503` for an absent upstream on all three hosts.
+Certificate issuance, internet reachability, the real Trunk bundles and routing to a real API
+are **not** observed until the steps above run on the host.
