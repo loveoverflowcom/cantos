@@ -183,13 +183,39 @@ passed / 3 failed**: all three audio-intake failures share the existing
 `owner_audio_request` assertion at `services/cantos-api/tests/audio_intake_postgres.rs:1441`,
 which expects plain `no-store` for handler-owned GET/HEAD audio responses. The unchanged production
 transport returns `private, no-store, no-transform`; PUT still requires plain `no-store`.
-The helper and transport are unchanged from the fetched base. A proposed test-only helper patch
-preserves exact equality per method and rejects unexpected methods; separate scope approval is
-pending, and that source remains unchanged. No production cache policy is relaxed.
+At that input, the helper and transport were unchanged from the fetched base. The proposed
+test-only helper patch preserves exact equality per method and rejects unexpected methods.
+No production cache policy is relaxed.
 The second gate is **FAIL**; socket/API/database restart phases were not reached (`NOT_RUN`).
 Its complete output and first failing audio suite are retained as
 `postgres-approved-expectation.log` and `postgres-second-failure.log` beside the initial log.
 Disk after the campaigns was approximately 20 GiB free; resource deferral is no longer the blocker.
+
+The user subsequently approved that exact Rust helper patch. Its file SHA-256 is
+`0bac285d3c6b13d0d7cec18675da4ab200359c6ed25340964237cb6f85d15133`.
+GET/HEAD owner bytes must exactly match `private, no-store, no-transform`; PUT must exactly match
+`no-store`; unknown methods fail explicitly. Every other header/status/body/storage/integrity
+assertion remains unchanged. Independent read-only review found no actionable finding.
+`cargo xtask verify rust` passes format, workspace lint and workspace tests (1583 passed, zero
+failed, 300 ignored); this is separate from the real PostgreSQL evidence.
+
+A third `cargo xtask verify postgres` run passes **all 242 Rust PostgreSQL cases**, including
+all 21 audio-intake cases and the three previously failing reads. The overall gate still reports
+**FAIL**: the first real-socket audio recovery probe stops at the unchanged
+`scripts/test_postgres.py:593` cache assertion before the restart cycle. The script still expects
+plain `no-store` for private byte reads. Its SHA-256 matches fetched develop:
+`28396e37f6bb338ade95d7d467eee3f5cc11df3c1949c03aa13872b9e1874ef1`.
+The same Python helper also checks a read-access 303 redirect, whose expected policy correctly
+remains plain `no-store`; replacing every expectation with the private-byte policy is incorrect.
+Full output is retained as `postgres-approved-cache-helper.log`; affected Rust checks are in
+`rust-approved-cache-helper.log`. The runner stopped its own hosts and disposable cluster.
+
+The remaining Python correction is outside the approved Rust patch and is not applied. A
+read-only audit covers the gate's remaining cache oracles before proposing the complete bounded
+test-only change. Existing 200/206/416 byte-read assertions must keep the exact private policy,
+while redirects, JSON, PUT and early-authentication expectations retain their appropriate policy.
+No remaining socket/range/restart acceptance is inferred from passing in-process cases.
+Disk remains approximately 19 GiB free; no SDK/tool was installed or old evidence/cache deleted.
 
 Independent source inspection still finds only the Android `.demo` app, whose unconditional
 sandbox dependency and mock composition root predate this PR. There is no production host or
@@ -211,11 +237,12 @@ The exact Kotlin/Native 2.2.20 and official Android preview CLI prerequisites re
   accept Studio layout rendering or device behavior.
 - **Verification owner (unassigned):** the initial approximately 3 GiB resource deferral has
   been cleared by the user's cleanup and the resumed campaign above. The PostgreSQL gate now
-  has three actual pre-existing audio-helper test failures after the approved migration assertion
-  correction passed. Its restart phases remain `NOT_RUN`. Approve the separate bounded helper
-  repair, then rerun `cargo xtask verify postgres` on a new disposable cluster. No successful
-  unchanged heavy gate needs repetition. No gate is relaxed or remote CI substituted;
-  assignment is required before accepting the remaining backend integration scope.
+  passes all 242 in-process PostgreSQL cases after both approved Rust test repairs, but still
+  fails at the inherited Python socket cache oracle. Range/restart phases beyond that probe
+  remain `NOT_RUN`. Audit the complete remaining same-contract helper scope, obtain separate
+  approval for the bounded Python test-only change, then rerun `cargo xtask verify postgres`
+  on a new disposable cluster. No successful unchanged heavy gate needs repetition. No gate is
+  relaxed or remote CI substituted; assignment is required before accepting the remaining scope.
 
 No schema/migration, Script IR/API DTO, publication/cache/audio revision, rights/approval policy
 or provider cost changes. No new persistence, path provider, SQLite engine, filesystem or HTTP

@@ -1438,7 +1438,12 @@ async fn owner_audio_request(
         .unwrap();
     let status = response.status();
     let headers = response.headers().clone();
-    assert_eq!(headers["cache-control"], "no-store");
+    let expected_cache_control = match method {
+        "GET" | "HEAD" => "private, no-store, no-transform",
+        "PUT" => "no-store",
+        _ => panic!("unexpected owner audio test method: {method}"),
+    };
+    assert_eq!(headers["cache-control"], expected_cache_control);
     assert_eq!(headers["x-content-type-options"], "nosniff");
     let bytes = response
         .into_body()
