@@ -164,3 +164,33 @@ body { margin: 0; }
 .studio-shell .live-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
 .studio-shell .live-list small { display: block; color: inherit; }
 .studio-shell #workspace-content pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Work delegation (ADR 0028): Low-Medium intensity. The one-time secret is the only warning surface. */
+.studio-shell .delegation-panel > p { max-inline-size: 70ch; }
+.studio-shell .delegation-panel .live-status, .studio-shell .delegation-grant { background: var(--cantos-color-surface); }
+.studio-shell .delegation-panel .live-status { margin-block: var(--cantos-space-md); }
+.studio-shell .delegation-panel h4 { margin-block: var(--cantos-space-lg) var(--cantos-space-sm); }
+.studio-shell .delegation-panel [tabindex="-1"]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.studio-shell .delegation-problems { margin: 0; padding-inline-start: var(--cantos-space-lg); }
+.studio-shell .delegation-problems:empty { display: none; }
+.studio-shell :is(.delegation-reveal, .delegation-unrecoverable) { margin-block: var(--cantos-space-md); }
+.studio-shell .delegation-notice { min-inline-size: 0; padding: var(--cantos-space-inset); border-radius: var(--cantos-web-shape-reading); background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); overflow-wrap: anywhere; }
+.studio-shell .delegation-state { display: inline-flex; align-items: center; padding: var(--cantos-space-xs) var(--cantos-space-sm); border-radius: var(--cantos-web-shape-reading); font-size: var(--cantos-type-metadata-size); }
+.studio-shell .delegation-state[data-tone="success"] { background: var(--cantos-color-success-container); color: var(--cantos-color-success); }
+.studio-shell .delegation-state[data-tone="warning"] { background: var(--cantos-color-warning-container); color: var(--cantos-color-warning); }
+.studio-shell .delegation-state[data-tone="neutral"] { background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); }
+.studio-shell :is(.delegation-reveal, .delegation-unrecoverable) h4 { margin-block-start: 0; }
+/* Overrides the editor-sized `.studio-shell textarea` minimum; three rows fit a 320px token. */
+.studio-shell .delegation-token { min-height: 0; inline-size: 100%; resize: none; font-family: ui-monospace, monospace; word-break: break-all; overflow-wrap: anywhere; color: var(--cantos-color-on-surface); background: var(--cantos-color-surface); }
+.studio-shell .delegation-actions { display: grid; gap: var(--cantos-space-xs); min-inline-size: 0; margin: var(--cantos-space-md) 0; padding: 0; border: 0; }
+.studio-shell .delegation-inputs { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.studio-shell .delegation-actions legend { padding: 0; }
+.studio-shell .delegation-grants { display: grid; gap: var(--cantos-space-sm); margin: 0; padding: 0; list-style: none; }
+.studio-shell .delegation-grant { min-inline-size: 0; padding: var(--cantos-space-md); border-radius: var(--cantos-web-shape-reading); }
+.studio-shell .delegation-grant-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cantos-space-sm); }
+.studio-shell .delegation-grant-heading h5 { margin: 0; font-size: var(--cantos-type-title-size); overflow-wrap: anywhere; }
+.studio-shell .delegation-grant-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-xs) var(--cantos-space-md); margin: var(--cantos-space-sm) 0; padding: 0; list-style: none; }
+.studio-shell .delegation-grant code { font-size: var(--cantos-type-metadata-size); overflow-wrap: anywhere; }
+.studio-shell .delegation-grant-times { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--cantos-space-xs) var(--cantos-space-md); margin: 0 0 var(--cantos-space-sm); }
+.studio-shell .delegation-grant-times dt { font-size: var(--cantos-type-metadata-size); color: var(--cantos-color-on-surface-variant); }
+.studio-shell .delegation-grant-times dd { margin: 0; overflow-wrap: anywhere; }

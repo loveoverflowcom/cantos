@@ -30,8 +30,9 @@ The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
 owner selected central opaque grants for a first Catalog slice
 ([ADR 0028](../decisions/0028-work-scoped-delegation.md), [contract](../../packages/contracts/delegation-v1.md),
 [evidence](../evidence/work-scoped-delegation-implementation.md)). It does not replace producer
-grants. Next, in order: Studio Web grant management UI, the Quint capability for the accepted
-contract, then one bounded review per further action. None reorders the backend dependencies below.
+grants. The Studio Web owner panel for listing, issuing and revoking grants is implemented
+([evidence](../evidence/work-scoped-delegation-studio-ui.md)). Next, in order: the Quint
+capability for the accepted contract, then one bounded review per further action. None reorders the backend dependencies below.
 
 1. **Catalog / editorial identity:** work types `novel | story | podcast`, stable
    chapter/episode records, optional manuscript text or Script IR, ownership and rights.

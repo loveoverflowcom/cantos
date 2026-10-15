@@ -247,6 +247,31 @@ UI, but new Catalog binding controls, work archive/reorder controls and Brief re
 management/export are separate UI follow-ups. This slice completes no broader #51/#64/#66
 acceptance. [Capability matrix](../../../docs/work-plan/live-client-api-matrix.md).
 
+## Work delegation (owner only)
+
+A selected Work in **Content & audio** shows **Ủy quyền theo tác phẩm** when the signed-in actor
+is its `owner_id`; members see a short explanation and no request is sent. The panel calls only
+the [delegation v1](../../../packages/contracts/delegation-v1.md) owner routes, built from the
+shared `routes::STUDIO_WORK_DELEGATIONS`/`STUDIO_WORK_DELEGATION` templates with the Studio cookie,
+session fence and Origin: it pages grants by `after` (20 per page), issues a grant for a
+registered delegate actor with any of `work:read`, `content:read`, `content:write` and a 1/7/14/30
+day lifetime, and revokes after a native confirmation dialog. The browser decides no admission
+rule: `422` issues (`invalid_actor`, `self_delegation`, `unavailable_actor`, `empty`,
+`duplicate_action`, `invalid_expiry`) become field errors, and `403` hides the controls.
+
+The `cantos_dlg_…` secret from a `201` is shown once in a read-only field with an explicit copy
+action (clipboard, or a selected field when the clipboard is unavailable) and a warning that it
+cannot be shown again. It lives only in memory: no storage, URL, log, `Debug` or JSON dump; it is
+dropped on dismissal, revocation, Work or actor change and whenever the session stops
+confirming its owner (the shell then hides private workspaces); a visible secret arms the unload
+prompt. A lost response keeps the exact operation for **Retry**; a `200` replay returns
+`token: null`, so the panel explains that the secret is unrecoverable and offers to revoke and
+reissue. An unresolved write keeps the Work selected until it is retried or explicitly abandoned
+(the list is then reloaded, because every grant, including one created by the abandoned
+attempt, is listed). Grant status text never relies on color; "expired" compares the server's
+`expires_at` with the device clock for display only. Evidence:
+[Studio delegation UI](../../../docs/evidence/work-scoped-delegation-studio-ui.md).
+
 ## Protobuf pilot build and rollback
 
 The four revision/validation routes have a typed Protobuf transport configured by the

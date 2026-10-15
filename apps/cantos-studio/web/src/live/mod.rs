@@ -1,4 +1,4 @@
-//! Typed live Catalog/Content/Brief/private-audio client boundary.
+//! Typed live Catalog/Content/Brief/private-audio/delegation client boundary.
 mod command;
 mod state;
 pub use command::*;
@@ -18,3 +18,5 @@ pub use consent::ReviewConsent;
 
 mod facts;
 pub use facts::Facts;
+
+pub mod delegation;

@@ -11,23 +11,24 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::AbortController;
 
+/// One request authority per panel: session fence, deadline, abort and exact retry.
 #[derive(Clone, Copy)]
-struct Dispatch {
-    state: RwSignal<RequestState>,
-    session_pending: Signal<bool>,
-    abort: StoredValue<Option<AbortController>, LocalStorage>,
-    complete: Callback<(Command, Result<Reply, ClientError>)>,
-    api: crate::api::StudioHttp,
+pub(super) struct Dispatch {
+    pub(super) state: RwSignal<RequestState>,
+    pub(super) session_pending: Signal<bool>,
+    pub(super) abort: StoredValue<Option<AbortController>, LocalStorage>,
+    pub(super) complete: Callback<(Command, Result<Reply, ClientError>)>,
+    pub(super) api: crate::api::StudioHttp,
 }
 impl Dispatch {
-    fn abort(self) {
+    pub(super) fn abort(self) {
         self.abort.update_value(|controller| {
             if let Some(c) = controller.take() {
                 c.abort();
             }
         });
     }
-    fn cancel(self) {
+    pub(super) fn cancel(self) {
         self.abort();
         self.state.update(|s| {
             if let Some(next) = s.cancel() {
@@ -35,7 +36,7 @@ impl Dispatch {
             }
         });
     }
-    fn send(self, command: Command) {
+    pub(super) fn send(self, command: Command) {
         let Some((sending, ticket)) = self
             .state
             .get_untracked()
@@ -53,7 +54,7 @@ impl Dispatch {
             self.run(sending, ticket, command);
         }
     }
-    fn retry(self) {
+    pub(super) fn retry(self) {
         if self.session_pending.get_untracked() {
             return;
         }
@@ -120,14 +121,14 @@ impl Dispatch {
     fn input_error(self) {
         self.state.update(|s| *s = s.input_failed());
     }
-    fn build(self, result: Result<Command, ClientError>) {
+    pub(super) fn build(self, result: Result<Command, ClientError>) {
         match result {
             Ok(command) => self.send(command),
             Err(_) => self.input_error(),
         }
     }
 }
-fn uuid() -> Result<String, ClientError> {
+pub(super) fn uuid() -> Result<String, ClientError> {
     crate::view::operation_id().map_err(|_| ClientError::Transport)
 }
 fn refs(value: String) -> Vec<String> {
@@ -250,6 +251,7 @@ pub fn ContentWorkspace(
         })
     });
     let abort = StoredValue::new_local(None::<AbortController>);
+    let delegation_unresolved = RwSignal::new(false);
     let dispatch = Dispatch {
         state,
         session_pending,
@@ -301,6 +303,9 @@ pub fn ContentWorkspace(
                 }
             });
             if actor_changed {
+                // Reset child activity while the Work controls are still mounted, before the
+                // selected-Work Show disposes them and their local reactive signals.
+                delegation_unresolved.set(false);
                 facts.set(Facts::default());
                 file_busy.set(false);
                 file_error.set(false);
@@ -349,7 +354,11 @@ pub fn ContentWorkspace(
         }
     });
     Effect::new(move |_| {
-        activity.set(file_busy.get() || state.with(|s| s.phase() == Phase::Pending))
+        activity.set(
+            file_busy.get()
+                || delegation_unresolved.get()
+                || state.with(|s| s.phase() == Phase::Pending),
+        )
     });
     on_cleanup(move || {
         dispatch.abort();
@@ -359,6 +368,7 @@ pub fn ContentWorkspace(
         session_pending.get()
             || actor.get().is_empty()
             || file_busy.get()
+            || delegation_unresolved.get()
             || state.with(|s| s.phase() == Phase::Pending || s.pending().is_some())
     });
     let pick_work = Callback::new(move |id: String| {
@@ -462,6 +472,8 @@ pub fn ContentWorkspace(
                 <ActionButton id="live-create-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:unit_title.get_untracked(),description:description.get_untracked(),source:None,script:None,content_digest:None}}})})()))>{move ||text(Key::CreateUnit,english.get())}</ActionButton>
             </details>
         </Show>
+        <super::delegation::panel::DelegationPanel actor=actor work=Signal::derive(move || facts.with(|f| f.work.clone())) english=english
+            session_pending=session_pending unresolved=delegation_unresolved dirty=dirty/>
         <Show when=move ||facts.with(|f|f.unit.is_some())>
             <h3>{move ||facts.with(|f|f.unit.as_ref().map(|u|format!("{} · r{}",u.details.title,u.revision)).unwrap_or_default())}</h3><p><code>{move ||facts.with(Facts::unit_id)}</code></p>
             <ActionButton id="live-patch-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id,request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:u.revision,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})()))>{move ||text(Key::SaveMetadata,english.get())}</ActionButton>

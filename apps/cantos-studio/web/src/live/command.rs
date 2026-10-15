@@ -1,4 +1,5 @@
 //! Concrete route plans reuse the server's raw DTOs. No domain policy is decided here.
+use super::delegation::IssuedGrant;
 use cantos_contracts::*;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -209,6 +210,19 @@ pub enum Command {
         credential: UploadCredential,
         bytes: Arc<Vec<u8>>,
     },
+    /// Owner-only Work delegation (ADR 0028), on the Studio cookie session.
+    Delegations {
+        work: String,
+        after: Option<String>,
+    },
+    IssueDelegation {
+        work: String,
+        request: IssueDelegationRequest,
+    },
+    RevokeDelegation {
+        work: String,
+        grant: String,
+    },
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reply {
@@ -225,6 +239,9 @@ pub enum Reply {
     Review(AudioReviewDocument),
     Candidate(ReleaseCandidateResponse),
     Revoked,
+    Delegations(DelegationGrantPage),
+    /// The show-once secret is redacted from Debug; see `IssuedGrant`.
+    DelegationIssued(Box<IssuedGrant>),
 }
 impl Command {
     pub fn path(&self) -> Result<String, ClientError> {
@@ -308,12 +325,32 @@ impl Command {
                     id(submission)?
                 )
             }
+            Self::Delegations { work, after } => {
+                let after = match after {
+                    None => String::new(),
+                    Some(grant) => format!("&after={}", id(grant)?),
+                };
+                format!(
+                    "{}?limit={}{after}",
+                    routes::STUDIO_WORK_DELEGATIONS.replace("{work_id}", id(work)?),
+                    super::delegation::PAGE_LIMIT
+                )
+            }
+            Self::IssueDelegation { work, .. } => {
+                routes::STUDIO_WORK_DELEGATIONS.replace("{work_id}", id(work)?)
+            }
+            Self::RevokeDelegation { work, grant } => routes::STUDIO_WORK_DELEGATION
+                .replace("{work_id}", id(work)?)
+                .replace("{grant_id}", id(grant)?),
         })
     }
     pub fn method(&self) -> &'static str {
         match self {
             Self::PatchWork { .. } | Self::PatchUnit { .. } => "PATCH",
-            Self::ArchiveWork { .. } | Self::ArchiveUnit { .. } | Self::Revoke { .. } => "DELETE",
+            Self::ArchiveWork { .. }
+            | Self::ArchiveUnit { .. }
+            | Self::Revoke { .. }
+            | Self::RevokeDelegation { .. } => "DELETE",
             Self::Upload { .. } => "PUT",
             Self::CreateWork(_)
             | Self::CreateUnit { .. }
@@ -322,9 +359,14 @@ impl Command {
             | Self::CreateBrief { .. }
             | Self::Prepare { .. }
             | Self::Review { .. }
-            | Self::Candidate { .. } => "POST",
+            | Self::Candidate { .. }
+            | Self::IssueDelegation { .. } => "POST",
             _ => "GET",
         }
+    }
+    /// A successful revocation is exactly `204 No Content`, without a JSON body.
+    pub fn expects_no_content(&self) -> bool {
+        matches!(self, Self::Revoke { .. } | Self::RevokeDelegation { .. })
     }
     pub fn is_write(&self) -> bool {
         self.method() != "GET"
@@ -354,11 +396,12 @@ impl Command {
             Self::Prepare { request, .. } => encode(request),
             Self::Review { request, .. } => encode(request),
             Self::Candidate { request, .. } => encode(request),
+            Self::IssueDelegation { request, .. } => encode(request),
             _ => Ok(None),
         }
     }
     pub fn decode(&self, status: u16, body: &[u8]) -> Result<Reply, ClientError> {
-        if matches!(self, Self::Revoke { .. }) && (200..300).contains(&status) {
+        if self.expects_no_content() && (200..300).contains(&status) {
             return if status == 204 {
                 Ok(Reply::Revoked)
             } else {
@@ -398,7 +441,12 @@ impl Command {
             Self::Candidate { .. } | Self::CandidateRead { .. } => {
                 Reply::Candidate(parse(body, status)?)
             }
-            Self::Revoke { .. } => Reply::Revoked,
+            Self::Revoke { .. } | Self::RevokeDelegation { .. } => Reply::Revoked,
+            Self::Delegations { .. } => Reply::Delegations(parse(body, status)?),
+            Self::IssueDelegation { .. } => Reply::DelegationIssued(Box::new(
+                IssuedGrant::admit(status, parse(body, status)?)
+                    .ok_or(ClientError::Protocol { status })?,
+            )),
         };
         self.check_reply(&reply)
             .map_err(|_| ClientError::Protocol { status })?;
@@ -470,7 +518,14 @@ impl Command {
                 unit, candidate, ..
             } => matches!(reply, Reply::Candidate(result)
                 if result.candidate.binding.unit_id == *unit && result.candidate.id == *candidate),
-            Self::Revoke { .. } => matches!(reply, Reply::Revoked),
+            Self::Revoke { .. } | Self::RevokeDelegation { .. } => matches!(reply, Reply::Revoked),
+            Self::Delegations { work, .. } => matches!(reply, Reply::Delegations(page)
+                if page.items.iter().all(|grant| grant.work_id == *work)
+                    && page.next_after.as_deref().is_none_or(crate::adaptation::is_run_id)),
+            Self::IssueDelegation { work, request } => {
+                matches!(reply, Reply::DelegationIssued(issued)
+                if issued.answers(work, request))
+            }
         };
         if matches {
             Ok(())
@@ -533,6 +588,10 @@ impl Reply {
             (Command::Review { .. }, Self::Review(reply)) => reply.reviewer_id == actor,
             (Command::Candidate { .. }, Self::Candidate(reply)) => {
                 reply.candidate.created_by == actor
+            }
+            // The grantor is always the authenticated owner, never a request field.
+            (Command::IssueDelegation { .. }, Self::DelegationIssued(issued)) => {
+                issued.grant.grantor_id == actor
             }
             // Reads and editor mutations may legitimately return another owner's record.
             _ => true,

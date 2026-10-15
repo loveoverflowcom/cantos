@@ -204,6 +204,7 @@ impl RequestState {
             Some(Reply::Works(page)) => page.items.is_empty(),
             Some(Reply::Units(page)) => page.items.is_empty(),
             Some(Reply::History(history)) => history.revisions.is_empty(),
+            Some(Reply::Delegations(page)) => page.items.is_empty(),
             _ => false,
         }
     }
@@ -246,6 +247,37 @@ impl RequestState {
         Self {
             exchange,
             ..self.clone()
+        }
+    }
+    /// Drop an acknowledged reply, for example one that carried a show-once secret, so no
+    /// copy outlives its dismissal. Any other exchange is left unchanged.
+    pub fn forget_result(&self) -> Option<Self> {
+        match self.exchange {
+            Exchange::Ready(_) => Some(Self {
+                generation: self.generation.checked_add(1)?,
+                exchange: Exchange::Idle,
+                ..self.clone()
+            }),
+            Exchange::Idle
+            | Exchange::Pending { .. }
+            | Exchange::Failed(_)
+            | Exchange::Ambiguous { .. } => None,
+        }
+    }
+    /// Explicitly stop tracking an unresolved write without claiming success or failure. Only
+    /// callers whose server state stays observable another way may offer this (a delegation
+    /// list shows every grant, including one created by the abandoned attempt).
+    pub fn abandon(&self) -> Option<Self> {
+        match self.exchange {
+            Exchange::Ambiguous { .. } => Some(Self {
+                generation: self.generation.checked_add(1)?,
+                exchange: Exchange::Idle,
+                ..self.clone()
+            }),
+            Exchange::Idle
+            | Exchange::Pending { .. }
+            | Exchange::Ready(_)
+            | Exchange::Failed(_) => None,
         }
     }
     pub fn cancel(&self) -> Option<Self> {

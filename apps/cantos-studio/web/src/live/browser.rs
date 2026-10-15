@@ -93,7 +93,7 @@ pub async fn execute(
         return Err(ClientError::SessionChanged);
     }
     let status = response.status();
-    if status == 204 && matches!(command, Command::Revoke { .. }) {
+    if status == 204 && command.expects_no_content() {
         return Ok(Reply::Revoked);
     }
     // A successful status with a proxy/HTML/malformed body never acknowledges a mutation.
