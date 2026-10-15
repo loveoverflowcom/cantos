@@ -130,35 +130,39 @@ class DemoLayoutTest {
     }
 
     @Test
-    fun account_space_stacks_profile_status_sign_in_and_settings_above_the_shell() {
-        val events = mutableListOf<DemoEvent>()
-        runDesktopComposeUiTest(width = 390, height = 844) {
+    fun account_space_stacks_profile_membership_and_settings_above_the_shell() {
+        // Tall enough for every card at once: boundsInRoot is clipped to the scroll viewport.
+        runDesktopComposeUiTest(width = 390, height = 1500) {
             setContent {
-                Box(Modifier.requiredSize(390.dp, 844.dp)) {
-                    CantosDemoPresentation(DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)),
-                        DemoCatalogView(DemoFixtures.works), { events += it })
+                Box(Modifier.requiredSize(390.dp, 1500.dp)) {
+                    CantosDemoApp(initialState = DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)))
                 }
             }
             val title = onNodeWithTag("header-title").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val profile = onNodeWithTag("account-profile").fetchSemanticsNode().boundsInRoot
             val avatar = onNodeWithTag("account-avatar").fetchSemanticsNode().boundsInRoot
-            val preview = onNodeWithTag("account-preview").fetchSemanticsNode().boundsInRoot
             val signIn = onNodeWithTag("sign-in").fetchSemanticsNode().boundsInRoot
-            val settings = onNodeWithTag("settings").assertIsDisplayed()
+            val membership = onNodeWithTag("account-membership").fetchSemanticsNode().boundsInRoot
+            val group = onNodeWithTag("account-settings-group").fetchSemanticsNode().boundsInRoot
+            assertEquals(64f * density.density, avatar.width)
+            assertEquals(avatar.width, avatar.height)
+            assertTrue(title.bottom <= profile.top)
+            // Without an identity capability the profile card offers the one disabled action.
+            assertTrue(profile.top <= avatar.top && avatar.bottom <= signIn.top)
+            assertTrue(signIn.bottom <= profile.bottom)
+            assertTrue(profile.bottom <= membership.top)
+            assertTrue(membership.bottom <= group.top)
+            onNodeWithTag("account").assertDoesNotExist()
+            // The shell stays below the scrolling account content.
+            val settings = onNodeWithTag("settings").performScrollTo().assertIsDisplayed()
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
                 .fetchSemanticsNode().boundsInRoot
             val mini = onNodeWithTag("mini-player").fetchSemanticsNode().boundsInRoot
             val tabs = onNodeWithTag("nav-library").fetchSemanticsNode().boundsInRoot
-            assertEquals(64f * density.density, avatar.width)
-            assertEquals(avatar.width, avatar.height)
-            assertTrue(title.bottom <= avatar.top)
-            assertTrue(avatar.bottom <= preview.top)
-            assertTrue(preview.bottom <= signIn.top)
-            assertTrue(signIn.bottom <= settings.top)
             assertTrue(settings.bottom <= mini.top)
             assertTrue(mini.bottom <= tabs.top)
-            onNodeWithTag("account").assertDoesNotExist()
             onNodeWithTag("settings").performClick()
-            assertEquals<List<DemoEvent>>(listOf(DemoEvent.Navigate(DemoRoute.Settings)), events)
+            onNodeWithTag("setting-Theme").assertIsDisplayed()
         }
     }
 
@@ -167,8 +171,7 @@ class DemoLayoutTest {
         runDesktopComposeUiTest(width = 320, height = 568) {
             setContent {
                 Box(Modifier.requiredSize(320.dp, 568.dp)) {
-                    CantosDemoPresentation(DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)),
-                        DemoCatalogView(DemoFixtures.works), {}, textScale = 2f)
+                    CantosDemoApp(initialState = DemoState(stack = listOf(DemoRoute.Library, DemoRoute.Account)), textScale = 2f)
                 }
             }
             onNodeWithTag("settings").performScrollTo().assertIsDisplayed()

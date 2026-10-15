@@ -23,7 +23,8 @@ class CantosDemoApplication : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val container: AppContainer by lazy {
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        AppContainer.mock(scope).also {
+        // The optional identity owner is observed, not owned, by the container: closing one never closes the other.
+        AppContainer.mock(scope, account = nativeIdentity).also {
             it.preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light)
         }
     }

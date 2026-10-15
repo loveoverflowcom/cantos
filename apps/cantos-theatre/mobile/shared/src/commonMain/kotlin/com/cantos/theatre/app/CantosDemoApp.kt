@@ -2,6 +2,9 @@ package com.cantos.theatre.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -12,6 +15,10 @@ import com.cantos.theatre.adapters.mock.toDemoView
 import com.cantos.theatre.adapters.mock.toDemoWorkId
 import com.cantos.theatre.application.catalog.CatalogState
 import com.cantos.theatre.application.catalog.CatalogStatus
+import com.cantos.theatre.application.identity.AccountView
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.toAccountView
+import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.application.listening.ListeningFailure
 import com.cantos.theatre.application.listening.ListeningState
 import com.cantos.theatre.application.preferences.PreferencesState
@@ -35,6 +42,12 @@ import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
+import com.cantos.theatre.features.auth.presentation.AccountContent
+import com.cantos.theatre.features.auth.presentation.AuthHeader
+import com.cantos.theatre.features.auth.presentation.AuthIntent
+import com.cantos.theatre.features.auth.presentation.LoginScreen
+import com.cantos.theatre.features.auth.presentation.RegisterScreen
+import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.shell.presentation.CantosDemoPresentation
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
@@ -52,13 +65,15 @@ fun CantosDemoApp(
     appSession: DemoAppSession? = null,
     density: com.cantos.ui.Density = com.cantos.ui.Density.Comfortable,
     motionPreference: com.cantos.ui.MotionPreference = com.cantos.ui.MotionPreference.Reduced,
+    // Only for the default container; an injected one already carries its own (or no) identity.
+    account: NativeAccountController? = null,
 ) {
     require(appSession == null || appContainer == null || appSession.container === appContainer) {
         "An injected app session and app container must share the same owner"
     }
     val parentScope = rememberCoroutineScope()
-    val binding = remember(initialState, appContainer, appSession) {
-        AppCompositionBinding(appSession?.container ?: appContainer ?: AppContainer.mock(parentScope, initialState),
+    val binding = remember(initialState, appContainer, appSession, account) {
+        AppCompositionBinding(appSession?.container ?: appContainer ?: AppContainer.mock(parentScope, initialState, account = account),
             ownsContainer = appContainer == null && appSession == null)
     }
     val container = binding.container
@@ -76,7 +91,36 @@ fun CantosDemoApp(
     val projection = projectDemoState(
         navigation, catalog, listening, playback, preferences, ui.query, ui.libraryTab, ui.timer, session.seed,
     )
+    val accountView = container.accountState.collectAsState().value.toAccountView()
+    // A private draft or receipt must not outlive the account that made it (logout, expiry, switch);
+    // a guest draft survives signing in, so Membership -> Login -> success resumes the same intent.
+    val signedIn = accountView == AccountView.SignedIn
+    var wasSignedIn by remember(container) { mutableStateOf(signedIn) }
+    LaunchedEffect(signedIn) {
+        if (wasSignedIn && !signedIn) session.membership(MembershipEvent.ClearSession)
+        wasSignedIn = signedIn
+    }
+    // Feedback for an explicit restore that found nothing; it belongs to the Login entry only.
+    var nothingSaved by remember(container) { mutableStateOf(false) }
+    LaunchedEffect(navigation.route) { nothingSaved = false }
     val dispatch: (DemoEvent) -> Unit = session::dispatch
+    // Every account intent is an explicit listener action; the container and owner decide the outcome.
+    val onAuth: (AuthIntent) -> Unit = { intent ->
+        when (intent) {
+            AuthIntent.BeginLogin -> container.beginLogin()
+            AuthIntent.CancelLogin -> container.cancelLogin()
+            AuthIntent.RestoreSession -> nothingSaved = container.restoreSession() == RestoreOutcome.NothingSaved
+            AuthIntent.RetryCleanup, AuthIntent.Logout -> container.logout()
+            AuthIntent.OpenLogin -> container.openLogin()
+            AuthIntent.OpenRegister -> container.openRegister()
+            AuthIntent.OpenHome -> dispatch(DemoEvent.Navigate(DemoRoute.Discovery))
+            AuthIntent.OpenLibrary -> dispatch(DemoEvent.Navigate(DemoRoute.Library))
+            AuthIntent.OpenMembership -> dispatch(DemoEvent.Navigate(DemoRoute.MembershipPreview))
+            AuthIntent.OpenSettings -> dispatch(DemoEvent.Navigate(DemoRoute.Settings))
+            AuthIntent.ToggleTheme -> dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark))
+            AuthIntent.Back -> dispatch(DemoEvent.Back)
+        }
+    }
     CantosDemoPresentation(
         projection, catalog.lastKnownInventory.toDemoView(), dispatch, modifier, textScale, onThemeChanged, backHandler,
         membershipContent = {
@@ -89,6 +133,16 @@ fun CantosDemoApp(
                 onToggleTheme = { dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark)) })
         },
         membershipScreen = ui.membership.screen,
+        accountContent = { loginFocus ->
+            AccountContent(projection.locale, projection.theme, accountView, onAuth, loginFocus)
+        },
+        authContent = {
+            if (projection.route == DemoRoute.Register) RegisterScreen(projection.locale, onAuth)
+            else LoginScreen(projection.locale, accountView, nothingSaved, onAuth)
+        },
+        authHeader = {
+            AuthHeader(projection.locale, projection.theme, authReturnFor(projection.stack), onAuth)
+        },
         density = density,
         motionPreference = motionPreference,
     )
@@ -119,6 +173,8 @@ fun projectDemoState(
             TheatreRoute.Library -> DemoRoute.Library
             TheatreRoute.Account -> DemoRoute.Account
             TheatreRoute.MembershipPreview -> DemoRoute.MembershipPreview
+            TheatreRoute.Login -> DemoRoute.Login
+            TheatreRoute.Register -> DemoRoute.Register
             TheatreRoute.History -> DemoRoute.History
             TheatreRoute.Settings -> DemoRoute.Settings
             TheatreRoute.Queue -> DemoRoute.Queue

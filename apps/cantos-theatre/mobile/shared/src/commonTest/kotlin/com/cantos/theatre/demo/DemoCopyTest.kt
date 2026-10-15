@@ -77,7 +77,8 @@ class DemoCopyTest {
         assertEquals("Tài khoản", vietnamese.text(CopyKey.Account))
         assertEquals("Không gian của bạn", vietnamese.text(CopyKey.AccountSpace))
         assertEquals("Your space", english.text(CopyKey.AccountSpace))
-        assertEquals("Chưa hỗ trợ trong bản xem thử.", vietnamese.text(CopyKey.SignInUnavailable))
+        assertEquals("Đăng nhập", vietnamese.text(CopyKey.SignIn))
+        assertEquals("Tạo tài khoản", vietnamese.text(CopyKey.CreateAccount))
         assertEquals(
             "Tập 3 · Người giữ tiếng chuông",
             vietnamese.text(CopyKey.EpisodeLabel, "index" to "3", "title" to title),

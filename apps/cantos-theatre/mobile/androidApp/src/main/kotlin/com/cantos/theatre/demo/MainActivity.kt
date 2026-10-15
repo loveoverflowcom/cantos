@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.cantos.theatre.app.CantosDemoApp
-import com.cantos.theatre.app.NativeIdentityApp
 import com.cantos.theatre.adapters.identity.parseAndroidCallback
 import com.cantos.ui.generated.CantosTokens
 import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
@@ -25,14 +24,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         updateSystemBars(dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
         deliverNativeCallback(intent)
-        val host = application as CantosDemoApplication
-        val native = host.nativeIdentity
-        val container = if (native == null) host.container else null
+        // One guest shell. The process-owned container already carries the optional account
+        // owner, so identity never replaces Home and system Back means the same everywhere.
+        val container = (application as CantosDemoApplication).container
         setContent {
             // Both local constructors have completed. Remote identity/catalog work belongs
             // to the destination and cannot turn this back into an opening presentation.
             CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
-                if (native != null) NativeIdentityApp(native) else CantosDemoApp(
+                CantosDemoApp(
                     appContainer = container,
                     onThemeChanged = ::updateSystemBars,
                     backHandler = { enabled, onBack ->

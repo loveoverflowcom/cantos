@@ -58,11 +58,16 @@ class DemoAppSession(
         if (closed) return
         onEvent(event)
         when (event) {
-            is DemoEvent.Navigate -> {
-                if (container.navigation.value.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
-                    membership(MembershipEvent.OpenIntro)
+            is DemoEvent.Navigate -> when (event.route) {
+                // Auth opens only through the container's guarded intents, never as a bare route.
+                DemoRoute.Login -> container.openLogin()
+                DemoRoute.Register -> container.openRegister()
+                else -> {
+                    if (container.navigation.value.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
+                        membership(MembershipEvent.OpenIntro)
+                    }
+                    container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
                 }
-                container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
             }
             DemoEvent.Back -> {
                 val current = mutableUi.value.membership
@@ -71,7 +76,7 @@ class DemoAppSession(
                     membership(MembershipEvent.Back)
                 } else {
                     if (container.navigation.value.route == TheatreRoute.MembershipPreview) membership(MembershipEvent.OpenIntro)
-                    container.navigate(NavigationEvent.Back)
+                    container.back()
                 }
             }
             DemoEvent.Reset -> if (resetSelected != null) resetSelected.invoke() else {

@@ -187,6 +187,8 @@ private fun routeId(route: DemoRoute): String = when (route) {
     DemoRoute.Settings -> "Settings"
     DemoRoute.Account -> "Account"
     DemoRoute.MembershipPreview -> "MembershipPreview"
+    DemoRoute.Login -> "Login"
+    DemoRoute.Register -> "Register"
     DemoRoute.History -> "History"
     DemoRoute.Queue -> "Queue"
     DemoRoute.Player -> "Player"
@@ -201,6 +203,8 @@ private fun decodeRoute(id: String): DemoRoute = when (id) {
     "Settings" -> DemoRoute.Settings
     "Account" -> DemoRoute.Account
     "MembershipPreview" -> DemoRoute.MembershipPreview
+    "Login" -> DemoRoute.Login
+    "Register" -> DemoRoute.Register
     "History" -> DemoRoute.History
     "Queue" -> DemoRoute.Queue
     "Player" -> DemoRoute.Player

@@ -48,9 +48,12 @@ be the exact HTTPS `/oauth2/openid/cantos-theatre-native` issuer, and the callba
 `com.cantos.theatre:/oauth2/callback`. This repository supplies no live values, OAuth registration,
 credentials or TLS override. The user authorized the previously held Android INTERNET,
 callback-filter and Application/MainActivity source changes on 14 October 2026. Those changes
-are now mounted: one process owner, `singleTask` callback delivery and an opt-in identity screen
-when both validated configuration keys are present. Missing or invalid configuration keeps the
-memory-only mock. No live origins are supplied in the manifest, and no app was installed or OS
+are now mounted: one process owner, `singleTask` callback delivery and the optional account
+boundary when both validated configuration keys are present. That boundary is no longer a separate
+screen: it is composed into the [guest shell](#guest-first-account-and-auth) (the #130 change edits
+only `MainActivity`'s composition and the Application's container wiring, not the manifest, callback
+filter or callback delivery). Missing or invalid configuration keeps the guest-only mock with Sign in
+disabled and explained. No live origins are supplied in the manifest, and no app was installed or OS
 network/TLS setting changed by this source integration.
 
 The cleanup controller retains the exact exchanged credential even when OS persistence fails
@@ -90,16 +93,55 @@ own terminal readiness/recovery and native OS motion preference before enabling 
 The first diagnostic frame initializes the existing preferences owner from system appearance;
 subsequent mounts retain the same owner. Official logo curves are converted into local vector
 resources from the issue's supplied kit, with [provenance and evidence](../../../docs/evidence/theatre-cmp-launch.md).
-No shared wrapper is newly qualified. Shared Logo Kit/component admission (#127), configured
-identity's guest-shell composition (#130) and release/sandbox isolation (#122) remain separate
-acceptance work. This launcher change does not complete production mobile or those issues.
+No shared wrapper is newly qualified. Shared Logo Kit/component admission (#127) and
+release/sandbox isolation (#122) remain separate acceptance work; the identity guest-shell
+composition (#130) is the [guest-first account slice](#guest-first-account-and-auth) below.
+This launcher change does not complete production mobile or those issues.
+
+## Guest-first account and auth
+
+[Issue #130](https://github.com/loveoverflowcom/cantos/issues/130) composes Auth–Account design
+v2 into the one guest shell; the [evidence record](../../../docs/evidence/theatre-cmp-auth-account.md)
+holds the matrix, provenance and acceptance gaps. The app still opens on Discovery. Account is an
+optional avatar entry and Login is a separate explicit intent, never a wall, so
+`NativeIdentityApp` no longer replaces Home when identity is configured: the Android Application
+passes its process-owned `NativeAccountController` into `AppContainer`, which only observes it and
+never closes it. `AccountView` is the immutable projection (no actor, session, expiry, name or page
+count); a missing identity capability is `Unavailable`, a guest shell and not a failure.
+
+- **Navigation** is the existing pure reducer plus `Login`/`Register`: a closed `Login[, Register]`
+  suffix, never the root, whose return destination is the typed stack below it. `OpenLogin`,
+  `OpenRegister` and `AuthCompleted` are idempotent; a completion that arrives after Back or any
+  other destination is inert, and navigating elsewhere dismisses auth first.
+- **Lifecycle** stays in `NativeAccountController`. `AppContainer.back()` cancels a pending login
+  before popping, so a late callback is fenced; `beginLogin()` is accepted only on the open Login
+  route in a resting guest state (a double tap or pending flow cannot restart it) and
+  `openLogin()` is refused for a signed-in listener. Provider cancellation leaves Login and its
+  failure visible, and the browser is reopened only by a new explicit tap. Restore remains an
+  explicit action that says when the device holds nothing. Logout hides the projection first; a failed
+  cleanup keeps Login disabled with a retry. A Membership draft is cleared only when a signed-in
+  account ends, so Membership → Login → success resumes the guest's draft.
+- **Presentation** (`features/auth`): Login uses the vertical **Đăng nhập với Cantos ID** primary and
+  **Tạo tài khoản Cantos** tonal actions from the #127 auth variants, with no tabs, legal links or
+  consent, and no password field. Native only opens the system browser with PKCE. Registration is an
+  explained **unavailable** step because no supported Cantos ID sign-up entry is verified; it never
+  collects an email or password or shows success. Guest and signed-in Account use the Profile,
+  Membership and AccountGroup surfaces; signed-in shows no invented name, total, conflict or
+  entitlement. Auth hides the tab bar and mini-player; the header gives priority to Back and the theme
+  toggle and shows the logo only in leftover space. Back (visible, Android system and JVM Escape) is one
+  intent; scroll positions are kept per stack entry and Back from auth restores focus to Sign in or
+  the avatar.
+- Still unrun: Android system-browser/callback/Keystore flows, iOS compilation and ASWebAuthenticationSession
+  (the pinned Kotlin/Native compiler is absent), TalkBack/VoiceOver, IME, font scale on a device and the
+  live provider. The #35 two primary destinations remain; Account is not a third tab.
 
 ## Screens and behavior
 
 - Two primary destinations: **Khám phá / Của tôi**. Search belongs to Discovery;
-  the avatar opens a secondary **Không gian của bạn** screen: guest profile, a preview notice that
-  saved works and positions last only for this session, a disabled sign-in with its reason, and a
-  row into the listening settings. Nothing there claims durable storage or sync.
+  the avatar opens a secondary **Không gian của bạn** screen: a guest profile with vertical Sign in
+  and Create account actions (a single disabled Sign in with its reason when no identity is
+  configured), a Membership card and the listening settings. The shell's session-only library
+  and positions are not an account library and sync is not claimed.
 - Của tôi displays **Nghe tiếp, Đã lưu and Lịch sử** directly, without library tabs.
   History has a secondary full list and confirmed clear action; clearing it preserves
   listening positions, saved works, bookmarks and the player.

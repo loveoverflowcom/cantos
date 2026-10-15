@@ -25,6 +25,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -329,10 +330,13 @@ class DemoInteractionTest {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { DemoTestRoot() }
             onNodeWithTag("account").performClick()
+            // No identity boundary is configured here: both actions say why they are unavailable.
             onNodeWithTag("sign-in").performScrollTo().assertIsNotEnabled()
-            onNodeWithText("Chưa hỗ trợ trong bản xem thử.").assertExists()
+            // Registration is part of the same absent capability, so the reason is stated once.
+            onNodeWithTag("create-account").assertDoesNotExist()
+            onAllNodesWithText("Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai.").assertCountEquals(1)
             onNodeWithText("Người nghe khách").assertExists()
-            onNodeWithText("Truyện đã lưu và điểm nghe chỉ được giữ trong phiên này.").assertExists()
+            onNodeWithText("Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình.").assertExists()
             onNodeWithTag("header-title").assertTextEquals("Không gian của bạn")
             onNodeWithText("Tài khoản").assertDoesNotExist()
             onNodeWithTag("mini-open").assert(hasText("12:48"))

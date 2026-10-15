@@ -1,0 +1,129 @@
+package com.cantos.theatre.features.auth.presentation
+
+import com.cantos.theatre.application.identity.NativeAccountFailure
+import com.cantos.theatre.demo.DemoLocale
+
+internal class AuthCopy(private val locale: DemoLocale) {
+    fun text(key: AuthText): String = if (locale == DemoLocale.English) key.en else key.vi
+
+    fun failure(reason: NativeAccountFailure): String = text(when (reason) {
+        NativeAccountFailure.Configuration -> AuthText.FailureConfiguration
+        NativeAccountFailure.Entropy -> AuthText.FailureEntropy
+        NativeAccountFailure.Login -> AuthText.FailureLogin
+        NativeAccountFailure.Storage -> AuthText.FailureStorage
+        NativeAccountFailure.Cleanup -> AuthText.FailureCleanup
+        NativeAccountFailure.Expired -> AuthText.FailureExpired
+        NativeAccountFailure.Api -> AuthText.FailureApi
+        NativeAccountFailure.Protocol -> AuthText.FailureProtocol
+        NativeAccountFailure.Exhausted -> AuthText.FailureExhausted
+    })
+}
+
+/**
+ * Listener-facing resources for the optional account flow. The brand is only **Cantos**.
+ * Nothing here is a name, count or entitlement: those need a real contract before display.
+ */
+internal enum class AuthText(val vi: String, val en: String) {
+    Brand("Cantos", "Cantos"),
+    Back("Quay lại", "Back"),
+    ReturnHome("Về Khám phá", "Back to Discover"),
+    ReturnAccount("Về Tài khoản", "Back to Account"),
+    ReturnMembership("Về Membership", "Back to Membership"),
+    ReturnLogin("Về Đăng nhập", "Back to sign-in"),
+    ToggleTheme("Chuyển giao diện sáng tối", "Switch light and dark theme"),
+
+    LoginEyebrow("CANTOS · MỘT LẦN TRỞ LẠI", "CANTOS · A PLACE TO RETURN"),
+    LoginHeading("Câu chuyện đang đợi bạn.", "Your story is waiting."),
+    LoginHelp(
+        "Đăng nhập để trở lại thư viện của bạn. Nội dung công khai vẫn có thể nghe ngay mà không cần đăng nhập.",
+        "Sign in to return to your library. Public stories are still available without signing in.",
+    ),
+    CantosIdLogin("Đăng nhập với Cantos ID", "Sign in with Cantos ID"),
+    CreateAccount("Tạo tài khoản Cantos", "Create a Cantos account"),
+    ProviderHelp(
+        "Mở bước xác thực an toàn trong trình duyệt hệ thống, rồi quay lại Cantos. Bạn có thể quay lại mà chưa đăng nhập.",
+        "Open secure authentication in the system browser, then return to Cantos. You can go back without signing in.",
+    ),
+    BrandHeading("Nhắm mắt lại. Mở một thế giới.", "Close your eyes. Open a world."),
+    BrandHelp(
+        "Có những câu chuyện chỉ cần lắng nghe. Có những miền tưởng tượng luôn chờ bạn.",
+        "Some stories only ask you to listen. Worlds of imagination are waiting for you.",
+    ),
+    BrandGenres("Truyện · Podcast · Kịch truyền thanh", "Stories · Podcasts · Audio drama"),
+    RestoreSession("Khôi phục phiên đã lưu", "Restore the saved session"),
+    NothingSaved("Thiết bị này chưa lưu phiên nào để khôi phục.", "This device has no saved session to restore."),
+    CancelLogin("Hủy đăng nhập", "Cancel sign-in"),
+    PendingReason("Đang mở Cantos ID. Không gửi yêu cầu lần hai.", "Opening Cantos ID. A second request is not sent."),
+    PendingStatus("Đang xác minh phiên đăng nhập…", "Verifying the sign-in session…"),
+    UnavailableReason(
+        "Đăng nhập chưa khả dụng trên bản này. Bạn vẫn nghe được nội dung công khai.",
+        "Sign-in is not available in this build. Public stories still play.",
+    ),
+    CleanupRequired(
+        "Cần hoàn tất xóa phiên cũ trước khi đăng nhập lại.",
+        "The previous session must be removed before you sign in again.",
+    ),
+    CleanupReason(
+        "Đăng nhập tạm dừng cho đến khi phiên cũ được xóa.",
+        "Sign-in is paused until the previous session is removed.",
+    ),
+    RetryCleanup("Thử xóa phiên lại", "Retry removing the session"),
+
+    FailureConfiguration("Đăng nhập chưa sẵn sàng. Vui lòng thử lại sau.", "Sign-in is not ready. Please try again later."),
+    FailureEntropy("Không thể bắt đầu đăng nhập an toàn. Vui lòng thử lại.", "Secure sign-in could not start. Please try again."),
+    FailureLogin("Đăng nhập đã hủy hoặc hết hạn. Vui lòng thử lại.", "Sign-in was cancelled or expired. Please try again."),
+    FailureStorage("Không thể đọc phiên đã lưu trên thiết bị.", "The saved session on this device could not be read."),
+    FailureCleanup("Cần xóa phiên cũ trước khi đăng nhập lại.", "The previous session must be removed before you sign in again."),
+    FailureExpired("Phiên đã hết hạn. Vui lòng đăng nhập lại.", "The session expired. Please sign in again."),
+    FailureApi("Không thể xác minh phiên qua mạng. Vui lòng thử lại.", "The session could not be verified over the network. Please try again."),
+    FailureProtocol("Không thể xác minh phản hồi đăng nhập an toàn.", "The secure sign-in response could not be verified."),
+    FailureExhausted("Đăng nhập tạm thời không khả dụng. Vui lòng mở lại ứng dụng.", "Sign-in is temporarily unavailable. Please reopen the app."),
+
+    RegisterEyebrow("CANTOS ID · TÀI KHOẢN CỦA BẠN", "CANTOS ID · YOUR ACCOUNT"),
+    RegisterHeading("Một nơi để trở lại.", "A place to return to."),
+    RegisterHelp(
+        "Tài khoản Cantos dùng Cantos ID. Thông tin đăng ký được nhập tại bước xác thực khi dịch vụ hỗ trợ.",
+        "Your Cantos account uses Cantos ID. Registration details belong in the identity service when it supports sign-up.",
+    ),
+    SignupUnavailable(
+        "Tạo tài khoản chưa khả dụng. Cantos ID chưa có đường dẫn đăng ký được xác nhận; Cantos không thu email hoặc mật khẩu tại đây.",
+        "Account creation is unavailable. No supported Cantos ID registration entry has been confirmed; Cantos does not collect email or passwords here.",
+    ),
+    RegisterLater("Để sau, về Khám phá", "Later, back to Discover"),
+
+    GuestBadge("Người nghe khách", "Guest listener"),
+    GuestHeading("Chào người nghe.", "Welcome, listener."),
+    GuestHelp(
+        "Bạn vẫn có thể khám phá và nghe nội dung công khai. Đăng nhập khi muốn mở thư viện của riêng mình.",
+        "You can still explore and play public stories. Sign in when you want to open your own library.",
+    ),
+    SignIn("Đăng nhập", "Sign in"),
+    CreateAccountShort("Tạo tài khoản", "Create an account"),
+    SignedBadge("Đã đăng nhập", "Signed in"),
+    SignedHeading("Chào mừng bạn trở lại.", "Welcome back."),
+    SignedHelp(
+        "Giữ những câu chuyện đã chọn, tìm lại những đoạn kể còn ngân.",
+        "Return to the stories you saved and the passages that stay with you.",
+    ),
+    OpenLibrary("Mở thư viện", "Open my library"),
+    LibraryNote(
+        "Thư viện của bản này vẫn chỉ lưu trong phiên, chưa đồng bộ với tài khoản.",
+        "This build's library is still session-only and is not synced with your account.",
+    ),
+    MembershipBadge("Sắp ra mắt", "Coming soon"),
+    MembershipName("Cantos Membership", "Cantos Membership"),
+    MembershipHeading("Một người nghe. Một người đồng hành.", "A listener. A companion."),
+    MembershipHelp("Tìm hiểu chương trình hội viên khi bạn sẵn sàng.", "Learn about membership whenever you are ready."),
+    MembershipSignedHelp(
+        "Thông tin hội viên hiện chưa khả dụng. Đăng nhập không tự kích hoạt Membership.",
+        "Membership details are currently unavailable. Signing in does not activate Membership.",
+    ),
+    MembershipLearn("Tìm hiểu Membership", "Explore Membership"),
+    Appearance("Giao diện", "Appearance"),
+    AppearanceLight("Đang dùng giao diện sáng", "Using the light appearance"),
+    AppearanceDark("Đang dùng giao diện tối", "Using the dark appearance"),
+    ListeningSettings("Cài đặt nghe", "Listening settings"),
+    ListeningSettingsHint("Tốc độ, hẹn giờ và ngôn ngữ", "Speed, timer and language"),
+    Logout("Đăng xuất", "Sign out"),
+    LogoutHint("Trở về trạng thái người nghe khách", "Return to the guest listener state"),
+}
