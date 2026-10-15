@@ -8,7 +8,7 @@ description: >-
   token-driven CSS/SCSS carrying Material 3 Expressive intent, and scoped browser evidence. Use
   when building, changing or testing Leptos components, routes, signals, resources, actions,
   web-sys code, the Studio script editor, casting or production-progress screens, the Theatre Web
-  player or mini-player, or Web stylesheets.
+  player or mini-player, Web stylesheets, startup/bundle costs, signal scope or cache behavior.
 ---
 
 # Cantos Leptos Web
@@ -77,6 +77,10 @@ the browser renders and drives it, the owner decides what is true.
   [040 (Theatre Web)](../../../docs/work-plan/040-theatre-web-listening.md). Link them; never
   restate a competing copy of a rule.
 - **Distinguish proposed, implemented and verified** in code comments, docs and reports.
+- **Performance needs scoped measurements.** For startup, bundle, cache or reactive-cost work,
+  load [performance and caching](references/performance-and-caching.md): establish route/rendering
+  mode, four cache layers, signal read/lifetime scope, comparable before/after conditions and
+  browser/platform evidence. Build success, smaller bytes and warm HTTP reuse alone prove no speedup.
 
 ## Web non-negotiables
 
@@ -180,6 +184,7 @@ Async races covered:           stale response, duplicate submit, unmount, retry 
 Input methods:                 keyboard, pointer, touch emulation, IME (CDP-simulated | named OS IME)
 Media path:                    none | generated local file | real storage/CDN; range requests seen
 Style review:                  manual token, focus and motion review scope (no gate implemented)
+Performance / cache scope:     changed scenarios; four-layer classification; signal read/lifetime decisions; baseline/delta or unrun measurements; cold/resource-warm/code-cache evidence; adopt/defer/reject
 ```
 
 A skill-only or docs-only edit needs no app run; say that no Web behavior was exercised.
@@ -190,6 +195,7 @@ A skill-only or docs-only edit needs no app run; say that no Web behavior was ex
 |---|---|
 | surfaces, permission contexts, layering, ports in context, core crates in WASM, secrets, shell-owned mini-player, modules, SSR vs CSR | [`web-architecture.md`](references/web-architecture.md) |
 | binary request/response bodies, the codec switch, decoding by `Content-Type`, codec bundle cost | foundation [`wire-codec.md`](../cantos-engineering/references/wire-codec.md) |
+| startup/bundle/interaction cost, cache eligibility, cold/warm/code-cache claims, signal clone/scope cost, rendering/splitting experiments | [`performance-and-caching.md`](references/performance-and-caching.md) |
 | resources, actions, explicit states, stale responses, duplicate submits, retries, optimistic UI, job progress | [`leptos-async.md`](references/leptos-async.md) |
 | Result/Option, typed port failures, exhaustive UI error projection and recovery | foundation [typed errors](../cantos-engineering/references/typed-errors-and-composition.md) + [Web application](references/leptos-async.md#typed-results-and-error-projection) |
 | `web-sys`, listeners and cleanup, focus and dialogs, shortcuts, storage, `HTMLMediaElement`, Media Session, autoplay, ranges, signed URLs | [`dom-and-media-interop.md`](references/dom-and-media-interop.md) |

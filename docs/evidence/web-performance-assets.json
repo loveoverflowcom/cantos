@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "measurement_date": "2026-10-15",
+  "host": {
+    "os": "macOS 26.5.2 (25F84)",
+    "arch": "arm64",
+    "cpu": "Apple M4"
+  },
+  "profile": "existing locked Trunk release; optimization settings unchanged",
+  "baseline_scope": "Preserved output of pre-change cargo xtask build <app> --web --release, then offline inventory primitive; source snapshot was not reconstructed",
+  "browser_metrics": "NOT_RUN",
+  "http_headers_and_delivery": "NOT_RUN",
+  "rows": [
+    {
+      "app": "cantos-theatre",
+      "baseline_revision": "26dee0a78a8e1c53f538d8ff32ffc00d2029fc66",
+      "current_source": {
+        "revision": "26dee0a78a8e1c53f538d8ff32ffc00d2029fc66",
+        "tree": "587fb0f932a4620ca751db09d21e32ff05760ed8",
+        "dirty": true,
+        "input_files": 1543,
+        "input_sha256": "20a9f58e794fb138f054ffafc54d7c569a1a10a08f32425eb7131d07a0d75205"
+      },
+      "compression": {
+        "gzip": "Python gzip level=9 mtime=0",
+        "brotli": {
+          "status": "measured",
+          "quality": 11,
+          "adapter": "cli",
+          "version": "brotli 1.2.0"
+        },
+        "scope": "local whole-file estimates; HTTP compression NOT_RUN"
+      },
+      "tools": {
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+        "trunk": "trunk 0.21.14",
+        "wasm_opt_on_path": null,
+        "python": "3.14.8"
+      },
+      "baseline_totals": {
+        "all-output": {
+          "raw_bytes": 1903386,
+          "gzip_bytes": 756064,
+          "brotli_bytes": 604393,
+          "files": 32
+        },
+        "html-linked": {
+          "raw_bytes": 1606199,
+          "gzip_bytes": 484256,
+          "brotli_bytes": 335655,
+          "files": 6
+        },
+        "css-referenced": {
+          "raw_bytes": 89180,
+          "gzip_bytes": 89292,
+          "brotli_bytes": 89176,
+          "files": 4
+        },
+        "other-output": {
+          "raw_bytes": 208007,
+          "gzip_bytes": 182516,
+          "brotli_bytes": 179562,
+          "files": 22
+        }
+      },
+      "current_totals": {
+        "all-output": {
+          "raw_bytes": 1909120,
+          "gzip_bytes": 757320,
+          "brotli_bytes": 604177,
+          "files": 32
+        },
+        "html-linked": {
+          "raw_bytes": 1611933,
+          "gzip_bytes": 485512,
+          "brotli_bytes": 335439,
+          "files": 6
+        },
+        "css-referenced": {
+          "raw_bytes": 89180,
+          "gzip_bytes": 89292,
+          "brotli_bytes": 89176,
+          "files": 4
+        },
+        "other-output": {
+          "raw_bytes": 208007,
+          "gzip_bytes": 182516,
+          "brotli_bytes": 179562,
+          "files": 22
+        }
+      },
+      "baseline_bundles": [
+        {
+          "path": "cantos-theatre-80915734844186b0.js",
+          "kind": "js",
+          "role": "html-linked",
+          "expected_content_type": "text/javascript",
+          "raw_bytes": 35871,
+          "gzip_bytes": 6846,
+          "brotli_bytes": 5869,
+          "sha256": "57bdb0063308cfac6c0dbdaf14177b0cb6c393f7832756d25e74bfccddf6cb27",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        },
+        {
+          "path": "cantos-theatre-80915734844186b0_bg.wasm",
+          "kind": "wasm",
+          "role": "html-linked",
+          "expected_content_type": "application/wasm",
+          "raw_bytes": 1492689,
+          "gzip_bytes": 463397,
+          "brotli_bytes": 317960,
+          "sha256": "149e205d13cb4ebe53ae0e700837a3fd2d8a9e8aa28f9cb614c0993231ff40e2",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        }
+      ],
+      "current_bundles": [
+        {
+          "path": "cantos-theatre-15cb806f1a70e9cf.js",
+          "kind": "js",
+          "role": "html-linked",
+          "expected_content_type": "text/javascript",
+          "raw_bytes": 35871,
+          "gzip_bytes": 6843,
+          "brotli_bytes": 5866,
+          "sha256": "eb9c8ea8ff00be9605535c12a9263dede35493b61cba93afa6fae5a0b3384c46",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        },
+        {
+          "path": "cantos-theatre-15cb806f1a70e9cf_bg.wasm",
+          "kind": "wasm",
+          "role": "html-linked",
+          "expected_content_type": "application/wasm",
+          "raw_bytes": 1498423,
+          "gzip_bytes": 464654,
+          "brotli_bytes": 317749,
+          "sha256": "79f71886ea05f498e9bb325fef94a81a2cfd44666966acded12ceb1d5b5ea7e6",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        }
+      ],
+      "difference": {
+        "added_urls": [
+          "cantos-theatre-15cb806f1a70e9cf.js",
+          "cantos-theatre-15cb806f1a70e9cf_bg.wasm"
+        ],
+        "removed_urls": [
+          "cantos-theatre-80915734844186b0.js",
+          "cantos-theatre-80915734844186b0_bg.wasm"
+        ],
+        "same_url_changed_bytes": [
+          "index.html"
+        ],
+        "raw_byte_delta": 5734,
+        "deployment_or_rollback_observed": false
+      },
+      "loader_static_observation": [
+        {
+          "path": "cantos-theatre-15cb806f1a70e9cf.js",
+          "instantiate_streaming_call_present": true,
+          "compile_streaming_call_present": false
+        }
+      ]
+    },
+    {
+      "app": "cantos-studio",
+      "baseline_revision": "26dee0a78a8e1c53f538d8ff32ffc00d2029fc66",
+      "current_source": {
+        "revision": "26dee0a78a8e1c53f538d8ff32ffc00d2029fc66",
+        "tree": "587fb0f932a4620ca751db09d21e32ff05760ed8",
+        "dirty": true,
+        "input_files": 1543,
+        "input_sha256": "20a9f58e794fb138f054ffafc54d7c569a1a10a08f32425eb7131d07a0d75205"
+      },
+      "compression": {
+        "gzip": "Python gzip level=9 mtime=0",
+        "brotli": {
+          "status": "measured",
+          "quality": 11,
+          "adapter": "cli",
+          "version": "brotli 1.2.0"
+        },
+        "scope": "local whole-file estimates; HTTP compression NOT_RUN"
+      },
+      "tools": {
+        "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+        "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+        "trunk": "trunk 0.21.14",
+        "wasm_opt_on_path": null,
+        "python": "3.14.8"
+      },
+      "baseline_totals": {
+        "all-output": {
+          "raw_bytes": 4825123,
+          "gzip_bytes": 1441222,
+          "brotli_bytes": 924574,
+          "files": 6
+        },
+        "html-linked": {
+          "raw_bytes": 4825123,
+          "gzip_bytes": 1441222,
+          "brotli_bytes": 924574,
+          "files": 6
+        },
+        "css-referenced": {
+          "raw_bytes": 0,
+          "gzip_bytes": 0,
+          "brotli_bytes": 0,
+          "files": 0
+        },
+        "other-output": {
+          "raw_bytes": 0,
+          "gzip_bytes": 0,
+          "brotli_bytes": 0,
+          "files": 0
+        }
+      },
+      "current_totals": {
+        "all-output": {
+          "raw_bytes": 4825123,
+          "gzip_bytes": 1441222,
+          "brotli_bytes": 924574,
+          "files": 6
+        },
+        "html-linked": {
+          "raw_bytes": 4825123,
+          "gzip_bytes": 1441222,
+          "brotli_bytes": 924574,
+          "files": 6
+        },
+        "css-referenced": {
+          "raw_bytes": 0,
+          "gzip_bytes": 0,
+          "brotli_bytes": 0,
+          "files": 0
+        },
+        "other-output": {
+          "raw_bytes": 0,
+          "gzip_bytes": 0,
+          "brotli_bytes": 0,
+          "files": 0
+        }
+      },
+      "baseline_bundles": [
+        {
+          "path": "cantos-studio-8904c1337924fa52.js",
+          "kind": "js",
+          "role": "html-linked",
+          "expected_content_type": "text/javascript",
+          "raw_bytes": 42961,
+          "gzip_bytes": 7888,
+          "brotli_bytes": 6760,
+          "sha256": "a68ace2d5db3fd12cb49dd1a7f155ef4e480f6de171d5d140df83b070cf52ece",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        },
+        {
+          "path": "cantos-studio-8904c1337924fa52_bg.wasm",
+          "kind": "wasm",
+          "role": "html-linked",
+          "expected_content_type": "application/wasm",
+          "raw_bytes": 4712353,
+          "gzip_bytes": 1420881,
+          "brotli_bytes": 907407,
+          "sha256": "9fb0d35938d97342749548a70f07e1a172d15919b16e608bb7ff15cdadf2236a",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        }
+      ],
+      "current_bundles": [
+        {
+          "path": "cantos-studio-8904c1337924fa52.js",
+          "kind": "js",
+          "role": "html-linked",
+          "expected_content_type": "text/javascript",
+          "raw_bytes": 42961,
+          "gzip_bytes": 7888,
+          "brotli_bytes": 6760,
+          "sha256": "a68ace2d5db3fd12cb49dd1a7f155ef4e480f6de171d5d140df83b070cf52ece",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        },
+        {
+          "path": "cantos-studio-8904c1337924fa52_bg.wasm",
+          "kind": "wasm",
+          "role": "html-linked",
+          "expected_content_type": "application/wasm",
+          "raw_bytes": 4712353,
+          "gzip_bytes": 1420881,
+          "brotli_bytes": 907407,
+          "sha256": "9fb0d35938d97342749548a70f07e1a172d15919b16e608bb7ff15cdadf2236a",
+          "hash_shaped_filename": true,
+          "immutable_cache_eligibility": "NOT_VERIFIED"
+        }
+      ],
+      "difference": {
+        "added_urls": [],
+        "removed_urls": [],
+        "same_url_changed_bytes": [],
+        "raw_byte_delta": 0,
+        "deployment_or_rollback_observed": false
+      },
+      "loader_static_observation": [
+        {
+          "path": "cantos-studio-8904c1337924fa52.js",
+          "instantiate_streaming_call_present": true,
+          "compile_streaming_call_present": false
+        }
+      ]
+    }
+  ]
+}

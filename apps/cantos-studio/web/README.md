@@ -27,11 +27,15 @@ From the repository root:
 rustup target add wasm32-unknown-unknown --toolchain 1.98.1
 cargo xtask build cantos-studio --web   # NO_COLOR=true trunk build --locked in this directory
 cargo xtask verify web                  # WASM clippy plus Trunk builds of Studio and Theatre
+cargo xtask web-performance cantos-studio # release asset hashes and offline compression sizes
 ```
 
 Trunk fetches its matching wasm-bindgen helper on its first build. An offline build requires
 that helper on `PATH` as well as the Cargo cache; the Mac run used
 `~/Library/Caches/dev.trunkrs.trunk/wasm-bindgen-0.2.100`. Generated `dist/` is ignored.
+The [performance audit](../../../docs/evidence/web-performance-patterns.md) records measurement
+limits and deferred editor/SSR/splitting experiments. The inventory does not measure browser
+startup or change the existing private/session cache boundary.
 Serve the built files with the local Axum host, using the [isolated database runner](../../../services/cantos-api/README.md).
 The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0.1:8080`; today
 `cargo xtask run cantos-api --test-cluster` starts that same primitive after

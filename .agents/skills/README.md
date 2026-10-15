@@ -98,6 +98,7 @@ Passing it proves skill hygiene only.
 | catalog/listener APIs, playback state meaning, progress, bookmarks, download entitlement | [`cantos-listening`](cantos-listening/SKILL.md) |
 | visual design, Material 3 Expressive, tokens, typography, motion, accessibility, copy | [`cantos-ui-design`](cantos-ui-design/SKILL.md) |
 | Leptos Studio or Theatre Web, CSS/SCSS, browser behavior | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md) |
+| Web startup/bundle/interaction performance, cache classification, signal scope or SSR/Islands/splitting experiments | [`cantos-leptos-web`](cantos-leptos-web/SKILL.md), then [performance and caching](cantos-leptos-web/references/performance-and-caching.md), composing foundation evidence |
 | Kotlin Compose Multiplatform, Android/iOS playback, downloads, native lifecycle | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md) |
 | emulator-free Compose @Preview, Android CLI/Quail 2+, PNG and exported semantics | [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md), then [Compose preview](cantos-cmp-mobile/references/compose-preview.md); audits compose [`cantos-ui-inspector`](cantos-ui-inspector/SKILL.md) |
 | acquiring a website story through browser capture/extraction/OCR into Drive/local raw folders | [`cantos-story-ingest`](cantos-story-ingest/SKILL.md) |

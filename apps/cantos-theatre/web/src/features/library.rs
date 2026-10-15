@@ -3,11 +3,28 @@ use super::common::*;
 use crate::{
     app::{context::TheatreContext, routes::Route},
     application::account_view::{AccountViewState, LibraryPhase, LibraryProjection},
-    core::{catalog::Episode, ids::EpisodeId, listening::library::Bookmark},
+    core::{
+        catalog::Episode,
+        ids::EpisodeId,
+        listening::{library::Bookmark, progress::ProgressState},
+    },
     messages::{self, Key, Locale},
     platform,
 };
 use leptos::prelude::*;
+
+/// All displays for one row share one borrowed lookup. An unrelated episode's checkpoint
+/// does not invalidate this row's rendered position or accessible labels.
+fn position_projection(progress: ReadSignal<ProgressState>, id: EpisodeId) -> Memo<u32> {
+    Memo::new(move |_| {
+        progress.with(|state| {
+            state
+                .find(id)
+                .map(|progress| progress.snapshot.position_ms())
+                .unwrap_or_default()
+        })
+    })
+}
 
 /// Progress as a value, not a control: the bar carries the same facts as the visible time.
 #[component]
@@ -53,13 +70,7 @@ fn ContinuePanel(ctx: TheatreContext, id: EpisodeId) -> impl IntoView {
     let Some(episode) = ctx.episode(id) else {
         return ().into_any();
     };
-    let position_ms = Signal::derive(move || {
-        ctx.progress
-            .get()
-            .find(id)
-            .map(|progress| progress.snapshot.position_ms())
-            .unwrap_or_default()
-    });
+    let position_ms = position_projection(ctx.progress, id).into();
     view! {
         <div class="theatre-panel theatre-continue">
             <div class="theatre-continue-art"><Cover ctx=ctx id=id.work/></div>
@@ -228,13 +239,7 @@ fn ListeningRow(
     let Some(episode) = ctx.episode(id) else {
         return ().into_any();
     };
-    let position_ms = Signal::derive(move || {
-        ctx.progress
-            .get()
-            .find(id)
-            .map(|progress| progress.snapshot.position_ms())
-            .unwrap_or_default()
-    });
+    let position_ms = position_projection(ctx.progress, id).into();
     view! {
         <li class="theatre-listening-row">
             <div class="theatre-row-art"><Cover ctx=ctx id=id.work/></div>
@@ -537,6 +542,101 @@ mod tests {
             let leaving = view! { <LiveLibrary state locale/> }.to_html();
             assert!(!leaving.contains("Position 0:15"));
             assert!(leaving.contains("Sign in to view"));
+        });
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use crate::core::{
+        ids::WorkId,
+        playback::{ResumeSnapshot, Source, ValidatedResumeSnapshot},
+    };
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    fn checkpoint(index: usize, position_ms: u32) -> ValidatedResumeSnapshot {
+        ValidatedResumeSnapshot::try_from(ResumeSnapshot {
+            source: Source::new(
+                EpisodeId {
+                    work: WorkId::Mountain,
+                    index,
+                },
+                2_000_000,
+            )
+            .unwrap(),
+            position_ms,
+            speed_permille: 1000,
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn unrelated_checkpoints_do_not_recompute_five_row_consumers() {
+        Owner::new().with(|| {
+            let initial = (0..1000).fold(ProgressState::default(), |state, index| {
+                state.remember(checkpoint(index, 0))
+            });
+            let progress = RwSignal::new(initial);
+            let watched = checkpoint(0, 0).source().episode();
+            let baseline = Signal::derive(move || {
+                progress
+                    .get()
+                    .find(watched)
+                    .map(|progress| progress.snapshot.position_ms())
+                    .unwrap_or_default()
+            });
+            let position = position_projection(progress.read_only(), watched);
+            let baseline_reads = Arc::new(AtomicUsize::new(0));
+            let memo_reads = Arc::new(AtomicUsize::new(0));
+            // Model the five position consumers in the row: progress value/style, progress label,
+            // visible time and open-button label. These are native memo demands, not DOM events.
+            let displays = (0..5)
+                .map(|_| {
+                    let baseline_reads = baseline_reads.clone();
+                    let memo_reads = memo_reads.clone();
+                    (
+                        Memo::new(move |_| {
+                            baseline_reads.fetch_add(1, Ordering::Relaxed);
+                            baseline.get()
+                        }),
+                        Memo::new(move |_| {
+                            memo_reads.fetch_add(1, Ordering::Relaxed);
+                            position.get()
+                        }),
+                    )
+                })
+                .collect::<Vec<_>>();
+            let assert_displays = |expected| {
+                for (baseline, memo) in &displays {
+                    assert_eq!(baseline.get(), expected);
+                    assert_eq!(memo.get(), expected);
+                }
+            };
+            assert_displays(0);
+            for tick in 1..=1000 {
+                progress.update(|state| *state = state.remember(checkpoint(999, tick * 1000)));
+                assert_displays(0);
+            }
+            assert_eq!(baseline_reads.load(Ordering::Relaxed), 5005);
+            assert_eq!(memo_reads.load(Ordering::Relaxed), 5);
+            println!(
+                "five row consumer projections / 1000 unrelated checkpoints / 1000 records: broad={} narrow={}",
+                baseline_reads.load(Ordering::Relaxed),
+                memo_reads.load(Ordering::Relaxed)
+            );
+
+            for position_ms in [15_000, 5_000, 2_000_000] {
+                progress.update(|state| *state = state.remember(checkpoint(0, position_ms)));
+                assert_displays(position_ms);
+            }
+            assert_eq!(memo_reads.load(Ordering::Relaxed), 20);
+            progress.set(ProgressState::default());
+            assert_displays(0);
+            assert_eq!(memo_reads.load(Ordering::Relaxed), 25);
         });
     }
 }
