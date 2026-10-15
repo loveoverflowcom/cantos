@@ -23,6 +23,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // Optional stable demo key for tester distribution. Supplied only through Gradle properties
+    // (for example ORG_GRADLE_PROJECT_cantosDemoStoreFile in the environment) from outside Git;
+    // without them the AGP debug keystore signs as before. Production signing is separate.
+    val demoStoreFile = providers.gradleProperty("cantosDemoStoreFile").orNull
+    if (demoStoreFile != null) {
+        signingConfigs.getByName("debug") {
+            storeFile = file(demoStoreFile)
+            storePassword = providers.gradleProperty("cantosDemoStorePassword").get()
+            keyAlias = providers.gradleProperty("cantosDemoKeyAlias").get()
+            keyPassword = providers.gradleProperty("cantosDemoKeyPassword").get()
+        }
+    }
     buildFeatures {
         compose = true
     }

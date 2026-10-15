@@ -2,8 +2,8 @@
 
 This records the implementation boundary and evidence of `cargo xtask distribute firebase` for
 [#184](https://github.com/loveoverflowcom/cantos/issues/184), based on
-`develop@87b49a3` plus this change. **Live acceptance is `NOT_RUN`** (see below): no release was
-uploaded, no tester was notified and no tester device installed the build. The command contract is
+`develop@87b49a3` plus this change. **One live distribution has been run (2026-10-16, see below); the tester-device
+install check is still `NOT_RUN`.** The command contract is
 the [xtask README](../../xtask/README.md#distribute-firebase); the operator steps are in
 [Firebase distribution](../../apps/cantos-theatre/mobile/docs/firebase-distribution.md).
 It distributes the **demo** mock host only. It is not production evidence: production APK/AAB stays
@@ -83,28 +83,36 @@ version). Behavior established from its sources and read-only calls:
   reconstructed from the CLI sources, not captured. They are labeled so in that directory. The
   adapter is fail-closed: a text it does not recognize yields an *unknown* outcome.
 
-## Live acceptance — `NOT_RUN`
+## Live acceptance
 
-Owner: the operator who owns the demo Firebase project and its testers. Prerequisites: a demo
-Firebase project with an Android app registered as `com.cantos.theatre.demo` and onboarded to App
-Distribution; a tester group (or explicit testers) the operator agrees to notify; the Firebase CLI
-logged in or ADC configured; a named Android device. Command:
+Run on 2026-10-16 by the operator's request: a demo Android app `com.cantos.theatre.demo` was
+registered in the operator's Firebase project, a stable demo keystore was generated outside the
+repository (`~/.config/cantos/demo-signing`, mode 0600, never committed) and supplied through the
+opt-in Gradle properties `cantosDemoStoreFile`/`StorePassword`/`KeyAlias`/`KeyPassword`, and
+`CANTOS_FIREBASE_DEMO_CERT_SHA256` pinned its certificate. Command:
 
 ```sh
-cargo xtask distribute firebase cantos-theatre --channel demo \
-  --app-id <demo app id> --groups <group alias>
+cargo xtask distribute firebase cantos-theatre --channel demo --app-id <demo app id> \
+  --testers <operator address> --release-notes-file <file>
 ```
 
-Acceptance: `PASS` on the distribution row, a `receipt.json` with `confirmed` and the console and
-tester links, and a separate record that a tester downloaded, installed and opened the build on the
-named device. A first live run should also replace the reconstructed fixtures with a captured one.
-Until then, Phase A's live acceptance stays pending.
+Result: all nine stages `PASS`; receipt state `confirmed`, release `0.1.0-demo (1)` created and
+distributed; APK SHA-256 `3711febcfe137d11ae1eb1a3bdc282054c8f270448f60923a47ee974a220a94a`,
+signer SHA-256 `f18e09c6592b0ef700e6211df9c275770f4ec06ace09bbe038f6258dd15bd4c2` (the stable demo
+key, matching the pin). The CLI transcript matched the adapter's recognized lines; the signed
+download link was redacted in the saved diagnostics.
+An earlier attempt the same minute failed at the destination lookup with an authentication
+refusal, before any build or upload, and the identical lookup then succeeded; the cause was not
+established (suspected transient credential refresh right after app creation).
+
+Still `NOT_RUN`: a tester downloading, installing and opening the build on a **named** Android
+device. Owner: the operator who received the invitation. Acceptance: the build installs and opens,
+and the device is named in the PR.
 
 ## Residual risk
 
-- Live service behavior, notification fan-out, required IAM roles (the documented App Distribution
-  rights plus read access to the app registration for the destination check) and tester installation
-  are unverified.
+- The operator account (project owner) worked for both the destination read and the upload; minimal
+  IAM roles, notification fan-out to a group and tester installation are unverified.
 - A same-user process could replace the staged read-only file between the final hash and the CLI's
   read; the 0700 run directory and read-only mode narrow this, they do not remove it.
 - The CLI may write `firebase-debug.log` into the private run directory; it is not scrubbed.

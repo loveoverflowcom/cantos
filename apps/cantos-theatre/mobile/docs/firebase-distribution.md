@@ -108,6 +108,19 @@ through the existing Android signing mechanisms and set `CANTOS_FIREBASE_DEMO_CE
 rejects any other certificate. xtask never creates, commits or replaces a key, and the
 certificate fingerprint is recorded in every receipt.
 
+The `androidApp` debug signing config can take an operator-owned keystore from Gradle properties
+only (nothing is read when they are unset). Keep the file and passwords outside the repository and
+export them before running the command:
+
+```sh
+keytool -genkeypair -keystore ~/.config/cantos/demo-signing/cantos-demo.jks -storetype PKCS12 \
+  -alias cantos-demo -keyalg RSA -keysize 2048 -validity 9125
+export ORG_GRADLE_PROJECT_cantosDemoStoreFile=$HOME/.config/cantos/demo-signing/cantos-demo.jks
+export ORG_GRADLE_PROJECT_cantosDemoStorePassword=...   # from your own secret store
+export ORG_GRADLE_PROJECT_cantosDemoKeyAlias=cantos-demo
+export ORG_GRADLE_PROJECT_cantosDemoKeyPassword=...
+```
+
 ## Acceptance checklist (operator run)
 
 Normal tests and `preflight` never perform these. Record the outputs in the PR.
