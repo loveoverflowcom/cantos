@@ -38,10 +38,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Density as DisplayDensity
+import androidx.compose.ui.unit.Dp
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.Announcement
 import com.cantos.ui.Avatar
@@ -96,6 +99,7 @@ import com.cantos.ui.TextArea
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.Theme
+import com.cantos.ui.ThemeMode
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.UiRoot
 import com.cantos.ui.filterComponents
@@ -105,19 +109,35 @@ import com.cantos.ui.generated.PreviewCatalog
 import com.cantos.ui.generated.PreviewComponent
 import com.cantos.ui.generated.TokenValue
 import com.cantos.ui.parseTokenColor
+import com.cantos.ui.resolve
 import com.cantos.ui.resolvePreviewSelection
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 import com.cantos.ui.typeStyle
+import kotlin.math.roundToInt
 
-/** Development-only sample data: never touches Studio, Theatre, a network or playback engine. */
+/**
+ * Development-only sample data: never touches Studio, Theatre, a network or playback engine.
+ *
+ * Appearance is injected: [systemIsDark] is the host's dark-mode fact, supplied by the composition root
+ * that owns the operating-system query. The gallery resolves [ThemeMode.System] against it once and
+ * hands components only the resolved theme.
+ */
 @Composable
 fun PreviewApp(
     initialPreferences: UiPreferences = UiPreferences(),
     initialSection: Int = 0,
-    onWidthPreset: (String) -> Unit = {},
+    /** Supplied only by a host that owns its window and can resize it; elsewhere the width buttons are not shown. */
+    onWidthPreset: ((ViewportPreset) -> Unit)? = null,
+    systemIsDark: Boolean = false,
+    initialThemeMode: ThemeMode = if (initialPreferences.theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
+    initialSpecimenId: String? = null,
 ) {
-    var preferences by remember { mutableStateOf(initialPreferences) }
+    // Read outside UiRoot: the host's own density and font scale, before the preview text multiplier.
+    val host = LocalDensity.current
+    var themeMode by remember { mutableStateOf(initialThemeMode) }
+    var chosen by remember { mutableStateOf(initialPreferences) }
+    val preferences = chosen.copy(theme = themeMode.resolve(systemIsDark))
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
     var selectedId by remember { mutableStateOf("button") }
@@ -125,10 +145,22 @@ fun PreviewApp(
     var event by remember { mutableStateOf("Chưa có thao tác. Các ví dụ chỉ thay đổi dữ liệu tại chỗ.") }
     val components = filterComponents(query, category)
     val selected = resolvePreviewSelection(components, selectedId)
+    // The inventory links back here: reset the filters so the chosen component is actually displayed.
+    val openComponent = { id: String ->
+        selectedId = id
+        query = ""
+        category = null
+        section = 0
+        event = "Opened $id from the design inventory. Registration is not qualification."
+    }
     UiRoot(preferences = preferences) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
+            val viewportWidth = maxWidth
             val viewportHeight = maxHeight
-            val scrollWholePage = maxWidth < tokenDp("breakpoint.expanded") || preferences.textScale > 1f
+            // One window-size decision for every tab: the canonical expanded breakpoint, measured on the window.
+            val expanded = viewportWidth >= tokenDp("breakpoint.expanded")
+            // The theme above composed host x preview: this density's font scale is the effective one.
+            val scrollWholePage = scrollsWholePage(expanded, LocalDensity.current.fontScale)
             val page = if (scrollWholePage) Modifier.verticalScroll(rememberScrollState()) else Modifier.fillMaxSize()
             Column(page.padding(tokenDp("space.lg")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
@@ -140,21 +172,22 @@ fun PreviewApp(
                     }
                     Badge("Implemented · runtime unverified", tone = StatusTone.Warning)
                 }
-                PreviewControls(preferences, { preferences = it }, onWidthPreset)
-                NavTabs(listOf("Components", "Named tokens"), section, { section = it },
+                ViewportProbe(viewportWidth, viewportHeight, host, preferences)
+                PreviewControls(preferences, themeMode, systemIsDark, { themeMode = it }, { chosen = it }, onWidthPreset)
+                NavTabs(listOf("Components", "Named tokens", "Design v3"), section, { section = it },
                     groupName = AccessibleName.of("Khu vực phòng mẫu"))
                 // Keep nested panes bounded when large text makes the outer page scroll.
                 val region = if (scrollWholePage) Modifier.height(viewportHeight) else Modifier.weight(1f)
                 if (section == 1) {
                     TokenCatalog(preferences, region)
+                } else if (section == 2) {
+                    DesignInventoryView(openComponent, region, expanded, scrollWholePage, initialSpecimenId)
                 } else {
-                    BoxWithConstraints(region.fillMaxWidth()) {
-                        val expanded = maxWidth >= tokenDp("breakpoint.expanded")
+                    Box(region.fillMaxWidth()) {
                         if (expanded) {
                             Row(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
-                                // Local master-detail geometry: one third of the medium breakpoint.
                                 ComponentBrowser(query, { query = it }, category, { category = it }, components,
-                                    selected?.id ?: "", { selectedId = it }, Modifier.width(tokenDp("breakpoint.medium") / 3))
+                                    selected?.id ?: "", { selectedId = it }, Modifier.width(PreviewGeometry.masterPane))
                                 ComponentDetail(selected, { event = it }, Modifier.weight(1f).verticalScroll(rememberScrollState()))
                             }
                         } else {
@@ -186,22 +219,49 @@ fun PreviewApp(
     }
 }
 
+/**
+ * Live evidence line: the constraint, the host density and font scale, the preview multiplier and the
+ * effective scale a capture was actually rendered with (the theme composes host × multiplier).
+ */
 @Composable
-private fun PreviewControls(preferences: UiPreferences, onChange: (UiPreferences) -> Unit, onWidthPreset: (String) -> Unit) {
+private fun ViewportProbe(width: Dp, height: Dp, host: DisplayDensity, preferences: UiPreferences) {
+    val effective = LocalDensity.current.fontScale
+    FieldHelp(
+        "Viewport ${width.value.roundToInt()}×${height.value.roundToInt()} dp · ${host.density} px/dp · " +
+            "font scale host ${host.fontScale} × preview ${preferences.textScale} = $effective · fixtures vi-VN",
+    )
+}
+
+@Composable
+private fun PreviewControls(
+    preferences: UiPreferences,
+    mode: ThemeMode,
+    systemIsDark: Boolean,
+    onMode: (ThemeMode) -> Unit,
+    onChange: (UiPreferences) -> Unit,
+    onWidthPreset: ((ViewportPreset) -> Unit)?,
+) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")),
         verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        FilterChip("Light", preferences.theme == Theme.Light, { onChange(preferences.copy(theme = Theme.Light)) })
-        FilterChip("Dark", preferences.theme == Theme.Dark, { onChange(preferences.copy(theme = Theme.Dark)) })
+        ThemeMode.entries.forEach { choice ->
+            FilterChip(choice.name, mode == choice, { onMode(choice) })
+        }
         FilterChip("Compact", preferences.density == Density.Compact, { onChange(preferences.copy(density = Density.Compact)) })
         FilterChip("Comfortable", preferences.density == Density.Comfortable, { onChange(preferences.copy(density = Density.Comfortable)) })
         FilterChip("Reduced motion", preferences.reducedMotion, { onChange(preferences.copy(reducedMotion = it)) })
         listOf(1f, 1.3f, 2f).forEach { scale ->
             FilterChip("Text ${scale}×", preferences.textScale == scale, { onChange(preferences.copy(textScale = scale)) })
         }
-        Button("Narrow", { onWidthPreset("narrow") }, variant = ButtonVariant.Text)
-        Button("Medium", { onWidthPreset("medium") }, variant = ButtonVariant.Text)
-        Button("Wide", { onWidthPreset("wide") }, variant = ButtonVariant.Text)
+        // An inert control would mislead in a host that cannot resize its window (Android previews, test roots).
+        onWidthPreset?.let { resize ->
+            ViewportPreset.entries.forEach { preset ->
+                Button(AccessibleName.of("Set window width to ${preset.label}"), { resize(preset) }, variant = ButtonVariant.Text) {
+                    Text(preset.label)
+                }
+            }
+        }
     }
+    FieldHelp("Theme mode ${mode.name} → ${preferences.theme.tokenName}; host reports ${if (systemIsDark) "dark" else "light"}. Only System follows the host.")
 }
 
 @Composable
@@ -363,7 +423,7 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
                 "comfortable" -> current.copy(density = Density.Comfortable)
                 else -> current
             }
-            UiRoot(modifier.height(tokenDp("breakpoint.medium") / 2).fillMaxWidth(), preferences = nested) {
+            UiRoot(modifier.height(PreviewGeometry.sampleRoot).fillMaxWidth(), preferences = nested) {
                 Container {
                     Stack {
                         Text("Ánh đèn cuối sân khấu", style = MaterialTheme.typography.headlineSmall)
@@ -371,7 +431,7 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
                         Button("Lưu bản nháp", onPress)
                         if (state == "nested-theme") {
                             UiRoot(
-                                Modifier.height(tokenDp("breakpoint.medium") / 4).fillMaxWidth(),
+                                Modifier.height(PreviewGeometry.nestedSampleRoot).fillMaxWidth(),
                                 preferences = nested.copy(theme = Theme.Dark),
                             ) {
                                 Container {
@@ -603,10 +663,10 @@ internal fun ComponentExample(example: PreviewExample, state: String, onEvent: (
             { Surface { Text("Ánh đèn cuối sân khấu · cảnh một") } },
             { Surface(tone = SurfaceTone.Container) { Text("Ngày mai, mình có diễn tiếp không? · cảnh hai") } },
             { Surface { Text("Nguyễn Thị Minh Phương · lời thoại dài có dấu tiếng Việt") } },
-        ), if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier,
+        ), if (state == "narrow") modifier.widthIn(max = PreviewGeometry.narrowSampleMaxWidth) else modifier,
             requestedColumns = when (state) { "one-column", "narrow" -> 1; "three-columns", "wide" -> 3; else -> 2 },
             gap = if (state == "gap-lg") Space.Lg else Space.Md)
-        PreviewExample.Container -> Container(if (state == "narrow") modifier.widthIn(max = tokenDp("breakpoint.medium") / 2) else modifier, width = when (state) {
+        PreviewExample.Container -> Container(if (state == "narrow") modifier.widthIn(max = PreviewGeometry.narrowSampleMaxWidth) else modifier, width = when (state) {
             "wide" -> ContainerWidth.Wide; "fluid" -> ContainerWidth.Fluid; else -> ContainerWidth.Reading
         }, inset = if (state == "inset-none") Space.None else Space.Md) {
             Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? Ánh đèn cuối sân khấu còn sáng; bản nháp này dùng để thử xuống dòng và tăng cỡ chữ.")
@@ -716,7 +776,7 @@ private fun TokenSample(entry: TokenValue) {
             val role = entry.name.split('.').getOrNull(1)
             val editorial = role == "editor" || entry.name == "type.family.editorial"
             val mappedRole = if (role in listOf("body", "title", "headline", "label", "metadata", "editor")) role ?: "body" else "body"
-            Column(Modifier.width(tokenDp("breakpoint.medium") / 3)) {
+            Column(Modifier.width(PreviewGeometry.tokenSampleColumn)) {
                 Text(reading, style = typeStyle(mappedRole, editorial = editorial))
                 FieldHelp("Platform font fallback · ${if (editorial) "serif" else "sans"}")
             }
@@ -727,7 +787,7 @@ private fun TokenSample(entry: TokenValue) {
         )
         entry.name.startsWith("space.") || entry.name.startsWith("size.") -> {
             val amount = tokenDp(entry.name)
-            val bound = tokenDp("space.xl") * 3
+            val bound = PreviewGeometry.tokenBarBound
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 Box(Modifier.width(minOf(amount, bound)).height(tokenDp("space.sm")).background(tokenColor("color.primary")))
                 if (amount > bound) FieldHelp("Sample clipped; value stays exact")

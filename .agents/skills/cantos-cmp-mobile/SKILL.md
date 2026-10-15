@@ -71,9 +71,15 @@ library host with thin `@Preview` wrappers around the actual shared components a
 ui-system-cmp` captures an existing wrapper through Android Studio. The [PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records an actual
 Android build and four inspected captures with asserted static semantics. These
 consumers produce no mobile APK, implement no product mobile app and do not verify Android/iOS device
-behavior. Production qualification remains 0/29. New shared
-components must be declared/tested in both previews and follow
-[preview admission](../cantos-ui-design/references/preview-catalog.md) before real app adoption.
+behavior. Qualification is only what `qualifications` in the
+[preview catalog](../../../packages/ui-system/shared/preview-catalog.json) records and the
+repository gate keeps fresh; every other API is unqualified, and a change to the CMP package
+invalidates those records until they are re-run and re-reviewed. The gallery also holds a
+read-only tab for the [design inventory](../../../packages/ui-system/shared/design-inventory-v3.json):
+proposals are not public APIs. New shared components must be declared/tested in both previews
+and follow [preview admission](../cantos-ui-design/references/preview-catalog.md) before real app
+adoption; appearance, density, font scale and motion reach components as injected values
+([CMP design system](references/cmp-design-system.md#injected-preferences-and-scope)).
 
 | The task | Use |
 |---|---|
@@ -144,6 +150,14 @@ steps. Skipping a step is a decision you state, as the foundation requires.
    record rule → enforcement/test and remaining gaps. For a decomposition, record the before/after
    ownership, dependency and lifetime graph first
    ([cmp-architecture.md § Decomposition record](references/cmp-architecture.md#decomposition-record)).
+   **Look up before writing a control:** search the public APIs, the preview catalog and the
+   [design inventory](../../../packages/ui-system/shared/design-inventory-v3.json) (also the
+   gallery's Design v3 tab) per the [component-first lookup](../cantos-ui-design/references/preview-catalog.md#lookup-before-product-markup),
+   and record the IDs/variants/states reused, or why none fits. Today the Theatre mock's
+   `features/shell/presentation` screens compose their own Material controls over the shared theme
+   and tokens, while Membership already composes the shared Button, TextField, Surface, Badge,
+   BackButton and Logo. Moving a shell control onto a shared composition needs declaration,
+   preview and admission first, and never a copied button, field, card or palette in a feature.
 2. **Choose state and API ownership.** One mutable authority per fact, at its real lifetime:
    process (media session, download queue, outbox), account session, route, composable.
    Durable decisions go to a pure reducer; menu, focus and scroll state stay local. Server-owned
@@ -215,8 +229,12 @@ Build:                  source revision + working-tree state, variant, pinned Ko
 Targets / source sets:  touched and executed (commonMain, androidMain, iosMain, commonTest, …)
 Runner per target:      physical | emulator | simulator | JVM desktop | Robolectric | Studio layout renderer — model/OS or CLI/IDE versions
 UI-test renderer:       per Compose UI suite
-Display:                dp × dp, density, fontScale or Dynamic Type size, orientation,
+Display:                dp × dp (the real constraint, never inferred from PNG pixels), density,
+                        fontScale or Dynamic Type size, orientation, theme mode and resolved
                         theme, locale, reduced motion, screen reader on/off
+Component lookup:       catalog/inventory IDs, variants and states reused or extended; the
+                        missing-kind rationale; scenario IDs; qualification or blocker
+Capture record:         JVM sidecar path and png_sha256 | official capture.json (per renderer)
 Media fixture:          publication id, format, live or fake delivery
 Tests:                  selected / executed / skipped, per target
 Native gates:           selected / executed / blocked (reason)

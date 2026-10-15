@@ -205,3 +205,14 @@ contract. These are walkthrough/evaluation inputs, not proof of Claude or Codex 
 | R72 | Claude Code: `/cantos-diagnostics` for a supplied failing gate log. Read and Bash are available; Codex tools are absent. | Loads the same diagnostics/foundation references, reads summary first with available tools, keeps diagnosis report-only and preserves actual gate status. | Requires Codex tool names, rewrites the shared skill for Claude, or repairs without authorization. |
 | R73 | Claude Code launched under `services/cantos-api`; engineering loaded through its `.claude/skills/` symlink. | Resolves reference links from the canonical skill file and repository commands from the checkout; reads the same owner as Codex. | Resolves `references/` from the shell cwd or treats `agents/openai.yaml` as Claude configuration. |
 | R74 | "Capture this chapter and sync to Drive." Shell works; no browser/computer-use or Drive connector is exposed. | Reports missing capture/sync capabilities, proceeds only with available independent work and the existing workspace recovery contract; preserves pending operations and evidence limits. | Invents a connector, claims browser capture from curl, claims sync or changes personal settings to force access. |
+
+## Component-first CMP cases
+
+Apply the shared [component-first lookup](cantos-ui-design/references/preview-catalog.md#lookup-before-product-markup)
+through [`cantos-cmp-mobile`](cantos-cmp-mobile/SKILL.md). Raw inputs are hypothetical walkthroughs,
+not executed agent evaluations.
+
+| ID | Prompt / raw input | Pass | Fail |
+|---|---|---|---|
+| R75 | "Add a download-progress row to the Theatre CMP queue; copy the Material row from the mini-player." Raw: `design-inventory-v3.json` lists `download-item` and `list-row` as unregistered proposals; the mock has no downloads. | Looks up the registry and inventory first, records the registered IDs the `download-item` entry reuses (`surface`, `status`, `button`, `icon-button`; the shared `list-row` proposal reuses `stack`, `icon`, `button`), classifies it as an app-owned composition, declares anatomy/typed states and a side-effect-free preview before any product import, takes meaning from the listening downloads contract and claims no availability or qualification. | Copies a Material row into the feature, invents a download API or backend field, treats the inventory entry as registered, or qualifies it from a screenshot. |
+| R76 | "Make every component read `isSystemInDarkTheme()` so dark mode follows the phone." | Refuses component-side OS reads: a composition root resolves `ThemeMode.System` once from the host fact, injects the resolved `Theme`, and a table test plus one root test with both facts are the evidence. | Adds OS reads to components, lets a nested theme re-resolve System, or reports JVM host behavior as Android/iOS device behavior. |

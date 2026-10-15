@@ -1,5 +1,6 @@
 package com.cantos.ui.preview
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -8,19 +9,14 @@ import androidx.compose.ui.window.rememberWindowState
 import com.cantos.ui.generated.CantosTokens
 
 fun main() = application {
-    val medium = CantosTokens.number("breakpoint.medium").toFloat().dp
-    val expanded = CantosTokens.number("breakpoint.expanded").toFloat().dp
-    val gap = CantosTokens.number("space.lg").toFloat().dp
-    // Desktop window geometry only. All semantic visual values still resolve shared tokens.
-    val window = rememberWindowState(width = expanded + medium / 2, height = expanded)
+    // Desktop window geometry (dp) only: the default width is the Wide preset and the height reuses the
+    // expanded breakpoint value. All semantic visual values still resolve shared tokens.
+    val windowHeight = CantosTokens.number("breakpoint.expanded").toFloat().dp
+    val window = rememberWindowState(width = ViewportPreset.Wide.widthDp.dp, height = windowHeight)
     Window(onCloseRequest = ::exitApplication, state = window, title = "Cantos UI System · CMP") {
-        PreviewApp { preset ->
-            val width = when (preset) {
-                "narrow" -> medium / 2 + gap * 3
-                "medium" -> medium
-                else -> expanded + medium / 2
-            }
-            window.size = DpSize(width, window.size.height)
-        }
+        // This host is the composition root: it owns the operating-system query and injects the fact.
+        PreviewApp(systemIsDark = isSystemInDarkTheme(), onWidthPreset = { preset ->
+            window.size = DpSize(preset.widthDp.dp, window.size.height)
+        })
     }
 }

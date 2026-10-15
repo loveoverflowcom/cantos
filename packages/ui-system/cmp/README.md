@@ -10,8 +10,9 @@ navigation shell, downloads, audio session or playback adapter.
 
 Every shared declaration in [`preview-catalog.json`](../shared/preview-catalog.json) must have
 one real native example or an explicit unsupported explanation. The common package exposes
-30 wrappers with the same component names as Leptos. Close/retry labels, accessible names and
-visible content come from the caller. Caller-owned values and callbacks remain
+one wrapper per registered API (32 at present) with the same component names as Leptos.
+Close/retry labels, accessible names and visible content come from the caller. Caller-owned
+values and callbacks remain
 separate from rendering. Disabled/loading actions require a nonblank visible reason;
 read-only text stays selectable and does not dispatch edits. Native choice controls have no
 read-only mode.
@@ -91,17 +92,56 @@ remains incomplete. All qualifications stay unapproved before app adoption.
 
 - Search and component-family filtering; one selected component and its registered state list
 - Real button, icon-action, field, choice, selection, slider, tab and dialog callbacks
-- Light/dark and compact/comfortable profiles, 1×/1.3×/2× text-scale probes, width presets
+- Light/dark/System and compact/comfortable profiles, 1×/1.3×/2× text-scale probes and named dp
+  viewport constraints (320, 390, 600, 840, 1140)
+- A read-only Design v3 tab: every design specimen with its design status, ownership scope, owner,
+  platforms, reused registered components, anatomy and state matrix (see below)
+- A live evidence line with the viewport constraint (dp), host density (px per dp), host font scale
+  × preview multiplier = effective font scale, and the fixture locale
 - Named token catalog with color swatches, raw values, aliases, density and reduced-motion overrides
 - Official Apache-2.0 Material Outlined SVG paths mapped to decorative Compose vectors
 - Vietnamese fixtures such as `Người dẫn chuyện`, `Ánh đèn cuối sân khấu`,
   `Nguyễn Thị Minh Phương`, `Ỗ, Ữ` and `Ngày mai, mình có diễn tiếp không?`
 - An event log that changes only local preview state; no preview action sends a network request
 
-Expanded windows use a master/detail layout; narrower windows use a component selector and a
-scrollable detail area. Large-text/narrow modes make the page scroll rather than clipping tools.
-Nested scroll panes receive bounded height. The navigation rail and desktop-window dimensions
-are renderer-local geometry derived from named breakpoints, not new token definitions.
+Expanded windows (the window width reaches the canonical expanded breakpoint) use a master/detail
+layout; narrower windows use a component selector and a scrollable detail area. Large-text/narrow
+modes make the page scroll rather than clipping tools. Nested scroll panes receive bounded height.
+Preview-local geometry (master pane, nested sample roots, narrow-sample cap, token bar bound) is
+declared once in `PreviewGeometry` with its unit (dp), scope and reason; it is derived from
+canonical breakpoints and is not a token definition. Shared components read tokens only.
+
+## Design v3 discovery, injected appearance and capture records
+
+The [design inventory](../shared/design-inventory-v3.json) maps all 102 specimens of the offline
+v3 design export onto the one preview registry: 32 existing ones are the registered APIs with
+their baseline states, and 70 proposals are not public APIs. `scripts/ui_preview_catalog.py`
+generates `preview/generated/DesignInventory.kt` from it (display data only; `PreviewCatalog`
+stays the runtime registry, and the Theatre mock's build already excludes
+`com/cantos/ui/preview/**`, so no product app ships the inventory). The gallery's **Design v3**
+tab searches and filters that data by design status, ownership scope and CMP applicability and
+shows each specimen's reason, consumer, reused registered components (a link opens the real
+example), anatomy, canonical token roles and the design's state matrix verbatim. A proposal has
+no sample and offers nothing to adopt; Studio and Admin specimens state that they are Web-only.
+Design status, registration and qualification stay separate facts.
+
+Appearance is injected. `ThemeMode { Light, Dark, System }.resolve(systemIsDark)` is pure; the
+desktop host (`Main.kt`) and the three Android Studio Design v3 previews are the composition roots
+that read the OS once and pass the fact to `PreviewApp(systemIsDark = …)`. Components, nested themes
+and `UiPreferences` only see the resolved `Theme`. `ViewportPreset` names the dp constraints used
+for evidence (320 small, 390 typical, 600 medium, 840 expanded, 1140 wide); they are layout
+constraints, not device models. The gallery prints the actual constraint, host density, the host
+font scale times the preview multiplier (and their product) and the fixture locale in its header, so
+a capture states what it was rendered with.
+
+`PreviewCaptureTest` writes a JSON sidecar (`cantos-ui-capture-v1`) beside each PNG in
+`CANTOS_UI_PREVIEW_CAPTURE_DIR` (default `build/reports/cantos-preview`): scenario, specimen,
+theme mode and resolved theme, density, preview text multiplier, dp viewport, bitmap pixels, host
+density and host font scale (`host_font_scale` is the host value; the effective scale is that times
+the preview multiplier), token version, `tokens.json` byte digest, `CANTOS_SOURCE_REVISION` (or
+`unrecorded`) and the PNG SHA-256. It always names its renderer `jvm-desktop-compose-test-root` and lists what it
+is **not** evidence of: Android/iOS devices, an OS window, a screen reader or a design-pixel match.
+Open the PNG before calling it `screenshot-inspected`.
 
 ## One token source
 
