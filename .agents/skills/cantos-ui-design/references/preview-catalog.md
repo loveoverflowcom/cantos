@@ -55,6 +55,14 @@ Keep these steps in the evidence record:
    reduced-motion observations when affected. Open the new artifacts and record the recheck
    for each finding. Diagnostics do not fill shared admission or product-flow evidence.
 
+CMP motion samples use the same discipline without a gallery control: the recipe ID is the
+scenario ID, and the recipe (inputs plus observation marks at virtual times) is replayed on a manual
+clock owned by the test, never by production UI ([motion.md § 7](motion.md#7-replay-recipes-on-a-virtual-clock)).
+The CMP gallery has no replay, pause, seek-to-frame or restart controls yet; the scenario
+workbench owns adding them, so do not describe CMP motion evidence as workbench replay. A sample
+exists only where a real transition does (today the Auth action press and the Theatre launch
+entrance); a planned sheet, dialog or mini ↔ full sample stays `planned` until its consumer exists.
+
 Keep recipe schema, available component states, presets and fallback details in the package
 contract linked above. Recipes contain public fixture identifiers and bounded presentation
 preferences only; never put tokens, signed URLs, private manuscripts or media in links. Use

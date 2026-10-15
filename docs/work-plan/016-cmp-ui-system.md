@@ -158,6 +158,27 @@ adoption:
 4. Per-component two-renderer admission for any new shared primitive, with the Leptos side owned
    by the Web issues.
 
+## Motion and gesture slice (issue 145)
+
+[Issue 145](https://github.com/loveoverflowcom/cantos/issues/145) adds one injected motion policy
+to the CMP package: a pure intent × property × preference mapping fed by the canonical
+`motion.*` tokens, a test-owned virtual-clock replay, and the two consumers that exist today (the
+Auth action press and the Theatre launch entrance). Its [evidence record](../evidence/issue145-cmp-motion-policy.md)
+labels what the JVM replay does and does not show. It changes no token, registry or product
+default, and it adds no mini ↔ full player, sheet, drag or Android/iOS adapter.
+
+Recommended order for the rest of the issue; each step needs a concrete consumer or a target:
+
+1. Android and iOS reduce-motion adapters at the composition roots, with `android-runtime` and
+   `ios-runtime` observations of Full and Reduced and a reversal recording. A `UiPreferences`
+   toggle never stands in for the OS signal.
+2. The first transition or drag consumer (play/pause morph, mini ↔ full, sheet) declares its
+   preview scenario and named gesture values with units before product use; the Theatre mock has
+   none today.
+3. Motion timeline controls (replay, pause, seek-to-frame, restart) join the scenario workbench
+   of #144 rather than a second gallery; the replay recipe model is the seam.
+4. Generate the Leptos mapping from the same token source when the Web has a real motion consumer.
+
 ## Commands and risks
 
 Use pinned toolchains and `cargo xtask verify repository`, applicable Rust/contracts/Web checks,

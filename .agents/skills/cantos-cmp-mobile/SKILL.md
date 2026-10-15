@@ -43,6 +43,11 @@ and never infer client/device acceptance from model simulation.
   `UNSUPPORTED`. The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
+- Motion today: the pure `MotionPolicy.kt` (intent × property × preference, token-fed) in the
+  shared CMP package, adopted by the Auth action press and the Theatre launch entrance and replayed
+  on a manual clock in tests. There is no mini ↔ full player, sheet, dialog, drag or seek-thumb
+  consumer, and no Android/iOS reduce-motion adapter; the pinned Material3 1.8.2 has no
+  `MotionScheme`. Method and labels: [motion.md](../cantos-ui-design/references/motion.md).
 - Discover commands from the [mock guide](../../../apps/cantos-theatre/mobile/README.md#local-commands)
   and [xtask](../../../xtask/README.md#theatre-demo). `theatre-demo verify` runs common/desktop
   tests, Android build makes a mock APK and iOS build only links a simulator framework.

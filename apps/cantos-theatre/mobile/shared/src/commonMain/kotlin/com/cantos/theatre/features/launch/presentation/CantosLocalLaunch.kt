@@ -1,8 +1,6 @@
 package com.cantos.theatre.features.launch.presentation
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,9 +42,14 @@ import com.cantos.theatre.resources.splash_status
 import com.cantos.theatre.resources.splash_tagline
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.LocalUiPreferences
+import com.cantos.ui.MotionIntent
+import com.cantos.ui.MotionProperty
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
-import com.cantos.ui.generated.CantosTokens
+import com.cantos.ui.animateWith
+import com.cantos.ui.entranceStart
+import com.cantos.ui.rememberMotionSpec
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -76,15 +79,19 @@ fun CantosLocalLaunch(
 private fun CantosSplashPresentation(modifier: Modifier) {
     val preferences = LocalUiPreferences.current
     val dark = preferences.theme == Theme.Dark
-    val entrance = remember { Animatable(if (preferences.reducedMotion) 1f else 0f) }
-    LaunchedEffect(preferences.reducedMotion) {
-        if (preferences.reducedMotion) entrance.snapTo(1f) else entrance.animateTo(
-            1f,
-            tween(CantosTokens.number("motion.emphasis.duration").toInt(), easing = CubicBezierEasing(.2f, 0f, 0f, 1f)),
-        )
+    // Opacity is an effect and never overshoots; travel, scale and rotation are spatial. Each has its own spec.
+    val effectsSpec = rememberMotionSpec(MotionIntent.Emphasis, MotionProperty.Effects)
+    val spatialSpec = rememberMotionSpec(MotionIntent.Emphasis, MotionProperty.Spatial)
+    // An Instant spec starts at its final value, so Reduced motion draws the final frame at once,
+    // before any coroutine can run.
+    val effects = remember { Animatable(effectsSpec.entranceStart()) }
+    val spatial = remember { Animatable(spatialSpec.entranceStart()) }
+    LaunchedEffect(effectsSpec, spatialSpec) {
+        launch { effects.animateWith(1f, effectsSpec) }
+        launch { spatial.animateWith(1f, spatialSpec) }
     }
-    // Reduced motion projects the final frame immediately, before any coroutine can run.
-    val progress = if (preferences.reducedMotion) 1f else entrance.value
+    val effectsProgress = effects.value
+    val spatialProgress = spatial.value
     val status = stringResource(Res.string.splash_status)
     val tagline = stringResource(Res.string.splash_tagline)
     val category = stringResource(Res.string.splash_category)
@@ -106,15 +113,15 @@ private fun CantosSplashPresentation(modifier: Modifier) {
         val taglineSize = if (compact) 16.sp else 17.sp
         val density = LocalDensity.current
         val copyMotion = Modifier.graphicsLayer {
-            alpha = progress
-            translationY = with(density) { 8.dp.toPx() } * (1f - progress)
+            alpha = effectsProgress
+            translationY = with(density) { 8.dp.toPx() } * (1f - spatialProgress)
         }
         val brand: @Composable () -> Unit = {
             Box(Modifier.size(haloSize), contentAlignment = Alignment.Center) {
                 Box(Modifier.fillMaxSize().graphicsLayer {
-                    scaleX = .92f + .08f * progress
+                    scaleX = .92f + .08f * spatialProgress
                     scaleY = scaleX
-                    rotationZ = -18f + 6f * progress
+                    rotationZ = -18f + 6f * spatialProgress
                 }.background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(42, 54, 40, 52)))
                 Image(symbol, null, Modifier.size(128.dp))
             }

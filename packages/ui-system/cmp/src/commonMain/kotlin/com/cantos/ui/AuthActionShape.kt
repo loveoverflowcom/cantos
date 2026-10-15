@@ -1,7 +1,6 @@
 package com.cantos.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
@@ -16,7 +15,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
-import com.cantos.ui.generated.CantosTokens
 
 /** Stable CMP fallback, not the native Material Expressive spring API.
  * The capsule radius follows measured content, including wrapped large text.
@@ -33,9 +31,9 @@ internal class AuthActionShape(private val pressedFraction: Float, private val p
 @Composable
 internal fun authActionShape(interactions: MutableInteractionSource): Shape {
     val pressed by interactions.collectIsPressedAsState()
-    val preferences = LocalUiPreferences.current
-    val duration = CantosTokens.number("motion.shape.duration", reducedMotion = preferences.reducedMotion).toInt()
-    val fraction by animateFloatAsState(if (pressed) 1f else 0f, tween(durationMillis = duration), label = "auth-pressed-shape")
+    // The press dispatches on release regardless of this spec; the shape only decorates it.
+    val spec = rememberMotionSpec(MotionIntent.Feedback, MotionProperty.Spatial)
+    val fraction by animateFloatAsState(if (pressed) 1f else 0f, spec.toAnimationSpec(), label = "auth-pressed-shape")
     val radius = tokenDp("shape.authPressed")
     return remember(fraction, radius) { AuthActionShape(fraction, radius) }
 }

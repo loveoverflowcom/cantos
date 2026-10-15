@@ -169,6 +169,36 @@ all Material ripple/native motion. Focus uses real Compose focus nodes with toke
 select the focus preset or use Tab/Shift+Tab. Dialog dismissal requests focus restoration to its
 trigger. These behaviors still need the named renderer tests and observation below.
 
+## Motion policy and virtual-clock replay (issue #145)
+
+`MotionPolicy.kt` maps a `MotionIntent` (Feedback, Navigation, Emphasis), a `MotionProperty`
+(Spatial, Effects) and a resolved `MotionPreference` (Full, Reduced) to a `MotionSpec`: `Instant`
+or `Timed(durationMillis, easing)`. Durations come from the canonical `motion.*.duration` roles
+and effects use the canonical `motion.effects.easing`; reduced motion is `Instant` for every
+combination. There is no spring variant: the pinned Material3 1.8.2 has no `MotionScheme`, and the
+canonical tokens define none, so spatial changes use the named `SpatialStandardEasing`
+(Compose's `FastOutSlowIn`) as a stable fallback. A host injects the preference through
+`UiPreferences` (`reducedMotion`, projected as `UiPreferences.motion`); components call
+`rememberMotionSpec`, never the OS. No Android or iOS adapter reads the OS setting yet.
+
+Consumers: the Auth action press (`AuthActionShape`, spatial feedback) and the Theatre launch
+entrance (opacity as effects, travel/scale/rotation as spatial). Tests, all JVM Desktop Compose:
+
+- `MotionPolicyTest` (common): the bounded exhaustive mapping and token drift guards.
+- `AuthShapeTimelineTest`: the real shape outline against an independent model of the declared
+  duration and easing, on a manual clock, with press, release, reverse mid-flight, press again
+  before settled, five fast taps, reduced motion, determinism and leaving composition mid-animation.
+- `AuthButtonReplayTest`: real touch dispatch; asserts the intent before the clock advances a
+  frame, the hit box on every sampled frame and writes labelled `cmp-motion-auth-action-*`
+  captures with a `frame` sidecar (recipe, mark, time, timebase).
+- `MotionReplay.kt`: the recipe, driver and model helpers. Recipes are owned by tests; production
+  UI never advances the clock and the gallery has no replay controls yet.
+
+A manual-clock frame proves ordering, retargeting and final state. It is not a recording, frame
+pacing, the OS reduce-motion signal, Android or iOS. See the
+[evidence record](../../../docs/evidence/issue145-cmp-motion-policy.md) and
+[motion.md](../../../.agents/skills/cantos-ui-design/references/motion.md).
+
 ## Toolchain decision
 
 Pinned versions are Kotlin Multiplatform **2.2.20**, Compose compiler **2.2.20**, Compose

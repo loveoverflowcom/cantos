@@ -229,8 +229,11 @@ A manually identified prerequisite gap may be `BLOCKED` (foundation `blocked`); 
 - Find nodes by accessible name, role and state using localized Vietnamese text, then assert the
   state description, enabled state and available actions. A `testTag` locates; it does not name.
   Choose merged or unmerged trees deliberately.
-- For intermediate animation frames, take control of the test clock; for final states, default
-  synchronization is enough. Platform I/O is not covered by Compose idling: wait for an
+- For intermediate animation frames, take control of the test clock and replay a declared recipe
+  ([motion.md § 7](../../cantos-ui-design/references/motion.md#7-replay-recipes-on-a-virtual-clock):
+  `MotionReplay.kt`, `AuthShapeTimelineTest`); for final states, default
+  synchronization is enough. Assert the dispatched intent before advancing a frame, and read the
+  animated property itself when ripple, state layer or focus ring confound pixels. Platform I/O is not covered by Compose idling: wait for an
   observable condition with a bounded timeout, never a sleep.
 - Size a desktop test root in dp *constraints* (320 small, 390 typical, 840 expanded are the named
   evidence widths) and keep it within the test host's own bounds: a root wider than the host is

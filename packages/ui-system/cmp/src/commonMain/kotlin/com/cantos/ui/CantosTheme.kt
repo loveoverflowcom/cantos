@@ -35,6 +35,9 @@ data class UiPreferences(
     init {
         require(textScale.isFinite() && textScale > 0f) { "Text scale must be finite and positive" }
     }
+
+    /** The resolved motion fact for [motionFor]; [reducedMotion] keeps its name for every caller. */
+    val motion: MotionPreference get() = if (reducedMotion) MotionPreference.Reduced else MotionPreference.Full
 }
 
 val LocalEditorialFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.Serif }

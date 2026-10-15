@@ -80,6 +80,7 @@ import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
 import com.cantos.ui.LocalEditorialFontFamily
+import com.cantos.ui.MotionPreference
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.tokenColor
@@ -101,6 +102,8 @@ fun CantosDemoPresentation(
     membershipContent: @Composable () -> Unit = {},
     membershipHeader: (@Composable () -> Unit)? = null,
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
+    // The mock's product default stays Reduced; a diagnostics host may inject Full to observe motion.
+    motionPreference: MotionPreference = MotionPreference.Reduced,
 ) {
     val copy = DemoCopy(state.locale)
     val back = { dispatch(DemoEvent.Back) }
@@ -110,8 +113,7 @@ fun CantosDemoPresentation(
         UiPreferences(
             theme = if (state.theme == DemoTheme.Dark) Theme.Dark else Theme.Light,
             density = Density.Comfortable,
-            // There is no travel, spring or continuously animated indicator in this mock.
-            reducedMotion = true,
+            reducedMotion = motionPreference == MotionPreference.Reduced,
             textScale = textScale,
         ),
         uiFontFamily = theatreSans(),

@@ -44,8 +44,14 @@ Two laws hold for every spec, whatever the values become: effects springs are cr
 or more (damping ratio ≥ 1, so no overshoot); under reduced motion no spatial property travels.
 Check them once on the token source so neither renderer can drift ([`tokens.md`](tokens.md)).
 
-Renderer reality: Compose has spring specs and Material motion-scheme APIs (verify in the pinned
-CMP artifact). The Web has no native spring: CSS transitions cover effects and simple spatial
+Renderer reality: Compose has spring specs (`spring`, `tween`). A Material motion scheme is
+**not** available in the pinned CMP: `org.jetbrains.compose.material3:material3:1.8.2` (Compose
+1.9.0) ships only its internal `MotionTokens`; `MotionScheme` is present in `material3` 1.9.0 and
+the 1.12.0 alpha (inspected in the local Gradle cache) but not in the pin. CMP therefore maps
+intent through the Cantos policy (§ 4) onto `tween` and `CubicBezierEasing`, a stable fallback that
+is not the native Material Expressive spring. Moving the pin is a dependency decision (an ADR per
+[`cmp-tooling.md`](../../cantos-cmp-mobile/references/cmp-tooling.md)), not a motion edit; re-check
+the artifact when it moves. The Web has no native spring: CSS transitions cover effects and simple spatial
 changes and retarget from the current value but drop velocity; CSS `linear()` can approximate a
 spring curve; a small JavaScript animator is needed only where interruption must preserve
 velocity, such as a dragged player sheet. Mechanics belong to the renderer skills.
@@ -96,54 +102,59 @@ add an animator, gesture abstraction or speculative sheet merely to demonstrate 
 | shape-morph travel (swap to the final shape) | progress text and determinate progress updates |
 | continuous loops and decorative indicators (replace with static indicator + text) | announcements of significant changes |
 
-The mapping from intent and preference to a spec is a pure function — the functional core of
-motion — and its laws are a bounded exhaustive test:
+The mapping from intent and preference to a spec is a pure function: the functional core of
+motion. On CMP it is implemented in `packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/MotionPolicy.kt`
+(signatures only here):
 
 ```kotlin
-// Illustrative, proposed — no motion module exists yet.
 enum class MotionIntent { Feedback, Navigation, Emphasis }
-enum class AnimatedProperty { Spatial, Effects }
-enum class MotionPreference { Full, Reduced }
+enum class MotionProperty { Spatial, Effects }
+enum class MotionPreference { Full, Reduced }   // resolved by a host, carried as UiPreferences.motion
 
 sealed interface MotionSpec {
-    data object Instant : MotionSpec
-    data class Spring(val dampingRatio: Float, val stiffness: Float) : MotionSpec
+    data object Instant : MotionSpec            // reduced: the final state at once
+    data class Timed(val durationMillis: Int, val easing: MotionEasing) : MotionSpec
 }
 
-fun motionFor(
-    intent: MotionIntent,
-    property: AnimatedProperty,
-    preference: MotionPreference,
-    tokens: MotionTokens,
-): MotionSpec = when (property) {
-    AnimatedProperty.Effects -> tokens.effects(intent)
-    AnimatedProperty.Spatial -> when (preference) {
-        MotionPreference.Full -> tokens.spatial(intent)
-        MotionPreference.Reduced -> MotionSpec.Instant
-    }
-}
-
-@Test
-fun reducedMotionNeverTravelsAndEffectsNeverOvershoot() {
-    for (intent in MotionIntent.entries) {
-        for (preference in MotionPreference.entries) {
-            val spatial = motionFor(intent, AnimatedProperty.Spatial, preference, CantosMotionTokens)
-            val effects = motionFor(intent, AnimatedProperty.Effects, preference, CantosMotionTokens)
-            if (preference == MotionPreference.Reduced) assertEquals(MotionSpec.Instant, spatial)
-            if (effects is MotionSpec.Spring) {
-                assertTrue(effects.dampingRatio >= 1f, "effects spring overshoots for $intent")
-            }
-        }
-    }
-}
+fun motionFor(intent: MotionIntent, property: MotionProperty, preference: MotionPreference): MotionSpec
 ```
 
-The exhaustive `when` is the type-level half of the proof: adding a property or a preference fails
-compilation until the mapping handles it, and the token lookups match exhaustively on the intent
-the same way.
+| Rule of the mapping | Source |
+|---|---|
+| `Reduced` is `Instant` for every intent and property (no travel, no fade over time) | mirrors the zero `reduced_motion` durations in `tokens.json` |
+| `Full` durations are whole milliseconds read from the canonical `motion.*.duration` roles; a spatial `Feedback` change reads `motion.shape.duration` | `tokens.json`; the table lives in `motionDurationRole` |
+| effects use the canonical `motion.effects.easing`, whose y control points stay inside 0..1, so effects cannot overshoot | `tokens.json`; `MotionEasing.mayOvershoot` |
+| spatial uses the named `SpatialStandardEasing` (Compose's `FastOutSlowIn`) until a reviewed spatial easing or spring token exists | a named constant, replaced by a token, never duplicated |
+| there is **no spring variant**: add one only with a token source and an observation on the target | § 2 |
 
-Leptos needs the same mapping in Rust; generate both from the token source rather than
-hand-maintaining two tables.
+`MotionPolicyTest` is the bounded exhaustive test (3 intents × 2 properties × 2 preferences) and
+guards drift: it fails when a canonical `motion.*.duration` role is not read by the policy, when a
+role is mis-wired, or when a duration leaves its bound. The exhaustive `when` is the type-level
+half of the proof: adding an intent, property or preference fails compilation until the mapping
+handles it. A component calls `rememberMotionSpec(intent, property)`, which reads the injected
+`UiPreferences.motion`; the Compose mapping is `MotionSpec.toAnimationSpec()` (`snap()` or
+`tween`) and `Animatable.animateWith(target, spec)` (`snapTo` for `Instant`, so the final frame
+needs no coroutine turn).
+
+The Leptos renderer does not implement this mapping yet. When it does, generate both tables from
+the token source rather than hand-maintaining two.
+
+### Gesture policy values (planned, not implemented)
+
+No CMP consumer drags today, so the package defines no gesture constants and must not gain a
+gesture abstraction to demonstrate motion. The first dragged consumer (for example the mini ↔
+full player) declares, next to its component, named values with units and an owner, never literals
+in a pointer handler:
+
+| Value | Unit | Purpose |
+|---|---|---|
+| touch slop | dp | movement before a drag claims the pointer |
+| axis lock | ratio of the dominant axis | a vertical drag beside a scrolling list must not steal the scroll |
+| fling velocity | dp/s | release velocity that completes instead of snapping back |
+| snap threshold | fraction of travel (0..1) | where an unreleased drag settles |
+
+with cancel, Escape and Back as explicit alternatives, the same typed intent as the button, focus
+restored to the control that opened it, and no scroll-lock trap.
 
 ## 5. Cantos motion patterns
 
@@ -178,6 +189,42 @@ cleanup only when the consumer implements a loop or such resources; never infer 
 | the command commits before animation; reversal lands on the last intent | controlled-clock UI test: Compose test clock with auto-advance off; on the Web, assert the state change synchronously after the event | `interaction-tested` |
 | it looks and feels right on the target | screen recording at a known frame rate plus frame-timing data from the platform profiler (browser performance panel; Android and iOS frame and hitch tooling — candidates), with device or browser, build and scenario recorded | `interaction-tested` or `device-tested`; the recording is provenance |
 | reduced motion works | the **same** scenario rerun with the OS or browser setting on; the recording shows no travel, overshoot or loops | as above |
+
+Name the target of every motion observation with one of these labels; they never substitute for
+one another:
+
+| Label | What it is | What it can show | What it cannot |
+|---|---|---|---|
+| `jvm-frame` | JVM Desktop Compose on a manual clock, frames the test chose | ordering, retargeting, intent-before-clock, final state, no leaked animation | frame pacing, smoothness, any OS signal, Android, iOS |
+| `android-layout-preview` | Android Studio layout renderer (static) | one static frame and its semantics | any transition or interaction |
+| `android-runtime` | emulator or device, with the real OS reduce-motion/animation-scale setting | the above on that target, with a recording as provenance | other hardware, iOS |
+| `ios-runtime` | simulator or device with Reduce Motion | the above on that target | Android; **not run on Linux hosts** |
+
+A `UiPreferences(reducedMotion = …)` toggle, a gallery chip or a diagnostic host parameter proves
+that the fixture reaches the component; it is never evidence that the OS Reduce Motion signal
+does. State `NOT_RUN` or `UNSUPPORTED` for a target that was not observed.
+
+## 7. Replay recipes on a virtual clock
+
+A motion sample is declared as a **recipe**: ordered inputs (down, up, cancel) and observation
+marks at virtual times, replayed on a manual clock owned by the test or fixture. Production UI
+never advances that clock. Replaying the same recipe must give the same log and end state.
+
+| Rule | Why |
+|---|---|
+| assert the dispatched intent before the clock advances any frame | the intent must not wait for the animation |
+| assert the hit box on every sampled frame | no target moves under a finger |
+| compare each frame of the animated property with an independent model of the declared duration and easing | a wrong duration or easing is invisible to "it ended in the right place" |
+| reverse, cancel, press again before settled, and tap fast; assert the last intent wins and values stay in range | interruption must never lock input or overshoot |
+| leave composition mid-animation, then let the clock run to idle | a leaked animation or coroutine never reaches idle |
+| observe the animated property itself where a pixel metric is confounded by ripple, state layer or focus ring | pixels there prove only that frames differ |
+| label every frame with recipe, mark, time, timebase and what it is not evidence of | a frame is provenance, not a verdict |
+
+The CMP implementation is `MotionReplay.kt` with `AuthShapeTimelineTest` (exact outline against
+the model) and `AuthButtonReplayTest` (real touch, intents, hit box, captures) in
+`packages/ui-system/cmp`, and `LaunchMotionReplayTest` in the Theatre mock. A Compose
+frame needs one frame to admit a state change and the next to start the animation clock: derive
+the animation start from the observed frames instead of assuming it.
 
 There is no "motion verified" level. A recording on one device says nothing about slower
 hardware; a desktop CMP run says nothing about Android or iOS. Name what was observed and put the
