@@ -140,7 +140,8 @@ reorder the backend capabilities above or revive DBSP production jobs.
 [auth/account v0.4.0 contract](../../packages/ui-system/shared/README.md#scoped-authaccount-mapping-v040)
 and official local Logo Kit to both shared renderers, before app-level adoption. Its
 [evidence ledger](../evidence/ui-auth-account-v2.md) keeps implementation tests separate from
-missing runtime/design admission. New primitives and variants remain unqualified and preview-only.
+missing runtime/design admission. The six Membership APIs now have the bounded admission
+record below; other primitives/variants and native acceptance remain pending.
 PR 132's 15 October follow-up repairs Web auth press interpolation and narrow large-text
 layout; real Chrome interaction, both themes and 320 px/200% text now have local evidence.
 CMP desktop motion tests and the SDK 35 preview build also pass. Prioritize the remaining
@@ -159,8 +160,12 @@ Recommended order stays small and reviewable:
    PR 137's resumed review repairs reopened plan-selector state and adds repeated IME Done
    coverage. Fresh Rust/Web/CMP and browser observations are recorded separately from recovered
    disk/Python failures, the unavailable media-tool contract gate and native/production acceptance.
-   Complete those recorded gaps before client adoption; earlier PASS results never accept
-   different follow-up source.
+   Its [CMP design follow-up](../evidence/pr137-cmp-design-v2.md) replaces local visual wrappers
+   with six admitted shared APIs, adds scoped token v0.5.0 and external tonal-field labels,
+   and retains the unavailable/fixture boundary. Fresh real Compose images are delivered on
+   the owner's Desktop. Android APK compilation is separate from the unavailable IDE capture
+   and unrun native/reader acceptance. Complete the recorded production/native gaps; earlier
+   PASS results never accept different follow-up source.
 3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
    retain the product-owned navigation requirements rather than copying prototype navigation.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.

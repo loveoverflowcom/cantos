@@ -40,6 +40,7 @@ class MembershipCaptureTest {
         capture("membership-jvm-light-form-text2-320x800", MembershipState.unavailable().next(MembershipEvent.OpenForm),
             width = 320, height = 800, textScale = 2f, scrollTo = "membership-submit")
         val receipt = receivedFixture()
+        capture("membership-jvm-light-receipt-390x844", receipt)
         capture("membership-jvm-dark-receipt-390x844", receipt, theme = DemoTheme.Dark)
         capture("membership-jvm-light-receipt-text2-top-320x800", receipt,
             width = 320, height = 800, textScale = 2f)
@@ -50,6 +51,9 @@ class MembershipCaptureTest {
         capture("membership-jvm-light-plans-text2-actions-320x800", receipt.next(MembershipEvent.OpenPlans),
             width = 320, height = 800, textScale = 2f, scrollTo = "membership-explore")
         capture("membership-jvm-light-plans-unpublished-390x844", receipt.next(MembershipEvent.OpenPlans))
+        capture("membership-jvm-dark-plans-unpublished-390x844", receipt.next(MembershipEvent.OpenPlans), theme = DemoTheme.Dark)
+        capture("membership-jvm-light-plans-390x1320", receipt.next(MembershipEvent.OpenPlans), height = 1320)
+        capture("membership-jvm-dark-plans-390x1320", receipt.next(MembershipEvent.OpenPlans), theme = DemoTheme.Dark, height = 1320)
         capture("membership-jvm-light-plans-failed-390x844", receipt.next(MembershipEvent.OpenPlans)
             .next(MembershipEvent.SetPlansStatus(PlansStatus.Failed)))
     }

@@ -70,14 +70,14 @@ rules establish no deliverability, identity proof or accepted production contact
 An unchanged known-failure retry preserves the operation/payload with a fresh callback fence;
 editing that known failure begins a new intent. An unknown outcome remains bound and uneditable.
 
-Shared auth/account v0.4.0 variants and official local Logo Kit assets are implemented on the
-base but remain unqualified. This slice uses existing app-owned semantic controls, native
-Material controls, canonical tokens/fonts and existing local artwork; it adds no shared imports.
-This grants no
-[shared component qualification](../../packages/ui-system/shared/README.md#preview-registration-and-adoption),
-new production import exemption or release/sandbox isolation acceptance. #127 still owns fresh
-two-renderer admission; #122 owns mobile release isolation. Reuse canonical tokens, fonts and
-assets; do not copy prototype CSS or create another palette.
+The Web preview retains its app-owned controls. The CMP preview now composes the shared
+auth/account variants and official Logo Kit through the
+[six-API, two-renderer admission record](../evidence/pr137-cmp-design-v2.md), with canonical
+token v0.5.0 and bundled Noto fonts. This scoped admission changes no production capability,
+pricing or identity policy. Other shared APIs still need their own
+[admission](../../packages/ui-system/shared/README.md#preview-registration-and-adoption);
+#127 retains the broader foundation/native acceptance and #122 owns mobile release isolation.
+Reuse canonical tokens, fonts and assets; do not copy prototype CSS or create another palette.
 
 ## Production decisions still required
 

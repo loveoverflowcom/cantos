@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.4.0 sha256:15ab3bca01d29c3e8c98a938ffcddc2583f1c15c472b37656d3fe76de7938a42
+// Generated from Cantos UI tokens v0.5.0 sha256:e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.4.0"
+    const val version: String = "0.5.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -68,9 +68,11 @@ object CantosTokens {
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
         TokenValue("shape.profileContainer", "dimension", "36", "36", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
+        TokenValue("shape.statusSymbol", "dimension", "28", "28", null, null, null),
         TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
         TokenValue("size.authField", "dimension", "56", "56", null, null, null),
         TokenValue("size.authIcon", "dimension", "28", "28", null, null, null),
+        TokenValue("size.authLogo", "dimension", "128", "128", null, null, null),
         TokenValue("size.authOutline", "dimension", "1.5", "1.5", null, null, null),
         TokenValue("size.authPrimary", "dimension", "60", "60", null, null, null),
         TokenValue("size.authSecondary", "dimension", "56", "56", null, null, null),
@@ -84,6 +86,7 @@ object CantosTokens {
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
         TokenValue("size.iconCompact", "dimension", "20", "20", null, null, null),
+        TokenValue("size.statusSymbol", "dimension", "72", "72", null, null, null),
         TokenValue("space.controlInline", "dimension", "12", "12", "12", "16", null),
         TokenValue("space.inset", "dimension", "12", "12", null, null, null),
         TokenValue("space.lg", "dimension", "24", "24", null, null, null),
@@ -97,6 +100,9 @@ object CantosTokens {
         TokenValue("state.focusOpacity", "number", "0.12", "0.12", null, null, null),
         TokenValue("state.hoverOpacity", "number", "0.08", "0.08", null, null, null),
         TokenValue("state.pressedOpacity", "number", "0.12", "0.12", null, null, null),
+        TokenValue("type.authHeading.lineHeight", "number", "1.22", "1.22", null, null, null),
+        TokenValue("type.authHeading.size", "dimension", "32", "32", null, null, null),
+        TokenValue("type.authHeading.weight", "fontWeight", "400", "400", null, null, null),
         TokenValue("type.body.lineHeight", "number", "1.55", "1.55", null, null, null),
         TokenValue("type.body.size", "dimension", "14", "14", null, null, null),
         TokenValue("type.body.weight", "fontWeight", "400", "400", null, null, null),
@@ -111,6 +117,9 @@ object CantosTokens {
         TokenValue("type.label.lineHeight", "number", "1.5", "1.5", null, null, null),
         TokenValue("type.label.size", "dimension", "14", "14", null, null, null),
         TokenValue("type.label.weight", "fontWeight", "600", "600", null, null, null),
+        TokenValue("type.membershipTitle.lineHeight", "number", "1.4", "1.4", null, null, null),
+        TokenValue("type.membershipTitle.size", "dimension", "28", "28", null, null, null),
+        TokenValue("type.membershipTitle.weight", "fontWeight", "400", "400", null, null, null),
         TokenValue("type.metadata.lineHeight", "number", "1.5", "1.5", null, null, null),
         TokenValue("type.metadata.size", "dimension", "12", "12", null, null, null),
         TokenValue("type.metadata.weight", "fontWeight", "400", "400", null, null, null),

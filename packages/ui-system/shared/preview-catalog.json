@@ -742,5 +742,48 @@
       ]
     }
   ],
-  "qualifications": []
+  "qualifications": [
+    {
+      "component_id": "button",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-button-leptos.json",
+        "cmp": "docs/evidence/pr137-button-cmp.json"
+      }
+    },
+    {
+      "component_id": "text-field",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-text-field-leptos.json",
+        "cmp": "docs/evidence/pr137-text-field-cmp.json"
+      }
+    },
+    {
+      "component_id": "surface",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-surface-leptos.json",
+        "cmp": "docs/evidence/pr137-surface-cmp.json"
+      }
+    },
+    {
+      "component_id": "badge",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-badge-leptos.json",
+        "cmp": "docs/evidence/pr137-badge-cmp.json"
+      }
+    },
+    {
+      "component_id": "back-button",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-back-button-leptos.json",
+        "cmp": "docs/evidence/pr137-back-button-cmp.json"
+      }
+    },
+    {
+      "component_id": "logo",
+      "evidence": {
+        "leptos": "docs/evidence/pr137-logo-leptos.json",
+        "cmp": "docs/evidence/pr137-logo-cmp.json"
+      }
+    }
+  ]
 }

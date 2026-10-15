@@ -1,4 +1,17 @@
-# Shared semantic contract v0.4.0
+# Shared semantic contract v0.5.0
+
+v0.5.0 adds scoped auth/Membership type and symbol roles from the Mobile v2 reference:
+`type.authHeading` (32 / 1.22 / 400), `type.membershipTitle` (28 / 1.4 / 400),
+`size.authLogo` (128), `size.statusSymbol` (72) and `shape.statusSymbol` (28).
+Each type role declares size, line height and weight. `CantosTypography` preserves the injected
+editorial font and platform scaling; the Leptos preview maps the same roles. Existing palette,
+regular typography and shape mappings are unchanged. Both generated token inventories expose
+all nine additions.
+
+[PR137's bounded admission](../../../docs/evidence/pr137-cmp-design-v2.md) records fresh evidence
+for the six existing Button/TextField/Surface/Badge/BackButton/Logo APIs consumed by the CMP
+Membership mock. This is shared-preview admission, not Android/iOS, screen-reader, live
+Membership or release acceptance. The compatibility import baseline is unchanged.
 
 [`tokens.json`](tokens.json) is the sole active source. This is a bounded Cantos JSON schema,
 not a claim of DTCG conformance. The generator validates it before any output write.

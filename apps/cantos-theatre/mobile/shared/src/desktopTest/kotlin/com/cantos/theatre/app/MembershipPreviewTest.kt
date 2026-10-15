@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -38,6 +39,25 @@ import kotlin.test.assertTrue
 /** JVM renderer drives the real mock composition. No native or identity acceptance claim. */
 @OptIn(ExperimentalTestApi::class)
 class MembershipPreviewTest {
+    @Test
+    fun membership_theme_action_keeps_the_same_draft_and_form_destination() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { MembershipTestRoot() }
+            onNodeWithTag("membership-start").performScrollTo().performClick()
+            onNodeWithTag("membership-name").performScrollTo().performTextReplacement("Nguyễn Thị Ánh · Ỗ, Ữ")
+            onNodeWithTag("membership-email").performScrollTo().performTextReplacement("anh@example.com")
+            repeat(2) {
+                onNodeWithTag("membership-theme").performClick()
+                onNodeWithTag("membership-heading").assert(hasText("Thêm một người đồng hành."))
+                onNodeWithTag("membership-name").assert(SemanticsMatcher.expectValue(
+                    SemanticsProperties.EditableText, AnnotatedString("Nguyễn Thị Ánh · Ỗ, Ữ")))
+                onNodeWithTag("membership-email").assert(SemanticsMatcher.expectValue(
+                    SemanticsProperties.EditableText, AnnotatedString("anh@example.com")))
+                onNodeWithTag("membership-receipt").assertDoesNotExist()
+            }
+        }
+    }
+
     @Test
     fun account_entry_opens_a_blank_single_form_with_no_plan_or_consent_selection() {
         runDesktopComposeUiTest(width = 390, height = 844) {
@@ -156,7 +176,7 @@ class MembershipPreviewTest {
         runDesktopComposeUiTest(width = 320, height = 800) {
             setContent { MembershipTestRoot(width = 320, height = 800, textScale = 2f) }
             onNodeWithTag("membership-start").performScrollTo().performClick()
-            val header = onNodeWithTag("header-title").assert(hasText("Cantos")).fetchSemanticsNode().boundsInRoot
+            val header = onNodeWithTag("header-title").assert(hasContentDescription("Cantos")).fetchSemanticsNode().boundsInRoot
             assertTrue(header.height <= 160f, "The fixed header must leave most of the 800 dp viewport to the scrollable form at double text scale")
             val submit = onNodeWithTag("membership-submit").performScrollTo().assertIsDisplayed()
             val bounds = submit.fetchSemanticsNode().boundsInRoot

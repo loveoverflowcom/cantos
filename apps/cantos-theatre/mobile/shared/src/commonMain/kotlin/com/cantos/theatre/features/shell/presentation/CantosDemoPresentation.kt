@@ -86,8 +86,8 @@ import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 /** The same isolated mock composition is mounted by Android, iOS and the JVM diagnostic host.
- * Native Material controls consume the canonical theme. Unqualified Cantos component wrappers
- * are deliberately not adopted, copied, re-exported or registered as qualified here.
+ * Native Material controls consume the canonical theme. Membership supplies slots composed
+ * from the shared design-v2 primitives; their bounded admission is recorded separately.
  */
 @Composable
 fun CantosDemoPresentation(
@@ -99,6 +99,7 @@ fun CantosDemoPresentation(
     onThemeChanged: (Boolean) -> Unit = {},
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     membershipContent: @Composable () -> Unit = {},
+    membershipHeader: (@Composable () -> Unit)? = null,
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
 ) {
     val copy = DemoCopy(state.locale)
@@ -127,7 +128,7 @@ fun CantosDemoPresentation(
                     }
                 },
             ) {
-                DemoHeader(state, copy, dispatch)
+                if (state.route == DemoRoute.MembershipPreview && membershipHeader != null) membershipHeader() else DemoHeader(state, copy, dispatch)
                 when (state.listeningFailure) {
                     null -> Unit
                     DemoListeningFailure.MemoryStoreUnavailable -> Column(
@@ -144,12 +145,12 @@ fun CantosDemoPresentation(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
                         Modifier.widthIn(max = tokenDp("breakpoint.expanded"))
-                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp("space.md"))
+                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (state.route == DemoRoute.MembershipPreview) "space.section" else "space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
                             .testTag("screen"),
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
-                        Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
+                        if (state.route != DemoRoute.MembershipPreview) Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.testTag("demo-notice"))
                         when (val route = state.route) {

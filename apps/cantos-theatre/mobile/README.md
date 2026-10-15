@@ -1,5 +1,13 @@
 # Cantos Theatre CMP mock
 
+The [PR137 Membership design follow-up](../../../docs/evidence/pr137-cmp-design-v2.md) composes
+six reviewed shared primitives through scoped v0.5.0 tokens and permanently labeled tonal
+fields. `MembershipPreviews.kt` adds Android layout-renderer specimens around the actual app:
+form and receipt in both themes, unpublished periods in both themes and a narrow 2× form.
+Build them with `cargo xtask theatre-demo android-build`; capture through `cargo xtask
+compose-preview cantos-theatre` only with a ready IDE. JVM image output remains a separate
+renderer and does not establish device, IME, OS Back or screen-reader acceptance.
+
 This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens, an Android
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
 in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock

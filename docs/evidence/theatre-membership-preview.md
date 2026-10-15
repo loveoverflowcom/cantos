@@ -1,5 +1,13 @@
 # Theatre Membership preview — issue 128
 
+## Current CMP design follow-up
+
+[PR137's token/component integration](pr137-cmp-design-v2.md) supersedes the earlier
+app-owned CMP styling described below. It records external field labels, scoped token v0.5.0,
+six existing shared API admissions, inspected actual renderer captures saved on Desktop and
+the separate Android build/IDE/device boundaries. The Membership core and unavailable/fixture
+semantics remain unchanged; the previous review's results retain their original revision scope.
+
 ## Current follow-up — PR 137 completion review
 
 On 15 October 2026 a new owner request resumed review, repair and local verification of

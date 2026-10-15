@@ -45,6 +45,7 @@ import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
 import com.cantos.theatre.features.shell.presentation.CantosDemoPresentation
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
+import com.cantos.theatre.features.membership.presentation.MembershipHeader
 
 /** Root composition: owners outlive every route; query, tab and timer selection stay local. */
 @Composable
@@ -139,6 +140,11 @@ fun CantosDemoApp(
         membershipContent = {
             MembershipPreview(membership, projection.locale, { membership = membership.reduce(it).state },
                 onExplore = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) })
+        },
+        membershipHeader = {
+            MembershipHeader(projection.locale, projection.theme,
+                onBack = { dispatch(DemoEvent.Back) },
+                onToggleTheme = { dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark)) })
         },
         membershipScreen = membership.screen,
     )
