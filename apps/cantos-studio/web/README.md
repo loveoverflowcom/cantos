@@ -46,6 +46,28 @@ The actual walkthrough used `python3 scripts/serve_studio.py` at `http://127.0.0
 and then `trunk serve --locked`; `cargo xtask app cantos-studio --web` starts only Trunk against an
 API that is already listening. That proxy mode was not used as browser evidence.
 
+## Login entry and writing desk
+
+Studio opens a login-only entry while its current cookie is unconfirmed. Production OIDC
+shows **Sign in with Cantos ID**; the token form exists only in the explicitly configured
+development mode. Checking, unavailable, explicit permission-denied and retained-owner states
+keep every private workspace hidden/inert. Cancel returns to Studio sign-in and invalidates
+that observation, so a delayed response cannot reopen the workspace. There is no Theatre Back,
+registration, access-request, invitation or Membership flow.
+
+A confirmed matching owner opens **Writing desk / Bàn viết**. Its bounded Work page, current
+Work/unit and exact private-audio facts share the existing Content workspace's `Facts` and
+request authority. No summary endpoint, portfolio total, QC count or demo record is added.
+Import, new Work, current Work, audio and script-editor actions open the existing mounted
+workspaces. Returning to the desk preserves authoring text and request snapshots; pane return
+retains native caret/selection/scroll without copying manuscript text into navigation state.
+In-flight requests block authentication changes; ambiguous writes retain their owner while
+allowing explicit reauthentication and same-operation reconciliation, including delegation.
+
+The [scoped evidence](../../../docs/evidence/studio-login-dashboard.md) separates native/SSR,
+WASM and synthetic-HTTP browser observations from live identity-provider acceptance. The
+reference's raster illustration and aggregate metrics are not imported as product data.
+
 ## Interaction and ownership
 
 On mount and idle browser-history restoration, Studio reads its public authentication mode and

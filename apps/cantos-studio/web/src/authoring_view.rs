@@ -488,11 +488,15 @@ fn BufferedText(
             mark_pending(false);
         }
     };
-    let invalid = move || invalid.is_some_and(|signal| signal.get());
+    // A document becoming invalid disposes structured-field derivations before their DOM
+    // attributes finish teardown. Retired inputs must not panic or regain edit authority.
+    let invalid = move || invalid.is_some_and(|signal| signal.try_get().unwrap_or(false));
     if multiline {
         let node = NodeRef::<leptos::html::Textarea>::new();
         Effect::new(move |_| {
-            let next = value.get();
+            let Some(next) = value.try_get() else {
+                return;
+            };
             if let Some(node) = node.get() {
                 if !focused.get()
                     && !composing.get_untracked()
@@ -506,8 +510,8 @@ fn BufferedText(
         });
         view! {
             <div class="authoring-field">
-                <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
-                <textarea class="cui-field-control" id=id node_ref=node lang=language spellcheck="false" prop:value=initial readonly=move || readonly.get() aria-invalid=invalid aria-describedby=move || described_by.map(|signal| signal.get()).filter(|value| !value.is_empty())
+                <FieldLabel for_id=id.clone()>{move || label.try_get().unwrap_or_default()}</FieldLabel>
+                <textarea class="cui-field-control" id=id node_ref=node lang=language spellcheck="false" prop:value=initial readonly=move || readonly.try_get().unwrap_or(true) aria-invalid=invalid aria-describedby=move || described_by.and_then(|signal| signal.try_get()).filter(|value| !value.is_empty())
                     on:focus=move |_| focused.set(true)
                     on:input=move |event| update(event_target_value(&event))
                     on:compositionstart=move |_| { composing.set(true); mark_pending(true); }
@@ -525,7 +529,9 @@ fn BufferedText(
     } else {
         let node = NodeRef::<leptos::html::Input>::new();
         Effect::new(move |_| {
-            let next = value.get();
+            let Some(next) = value.try_get() else {
+                return;
+            };
             if let Some(node) = node.get() {
                 if !focused.get()
                     && !composing.get_untracked()
@@ -539,9 +545,9 @@ fn BufferedText(
         });
         view! {
             <div class="authoring-field">
-                <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
+                <FieldLabel for_id=id.clone()>{move || label.try_get().unwrap_or_default()}</FieldLabel>
                 <input class="cui-field-control" id=id node_ref=node type=if numeric { "number" } else { "text" } min=if numeric { Some("0") } else { None } max=if numeric { Some("1000") } else { None } step=if numeric { Some("1") } else { None }
-                    lang=language autocomplete="off" prop:value=initial readonly=move || readonly.get() aria-invalid=invalid aria-describedby=move || described_by.map(|signal| signal.get()).filter(|value| !value.is_empty())
+                    lang=language autocomplete="off" prop:value=initial readonly=move || readonly.try_get().unwrap_or(true) aria-invalid=invalid aria-describedby=move || described_by.and_then(|signal| signal.try_get()).filter(|value| !value.is_empty())
                     on:focus=move |_| focused.set(true)
                     on:input=move |event| update(event_target_value(&event))
                     on:compositionstart=move |_| { composing.set(true); mark_pending(true); }
@@ -582,12 +588,13 @@ fn TextField(
             })
             .unwrap_or_default()
     });
-    let invalid = Signal::derive(move || !findings.get().is_empty());
+    let invalid =
+        Signal::derive(move || findings.try_get().is_some_and(|issues| !issues.is_empty()));
     view! {
         <BufferedText id=id label=label value=Signal::derive(move || ctx.document.get().and_then(|document| document.field(&target.get_value(), field).ok()).unwrap_or_default())
-            readonly=ctx.readonly activity=ctx.activity multiline=multiline numeric=field == Field::Intensity invalid=invalid described_by=Signal::derive(move || if invalid.get() { error_id.get_value() } else { String::new() })
+            readonly=ctx.readonly activity=ctx.activity multiline=multiline numeric=field == Field::Intensity invalid=invalid described_by=Signal::derive(move || if invalid.try_get().unwrap_or(false) { error_id.try_get_value().unwrap_or_default() } else { String::new() })
             on_commit=Callback::new(move |text: String| ctx.change(|document| document.set(&target.get_value(), field, &text))) />
-        <Show when=move || invalid.get()><FieldError id=error_id.get_value()>{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
+        <Show when=move || invalid.try_get().unwrap_or(false)><FieldError id=error_id.get_value()>{move || findings.try_get().unwrap_or_default().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
     }
 }
 
@@ -962,12 +969,13 @@ fn PronunciationText(
             })
             .unwrap_or_default()
     });
-    let invalid = Signal::derive(move || !findings.get().is_empty());
+    let invalid =
+        Signal::derive(move || findings.try_get().is_some_and(|issues| !issues.is_empty()));
     view! {
         <div class="authoring-pronunciation-field">
-            <BufferedText id=input_id label=Signal::derive(move || match field { PronunciationField::Surface => authoring_copy(ctx.english.get()).surface, PronunciationField::Replacement => authoring_copy(ctx.english.get()).replacement }) value=value readonly=ctx.readonly activity=ctx.activity invalid=invalid described_by=Signal::derive(move || if invalid.get() { error_id.get_value() } else { String::new() })
+            <BufferedText id=input_id label=Signal::derive(move || match field { PronunciationField::Surface => authoring_copy(ctx.english.get()).surface, PronunciationField::Replacement => authoring_copy(ctx.english.get()).replacement }) value=value readonly=ctx.readonly activity=ctx.activity invalid=invalid described_by=Signal::derive(move || if invalid.try_get().unwrap_or(false) { error_id.try_get_value().unwrap_or_default() } else { String::new() })
                 on_commit=Callback::new(move |text: String| ctx.change(|document| document.set_pronunciation(&id.get_value(), index, field, &text))) />
-            <Show when=move || invalid.get()><FieldError id=error_id.get_value()>{move || findings.get().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
+            <Show when=move || invalid.try_get().unwrap_or(false)><FieldError id=error_id.get_value()>{move || findings.try_get().unwrap_or_default().into_iter().map(|issue| validation_rule(&issue.rule, ctx.english.get())).collect::<Vec<_>>().join(" ")}</FieldError></Show>
         </div>
     }
 }

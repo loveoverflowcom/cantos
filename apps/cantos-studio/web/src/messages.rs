@@ -4,6 +4,7 @@ use crate::editor::Status;
 mod adaptation;
 pub use adaptation::*;
 pub mod authoring;
+pub mod entry;
 pub mod production;
 pub mod workspace;
 

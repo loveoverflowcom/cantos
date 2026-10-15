@@ -193,7 +193,11 @@ Recommended order stays small and reviewable:
    of this browser lifecycle and sandbox #122; its first [guest-first CMP slice](../evidence/theatre-cmp-auth-account.md)
    composes the same contextual Back and fenced completion semantics over the existing native
    account owner, with provider, device and assistive-technology acceptance still unrun.
-4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
+4. #131's [Studio shell slice](../evidence/studio-login-dashboard.md) adopts login-only
+   entry and a bounded Bàn viết projection over the existing authorized workspace. Keep live
+   issuer/group denial, full browser/assistive-technology acceptance and exact artwork fidelity
+   separate from synthetic-HTTP UI evidence. The next review should finish those acceptance
+   gaps before expanding dashboard summaries or changing the editor/data owners.
 
 This does not reorder publication/storage acceptance, change auth grants, or close consumer
 issues. GitHub owns execution status; the queue records only dependency order and rationale.

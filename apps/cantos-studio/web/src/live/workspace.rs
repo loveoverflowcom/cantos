@@ -178,10 +178,16 @@ pub fn ContentWorkspace(
     session_epoch: Signal<u64>,
     session_pending: Signal<bool>,
     activity: RwSignal<bool>,
+    busy: RwSignal<bool>,
     dirty: RwSignal<bool>,
+    dashboard: Signal<bool>,
+    on_import: Callback<()>,
+    on_editor: Callback<()>,
+    on_open_content: Callback<()>,
 ) -> impl IntoView {
     let facts = RwSignal::new(Facts::default());
     let state = RwSignal::new(RequestState::default());
+    let dashboard_query = RwSignal::new(super::dashboard::DashboardQuery::default());
     let file = RwSignal::new(None::<(Arc<Vec<u8>>, String)>);
     let file_generation = RwSignal::new(0u64);
     let file_busy = RwSignal::new(false);
@@ -252,45 +258,61 @@ pub fn ContentWorkspace(
     });
     let abort = StoredValue::new_local(None::<AbortController>);
     let delegation_unresolved = RwSignal::new(false);
+    let delegation_busy = RwSignal::new(false);
     let dispatch = Dispatch {
         state,
         session_pending,
         abort,
         api: expect_context::<crate::api::StudioContext>().api,
         complete: Callback::new(
-            move |(command, reply): (Command, Result<Reply, ClientError>)| match reply {
-                Ok(reply) => {
-                    if let Reply::Brief(brief) = &reply {
-                        let _ = brief_version.try_set(brief.brief.version.to_string());
-                    }
-                    if let Reply::Submission(submission) = &reply {
-                        let _ = submission_id.try_set(submission.submission.id.clone());
-                        if let Command::Prepare { request, .. } = &command {
-                            let _ = credential
-                                .try_set(UploadCredential::new(request.upload_token.clone()).ok());
+            move |(command, reply): (Command, Result<Reply, ClientError>)| {
+                if matches!(&command, Command::Works { .. }) {
+                    let _ = dashboard_query.try_update(|query| *query = query.finish(&reply));
+                }
+                match reply {
+                    Ok(reply) => {
+                        if let Reply::Brief(brief) = &reply {
+                            let _ = brief_version.try_set(brief.brief.version.to_string());
                         }
+                        if let Reply::Submission(submission) = &reply {
+                            let _ = submission_id.try_set(submission.submission.id.clone());
+                            if let Command::Prepare { request, .. } = &command {
+                                let _ = credential.try_set(
+                                    UploadCredential::new(request.upload_token.clone()).ok(),
+                                );
+                            }
+                        }
+                        if let Reply::Candidate(candidate) = &reply {
+                            let _ = candidate_id.try_set(candidate.candidate.id.clone());
+                        }
+                        if matches!(command, Command::Review { .. } | Command::Revoke { .. }) {
+                            let _ = consent.try_set(None);
+                        }
+                        let _ = facts.try_update(|f| *f = f.apply(reply));
                     }
-                    if let Reply::Candidate(candidate) = &reply {
-                        let _ = candidate_id.try_set(candidate.candidate.id.clone());
+                    Err(ClientError::Http { status: 404, error })
+                        if error.code == ErrorCode::NotFound
+                            && matches!(command, Command::ContentHead { .. }) =>
+                    {
+                        let _ = facts.try_update(|f| {
+                            f.content_base = Some(0);
+                            f.content = None;
+                        });
                     }
-                    if matches!(command, Command::Review { .. } | Command::Revoke { .. }) {
-                        let _ = consent.try_set(None);
-                    }
-                    let _ = facts.try_update(|f| *f = f.apply(reply));
+                    Err(_) => {}
                 }
-                Err(ClientError::Http { status: 404, error })
-                    if error.code == ErrorCode::NotFound
-                        && matches!(command, Command::ContentHead { .. }) =>
-                {
-                    let _ = facts.try_update(|f| {
-                        f.content_base = Some(0);
-                        f.content = None;
-                    });
-                }
-                Err(_) => {}
             },
         ),
     };
+    let cancel_request = Callback::new(move |()| {
+        let reading_works = state.with_untracked(|s| {
+            s.phase() == Phase::Pending && matches!(s.pending(), Some(Command::Works { .. }))
+        });
+        dispatch.cancel();
+        if reading_works {
+            dashboard_query.update(|query| *query = query.finish(&Err(ClientError::Cancelled)));
+        }
+    });
     Effect::new(move |_| {
         let actor = actor.get();
         let actor_changed = state.with_untracked(|s| s.actor() != actor);
@@ -306,7 +328,9 @@ pub fn ContentWorkspace(
                 // Reset child activity while the Work controls are still mounted, before the
                 // selected-Work Show disposes them and their local reactive signals.
                 delegation_unresolved.set(false);
+                delegation_busy.set(false);
                 facts.set(Facts::default());
+                dashboard_query.set(super::dashboard::DashboardQuery::default());
                 file_busy.set(false);
                 file_error.set(false);
                 for input in [
@@ -350,19 +374,21 @@ pub fn ContentWorkspace(
             }
         }
         if !active.get() && state.with_untracked(|s| s.phase() == Phase::Pending) {
-            dispatch.cancel();
+            cancel_request.run(());
         }
     });
     Effect::new(move |_| {
+        busy.set(
+            file_busy.get() || delegation_busy.get() || state.with(|s| s.phase() == Phase::Pending),
+        );
         activity.set(
-            file_busy.get()
-                || delegation_unresolved.get()
-                || state.with(|s| s.phase() == Phase::Pending),
+            file_busy.get() || delegation_unresolved.get() || state.with(|s| s.pending().is_some()),
         )
     });
     on_cleanup(move || {
         dispatch.abort();
         let _ = activity.try_set(false);
+        let _ = busy.try_set(false);
     });
     let blocked = Signal::derive(move || {
         session_pending.get()
@@ -371,11 +397,36 @@ pub fn ContentWorkspace(
             || delegation_unresolved.get()
             || state.with(|s| s.phase() == Phase::Pending || s.pending().is_some())
     });
+    let read_works = Callback::new(move |cursor: Option<String>| {
+        if blocked.get_untracked() {
+            return;
+        }
+        dashboard_query.update(|query| {
+            *query = query.start(&actor.get_untracked(), session_epoch.get_untracked());
+        });
+        dispatch.send(Command::Works { cursor });
+    });
+    Effect::new(move |_| {
+        let owner = actor.get();
+        let epoch = session_epoch.get();
+        let target = format!("workspace:{epoch}");
+        if dashboard.get()
+            && active.get()
+            && !session_pending.get()
+            && !owner.is_empty()
+            && state.with(|s| s.actor() == owner && s.target() == target && s.pending().is_none())
+            && !file_busy.get()
+            && !delegation_unresolved.get()
+            && !dashboard_query.with(|query| query.attempted(&owner, epoch))
+        {
+            read_works.run(None);
+        }
+    });
     let pick_work = Callback::new(move |id: String| {
         if blocked.get_untracked() {
             return;
         }
-        dispatch.cancel();
+        cancel_request.run(());
         file.set(None);
         file_error.set(false);
         file_generation.update(|g| {
@@ -410,7 +461,7 @@ pub fn ContentWorkspace(
         if blocked.get_untracked() {
             return;
         }
-        dispatch.cancel();
+        cancel_request.run(());
         file.set(None);
         file_error.set(false);
         file_generation.update(|g| {
@@ -445,21 +496,60 @@ pub fn ContentWorkspace(
         candidate_id.set(String::new());
         dispatch.send(Command::ContentHead { unit: id });
     });
-    view! {<section id="workspace-content" aria-labelledby="live-title" on:input=move |_|dirty.set(true) on:change=move |_|dirty.set(true)>
-        <h2 id="live-title">{move ||text(Key::Pane,english.get())}</h2><p>{move ||text(Key::Help,english.get())}</p>
+    let dashboard_pick = Callback::new(move |id: String| {
+        if session_pending.get_untracked() {
+            return;
+        }
+        // Continue means exposing the same mounted selection; never reset its unit or refetch.
+        if facts.with_untracked(|f| f.work.as_ref().is_some_and(|work| work.id == id)) {
+            on_open_content.run(());
+            return;
+        }
+        if blocked.get_untracked()
+            || (dirty.get_untracked() && !crate::view::confirm_discard(english.get_untracked()))
+        {
+            return;
+        }
+        pick_work.run(id);
+        on_open_content.run(());
+    });
+    let open_new_work = Callback::new(move |()| {
+        if blocked.get_untracked() {
+            return;
+        }
+        on_open_content.run(());
+        focus_workspace_field("live-work-title", Some("live-create-work-form"));
+    });
+    let open_audio = Callback::new(move |()| {
+        if session_pending.get_untracked() {
+            return;
+        }
+        on_open_content.run(());
+        focus_workspace_field("live-audio-section", None);
+    });
+    view! {<section id="workspace-content" aria-labelledby=move || if dashboard.get() {"dashboard-title"} else {"live-title"} on:input=move |_|dirty.set(true) on:change=move |_|dirty.set(true)>
+        <div hidden=move || !dashboard.get() inert=move || !dashboard.get()>
+            <super::dashboard::Dashboard facts=facts query=dashboard_query english=english blocked=blocked session_pending=session_pending
+                on_new_work=open_new_work on_import=on_import on_editor=on_editor on_continue=on_open_content on_audio=open_audio
+                on_refresh=Callback::new(move |()| read_works.run(None))
+                on_next=Callback::new(move |()| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })
+                on_pick=dashboard_pick/>
+        </div>
+        <div hidden=move || dashboard.get() inert=move || dashboard.get()>
+        <h2 id="live-title" tabindex="-1">{move ||text(Key::Pane,english.get())}</h2><p>{move ||text(Key::Help,english.get())}</p>
         <p role="status">{move ||if file_error.get(){if english.get(){"Could not read the file; check size and try again."}else{"Không đọc được tệp; kiểm tra kích thước và thử lại."}}else{""}}</p>
         <div class="live-status" role="status" aria-live="polite"><p>{move ||state.with(|s|text(match s.phase() {Phase::Idle=>Key::Idle,Phase::Pending=>Key::Pending,Phase::Ready=>Key::Ready,Phase::Failed=>Key::Failed,Phase::Ambiguous=>Key::Ambiguous},english.get()))}</p>
             {move ||state.with(|s|s.error().map(|error|error_message(error,english.get())).unwrap_or_default())}
             <p>{move ||if state.with(RequestState::is_empty){text(Key::Empty,english.get())}else{""}}</p>
             <ul>{move ||state.with(|s|match s.error() {Some(ClientError::Http {error,..})=>error.issues.clone(),_=>vec![]}).into_iter().map(|issue|view! {<li><code>{issue.path}</code>" · "{issue.rule}</li>}).collect_view()}</ul>
-            <div class="toolbar"><ActionButton id="live-cancel" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|dispatch.cancel())>{move ||text(Key::Cancel,english.get())}</ActionButton>
+            <div class="toolbar"><ActionButton id="live-cancel" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||state.with(|s|s.phase()!=Phase::Pending)) on_press=Callback::new(move |_|cancel_request.run(()))>{move ||text(Key::Cancel,english.get())}</ActionButton>
             <ActionButton id="live-reconcile" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_reconcile())) on_press=Callback::new(move |_|dispatch.reconcile())>{move ||if english.get(){"Reconcile exact private receipt"}else{"Đối chiếu đúng biên nhận riêng tư"}}</ActionButton>
             <ActionButton id="live-retry" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||session_pending.get()||state.with(|s|!s.can_retry())) on_press=Callback::new(move |_|dispatch.retry())>{move ||text(Key::Retry,english.get())}</ActionButton></div>
         </div>
-        <div class="toolbar"><ActionButton id="live-works" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.send(Command::Works {cursor:None}))>{move ||text(Key::Refresh,english.get())}</ActionButton>
-        <ActionButton id="live-works-next" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_|dispatch.send(Command::Works {cursor:facts.with_untracked(|f|f.works_next.clone())}))>{move ||text(Key::Next,english.get())}</ActionButton></div>
+        <div class="toolbar"><ActionButton id="live-works" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|read_works.run(None))>{move ||text(Key::Refresh,english.get())}</ActionButton>
+        <ActionButton id="live-works-next" english=english reason=BlockReason::ContextReady blocked=Signal::derive(move ||blocked.get()||facts.with(|f|f.works_next.is_none())) on_press=Callback::new(move |_| { if let Some(cursor) = facts.with_untracked(|f| f.works_next.clone()) { read_works.run(Some(cursor)); } })>{move ||text(Key::Next,english.get())}</ActionButton></div>
         <ul class="live-list">{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();view! {<li><button class="cui-button" type="button" disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())>{w.details.title}<small>{format!("{} · r{}",w.kind,w.revision)}</small></button></li>}}).collect_view()}</ul>
-        <details><summary>{move ||text(Key::CreateWork,english.get())}</summary><div class="live-grid">
+        <details id="live-create-work-form"><summary>{move ||text(Key::CreateWork,english.get())}</summary><div class="live-grid">
             <Field id="live-work-title" label=Key::Title value=title english=english/><Field id="live-work-synopsis" label=Key::Synopsis value=synopsis english=english multiline=true/>
             <SelectField id="live-work-kind" label=Key::Kind value=kind english=english><crate::ui::WorkKindOptions value=kind/></SelectField>
             <Field id="live-rights" label=Key::Rights value=rights english=english/>
@@ -473,7 +563,7 @@ pub fn ContentWorkspace(
             </details>
         </Show>
         <super::delegation::panel::DelegationPanel actor=actor work=Signal::derive(move || facts.with(|f| f.work.clone())) english=english
-            session_pending=session_pending unresolved=delegation_unresolved dirty=dirty/>
+            session_pending=session_pending unresolved=delegation_unresolved busy=delegation_busy dirty=dirty/>
         <Show when=move ||facts.with(|f|f.unit.is_some())>
             <h3>{move ||facts.with(|f|f.unit.as_ref().map(|u|format!("{} · r{}",u.details.title,u.revision)).unwrap_or_default())}</h3><p><code>{move ||facts.with(Facts::unit_id)}</code></p>
             <ActionButton id="live-patch-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let (w,u)=context(facts)?;Ok(Command::PatchUnit {unit:u.id,request:PatchContentUnitRequest {operation_id:uuid()?,expected_revision:u.revision,expected_work_revision:w.revision,details:UnitPatchDto {title:PatchField::Value(unit_title.get_untracked()),description:PatchField::Value(description.get_untracked()),..UnitPatchDto::default()}}})})()))>{move ||text(Key::SaveMetadata,english.get())}</ActionButton>
@@ -493,7 +583,7 @@ pub fn ContentWorkspace(
                 <ActionButton id="live-read-brief" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build(brief_version.get_untracked().parse().map(|version|Command::Brief {unit:facts.with_untracked(Facts::unit_id),version}).map_err(|_|ClientError::InvalidInput)))>{move ||text(Key::ReadBrief,english.get())}</ActionButton></div>
                 <pre>{move ||facts.with(|f|f.brief.as_ref().and_then(|b|serde_json::to_string_pretty(b).ok()).unwrap_or_default())}</pre>
             </section>
-            <section class="live-section"><h3>{move ||text(Key::Audio,english.get())}</h3><label for="live-audio-file">{move ||text(Key::File,english.get())}</label>
+            <section id="live-audio-section" class="live-section" tabindex="-1" aria-labelledby="live-audio-title"><h3 id="live-audio-title">{move ||text(Key::Audio,english.get())}</h3><label for="live-audio-file">{move ||text(Key::File,english.get())}</label>
                 <input id="live-audio-file" type="file" accept=".ogg,audio/ogg" disabled=move ||blocked.get() on:change=move |event| {
                     file.set(None);credential.set(None);file_error.set(false);let Some(generation)=file_generation.get_untracked().checked_add(1) else {dispatch.input_error();return;};file_generation.set(generation);
                     let actor_snapshot=actor.get_untracked();let unit_snapshot=facts.with_untracked(Facts::unit_id);
@@ -519,7 +609,27 @@ pub fn ContentWorkspace(
                 <p>{move ||text(Key::Private,english.get())}</p><pre>{move ||facts.with(|f|f.candidate.as_ref().and_then(|c|serde_json::to_string_pretty(c).ok()).unwrap_or_default())}</pre>
             </section>
         </Show>
+        </div>
     </section>}
+}
+
+fn focus_workspace_field(id: &'static str, details: Option<&'static str>) {
+    leptos::leptos_dom::helpers::request_animation_frame(move || {
+        let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+            return;
+        };
+        if let Some(details) = details.and_then(|id| document.get_element_by_id(id)) {
+            let _ = details.set_attribute("open", "");
+        }
+        let target = document
+            .get_element_by_id(id)
+            .or_else(|| document.get_element_by_id("live-title"));
+        if let Some(target) =
+            target.and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = target.focus();
+        }
+    });
 }
 fn error_message(error: &ClientError, en: bool) -> String {
     match error {
