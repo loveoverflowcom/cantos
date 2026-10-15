@@ -199,8 +199,8 @@ assertion remains unchanged. Independent read-only review found no actionable fi
 `cargo xtask verify rust` passes format, workspace lint and workspace tests (1583 passed, zero
 failed, 300 ignored); this is separate from the real PostgreSQL evidence.
 
-A third `cargo xtask verify postgres` run passes **all 242 Rust PostgreSQL cases**, including
-all 21 audio-intake cases and the three previously failing reads. The overall gate still reports
+A third `cargo xtask verify postgres` run passed **all 242 Rust PostgreSQL cases**, including
+all 21 audio-intake cases and the three previously failing reads. That attempt reported
 **FAIL**: the first real-socket audio recovery probe stops at the unchanged
 `scripts/test_postgres.py:593` cache assertion before the restart cycle. The script still expects
 plain `no-store` for private byte reads. Its SHA-256 matches fetched develop:
@@ -210,12 +210,34 @@ remains plain `no-store`; replacing every expectation with the private-byte poli
 Full output is retained as `postgres-approved-cache-helper.log`; affected Rust checks are in
 `rust-approved-cache-helper.log`. The runner stopped its own hosts and disposable cluster.
 
-The remaining Python correction is outside the approved Rust patch and is not applied. A
-read-only audit covers the gate's remaining cache oracles before proposing the complete bounded
-test-only change. Existing 200/206/416 byte-read assertions must keep the exact private policy,
-while redirects, JSON, PUT and early-authentication expectations retain their appropriate policy.
-No remaining socket/range/restart acceptance is inferred from passing in-process cases.
-Disk remains approximately 19 GiB free; no SDK/tool was installed or old evidence/cache deleted.
+A complete independent read-only audit covered all 14 integration targets, three filtered library
+modules, recursive supports and all nine Python cache assertions/dependencies, including restart
+paths. Exactly one stale Python oracle remained. JSON, PUT, early-authentication, import and
+artwork assertions had appropriate distinct policies and were not changed.
+
+The user approved the complete Python-only correction: a required keyword-only
+`expected_cache_control`, exact header equality, and all five explicit call expectations. Four
+byte-read call sites (GET/HEAD 200, GET 206/416) require `private, no-store, no-transform`; the
+read-access 303 call retains `no-store`. All other status/body/hash/length/ETag/range/encoding,
+`nosniff` and redirect assertions remain intact. Independent final diff review found no actionable
+finding. The corrected script SHA-256 is
+`f01364c584e8af1c6644b0a4fecb9dceff7f23ab6405015ae1308cd665fc7bcf`.
+
+The fourth full `cargo xtask verify postgres` run reports **PASS**: 245 Rust PostgreSQL cases
+passed, zero failed or ignored, including the three deferred restart cases. Real socket HTTP,
+API process kill, PostgreSQL restart, exact immutable replay, owner GET/HEAD body/hash/length/type/
+ETag, first/middle/suffix/final ranges, 416 and local read-access 303 all execute successfully.
+The before/after audio recovery projections are equal. This is backend integration with synthetic
+fixtures and named mock identities; it does not establish native device or production delivery
+acceptance. Full output is retained as `postgres-approved-python-oracle.log`.
+
+The resulting `target/catalog-evidence/audio-server-restart.json` record has SHA-256
+`b5e2c5ae4d16d0a883ae4f65ba8b8494dcda29eee614a9afcd161b5f53915733`; a copy is retained with
+this run's ignored evidence. The runner stopped only its own hosts and disposable cluster.
+All earlier failure logs and old records/clusters remain retained. Disk remains approximately
+19 GiB free; no SDK/tool was installed or old evidence/cache deleted. Final repository/Python
+hygiene is reported separately in the PR; unchanged Rust/Web/CMP/DBSP/media/mutation results are
+reused on their recorded inputs rather than repeated for commit/push packaging.
 
 Independent source inspection still finds only the Android `.demo` app, whose unconditional
 sandbox dependency and mock composition root predate this PR. There is no production host or
@@ -236,13 +258,13 @@ The exact Kotlin/Native 2.2.20 and official Android preview CLI prerequisites re
   recorded capture command and open its PNG/semantics. The Android compile and JVM render do not
   accept Studio layout rendering or device behavior.
 - **Verification owner (unassigned):** the initial approximately 3 GiB resource deferral has
-  been cleared by the user's cleanup and the resumed campaign above. The PostgreSQL gate now
-  passes all 242 in-process PostgreSQL cases after both approved Rust test repairs, but still
-  fails at the inherited Python socket cache oracle. Range/restart phases beyond that probe
-  remain `NOT_RUN`. Audit the complete remaining same-contract helper scope, obtain separate
-  approval for the bounded Python test-only change, then rerun `cargo xtask verify postgres`
-  on a new disposable cluster. No successful unchanged heavy gate needs repetition. No gate is
-  relaxed or remote CI substituted; assignment is required before accepting the remaining scope.
+  been cleared by the user's cleanup and executed matching-input campaigns. All three approved
+  stale test-oracle corrections are exercised; the full PostgreSQL socket/range/restart gate now
+  passes. No successful unchanged heavy gate needs repetition. Final hygiene and reused gate
+  provenance remain explicit in the PR; a preflight with deliberate reuse skips is not an
+  unskipped aggregate PASS. Production/native acceptance above is still incomplete, and combined
+  integration with concurrently merged Studio PR #166 has not been verified. No gate is relaxed
+  or remote CI substituted.
 
 No schema/migration, Script IR/API DTO, publication/cache/audio revision, rights/approval policy
 or provider cost changes. No new persistence, path provider, SQLite engine, filesystem or HTTP

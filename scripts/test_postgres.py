@@ -577,7 +577,7 @@ def audio_recovery(port, fixture):
     delivery_opener = urllib.request.build_opener(
         urllib.request.ProxyHandler({}), NoReadRedirect())
 
-    def preview(method, path, extra=None, expected_status=200):
+    def preview(method, path, extra=None, expected_status=200, *, expected_cache_control):
         headers = {"Cookie": "cantos_session=" + "a" * 64,
                    "Origin": f"http://127.0.0.1:{port}"}
         headers.update(extra or {})
@@ -590,14 +590,15 @@ def audio_recovery(port, fixture):
             response = error
         with response:
             assert response.status == expected_status, (path, response.status)
-            assert response.headers["Cache-Control"] == "no-store"
+            assert response.headers["Cache-Control"] == expected_cache_control
             assert response.headers["X-Content-Type-Options"] == "nosniff"
             return response.read(), response.headers
 
     media = rendition["verified_media"]
     byte_path = f"{base}/{submission}/renditions/{rendition['id']}/bytes"
     expected_etag = '"' + media["sha256"] + '"'
-    received, headers = preview("GET", byte_path)
+    received, headers = preview(
+        "GET", byte_path, expected_cache_control="private, no-store, no-transform")
     assert received == actual
     assert hashlib.sha256(received).hexdigest() == media["sha256"]
     assert headers["Content-Type"] == "audio/ogg"
@@ -609,7 +610,9 @@ def audio_recovery(port, fixture):
     delivery = {"sha256": hashlib.sha256(received).hexdigest(),
                 "byte_length": len(received), "content_type": headers["Content-Type"],
                 "etag": headers["ETag"], "ranges": []}
-    received, headers = preview("HEAD", byte_path, {"Range": f"bytes={len(actual)}-"})
+    received, headers = preview(
+        "HEAD", byte_path, {"Range": f"bytes={len(actual)}-"},
+        expected_cache_control="private, no-store, no-transform")
     assert received == b""
     assert headers["Content-Length"] == str(len(actual))
     assert headers["Content-Type"] == "audio/ogg"
@@ -622,7 +625,9 @@ def audio_recovery(port, fixture):
             (f"bytes={middle}-{middle + 31}", middle, middle + 31),
             ("bytes=-32", final_first, len(actual) - 1),
             (f"bytes={final_first}-", final_first, len(actual) - 1)]:
-        received, headers = preview("GET", byte_path, {"Range": value}, 206)
+        received, headers = preview(
+            "GET", byte_path, {"Range": value}, 206,
+            expected_cache_control="private, no-store, no-transform")
         assert received == actual[first:last + 1]
         assert headers["Content-Length"] == str(last - first + 1)
         assert headers["Content-Range"] == f"bytes {first}-{last}/{len(actual)}"
@@ -631,12 +636,15 @@ def audio_recovery(port, fixture):
         delivery["ranges"].append({"request": value, "content_range": headers["Content-Range"],
                                    "byte_length": len(received),
                                    "sha256": hashlib.sha256(received).hexdigest()})
-    received, headers = preview("GET", byte_path, {"Range": f"bytes={len(actual)}-"}, 416)
+    received, headers = preview(
+        "GET", byte_path, {"Range": f"bytes={len(actual)}-"}, 416,
+        expected_cache_control="private, no-store, no-transform")
     assert headers["Content-Range"] == f"bytes */{len(actual)}"
     assert json.loads(received)["code"] == "invalid_request"
     delivery["unsatisfiable_content_range"] = headers["Content-Range"]
     access_path = byte_path.removesuffix("/bytes") + "/read-access"
-    received, headers = preview("GET", access_path, expected_status=303)
+    received, headers = preview(
+        "GET", access_path, expected_status=303, expected_cache_control="no-store")
     assert received == b""
     assert headers["Location"] == "/api/v1/studio" + byte_path
     assert headers.get("X-Cantos-Read-Expires-At") is None
