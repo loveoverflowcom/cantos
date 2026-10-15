@@ -8,7 +8,7 @@ Selection: `git log -15 origin/develop`, with Git's default graph traversal, **n
 Review includes each selected commit's first-parent integration diff, so older branch changes
 introduced by a selected merge are not silently excluded. The union contains 212 historical
 paths, including renamed/deleted paths; generated outputs were assessed with their owners,
-not treated as separate policies. No deploy, publication or merge was performed.
+not treated as separate policies. No deploy, product publication or merge was performed.
 
 | Commit | Subject |
 | --- | --- |
@@ -82,20 +82,44 @@ predates this scope and is not silently renumbered.
 ### P2, preview scope: Leptos supporting-text color crosses nested boundaries
 
 Class: **confirmed defect**; category: compatibility; confidence: confirmed from source;
-rendered/browser evidence is not held. Deferred to the independent second review.
+rendered/browser evidence is not held. Corrected during the independent second review.
 `packages/ui-system/leptos/foundation.css.in` uses a descendant selector under a
 `primary-container` Surface that reaches help/reason elements inside a nested ordinary Surface
 or UiRoot. `color: inherit` then uses `onSurface` rather than normal `onSurfaceVariant` there.
 CMP's nearest-Surface reset in `Layout.kt` and its nested metadata test establish the intended
-renderer parity. The bounded source fix is an inherited supporting-text property reset at every
-UiRoot/Surface and overridden only by the nearest PrimaryContainer; regenerate CSS and check
-computed colors for direct, nested-Surface and nested-UiRoot content in both themes.
+renderer contract. The correction binds existing semantic colors through the renderer-local
+`--cantos-web-supporting-text-color`, reset at every UiRoot/Surface and overridden by a
+PrimaryContainer on that boundary only. Help and disabled reasons consume that binding; errors
+retain their separate error role. The canonical palette, Kotlin output, geometry, strings,
+focus and motion are unchanged. The CSS was regenerated from its template, not hand-patched.
+
+The new source-contract regression fails on the before template and generated CSS and passes
+after the patch. It asserts all binding owners and all help/reason color selectors, rejecting
+the ancestor descendant-color override. A separate independent sRGB oracle checks the paired
+and neutral metadata roles against their backgrounds in both themes. These are static/source
+and token-pair evidence, **not** computed browser colors, DOM tests or rendered contrast.
+The retained browser fixture covers direct, nested-Surface and nested-UiRoot help/reasons at
+320/1280 CSS px in light/dark; its computed-color and opened-capture recheck remains pending.
 
 A local installed Chromium run was attempted with a synthetic Vietnamese DOM and repository
 CSS only. It could not launch: its local socket was denied by the syscall sandbox. The permitted
 escalated run also could not start because the executor's `bwrap` setup encountered a read-only
 sessions mount. No browser pixels, DOM result, native device, screen reader or interaction pass
 is claimed; no security restriction or private-file guard was changed to obtain evidence.
+
+### P2, test evidence: PostgreSQL preview helper retained the old MIME cache oracle
+
+Class: **confirmed defect**; category: testing; confidence: confirmed from production route
+composition and helper source, not an executed PostgreSQL failure. The independently reviewed
+helper still expected plain `no-store` whenever MIME was not `audio/ogg`. An authenticated
+missing-target 503 and authenticated 416/owner-resource errors pass through the audio handler's
+private wrapper, so that assertion would reject the corrected policy before checking the
+intended status. The helper now uses explicit caller expectations. Early Studio authentication
+failures, read-access redirects and unregistered Theatre routes still expect plain `no-store`;
+handler-owned private audio responses expect `private, no-store, no-transform`.
+The non-PostgreSQL `surface_routes` suite passed unchanged: outer authentication failures never
+reach the private wrapper. No production authorization or cache policy was broadened to make
+tests pass. Real PostgreSQL execution remains required and unrun locally.
 
 ## Assurance ledger and target coverage
 
@@ -106,7 +130,7 @@ is claimed; no security restriction or private-file guard was changed to obtain 
 | Grant/Range code does not publish private storage | Media Publication/Listening and separate HTTP groups | policy: AGENTS.md surface and privacy boundaries | Source review of grant identity, per-fetch eligibility, Range planning/stream bounds and consumers; existing native tests retained; real public delivery remains fail-closed and unaccepted |
 | Quint owns accepted executable expectations, not transport or unresolved decisions | Catalog/models/protocol, Rust observer, runner/xtask | doc: specs/behavior/observation-protocol.md | Event-only observer calls production decision/constructors; no mirrored decision reducer found; lifecycle stays draft; model/core/API evidence remains distinct |
 | Storage probes require exact ownership and stop on uncertainty | S3 acceptance/anonymous-privacy harness | doc: longvan-s3-acceptance.md; policy: storage ownership guards | Source review and existing offline unit coverage; live credentials, provider writes and cleanup never attempted |
-| Shared UI preserves nearest-owner roles and host-owned effects | Leptos/CMP components, native launch hosts | doc: design/ui-system.md; shared renderer contract | Source review of auth/logo/motion and Android/iOS synchronous launch ownership; nested Leptos metadata finding remains open; no new UI correction or visual claim in this session |
+| Shared UI preserves nearest-owner roles and host-owned effects | Leptos/CMP components, native launch hosts | doc: design/ui-system.md; shared renderer contract | Source review of auth/logo/motion and Android/iOS synchronous launch ownership; nearest-boundary Leptos binding corrected with failing-then-passing source regression and both-theme token contrast; no browser/native visual claim |
 | Exact compiler pin does not alter domain semantics | Manifests, CI/xtask, fixed-array and default changes | doc: architecture/rust-toolchain.md | Source review plus applicable Rust checks; no new toolchain or dependency versions selected |
 | Decision IDs point to one proposal | Architecture/contracts/docs | review-profile: conceptual/SSOT consistency | Publication renumbering and repository link checks; held; proposal statuses unchanged |
 
@@ -152,17 +176,59 @@ intentional pre-fix failures remain separately named.
   a pass. The final `cargo xtask preflight --changed-only --skip postgres` rerun is terminal:
   repository, rust-format, cantos-api rust-lint/rust-tests, dbsp, wav-reference and
   audio-inspection PASS; PostgreSQL is explicitly NOT_RUN. This is not full acceptance.
-- No production UI source changed. Browser launch failures above mean browser/native/UI
-  acceptance is NOT_RUN, not a visual pass. No deployment or live storage work was attempted.
+- Session 1 changed no UI source. Session 2 corrects the bounded renderer-local binding above;
+  browser launch failures mean browser/native/UI acceptance is still NOT_RUN, not a visual pass.
+  No deployment or live storage work was attempted.
 
-Assessment: `changes-requested` for the still-open Leptos preview finding. The three corrected
-findings are independently scoped fixes, not a repository or production acceptance claim.
+### Independent second review
+
+Session 2 starts from session 1 commit `0f3fff0036abfe20f135eeecd9a769df564bfe8b`, after the
+first review completed. It rechecks ownership-before-readiness, private construction paths,
+exact-target/no-fallback routing, post-storage reauthorization, HTTP composition and test
+consumers, draft Quint catalog/model authority and event-only observation, and shared UI/native
+launch ownership. It found the stale PostgreSQL cache oracle above in addition to the queued
+Leptos correction. No further concrete production auth, type-barrier or Quint defect was found
+in those targeted boundaries. This is not exhaustive review or proof over all historical paths.
+
+Session 2 uses the same installed Rust 1.98.1 and existing tools; no new software is installed.
+Final code inputs are recorded locally in `session2-source-inputs.json`, with complete output
+under the same ignored run directory. Independently executed results:
+
+- `python3 -m unittest discover -s scripts -p test_ui_component_states.py`: before regression
+  FAIL for both CSS source/generated owner bindings; after correction PASS, six tests including
+  the new source-contract and light/dark independent contrast checks.
+- `cargo test -p cantos-api --test surface_routes --locked`: PASS, 12 tests against the real
+  router without connecting its lazy PostgreSQL pool. Early authentication policy remains intact.
+- `cargo xtask preflight --changed-only`: PostgreSQL UNSUPPORTED (missing initdb/pg_ctl/psql),
+  all other selected gates NOT_RUN because prerequisites are prechecked.
+- `cargo xtask preflight --changed-only --skip postgres`: terminal PASS for all 11 available
+  gates: repository (403 Python tests), rust-format, affected-package rust-lint and rust-tests
+  (cantos-api/cantos-studio/cantos-theatre/cantos-ui), dbsp, wav-reference, audio-inspection,
+  web-lint, both Web builds and ui-preview. PostgreSQL remains explicitly NOT_RUN. The API
+  library alone passes 462 tests with 68 intentional ignores; the Leptos native/string-render
+  suites compile and pass, but these do not establish browser behavior.
+- The unchanged full-workspace xtask fixture failure recorded in session 1 remains an actual
+  aggregate FAIL, not replaced by the affected-package PASS. It was not needlessly retried.
+
+- `cargo xtask verify behavior --conformance --capability cantos.media.private-audio-admission`:
+  independent fresh rerun PASS for model execution and `pure-core-synthetic-shell` conformance,
+  including original traces, model-mutant sensitivity, observer-fault sensitivity and freshness.
+  Bundle: `target/verification/behavior/cantos.media.private-audio-admission-0f1662dd352046ffa7734e0fa38a76b4/`.
+  DB/API/authorization/media/storage/client/device acceptance and exhaustive proof remain NOT_RUN.
+- The post-report `cargo xtask verify repository` result is supplied in the final PR handoff;
+  no pending run is counted as PASS here.
+
+Assessment: bounded source corrections are ready for draft review with acceptance pending.
+The fixes do not accept production/private-read integration, shared renderer parity or either
+proposed ADR.
 
 ## Residual risk and next owner
 
-The independent second review owns the open Leptos scoped-color correction and final PR
-publication. Real PostgreSQL private-read acceptance needs PostgreSQL 17 binaries and a new
-disposable cluster via `cargo xtask verify postgres`; no production/inherited URL is allowed.
+The Leptos scoped-color source correction is complete; browser computed colors and inspected
+same-scenario captures remain unaccepted. Real PostgreSQL private-read acceptance needs
+PostgreSQL 17 binaries and a new disposable cluster via `cargo xtask verify postgres`;
+no production/inherited URL is allowed.
 The historical private-artwork fixture baseline is separate and has not been repaired here.
 Provider privacy, public delivery, native devices and screen readers remain outside this
 session. Missing infrastructure and actual test failures are reported separately, never as PASS.
+The remaining runtime/SQL acceptance assignee is unassigned and must be assigned before acceptance.

@@ -73,9 +73,11 @@ uploads through Cantos API follow only after that gate. Those audio uploads rema
 
 The [latest-develop consistency review](../evidence/develop-consistency-review-20261015.md)
 keeps exact historical-target readiness ahead of conditional private reads and preserves the
-transport cache policy through HTTP composition. Its next independent review should resolve
-the bounded Leptos nested supporting-text role issue before claiming renderer parity; this
-does not change the provider/publication acceptance order or accept either proposed ADR.
+transport cache policy through HTTP composition. The independent second review also repairs
+Leptos nested supporting-text role boundaries and the PostgreSQL preview helper's stale MIME
+cache oracle. Browser/computed-color and real SQL acceptance remain pending; this does not
+claim renderer parity, change the provider/publication acceptance order or accept either
+proposed ADR.
 
 The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
 extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
