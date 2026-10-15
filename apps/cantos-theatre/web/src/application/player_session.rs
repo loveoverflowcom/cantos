@@ -1,5 +1,6 @@
 //! Root-owned imperative shell. Pure transitions commit before fake effects execute.
 use super::ports::MediaPort;
+use super::scrub::{PendingSeek, PositionObservation, SeekBinding};
 use crate::core::playback::{
     self, Effect, Event, PlayerState, Source, Status, ValidatedResumeSnapshot,
 };
@@ -17,6 +18,13 @@ pub struct PlayerView {
     pub speed: u16,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TransportView {
+    pub intent: playback::Intent,
+    pub status: Status,
+    pub replay: bool,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PlayerFeedback {
     pub resume_offered: Option<ValidatedResumeSnapshot>,
@@ -32,6 +40,13 @@ pub struct PlayerSession {
     /// Stable metadata consumers must not subscribe to position-only updates.
     pub source: Memo<Option<Source>>,
     pub view: Memo<Option<PlayerView>>,
+    pub transport: Memo<Option<TransportView>>,
+    pub(crate) position_ms: Memo<Option<u32>>,
+    pub(crate) seek_binding: Memo<Option<SeekBinding>>,
+    pub(crate) observed_position: ReadSignal<Option<PositionObservation>>,
+    observation_writer: RwSignal<Option<PositionObservation>>,
+    pub(crate) pending_seek: ReadSignal<Option<PendingSeek>>,
+    seek_writer: RwSignal<Option<PendingSeek>>,
     adapter: StoredValue<RefCell<Box<dyn MediaPort>>, LocalStorage>,
 }
 impl PlayerSession {
@@ -50,6 +65,8 @@ impl PlayerSession {
             })
         });
         let feedback = RwSignal::new(PlayerFeedback::default());
+        let observation = RwSignal::new(None);
+        let pending_seek = RwSignal::new(None);
         Self {
             state: state.read_only(),
             writer: state,
@@ -60,14 +77,95 @@ impl PlayerSession {
             source: Memo::new(move |_| {
                 state.with(|state| state.session().map(|session| session.source()))
             }),
+            transport: Memo::new(move |_| {
+                state.with(|state| {
+                    state.session().map(|session| TransportView {
+                        intent: session.intent(),
+                        status: state.status(),
+                        replay: state.status() == Status::Ended
+                            && session.position_ms() == session.source().duration_ms(),
+                    })
+                })
+            }),
+            position_ms: Memo::new(move |_| {
+                state.with(|state| state.session().map(|session| session.position_ms()))
+            }),
+            seek_binding: Memo::new(move |_| {
+                state.with(|state| {
+                    Some(SeekBinding {
+                        identity: state.identity()?,
+                        duration_ms: state.session()?.source().duration_ms(),
+                    })
+                })
+            }),
+            observed_position: observation.read_only(),
+            observation_writer: observation,
+            pending_seek: pending_seek.read_only(),
+            seek_writer: pending_seek,
             adapter: StoredValue::new_local(RefCell::new(Box::new(adapter))),
         }
     }
     pub fn dispatch(self, event: Event) {
         let mut pending = VecDeque::from([event]);
         while let Some(event) = pending.pop_front() {
+            let seeks = matches!(
+                &event,
+                Event::SeekRequested { .. } | Event::SkipRequested { .. }
+            );
+            let ended = matches!(&event, Event::EngineEnded { identity } if self.state.with_untracked(|state| state.accepts(*identity)));
+            // Requested position is optimistic reducer state, never an engine acknowledgement.
+            let observed = match &event {
+                Event::EnginePosition {
+                    identity,
+                    position_ms,
+                } if self.state.with_untracked(|state| {
+                    state.accepts(*identity)
+                        && state
+                            .session()
+                            .is_some_and(|session| *position_ms <= session.source().duration_ms())
+                }) =>
+                {
+                    Some(PositionObservation {
+                        identity: *identity,
+                        position_ms: *position_ms,
+                    })
+                }
+                _ => None,
+            };
             let transition = playback::reduce(self.state.get_untracked(), event);
+            let requested = seeks
+                .then(|| {
+                    transition.effects.iter().find_map(|effect| match effect {
+                        Effect::SeekEngine(command)
+                        | Effect::PrepareEngine(command)
+                        | Effect::StartEngine(command) => Some(PendingSeek {
+                            binding: SeekBinding {
+                                identity: command.identity,
+                                duration_ms: command.source.duration_ms(),
+                            },
+                            position_ms: command.position_ms,
+                        }),
+                        _ => None,
+                    })
+                })
+                .flatten();
             self.writer.set(transition.state);
+            if let Some(observed) = observed {
+                self.observation_writer.set(Some(observed));
+            }
+            let previous = self.pending_seek.get_untracked();
+            let next = if ended {
+                None
+            } else {
+                requested.or_else(|| {
+                    previous.and_then(|seek| {
+                        seek.reconcile(self.seek_binding.get_untracked(), observed)
+                    })
+                })
+            };
+            if next != previous {
+                self.seek_writer.set(next);
+            }
             for effect in transition.effects {
                 match &effect {
                     Effect::OfferResume { .. } => {

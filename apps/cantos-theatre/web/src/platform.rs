@@ -1,6 +1,74 @@
-//! Fallible browser hash navigation only. No storage, auth, media element or network adapter.
+//! Browser navigation, focus and presentation geometry. No media or network adapter.
 use crate::app::routes::Route;
 use leptos::prelude::*;
+
+/// Restore a native range after canceled input, including when its controlled value is unchanged.
+pub(crate) fn restore_range_value(input: NodeRef<leptos::html::Input>, position_ms: u32) {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(input) = input.get_untracked() {
+        input.set_value(&position_ms.to_string());
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (input, position_ms);
+}
+
+/// Reserve the measured overlay height for wrapped titles, text scaling and focus scrolling.
+/// CSS retains a conservative fallback if ResizeObserver is unavailable.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn bind_mini_player_clearance(bar: NodeRef<leptos::html::Aside>) {
+    use leptos::wasm_bindgen::{closure::Closure, JsCast};
+    use web_sys::{HtmlElement, ResizeObserver};
+
+    let binding =
+        StoredValue::new_local(None::<(ResizeObserver, Closure<dyn FnMut()>, HtmlElement)>);
+    Effect::new(move |_| {
+        let Some(bar) = bar.get() else {
+            return;
+        };
+        let Some(parent) = bar.parent_element() else {
+            return;
+        };
+        let Ok(shell) = parent.dyn_into::<HtmlElement>() else {
+            return;
+        };
+        binding.update_value(|current| {
+            if let Some((observer, _, shell)) = current.take() {
+                observer.disconnect();
+                let _ = shell.style().remove_property("--theatre-player-clearance");
+            }
+        });
+        let measured_bar = bar.clone();
+        let measured_shell = shell.clone();
+        let measure = move || {
+            let height = measured_bar.get_bounding_client_rect().height();
+            if height.is_finite() && height > 0.0 {
+                let _ = measured_shell.style().set_property(
+                    "--theatre-player-clearance",
+                    &format!("calc({height}px + var(--cantos-space-xl))"),
+                );
+            }
+        };
+        measure();
+        let callback = Closure::wrap(Box::new(measure) as Box<dyn FnMut()>);
+        if let Ok(observer) = ResizeObserver::new(callback.as_ref().unchecked_ref()) {
+            observer.observe(&bar);
+            binding.set_value(Some((observer, callback, shell)));
+        } else {
+            let _ = shell.style().remove_property("--theatre-player-clearance");
+        }
+    });
+    on_cleanup(move || {
+        binding.try_update_value(|current| {
+            if let Some((observer, _, shell)) = current.take() {
+                observer.disconnect();
+                let _ = shell.style().remove_property("--theatre-player-clearance");
+            }
+        });
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn bind_mini_player_clearance(_bar: NodeRef<leptos::html::Aside>) {}
 
 #[cfg(target_arch = "wasm32")]
 pub fn bind_navigation(route: RwSignal<Route>, main: NodeRef<leptos::html::Main>) {
