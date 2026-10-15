@@ -50,6 +50,7 @@
 | [UI foundation evidence](evidence/ui-system-foundation.md) | Token/icon provenance, focused verification and unrun runtime gates |
 | [UI consumer integration](evidence/ui-system-integration.md) | Studio, bounded Theatre, PR29 reconciliation and runtime gaps |
 | [UI publication verification](evidence/ui-system-publication.md) | PR31/PR32 reconciliation, combined local gates and remaining acceptance |
+| [Leptos localization spike](evidence/leptos-localization-spike.md) | Three-candidate Leptos 0.7.8 measurements, single-pass interpolation, typed locale roots and `<html lang>`; no library selected (#167) |
 | [UI migration](architecture/ui-system-migration.md) | Token package rename, public role compatibility and renderer ownership |
 | [UI sequence](work-plan/015-leptos-ui-system.md) | Component, app integration and independent review handoff |
 | [Decision 0001](decisions/0001-modular-monolith.md) | Initial stack and modular-backend decision |

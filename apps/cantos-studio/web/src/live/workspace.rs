@@ -164,7 +164,7 @@ fn Field(
     id: &'static str,
     label: Key,
     value: RwSignal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     #[prop(default = false)] multiline: bool,
 ) -> impl IntoView {
     view! {<div class="live-field"><label for=id>{move || text(label,english.get())}</label>
@@ -177,7 +177,7 @@ fn SelectField(
     id: &'static str,
     label: Key,
     value: RwSignal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
     view! {<div class="live-field"><label for=id>{move ||text(label,english.get())}</label><select id=id class="cui-field-control" prop:value=move || value.get() on:change=move |e|value.set(event_target_value(&e))>{children()}</select></div>}
@@ -185,7 +185,7 @@ fn SelectField(
 #[component]
 pub fn ContentWorkspace(
     actor: Signal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     active: Signal<bool>,
     session_epoch: Signal<u64>,
     session_pending: Signal<bool>,

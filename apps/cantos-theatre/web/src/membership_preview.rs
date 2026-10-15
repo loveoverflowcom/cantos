@@ -130,6 +130,7 @@ pub fn MembershipPreview() -> impl IntoView {
         focus_id("membership-main");
         crate::platform::set_title("Membership · Cantos");
     });
+    Effect::new(move |_| crate::platform::set_document_language(locale.get().lang()));
     view! {
         <div class="cantos-ui membership-preview" data-density="comfortable" data-theme=move || if dark.get() { "dark" } else { "light" } lang=move || locale.get().lang()>
             <header class="membership-toolbar">
@@ -138,8 +139,8 @@ pub fn MembershipPreview() -> impl IntoView {
                 <button type="button" class="theatre-action theatre-action-tonal" aria-pressed=move || dark.get().to_string()
                     on:click=move |_| dark.update(|v| *v = !*v)>{label(locale, CopyKey::Dark)}</button>
                 <select id="membership-locale" aria-label=label(locale, CopyKey::Language) on:change=move |ev| {
-                    locale.set(if event_target_value(&ev) == "en" { Locale::English } else { Locale::Vietnamese });
-                }><option value="vi-VN">"Tiếng Việt"</option><option value="en">"English"</option></select>
+                    if let Some(selected) = Locale::from_lang(&event_target_value(&ev)) { locale.set(selected); }
+                }>{Locale::ALL.into_iter().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}</select>
             </header>
             <p class="theatre-demo-notice">{label(locale, CopyKey::PreviewNotice)}</p>
             <div class="membership-layout">

@@ -57,7 +57,10 @@ state is never imported into the authenticated account, and its controls never c
   interruption, no-auto-resume and in-memory restore events. Restore offers a position while
   paused. Reset advances generation instead of reusing an old callback identity.
 - Vietnamese/English typed resources, `vi-VN` content, system/light/dark presentation,
-  localized speed/duration, native accessible links/buttons/search/range controls.
+  localized speed/duration matching CMP `ShellCopy` (`1,5×`, `1 phút 1 giây`), native accessible
+  links/buttons/search/range controls. Messages interpolate once, so braces inside story titles
+  stay literal; each root mirrors its locale onto `<html lang>`
+  ([evidence](../../../docs/evidence/leptos-localization-spike.md)).
 - Loading/empty/error catalog scenarios use a deterministic fake port. Loading remains pending
   until Show sample data; Retry requests local samples only. Only the newest issued pending
   request can settle; unissued, older/future and duplicate terminal callbacks are ignored. Refresh
@@ -110,8 +113,8 @@ declarations do not establish browser or native acceptance.
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
 | `src/app/live_navigation.rs`, `src/platform/auth_browser.rs` | Browser history, contextual focus/scroll restoration, explicit provider return intent and current-session confirmation |
-| `src/messages.rs`, `src/features/auth_copy.rs` | Typed Vietnamese/English locale resources |
-| `src/platform.rs` | Fallible browser navigation/title/focus helpers |
+| `src/messages.rs`, `src/features/auth_copy.rs` | Typed Vietnamese/English locale resources, single-pass interpolation and CLDR plural category |
+| `src/platform.rs` | Fallible browser navigation/title/document-language/focus helpers |
 | `src/styles/theatre.css`, `assets/icons/` | Canonical-token layout; pinned licensed official Material Icons |
 
 The core imports no Leptos, browser, I/O or adapter. The application owns effect execution; features

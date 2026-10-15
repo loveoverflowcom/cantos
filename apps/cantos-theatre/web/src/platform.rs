@@ -140,6 +140,21 @@ pub fn focus_button(button: NodeRef<leptos::html::Button>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_button(_button: NodeRef<leptos::html::Button>) {}
 
+/// Mirrors the interface locale onto `<html lang>` so the whole document, including browser UI
+/// and content outside the app root, is announced in the chosen language.
+#[cfg(target_arch = "wasm32")]
+pub fn set_document_language(tag: &str) {
+    if let Some(root) = leptos::web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.document_element())
+    {
+        let _ = root.set_attribute("lang", tag);
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn set_document_language(_tag: &str) {}
+
 #[cfg(target_arch = "wasm32")]
 pub fn set_title(title: &str) {
     if let Some(document) = leptos::web_sys::window().and_then(|window| window.document()) {

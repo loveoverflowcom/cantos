@@ -95,7 +95,7 @@ fn select_token() {
 pub fn DelegationPanel(
     actor: Signal<String>,
     work: Signal<Option<CatalogWork>>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     session_pending: Signal<bool>,
     /// True while a delegation write is in flight or unresolved; the workspace keeps the Work.
     unresolved: RwSignal<bool>,

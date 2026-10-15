@@ -14,11 +14,48 @@ pub enum Locale {
     English,
 }
 
+/// CLDR cardinal plural category; the shipped locales need only `one` and `other`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Plural {
+    One,
+    Other,
+}
+
 impl Locale {
+    pub const ALL: [Self; 2] = [Self::Vietnamese, Self::English];
+
+    /// Exact supported tag only; an unknown tag is `None`, never a silent default.
+    pub fn from_lang(tag: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|locale| locale.lang() == tag)
+    }
+
+    /// The language's own name; a language picker shows it untranslated.
+    pub const fn autonym(self) -> &'static str {
+        match self {
+            Self::Vietnamese => "Tiếng Việt",
+            Self::English => "English",
+        }
+    }
+
     pub const fn lang(self) -> &'static str {
         match self {
             Self::Vietnamese => "vi-VN",
             Self::English => "en",
+        }
+    }
+
+    /// CLDR cardinal rule for a whole number: `vi` has only `other`; `en` has `one` for exactly 1.
+    pub const fn plural(self, count: u64) -> Plural {
+        match (self, count) {
+            (Self::English, 1) => Plural::One,
+            _ => Plural::Other,
+        }
+    }
+
+    const fn decimal_separator(self) -> char {
+        match self {
+            Self::Vietnamese => ',',
+            Self::English => '.',
         }
     }
 }
@@ -151,7 +188,7 @@ resources! {
     SeekPending => ("Đang xác nhận vị trí mô phỏng", "Confirming mock position"),
     TransportEpisode => ("{action}: {episode}", "{action}: {episode}"),
     SpokenTimeOf => ("{elapsed} trên tổng số {total}", "{elapsed} of {total}"),
-    SpokenTime => ("{minutes}, {seconds}", "{minutes}, {seconds}"),
+    SpokenTime => ("{minutes} {seconds}", "{minutes} {seconds}"),
     MinuteOne => ("{count} phút", "{count} minute"),
     MinuteOther => ("{count} phút", "{count} minutes"),
     SecondOne => ("{count} giây", "{count} second"),
@@ -240,46 +277,68 @@ resources! {
     Footer => ("Cantos · khung giao diện nghe thử, chưa phải trải nghiệm nghe thực", "Cantos · listening UI mock, not a real listening experience"),
 }
 
+/// Renders `key` with named values in one pass over the original template. Inserted values are
+/// never re-scanned, so a story title such as `Lời hẹn {time}` keeps its braces; the first value
+/// wins for a repeated name; a placeholder without a value stays visible instead of vanishing.
 pub fn format(key: Key, locale: Locale, values: &[(&str, String)]) -> String {
-    values
-        .iter()
-        .fold(text(key, locale).to_owned(), |message, (name, value)| {
-            message.replace(&format!("{{{name}}}"), value)
-        })
+    interpolate(text(key, locale), values)
 }
 
-pub fn episode_count(locale: Locale, count: usize) -> String {
-    let key = match (locale, count) {
-        (Locale::English, 1) => Key::EpisodeCountOne,
-        _ => Key::EpisodeCountOther,
+fn interpolate(template: &str, values: &[(&str, String)]) -> String {
+    let mut message = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        message.push_str(&rest[..open]);
+        rest = &rest[open..];
+        let Some(close) = rest.find('}') else {
+            break;
+        };
+        let name = &rest[1..close];
+        match values.iter().find(|(candidate, _)| *candidate == name) {
+            Some((_, value)) => message.push_str(value),
+            None => message.push_str(&rest[..=close]),
+        }
+        rest = &rest[close + 1..];
+    }
+    message.push_str(rest);
+    message
+}
+
+fn counted(locale: Locale, count: u64, one: Key, other: Key) -> String {
+    let key = match locale.plural(count) {
+        Plural::One => one,
+        Plural::Other => other,
     };
     format(key, locale, &[("count", count.to_string())])
 }
 
+pub fn episode_count(locale: Locale, count: usize) -> String {
+    let count = u64::try_from(count).unwrap_or(u64::MAX);
+    counted(locale, count, Key::EpisodeCountOne, Key::EpisodeCountOther)
+}
+
 pub fn spoken_time(locale: Locale, position: u32) -> String {
-    let minutes = position / 60;
-    let seconds = position % 60;
-    let minute_key = if locale == Locale::English && minutes == 1 {
-        Key::MinuteOne
-    } else {
-        Key::MinuteOther
-    };
-    let second_key = if locale == Locale::English && seconds == 1 {
-        Key::SecondOne
-    } else {
-        Key::SecondOther
-    };
     format(
         Key::SpokenTime,
         locale,
         &[
             (
                 "minutes",
-                format(minute_key, locale, &[("count", minutes.to_string())]),
+                counted(
+                    locale,
+                    u64::from(position / 60),
+                    Key::MinuteOne,
+                    Key::MinuteOther,
+                ),
             ),
             (
                 "seconds",
-                format(second_key, locale, &[("count", seconds.to_string())]),
+                counted(
+                    locale,
+                    u64::from(position % 60),
+                    Key::SecondOne,
+                    Key::SecondOther,
+                ),
             ),
         ],
     )
@@ -304,13 +363,14 @@ pub fn page_title(locale: Locale, route: Route) -> String {
     format(Key::PageTitle, locale, &[("page", page.to_owned())])
 }
 
+/// Speed in hundredths with the locale decimal mark and no trailing zeros, the same contract as
+/// CMP `ShellCopy.speed`: 75 → `0,75×` / `0.75×`, 100 → `1×`, 150 → `1,5×` / `1.5×`.
 pub fn speed_label(locale: Locale, speed: u16) -> String {
-    let separator = if locale == Locale::Vietnamese {
-        ','
-    } else {
-        '.'
-    };
-    format!("{}{separator}{:02}×", speed / 100, speed % 100)
+    let fraction = format!("{:02}", speed % 100);
+    match fraction.trim_end_matches('0') {
+        "" => format!("{}×", speed / 100),
+        digits => format!("{}{}{digits}×", speed / 100, locale.decimal_separator()),
+    }
 }
 
 pub fn genre_key(genre: Genre) -> Key {
@@ -373,9 +433,128 @@ mod tests {
             assert!(!vi.trim().is_empty() && !en.trim().is_empty(), "{key:?}");
             assert_eq!(placeholders(vi), placeholders(en), "{key:?}");
         }
-        assert_eq!(episode_count(Locale::English, 1), "1 episode");
-        assert_eq!(episode_count(Locale::English, 3), "3 episodes");
-        assert_eq!(spoken_time(Locale::English, 61), "1 minute, 1 second");
-        assert_eq!(speed_label(Locale::Vietnamese, 125), "1,25×");
+    }
+
+    #[test]
+    fn locale_tags_parse_exactly_and_name_themselves() {
+        for (locale, lang, autonym) in [
+            (Locale::Vietnamese, "vi-VN", "Tiếng Việt"),
+            (Locale::English, "en", "English"),
+        ] {
+            assert_eq!(locale.lang(), lang);
+            assert_eq!(locale.autonym(), autonym);
+            assert_eq!(Locale::from_lang(lang), Some(locale));
+        }
+        for unsupported in ["", "vi", "EN", "en-US", "fr"] {
+            assert_eq!(Locale::from_lang(unsupported), None, "{unsupported}");
+        }
+        assert_eq!(Locale::default(), Locale::Vietnamese);
+    }
+
+    fn named(pairs: &[(&'static str, &str)]) -> Vec<(&'static str, String)> {
+        pairs
+            .iter()
+            .map(|(name, value)| (*name, (*value).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn inserted_titles_keep_their_braces_whatever_the_argument_order() {
+        let title = "Lời hẹn {time}";
+        for values in [
+            named(&[("title", title), ("time", "12:05")]),
+            named(&[("time", "12:05"), ("title", title)]),
+        ] {
+            assert_eq!(
+                format(Key::BookmarkName, Locale::Vietnamese, &values),
+                "Nghe tiếp Lời hẹn {time} tại 12:05"
+            );
+            assert_eq!(
+                format(Key::BookmarkName, Locale::English, &values),
+                "Continue listening to Lời hẹn {time} at 12:05"
+            );
+        }
+        let nested = named(&[("page", "{page} · {title}")]);
+        assert_eq!(
+            format(Key::PageTitle, Locale::English, &nested),
+            "{page} · {title} · Cantos"
+        );
+    }
+
+    #[test]
+    fn repeated_missing_and_unclosed_placeholders_are_deterministic() {
+        let values = named(&[("title", "Đầu"), ("title", "Sau"), ("time", "1:00")]);
+        assert_eq!(interpolate("{title} · {title}", &values), "Đầu · Đầu");
+        assert_eq!(
+            format(
+                Key::BookmarkName,
+                Locale::English,
+                &named(&[("title", "A")])
+            ),
+            "Continue listening to A at {time}"
+        );
+        assert_eq!(interpolate("{title} {", &values), "Đầu {");
+        assert_eq!(interpolate("{} {unknown}", &values), "{} {unknown}");
+        assert_eq!(interpolate("", &values), "");
+    }
+
+    #[test]
+    fn markup_in_values_stays_text_when_rendered() {
+        use leptos::prelude::*;
+        let label = format(
+            Key::SaveName,
+            Locale::English,
+            &named(&[("title", "<b onclick=\"x()\">Sấm</b> {title}")]),
+        );
+        assert_eq!(label, "Save story <b onclick=\"x()\">Sấm</b> {title}");
+        let html = view! { <button aria-label=label.clone()>{label.clone()}</button> }.to_html();
+        assert!(!html.contains("<b "), "{html}");
+        assert!(html.contains("&lt;b"), "{html}");
+    }
+
+    #[test]
+    fn plural_categories_follow_cldr_for_each_locale() {
+        for count in [0, 1, 2, 21, 101] {
+            assert_eq!(Locale::Vietnamese.plural(count), Plural::Other);
+        }
+        assert_eq!(Locale::English.plural(0), Plural::Other);
+        assert_eq!(Locale::English.plural(1), Plural::One);
+        assert_eq!(Locale::English.plural(2), Plural::Other);
+        assert_eq!(Locale::English.plural(21), Plural::Other);
+        for (count, vi, en) in [
+            (0, "0 tập", "0 episodes"),
+            (1, "1 tập", "1 episode"),
+            (2, "2 tập", "2 episodes"),
+        ] {
+            assert_eq!(episode_count(Locale::Vietnamese, count), vi);
+            assert_eq!(episode_count(Locale::English, count), en);
+        }
+    }
+
+    /// Same vectors as CMP `DemoCopyTest`; a change here is a cross-renderer product change.
+    #[test]
+    fn speed_and_spoken_time_match_the_cmp_shell_copy_contract() {
+        for (speed, vi, en) in [
+            (75, "0,75×", "0.75×"),
+            (100, "1×", "1×"),
+            (125, "1,25×", "1.25×"),
+            (150, "1,5×", "1.5×"),
+            (200, "2×", "2×"),
+        ] {
+            assert_eq!(speed_label(Locale::Vietnamese, speed), vi);
+            assert_eq!(speed_label(Locale::English, speed), en);
+        }
+        for (seconds, vi, en) in [
+            (0, "0 phút 0 giây", "0 minutes 0 seconds"),
+            (1, "0 phút 1 giây", "0 minutes 1 second"),
+            (59, "0 phút 59 giây", "0 minutes 59 seconds"),
+            (60, "1 phút 0 giây", "1 minute 0 seconds"),
+            (61, "1 phút 1 giây", "1 minute 1 second"),
+            (768, "12 phút 48 giây", "12 minutes 48 seconds"),
+            (1722, "28 phút 42 giây", "28 minutes 42 seconds"),
+        ] {
+            assert_eq!(spoken_time(Locale::Vietnamese, seconds), vi);
+            assert_eq!(spoken_time(Locale::English, seconds), en);
+        }
     }
 }

@@ -46,7 +46,7 @@ fn action_slug(action: DelegationAction) -> &'static str {
 fn field_error(
     problems: RwSignal<Vec<Problem>>,
     field: Field,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
 ) -> Signal<Option<String>> {
     Signal::derive(move || {
         problems
@@ -65,7 +65,7 @@ fn clear_field(problems: RwSignal<Vec<Problem>>, field: Field) {
 #[component]
 pub fn TokenReveal(
     reveal: Reveal,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     copy_state: Signal<CopyState>,
     on_copy: Callback<()>,
     on_dismiss: Callback<()>,
@@ -109,7 +109,7 @@ pub fn TokenReveal(
 #[component]
 pub fn UnrecoverableNotice(
     grant: DelegationGrantResponse,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     on_revoke: Callback<DelegationGrantResponse>,
 ) -> impl IntoView {
@@ -136,7 +136,7 @@ pub fn GrantItem(
     grant: DelegationGrantResponse,
     revoked_here: bool,
     now_ms: i64,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     on_revoke: Callback<DelegationGrantResponse>,
 ) -> impl IntoView {
@@ -196,7 +196,7 @@ pub fn GrantItem(
 pub fn IssueForm(
     draft: RwSignal<IssueDraft>,
     problems: RwSignal<Vec<Problem>>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     archived: Signal<bool>,
     #[prop(default = false.into())] secret_visible: Signal<bool>,

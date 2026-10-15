@@ -69,6 +69,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         refresh_discovery(discovery);
     }
     Effect::new(move |_| platform::set_title(&messages::page_title(locale.get(), nav.route.get())));
+    Effect::new(move |_| platform::set_document_language(locale.get().lang()));
     let on_login = Callback::new(move |()| nav.open_auth(AuthRoute::login(nav.origin())));
     let on_register = Callback::new(move |()| nav.open_auth(AuthRoute::register(nav.origin())));
     let on_refresh = Callback::new(move |()| {
@@ -105,7 +106,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                         <a class="theatre-brand-name" href="#discover">"Cantos"</a>
                         <div class="theatre-topbar-actions">
                             <label class="theatre-locale-label" for="theatre-live-locale">{move || messages::text(Key::Locale, locale.get())}</label>
-                            <select id="theatre-live-locale" prop:value=move || locale.get().lang() on:change=move |e| { locale.set(if event_target_value(&e) == "en" { Locale::English } else { Locale::Vietnamese }); }><option value="vi-VN">"Tiếng Việt"</option><option value="en">"English"</option></select>
+                            <select id="theatre-live-locale" prop:value=move || locale.get().lang() on:change=move |e| { if let Some(selected) = Locale::from_lang(&event_target_value(&e)) { locale.set(selected); } }>{Locale::ALL.into_iter().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}</select>
                             <a id="theatre-account-entry" class="theatre-avatar" href="#account" aria-label=move || messages::text(Key::Account, locale.get()) aria-current=move || (nav.route.get() == Route::Account).then_some("page")><PersonGlyph/></a>
                         </div>
                     </header>

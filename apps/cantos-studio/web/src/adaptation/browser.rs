@@ -55,7 +55,7 @@ fn read_run(state: RwSignal<AdaptationReview>, api: StudioHttp, activity: RwSign
 #[component]
 pub fn ScriptAdaptation(
     actor: Signal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
     session_pending: Signal<bool>,
@@ -204,7 +204,7 @@ pub fn ScriptAdaptation(
 }
 
 #[component]
-fn ProviderDetails(metadata: AdaptationProviderMetadata, english: RwSignal<bool>) -> impl IntoView {
+fn ProviderDetails(metadata: AdaptationProviderMetadata, english: Signal<bool>) -> impl IntoView {
     let metadata = StoredValue::new(metadata);
     let copy = move || messages::adaptation_copy(english.get());
     view! {
@@ -223,10 +223,7 @@ fn ProviderDetails(metadata: AdaptationProviderMetadata, english: RwSignal<bool>
 }
 
 #[component]
-fn ReviewDetails(
-    response: Arc<AdaptationReviewResponse>,
-    english: RwSignal<bool>,
-) -> impl IntoView {
+fn ReviewDetails(response: Arc<AdaptationReviewResponse>, english: Signal<bool>) -> impl IntoView {
     match response.as_ref() {
         AdaptationReviewResponse::Caller { context } => view! { <CallerContextDetails context=Arc::new(context.as_ref().clone()) english=english /> }.into_any(),
         AdaptationReviewResponse::Legacy { run, .. } => view! {
@@ -239,7 +236,7 @@ fn ReviewDetails(
 #[component]
 fn CallerContextDetails(
     context: Arc<AdaptationContextResponse>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
 ) -> impl IntoView {
     let context = StoredValue::new(context);
     let copy = move || messages::adaptation_copy(english.get());
@@ -271,7 +268,7 @@ fn CallerContextDetails(
 #[component]
 fn CallerReceiptDetails(
     receipt: AdaptationSubmissionReceipt,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
 ) -> impl IntoView {
     let receipt = StoredValue::new(receipt);
     let copy = move || messages::adaptation_copy(english.get());
@@ -301,7 +298,7 @@ fn CallerReceiptDetails(
 }
 
 #[component]
-fn LegacyRunDetails(run: Arc<AdaptationRunResponse>, english: RwSignal<bool>) -> impl IntoView {
+fn LegacyRunDetails(run: Arc<AdaptationRunResponse>, english: Signal<bool>) -> impl IntoView {
     let run = StoredValue::new(run);
     let copy = move || messages::adaptation_copy(english.get());
     view! {
@@ -333,7 +330,7 @@ fn LegacyRunDetails(run: Arc<AdaptationRunResponse>, english: RwSignal<bool>) ->
 }
 
 #[component]
-fn ProposalFindings(proposal: AdaptationProposal, english: RwSignal<bool>) -> impl IntoView {
+fn ProposalFindings(proposal: AdaptationProposal, english: Signal<bool>) -> impl IntoView {
     let copy = move || messages::adaptation_copy(english.get());
 
     let no_findings = proposal.findings.is_empty();
@@ -369,7 +366,7 @@ fn ProposalFindings(proposal: AdaptationProposal, english: RwSignal<bool>) -> im
 }
 
 #[component]
-fn SourceComparison(source: Arc<ImportResponse>, english: RwSignal<bool>) -> impl IntoView {
+fn SourceComparison(source: Arc<ImportResponse>, english: Signal<bool>) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
     let download = api.original_import_path(&source.id).ok();
     let source = StoredValue::new(source);

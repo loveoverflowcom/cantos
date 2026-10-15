@@ -8,6 +8,52 @@ pub mod entry;
 pub mod production;
 pub mod workspace;
 
+/// Interface locale owned by the Studio root. Namespaces that still take `english: bool` read it
+/// through the [`Locale::is_english`] adapter until they move to typed copy.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Locale {
+    #[default]
+    Vietnamese,
+    English,
+}
+
+impl Locale {
+    pub const ALL: [Self; 2] = [Self::Vietnamese, Self::English];
+
+    /// Exact supported tag only; an unknown tag is `None`, never a silent default.
+    pub fn from_lang(tag: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|locale| locale.lang() == tag)
+    }
+
+    /// BCP 47 tag for `lang` attributes, including the document root.
+    pub const fn lang(self) -> &'static str {
+        match self {
+            Self::Vietnamese => "vi-VN",
+            Self::English => "en",
+        }
+    }
+
+    /// The language's own name; a language switch shows it untranslated.
+    pub const fn autonym(self) -> &'static str {
+        match self {
+            Self::Vietnamese => "Tiếng Việt",
+            Self::English => "English",
+        }
+    }
+
+    pub const fn toggled(self) -> Self {
+        match self {
+            Self::Vietnamese => Self::English,
+            Self::English => Self::Vietnamese,
+        }
+    }
+
+    /// Migration adapter for copy functions that still take `english: bool`.
+    pub const fn is_english(self) -> bool {
+        matches!(self, Self::English)
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Copy {
     pub theme: &'static str,
@@ -106,8 +152,28 @@ pub fn status(status: Status, english: bool) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{copy, status};
+    use super::{copy, status, Locale};
     use crate::editor::Status;
+
+    #[test]
+    fn locale_is_typed_at_the_root_and_adapts_to_legacy_copy() {
+        assert_eq!(Locale::default(), Locale::Vietnamese);
+        for (locale, lang, autonym, english) in [
+            (Locale::Vietnamese, "vi-VN", "Tiếng Việt", false),
+            (Locale::English, "en", "English", true),
+        ] {
+            assert_eq!(locale.lang(), lang);
+            assert_eq!(Locale::from_lang(lang), Some(locale));
+            assert_eq!(locale.autonym(), autonym);
+            assert_eq!(locale.is_english(), english);
+            assert_ne!(locale.toggled(), locale);
+            assert_eq!(locale.toggled().toggled(), locale);
+            assert_eq!(copy(locale.is_english()).theme, copy(english).theme);
+        }
+        for unsupported in ["", "vi", "EN", "en-US", "fr"] {
+            assert_eq!(Locale::from_lang(unsupported), None, "{unsupported}");
+        }
+    }
     #[test]
     fn every_async_and_error_state_has_both_locales() {
         for state in [

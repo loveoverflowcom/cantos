@@ -13,6 +13,7 @@ use crate::{
     messages::{
         self,
         workspace::{text, Key},
+        Locale,
     },
     production::ProductionInputs,
     session::{SessionState, SessionTicket},
@@ -53,6 +54,17 @@ pub(crate) fn operation_id() -> Result<String, ApiError> {
         &hex[16..20],
         &hex[20..]
     ))
+}
+
+/// Mirrors the interface locale onto `<html lang>` so the whole document, including browser UI
+/// and content outside `<main>`, is announced in the chosen language.
+fn sync_document_language(locale: Locale) {
+    if let Some(root) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.document_element())
+    {
+        let _ = root.set_attribute("lang", locale.lang());
+    }
 }
 
 pub(crate) fn confirm_discard(english: bool) -> bool {
@@ -110,7 +122,7 @@ pub(crate) fn ValidationControls(
     issues: RwSignal<Vec<FieldIssue>>,
     draft: Signal<String>,
     actor: Signal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     disabled: Signal<bool>,
 ) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
@@ -273,7 +285,8 @@ pub fn Studio() -> impl IntoView {
     let import_dirty = RwSignal::new(false);
     let import_activity = RwSignal::new(false);
     let selection = RwSignal::new(String::new());
-    let english = RwSignal::new(false);
+    let locale = RwSignal::new(Locale::default());
+    let english = Signal::derive(move || locale.get().is_english());
     let theme = RwSignal::new(Theme::System);
     let panel = RwSignal::new(WorkspacePane::Dashboard);
     let discard_open = RwSignal::new(false);
@@ -436,6 +449,7 @@ pub fn Studio() -> impl IntoView {
             reviewed.set(false);
         }
     });
+    Effect::new(move |_| sync_document_language(locale.get()));
     // Reconciliation adopts a different base only after a fresh review of the displayed head.
     let review_context = Memo::new(move |_| {
         state.with(|editor| {
@@ -576,14 +590,14 @@ pub fn Studio() -> impl IntoView {
     view! {
         <UiRoot class="studio-shell" theme=theme density=Density::Comfortable>
         <Container width=ContainerWidth::Fluid>
-        <main class="studio-main" lang=move || if english.get() { "en" } else { "vi-VN" }>
+        <main class="studio-main" lang=move || locale.get().lang()>
             <header class="studio-header">
                 <div class="studio-brand" aria-label="Cantos Studio">
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Light class="studio-logo-light"/>
                     <Logo variant=LogoVariant::CantosStudio tone=LogoTone::Dark class="studio-logo-dark"/>
                 </div>
                 <div class="toolbar">
-                    <Button id="studio-language" variant=ButtonVariant::Text on_press=Callback::new(move |_| english.update(|en| *en = !*en))>{move || if english.get() { "Tiếng Việt" } else { "English" }}</Button>
+                    <Button id="studio-language" variant=ButtonVariant::Text on_press=Callback::new(move |_| locale.update(|current| *current = current.toggled()))><span lang=move || locale.get().toggled().lang()>{move || locale.get().toggled().autonym()}</span></Button>
                     <Select id="theme-select" label=Signal::derive(move || copy().theme.to_owned())
                         value=Signal::derive(move || theme.get().as_str().to_owned())
                         on_input=Callback::new(move |value: String| { if let Some(selected) = Theme::from_attribute(&value) { theme.set(selected); } })>
