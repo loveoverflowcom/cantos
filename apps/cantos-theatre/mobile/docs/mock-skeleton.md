@@ -7,10 +7,12 @@ This scoped record follows
 the [ADR template](../../../../templates/adr.md) and engineering/UI/CMP evidence vocabulary;
 it selects no production media, storage, credentials or API library.
 
-Current tree: this checkpoint predates the layered packages. Mock adapters now live in
-`commonMain/.../adapters/mock`, with simulated storage and presets in its
-`sandbox/{database,sessions}` subpackages; `AppContainer.mock`, previews and tests share it.
-The [mock app sandbox](architecture.md#mock-app-sandbox) section owns that tree.
+Current paths: this checkpoint predates the layered packages and #122 module extraction.
+Neutral presentation models now live in shared `presentation/model`; mock adapters, fixture
+seeds, previews and their tests live in `:preview-sandbox`, wired by explicit `mockAppContainer`.
+The source links below point to those current owners; the counts, captures and build paths
+in this checkpoint remain historical. The [mock app sandbox](architecture.md#mock-app-sandbox)
+section owns the current tree.
 
 ## Context and invariant
 
@@ -70,11 +72,11 @@ has not been certified. No archive, raw HTML, art, fonts or audio is committed.
 | Invariant | Failure mode | Oracle / owner | Evidence |
 | --- | --- | --- | --- |
 | UI simulation is never an audio claim | fake native/playback acceptance | explicit copy; no media/network imports or permissions | `statically-checked`: source review confirms the mock boundary; `semantics-tested`: the passing app JVM suite asserts simulation/no-audio status |
-| Close/back/repeat preserve fixture and point | growing stack/lost position | [pure reducer](../shared/src/commonMain/kotlin/com/cantos/theatre/demo/DemoState.kt) and [app interaction suite](../shared/src/desktopTest/kotlin/com/cantos/theatre/app/DemoInteractionTest.kt) | `example-tested` and JVM `interaction-tested`: repeated routes, queue/close, contextual Settings Back, focused-control Escape and reset pass; no native Back claim |
-| Seek/bookmarks remain within fixture | invalid position/duplicates | [reducer regressions](../shared/src/commonTest/kotlin/com/cantos/theatre/demo/DemoStateTest.kt), including integer extremes | `example-tested`: negative, oversized and overflowing deltas clamp; duplicate bookmarks and seek-to-end rules pass. JVM slider semantics change the displayed point without starting simulation |
+| Close/back/repeat preserve fixture and point | growing stack/lost position | [current presentation model](../shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellState.kt) and [app interaction suite](../preview-sandbox/src/desktopTest/kotlin/com/cantos/theatre/app/DemoInteractionTest.kt) | `example-tested` and JVM `interaction-tested`: repeated routes, queue/close, contextual Settings Back, focused-control Escape and reset pass; no native Back claim |
+| Seek/bookmarks remain within fixture | invalid position/duplicates | [current fixture/projection regressions](../preview-sandbox/src/commonTest/kotlin/com/cantos/theatre/demo/DemoStateTest.kt), including integer extremes at the checkpoint | `example-tested`: negative, oversized and overflowing deltas clamp; duplicate bookmarks and seek-to-end rules pass. JVM slider semantics change the displayed point without starting simulation |
 | Caller collection views cannot mutate state | constructor/copy bypass | snapshotting construction/copy and alias regressions | independent source finding fixed; construction, copy and no-op snapshot tests pass in the 23-test reducer suite |
-| Both UI locales/parameters stay complete | missing/blank/wrong text | [closed resources and parity tests](../shared/src/commonTest/kotlin/com/cantos/theatre/demo/DemoCopyTest.kt) | `example-tested`: eight tests pass, including nonblank vi/en values, exact placeholder multiplicity, localized times/speeds and listener naming |
-| Captures exercise exact app and dimensions | alternate preview hides defects | [fixed-size app capture suite](../shared/src/desktopTest/kotlin/com/cantos/theatre/app/DemoCaptureTest.kt) and opened-image ledger below | seven capture tests pass and produce eight PNGs; exact pixel dimensions are asserted, and all eight fresh images were opened and inspected |
+| Both UI locales/parameters stay complete | missing/blank/wrong text | [closed resources and parity tests](../preview-sandbox/src/commonTest/kotlin/com/cantos/theatre/demo/DemoCopyTest.kt) | `example-tested`: eight tests pass, including nonblank vi/en values, exact placeholder multiplicity, localized times/speeds and listener naming |
+| Captures exercise exact app and dimensions | alternate preview hides defects | [fixed-size app capture suite](../preview-sandbox/src/desktopTest/kotlin/com/cantos/theatre/app/DemoCaptureTest.kt) and opened-image ledger below | seven capture tests pass and produce eight PNGs; exact pixel dimensions are asserted, and all eight fresh images were opened and inspected |
 | Run signals only its owned group, including descendants | orphan/foreign cleanup | [mock launcher guard](../../../../xtask/src/theatre_demo.rs), [supervisor](../../../../xtask/src/process.rs) and regression tests | `statically-checked` and Rust `example-tested`: ownership/version/provisioning regressions pass; actual launch/interrupt inspection confirms the guard PID, owned group and absence of its processes after shutdown |
 
 Independent phase 1 source review found no actionable findings after the immutable-collection,

@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 sealed interface PlaybackNotice {
     data class ResumeOffered(val source: PlaybackSource, val positionMs: Long) : PlaybackNotice
     data class Rejected(val reason: PlaybackRejection) : PlaybackNotice
-    data object MockEngineUnavailable : PlaybackNotice
+    data object MediaEngineUnavailable : PlaybackNotice
 }
 
 /**
@@ -130,7 +130,7 @@ class PlaybackController(
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
-                        messages.send(Message.Notice(batch.identity, PlaybackNotice.MockEngineUnavailable))
+                        messages.send(Message.Notice(batch.identity, PlaybackNotice.MediaEngineUnavailable))
                     }
                 }
             }

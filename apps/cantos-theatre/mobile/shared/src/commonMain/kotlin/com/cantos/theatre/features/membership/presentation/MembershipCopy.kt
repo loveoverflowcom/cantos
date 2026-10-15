@@ -1,11 +1,11 @@
 package com.cantos.theatre.features.membership.presentation
 
-import com.cantos.theatre.demo.DemoLocale
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.domain.membership.MembershipFieldError
 import com.cantos.theatre.domain.membership.PlansStatus
 
-internal class MembershipCopy(private val locale: DemoLocale) {
-    fun text(key: MembershipText): String = if (locale == DemoLocale.English) key.en else key.vi
+internal class MembershipCopy(private val locale: ShellLocale) {
+    fun text(key: MembershipText): String = if (locale == ShellLocale.English) key.en else key.vi
     fun plans(status: PlansStatus): String = text(when (status) {
         PlansStatus.Unpublished -> MembershipText.Unpublished
         PlansStatus.Loading -> MembershipText.PlansLoading
@@ -74,12 +74,6 @@ internal enum class MembershipText(val vi: String, val en: String) {
     Unknown("Chưa biết kết quả. Giữ nguyên tên, email và ý định; kiểm tra lại trước khi gửi khác.", "The outcome is unknown. Name, email and intent stay locked until reconciliation."),
     Failed("Fixture chưa xác nhận đăng ký. Bạn có thể thử lại hoặc sửa nội dung.", "The fixture did not confirm registration. Retry or correct your details."),
     Retry("Thử lại đăng ký", "Retry registration"), Reconcile("Kiểm tra lại yêu cầu", "Check the same request"),
-    FixtureTools("Công cụ fixture · Chọn kết quả thủ công", "Fixture tools · Choose an outcome manually"),
-    ConfirmFixture("Fixture: xác nhận đã nhận đăng ký", "Fixture: confirm receipt"),
-    FailFixture("Fixture: lỗi chưa nhận đăng ký", "Fixture: request failed"),
-    TimeoutFixture("Fixture: timeout, kết quả chưa biết", "Fixture: timeout, outcome unknown"),
-    AccountFixtureAction("Fixture: đăng ký tài khoản hoàn tất", "Fixture: account registration complete"),
-    ClearSession("Fixture: đăng xuất / đổi tài khoản / hết phiên", "Fixture: logout / switch account / session expired"),
     NameRequired("Nhập tên bạn muốn sử dụng.", "Enter the name you want to use."),
     NameTooLong("Tên tối đa 120 ký tự Unicode.", "Use no more than 120 Unicode characters for your name."),
     NameInvalid("Tên không được chứa ký tự điều khiển.", "Your name must not contain control characters."),

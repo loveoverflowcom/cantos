@@ -34,8 +34,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.cantos.theatre.application.identity.AccountView
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoTheme
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.Badge
 import com.cantos.ui.Button
 import com.cantos.ui.ButtonVariant
@@ -55,9 +55,9 @@ import com.cantos.ui.tokenDp
  * to the entry that opened Login when Back returns here.
  */
 @Composable
-internal fun AccountContent(
-    locale: DemoLocale,
-    theme: DemoTheme,
+fun AccountContent(
+    locale: ShellLocale,
+    theme: ShellTheme,
     account: AccountView,
     onIntent: (AuthIntent) -> Unit,
     loginFocus: FocusRequester,
@@ -128,9 +128,9 @@ internal fun AccountContent(
         variant = SurfaceVariant.AccountGroup, inset = Space.Sm) {
         Column {
             AccountRow(
-                if (theme == DemoTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
                 copy.text(AuthText.Appearance),
-                copy.text(if (theme == DemoTheme.Dark) AuthText.AppearanceDark else AuthText.AppearanceLight),
+                copy.text(if (theme == ShellTheme.Dark) AuthText.AppearanceDark else AuthText.AppearanceLight),
                 "theme-toggle",
             ) { onIntent(AuthIntent.ToggleTheme) }
             AccountRow(Icons.Outlined.Settings, copy.text(AuthText.ListeningSettings),

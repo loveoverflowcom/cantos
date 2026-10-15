@@ -37,18 +37,18 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import com.cantos.theatre.demo.CopyKey
-import com.cantos.theatre.demo.DemoBookmark
-import com.cantos.theatre.demo.DemoCopy
-import com.cantos.theatre.demo.DemoEpisode
-import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.DemoState
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellBookmark
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEpisode
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun PlayerControls(state: DemoState, episode: DemoEpisode, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun PlayerControls(state: ShellState, episode: ShellEpisode, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     var panel by remember { mutableStateOf<PreferencePanel?>(null) }
     var restoreFocus by remember { mutableStateOf<PreferencePanel?>(null) }
     val speedFocus = remember { FocusRequester() }
@@ -70,14 +70,14 @@ internal fun PlayerControls(state: DemoState, episode: DemoEpisode, copy: DemoCo
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(DemoEvent.Seek(-15)) },
+                FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.Seek(-15)) },
                     modifier = Modifier.size(tokenDp("size.control")).testTag("rewind")) {
                     Icon(Icons.Outlined.FastRewind, copy.text(CopyKey.Rewind))
                 }
                 Text(copy.text(CopyKey.SeekStep), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.clearAndSetSemantics { })
             }
-            FilledIconButton(shape = CantosShapes.full, onClick = { dispatch(DemoEvent.ToggleSimulation) },
+            FilledIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.ToggleSimulation) },
                 modifier = Modifier.size(tokenDp("size.control") + tokenDp("space.xl"))
                     .testTag("transport").semantics {
                         contentDescription = copy.text(if (state.transportRequested) CopyKey.PauseEpisode else CopyKey.PlayEpisode,
@@ -87,7 +87,7 @@ internal fun PlayerControls(state: DemoState, episode: DemoEpisode, copy: DemoCo
                     modifier = Modifier.size(tokenDp("size.icon") + tokenDp("space.sm")))
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(DemoEvent.Seek(15)) },
+                FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.Seek(15)) },
                     modifier = Modifier.size(tokenDp("size.control")).testTag("forward")) {
                     Icon(Icons.Outlined.FastForward, copy.text(CopyKey.Forward))
                 }
@@ -115,12 +115,12 @@ internal fun PlayerControls(state: DemoState, episode: DemoEpisode, copy: DemoCo
             Icon(Icons.Outlined.Timer, null)
             Text(copy.text(timerKey(state.timer)))
         }
-        val bookmarked = DemoBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
-        FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
+        val bookmarked = ShellBookmark(state.selectedEpisode, state.positionSeconds, state.positionMs) in state.bookmarks
+        FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Bookmark) }, modifier = Modifier.testTag("bookmark")) {
             Icon(Icons.Outlined.Star, null)
             Text(copy.text(if (bookmarked) CopyKey.Bookmarked else CopyKey.Bookmark))
         }
-        FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Queue)) }, modifier = Modifier.testTag("queue")) {
+        FilledTonalButton(shape = MaterialTheme.shapes.medium, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Queue)) }, modifier = Modifier.testTag("queue")) {
             Icon(Icons.AutoMirrored.Outlined.QueueMusic, null)
             Text(copy.text(CopyKey.Queue))
         }

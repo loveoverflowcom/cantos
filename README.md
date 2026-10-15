@@ -34,8 +34,13 @@ private-audio review workspace. The [client boundary](docs/work-plan/live-client
 distinguishes connected forms from deferred controls and user acceptance. Theatre Web defaults
 to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
 selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
-[CMP mock](apps/cantos-theatre/mobile/README.md), plus a tested common/JVM listener transport seam;
+[CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
+code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
+KMP module, plus a tested common/JVM listener transport seam;
 native audio and live client integration remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
+No production Android host exists yet, so its release dependency graph and APK/AAB exclusion
+remain **BLOCKED / NOT_RUN**; the demo APK establishes no production isolation.
+See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
 
 [Private object storage](docs/architecture/object-storage.md) implements filesystem and generic
 S3-compatible adapters, durable original targets and [exact owner-authorized audio reads](packages/contracts/private-content-reads-v1.md).
@@ -73,7 +78,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
-- `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: isolated CMP mock; native listening planned.
+- `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.

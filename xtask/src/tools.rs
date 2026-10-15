@@ -108,7 +108,7 @@ impl Tool {
                 "settings.gradle(.kts) and build.gradle(.kts) must exist in packages/ui-system/cmp/android-preview"
             }
             Tool::TheatreDemoGradleProject => {
-                "the isolated root/shared Gradle project and common/desktop sources must exist in apps/cantos-theatre/mobile"
+                "the isolated Gradle project, shared core and preview-sandbox KMP modules with common/desktop sources must exist in apps/cantos-theatre/mobile"
             }
             Tool::Kani => "prepare the official Kani 0.68.0 bundle with its matching nightly and CBMC 6.11.0 separately; set KANI_HOME; xtask never installs or runs the installer proxy",
             Tool::BehaviorRuntime => "install the exact Node/npm versions in tools/behavior/package.json separately",

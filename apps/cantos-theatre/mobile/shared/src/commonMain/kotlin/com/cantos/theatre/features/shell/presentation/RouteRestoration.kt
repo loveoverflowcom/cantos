@@ -10,8 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.isAuth
+import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.isAuth
 import com.cantos.theatre.domain.membership.MembershipScreen
 
 /** Entry controls that Back returns to after closing an auth intent. */
@@ -24,7 +24,7 @@ internal class AuthEntryFocus(val account: FocusRequester, val login: FocusReque
  * is a no-op rather than a stolen or invented focus.
  */
 @Composable
-internal fun rememberAuthEntryFocus(stack: List<DemoRoute>): AuthEntryFocus {
+internal fun rememberAuthEntryFocus(stack: List<ShellRoute>): AuthEntryFocus {
     val entry = remember { AuthEntryFocus(FocusRequester(), FocusRequester()) }
     var previous by remember { mutableStateOf(stack) }
     LaunchedEffect(stack) {
@@ -32,7 +32,7 @@ internal fun rememberAuthEntryFocus(stack: List<DemoRoute>): AuthEntryFocus {
         previous = stack
         if (before.last().isAuth() && !stack.last().isAuth() && stack.size < before.size) {
             withFrameNanos { }
-            runCatching { (if (stack.last() == DemoRoute.Account) entry.login else entry.account).requestFocus() }
+            runCatching { (if (stack.last() == ShellRoute.Account) entry.login else entry.account).requestFocus() }
         }
     }
     return entry
@@ -43,10 +43,10 @@ internal fun rememberAuthEntryFocus(stack: List<DemoRoute>): AuthEntryFocus {
  * the listener left. A destination that leaves the stack is forgotten and reopens at the top.
  */
 @Composable
-internal fun rememberRouteScroll(stack: List<DemoRoute>, membershipScreen: MembershipScreen): ScrollState {
-    val scrolls = remember { mutableMapOf<Pair<DemoRoute, MembershipScreen?>, ScrollState>() }
+internal fun rememberRouteScroll(stack: List<ShellRoute>, membershipScreen: MembershipScreen): ScrollState {
+    val scrolls = remember { mutableMapOf<Pair<ShellRoute, MembershipScreen?>, ScrollState>() }
     val route = stack.last()
-    val key = route to (if (route == DemoRoute.MembershipPreview) membershipScreen else null)
+    val key = route to (if (route == ShellRoute.MembershipPreview) membershipScreen else null)
     val scroll = scrolls.getOrPut(key) { ScrollState(0) }
     SideEffect { scrolls.keys.retainAll { it.first in stack } }
     return scroll

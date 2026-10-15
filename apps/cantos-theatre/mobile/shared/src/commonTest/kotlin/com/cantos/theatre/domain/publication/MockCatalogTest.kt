@@ -7,13 +7,13 @@ import kotlin.test.assertNull
 
 class MockCatalogTest {
     private val key = WorkKey("son-ha-ky")
-    private val first = CatalogEpisode(EpisodeKey(key, 0), "Bến sông", 60_000)
-    private val second = CatalogEpisode(EpisodeKey(key, 1), "Đường qua núi", 90_000)
+    private val first = CatalogEpisode(EpisodeKey(key, 0), "Bến sông", 60_000, CatalogOrigin.SyntheticDemo)
+    private val second = CatalogEpisode(EpisodeKey(key, 1), "Đường qua núi", 90_000, CatalogOrigin.SyntheticDemo)
 
     @Test
     fun catalog_snapshots_do_not_alias_constructor_or_returned_collection_views() {
         val episodes = mutableListOf(first, second)
-        val work = CatalogWork(key, "Sơn Hà Ký", "Tiên hiệp", "Nguyên bản minh họa", episodes)
+        val work = CatalogWork(key, "Sơn Hà Ký", "Tiên hiệp", "Nguyên bản minh họa", episodes, CatalogOrigin.SyntheticDemo)
         episodes.clear()
         assertEquals(listOf(first, second), work.episodes)
         (work.episodes as MutableList<*>).clear()

@@ -234,9 +234,14 @@ make selected component/state or mock composition, synthetic session seed and or
 reproducible through reset/recreation and versioned snapshots. Use those recipes to close the
 affected renderer/state/lifecycle gaps before expanding #143's proposal batches. Preserve #109's
 memory-session semantics; replay does not implement durable storage, native audio or OS process
-death. Next, complete [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s broader sandbox
-extraction and production APK/AAB source/dependency exclusion acceptance before native product
-rollout. This orchestration slice qualifies no shared API and does not reorder the backend queue;
+death. The [#122 module extraction](../evidence/issue122-cmp-sandbox-isolation.md) keeps these
+diagnostics in `:preview-sandbox`, which consumes the neutral UI and owners in `:shared`.
+Before native product rollout, prioritize a real production Android host, then inspect its
+release compile/runtime graphs and APK/AAB classes, resources and manifest for sandbox exclusion.
+The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
+#144's replay/lifecycle semantics and #130's guest/account boundary while composing production
+adapters; add storage libraries only with #16/#17's consumers and reviewed account policy.
+This orchestration slice qualifies no shared API and does not reorder the backend queue;
 GitHub owns implementation and acceptance status.
 
 The bounded [Web Back presentation comparison](../evidence/shared-back-v3-alignment.md) keeps
@@ -346,15 +351,20 @@ API sequence above. GitHub owns status.
   and keeps large-text controls and preference dialogs within that same isolated mock boundary.
   The [radius normalization](../evidence/theatre-cmp-shapes.md) keeps the same mock anatomy
   while sharing shape roles with the existing design system.
-  The [fake storage simulator](../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
+  The [mock storage simulator](../../apps/cantos-theatre/mobile/README.md#mock-storage-simulator)
   ([#109](https://github.com/loveoverflowcom/cantos/issues/109)) exercises shared-session
   load/store/recreate, latency, faults and reset fencing before the local metadata store ADR;
   it is memory-only and supplies no durable persistence or process-death evidence. Its database
   and presets form one [mock app sandbox](../../apps/cantos-theatre/mobile/docs/architecture.md#mock-app-sandbox)
-  that also backs `AppContainer.mock`, replacing the separate memory progress adapter.
+  in `:preview-sandbox`, replacing the separate memory progress adapter. Its composition
+  factories are explicit; the production-safe `:shared` module has no mock fallback.
   [ADR 0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) records the
-  per-layer storage test doubles and adoption gates and adds the shared `ProgressPort` contract
-  suite; Okio/SQLDelight-style dependencies wait for their #16/#17 consumers.
+  separate KMP build boundary, per-layer storage test doubles and adoption gates. The
+  adapter-agnostic `ProgressPort` contract and its mock bindings stay together in sandbox tests;
+  core-only tests stay in `:shared` to avoid a reverse test dependency. Okio/SQLDelight-style
+  dependencies wait for their #16/#17 consumers. Next, the real production Android host and its
+  release graph/APK/AAB inspection must establish exclusion before claiming #122 acceptance;
+  those checks remain blocked by the absent host.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 
@@ -511,14 +521,14 @@ GitHub owns PR execution/merge status and broader issues remain open.
 ## Theatre mobile architecture dependency guard
 
 `check_theatre_architecture` in [check_repository.py](../../scripts/check_repository.py) runs in
-the `repository` gate (and CI) and rejects import, fully qualified-name and package/directory
-violations for `domain`, `ports`, `application`, `features` and `demo` under
-`apps/cantos-theatre/mobile/shared/src/*Main`; `adapters` and `app` are explicitly unguarded.
-`DemoCopy` moved to the leaf `demo` package to remove a `features` → `app` import cycle. The
-guard is lexical (no overload/alias resolution) and does not prove behavior such as clocks or
-random sources in `domain`. Evidence: `statically-checked, example-tested`
-(negative fixtures plus real-tree mutants). This tooling change does not reorder the product
-queue; GitHub owns PR execution status.
+the `repository` gate and retains the inward layer/package checks. The sandbox extraction
+extends the production-safe shared boundary to `app` and `adapters`, with main-source,
+declared Gradle dependency/source-routing and resource guards. Its scope and actual negative
+checks are recorded in [#122 evidence](../evidence/issue122-cmp-sandbox-isolation.md).
+The guard is lexical: it does not establish compiler/Gradle resolution, runtime behavior or
+production DEX/resource exclusion. Retain it while adding production adapters, then inspect
+the real release graphs and artifacts when a production Android host exists. This tooling
+change does not reorder the product queue; GitHub owns implementation and acceptance status.
 
 ## Editor workspace hygiene
 

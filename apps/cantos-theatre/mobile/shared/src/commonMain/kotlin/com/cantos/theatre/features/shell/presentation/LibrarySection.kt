@@ -29,20 +29,20 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import com.cantos.theatre.demo.CopyKey
-import com.cantos.theatre.demo.DemoCatalogView
-import com.cantos.theatre.demo.DemoCopy
-import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoProgress
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.DemoState
-import com.cantos.theatre.demo.clockTime
-import com.cantos.theatre.demo.continuingProgress
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCatalogView
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellProgress
+import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.clockTime
+import com.cantos.theatre.presentation.model.continuingProgress
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun LibraryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     Text(copy.text(CopyKey.Library), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.LibrarySession), style = MaterialTheme.typography.bodySmall)
@@ -61,7 +61,7 @@ internal fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: Dem
     }
     Column(Modifier.testTag("library-history"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         SectionHeading(CopyKey.History, copy)
-        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.History)) }, modifier = Modifier.testTag("history-all")) {
+        TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.History)) }, modifier = Modifier.testTag("history-all")) {
             Text(copy.text(CopyKey.ViewAllHistory))
         }
         if (state.history.isEmpty()) SectionEmpty(CopyKey.NoHistory, CopyKey.NoHistoryHelp, copy, dispatch)
@@ -72,18 +72,18 @@ internal fun LibraryScreen(state: DemoState, catalog: DemoCatalogView, copy: Dem
 }
 
 @Composable
-private fun SectionEmpty(title: CopyKey, help: CopyKey, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+private fun SectionEmpty(title: CopyKey, help: CopyKey, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     Text(copy.text(title), style = MaterialTheme.typography.titleMedium)
     Text(copy.text(help), style = MaterialTheme.typography.bodySmall)
-    TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
+    TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Discovery)) }) { Text(copy.text(CopyKey.Discover)) }
 }
 
 @Composable
 internal fun ListeningPoint(
-    point: DemoProgress,
-    catalog: DemoCatalogView,
-    copy: DemoCopy,
-    dispatch: (DemoEvent) -> Unit,
+    point: ShellProgress,
+    catalog: ShellCatalogView,
+    copy: ShellCopy,
+    dispatch: (ShellEvent) -> Unit,
     fromHistory: Boolean,
     tag: String,
 ) {
@@ -94,7 +94,7 @@ internal fun ListeningPoint(
     }
     Surface(
         onClick = {
-            dispatch(if (fromHistory) DemoEvent.ResumeHistoryEpisode(point.episodeId) else DemoEvent.ResumeEpisode(point.episodeId))
+            dispatch(if (fromHistory) ShellEvent.ResumeHistoryEpisode(point.episodeId) else ShellEvent.ResumeEpisode(point.episodeId))
         },
         modifier = Modifier.fillMaxWidth().testTag(tag).semantics {
             role = Role.Button
@@ -119,7 +119,7 @@ internal fun ListeningPoint(
 }
 
 @Composable
-internal fun HistoryScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun HistoryScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     var confirming by remember { mutableStateOf(false) }
     SectionHeading(CopyKey.History, copy)
     Text(copy.text(CopyKey.HistoryHelp))
@@ -135,7 +135,7 @@ internal fun HistoryScreen(state: DemoState, catalog: DemoCatalogView, copy: Dem
         title = { Text(copy.text(CopyKey.ClearHistoryConfirmTitle)) },
         text = { Text(copy.text(CopyKey.ClearHistoryHelp)) },
         confirmButton = {
-            TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = false; dispatch(DemoEvent.ClearHistory) }, modifier = Modifier.testTag("history-confirm")) {
+            TextButton(shape = MaterialTheme.shapes.small, onClick = { confirming = false; dispatch(ShellEvent.ClearHistory) }, modifier = Modifier.testTag("history-confirm")) {
                 Text(copy.text(CopyKey.ConfirmClearHistory))
             }
         },

@@ -24,8 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoTheme
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.BackButton
 import com.cantos.ui.Badge
@@ -46,9 +46,9 @@ import com.cantos.ui.tokenDp
 
 /** App composition over shared design-v2 primitives; no Membership decisions or state owner. */
 @Composable
-internal fun MembershipHeader(
-    locale: DemoLocale,
-    theme: DemoTheme,
+fun MembershipHeader(
+    locale: ShellLocale,
+    theme: ShellTheme,
     onBack: () -> Unit,
     onToggleTheme: () -> Unit,
     modifier: Modifier = Modifier,
@@ -63,12 +63,12 @@ internal fun MembershipHeader(
         Box(Modifier.weight(1f)) {
             Logo(
                 modifier = Modifier.width(tokenDp("size.authLogo")).heightIn(max = tokenDp("size.backControl")).testTag("header-title"),
-                tone = if (theme == DemoTheme.Dark) LogoTone.Dark else LogoTone.Light,
+                tone = if (theme == ShellTheme.Dark) LogoTone.Dark else LogoTone.Light,
                 accessibleName = AccessibleName.of(copy.text(MembershipText.AppBrand)),
             )
         }
         IconButton(onClick = onToggleTheme, modifier = Modifier.size(tokenDp("size.backControl")).testTag("membership-theme")) {
-            Icon(if (theme == DemoTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+            Icon(if (theme == ShellTheme.Dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
                 contentDescription = copy.text(MembershipText.ToggleTheme))
         }
     }

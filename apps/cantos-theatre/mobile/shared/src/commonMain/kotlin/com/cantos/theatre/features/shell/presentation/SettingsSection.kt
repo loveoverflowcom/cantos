@@ -17,16 +17,17 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import com.cantos.theatre.demo.CopyKey
-import com.cantos.theatre.demo.DemoCopy
-import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoState
-import com.cantos.theatre.demo.DemoTheme
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.ShellTheme
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun SettingsScreen(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun SettingsScreen(state: ShellState, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
+    val diagnostics = LocalShellDiagnostics.current
     var panel by remember { mutableStateOf<PreferencePanel?>(null) }
     var restoreFocus by remember { mutableStateOf<PreferencePanel?>(null) }
     val requesters = remember { PreferencePanel.entries.associateWith { FocusRequester() } }
@@ -40,15 +41,20 @@ internal fun SettingsScreen(state: DemoState, copy: DemoCopy, dispatch: (DemoEve
     Text(copy.text(CopyKey.PersonalRhythm), style = MaterialTheme.typography.headlineSmall,
         modifier = Modifier.semantics { heading() })
     Column {
-        PreferencePanel.entries.forEach { choice ->
+        PreferencePanel.entries.filter { it != PreferencePanel.Diagnostics || diagnostics != null }.forEach { choice ->
             val value = when (choice) {
-                PreferencePanel.Theme -> copy.text(if (state.theme == DemoTheme.Light) CopyKey.Light else CopyKey.Dark)
-                PreferencePanel.Language -> copy.text(if (state.locale == DemoLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English)
+                PreferencePanel.Theme -> copy.text(if (state.theme == ShellTheme.Light) CopyKey.Light else CopyKey.Dark)
+                PreferencePanel.Language -> copy.text(if (state.locale == ShellLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English)
                 PreferencePanel.Speed -> copy.speed(state.speedPercent)
                 PreferencePanel.Timer -> copy.text(timerKey(state.timer))
-                PreferencePanel.Diagnostics -> copy.text(CopyKey.CatalogState)
+                PreferencePanel.Diagnostics -> diagnostics?.let {
+                    if (state.locale == ShellLocale.Vietnamese) it.summary.vi else it.summary.en
+                }.orEmpty()
             }
-            PreferenceRow(copy.text(choice.title), value, { panel = choice },
+            val title = choice.title?.let { copy.text(it) } ?: diagnostics?.let {
+                if (state.locale == ShellLocale.Vietnamese) it.title.vi else it.title.en
+            }.orEmpty()
+            PreferenceRow(title, value, { panel = choice },
                 Modifier.testTag("setting-$choice").focusRequester(requesters.getValue(choice)))
             if (choice == PreferencePanel.Timer) Text(copy.text(CopyKey.PreferencesNote),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

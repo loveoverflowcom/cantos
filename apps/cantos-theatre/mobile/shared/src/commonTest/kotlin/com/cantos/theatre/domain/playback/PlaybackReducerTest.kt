@@ -1,5 +1,9 @@
 package com.cantos.theatre.domain.playback
 
+import com.cantos.theatre.domain.publication.CatalogEpisode
+import com.cantos.theatre.domain.publication.EpisodeKey
+import com.cantos.theatre.domain.publication.WorkKey
+import com.cantos.theatre.domain.publication.toPlaybackSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -11,10 +15,10 @@ class PlaybackReducerTest {
     private val otherSource = requireNotNull(PlaybackSource.of("den-khuya", 0, 1_232_000))
 
     @Test
-    fun source_and_callback_factories_refuse_unknown_keys_and_out_of_range_values() {
+    fun source_and_callback_factories_refuse_blank_keys_and_out_of_range_values() {
         assertNotNull(PlaybackSource.of("mong-ho-diep", 65_535, MAX_PLAYBACK_GENERATION))
         assertNotNull(PlaybackIdentity.of("mong-ho-diep", 65_535, MAX_PLAYBACK_GENERATION))
-        listOf("", "future", "Sơn Hà Ký").forEach { key ->
+        listOf("", " ", "\n").forEach { key ->
             assertNull(PlaybackSource.of(key, 0, 1))
             assertNull(PlaybackIdentity.of(key, 0, 0))
         }
@@ -29,6 +33,28 @@ class PlaybackReducerTest {
             assertNull(PlaybackIdentity.of("son-ha-ky", 0, generation))
             assertFailsWith<IllegalArgumentException> { PlaybackState(generation) }
         }
+    }
+
+    @Test
+    fun opaque_catalog_sources_preserve_callback_source_and_generation_fences() {
+        val key = WorkKey("published-work-42")
+        val episode = CatalogEpisode(EpisodeKey(key, 4), "Ánh đèn cuối sân khấu", 90_000)
+        val selected = assertNotNull(episode.toPlaybackSource())
+        assertEquals(PlaybackSource.of(key.value, 4, 90_000), selected)
+        val loaded = reducePlayback(PlaybackState(), PlaybackEvent.SourceSelected(selected, 0)).nextState
+        val requested = reducePlayback(loaded, PlaybackEvent.PlayRequested).nextState
+        val current = assertNotNull(PlaybackIdentity.of(key.value, 4, requested.generation))
+        val wrongWork = assertNotNull(PlaybackIdentity.of("another-published-work", 4, requested.generation))
+        val wrongEpisode = assertNotNull(PlaybackIdentity.of(key.value, 5, requested.generation))
+        val stale = assertNotNull(PlaybackIdentity.of(key.value, 4, loaded.generation))
+        listOf(wrongWork, wrongEpisode, stale).forEach { identity ->
+            assertEquals(PlaybackTransition(requested, emptyList()), reducePlayback(requested, PlaybackEvent.EngineStarted(identity)))
+        }
+        val started = reducePlayback(requested, PlaybackEvent.EngineStarted(current))
+        assertEquals(PlaybackStatus.Simulating, started.nextState.status)
+        assertEquals(selected, started.nextState.session?.source)
+        assertEquals(requested.generation, started.nextState.generation)
+        assertEquals(emptyList(), started.effects)
     }
 
     @Test
