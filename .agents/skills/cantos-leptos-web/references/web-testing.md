@@ -183,3 +183,18 @@ conditions per surface are in the [UI system validation matrix](../../../../docs
 Use the [Web report additions](../SKILL.md#web-report-additions) on top of the shared UI report.
 State per claim the exact level reached, the browser engines, the backend (fake ports, local
 services or a shared environment) and what was not run. "Tested in the browser" is not a level.
+
+## Existing PNG comparison
+
+After a real browser capture, use `cargo xtask visual-compare` with the existing approved design
+PNG under the [reference-pairing method](../../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
+Record browser/version, actual served build SHA/dirty state, CSS viewport and physical PNG size,
+DPR, font readiness and exact family/version, page/text zoom, locale/theme, fixture/state and
+capture timestamp. Record original HTML/MJS source revision and capture inputs for the design
+reference. Wait for fonts and the specified stable UI state; review dynamic masks explicitly.
+No comprehensive Web capture harness is introduced by the comparator; two existing PNGs suffice.
+
+Attach observed DOM roles/locators to region findings only when the current DOM establishes the
+mapping. A static HTML calibration is HTML evidence, not a Leptos production render. Preserve the
+comparison JSON and open numbered overlay/detail crops. Recheck through the same browser,
+scenario/reference/policy, with semantics, keyboard/focus and interaction reported independently.

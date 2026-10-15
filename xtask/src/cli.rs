@@ -57,6 +57,8 @@ pub enum Task {
     Services(crate::services::ServicesArgs),
     /// Capture a Compose @Preview PNG and semantics with Android Studio, without an emulator.
     ComposePreview(ComposePreviewArgs),
+    /// Compare two local PNGs offline; differences are advisory, never a UX gate.
+    VisualCompare(crate::visual_compare::VisualCompareArgs),
     /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]

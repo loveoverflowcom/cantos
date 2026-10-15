@@ -53,3 +53,14 @@ definitions. It is a conservative source check, not a Rust/Kotlin compiler, runt
 oracle, screen-reader proof or visual-diff service. Keep imports explicit; wildcard/module-alias
 imports are refused rather than allowed to hide adoption. Review indirect re-exports or wrapper
 imports manually, and use the renderer's compiler/tests as independent evidence.
+
+## Comparison evidence in admission
+
+Consume an existing `comparison/report.json` under the
+[reference-pairing owner](visual-review.md#10-reference-pairing-and-local-comparison).
+Carry its baseline/policy hashes, opened context/detail images and region findings in each
+renderer qualification record's existing visual evidence. The optional comparator now measures
+pixels, while the inventory/adoption gate still does not authenticate a review or establish UX.
+A metric PASS never fills runtime, accessibility, reference inspection or native acceptance.
+A stale qualification must be rerun and reviewed; do not update hashes or baselines merely to
+clear the structural gate.

@@ -19,21 +19,21 @@ with the same scenario.
 
 ## Repository reality
 
-Studio Web now exists; Theatre Web is a skeleton and Theatre Mobile is a guide. Studio Mobile
-is out of scope; do not create a mobile scaffold or mock screen to inspect Studio. Therefore:
+Studio Web, the isolated Theatre Web/CMP mocks and shared preview hosts exist. Studio Mobile
+is out of scope; never scaffold it for inspection.
 
-- **`live` mode is blocked** until a surface ships with a documented launch path. Report
-  `blocked`; never build a demo screen to have something to inspect.
-- **`existing` mode** works on supplied evidence — screenshots, recordings, a design mockup in a
-  design issue — with the build recorded as `unknown` or as the mockup's source. A mockup is not
-  the product, and the [reference image](../../../docs/design/ui-system.md#direction-and-reference)
-  named in the brief has never been attached, so no visual-fidelity finding is possible yet.
-- The [reviewed scenarios](#references-and-scenarios) are **contracts, runnable once the apps
-  exist**. The optional [Compose preview capture](../cantos-cmp-mobile/references/compose-preview.md)
-  adapter is implemented for static Android host evidence once a mobile Gradle project exists;
-  no complete scenario/device runner, account registry or report-assembly tool is implemented.
-  The agent writes the report itself. An existing preview bundle can be inspected in `existing`
-  mode; name the Studio layout renderer and keep native/interaction checks blocked or not-run.
+- **`live` mode** uses the selected surface's documented launch path and actual capabilities.
+  A reachable mock does not implement native playback or a complete scenario. Mark each
+  unsupported journey/check separately; never build a copied screen to create evidence.
+- **`existing` mode** consumes supplied/located PNGs, recordings, design artifacts, JVM capture
+  bundles or `comparison/report.json`. Record historical build identity or `unknown`; a mockup
+  is not a product render. Reference fidelity needs the approved pairing described by the
+  [visual review owner](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
+- JVM `DemoCaptureTest`/shared `AuthAccountCaptureTest` export PNGs, metadata and semantics.
+  The optional [Compose preview capture](../cantos-cmp-mobile/references/compose-preview.md)
+  uses actual Android Gradle wrappers with the official CLI and a synced IDE. Name the renderer;
+  JVM/Studio host evidence is never device evidence. There is no complete scenario/device
+  runner, account registry or inspection report assembler. The agent writes the report itself.
 - Run evidence goes to `artifacts/ui-evidence/<run-id>/`. `/artifacts/` is ignored by the root
   [`.gitignore`](../../../.gitignore); confirm with `git check-ignore -v` before writing, and
   prefer the ignored location that [`visual-review.md`](../cantos-ui-design/references/visual-review.md)
@@ -146,7 +146,11 @@ control, inspect its enabled, disabled-with-reason and focus states **without ac
    An image never establishes motion, interaction, screen-reader behavior, durability or root
    cause: motion needs a recording, "Đã lưu" needs a read-back after reload, contrast needs a
    measurement of resolved colors, TalkBack or VoiceOver needs a `screen-reader-walked` session.
-6. Before reporting a violation, rule out known-good states: intentional overlays and scrims,
+6. When a comparison report is supplied, validate its image hashes and pair/policy provenance
+   under [reference pairing](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
+   Open its context and cited region crops; carry region IDs/bboxes into the report. Keep the
+   metric operation separate from inspection and advisory suggestions separate from an oracle.
+7. Before reporting a violation, rule out known-good states: intentional overlays and scrims,
    hover and pressed treatments, platform-appropriate geometry differences.
 
 ## What the inspector can see of each non-negotiable

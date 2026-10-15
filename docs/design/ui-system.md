@@ -19,6 +19,12 @@ remain unverified. Other consumers retain their existing fonts/assets. Exact fid
 interactions and font rendering need actual renderer inspection;
 static boards do not establish an HTML screenshot comparison.
 
+The optional [local PNG comparator](../../tools/visual-compare/README.md) locates differences
+between attributed design/render captures. Its [calibration record](../evidence/visual-compare.md)
+is tooling evidence only. A baseline needs an exact version/hash and named approval; metrics
+never establish a percentage of design quality or replace inspected pixels, interactions,
+accessibility and platform acceptance. No automatic global similarity merge threshold is selected.
+
 ## Semantic tokens
 
 Keep a versioned token source with platform mappings. Leptos consumes CSS variables; CMP consumes its theme and component wrappers. Share semantic names and relationships, not web pixel values or Rust UI code. Any generated token files must identify their source version.

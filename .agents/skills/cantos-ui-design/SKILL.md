@@ -50,9 +50,11 @@ listener surface for the technical name before calling UI work done.
 
 ## Repository reality
 
-Studio, the Theatre skeleton and `packages/ui-system` Web foundation now exist. The authenticated
-design handoff supplies palette/font roles and official outlined icons. CMP runtime remains
-deferred. Therefore:
+Studio Web, the isolated Theatre Web/CMP mocks and `packages/ui-system` Web/CMP previews exist.
+The authenticated design handoff supplies palette/font roles and official outlined icons.
+Native listening remains deferred; existing JVM/Studio host captures establish no device
+acceptance. Optional [local PNG comparison](references/visual-review.md#10-reference-pairing-and-local-comparison)
+measures attributed pairs without approving UX. Therefore:
 
 - discover the actual manifests, generator and evidence before citing a command; illustrative
   paths/APIs remain **proposed** until the owning package implements them;
@@ -170,8 +172,9 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
 
 ## Rules
 
-Enforcement today is manual for every rule: no UI code or gate exists. "Proposed" names the oracle
-to automate when the first UI slice lands.
+Qualitative UI acceptance remains a review obligation. Existing token/catalog/source checks and
+optional pixel comparison cover only their stated claims; proposed oracles below are not
+implemented runtime gates.
 
 | Rule | Failure mode | Good / counterexample | Oracle · enforcement | Exception |
 |---|---|---|---|---|

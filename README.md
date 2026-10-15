@@ -132,6 +132,11 @@ Start with the [product brief](docs/product/brief.md), [business rules](docs/pro
 [external handoff pipeline](docs/product/production-pipeline.md), [API contexts](docs/architecture/api-contexts.md),
 [work queue](docs/work-plan/README.md) and [contributor guide](CONTRIBUTING.md).
 
+For local design/render PNG review, use the optional
+[`cargo xtask visual-compare`](tools/visual-compare/README.md). It exports metrics, numbered
+regions and review images offline; baseline approval, opened-image inspection and runtime
+acceptance remain separate. No application/release dependency or automatic UX/CI gate is added.
+
 ## Rights and delivery
 
 Source, translation, voice, music and effects permissions are scoped claims that must be

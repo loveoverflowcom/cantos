@@ -147,7 +147,10 @@ the slice touches:
 
 Levels come only from the [foundation vocabulary](../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified).
 Every test you add maps to a row; every in-boundary criterion ends with evidence or an explicit
-gap. A worked ledger is in [planning-and-slicing](references/planning-and-slicing.md#a-worked-ledger).
+gap. For supplied UI comparisons, carry the report/image hashes, baseline and recheck policy,
+opened region findings and remaining acceptance into this ledger through the
+[visual review owner](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison);
+consume its rules rather than redefining a fidelity gate. A worked ledger is in [planning-and-slicing](references/planning-and-slicing.md#a-worked-ledger).
 
 ## 7. Record a decision when the slice needs one
 
