@@ -62,6 +62,7 @@ impl Harness {
             "GRANT USAGE ON SCHEMA public TO cantos_app;
              GRANT SELECT ON actors,sessions,script_evidence,catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app;
              GRANT INSERT ON catalog_works,catalog_work_revisions,catalog_members,catalog_operations TO cantos_app;
+             GRANT UPDATE(revoked) ON sessions TO cantos_app;
              GRANT UPDATE(revision) ON catalog_clock TO cantos_app;
              GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app;
              GRANT UPDATE(role),DELETE ON catalog_members TO cantos_app;
@@ -413,18 +414,19 @@ async fn immutable_tables_reject_update_delete_truncate_even_when_dml_is_granted
     let initial = h.work(ALICE).await;
     let asset = h.image(&initial).await;
     h.change(&initial, Some(&asset)).await;
+    // TRUNCATE ... CASCADE checks privileges on every referencing table before any trigger.
+    h.admin
+        .batch_execute(
+            "GRANT UPDATE,DELETE,TRUNCATE ON media_image_intents,media_image_assets,media_work_artwork_changes,media_artwork_operations TO cantos_app",
+        )
+        .await
+        .unwrap();
     for table in [
         "media_image_intents",
         "media_image_assets",
         "media_work_artwork_changes",
         "media_artwork_operations",
     ] {
-        h.admin
-            .batch_execute(&format!(
-                "GRANT UPDATE,DELETE,TRUNCATE ON {table} TO cantos_app"
-            ))
-            .await
-            .unwrap();
         let client = h.store.connection().await.unwrap();
         for statement in [
             format!("UPDATE {table} SET owner_id=owner_id"),
@@ -628,7 +630,7 @@ async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_p
             .await
             .unwrap();
     }
-    admin.batch_execute("GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,script_evidence,catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app; GRANT INSERT ON catalog_works,catalog_work_revisions,catalog_operations TO cantos_app; GRANT UPDATE(revision) ON catalog_clock TO cantos_app; GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app; GRANT EXECUTE ON FUNCTION catalog_lock_actor(text),catalog_lock_member(text,text) TO cantos_app; INSERT INTO actors(id) VALUES('alice');").await.unwrap();
+    admin.batch_execute("GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,script_evidence,catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app; GRANT INSERT ON catalog_works,catalog_work_revisions,catalog_operations TO cantos_app; GRANT UPDATE(revoked) ON sessions TO cantos_app; GRANT UPDATE(revision) ON catalog_clock TO cantos_app; GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app; GRANT EXECUTE ON FUNCTION catalog_lock_actor(text),catalog_lock_member(text,text) TO cantos_app; INSERT INTO actors(id) VALUES('alice');").await.unwrap();
     admin.execute("INSERT INTO sessions(token_hash,actor_id,expires_at) VALUES($1,'alice',clock_timestamp()+interval '1 hour')",&[&token_hash(ALICE)]).await.unwrap();
     let mut app = config.clone();
     app.user("cantos_app");
@@ -638,7 +640,7 @@ async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_p
         config: config.clone(),
     };
     let original = h.work(ALICE).await;
-    let query="SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations WHERE version<23),'snapshot',(SELECT json_build_array(encode(snapshot,'hex'),snapshot_digest,recorded_by) FROM catalog_work_revisions WHERE work_id=$1 AND revision=1),'operations',(SELECT json_agg(json_build_array(actor_id,operation_id,fingerprint,encode(result_bytes,'hex'),result_digest) ORDER BY operation_id) FROM catalog_operations),'head',(SELECT head_revision FROM catalog_works WHERE id=$1),'clock',(SELECT revision FROM catalog_clock))::text";
+    let query="SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations WHERE version<=19 AND version<>15),'snapshot',(SELECT json_build_array(encode(snapshot,'hex'),snapshot_digest,recorded_by) FROM catalog_work_revisions WHERE work_id=$1 AND revision=1),'operations',(SELECT json_agg(json_build_array(actor_id,operation_id,fingerprint,encode(result_bytes,'hex'),result_digest) ORDER BY operation_id) FROM catalog_operations),'head',(SELECT head_revision FROM catalog_works WHERE id=$1),'clock',(SELECT revision FROM catalog_clock))::text";
     let before: String = h
         .admin
         .query_one(query, &[&original.id().as_str()])
@@ -669,10 +671,7 @@ async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_p
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(
-        versions,
-        (1..=14).chain([16, 17, 18, 19, 23]).collect::<Vec<_>>()
-    );
+    assert_eq!(versions, (1..=25).collect::<Vec<_>>());
     assert_eq!(h.admin.query_one("SELECT (SELECT count(*) FROM media_image_intents)+(SELECT count(*) FROM media_image_assets)+(SELECT count(*) FROM media_work_artwork_changes)+(SELECT count(*) FROM media_artwork_operations)",&[]).await.unwrap().get::<_,i64>(0),0);
 }
 
