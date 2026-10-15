@@ -166,6 +166,9 @@ Record accepted source/release/rights/consumer and compatibility semantics befor
 fields or migrations. Prefer one accepted genre/filter slice over implementing all proposal
 families together; retain existing q/kind/language search, public eligibility and flat chapter
 ordering. This is dependency guidance, not acceptance of P1 or a change to publication order.
+Keep the independent [existing Discovery v1 continuation repair](public-metadata-decision-handoff.md#existing-discovery-v1-continuation-repair)
+and its mocked application evidence separate from later real PostgreSQL expiry/pagination
+and Web/CMP consumer acceptance. An existing-contract correction does not open the P1 gate.
 
 [Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
 clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and

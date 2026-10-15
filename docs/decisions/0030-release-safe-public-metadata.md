@@ -32,7 +32,9 @@ to disclose it. Do not change existing title/language/order semantics to impleme
 Do not implement P1 types, tables, migrations, protobuf fields, endpoints or client adapters
 until the owner records the chosen rows below and #157's applicable acceptance evidence.
 This ADR is not that acceptance, including if its documentation PR is merged. No prototype
-runtime is included or requested by this decision package.
+runtime is included or requested by this decision package. The independent
+[existing Discovery v1 continuation repair](../work-plan/public-metadata-decision-handoff.md#existing-discovery-v1-continuation-repair)
+in the accompanying PR changes no P1 choice or contract.
 
 | Decision to record | Recommended starting point | Still required before its implementation |
 | --- | --- | --- |

@@ -225,7 +225,7 @@ impl ListenerService {
                 limit: query.limit(),
             })
             .await?;
-        if snapshot.items.is_empty() && cursor.is_none() {
+        if snapshot.items.is_empty() && snapshot.next_key.is_none() && cursor.is_none() {
             return Err(ListenerError::NotFound);
         }
         let mut items: Vec<_> = snapshot
@@ -573,9 +573,96 @@ pub(super) mod tests {
             );
         }
     }
+
+    /// Models eligibility loss after a bounded scan, then a fresh read of the remaining units.
+    struct UnitWalkRead {
+        remaining_visible: bool,
+        requests: Mutex<Vec<Option<Keyset>>>,
+    }
+    impl ListenerRead for UnitWalkRead {
+        fn read(&self, request: ReadRequest) -> ReadFuture {
+            let ReadRequest::Units { work, after, limit } = request else {
+                panic!("unit walk must not read another discovery route");
+            };
+            assert_eq!(work, item().publication.work().id().as_str());
+            assert_eq!(limit, 1);
+            self.requests.lock().unwrap().push(after.clone());
+            let remaining_visible = self.remaining_visible;
+            Box::pin(async move {
+                let mut remaining = item();
+                remaining.position = 9;
+                let scanned = Keyset::Units {
+                    work,
+                    position: 7,
+                    id: "70000000-0000-4000-8000-000000000007".into(),
+                };
+                let (items, next_key) = match after {
+                    None => (vec![], Some(scanned)),
+                    Some(key) => {
+                        assert_eq!(key, scanned);
+                        (
+                            remaining_visible.then_some(remaining).into_iter().collect(),
+                            None,
+                        )
+                    }
+                };
+                Ok(ReadSnapshot {
+                    now: 5000,
+                    items,
+                    next_key,
+                })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_first_unit_page_preserves_continuation_and_cursor_scope() {
+        for remaining_visible in [false, true] {
+            let read = Arc::new(UnitWalkRead {
+                remaining_visible,
+                requests: Mutex::new(vec![]),
+            });
+            let s = ListenerService {
+                read: read.clone(),
+                cursors: Arc::new(CursorVault::default()),
+                delivery: Arc::new(UnavailablePlayback),
+            };
+            let work = item().publication.work().id().as_str().to_owned();
+            let first = s.units(&work, 1, None).await.unwrap();
+            assert_eq!(first.work_id, work);
+            assert!(first.items.is_empty());
+            let cursor = first.next_cursor.unwrap();
+            for (other_work, limit) in [
+                ("90000000-0000-4000-8000-000000000009", 1),
+                (work.as_str(), 2),
+            ] {
+                assert_eq!(
+                    s.units(other_work, limit, Some(&cursor)).await.unwrap_err(),
+                    ListenerError::InvalidCursor
+                );
+            }
+            assert_eq!(
+                s.works("", None, None, 1, Some(&cursor)).await.unwrap_err(),
+                ListenerError::InvalidCursor
+            );
+            assert_eq!(read.requests.lock().unwrap().as_slice(), &[None]);
+
+            let next = s.units(&work, 1, Some(&cursor)).await.unwrap();
+            assert_eq!(next.work_id, work);
+            assert_eq!(next.next_cursor, None);
+            let expected = if remaining_visible {
+                vec![unit_summary(&item().publication, 9)]
+            } else {
+                vec![]
+            };
+            assert_eq!(next.items, expected);
+            assert_eq!(read.requests.lock().unwrap().len(), 2);
+        }
+    }
+
     #[tokio::test]
     async fn empty_catalog_and_private_or_absent_release_are_distinct() {
-        let s = service(vec![false, false], Arc::new(UnavailablePlayback));
+        let s = service(vec![false, false, false], Arc::new(UnavailablePlayback));
         assert_eq!(
             s.works("", None, None, 20, None).await.unwrap(),
             dto::WorkPage {
@@ -584,5 +671,10 @@ pub(super) mod tests {
             }
         );
         assert_eq!(s.manifest(ID).await.unwrap_err(), ListenerError::NotFound);
+        let work = item().publication.work().id().as_str().to_owned();
+        assert_eq!(
+            s.units(&work, 1, None).await.unwrap_err(),
+            ListenerError::NotFound
+        );
     }
 }

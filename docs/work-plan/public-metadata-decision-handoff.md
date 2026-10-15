@@ -12,6 +12,8 @@ boundary. GitHub owns execution status and acceptance. Neither document closes e
 This package delivers a reviewable choice of metadata authority, a field-to-source/release/
 rights/consumer matrix, compatibility hazards and a bounded implementation/evidence sequence.
 It delivers **no new DTO, protobuf field, schema, migration, endpoint, query or client adapter**.
+The independent [Discovery v1 continuation repair](#existing-discovery-v1-continuation-repair)
+corrects an existing application guard; it does not implement or accept P1 metadata.
 The first recommended runtime slice is genres plus existing works/search filtering, only after
 the owner selects the vocabulary and semantics. Public attribution and optional seasons must
 not slip into that PR as unreviewed fields.
@@ -50,6 +52,33 @@ readiness, including a valid empty page; startup is not a nonempty publication, 
 public delivery or client acceptance test. The separate
 [Membership publication proposal](../product/membership-plan-publication.md) also remains a
 proposal, not a commercial or metadata source. None supplies #157's missing P1 decision.
+
+## Existing Discovery v1 continuation repair
+
+The [existing pagination contract](../../packages/contracts/theatre-discovery-v1.md#opaque-keyset-pagination)
+allows an empty page with a next cursor when eligibility changes during a bounded read.
+The [PostgreSQL reader](../../services/cantos-api/src/contexts/media/postgres/listener.rs)
+retains the scanned continuation after its final expiry check. Previously,
+[`ListenerService::units`](../../services/cantos-api/src/contexts/media/listener_application.rs)
+discarded that continuation on an empty first page by returning `not_found`.
+
+The application now returns `not_found` on an empty initial unit page only when the read also
+has no continuation. An empty page with a cursor can resume through the existing Work-bound
+vault and a fresh read. A later page may legitimately be empty and terminal. Originally
+private or absent records still have no eligible scanned continuation; this repair selects no
+new disclosure policy, source, field or wire version.
+
+`empty_first_unit_page_preserves_continuation_and_cursor_scope` reproduces the former
+`NotFound` result before the repair and exercises the real application, vault and projection
+with the named `UnitWalkRead` double afterward. It covers both a visible next unit and a
+terminal empty continuation, exact resumed Work/keyset/limit, and wrong Work/route/limit
+rejection before another read. `empty_catalog_and_private_or_absent_release_are_distinct`
+also checks the empty-initial/no-continuation `NotFound` boundary.
+
+These are native Rust **mock-integration-tested** application scenarios with synthetic
+publication facts. They do not establish a PostgreSQL expiry race, live HTTP or Web/CMP
+pagination acceptance. The independent review and final local gate results belong in the PR;
+all proposed P1 scenarios below retain their own decision and implementation gates.
 
 ## Field, source, release, visibility and consumer matrix
 
