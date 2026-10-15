@@ -125,6 +125,39 @@ adds clearance between the shared choice ring and supporting text, with a failin
 regression and an inspected repeat of the narrow dark/2× Android host preview. The next adoption
 prerequisite remains native, reference and accessibility acceptance; GitHub owns publication status.
 
+## Design v3 CMP slice (issue 143)
+
+[Issue 143](https://github.com/loveoverflowcom/cantos/issues/143) is the CMP counterpart of the
+merged [Leptos v3 workbench](../evidence/leptos-preview-v3.md) and shares its
+[inventory](../evidence/ui-design-inventory-v3.md) and
+[token reconciliation](../design/ui-token-v3-reconciliation.md). Its first slice leaves the token
+source, the registry and the admission contract unchanged and gives the CMP gallery the discovery,
+injection and evidence plumbing later batches need: a Design v3 tab over the shared inventory,
+`Light / Dark / System` resolved at a composition root, named dp evidence constraints and
+JSON capture records. See the [evidence record](../evidence/issue143-cmp-preview.md); registration,
+qualification and Android/iOS acceptance are unchanged by it.
+
+Recommended order for the rest of the issue; each batch needs a concrete consumer and follows
+lookup → reuse/extend → declare and preview → state/theme/motion evidence → admission → product
+adoption:
+
+1. Theatre first batch over registered primitives, starting with the shared `list-row` anatomy and
+   then work/continue cards, episode rows, progress, mini/full player controls, queue/bookmark and
+   offline/download/recovery states. The Theatre mock's `features/shell/presentation` screens compose
+   raw Material controls today (Membership already uses the shared Button, TextField, Surface, Badge,
+   BackButton and Logo), so these are app-owned compositions over registered primitives with a
+   preview first, never copied controls.
+2. CMP font delivery. Done for the desktop preview host (shared Noto bundle, nested-theme
+   inheritance, opened type-specimen comparison against the design's fonts in the
+   [evidence](../evidence/issue143-cmp-preview.md#type-specimen-against-the-design-fonts)). Still open:
+   the Android Studio wrappers and each product host, and the line-box difference that drifts text
+   up to 8 px against the CSS reference (a shared theme decision with product-wide layout impact, so
+   its own reviewed change).
+3. Android Studio captures of the Design v3 wrappers once a ready Quail 2+ project exists; JVM
+   captures stay a different renderer.
+4. Per-component two-renderer admission for any new shared primitive, with the Leptos side owned
+   by the Web issues.
+
 ## Commands and risks
 
 Use pinned toolchains and `cargo xtask verify repository`, applicable Rust/contracts/Web checks,

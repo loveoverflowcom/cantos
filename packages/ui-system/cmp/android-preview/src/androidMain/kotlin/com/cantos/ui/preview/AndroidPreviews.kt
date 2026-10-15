@@ -3,6 +3,7 @@ package com.cantos.ui.preview
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.cantos.ui.Density
 import com.cantos.ui.PreviewExample
 import com.cantos.ui.Theme
+import com.cantos.ui.ThemeMode
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.UiRoot
 import com.cantos.ui.tokenDp
@@ -138,4 +140,39 @@ fun AndroidAuthStatesDarkPreview() {
         ComponentExample(PreviewExample.BackButton, "named", {}, Modifier)
         ComponentExample(PreviewExample.Logo, "studio-dark", {}, Modifier)
     }
+}
+
+// The three previews below are composition roots: each reads the Android appearance once and
+// injects it as a host fact, so no component reads the operating system.
+@Preview(
+    name = "Design v3 · Mini-player · sáng · 390 dp · tiếng Việt",
+    widthDp = 390, heightDp = 1800, locale = "vi-rVN", fontScale = 1f,
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+)
+@Composable
+fun AndroidDesignInventoryTypicalLightPreview() {
+    PreviewApp(initialSection = 2, initialSpecimenId = "mini-player",
+        systemIsDark = isSystemInDarkTheme(), initialThemeMode = ThemeMode.System)
+}
+
+@Preview(
+    name = "Design v3 · Studio Web-only · tối · 320 dp · chữ 2×",
+    widthDp = 320, heightDp = 5200, locale = "vi-rVN", fontScale = 2f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+fun AndroidDesignInventorySmallDarkLargePreview() {
+    PreviewApp(initialSection = 2, initialSpecimenId = "studio-workspace",
+        systemIsDark = isSystemInDarkTheme(), initialThemeMode = ThemeMode.System)
+}
+
+@Preview(
+    name = "Design v3 · Buttons · sáng · 840 dp · tiếng Việt",
+    widthDp = 840, heightDp = 1000, locale = "vi-rVN", fontScale = 1f,
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+)
+@Composable
+fun AndroidDesignInventoryExpandedPreview() {
+    PreviewApp(initialSection = 2, initialSpecimenId = "button",
+        systemIsDark = isSystemInDarkTheme(), initialThemeMode = ThemeMode.System)
 }

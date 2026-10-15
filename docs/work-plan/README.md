@@ -211,6 +211,11 @@ adds exact replay for existing controls; next, use its
 [browser evidence](../evidence/leptos-preview-scenarios.md) to close the affected runtime gaps
 before expanding proposal batches. Keep #129/#131 product rollout and #140 pixel comparison
 separate; local/JVM evidence does not complete native or screen-reader acceptance.
+The CMP counterpart, [#143](https://github.com/loveoverflowcom/cantos/issues/143), reuses that
+inventory and token reconciliation: its [first slice](../evidence/issue143-cmp-preview.md) adds the
+gallery's Design v3 tab, root-injected Light/Dark/System, named dp evidence constraints and capture
+records; its [order for the remaining batches](016-cmp-ui-system.md#design-v3-cmp-slice-issue-143)
+starts with Theatre compositions over registered primitives.
 
 The [local visual-comparison slice](../evidence/visual-compare.md) supplies advisory pixel
 metrics/regions through the [existing UI method](../../.agents/skills/cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).

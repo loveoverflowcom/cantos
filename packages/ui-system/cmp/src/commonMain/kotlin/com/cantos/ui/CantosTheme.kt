@@ -39,6 +39,11 @@ data class UiPreferences(
 
 val LocalEditorialFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.Serif }
 
+// What the host injected, so a nested theme that names no family inherits it instead of silently
+// reverting to the platform fallback. Null means no host injected one at this level.
+private val LocalInjectedUiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
+private val LocalInjectedEditorialFontFamily = staticCompositionLocalOf<FontFamily?> { null }
+
 val LocalUiPreferences = staticCompositionLocalOf { UiPreferences() }
 
 // A nested preview changes its own multiplier without treating the outer multiplier as a
@@ -134,17 +139,21 @@ fun CantosTheme(
         surfaceContainerLow = surface,
         surfaceContainerLowest = color("color.background"),
     )
-    val body = typeStyle("body", fontFamily = uiFontFamily)
-    val title = typeStyle("title", fontFamily = uiFontFamily)
-    val headline = typeStyle("headline", editorial = editorialFontFamily != null, fontFamily = editorialFontFamily ?: uiFontFamily)
-    val label = typeStyle("label", fontFamily = uiFontFamily)
-    val metadata = typeStyle("metadata", fontFamily = uiFontFamily).copy(fontFeatureSettings = "tnum")
+    val uiFamily = uiFontFamily ?: LocalInjectedUiFontFamily.current
+    val editorialFamily = editorialFontFamily ?: LocalInjectedEditorialFontFamily.current
+    val body = typeStyle("body", fontFamily = uiFamily)
+    val title = typeStyle("title", fontFamily = uiFamily)
+    val headline = typeStyle("headline", editorial = editorialFamily != null, fontFamily = editorialFamily ?: uiFamily)
+    val label = typeStyle("label", fontFamily = uiFamily)
+    val metadata = typeStyle("metadata", fontFamily = uiFamily).copy(fontFeatureSettings = "tnum")
     val currentDensity = LocalDensity.current
     val platformFontScale = LocalPlatformFontScale.current ?: currentDensity.fontScale
     val minimumControlSize = CantosTokens.number("size.control", density = preferences.density.tokenName).toFloat().dp
     CompositionLocalProvider(
         LocalUiPreferences provides preferences,
-        LocalEditorialFontFamily provides (editorialFontFamily ?: FontFamily.Serif),
+        LocalEditorialFontFamily provides (editorialFamily ?: FontFamily.Serif),
+        LocalInjectedUiFontFamily provides uiFamily,
+        LocalInjectedEditorialFontFamily provides editorialFamily,
         LocalPlatformFontScale provides platformFontScale,
         LocalDensity provides DisplayDensity(currentDensity.density, platformFontScale * preferences.textScale),
         LocalMinimumInteractiveComponentSize provides minimumControlSize,

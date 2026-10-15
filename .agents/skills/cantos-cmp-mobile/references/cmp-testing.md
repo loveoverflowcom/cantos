@@ -232,6 +232,13 @@ A manually identified prerequisite gap may be `BLOCKED` (foundation `blocked`); 
 - For intermediate animation frames, take control of the test clock; for final states, default
   synchronization is enough. Platform I/O is not covered by Compose idling: wait for an
   observable condition with a bounded timeout, never a sleep.
+- Size a desktop test root in dp *constraints* (320 small, 390 typical, 840 expanded are the named
+  evidence widths) and keep it within the test host's own bounds: a root wider than the host is
+  centered and clipped, so a click near an edge fails outside the root. Record the constraint with
+  the capture instead of reading dp back from pixels.
+- A test that changes theme, density or text scale checks that entered values and focus survive
+  it. A pure resolver (`ThemeMode.resolve`) gets a table test over every input; the composition
+  root that supplies the host fact is exercised once with both facts.
 - Host screenshot tools (Roborazzi and Paparazzi for Android, desktop capture) are candidates.
   Their images are `screenshot-captured` until someone opens them, and a desktop image is never
   evidence for Android or iOS rendering.
@@ -263,7 +270,11 @@ run. A simulator result is labeled simulator; it never becomes "physical device"
 - A shared test source set does not mean every target executed it. Report per target.
 - JVM desktop and Robolectric results are host evidence; an Apple framework that linked is
   `compiled`; neither is `device-tested`.
-- Results from another revision, or images captured before the last edit, are stale.
+- Results from another revision, or images captured before the last edit, are stale. A qualification
+  record in `docs/evidence/` is bound to the source and token digests (`python3
+  scripts/ui_preview_catalog.py --digests`); a change to any source, build or resource file in the
+  CMP package (tests and the Android preview host included, Markdown excluded) makes every such
+  record stale until the same checks are re-run and re-reviewed. Never edit a hash to clear the gate.
 - A required gate that cannot run (no device, no headset, no second account) stays listed under
   native gates as blocked; [050](../../../../docs/work-plan/050-cmp-native-listening.md#acceptance-criteria)
   treats an unexercised platform as an explicit release gap.

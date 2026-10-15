@@ -35,6 +35,7 @@ class ThemeFoundationTest {
     val compose = createComposeRule()
 
     private val snapshots = mutableMapOf<String, ThemeSnapshot>()
+    private val families = mutableMapOf<String, FamilySnapshot>()
 
     @Test
     fun nested_theme_applies_an_absolute_preview_scale_and_preserves_platform_density() {
@@ -162,6 +163,39 @@ class ThemeFoundationTest {
     }
 
     @Test
+    fun a_nested_theme_inherits_host_injected_families_and_an_explicit_family_replaces_only_its_own_role() {
+        compose.setContent {
+            CantosTheme(UiPreferences(), uiFontFamily = FontFamily.Monospace, editorialFontFamily = FontFamily.Cursive) {
+                Column {
+                    CantosTheme(UiPreferences(theme = Theme.Dark, textScale = 2f)) { FamilyProbe("inherited") }
+                    CantosTheme(UiPreferences(), uiFontFamily = FontFamily.SansSerif) { FamilyProbe("own-ui") }
+                    CantosTheme(UiPreferences(), editorialFontFamily = FontFamily.SansSerif) { FamilyProbe("own-editorial") }
+                    // Two levels below the host: an intermediate theme that names nothing must pass the families on.
+                    CantosTheme(UiPreferences(textScale = 1.3f)) { CantosTheme(UiPreferences(density = Density.Comfortable)) { FamilyProbe("two-levels") } }
+                }
+            }
+        }
+        compose.runOnIdle {
+            assertEquals(FamilySnapshot(FontFamily.Monospace, FontFamily.Cursive, FontFamily.Cursive), families.getValue("inherited"))
+            assertEquals(FamilySnapshot(FontFamily.SansSerif, FontFamily.Cursive, FontFamily.Cursive), families.getValue("own-ui"))
+            assertEquals(FamilySnapshot(FontFamily.Monospace, FontFamily.SansSerif, FontFamily.SansSerif), families.getValue("own-editorial"))
+            assertEquals(FamilySnapshot(FontFamily.Monospace, FontFamily.Cursive, FontFamily.Cursive), families.getValue("two-levels"))
+        }
+    }
+
+    @Test
+    fun a_theme_with_no_host_families_keeps_the_reviewed_platform_fallbacks_even_when_nested() {
+        compose.setContent {
+            CantosTheme(UiPreferences()) {
+                CantosTheme(UiPreferences(textScale = 2f)) { FamilyProbe("fallback") }
+            }
+        }
+        compose.runOnIdle {
+            assertEquals(FamilySnapshot(FontFamily.SansSerif, FontFamily.SansSerif, FontFamily.Serif), families.getValue("fallback"))
+        }
+    }
+
+    @Test
     fun material_shapes_follow_the_shared_five_step_radius_scale() {
         val radii = mutableListOf<Float>()
         compose.setContent {
@@ -216,11 +250,24 @@ class ThemeFoundationTest {
         Text(name)
     }
 
+    @Composable
+    private fun FamilyProbe(name: String) {
+        val snapshot = FamilySnapshot(
+            body = MaterialTheme.typography.bodyMedium.fontFamily,
+            headline = MaterialTheme.typography.headlineLarge.fontFamily,
+            editorial = LocalEditorialFontFamily.current,
+        )
+        SideEffect { families[name] = snapshot }
+        Text(name)
+    }
+
     private fun assertDensity(name: String, expectedDensity: Float, expectedFontScale: Float) {
         val snapshot = snapshots.getValue(name)
         assertEquals(expectedDensity, snapshot.density)
         assertEquals(expectedFontScale, snapshot.fontScale, absoluteTolerance = 0.0001f)
     }
+
+    private data class FamilySnapshot(val body: FontFamily?, val headline: FontFamily?, val editorial: FontFamily)
 
     private data class ThemeSnapshot(
         val density: Float,

@@ -107,6 +107,29 @@ class DesignInventory(unittest.TestCase):
         self.assertEqual(self.source, original)
         self.assertEqual(with_inventory, catalog.rust_render(self.source, self.tokens, copy.deepcopy(self.inventory)))
 
+    def test_cmp_view_exists_only_with_an_inventory_and_leaves_the_kotlin_registry_untouched(self):
+        plain = catalog.outputs(self.source, self.tokens, catalog.ROOT)
+        full = catalog.outputs(self.source, self.tokens, catalog.ROOT, self.inventory)
+        view = catalog.ROOT / catalog.KOTLIN_INVENTORY_OUTPUT.relative_to(catalog.ROOT)
+        registry = catalog.ROOT / catalog.KOTLIN_OUTPUT.relative_to(catalog.ROOT)
+        self.assertNotIn(view, plain)
+        self.assertEqual(set(full) - set(plain), {view})
+        self.assertEqual(full[registry], plain[registry])
+        self.assertNotIn("DesignSpecimen", plain[registry])
+
+    def test_cmp_view_is_deterministic_escapes_data_and_has_no_qualification_field(self):
+        kotlin = catalog.kotlin_design_inventory(self.inventory)
+        self.assertEqual(kotlin, catalog.kotlin_design_inventory(copy.deepcopy(self.inventory)))
+        self.assertEqual(kotlin.count('DesignSpecimen("'), 102)
+        self.assertEqual(kotlin.count(', "existing", '), 32)
+        self.assertEqual(kotlin.count(', "proposed", '), 70)
+        self.assertIn('"access-admin-revoke"', kotlin)
+        self.assertIn("const val sourceSha256", kotlin)
+        self.assertNotRegex(kotlin, r"val \w*[Qq]ualif")
+        self.inventory["specimens"][0]["description"] = 'Giá ${price} và "trích dẫn"'
+        self.assertIn(r'"Giá \${price} và \"trích dẫn\""', catalog.kotlin_design_inventory(self.inventory))
+        self.assertIn(f"design inventory sha256:{catalog.digest(self.inventory)}", catalog.kotlin_design_inventory(self.inventory))
+
 
 if __name__ == "__main__":
     unittest.main()

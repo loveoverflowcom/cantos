@@ -15,30 +15,55 @@ Design intent is owned by [`cantos-ui-design`](../../cantos-ui-design/SKILL.md) 
 [localization.md](../../cantos-ui-design/references/localization.md) and
 [component-states.md](../../cantos-ui-design/references/component-states.md) — and product
 requirements by the [UI system](../../../../docs/design/ui-system.md). This reference maps them
-onto CMP. Every API named is a candidate to verify for the pinned CMP version on Android **and**
-iOS; nothing here has been rendered yet.
+onto CMP. Every platform API named is a candidate to verify for the pinned CMP version on Android
+**and** iOS and has not been rendered there. The token pipeline and the *implemented* rows of the
+injected-preference table describe what `packages/ui-system/cmp` implements and renders on the JVM
+desktop host only; rows marked *rule* state required behavior that no code observes yet.
 
 ## Token pipeline
 
 ```text
-versioned token source            format and location still an open decision (ui-system.md)
-  → generator (proposed build task; names its source version and command in the output header)
-  → generated Kotlin roles        color, type, shape, space, elevation, motion — never hand-edited
-  → CantosTheme                   maps roles into the Material theme: colorScheme, typography,
-                                  shapes, motion scheme
-  → Cantos component wrappers     design/ — the only place experimental opt-ins appear
-  → feature screens               consume roles, never literal colors or ad-hoc dp scales
+packages/ui-system/shared/tokens.json   the one versioned semantic source
+  → scripts/ui_tokens.py                writes generated/CantosTokens.kt; the header names version + digest
+  → generated Kotlin lookup             logical numbers by role, theme and density — never hand-edited
+  → CantosTheme                         maps roles into the Material theme: colorScheme, typography,
+                                        shapes; dp/sp conversion happens here, never in the source
+  → Cantos component wrappers           packages/ui-system/cmp — the only place experimental opt-ins appear
+  → feature screens                     consume roles, never literal colors or ad-hoc dp scales
 ```
 
 | Rule | Why | Oracle |
 |---|---|---|
-| generated token files are never edited by hand; change the source and regenerate | a hand edit diverges silently from Web | a generator test mapping a fixture token file to expected Kotlin values; a CI drift check is proposed |
+| generated token files are never edited by hand; change the source and regenerate | a hand edit diverges silently from Web | generator `--check` and `cargo xtask verify repository` fail on drift |
 | share semantic names and relationships with Leptos, not CSS pixels | Web and CMP evolve independently ([decoupling.md](../../cantos-engineering/references/decoupling.md)) | token map review: `color.primary` ↔ `colorScheme.primary` |
 | no palette copied into a feature, no `Color(0xFF…)` outside generated code | identity drifts per screen | review; a lint rule is a candidate |
 | a shared token change carries current Web evidence | both renderers consume it | Web capture through [`cantos-leptos-web`](../../cantos-leptos-web/SKILL.md) |
 
 Trace token source → generated role → `CantosTheme` → mounted component before changing a
 style. An outer `MaterialTheme` does not restyle a custom component that reads its own values.
+CSS px never become dp/sp by copy: roles stay logical, and the Web and CMP shape scales are
+independent ([token reconciliation](../../../../docs/design/ui-token-v3-reconciliation.md)).
+
+## Injected preferences and scope
+
+`CantosTheme(preferences, uiFontFamily, editorialFontFamily)` receives values; a component never
+reads the operating system, a file or the network, and never builds a service, port or mock owner.
+
+| Fact | How it arrives | Status | Scope and rule |
+|---|---|---|---|
+| theme | `UiPreferences.theme`, the *resolved* `Theme` | implemented; `ThemeModeTest`, gallery and Android preview roots | `ThemeMode { Light, Dark, System }.resolve(systemIsDark)` is pure; only a composition root resolves `System`, from a host fact (`isSystemInDarkTheme()` in the gallery and preview roots, the preferences owner in an app). `UiPreferences` has no mode or host-fact field, so a nested theme cannot re-resolve `System` (type-enforced) |
+| density, text scale | `UiPreferences.density`, `textScale` | implemented; `UiPreferencesTest`, `ThemeFoundationTest`, gallery probe | scale is an absolute multiplier on the host font scale (`LocalPlatformFontScale × textScale`); a nested theme replaces it, never compounds it |
+| reduced motion | `UiPreferences.reducedMotion` | partial: the field and motion-role resolution exist (`AuthActionShape`, token catalog); the gallery sets it with a manual chip and no code reads the OS setting | rule: the host resolves the OS setting and injects it; durations resolve to 0 and state feedback stays immediate |
+| fonts | `uiFontFamily`, `editorialFontFamily` | implemented as parameters; a nested theme that names none inherits the host's (`ThemeFoundationTest`); the desktop gallery host injects the shared Noto bundle (`PreviewFonts`, `PreviewFontsTest`) | licensed families are injected by the composition root; a host that injects none keeps the platform sans/serif and says so in evidence. Static Noto masters exist for 400 and 700 only |
+| locale | caller-supplied strings and accessible names | rule | components format nothing from the OS locale; fixtures are vi-VN |
+| gestures | typed intents shared with a button/keyboard alternative | rule; the package has no gesture code | cancellation, reversal and focus are explicit; no animation-end callback gates an intent |
+
+Hit target and visible glyph are separate roles: `size.control` (48 at both densities) sizes the
+target and `size.icon` (24) the glyph (`HitTargetTest`). Preview-local geometry is a named
+constant with its unit (dp), scope and reason (`PreviewGeometry`); it never becomes a token
+unless a shared component needs it. Evidence viewports are dp *constraints* (`ViewportPreset`:
+320, 390, 600, 840, 1140), not device models; record the real constraint, density and font scale
+(the gallery prints them and the JVM capture sidecar stores them) instead of deriving dp from a PNG.
 
 ## Material 3 Expressive in CMP
 

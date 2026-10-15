@@ -56,6 +56,13 @@ Existing specimens declare their display inputs in `@Preview`:
 | `AndroidChoicesDarkLargePreview` | 372 × 1000 dp, dark, Vietnamese, font scale 2× |
 | `AndroidNavigationLightWidePreview` | 840 × 840 dp, light, Vietnamese, font scale 1× |
 | `AndroidNestedThemeDarkLargePreview` | 840 × 840 dp, dark, Vietnamese, font scale 2× |
+| `AndroidDesignInventoryTypicalLightPreview` | 390 × 1800 dp, light, Vietnamese, 1×; the gallery's Design v3 tab on the `mini-player` proposal |
+| `AndroidDesignInventorySmallDarkLargePreview` | 320 × 5200 dp, dark, Vietnamese, 2×; the Web-only `studio-workspace` proposal |
+| `AndroidDesignInventoryExpandedPreview` | 840 × 1000 dp, light, Vietnamese, 1×; the registered `button` specimen in the two-pane layout |
+
+The three Design v3 wrappers are composition roots: each reads `isSystemInDarkTheme()` once and
+injects it with `ThemeMode.System`, so the preview follows the annotation's `uiMode` without any
+component reading the OS. They show a read-only map of the design export; proposals have no sample.
 
 The Theatre mock has real wrappers around the same shared app. Compile with
 `cargo xtask theatre-demo android-build`, open its Gradle root and sync with
@@ -152,7 +159,13 @@ not close the [native acceptance matrix](../../../../docs/architecture/mobile.md
 Use the [shared pairing/comparison method](../../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison)
 and `cargo xtask visual-compare`; this does not rerun capture or require a new device harness.
 Theatre `DemoCaptureTest` and shared `AuthAccountCaptureTest` already export JVM PNGs and
-metadata/semantics. Preserve their observed width/height, density, app/base font scales, theme,
+metadata/semantics. The shared `PreviewCaptureTest` also writes a `<name>.json` sidecar
+(`cantos-ui-capture-v1`) beside each PNG: scenario, section/specimen, theme mode and resolved
+theme, UI density, preview text scale, the dp viewport, bitmap pixels, host density and font
+scale, token version, the digest of `tokens.json` bytes, `CANTOS_SOURCE_REVISION` (or
+`unrecorded`) and the PNG's own SHA-256. Its renderer is always `jvm-desktop-compose-test-root`
+and it names what it is not evidence of (devices, an OS window, a screen reader, design-pixel
+match). Preserve their observed width/height, density, app/base font scales, theme,
 locale, fixture/state and source/build SHA; supplement missing capture timestamps/font versions
 without inventing them. The official preview `capture.json` is a different host's record.
 

@@ -220,6 +220,14 @@ public component inventories, actual sample/dispatch presence and new explicit a
 Current source checks are conservative; they are not compiler, semantics or visual-diff evidence.
 Compiler/renderer tests independently check controlled values, callbacks and anatomy.
 
+[`design-inventory-v3.json`](design-inventory-v3.json) maps the 102 specimens of the offline v3
+design export onto that registry (32 existing APIs with their baseline states, 70 proposals). The
+same generator turns it into display-only discovery data for each renderer: Rust `DESIGN_SPECIMENS`
+for the Leptos workbench and Kotlin `DesignInventory` for the CMP gallery's Design v3 tab.
+`DesignSpecimen` carries design status and ownership scope, never registration or qualification;
+`PreviewCatalog` and `qualifications` above stay the only runtime sources. The Leptos digest hashes
+the inventory file directly; the CMP digest covers the generated Kotlin like any other CMP source.
+
 The exact current Leptos import sites at base `209e9e905c680e7cecab831f2d8f7894656e14fe` are a
 bounded compatibility baseline, not newly approved components. Do not widen this exemption for
 new adoption. A new component/import site requires `qualifications` with `component_id` and

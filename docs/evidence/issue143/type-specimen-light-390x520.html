@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Cantos type specimen · light · 390×520 px</title>
+<!--
+  Reference page for the issue 143 CMP type-role comparison. Not a design export and not an approved
+  baseline: it states the canonical v0.6.0 type roles (packages/ui-system/shared/tokens.json) in CSS and
+  loads the shared Noto bundle (packages/ui-system/shared/assets/noto-fonts). Design v3's own HTML
+  embeds byte-identical faces (SHA-256 recorded in docs/evidence/issue143-cmp-preview.md).
+  Render: see "Type specimen against the design fonts" in that record.
+-->
+<style>
+  @font-face { font-family: "Noto Sans"; font-weight: 400; src: url("../../../packages/ui-system/shared/assets/noto-fonts/noto_sans_regular.ttf") format("truetype"); }
+  @font-face { font-family: "Noto Sans"; font-weight: 700; src: url("../../../packages/ui-system/shared/assets/noto-fonts/noto_sans_bold.ttf") format("truetype"); }
+  @font-face { font-family: "Noto Serif"; font-weight: 400; src: url("../../../packages/ui-system/shared/assets/noto-fonts/noto_serif_regular.ttf") format("truetype"); }
+  @font-face { font-family: "Noto Serif"; font-weight: 700; src: url("../../../packages/ui-system/shared/assets/noto-fonts/noto_serif_bold.ttf") format("truetype"); }
+  html, body { margin: 0; }
+  /* space.lg padding, space.md gap, color.background / color.onSurface (light). */
+  body {
+    box-sizing: border-box; width: 390px; height: 520px; padding: 24px; overflow: hidden;
+    display: flex; flex-direction: column; gap: 16px;
+    background: #f7f3eb; color: #292331;
+    font-family: "Noto Sans", system-ui, sans-serif;
+  }
+  p { margin: 0; }
+  .headline { font-family: "Noto Serif", Georgia, serif; font-size: 28px; line-height: 1.4; font-weight: 500; }
+  .title { font-size: 20px; line-height: 1.4; font-weight: 600; }
+  .body { font-size: 16px; line-height: 1.55; font-weight: 400; }
+  .label { font-size: 14px; line-height: 1.5; font-weight: 600; }
+  .metadata { font-size: 12px; line-height: 1.5; font-weight: 400; color: #6c616f; font-feature-settings: "tnum"; }
+</style>
+</head>
+<body>
+  <p class="headline">Ánh đèn cuối sân khấu</p>
+  <p class="title">Người dẫn chuyện</p>
+  <p class="body">Một câu chuyện kể về người giữ ngọn đèn bên bờ sông, nơi tiếng chuông vang qua màn sương mỗi sớm mai.</p>
+  <p class="label">Nghe tiếp · Lưu vào tủ sách</p>
+  <p class="metadata">Tập 02 · 24:10 · Đã tải về</p>
+</body>
+</html>

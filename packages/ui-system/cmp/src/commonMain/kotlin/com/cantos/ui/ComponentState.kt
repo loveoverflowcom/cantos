@@ -60,6 +60,20 @@ enum class TextFieldVariant { Regular, AuthTonal }
 enum class StatusTone { Neutral, Info, Success, Warning, Error }
 enum class Theme(val tokenName: String) { Light("light"), Dark("dark") }
 enum class Density(val tokenName: String) { Compact("compact"), Comfortable("comfortable") }
+
+/**
+ * The appearance a person chooses. Only a composition root resolves [System], from a dark-mode
+ * fact it was given; components, nested themes and [UiPreferences] see the resolved [Theme] and
+ * never read the operating system.
+ */
+enum class ThemeMode { Light, Dark, System }
+
+/** Pure: [ThemeMode.System] follows the supplied host fact; an explicit mode ignores it. */
+fun ThemeMode.resolve(systemIsDark: Boolean): Theme = when (this) {
+    ThemeMode.Light -> Theme.Light
+    ThemeMode.Dark -> Theme.Dark
+    ThemeMode.System -> if (systemIsDark) Theme.Dark else Theme.Light
+}
 enum class StackDirection { Vertical, Horizontal, Wrap }
 enum class SurfaceTone { Surface, Container, Raised, Reading, PrimaryContainer }
 enum class SurfaceVariant { Regular, Auth, Profile, Membership, AccountGroup }
