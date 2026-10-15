@@ -68,6 +68,12 @@ Skills own working method; `docs/` owns product rules. Keep one copy of each ski
 
 ## Verification
 
+Use the foundation's [verification cadence](.agents/skills/cantos-engineering/references/verification-cadence.md):
+focused checks during DEV, affected module/renderer checks at CHECKPOINT, and preflight on the
+final diff at HANDOFF, with CRITICAL evidence for changed high-risk invariants. Do not run a
+full verification campaign after each edit or commit. Reuse attributable results while their
+inputs remain valid; commit/push/PR packaging of the same content needs no duplicate run.
+
 Follow the foundation's [layered verification order](.agents/skills/cantos-engineering/references/verification-strategy.md#layered-verification)
 and [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
 verify the pure core first and deliver independently verified layers through requested
@@ -82,10 +88,14 @@ They never bootstrap accounts, grants, secrets, Podman or TLS; live steps requir
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
-| Change | Required command |
+The table maps affected scope to checks at the applicable milestone, not a sequence to run
+after every edit. Preflight already includes repository/format and selected suites; do not
+run their standalone equivalents again when covered by that handoff run.
+
+| Change | Required check at the applicable milestone |
 | --- | --- |
-| Any change (documents, skills, scripts) | `cargo xtask verify repository` |
-| Before handoff or a pull request | `cargo xtask preflight --changed-only` (it broadens to every gate when impact is uncertain) |
+| Repository hygiene (documents, skills, scripts) | `repository` gate, included in handoff preflight; `cargo xtask verify repository` for a focused hygiene check when needed |
+| Completed handoff or a pull request | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it (broadens to every gate when impact is uncertain) |
 | Rust code, Script IR or contracts | `cargo xtask verify rust` and `cargo xtask verify contracts` |
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |

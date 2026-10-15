@@ -8,15 +8,18 @@
 > [CONTRIBUTING](../../../../CONTRIBUTING.md#branch-and-pull-request-workflow) own the fields and
 > the workflow; this file owns how to fill them truthfully.
 
-## Before the first commit
+## Commit audit and final handoff
 
-Run in this order; stop at the first failure and fix or report it.
+Use the [foundation cadence](../../cantos-engineering/references/verification-cadence.md).
+Intermediate commits use applicable CHECKPOINT evidence; a review-ready handoff uses HANDOFF.
+Audit each commit's content, but do not rerun the full verification set merely because a commit,
+push or PR packages content already checked. Review evidence in this order; fix or report failures.
 
 | Step | Do | Failure it catches |
 |---|---|---|
 | 1. inventory | `git status --short` and `git diff --stat`; every path belongs to the review boundary | unrelated cleanup, stray files |
-| 2. format, lint, test | the formatter (check mode), linter and focused tests of each touched toolchain, as the foundation's [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion) requires; commands discovered from the manifests, never assumed | "green tests" with unformatted code |
-| 3. repository checks | the [every-change tier](../../cantos-engineering/SKILL.md#7-verification-tiers): `cargo xtask preflight --changed-only` (always includes `verify repository`); record missing prerequisites and run independent gates under [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr); use only the documented [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start) if Cargo/Rust is unavailable | broken links, skill structure, whitespace, unselected gates |
+| 2. evidence inventory | identify applicable format/lint/test and owner evidence, its covered inputs and remaining gaps under [§ 8](../../cantos-engineering/SKILL.md#8-clean-syntax-and-formatting-before-completion); use implemented commands and retain valid results | stale evidence, missing regression or formatting |
+| 3. final handoff gates | `cargo xtask preflight --changed-only` on the final diff, or cite a still-valid run covering it; it includes repository/format and selected suites, so do not run their equivalents again. Supplement uncovered owner evidence. For missing prerequisites use [local handoff](../../cantos-engineering/references/local-execution.md#progressive-commit-push-and-pr) or the narrow [docs-only fallback](../../cantos-engineering/references/local-execution.md#docs-only-fallback-when-xtask-cannot-start). Intermediate commits do not trigger this step | broken links, skill structure, whitespace, uncovered gates |
 | 4. content audit | read the full diff for the items in the next table | secrets and private material in history |
 | 5. stage by path | `git add <path> …`; review `git diff --cached` | `git add -A` sweeping untracked captures or `.env` files |
 

@@ -86,11 +86,15 @@ different revision, or a filter that matched nothing is not a pass.
 
 MUST/SHOULD/MAY and exception recording follow [Kotlin conventions](kotlin-conventions.md).
 The examples here illustrate assertions, not newly installed test helpers.
+Schedule these checks under the foundation's
+[verification cadence](../../cantos-engineering/references/verification-cadence.md).
+Keep affected local CMP checks at checkpoints/handoff; Rust/Web CI does not cover them all.
 
 ### VER-01 — compile-time and static checks
 
-**MUST** for touched type/visibility/decision boundaries: run `cargo xtask verify repository`
-(Theatre layer import guard, lexical) and compile affected targets and inspect
+**MUST** for touched type/visibility/decision boundaries: retain the `repository` gate's
+Theatre layer import guard (lexical; included in handoff preflight), compile affected targets
+at the applicable checkpoint/handoff and inspect
 sealed exhaustiveness, distinct identities, inaccessible constructors and relevant diagnostics.
 Good: `openEpisode(episodeId)`; negative probe `openEpisode(publicationId)` must fail.
 New sealed cases must expose missing `when` branches.

@@ -70,8 +70,9 @@ or device, nor call it a visual pass or production-ready. Use
 `CORE_VERIFIED / IO_ACCEPTANCE_PENDING` only for applicable pure-core claims with actual passing
 core invariants/tests; never apply it to database concurrency or an untested UI fix.
 
-Before a requested commit/PR run `cargo xtask verify repository` and
-`cargo xtask preflight --changed-only`, plus applicable owner gates. Follow
+Schedule affected renderer/checkpoint checks and final handoff preflight through the foundation's
+[cadence and reuse policy](../../cantos-engineering/references/verification-cadence.md).
+Do not add a repository run before preflight or repeat the campaign for each edit/commit. Follow
 [local handoff](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
 for unavailable required checks and the narrow docs-only fallback. Do not wait for remote CI.
 The workflow grants no commit, push, upload, PR or other outward-action authority.

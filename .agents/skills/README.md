@@ -71,11 +71,11 @@ representation for four Studio routes are implemented. Production native listeni
 remains planned. Story artifact skills
 operate files through available tools; they are not backend workers. Use the provisional score
 draft route when real source/rights bindings are unavailable. Report only checks actually run.
-Every repository-level check runs through [`cargo xtask`](../../xtask/README.md); for skill edits:
-
-```sh
-cargo xtask verify repository
-```
+Every repository-level check runs through [`cargo xtask`](../../xtask/README.md). Skill edits
+follow the foundation's [verification cadence](cantos-engineering/references/verification-cadence.md):
+focused checks during editing and preflight at final handoff, with repository hygiene already
+included. Use `cargo xtask verify repository` separately only when a focused hygiene check is
+needed, not as an additional prerequisite to the same handoff preflight.
 
 Its `scripts/check_repository.py` primitive also validates this directory: frontmatter, names, Codex metadata, index
 completeness, orphaned references, local links, Claude symlinks and the shared-instruction import.
@@ -88,6 +88,7 @@ Passing it proves skill hygiene only.
 | registered stateful behavior, Quint models, shared API/Leptos/CMP scenarios, witnesses and counterexamples | [`cantos-behavior`](cantos-behavior/SKILL.md), composing the foundation |
 | any Rust domain/backend change, persistence, HTTP contract, tests, verification, refactoring | [`cantos-engineering`](cantos-engineering/SKILL.md) |
 | layered verification, independently verified core delivery, unavailable infrastructure or deferred acceptance | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification strategy](cantos-engineering/references/verification-strategy.md#layered-verification) and [local handoff](cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion) |
+| when to run checks, checkpoint/handoff scope, repeated preflight or evidence reuse | [`cantos-engineering`](cantos-engineering/SKILL.md), then [verification cadence](cantos-engineering/references/verification-cadence.md) |
 | typed functional errors, refinement-preserving composition, cancellation, retry and boundary translation | [`cantos-engineering`](cantos-engineering/SKILL.md), then [typed errors and composition](cantos-engineering/references/typed-errors-and-composition.md); add the CMP/Web application reference only for that platform |
 | Kani for a selected high-risk pure Rust kernel, assumptions, bounds, cover and actual verification evidence | foundation [mutation/formal reference](cantos-engineering/references/mutation-and-formal.md#bounded-model-checking); no backend-wide or Kotlin UI mandate |
 | database-backed GET/read/fetch performance, DBSP evaluation, or writes feeding read models | [`cantos-engineering`](cantos-engineering/SKILL.md), then its [read-performance workflow](cantos-engineering/references/postgresql-read-performance.md); add the domain owner |
@@ -193,8 +194,9 @@ characters, stating what the skill does and when to use it).
 
 ### Check discovery separately from execution
 
-Run `cargo xtask verify repository` and `cargo xtask preflight --changed-only` for shared-file
-and bootstrap validation. The checker requires a standalone, unindented, unfenced `@AGENTS.md` import in
+Use the foundation's [handoff cadence](cantos-engineering/references/verification-cadence.md)
+for shared-file and bootstrap validation; preflight already covers repository hygiene.
+The checker requires a standalone, unindented, unfenced `@AGENTS.md` import in
 root `CLAUDE.md`; an instruction to read the file or a code example does not load it.
 
 For a Claude runtime check, start Claude Code in the checkout, type `/cantos-` and inspect the
