@@ -38,22 +38,22 @@ pub(crate) fn TransportAction(
 pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
     view! {
         <PageHeading ctx=ctx title=Key::Player/>
-        <Show when=move || ctx.player.view.get().is_some() fallback=move || view! { <Recovery ctx=ctx title=Key::NoPlayer help=Key::NoPlayerHelp/> }>
+        <Show when=move || ctx.player.source.get().is_some() fallback=move || view! { <Recovery ctx=ctx title=Key::NoPlayer help=Key::NoPlayerHelp/> }>
             <section class="theatre-player">
-                <div class="theatre-player-cover">{move || ctx.player.view.get().map(|player| view! { <Cover ctx=ctx id=player.episode.work/> })}</div>
+                <div class="theatre-player-cover">{move || ctx.player.source.get().map(|source| view! { <Cover ctx=ctx id=source.episode().work/> })}</div>
                 <div class="theatre-player-body">
                     <p class="theatre-eyebrow">{move || ctx.text(Key::DemoBadge)}</p>
-                    <h2 lang="vi-VN">{move || ctx.player.view.get().and_then(|player| ctx.episode(player.episode).map(|episode| episode.title)).unwrap_or_default()}</h2>
-                    <a class="theatre-text-link" lang="vi-VN" href=move || ctx.player.view.get().map(|player| Route::Work(player.episode.work).hash()).unwrap_or_else(|| Route::Discover.hash())>
-                        <span class="cui-control-label">{move || ctx.player.view.get().map(|player| ctx.work(player.episode.work).title).unwrap_or_default()}</span>
+                    <h2 lang="vi-VN">{move || ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.title)).unwrap_or_default()}</h2>
+                    <a class="theatre-text-link" lang="vi-VN" href=move || ctx.player.source.get().map(|source| Route::Work(source.episode().work).hash()).unwrap_or_else(|| Route::Discover.hash())>
+                        <span class="cui-control-label">{move || ctx.player.source.get().map(|source| ctx.work(source.episode().work).title).unwrap_or_default()}</span>
                     </a>
-                    <p role="status" aria-atomic="true">{move || ctx.player.view.get().map(|player| ctx.text(messages::status_key(player.transport))).unwrap_or_default()}</p>
+                    <p role="status" aria-atomic="true">{move || ctx.text(messages::status_key(ctx.player.status.get()))}</p>
                     <Show when=move || ctx.player.feedback.get().rejection.is_some()>
                         <p role="status">{move || ctx.text(Key::MockRejected)}</p>
                     </Show>
                     <label class="theatre-range-field" for="theatre-position">{move || ctx.text(Key::Timeline)}
                         <input id="theatre-position" type="range" min="0" step="1"
-                            max=move || ctx.player.view.get().and_then(|player| ctx.episode(player.episode).map(|episode| episode.duration)).unwrap_or(0).to_string()
+                            max=move || ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.duration)).unwrap_or(0).to_string()
                             prop:value=move || ctx.player.view.get().map(|player| player.position).unwrap_or(0).to_string()
                             aria-valuetext=move || ctx.player.view.get().map(|player| messages::position_description(ctx.locale.get(), player.position, ctx.episode(player.episode).map(|episode| episode.duration).unwrap_or(0))).unwrap_or_default()
                             aria-describedby="theatre-timeline-help"
@@ -116,11 +116,11 @@ pub(crate) fn Player(ctx: TheatreContext) -> impl IntoView {
 #[component]
 pub(crate) fn MiniPlayer(ctx: TheatreContext) -> impl IntoView {
     view! {
-        <Show when=move || ctx.player.view.get().is_some() && !matches!(ctx.route.get(), Route::Player | Route::Queue)>
+        <Show when=move || ctx.player.source.get().is_some() && !matches!(ctx.route.get(), Route::Player | Route::Queue)>
             <aside class="theatre-mini-player" aria-label=move || ctx.text(Key::MiniPlayer)>
                 <a class="theatre-mini-title" href="#player">
-                    {icon("headphones")}<span><strong lang="vi-VN">{move || ctx.player.view.get().and_then(|player| ctx.episode(player.episode).map(|episode| episode.title)).unwrap_or_default()}</strong>
-                    <small>{move || ctx.player.view.get().map(|player| ctx.text(messages::status_key(player.transport))).unwrap_or_default()}</small></span>
+                    {icon("headphones")}<span><strong lang="vi-VN">{move || ctx.player.source.get().and_then(|source| ctx.episode(source.episode()).map(|episode| episode.title)).unwrap_or_default()}</strong>
+                    <small>{move || ctx.text(messages::status_key(ctx.player.status.get()))}</small></span>
                 </a>
                 <span class="theatre-time">{move || position_label(ctx)}</span>
                 <TransportAction ctx=ctx compact=true/>

@@ -102,6 +102,11 @@ gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not re
 interaction/accessibility evidence is separate from the WASM build; no mobile runtime gate exists.
 On affected macOS temporary-path setups, use `TMPDIR=/private/tmp` for Python unit/mutation runs.
 
+For optional Web release asset/hash/compression inventory, use `cargo xtask web-performance
+<cantos-studio|cantos-theatre>`; see the [measurement boundary](docs/evidence/web-performance-patterns.md).
+Offline bundle sizes and reactive-work counters never establish browser startup, cache hits or
+deployed headers. This command adds no required gate or production cache policy.
+
 Static Compose UI capture goes through `cargo xtask compose-preview <cantos-theatre|ui-system-cmp>`;
 read the [CMP preview workflow](.agents/skills/cantos-cmp-mobile/references/compose-preview.md).
 It needs a real mobile Gradle project and Android Studio Quail 2+ with that project open, but no

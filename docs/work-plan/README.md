@@ -375,6 +375,16 @@ checks from unrun real PostgreSQL and issuer/client playback acceptance. Keep MV
 no automatic guest merge or reference-v2 expansion. Independent identity and public delivery
 remain fail-closed dependencies, and this draft does not complete the broad listening issues.
 
+## Web performance measurement
+
+The independent [Web performance pattern audit](../evidence/web-performance-patterns.md)
+([#146](https://github.com/loveoverflowcom/cantos/issues/146)) adds a release asset inventory and
+bounded mock-player/library reactive projections. Next, establish the actual static-host topology
+and cold/warm browser baseline before cache-header activation; retain old assets through deploy
+and rollback. Profile the Studio editor before changing its projection strategy, and keep
+SSR/Islands/lazy splitting as compatibility experiments with their own adoption evidence.
+This work does not reorder identity, storage, publication or listener acceptance.
+
 ## Versioned binary transport pilot
 
 [Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio

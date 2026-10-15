@@ -59,6 +59,8 @@ pub enum Task {
     ComposePreview(ComposePreviewArgs),
     /// Compare two local PNGs offline; differences are advisory, never a UX gate.
     VisualCompare(crate::visual_compare::VisualCompareArgs),
+    /// Build a release Web bundle and inventory bytes; no browser or cache-hit claim.
+    WebPerformance(crate::web_performance::WebPerformanceArgs),
     /// Build a target with Cargo (API, Forge) or Trunk (Web); dev profile unless --release.
     Build {
         #[arg(value_enum)]

@@ -1,6 +1,8 @@
 //! Root-owned imperative shell. Pure transitions commit before fake effects execute.
 use super::ports::MediaPort;
-use crate::core::playback::{self, Effect, Event, PlayerState, Status, ValidatedResumeSnapshot};
+use crate::core::playback::{
+    self, Effect, Event, PlayerState, Source, Status, ValidatedResumeSnapshot,
+};
 use leptos::prelude::*;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -27,6 +29,8 @@ pub struct PlayerSession {
     pub feedback: ReadSignal<PlayerFeedback>,
     feedback_writer: RwSignal<PlayerFeedback>,
     pub status: Memo<Status>,
+    /// Stable metadata consumers must not subscribe to position-only updates.
+    pub source: Memo<Option<Source>>,
     pub view: Memo<Option<PlayerView>>,
     adapter: StoredValue<RefCell<Box<dyn MediaPort>>, LocalStorage>,
 }
@@ -52,7 +56,10 @@ impl PlayerSession {
             view,
             feedback: feedback.read_only(),
             feedback_writer: feedback,
-            status: Memo::new(move |_| state.get().status()),
+            status: Memo::new(move |_| state.with(PlayerState::status)),
+            source: Memo::new(move |_| {
+                state.with(|state| state.session().map(|session| session.source()))
+            }),
             adapter: StoredValue::new_local(RefCell::new(Box::new(adapter))),
         }
     }
@@ -254,6 +261,126 @@ mod tests {
                     }
                 );
             }
+        });
+    }
+
+    #[test]
+    fn position_ticks_do_not_recompute_source_metadata() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+
+        Owner::new().with(|| {
+            let session = PlayerSession::new(DeferredFake);
+            session.restore(sample());
+            let broad_reads = Arc::new(AtomicUsize::new(0));
+            let narrow_reads = Arc::new(AtomicUsize::new(0));
+            // Retain the pre-optimization dependency as an independent work-count baseline.
+            let broad_metadata = Memo::new({
+                let reads = broad_reads.clone();
+                move |_| {
+                    reads.fetch_add(1, Ordering::Relaxed);
+                    session.view.get().map(|view| view.episode)
+                }
+            });
+            let source_metadata = Memo::new({
+                let reads = narrow_reads.clone();
+                move |_| {
+                    reads.fetch_add(1, Ordering::Relaxed);
+                    session.source.get().map(Source::episode)
+                }
+            });
+            assert_eq!(broad_metadata.get(), source_metadata.get());
+            let identity = session.state.get_untracked().identity().unwrap();
+            for tick in 1..=1000 {
+                session.dispatch(Event::EnginePosition {
+                    identity,
+                    position_ms: tick * 1000,
+                });
+                assert_eq!(broad_metadata.get(), Some(sample().source().episode()));
+                assert_eq!(source_metadata.get(), broad_metadata.get());
+                assert_eq!(session.view.get().unwrap().position, tick);
+            }
+            assert_eq!(broad_reads.load(Ordering::Relaxed), 1001);
+            assert_eq!(narrow_reads.load(Ordering::Relaxed), 1);
+            println!(
+                "player metadata / 1000 position ticks: broad={} narrow={}",
+                broad_reads.load(Ordering::Relaxed),
+                narrow_reads.load(Ordering::Relaxed)
+            );
+
+            let replacement = Source::new(
+                EpisodeId {
+                    work: WorkId::River,
+                    index: 0,
+                },
+                60_000,
+            )
+            .unwrap();
+            session.dispatch(Event::SourceSelected {
+                source: replacement,
+                position_ms: 0,
+            });
+            assert_eq!(source_metadata.get(), Some(replacement.episode()));
+            assert_eq!(narrow_reads.load(Ordering::Relaxed), 2);
+            session.dispatch(Event::EnginePosition {
+                identity,
+                position_ms: 30_000,
+            });
+            assert_eq!(source_metadata.get(), Some(replacement.episode()));
+            assert_eq!(session.view.get().unwrap().position, 0);
+            assert_eq!(narrow_reads.load(Ordering::Relaxed), 2);
+        });
+    }
+
+    #[test]
+    fn narrow_source_and_status_keep_seek_speed_end_and_rebinding_semantics() {
+        Owner::new().with(|| {
+            let session = PlayerSession::new(DeferredFake);
+            assert_eq!(session.source.get(), None);
+            assert_eq!(session.status.get(), Status::Idle);
+            session.restore(sample());
+            let source = sample().source();
+            assert_eq!(session.source.get(), Some(source));
+            assert_eq!(
+                session.status.get(),
+                Status::Paused(playback::PauseCause::ColdRestore)
+            );
+            session.dispatch(Event::PlayRequested);
+            let identity = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::EngineStarted { identity });
+            assert_eq!(session.status.get(), Status::Simulating);
+            session.dispatch(Event::SeekRequested {
+                position_ms: 15_000,
+            });
+            assert_eq!(session.view.get().unwrap().position, 15);
+            assert_eq!(session.source.get(), Some(source));
+            session.dispatch(Event::SpeedRequested {
+                speed_permille: 1500,
+            });
+            assert_eq!(session.view.get().unwrap().speed, 150);
+            assert_eq!(session.source.get(), Some(source));
+            let identity = session.state.get_untracked().identity().unwrap();
+            session.dispatch(Event::EngineEnded { identity });
+            assert_eq!(session.status.get(), Status::Ended);
+            assert_eq!(
+                session.view.get().unwrap().position,
+                source.duration_ms() / 1000
+            );
+            assert_eq!(session.source.get(), Some(source));
+
+            // Source equality includes duration, so an equal episode ID cannot hide a rebind.
+            let rebound = Source::new(source.episode(), source.duration_ms() + 1000).unwrap();
+            session.dispatch(Event::SourceSelected {
+                source: rebound,
+                position_ms: 0,
+            });
+            assert_eq!(session.source.get(), Some(rebound));
+            assert_eq!(
+                session.view.get().unwrap().duration,
+                rebound.duration_ms() / 1000
+            );
         });
     }
 }
