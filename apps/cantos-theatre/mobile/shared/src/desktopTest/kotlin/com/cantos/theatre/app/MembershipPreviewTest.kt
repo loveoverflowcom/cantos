@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -16,12 +17,12 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runDesktopComposeUiTest
@@ -69,7 +70,9 @@ class MembershipPreviewTest {
             onNodeWithTag("back").performClick()
             onNodeWithTag("membership-start").performScrollTo().performClick()
             onNodeWithTag("membership-email").assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("anh@example.com")))
-            onNodeWithTag("membership-email").performKeyInput { pressKey(Key.Escape) }
+            val email = onNodeWithTag("membership-email").performScrollTo()
+            email.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+            email.assertIsFocused().performKeyInput { pressKey(Key.Escape) }
             onNodeWithTag("membership-start").assertExists()
         }
     }
@@ -119,6 +122,8 @@ class MembershipPreviewTest {
         runDesktopComposeUiTest(width = 320, height = 800) {
             setContent { MembershipTestRoot(width = 320, height = 800, textScale = 2f) }
             onNodeWithTag("membership-start").performScrollTo().performClick()
+            val header = onNodeWithTag("header-title").assert(hasText("Cantos")).fetchSemanticsNode().boundsInRoot
+            assertTrue(header.height <= 160f, "The fixed header must leave most of the 800 dp viewport to the scrollable form at double text scale")
             val submit = onNodeWithTag("membership-submit").performScrollTo().assertIsDisplayed()
             val bounds = submit.fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.left >= 0f && bounds.right <= 320f)

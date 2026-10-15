@@ -175,7 +175,9 @@ pub fn MembershipPreview() -> impl IntoView {
                     <PreviewButton id="membership-fixture-enable" locale key=CopyKey::EnableFixture tonal=true on_press=Callback::new(move |_| {
                         attempt.set(None); state.set(MembershipState::fixture()); sync_hash(MembershipScreen::Intro);
                     })/>
-                    <PreviewButton id="membership-account-fixture" locale key=CopyKey::AccountFixtureEntry tonal=true on_press=Callback::new(move |_| change(state, |s| { s.show_account_registered_fixture(); }))/>
+                    <Show when=move || state.get().mode() == MembershipMode::Fixture>
+                        <PreviewButton id="membership-account-fixture" locale key=CopyKey::AccountFixtureEntry tonal=true on_press=Callback::new(move |_| change(state, |s| { s.show_account_registered_fixture(); }))/>
+                    </Show>
                     <PreviewButton id="membership-reset" locale key=CopyKey::ClearSession tonal=true on_press=Callback::new(move |_| {
                         attempt.set(None); change(state, |s| s.clear_session());
                     })/>
@@ -328,7 +330,7 @@ fn Plans(state: RwSignal<MembershipState>, locale: RwSignal<Locale>) -> impl Int
                 let status=match event_target_value(&ev).as_str() { "loading"=>PlansStatus::Loading,"empty"=>PlansStatus::Empty,"unavailable"=>PlansStatus::Unavailable,"failed"=>PlansStatus::Failed,_=>PlansStatus::Unpublished };
                 state.update(|s| s.set_plans_status(status));
             }>
-                {[("unpublished",CopyKey::Unpublished),("loading",CopyKey::PlansLoading),("empty",CopyKey::PlansEmpty),("unavailable",CopyKey::PlansUnavailable),("failed",CopyKey::PlansFailed)].into_iter().map(move |(value,key)| view! {<option value>{label(locale,key)}</option>}).collect_view()}
+                {[("unpublished",CopyKey::Unpublished),("loading",CopyKey::PlansLoading),("empty",CopyKey::PlansEmpty),("unavailable",CopyKey::PlansUnavailable),("failed",CopyKey::PlansFailed)].into_iter().map(move |(value,key)| view! {<option value=value>{label(locale,key)}</option>}).collect_view()}
             </select>
         </details>
     }

@@ -6,113 +6,130 @@ Base: `develop@f05b09bf24243bb99bc869f5009628294ebb15d8`; branch
 `feat/issue128-membership-interest`; Mac mini checkout
 `/Users/manhblue/projects/loveoverflow/cantos`. The initial clean splash branch and all other
 worktrees/commits were preserved; develop was fetched and fast-forwarded before branching.
+The final commit/head is supplied by the PR and handoff.
 
 [Issue 128](https://github.com/loveoverflowcom/cantos/issues/128), its empty comments and
-#127/#12/#34/#129/#130 dependencies were read. The [owning preview contract](../product/membership-interest.md)
-separates account registration, interest receipt, plans and paid entitlement. This is the
-issue-permitted pure-state/preview slice, **not completion of the production capability**.
-No HTTP/SQL, signup/provider, payment/entitlement, native host or shared component admission
-change is included. PR132's tokens/assets are merged; auth wrappers/Logo remain unqualified.
-Existing app-owned/native Material controls reuse canonical tokens, fonts and local artwork.
+#127/#12/#34/#129/#130 dependencies were read. The [owning contract](../product/membership-interest.md)
+separates account registration, interest receipt, plans and paid entitlement. This delivers the
+issue-permitted **pure-state/preview slice**, not the production Membership capability.
+No HTTP/SQL, signup/provider, payment/entitlement, native host or shared-component admission
+change is included. PR132's source is merged; auth wrappers/Logo remain unqualified.
+App-owned semantic/native Material controls reuse canonical tokens, Noto and local artwork.
 
 The [Drive handoff](https://drive.google.com/file/d/1ETmdL9w1ywC10OqjPIrhV9ERy2l59tvJ/view)
-and `auth-runtime.mjs` were read. Web plans and mobile form PNGs were opened and inspected.
-Their copies are `artifacts/agent-runs/issue128/reference-{web-plans,mobile-form}.png`.
-The large linked [Web HTML](https://drive.google.com/file/d/17qt_BRSuG0iV3PBX0g4FG2uH9w4GOcw4/view)
-and [Mobile HTML](https://drive.google.com/file/d/1dYf5Ww16naGGU0RGTluVoGhNg--Id0_b/view)
-read failed with transport closure; streamed references were returned but local materialization
-failed DNS resolution. Their rendered app behavior is not claimed from the source/PNG reads.
+and `auth-runtime.mjs` were read; Web plans/mobile form reference PNGs were opened. Large linked
+[Web HTML](https://drive.google.com/file/d/17qt_BRSuG0iV3PBX0g4FG2uH9w4GOcw4/view) and
+[Mobile HTML](https://drive.google.com/file/d/1dYf5Ww16naGGU0RGTluVoGhNg--Id0_b/view)
+reads hit transport/DNS failures; no HTML runtime acceptance is inferred. Actual renderer
+observations below use the implemented app, not the design HTML.
 
-Final app source manifest: `artifacts/agent-runs/issue128/source-manifest.json`, SHA256
-`5eaaef908d9345aa69c3bc746384f7fce8257ae5d7bd0ba9a11047c786f11ede`.
-The commit/PR head is supplied in the PR and handoff; this manifest records the app bytes without
-self-referencing the documentation commit. All raw evidence remains ignored and local.
+Raw logs, reference images, DOM/AX, JVM captures and cleanup receipts remain ignored under
+`artifacts/agent-runs/issue128/`. Final app-byte manifest: `source-manifest.json`, SHA256
+`f66476b0d2d470bf9bc6f77ac3946eab87df348d79368cfa97feeee60cb4c152`.
 
-## Invariant, implementation and oracles
+## Invariant and independent layers
 
-Invariant: only a matching explicitly confirmed fixture receipt may reach received; unknown
-outcomes, navigation or account changes cannot confirm interest or confer paid access.
+Invariant: only a matching confirmed fixture receipt reaches received; unknown outcomes,
+navigation and session changes cannot manufacture confirmation or paid access.
 Owner/boundary: pure Theatre client cores → controlled presentation shells; no IO adapter.
 
-Typed validation accumulates name/email findings, keeps candidate input and binds trimmed contact
-to an opaque intent. Pending duplicates/edits are refused. Unknown retry keeps the operation/body,
-uses a fresh request fence and rejects the old callback. Back preserves the session draft and
-fences pending results; clear-session removes private projections without reusing request IDs.
-Plans status is independent of the receipt and returns to its closed internal origin. Default
-submission is unavailable; receipt/account-complete fixtures are explicitly opt-in. Neither
-renderer connects this memory-only diagnostic to live identity or playback.
+Validation accumulates field findings and binds trimmed contact to an opaque intent. Pending
+prevents duplicate sends/edits. Unknown retry preserves operation/body with a new request fence;
+old callbacks cannot settle it. Back keeps the session draft and fences pending results;
+clear-session removes private projections without reusing request IDs. Plan data status is
+independent of receipt and remembers a closed internal origin. Default submission is unavailable;
+receipt/account-complete fixtures require explicit opt-in. Neither renderer projects real
+identity into this diagnostic or sends a playback effect.
 
 The hand-authored [shared corpus](../../apps/cantos-theatre/web/fixtures/membership-interest-v1.json)
-has 12 validation vectors and 7 transition traces, consumed by Rust and Kotlin tests. No
-Membership Quint model/observer exists; none was invented or accepted here. Added test declarations
-cover exact refusals, scalar limits, retry/replay, stale callbacks/session reset, plan origins,
-receipt preservation, form anatomy and fixture isolation. Declarations are not executed evidence.
+has 12 validation vectors/7 transition traces, executed by Rust and Kotlin. No Membership
+Quint model/observer exists; no model or conformance claim is introduced.
 
-| Layer / claim | Status | Evidence and limit |
+| Layer / claim | Status | Evidence / limits |
 | --- | --- | --- |
-| L1 scope, dependency guards | PASS | `statically-checked`: staged repository structure/link/architecture check passed; no new shared-component imports/baseline exemptions |
-| L2–L3 initial Rust core | PASS | `example-tested`: initial dirty snapshot ran 119 unit tests, including 12 Membership cases, plus 3 doc tests; `core-first.log` |
-| L2–L3 final Rust/core corpus/UI | NOT_RUN | Final corpus and Web UI were added after that run; final compile/test not claimed |
-| L2–L3 Kotlin core/corpus | NOT_RUN | 10 core + 2 vector test methods declared; no Kotlin compile |
-| L4 Web SSR/input/history/focus | NOT_RUN | 6 SSR/history/projection tests declared; browser not launched |
-| L4 CMP semantics/interaction/pixels | NOT_RUN | 5 desktop flows + 1 capture test (6 scenarios) declared, none executed/opened |
-| L5 Membership HTTP/SQL | NOT_RUN | No accepted contract/persistence implemented; no auth/idempotency/durability acceptance |
-| L5 native/provider | NOT_RUN | No device, OS Back, secure-store, signup, payment or screen-reader observation |
-| Independent review | NOT_RUN | Parent must commission its separate Extra High review; this implementation pass does not replace it |
+| L1 ownership/dependency guards | PASS | `statically-checked`: repository architecture/admission/link checks; no new shared import/baseline exemption |
+| L2–L3 Rust types/errors/core | PASS | `example-tested`: workspace gate plus 127 Theatre unit tests and 3 doc tests; exact refusals, replay/fences, shared vectors and 6 SSR/history/projection tests |
+| L2–L3 Kotlin core/corpus | PASS | `example-tested`: common/JVM suite; 10 Membership core + 2 vector methods |
+| L4 Web | PASS | `DOM-tested`, `interaction-tested`: actual Chrome trusted pointer/key/text input, AX, validation focus, unknown retry, receipt/Back/history/account fixture/reset/fallback; no API responses or runtime exceptions observed |
+| L4 CMP | PASS | `semantics-tested`, `interaction-tested`: JVM Compose host, 5 Membership flows; full suite 270, failures 0/errors 0/skipped 0; not Android/iOS evidence |
+| L5 Membership HTTP/SQL | NOT_RUN | No accepted production contract/persistence; authentication, durable idempotency and restart acceptance remain open |
+| L5 native/provider | NOT_RUN | No device/OS Back/secure store/signup/payment or screen-reader acceptance |
+| Independent review | NOT_RUN | Parent commissions a separate Extra High review; implementation checks do not replace it |
 
-## Commands and failures
+## Executed commands
 
-Commands below used `RUSTUP_TOOLCHAIN=1.98.1`; raw logs are under
-`artifacts/agent-runs/issue128/`. No live S3, secrets, infrastructure startup, stopped acceptance
-restart, PostgreSQL baseline repair or remote CI polling occurred.
+Use `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp`; builds used `CARGO_BUILD_JOBS=1
+CARGO_INCREMENTAL=0`. Existing installed tools were discovered and reused, not installed:
+Gradle 8.14.3 at `/private/tmp/cantos-gradle-8.14.3/gradle-8.14.3/bin`, and local ffmpeg/ffprobe
+at `/private/tmp/cantos-audio-tools`. Prefix those directories to `PATH`. Ordinary sandbox
+process-group/native-cache failures were diagnosed; authorized normal-access runs resolved them.
 
-| Command | Status | Actual output / limitation |
+| Command | Current result | Raw output |
 | --- | --- | --- |
-| `cargo xtask doctor` | PASS / UNSUPPORTED by tool | Rust 1.98.1/WASM/Trunk available; Gradle, official Android CLI and several unrelated optional tools absent from PATH (`doctor.log`) |
-| `cargo xtask preflight --changed-only --skip repository --skip rust-format --skip rust-lint --skip web-lint --skip web-build --skip theatre-cmp-demo` | PASS with 6 NOT_RUN | Initial Rust tests only, 119 + 3; `core-first.log`; before final UI/corpus |
-| `TMPDIR=/private/tmp cargo xtask verify repository` | FAIL | Structure check PASS; Python401 ran with 1 failure/37 errors, chiefly sandbox `os.killpg` PermissionError (`repository.log`) |
-| `cargo fmt --all -- --check`, `git diff --check`, staged whitespace | PASS | Syntax/format/whitespace only, not compilation |
-| `cargo xtask preflight --changed-only --skip repository --skip rust-lint --skip rust-tests --skip web-lint --skip web-build --skip theatre-cmp-demo` | PASS with 6 NOT_RUN | Only rust-format executed (`preflight-disk-held.log`) |
-| `TMPDIR=/private/tmp cargo xtask preflight --changed-only --skip rust-lint --skip rust-tests --skip web-lint --skip web-build --skip theatre-cmp-demo` | FAIL | Staged structure check PASS; repository Python failure prevents rust-format; five heavy gates explicitly NOT_RUN (`preflight-staged-light.log`) |
-| `cargo xtask theatre-demo verify` | UNSUPPORTED | Missing installed Gradle on PATH; nothing built (`theatre-demo.log`) |
-| `cargo xtask verify rust`, `verify contracts`, `verify web` | NOT_RUN | Held after low-disk instruction; no final Rust/WASM compile or broader contract run |
-| Shared preview / official Compose capture | NOT_RUN | No shared component changed; official Android CLI unavailable; no capture run |
-| Web/CMP actual visual matrix | NOT_RUN | No final renderer pixels, keyboard/text scaling, motion or screen-reader acceptance |
+| `cargo xtask verify repository` | PASS; 401 Python tests | `repository-authorized.log` |
+| `cargo xtask verify rust` | PASS; format, workspace lint/tests | `verify-rust.log` |
+| `cargo xtask verify contracts` | PASS; all five reference/contract/audio gates | `verify-contracts.log` |
+| `cargo xtask verify web` | PASS; both app lint/builds and UI preview build | `web-after-cleanup.log` |
+| `cargo xtask theatre-demo verify` | PASS; 270 tests, zero failures/errors/skips | `cmp-fixed.log`; final preflight reran all tests and the seven capture scenarios |
+| `cargo xtask preflight --changed-only` | PASS; all 7 selected gates, no skips | `preflight-final.log` |
+| Chrome loopback observation | PASS | `web-observe-second.log`, `web/interactions.jsonl`, DOM/AX JSON |
+| PostgreSQL, behavior, native, shared CMP admission | NOT_RUN | No persistence/model/shared-wrapper changes; native/production acceptance separate |
 
-A diagnostic preflight without `TMPDIR=/private/tmp` also failed with 6 failures/39 errors,
-including `/var` versus `/private/var` assumptions (`preflight-final-light.log`). The staged rerun
-uses the documented temporary-path setting; its process-group failures remain. Unchanged Kani
-fixture tooling fails while trying to kill owned synthetic groups; an assertion also sees no
-probe records after those errors. No isolated clean-baseline rerun or permission expansion was
-performed, so this is an environment diagnosis, not a claim that every failure is pre-existing.
-The embedded negative-control behavior FAIL lines are Python fixture output, not an actual
-Membership model run.
+Retained failed attempts: sandbox repository/preflight had `os.killpg` PermissionError (the
+correct `TMPDIR` run had 1 failure/37 errors); an unqualified temporary-path run also exposed
+`/var` versus `/private/var` assumptions. Native-cache sandbox probing initially hid the installed
+Gradle. Rust lint caught a missing explicit dynamic `<option value=value>` binding, now repaired.
+CMP's first 270 run had one failing Escape test because the reopened input had no requested
+focus; the fixed test requests/asserts focus and keeps the return-to-Intro assertion.
+These failures are historical, not hidden or promoted to acceptance.
 
-## Resource hold and reviewer procedure
+## Opened pixels and interaction limits
 
-Disk was checked before build: about 1.2 GiB available. The initial Cargo lane finished; free
-space dipped to 372 MiB and later remained around 400 MiB. Parent directed no more heavy builds
-until new Mac cleanup approval. No cache/evidence/worktree/data was removed. Read-only candidates
-are recorded in `storage-inventory.md`: `target/debug/incremental` 664,472 KiB and
-`~/.gradle/caches/8.14.3/transforms` 1,362,764 KiB (about1.93 GiB combined). Deletion is **PENDING**,
-not authorized/executed here. Process inspection is sandbox-limited; no lsof handles were seen
-in those candidates. Old PostgreSQL clusters/evidence are explicitly excluded.
+Surface: Membership introduction/form/receipt/plans, Medium-Low intensity, Web and JVM CMP.
+Token source v0.4.0 is unchanged; both consumers reuse existing semantic roles, local fonts/artwork.
+Vietnamese/English resources are exhaustive; runtime visual observations below are Vietnamese.
 
-After resolving disk/tool/process permissions, run the final required gates and inspect both
-renderers before promoting this draft. Web: `cargo xtask run cantos-theatre --web`, then
-`http://127.0.0.1:8082/?mode=membership-preview`; preview controls enable a blank fixture session.
-CMP: `cargo xtask theatre-demo verify`, then
-`CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 cargo xtask theatre-demo run`; Account → Membership preview.
-Android/iOS remain unavailable-default; their hosts were not modified.
+| Renderer | Opened captures / observations |
+| --- | --- |
+| Chrome headless, Leptos CSR | `web/web-unavailable-light-390.png`, `web-invalid-focus-light-390.png`, `web-received-light-390.png`, `web-plans-dark-1280.png`, `web-form-dark-text2-320.png`; 390×844/1280×900/320×800, no horizontal overflow; input/error names and first-field focus observed |
+| JVM Desktop Compose | `cmp/membership-jvm-{light-intro,light-form,dark-form,dark-receipt,light-plans-failed}-390x844.png`, `membership-jvm-light-form-text2-320x800.png`; semantics/Back/reset and fixture flows tested separately |
+| Same-scenario fix | Before 320 dp/2× header consumed about 400 px; shortened app header to Cantos while retaining preview notice/pane title. Reopened same 320×800/2× capture; header fits and form remains scrollable. Original retained in `cmp-before-header-fix/` |
+| Current receipt | Exact PNG hash `820ac418a1fde8cb4d1adce026cbdee7d4f75c5dc742267154dd6a3c0b9147d2` reopened; header and receipt heading do not overlap |
 
-Drive pending, known failure, unknown/reconcile, matching receipt, account completion, all plans
-Back origins, deep-link fallback, session clear and late callbacks. Observe small widths,
-light/dark, long Vietnamese text, 200% text, focus/error order and keyboard/OS Back. Open captures;
-label JVM versus native evidence separately. Check that navigation never starts audio or changes
-a release. No accessibility or motion claims are made before those observations.
+Web text200% is an explicit CSS-root/rem reflow probe; browser zoom remains NOT_RUN. Reduced
+motion was emulated; animation recording/profile and native IME were not observed. Keyboard,
+labels/AX and focus checks cover the named flows; TalkBack/VoiceOver were not walked. Captures
+prove neither shared-component admission nor native runtime. The seventh `cmp/membership-jvm-light-plans-unpublished-390x844.png` capture was opened after
+final preflight: both period cards show unpublished terms, with no purchase/details control.
 
-Deferred production owners: #12/#34 resolve submitter/contact/authority/retention/receipt/plan
-policy before reviewed HTTP/SQL work; #129/#130 own live auth entry/return; #127 owns shared
-admission; #122 owns mobile release isolation. Residual risk: **final source remains uncompiled,
-renderer interactions/pixels unaccepted, repository gate failed, backend business decisions and
-all native/production acceptance remain open**. No issue closure or merge is authorized.
+## Authorized cleanup and residual acceptance
+
+Initial free disk was about 1.2 GiB, falling to 372 MiB during the first Cargo lane. All builds were
+held until direct new Mac cleanup approval. Exact idle, nonsymlink caches were checked with
+process/handle observations before deletion. Removed `target/debug/incremental` 664,472 KiB,
+`~/.gradle/caches/8.14.3/transforms` 1,362,764 KiB, then 24 enumerated Gradle/CMP cache/intermediate
+directories 1,238,108 KiB. Raw receipts: `cleanup-approved-exact.json`, `cleanup-expanded-caches.json`.
+Free space afterward was 3,698,092 KiB (about 3.5 GiB); lanes ran sequentially afterward.
+Reports/test-results/outputs, dependency reuse cache, keystores, credentials, SDK/toolchains,
+app/private data and evidence were preserved. No live S3, secrets, infrastructure startup,
+stopped acceptance restart, PostgreSQL baseline repair or remote CI polling occurred.
+
+All 10 secondary worktrees were retained: every HEAD was remote/develop-preserved and tracked
+state clean, but each had protected ignored evidence/reports/cluster records or unresolved
+artifacts. Some nested targets are symlinks into other worktrees. No force removal, branch
+deletion or prune occurred. Exact retained paths/reasons: `worktree-cleanup-audit.md`.
+
+Reviewer entry: `cargo xtask run cantos-theatre --web`, then
+`http://127.0.0.1:8082/?mode=membership-preview`; preview controls start a blank fixture session.
+CMP: `CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 cargo xtask theatre-demo run`, then Account → Membership
+preview. Android/iOS hosts are unchanged/unavailable-default. Check all Back origins, stale
+callbacks/session clear, unpublished/loading/error plans, long text and separate receipt authority.
+
+Residual acceptance: #12/#34 still resolve submitter/contact/authority/retention/receipt/plan
+policy before reviewed HTTP/SQL work; #129/#130 own live auth return; #127 owns shared admission;
+#122 owns mobile release isolation. Native OS/system browser/secure store/screen reader,
+production receipt durability, backend authorization, pricing and paid access remain unaccepted.
+No issue closure or merge is authorized by this preview.
+
+Final post-preflight free space: 2,282,048 KiB (about 2.18 GiB). All owned browser/server/build
+processes finished or were stopped through their task-owned supervisor; evidence is retained.

@@ -39,6 +39,7 @@ class MembershipCaptureTest {
             width = 320, height = 800, textScale = 2f, scrollTo = "membership-submit")
         val receipt = receivedFixture()
         capture("membership-jvm-dark-receipt-390x844", receipt, theme = DemoTheme.Dark)
+        capture("membership-jvm-light-plans-unpublished-390x844", receipt.next(MembershipEvent.OpenPlans))
         capture("membership-jvm-light-plans-failed-390x844", receipt.next(MembershipEvent.OpenPlans)
             .next(MembershipEvent.SetPlansStatus(PlansStatus.Failed)))
     }

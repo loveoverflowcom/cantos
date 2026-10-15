@@ -198,7 +198,7 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
 private fun headerTitleKey(route: DemoRoute): CopyKey = when (route) {
     DemoRoute.Player -> CopyKey.Player
     DemoRoute.Account -> CopyKey.AccountSpace
-    DemoRoute.MembershipPreview -> CopyKey.MembershipPreview
+    DemoRoute.MembershipPreview -> CopyKey.Brand
     DemoRoute.Discovery, DemoRoute.Search, DemoRoute.Library, is DemoRoute.Work, DemoRoute.Queue,
     DemoRoute.History, DemoRoute.Settings, DemoRoute.Unavailable -> CopyKey.Brand
 }
