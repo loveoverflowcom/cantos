@@ -1,0 +1,12 @@
+{
+  "name": "cantos-visual-compare-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Optional local experiment only; no app/runtime consumer",
+  "dependencies": {
+    "looks-same": "10.0.1",
+    "odiff-bin": "4.5.0",
+    "pixelmatch": "8.0.0",
+    "pngjs": "7.0.0"
+  }
+}

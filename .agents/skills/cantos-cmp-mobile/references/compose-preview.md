@@ -8,7 +8,7 @@ Studio is web-only and has no mobile capture target; never scaffold one for prev
 existing deterministic fixtures. The [PR43 host record](../../../../docs/evidence/cmp-pr43-android-preview.md)
 records an actual Android build and four inspected captures with asserted static semantics.
 This host produces no mobile APK and adds no device
-or production qualification; the shared component qualification count remains 0/29.
+or production qualification; current component admission is recorded in the shared preview catalog.
 
 ## Prerequisites and discovery
 
@@ -146,3 +146,18 @@ native test gate to xtask only when its runner is implemented. The current
 [CMP testing](cmp-testing.md) records; Robolectric dependencies/runners remain candidates.
 Label a host run with its actual renderer and selected/executed test counts; it does
 not close the [native acceptance matrix](../../../../docs/architecture/mobile.md#future-acceptance-matrix).
+
+## Pair an existing capture with a design PNG
+
+Use the [shared pairing/comparison method](../../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison)
+and `cargo xtask visual-compare`; this does not rerun capture or require a new device harness.
+Theatre `DemoCaptureTest` and shared `AuthAccountCaptureTest` already export JVM PNGs and
+metadata/semantics. Preserve their observed width/height, density, app/base font scales, theme,
+locale, fixture/state and source/build SHA; supplement missing capture timestamps/font versions
+without inventing them. The official preview `capture.json` is a different host's record.
+
+Record physical pixels and logical dp/pt separately. Pair an approved reference for that target;
+never resize Web/JVM images to simulate native parity. Regions map to a testTag/semantics bound
+only when the inspected tree supplies it. Open overlay/crops and assert concrete semantics
+separately. JVM, Android Studio layout rendering, Android devices and iOS devices retain distinct
+acceptance; a comparator result cannot promote evidence between them.

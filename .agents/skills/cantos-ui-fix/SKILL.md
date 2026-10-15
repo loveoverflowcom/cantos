@@ -39,6 +39,8 @@ Web-only. Inspect actual code, manifests and commands before treating a surface 
 1. Normalize the sources into a Bug Contract. Infer the route/component from evidence and the
    repository when possible; do not demand a filename from the user. Record unknowns and
    confidence, screenshot provenance, source/build identity and the reproduction scenario.
+   For bounded comparison findings, retain report/image hashes, region ID/bbox and recheck policy;
+   apply the [reference-pairing owner](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
 2. Locate the rendered region and trace its callers, presentation mapping, locale key, token
    source and state owner. Separate observed symptoms from an unverified root-cause hypothesis.
 3. Name the violated UI invariant and smallest owning boundary. Confirm that the incoming
@@ -53,6 +55,9 @@ Web-only. Inspect actual code, manifests and commands before treating a surface 
 6. Run focused regression and applicable state mapping, DOM/Compose semantics, interaction,
    localization, keyboard/focus and reduced-motion checks. Capture and **open** before/after
    renders with the same fixture, viewport, theme, locale, text scale and UI state when available.
+   Rerun a supplied comparison against the **same** baseline, masks, threshold and tile policy;
+   preserve `recheck_policy_sha256`. Never improve the metric by editing the reference or policy.
+   Open the new context/detail images and retain severity/confidence and independent runtime gaps.
 7. Format/lint touched toolchains, run applicable repository checks, and report each verification
    layer independently. Hand off the patch and explicit acceptance gaps; no remote CI wait.
 

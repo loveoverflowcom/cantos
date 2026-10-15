@@ -2,9 +2,11 @@
 
 > **Scope.** The schema of a reviewed inspection scenario, how to reuse, create, version and
 > promote one, and how fixtures and test accounts are handled. **No runner is implemented.** The
-> scenarios under [`../scenarios/`](../scenarios/studio-script-editor-v1.json) are contracts an
-> agent can execute by hand once the corresponding app exists; until then their status is
-> `awaiting-implementation` and a `live` run reports `blocked`.
+> scenarios under [`../scenarios/`](../scenarios/studio-script-editor-v1.json) cover broad journeys,
+> not every available mock/preview capability. Inspect the selected launch path and actual code:
+> a live partial run may exercise implemented checks while missing required journeys remain
+> blocked. PNG/metadata/semantics and comparison bundles are usable in `existing` mode; they
+> never satisfy native or interaction checks.
 
 ## Where scenario data lives
 

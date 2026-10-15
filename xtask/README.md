@@ -62,6 +62,10 @@ cargo xtask services [--instance NAME] logs postgresql|kanidm
 cargo xtask services [--instance NAME] down postgresql|kanidm|--all
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
+cargo xtask visual-compare --reference PNG --actual PNG --scenario ID \
+  [--metadata JSON] [--threshold 0] [--tile-size 16] [--output PATH] [--python PATH]
+cargo xtask visual-compare --self-test [--python PATH]
+cargo xtask visual-compare --spike-pairs JSON [--python PATH]
 ```
 
 `cargo xtask <command> --help` documents every flag.
@@ -208,6 +212,16 @@ separate from the desktop build/test gate, so desktop users do not acquire an An
 requirement. `android-build` applies only to CMP; Leptos refuses it as a usage error.
 
 ### Verification gates
+
+The optional [local PNG comparator](../tools/visual-compare/README.md) is an advisory command,
+not a merge gate. It requires explicitly prepared Pillow 11.3.0, preserves exact PNGs and writes
+fresh `artifacts/ui-evidence/<run-id>/comparison` bundles with metrics, boxes, overlay/diff/mask/
+heatmap and detail crops. Equal and different pixels both mean the tool completed; neither
+accepts UX or a baseline. Dimension/known scenario mismatches fail without resizing/scoring.
+Default verification never installs its dependencies or contacts the network. Standard-library
+core tests are included by the repository Python suite; optional real-PNG tests skip visibly
+when the exact Pillow pin is absent. `--self-test` runs this focused suite. The opt-in
+`--spike-pairs` compares the four isolated, pinned research backends after explicit setup.
 
 Every check is a gate with declared prerequisites; `verify`, `preflight` and `ci` select from the
 same catalog in [`gate.rs`](src/gate.rs).

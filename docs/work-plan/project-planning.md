@@ -50,6 +50,11 @@ configuration change. GitHub continues to own assignments and status.
 
 ## External producer craft and audio profile
 
+The local [visual QA comparison](../evidence/visual-compare.md) is independent development
+tooling for #140. Baseline owner approval precedes fidelity findings; representative font/
+platform calibration precedes any proposed component gate. Pixel metrics never accept the
+runtime/accessibility/native requirements of #66/#13/#14 or shared preview admission.
+
 | Issue | Current ownership |
 | --- | --- |
 | [#44](https://github.com/loveoverflowcom/cantos/issues/44), [#45](https://github.com/loveoverflowcom/cantos/issues/45) | Reference material and named listening review |

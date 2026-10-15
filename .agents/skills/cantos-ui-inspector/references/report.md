@@ -2,7 +2,7 @@
 
 > **Scope.** The shape of an inspection report: status, the scope block, checks, image records,
 > finding fields, kinds, severity, confidence, handling of blocked and partial runs, redaction
-> and sharing, and a skeleton to copy. **No report assembler is implemented**: the agent writes
+> and sharing, and a skeleton to copy. **No inspection report assembler is implemented**: the agent writes
 > the Markdown itself, so every rule here is a discipline for the writer and a checklist for the
 > reviewer, not something a tool enforces. Use at step 8 of the
 > [inspection order](../SKILL.md#the-inspection-order) and whenever you read someone else's report.
@@ -18,6 +18,7 @@ labels every claim.
 |---|---|
 | `artifacts/ui-evidence/<run-id>/report.md` | the report; relative links to images |
 | `artifacts/ui-evidence/<run-id>/images/` | captures named `<state>-<viewport>-<theme>-<locale>-<scale>.png` |
+| `artifacts/ui-evidence/<run-id>/comparison/` | optional local comparator bundle; preserve `report.json` and its hash |
 | `artifacts/ui-evidence/<run-id>/scenario-draft.json` | only when no reviewed scenario fit ([`scenarios.md`](scenarios.md#reuse-before-creating)) |
 
 `<run-id>` is a sortable stamp plus the scenario ID, for example `2026-10-09T1030Z-theatre-web-player-v1`.
@@ -78,7 +79,7 @@ Every cited image has a record, written **after opening it**.
 
 | Field | Content |
 |---|---|
-| path | relative to the run directory, inside `images/` |
+| path | relative to the run directory, inside `images/` or the preserved `comparison/` bundle |
 | sha256 | of the bytes you inspected (after any redaction), computed with a real tool, not recalled |
 | state · viewport · theme · locale · scale | the pinned cell |
 | captured at · tool | time and capture tool |
@@ -107,7 +108,8 @@ Each finding carries every field below. Missing information is written `unknown`
 | expected | what the owning contract says should be observed |
 | impact | who is affected and how |
 | repro | preconditions, steps and frequency (always, intermittent, once) |
-| region | element and approximate coordinates |
+| region | element and approximate coordinates; for comparison evidence also exact physical-pixel `id, x, y, width, height` and pixel ratio/logical units |
+| comparison | report path/hash, result, baseline ID/revision/hash/approval, actual hash/build, comparator/threshold/masks and `recheck_policy_sha256`; `none` when absent |
 | images | at least one **context** and one **detail** record, both opened; or why one frame is adequate |
 | root cause | `unknown` unless the source was read and establishes it |
 | suggested fix | a proposal for the responsible owner; never applied here |
@@ -215,3 +217,22 @@ Gaps: <what is missing and what would unblock it, or none>
 
 The chat handoff in [`SKILL.md`](../SKILL.md#handoff-report) summarizes this report; it never
 replaces it.
+
+## Comparison-backed findings
+
+Consume the [tool's report v1](../../../../tools/visual-compare/README.md#output-contract-schema-v1)
+under [reference pairing](../../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
+Preserve the unmodified metric report; write human/agent observations here. Record the operation
+as `compared` with its result, and image inspection separately with the foundation level and
+opened-byte hashes. `images_inspected:false`, a tool PASS or a region area hint is no UX verdict.
+
+Each comparison finding links the full reference/actual/numbered overlay as context and the
+opened region detail crop(s), plus region bbox, actual/expected observation, P0–P3 impact,
+confidence/reason, and the recheck condition. Semantics/DOM/token links and suspected causes need
+attributable evidence; otherwise write `unknown`. Do not guess a source file from pixels.
+
+An advisory example (only after opening its images): `calibration/mini-player/displaced` — region
+1 `(24, 715, 342, 101)` physical px; player appears 24 px above the calibration reference; P2
+heuristic, high confidence from measured controlled displacement; source cause unknown; proposal:
+inspect container placement; recheck the same baseline/policy. Replace these illustrative numbers
+with the actual report. A calibration finding says nothing about a production UI defect.

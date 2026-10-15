@@ -92,6 +92,7 @@ Repository-level operations go through `cargo xtask`; scripts and external tools
 | Studio or Theatre Web | `cargo xtask verify web` |
 | Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`) |
 | Generic DBSP incremental engine (job summary binding retired) | `cargo xtask verify dbsp`; do not reintroduce a synthesis worker to satisfy it |
+| Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
 Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start

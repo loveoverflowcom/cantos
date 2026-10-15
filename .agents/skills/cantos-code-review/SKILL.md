@@ -128,7 +128,10 @@ and [VER-01–08](../cantos-cmp-mobile/references/cmp-testing.md#verification-ru
 Use them in passes 2–3 and 9; add pass 8 for visible changes. Cite the rule ID/owner rather than
 creating a second Kotlin checklist in the review report.
 
-Passes 10 and 11 apply to every review that cites or produces evidence.
+Passes 10 and 11 apply to every review that cites or produces evidence. A UI comparison report
+is consumed through the [visual review owner](../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison):
+trace input/report hashes, baseline approval, same-scenario policy and opened region findings.
+Computed similarity or an advisory suggestion alone cannot close a UI assurance claim.
 
 ## Reviewer shape
 

@@ -199,6 +199,14 @@ on its implementation evidence.
 
 ## Existing foundations to retain
 
+The [local visual-comparison slice](../evidence/visual-compare.md) supplies advisory pixel
+metrics/regions through the [existing UI method](../../.agents/skills/cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
+Recommended next review order: version/approve exact platform design baselines, calibrate real
+cross-renderer fonts/noise on those pairs, then consider optional capture integration or a
+component-specific gate. The short calibration and metric PASS do not qualify a shared component
+or reorder publication/native acceptance. Keep stale preview qualification separate from QA
+tooling; GitHub #140 owns execution status and ADR 0029 remains a proposed local tooling choice.
+
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact
 and adds exact external keys with explicit operator registration/linking. The bounded
 [Studio OIDC](../architecture/studio-oidc.md) slice retains its signed-mock/local-SQL evidence and

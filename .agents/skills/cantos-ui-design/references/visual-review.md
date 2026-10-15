@@ -10,13 +10,12 @@
 The requirements are owned by [UI system](../../../../docs/design/ui-system.md) (the
 [validation matrix](../../../../docs/design/ui-system.md#future-validation-matrix) lists the
 conditions per surface) and the rules are `UI-INTENT`, `UI-STATE` and `UI-PIXELS` in
-[`../SKILL.md`](../SKILL.md#rules). Studio Web and the shared Web foundation exist; Theatre Web
-is a skeleton and CMP remains deferred. Match fidelity only against actual inspected source
-and runtime pixels
-([UI system § Direction and reference](../../../../docs/design/ui-system.md#direction-and-reference)).
-Discover the repository's real tooling before citing a command. The optional
-[Compose preview adapter](../../cantos-cmp-mobile/references/compose-preview.md) is implemented;
-its real Cantos render remains blocked until a mobile Gradle project exists.
+[`../SKILL.md`](../SKILL.md#rules). Studio Web, the isolated Theatre Web/CMP mocks and shared
+Web/CMP preview hosts exist. JVM capture tests export PNGs and metadata/semantics; the optional
+[Compose preview adapter](../../cantos-cmp-mobile/references/compose-preview.md) requires the
+selected real Gradle project, official CLI and synced Android Studio. Neither path establishes
+native device acceptance. Match fidelity only against inspected, attributed design and renderer
+pixels ([UI system § Direction and reference](../../../../docs/design/ui-system.md#direction-and-reference)).
 
 ## 1. Pin the scenario before the first capture
 
@@ -38,7 +37,7 @@ state; a scenario edited between runs proves nothing.
 
 ## 2. Evidence: location, capture and hygiene
 
-- **Location (proposed, to confirm in the design issue):** `artifacts/ui-evidence/<run-id>/`,
+- **Location:** `artifacts/ui-evidence/<run-id>/`,
   ignored by `/artifacts/` in the root [`.gitignore`](../../../../.gitignore). `target/` is also
   ignored. Confirm with `git check-ignore -v <path>` before writing; never write evidence to a
   tracked path.
@@ -237,3 +236,42 @@ State the scope in the report; an honest narrow claim beats a broad one nobody c
 | the recheck fixed the finding | same scenario, opened new capture, ledger updated | `screenshot-inspected` with the recheck recorded |
 | files exist but nobody looked | image files only | `screenshot-captured` |
 | it works on a phone | a named device, emulator or simulator run | `device-tested` |
+
+## 10. Reference pairing and local comparison
+
+`cargo xtask visual-compare` consumes **two existing PNGs**; its optional dependency, report v1
+and parameter semantics live in the [tool contract](../../../../tools/visual-compare/README.md).
+The [spike/decision](../../../../docs/evidence/visual-compare.md) is local calibration, not
+approval of the product design. Do not add a second capture runner merely to compare a pair.
+
+1. Pin a versioned, owner-approved design reference: ID/revision, exact PNG hash, approval
+   record and source HTML/MJS/design revision. Original controlled fixtures use `calibration`,
+   never product approval. An arbitrary located PNG is `unreviewed`; missing attribution means
+   raw comparison only, no design-fidelity finding.
+2. Pair actual build/source SHA and dirty state, renderer/version, physical dimensions and
+   logical CSS px/dp/pt context, pixel ratio/density, exact font, theme, locale, text scale,
+   fixture/state and capture time. Keep source and capture SHA separate. A size or known scenario
+   mismatch is a mismatch, never a reason to auto-resize, crop or silently normalize. Capture
+   a newly reviewed variant when platform geometry legitimately differs.
+3. Freeze comparison policy before looking at results. Default threshold is exact; a nonzero
+   channel threshold needs a recorded calibration rationale. There is no implicit AA/caret
+   filter or ICC/gamma conversion. Dynamic masks need explicit bounded rectangles, reason,
+   named reviewer and review record. Never add a mask, raise a threshold, change tile grouping
+   or replace a reference merely to make a fix look better.
+4. Record `comparison/report.json` and its hash. `diff_ratio` uses the whole-image denominator;
+   also read excluded/compared counts and the unmasked ratio. Region `local_ratio` concerns its
+   bounding box; `severity_hint` is area only. None is a percentage of design quality, a UX
+   PASS, a P0–P3 assignment, native acceptance or a merge criterion. No global 90/95% gate exists.
+5. Open reference, actual, numbered overlay, diff/mask/heatmap and cited detail crops. Write
+   concrete observations and normal image records after opening. **Compared** describes an
+   operation, not a new foundation evidence level: a computed metric or `images_inspected:false`
+   report is separate from `screenshot-inspected`. Empty diff alone accepts no UI behavior.
+6. Advisory AI findings name region ID and physical bbox, observed difference, rule, impact,
+   severity/confidence with a reason, context/detail images, suggested change and recheck.
+   Add a token/component, DOM locator or Compose testTag only when current source/DOM/semantics
+   establishes the link. Pixels alone do not identify the file or root cause. Suggestions are
+   advisory; the normal inspector report remains the finding owner.
+7. Recheck the same scenario/reference, masks, threshold and grouping. Preserve
+   `recheck_policy_sha256`; if it changes, label the run a new comparison policy, not proof of
+   the old finding's repair. Actual build/capture identity may change. Open the new images and
+   retain the original finding, with independent semantics/interaction/accessibility evidence.

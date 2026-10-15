@@ -23,6 +23,7 @@ mod services;
 mod theatre_demo;
 mod tools;
 mod ui_preview;
+mod visual_compare;
 mod workspace;
 
 use std::process::ExitCode;
@@ -60,6 +61,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),
         Task::Services(args) => services::run(&workspace, &args),
         Task::ComposePreview(args) => compose_preview::run(&workspace, &args, &tools),
+        Task::VisualCompare(args) => visual_compare::run(&workspace, &args),
         Task::Build {
             target,
             surface,
