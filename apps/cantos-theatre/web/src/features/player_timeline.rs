@@ -163,7 +163,7 @@ mod tests {
         application::{player_session::PlayerSession, ports::MediaPort},
         core::{
             ids::{EpisodeId, WorkId},
-            playback::{Effect, Intent, PauseCause},
+            playback::{Effect, Engine, EngineCommand, Intent, PauseCause, Source},
         },
     };
     use std::{cell::RefCell, rc::Rc};
@@ -307,6 +307,155 @@ mod tests {
             assert!(commands.borrow().is_empty());
             assert_eq!(ctx.player.position_ms.get_untracked(), Some(0));
         });
+    }
+
+    #[test]
+    fn generation_changing_controls_cancel_the_real_draft_before_or_after_reconciliation() {
+        let cases: [(&str, fn(TheatreContext)); 8] = [
+            ("play", |ctx| ctx.playback(Event::PlayRequested)),
+            ("pause", |ctx| ctx.playback(Event::PauseRequested)),
+            ("skip", |ctx| {
+                ctx.playback(Event::SkipRequested { delta_ms: 15_000 });
+            }),
+            ("restore", |ctx| ctx.restore_position()),
+            ("interruption", |ctx| ctx.playback(Event::InterruptionBegan)),
+            ("reset", |ctx| ctx.reset_demo()),
+            ("source replacement", |ctx| {
+                ctx.open_episode(EpisodeId {
+                    work: WorkId::Mountain,
+                    index: 0,
+                });
+            }),
+            ("same episode with new duration", |ctx| {
+                let source = ctx.player.source.get_untracked().unwrap();
+                ctx.playback(Event::SourceSelected {
+                    source: Source::new(source.episode(), source.duration_ms() + 1000).unwrap(),
+                    position_ms: 0,
+                });
+            }),
+        ];
+        for (name, invalidate) in cases {
+            for reconcile_first in [false, true] {
+                Owner::new().with(|| {
+                    let (ctx, commands) = prepared();
+                    let control = TimelineControl::new(ctx);
+                    let original_binding = ctx.player.seek_binding.get_untracked();
+                    control.begin();
+                    control.preview(50_000);
+                    assert!(matches!(
+                        control.current(),
+                        Scrub::Preview {
+                            position_ms: 50_000,
+                            ..
+                        }
+                    ));
+                    invalidate(ctx);
+                    assert_ne!(
+                        ctx.player.seek_binding.get_untracked(),
+                        original_binding,
+                        "{name}"
+                    );
+                    let state = ctx.player.state.get_untracked();
+                    let progress = ctx.progress.get_untracked();
+                    let pending = ctx.player.pending_seek.get_untracked();
+                    commands.borrow_mut().clear();
+                    if reconcile_first {
+                        control.reconcile();
+                    }
+                    // Late native input must be fenced even before the reactive effect runs.
+                    control.preview(55_000);
+                    assert_eq!(control.draft.get_untracked(), Scrub::Canceled, "{name}");
+                    control.commit();
+                    control.commit();
+                    control.release();
+                    assert_eq!(ctx.player.state.get_untracked(), state, "{name}");
+                    assert_eq!(ctx.progress.get_untracked(), progress, "{name}");
+                    assert_eq!(ctx.player.pending_seek.get_untracked(), pending, "{name}");
+                    assert!(commands.borrow().is_empty(), "{name}");
+
+                    // Cancellation fences one gesture, not every subsequent interaction.
+                    control.preview(20_000);
+                    control.commit();
+                    assert_eq!(commands.borrow().len(), 1, "{name}");
+                    assert_eq!(control.current().displayed_position(), Some(20_000), "{name}");
+                    assert_eq!(ctx.player.position_ms.get_untracked(), Some(20_000), "{name}");
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn preparing_seek_waits_for_position_not_ready_or_started_for_each_intent() {
+        for play in [false, true] {
+            Owner::new().with(|| {
+                let (ctx, commands) = prepared();
+                ctx.restore_position();
+                if play {
+                    ctx.playback(Event::PlayRequested);
+                }
+                let before = ctx.player.state.get_untracked();
+                assert_eq!(before.session().unwrap().engine(), Engine::Preparing);
+                let intent = before.session().unwrap().intent();
+                let old = before.identity().unwrap();
+                commands.borrow_mut().clear();
+                let control = TimelineControl::new(ctx);
+                control.preview(5_000);
+                control.commit();
+                let current = ctx.player.state.get_untracked().identity().unwrap();
+                assert_ne!(current, old);
+                let command = EngineCommand {
+                    identity: current,
+                    source: before.session().unwrap().source(),
+                    position_ms: 5_000,
+                    speed_permille: before.session().unwrap().speed_permille(),
+                };
+                let expected_effects = vec![if play {
+                    Effect::StartEngine(command)
+                } else {
+                    Effect::PrepareEngine(command)
+                }];
+                assert_eq!(*commands.borrow(), expected_effects);
+                let pending = ctx.player.pending_seek.get_untracked();
+                assert!(pending.is_some());
+                assert!(matches!(control.current(), Scrub::PendingSeek { .. }));
+                assert_eq!(ctx.player.observed_position.get_untracked(), None);
+                for event in [
+                    Event::EnginePosition {
+                        identity: old,
+                        position_ms: 5_000,
+                    },
+                    Event::EngineReady { identity: current },
+                    Event::EngineStarted { identity: current },
+                    Event::EnginePosition {
+                        identity: current,
+                        position_ms: 6_000,
+                    },
+                    Event::EnginePosition {
+                        identity: current,
+                        position_ms: u32::MAX,
+                    },
+                ] {
+                    ctx.player.dispatch(event);
+                    control.reconcile();
+                    assert_eq!(ctx.player.pending_seek.get_untracked(), pending);
+                    assert_eq!(control.current().displayed_position(), Some(5_000));
+                    assert_eq!(
+                        ctx.player.state.get_untracked().session().unwrap().intent(),
+                        intent
+                    );
+                    assert_eq!(*commands.borrow(), expected_effects);
+                }
+                ctx.player.dispatch(Event::EnginePosition {
+                    identity: current,
+                    position_ms: 5_000,
+                });
+                control.reconcile();
+                assert_eq!(ctx.player.pending_seek.get_untracked(), None);
+                assert_eq!(control.current(), Scrub::FollowingEngine);
+                assert_eq!(ctx.player.position_ms.get_untracked(), Some(5_000));
+                assert_eq!(*commands.borrow(), expected_effects);
+            });
+        }
     }
 
     #[test]

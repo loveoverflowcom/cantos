@@ -64,6 +64,14 @@ fn fixture(stage: Stage) -> Projection {
         digest: "ia-r1:sha256:fixture".into(),
     };
     Projection {
+        intent_state: match stage {
+            Stage::Expired => Some(ImageIntentState::Expired),
+            Stage::Admitted | Stage::Conflict => Some(ImageIntentState::Admitted),
+            Stage::Prepared | Stage::Uploading | Stage::AwaitingAcknowledgement | Stage::Unknown => {
+                Some(ImageIntentState::Pending)
+            }
+            _ => None,
+        },
         intent: matches!(
             stage,
             Stage::Prepared

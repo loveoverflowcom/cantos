@@ -731,10 +731,16 @@ impl Command {
                     status.intent == *intent
                         && intent.work_id == *work
                         && bytes.len() as u64 == intent.request.expected_byte_length
-                        && status
-                            .asset
-                            .as_ref()
-                            .is_some_and(|asset| artwork::asset_matches(intent, asset))
+                        // A correlated expiry settles failure, not admission. Pending without
+                        // an asset still cannot establish whether the PUT committed.
+                        && match status.state {
+                            ImageIntentState::Expired => true,
+                            ImageIntentState::Admitted => status
+                                .asset
+                                .as_ref()
+                                .is_some_and(|asset| artwork::asset_matches(intent, asset)),
+                            ImageIntentState::Pending => false,
+                        }
                 }
                 _ => false,
             };

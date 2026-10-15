@@ -94,7 +94,7 @@ L3 Python tests passed but changed Rust/native/proof checks are unrun; L4 Python
 mocked orchestration passed; L5 real IO/runtime acceptance is unrun. Do not label the whole
 change CORE_VERIFIED or production-ready. No failing production test was hidden as a blocker.
 
-## Prioritized findings for sequential session 2
+## Session-1 handoff findings for sequential session 2
 
 Confirm each independently before editing. These are source-backed findings, not executed
 browser/API reproductions or accepted new product decisions.
@@ -133,7 +133,7 @@ browser/API reproductions or accepted new product decisions.
    add real TimelineControl invalidation matrix and preparing-engine seek acknowledgment
    tests. Browser ordering/focus/resize/reader observations remain their own deferred evidence.
 
-## Remaining acceptance and session-2 instructions
+## Session-1 handoff instructions (historical)
 
 Continue the same isolated branch and Draft PR. Fetch its remote ref and inspect HEAD/tree
 before adding commits. Fast-forward only; never force-push, reset/stash other work or create a
@@ -163,3 +163,89 @@ format/compile/tests must pass, Kani must select the exact harness and satisfy a
 and all five covers, and model/observer must report independent fresh PASS before those claims.
 Next acceptance owner is **unassigned — assignment required before acceptance**; session 2 is
 responsible for the next implementation/review pass, not a fabricated acceptance grant.
+
+## Session 2 implementation and independent review
+
+Session 2 began only after session 1 completed. Explicit remote fetches confirmed the same
+Draft PR head `63feaba6ab535027fa0e5c2ecb3b27265e81da3a` and unchanged develop baseline above.
+The 25-commit review window was not enlarged. An independent read-only review of all nine
+session-1 changed files, their callers and tests found no remaining concrete defect or obvious
+Rust compilation hazard in the bounded notes reader, FIFO test, launcher doubles or ordering
+oracle. This is source inspection, not a substitute for compilation or proof execution.
+
+The session-1 findings were independently traced through the production transitions before
+the following bounded changes. New native regression source was written before the Studio
+repair; attempting its focused test returned exit 127 because Cargo is absent, so no failing
+or passing native execution is claimed.
+
+| Invariant / actual repair | Regression source and evidence boundary |
+| --- | --- |
+| A fully correlated server `Expired` intent with no asset settles an unknown artwork PUT as expiry, never admission. Pending/no-asset still does not settle the write. | Real `Command::reconciles` → `RequestState::finish` → `Projection::apply` tests assert unlock, preserved local bytes, no fabricated asset, exact pending/foreign/changed binding rejection and authoritative admitted receipts. Independent review also found expiry → Refresh lost terminal knowledge in transient Stage; a separate server `intent_state` now drives shared prepare/upload predicates, with refresh → newly identified prepare coverage. The server's admitted-before-expired projection and Work read/finalize locking/rechecks were source-inspected; no new backend rule or global monotonic-clock claim. Native tests **NOT_RUN**. |
+| A failed local replacement stays file-invalid through unrelated request starts, server replies and form errors. Only successful local replacement or explicit local reset/discard clears that guard. | File/Dimensions/Decode × prepared/unprepared cases call real projection methods; replacement/discard tests assert old bytes returned for retirement and old intent/asset invalidated. Production panel uses those methods, including successful selection's local reset. Native tests **NOT_RUN**. |
+| A server artwork reply never destroys the old private Blob URL before the imperative preview lifecycle can retire it. | Projection retains the handle until `take_current_preview`; the production preview effect takes and revokes it. Native source asserts handle preservation/take across repeated unchanged refresh, confirmed replacement, clear and reply-before-disposal, with one-time take. It does not execute `on_cleanup` or actual revoke. Browser create/revoke instrumentation, scheduling and heap behavior **NOT_RUN**. |
+| Immutable edge caching classifies the rewritten, existing asset, never the original missing hashed request that falls back to HTML. | Shared SPA `route` runs `try_files`, default no-cache, existing hashed-file immutable override, then file serving. Four structural stdlib Python tests pass for ordering, existence, asset regex and both web hosts/API isolation. These are source/configuration regressions, not a Caddy parser, HTTP integration or MIME/cache observation. |
+| Theatre control invalidation and preparing seeks retain the existing reducer's meaning. Production player code is unchanged. | Two native tests exercise real `TimelineControl`/context/session with a deferred MediaPort: eight invalidation causes before/after reconciliation; paused/play preparing seeks require exact generation+position acknowledgment, not readiness or stale/wrong/out-of-bounds positions. Native tests **NOT_RUN**. |
+
+The edge cause follows Caddy's documented ordering, not a guessed server experiment:
+[official SPA pattern](https://caddyserver.com/docs/caddyfile/patterns#single-page-apps-spas)
+and [header behavior](https://caddyserver.com/docs/caddyfile/directives/header). Caddy is absent,
+so adaptation, validation and HTTP acceptance remain unrun. The four configuration regressions
+were checked against the original source: three failed before the repair. Seven bounded
+in-memory textual negative controls also triggered those assertions; this is sensitivity of
+the structural tests only, not mutation-tested Caddy behavior.
+
+No new Kani lane, mirrored reducer, Quint model, dependency, schema, contract, backend
+authorization, commercial/localization policy or publication behavior was introduced. The
+private-audio-admission capability remains draft. Existing screenshots and historical proof
+records do not cover these changed transitions.
+
+### Session 2 local evidence
+
+| Check | Actual result and scope |
+| --- | --- |
+| `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p test_edge_cache.py -v` | **PASS**, 4 structural configuration tests. Original source: 3 assertion failures, not a runtime reproduction. |
+| `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'` | **PASS**, 470 discovered, 465 executed, 5 optional Pillow skips, 23.583s. Mock Kani/model fixture output is still parser/runner data, not live verifier evidence. |
+| `PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_repository.py` | **PASS**, 736 text files, 19 skills; local links/JSON/skill/API-Theatre architecture hygiene only, not Rust correctness or a code-change preflight fallback. |
+| `git diff --check` and staged whitespace | **PASS** at final handoff. Whitespace is not a Rust formatter or Caddy validation result. |
+| `cargo test -p cantos-studio live::artwork::tests -- --nocapture` | **BLOCKED**, exit 127 (`cargo: command not found`). New native regressions were not executed. |
+| `cargo xtask verify rust`, `cargo xtask verify contracts`, `cargo xtask verify web` | **BLOCKED**, each exit 127; compile, format, Clippy, contracts, host native tests and Web/WASM build **NOT_RUN**. |
+| `cargo xtask verify kani --harness listener-access` | **BLOCKED**, exit 127. Exact changed harness, assertions, unwinding and all five covers **NOT_RUN**. |
+| `cargo xtask preflight --changed-only --base e312ce7b2f036913351819608103e6206f464645` | **BLOCKED**, exit 127, no xtask summary. No selected gate is represented as passed by the independent Python primitives. |
+| Actual Quint/conformance | **NOT_RUN**, Cargo and existing exact locked behavior tool unavailable. No auto-install or lifecycle promotion. |
+| Real DB/API/storage/browser/device/Caddy/Firebase | **NOT_RUN**. No infrastructure started, distribution or deployment. |
+| GitHub CI | **Not checked**, as explicitly requested. No polling, dispatch or rerun. |
+
+Complete Python output and unavailable-command diagnostics are retained only in the ignored
+`artifacts/agent-runs/review25-session2/` directory; they are not committed source. Final repository
+hygiene and whitespace results are recorded in the PR handoff. No toolchain/package was installed.
+
+### Current acceptance checklist
+
+Next acceptance owner: **unassigned — assignment required before acceptance**.
+Implementation/source review is delivered in the same Draft PR, not a clean production acceptance.
+
+- [ ] With the existing pinned Rust 1.98.1 toolchain, run `cargo xtask verify rust`,
+  `cargo xtask verify contracts`, `cargo xtask verify web` and final changed-only preflight
+  against the frozen base above. Require actual PASS on final source, all new native tests,
+  formatting and Clippy; repair any discovered compile/format/test failure before acceptance.
+- [ ] Run the exact `listener-access` Kani harness and require selected assertions/unwinding
+  plus all five reachable covers. Historical output is not evidence for the changed harness.
+- [ ] Only with the already installed exact locked behavior tool, run
+  `cargo xtask verify behavior --conformance --capability cantos.media.private-audio-admission`.
+  Require independent fresh model/observer results; keep capability lifecycle draft.
+- [ ] In a built Studio browser with authorized HTTP doubles, drive lost PUT → expired/none
+  reconciliation, pending and foreign receipts, invalid B after valid A → repeated Refresh,
+  valid replacement/discard, and admitted-after-expiry observation. Assert controls, local
+  fields and no fabricated success. Instrument Blob create/revoke across repeated unchanged
+  refresh, replacement, clear, session/context switch, stale completion and disposal.
+- [ ] With real Caddy, adapt/validate the config and inspect both web hosts: existing hashed
+  JS/WASM/CSS immutable, missing hashed paths returning no-cache HTML (or the existing
+  configured error), normal shell/client routes no-cache, correct MIME and unchanged API
+  passthrough. Missing shell/error responses must not become year-immutable.
+- [ ] Keep Theatre browser-native range event ordering, keyboard/focus, route disposal,
+  responsive/reduced-motion and screen-reader observations separate from host mock assertions.
+
+L1 source review and available Python configuration/mocked-shell tests passed their named
+scope. Changed Rust L2/L3 execution and Web L4/L5 runtime acceptance remain unverified. Do not
+label this combined PR CORE_VERIFIED, production-ready or fully Kani/Quint-verified. No merge,
+close, force-push, remote CI or deployment is part of this review.
