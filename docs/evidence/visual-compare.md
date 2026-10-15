@@ -157,9 +157,31 @@ gates are outside this PR.
 - `cargo xtask preflight --changed-only --skip repository --skip audio-inspection --skip postgres`:
   PASS **with three explicitly skipped NOT_RUN steps**. Available rust-format, Script IR and
   Protobuf references, workspace lint/tests, DBSP, WAV reference, Web lint/both builds, UI preview,
-  CMP preview, Theatre CMP and mutation gates all PASS. Mutation killed 9/9 bounded mutants.
+  CMP preview, Theatre CMP and mutation gates all PASS. The existing Script IR mutation campaign
+  killed 9/9 bounded mutants; this is not mutation evidence for the new comparator.
   This independent run retains the original repository FAIL and missing-media UNSUPPORTED
   receipts above; skips do not resolve or accept them. Gradle/JDK were selected as in the capture.
+
+### Rebased handoff
+
+The unpushed branch was cleanly rebased onto `develop`
+`17a541c8e4b448af9be53486d30de519f9c451a0` after PR 147 landed. Historical capture/benchmark
+provenance above stays bound to the original source; it is not relabeled as the newer Studio.
+On the rebased source the comparator self-test still PASSes all 12 tests, repository verification
+reports exactly the same eight qualification failures, and ordinary preflight/contracts remain
+UNSUPPORTED for missing ffmpeg/ffprobe.
+
+The first independent post-rebase preflight actually **FAILed** one unchanged test,
+`probe::tests::port_ownership_reflects_an_existing_listener` at `xtask/src/probe.rs:139`:
+the just-dropped loopback address could not immediately be rebound. The test passed in the
+earlier workspace/focused runs and has no source diff from develop. One isolated serialized
+execution passed, followed by one `RUST_TEST_THREADS=1` independent preflight with the same three
+explicit skips: all available gates PASS, including the Script IR 9/9 mutation campaign.
+Logs: `artifacts/agent-runs/visual-compare/rebased-independent.log`, `port-probe-serial.log`
+and `rebased-serial.log`. This is consistent with intermittent loopback-port reuse under
+parallel execution; the competing socket was not captured, so that cause remains a hypothesis.
+No probe test or unrelated source was changed. The original FAIL and possible CI flakiness
+remain part of the handoff; a serialized pass does not erase them.
 
 Deferred acceptance: design/tooling owner review of ADR 0029 and actual product baseline
 approval; representative real AA/font/platform pairs; native and screen-reader acceptance where
