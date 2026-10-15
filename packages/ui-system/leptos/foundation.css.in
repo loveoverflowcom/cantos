@@ -23,6 +23,7 @@
   text-box-edge: cap alphabetic;
 }
 :where(.cantos-ui) {
+  --cantos-web-supporting-text-color: var(--cantos-color-on-surface-variant);
   color: var(--cantos-color-on-surface);
   background: var(--cantos-color-background);
   font-family: var(--cantos-type-family-ui);
@@ -90,7 +91,7 @@
   cursor: default;
 }
 :where(.cantos-ui) .cui-button-reason {
-  color: var(--cantos-color-on-surface-variant);
+  color: var(--cantos-web-supporting-text-color);
   font-size: var(--cantos-type-metadata-size);
   line-height: var(--cantos-type-metadata-line-height);
   overflow-wrap: anywhere;
@@ -131,7 +132,7 @@
 :where(.cantos-ui) .cui-container { inline-size: 100%; margin-inline: auto; padding-inline: var(--cantos-space-md); }
 :where(.cantos-ui) .cui-container[data-width="reading"] { max-inline-size: 75ch; }
 :where(.cantos-ui) .cui-container[data-width="wide"] { max-inline-size: 76rem; }
-:where(.cantos-ui) .cui-surface { background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); }
+:where(.cantos-ui) .cui-surface { --cantos-web-supporting-text-color: var(--cantos-color-on-surface-variant); background: var(--cantos-color-surface); color: var(--cantos-color-on-surface); border-radius: var(--cantos-web-shape-container); padding: var(--cantos-space-md); }
 :where(.cantos-ui) .cui-surface[data-tone="container"] { background: var(--cantos-color-surface-container); }
 :where(.cantos-ui) .cui-surface[data-tone="high"] { background: var(--cantos-color-surface-container-high); }
 :where(.cantos-ui) .cui-surface[data-tone="reading"] { border-radius: var(--cantos-web-shape-reading); font-family: var(--cantos-type-family-editorial); line-height: var(--cantos-type-editor-line-height); }
@@ -297,13 +298,12 @@
 }
 :where(.cantos-ui) .cui-back-button-icon-only { gap: 0; }
 :where(.cantos-ui) .cui-surface[data-tone="primary-container"] {
+  --cantos-web-supporting-text-color: var(--cantos-color-on-primary-container);
   background: var(--cantos-color-primary-container);
   color: var(--cantos-color-on-primary-container);
 }
-/* Metadata inside a primary container inherits its paired foreground, not muted ink. */
-:where(.cantos-ui) .cui-surface[data-tone="primary-container"] :where(.cui-field-help, .cui-button-reason) {
-  color: inherit;
-}
+/* Supporting text inherits a semantic binding, reset by each Surface and UiRoot.
+   A descendant color override would leak across nested containment/theme boundaries. */
 :where(.cantos-ui) .cui-surface[data-variant="auth"] { border-radius: var(--cantos-shape-auth-container); }
 :where(.cantos-ui) .cui-surface[data-variant="profile"] { border-radius: var(--cantos-shape-profile-container); }
 :where(.cantos-ui) .cui-surface[data-variant="membership"] { border-radius: var(--cantos-shape-membership-container); }
@@ -531,7 +531,7 @@
   overflow-wrap: anywhere;
 }
 :where(.cantos-ui) .cui-field-help {
-  color: var(--cantos-color-on-surface-variant);
+  color: var(--cantos-web-supporting-text-color);
 }
 :where(.cantos-ui) .cui-field-error {
   padding: var(--cantos-space-xs) var(--cantos-space-sm);

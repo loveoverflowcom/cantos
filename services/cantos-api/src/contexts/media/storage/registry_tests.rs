@@ -230,6 +230,14 @@ async fn missing_historical_target_never_falls_back_to_a_healthy_active_target()
         )]),
     };
     assert_storage_error(
+        registry.ensure_read_target(&object("removed-historical-target", b"historical bytes")),
+        StorageError::Unavailable,
+    );
+    registry
+        .ensure_read_target(&object("active-private", b"not stored bytes"))
+        .unwrap();
+    assert!(calls.lock().unwrap().is_empty());
+    assert_storage_error(
         registry
             .verify(&object("removed-historical-target", b"historical bytes"))
             .await,

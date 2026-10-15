@@ -104,8 +104,8 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–25 (25 migrations), including original private storage0015, Admin0022 and coordinated
-private Artwork0023. Historical SQL bytes/checksums are unchanged.
+versions 1–26 (26 migrations), including original private storage0015, Admin0022, coordinated
+private Artwork0023 and additive Work-scoped delegation0026. Historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in
@@ -126,7 +126,10 @@ in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
 `tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
 and UPDATE(revision_id,revision) on heads. Brief grants add SELECT/INSERT on `production_briefs`, `production_brief_heads`,
 `production_producer_grants`, `production_producer_revocations` and UPDATE(brief_id,version)
-on Brief heads only. Deployment role provisioning remains separate.
+on Brief heads only. Work-scoped delegation0026 grants add only SELECT/INSERT on
+`catalog_delegation_grants`, `catalog_delegation_revocations` and `catalog_delegated_operations`
+(reproduced in `tests/delegation_http_postgres.rs::Harness::new`); the tables are append-only.
+Deployment role provisioning remains separate.
 
 Migration0015 adds `storage_target_id` to receipt/rendition location metadata without rewriting
 immutable snapshots or digests. Existing rows name `legacy-filesystem`; new rows record the

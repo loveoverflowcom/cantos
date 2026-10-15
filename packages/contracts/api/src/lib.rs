@@ -14,6 +14,8 @@ mod catalog;
 pub use catalog::*;
 mod content;
 pub use content::*;
+mod delegation;
+pub use delegation::*;
 mod briefs;
 pub use briefs::*;
 mod audio_intake;

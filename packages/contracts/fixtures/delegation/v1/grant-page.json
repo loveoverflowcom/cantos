@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "work_id": "10000000-0000-4000-8000-00000000000a",
+      "grantor_id": "alice",
+      "delegate_actor_id": "agent-editor",
+      "actions": [
+        "work:read",
+        "content:read",
+        "content:write"
+      ],
+      "issued_at": 1792195200000,
+      "expires_at": 1792800000000,
+      "revoked_at": null
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "work_id": "10000000-0000-4000-8000-00000000000a",
+      "grantor_id": "alice",
+      "delegate_actor_id": "agent-editor",
+      "actions": [
+        "work:read"
+      ],
+      "issued_at": 1792195200000,
+      "expires_at": 1792800000000,
+      "revoked_at": 1792281600000
+    }
+  ],
+  "next_after": null
+}

@@ -8,7 +8,7 @@ use super::{
     CatalogStoreError,
 };
 use crate::contexts::editorial::Action;
-use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError};
+use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
 impl Store {
     pub async fn catalog_work(&self, token: &str, id: &WorkId) -> Result<Work, CatalogStoreError> {
@@ -97,37 +97,10 @@ impl Store {
         let work = work(&tx, id, LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
         let scope = format!("units:{actor}:{}:{include_archived}", id.as_str());
-        let after = cursor_after(cursor, &scope, epoch)?
-            .map(|after| {
-                let (position, id) = after
-                    .split_once(':')
-                    .ok_or(CatalogStoreError::InvalidCursor)?;
-                let position = position
-                    .parse::<u32>()
-                    .map_err(|_| CatalogStoreError::InvalidCursor)?;
-                if position > i32::MAX as u32 {
-                    return Err(CatalogStoreError::InvalidCursor);
-                }
-                normalized_uuid(id).map_err(|_| CatalogStoreError::InvalidCursor)?;
-                Ok((position, id))
-            })
-            .transpose()?;
-        let mut items =
-            postgres::list_units(&tx, id.as_str(), after, include_archived, limit + 1).await?;
-        let more = items.len() > limit as usize;
-        items.truncate(limit as usize);
-        let next = if more {
-            items.last().map(|unit| CatalogCursor {
-                scope,
-                epoch,
-                after: format!("{}:{}", unit.position(), unit.id().as_str()),
-            })
-        } else {
-            None
-        };
+        let page = units_page(&tx, id, &scope, epoch, limit, include_archived, cursor).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
-        Ok(CatalogPage { items, next })
+        Ok(page)
     }
 
     pub async fn catalog_work_history(
@@ -173,4 +146,46 @@ impl Store {
         tx.commit().await.map_err(StoreError::from)?;
         Ok(CatalogPage { items, next })
     }
+}
+
+/// One deterministic unit page of an already authorized Work. `scope` binds the cursor to the
+/// caller identity and query; the clock `epoch` makes it stale after any Catalog write.
+pub(super) async fn units_page(
+    tx: &Tx<'_>,
+    id: &WorkId,
+    scope: &str,
+    epoch: u64,
+    limit: i64,
+    include_archived: bool,
+    cursor: Option<&CatalogCursor>,
+) -> Result<CatalogPage<ContentUnit>, CatalogStoreError> {
+    let after = cursor_after(cursor, scope, epoch)?
+        .map(|after| {
+            let (position, id) = after
+                .split_once(':')
+                .ok_or(CatalogStoreError::InvalidCursor)?;
+            let position = position
+                .parse::<u32>()
+                .map_err(|_| CatalogStoreError::InvalidCursor)?;
+            if position > i32::MAX as u32 {
+                return Err(CatalogStoreError::InvalidCursor);
+            }
+            normalized_uuid(id).map_err(|_| CatalogStoreError::InvalidCursor)?;
+            Ok((position, id))
+        })
+        .transpose()?;
+    let mut items =
+        postgres::list_units(tx, id.as_str(), after, include_archived, limit + 1).await?;
+    let more = items.len() > limit as usize;
+    items.truncate(limit as usize);
+    let next = if more {
+        items.last().map(|unit| CatalogCursor {
+            scope: scope.into(),
+            epoch,
+            after: format!("{}:{}", unit.position(), unit.id().as_str()),
+        })
+    } else {
+        None
+    };
+    Ok(CatalogPage { items, next })
 }

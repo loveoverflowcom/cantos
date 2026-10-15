@@ -2,12 +2,12 @@
 use cantos_contracts::{AppendContentResponse, ContentHistoryResponse};
 use serde::{Deserialize, Serialize};
 
-use super::{authorize, current_actor, require, unit, work, CatalogStoreError};
+use super::{authorize, current_actor, unit, work, CatalogStoreError};
 use crate::contexts::catalog::{
-    domain::{content::*, CatalogError, ContentUnitId, Lifecycle, OwnerId},
+    domain::{content::*, CatalogError, ContentUnit, ContentUnitId, Lifecycle, OwnerId, Work},
     postgres,
 };
-use crate::contexts::editorial::{self, Action};
+use crate::contexts::editorial::{self, permits, Action};
 use crate::contexts::ingestion;
 use crate::platform::postgres::{authenticate, normalized_uuid, LockMode, Store, StoreError, Tx};
 
@@ -60,6 +60,136 @@ async fn evidence(
     Ok(())
 }
 
+/// Who appends: the recorded actor, and whether a rights change is within their authority.
+pub(super) struct ContentWriter<'a> {
+    pub actor: &'a str,
+    pub may_change_rights: bool,
+}
+
+pub(super) enum Appended {
+    Created(AppendContentResponse),
+    Replayed(AppendContentResponse),
+}
+
+/// Bounds the command and fingerprints its exact tagged encoding before any transaction.
+pub(super) fn fingerprint_append<T: Serialize>(
+    operation: &str,
+    tagged: &T,
+    command: &AppendContent,
+) -> Result<(String, String), CatalogStoreError> {
+    let operation = normalized_uuid(operation)?;
+    let bytes = serde_json::to_vec(tagged).map_err(|_| StoreError::InvalidRequest)?;
+    if bytes.len() > 128 * 1024 {
+        return Err(CatalogStoreError::Limit);
+    }
+    if command.expected_revision > i64::MAX as u64
+        || command.expected_work_revision == 0
+        || command.expected_work_revision > i64::MAX as u64
+    {
+        return Err(CatalogError::InvalidRevision.into());
+    }
+    Ok((operation, postgres::digest(&bytes)))
+}
+
+/// Shared append decision and effects. The caller has authenticated, taken the Catalog clock
+/// for update, locked `work` for update and authorized a write on it; it rechecks its own
+/// credential before commit.
+pub(super) async fn append_authorized(
+    tx: &Tx<'_>,
+    writer: ContentWriter<'_>,
+    operation: &str,
+    fingerprint: &str,
+    work: &Work,
+    unit: &ContentUnit,
+    command: AppendContent,
+) -> Result<Appended, CatalogStoreError> {
+    let actor = writer.actor;
+    let current = postgres::content::load(tx, unit.id().as_str(), None).await?;
+    // Rights changes retain Catalog's owner-only policy, including retry after later edits.
+    if let Some((prior_fingerprint, bytes)) =
+        postgres::prior_operation(tx, actor, operation).await?
+    {
+        if prior_fingerprint != fingerprint {
+            return Err(CatalogStoreError::OperationReused);
+        }
+        let receipt: ContentReceipt =
+            serde_json::from_slice(&bytes).map_err(|_| StoreError::CorruptRevision)?;
+        let reply = receipt.reply;
+        let pinned =
+            wire::restore(reply.content.clone()).map_err(|_| StoreError::CorruptRevision)?;
+        let stored = postgres::content::load(tx, unit.id().as_str(), Some(pinned.id().as_str()))
+            .await?
+            .ok_or(StoreError::CorruptRevision)?;
+        if pinned != stored
+            || pinned.work_id() != work.id()
+            || pinned.recorded_by().as_str() != actor
+            || reply.work_revision == 0
+            || reply.work_revision > i64::MAX as u64
+        {
+            return Err(StoreError::CorruptRevision.into());
+        }
+        // The immutable receipt records the original authorization requirement, protected
+        // by the same checksum as the result; later metadata cannot weaken a replay.
+        if receipt.owner_required && !writer.may_change_rights {
+            return Err(StoreError::Forbidden.into());
+        }
+        return Ok(Appended::Replayed(reply));
+    }
+    let previous_rights = current
+        .as_ref()
+        .map(|value| value.details().rights_refs())
+        .unwrap_or(&work.details().rights_refs);
+    let owner_required =
+        rights_change_requires_owner(previous_rights, command.details.rights_refs());
+    if owner_required && !writer.may_change_rights {
+        return Err(StoreError::Forbidden.into());
+    }
+    let at = postgres::now(tx)
+        .await?
+        .max(work.updated_at())
+        .max(current.as_ref().map_or(0, ContentRevision::recorded_at));
+    let updated = work.touch(command.expected_work_revision, at)?;
+    if unit.lifecycle() == Lifecycle::Archived {
+        return Err(CatalogError::UnitArchived.into());
+    }
+    let revision = next_content_revision(
+        current.as_ref().map_or(0, ContentRevision::revision),
+        command.expected_revision,
+    )?;
+    if let Some(existing_unit) = postgres::content::unit_for_id(tx, command.id.as_str()).await? {
+        return Err(if existing_unit == unit.id().as_str() {
+            CatalogStoreError::DuplicateId
+        } else {
+            StoreError::NotFound.into()
+        });
+    }
+    evidence(tx, work.owner_id().as_str(), &command.details).await?;
+    let content = ContentRevision::new(ContentRevisionFacts {
+        id: command.id,
+        work_id: work.id().clone(),
+        unit_id: unit.id().clone(),
+        revision,
+        details: command.details,
+        recorded_by: OwnerId::parse(actor)?,
+        recorded_at: at,
+    })
+    .map_err(wire::content_error)?;
+    postgres::content::save(tx, &content).await?;
+    postgres::save_work(tx, &updated, actor, false).await?;
+    let reply = AppendContentResponse {
+        content: wire::response(&content)?,
+        work_revision: updated.revision(),
+    };
+    let result = serde_json::to_vec(&ContentReceipt {
+        reply: reply.clone(),
+        owner_required,
+    })
+    .map_err(|_| StoreError::CorruptRevision)?;
+    postgres::record_operation(tx, actor, operation, fingerprint, &result).await?;
+    postgres::bump_clock(tx).await?;
+    Ok(Appended::Created(reply))
+}
+
 impl Store {
     pub async fn append_content(
         &self,
@@ -67,20 +197,9 @@ impl Store {
         operation: &str,
         command: AppendContent,
     ) -> Result<AppendContentResponse, CatalogStoreError> {
-        let operation = normalized_uuid(operation)?;
         // A distinct command tag keeps operation IDs shared safely with legacy Catalog writes.
-        let bytes = serde_json::to_vec(&("append_content_v1", &command))
-            .map_err(|_| StoreError::InvalidRequest)?;
-        if bytes.len() > 128 * 1024 {
-            return Err(CatalogStoreError::Limit);
-        }
-        if command.expected_revision > i64::MAX as u64
-            || command.expected_work_revision == 0
-            || command.expected_work_revision > i64::MAX as u64
-        {
-            return Err(CatalogError::InvalidRevision.into());
-        }
-        let fingerprint = postgres::digest(&bytes);
+        let (operation, fingerprint) =
+            fingerprint_append(operation, &("append_content_v1", &command), &command)?;
         let mut client = self.connection().await?;
         let tx = client.transaction().await.map_err(StoreError::from)?;
         authenticate(&tx, token).await?;
@@ -89,94 +208,12 @@ impl Store {
         let unit = unit(&tx, &command.unit_id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Update).await?;
         let access = authorize(&tx, &actor, &work, Action::Write).await?;
-        let current = postgres::content::load(&tx, unit.id().as_str(), None).await?;
-        // Rights changes retain Catalog's owner-only policy, including retry after later edits.
-        if let Some((prior_fingerprint, bytes)) =
-            postgres::prior_operation(&tx, &actor, &operation).await?
-        {
-            if prior_fingerprint != fingerprint {
-                return Err(CatalogStoreError::OperationReused);
-            }
-            let receipt: ContentReceipt =
-                serde_json::from_slice(&bytes).map_err(|_| StoreError::CorruptRevision)?;
-            let reply = receipt.reply;
-            let pinned =
-                wire::restore(reply.content.clone()).map_err(|_| StoreError::CorruptRevision)?;
-            let stored =
-                postgres::content::load(&tx, unit.id().as_str(), Some(pinned.id().as_str()))
-                    .await?
-                    .ok_or(StoreError::CorruptRevision)?;
-            if pinned != stored
-                || pinned.work_id() != work.id()
-                || pinned.recorded_by().as_str() != actor
-                || reply.work_revision == 0
-                || reply.work_revision > i64::MAX as u64
-            {
-                return Err(StoreError::CorruptRevision.into());
-            }
-            // The immutable receipt records the original authorization requirement, protected
-            // by the same checksum as the result; later metadata cannot weaken a replay.
-            if receipt.owner_required {
-                require(access, Action::Review)?;
-            }
-            authenticate(&tx, token).await?;
-            tx.commit().await.map_err(StoreError::from)?;
-            return Ok(reply);
-        }
-        let previous_rights = current
-            .as_ref()
-            .map(|value| value.details().rights_refs())
-            .unwrap_or(&work.details().rights_refs);
-        let owner_required =
-            rights_change_requires_owner(previous_rights, command.details.rights_refs());
-        if owner_required {
-            require(access, Action::Review)?;
-        }
-        let at = postgres::now(&tx)
-            .await?
-            .max(work.updated_at())
-            .max(current.as_ref().map_or(0, ContentRevision::recorded_at));
-        let updated = work.touch(command.expected_work_revision, at)?;
-        if unit.lifecycle() == Lifecycle::Archived {
-            return Err(CatalogError::UnitArchived.into());
-        }
-        let revision = next_content_revision(
-            current.as_ref().map_or(0, ContentRevision::revision),
-            command.expected_revision,
-        )?;
-        if let Some(existing_unit) =
-            postgres::content::unit_for_id(&tx, command.id.as_str()).await?
-        {
-            return Err(if existing_unit == unit.id().as_str() {
-                CatalogStoreError::DuplicateId
-            } else {
-                StoreError::NotFound.into()
-            });
-        }
-        evidence(&tx, work.owner_id().as_str(), &command.details).await?;
-        let content = ContentRevision::new(ContentRevisionFacts {
-            id: command.id,
-            work_id: work.id().clone(),
-            unit_id: unit.id().clone(),
-            revision,
-            details: command.details,
-            recorded_by: OwnerId::parse(&actor)?,
-            recorded_at: at,
-        })
-        .map_err(wire::content_error)?;
-        postgres::content::save(&tx, &content).await?;
-        postgres::save_work(&tx, &updated, &actor, false).await?;
-        let reply = AppendContentResponse {
-            content: wire::response(&content)?,
-            work_revision: updated.revision(),
+        let writer = ContentWriter {
+            actor: &actor,
+            may_change_rights: permits(access, Action::Review),
         };
-        let result = serde_json::to_vec(&ContentReceipt {
-            reply: reply.clone(),
-            owner_required,
-        })
-        .map_err(|_| StoreError::CorruptRevision)?;
-        postgres::record_operation(&tx, &actor, &operation, &fingerprint, &result).await?;
-        postgres::bump_clock(&tx).await?;
+        let (Appended::Created(reply) | Appended::Replayed(reply)) =
+            append_authorized(&tx, writer, &operation, &fingerprint, &work, &unit, command).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
         Ok(reply)
@@ -224,23 +261,34 @@ impl Store {
         let unit = unit(&tx, id).await?;
         let work = work(&tx, unit.work_id(), LockMode::Share).await?;
         authorize(&tx, &actor, &work, Action::Read).await?;
-        let mut values = postgres::content::history(&tx, id.as_str(), after, limit + 1).await?;
-        let more = values.len() > limit as usize;
-        values.truncate(limit as usize);
-        let next_after = if more {
-            values.last().map(ContentRevision::revision)
-        } else {
-            None
-        };
-        let revisions = values
-            .iter()
-            .map(wire::summary)
-            .collect::<Result<Vec<_>, _>>()?;
+        let reply = history_page(&tx, id, after, limit).await?;
         authenticate(&tx, token).await?;
         tx.commit().await.map_err(StoreError::from)?;
-        Ok(ContentHistoryResponse {
-            revisions,
-            next_after,
-        })
+        Ok(reply)
     }
+}
+
+/// One bounded history page of an already authorized unit.
+pub(super) async fn history_page(
+    tx: &Tx<'_>,
+    id: &ContentUnitId,
+    after: u64,
+    limit: i64,
+) -> Result<ContentHistoryResponse, CatalogStoreError> {
+    let mut values = postgres::content::history(tx, id.as_str(), after, limit + 1).await?;
+    let more = values.len() > limit as usize;
+    values.truncate(limit as usize);
+    let next_after = if more {
+        values.last().map(ContentRevision::revision)
+    } else {
+        None
+    };
+    let revisions = values
+        .iter()
+        .map(wire::summary)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ContentHistoryResponse {
+        revisions,
+        next_after,
+    })
 }

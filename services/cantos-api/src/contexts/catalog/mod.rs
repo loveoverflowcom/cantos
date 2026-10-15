@@ -5,6 +5,7 @@ mod application;
 mod postgres;
 
 pub use application::content;
+pub use application::delegation;
 pub(crate) use application::owner_work::{
     advance_owner_work, owner_work, owner_work_now, owner_work_revision, recheck_owner_work,
     OwnerWork,

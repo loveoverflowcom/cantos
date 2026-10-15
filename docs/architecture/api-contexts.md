@@ -56,12 +56,17 @@ object keys. See [private storage](object-storage.md) and
 | Studio producer instructions | Exact read-only external bearer grant | [Brief v1](../../packages/contracts/production-brief-v1.md) implemented for development |
 | Studio private audio lifecycle | Exact owner/upload scopes | [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implemented in development; separate [Publication v1](../../packages/contracts/publication-v1.md) core with default unavailable delivery |
 | Studio private audio delivery | Current owner session; exact intent/rendition | [Private content reads v1](../../packages/contracts/private-content-reads-v1.md): protected GET/HEAD/Range and refreshable access; no listener access |
+| Studio Work delegation | Owner session issues/revokes; separate `cantos_dlg_` bearer for one Work and closed Catalog actions | [Delegation v1](../../packages/contracts/delegation-v1.md) / [ADR 0028](../decisions/0028-work-scoped-delegation.md) implemented for development; no Studio Web UI |
 
 Catalog has pure domain, transactional application and PostgreSQL modules plus thin JSON HTTP
 adapters exclusively under `/api/v1/studio`. Its [contract](../../packages/contracts/catalog-v1.md)
 defines work/content-unit mutations, deterministic pages and immutable Work history.
 [Content Identity](../../packages/contracts/content-v1.md) adds separate immutable content,
 plain text/recording support and exact owned source/Script IR bindings in the same context.
+Work-scoped [delegation](../../packages/contracts/delegation-v1.md) also lives in Catalog: a pure
+grant decision, an application lane that never turns a bearer into a session actor, and an
+append-only SQL adapter. Delegated writes reuse the Content append core with the delegate as
+recorded actor and no rights authority.
 
 The legacy alias `/api/v1/*` retains preceding Studio handlers. New private byte/read-access
 routes exist only under Studio; they are not added to the deprecated alias. Do not duplicate
