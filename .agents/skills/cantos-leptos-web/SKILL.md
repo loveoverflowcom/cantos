@@ -122,6 +122,20 @@ How the foundation lands in the browser:
   correction/reconciliation facts without erasing the form.
 - **Clean syntax.** Readable `view!` with semantic classes, small named helpers, no `unwrap()` on
   browser globals, formatter-clean Rust and stylesheets.
+- **Web localization before markup.** Current Theatre copy lives in `messages.rs`,
+  `features/auth_copy.rs` and `membership_preview/copy.rs`; Studio uses
+  `messages.rs`, `messages/*` and `live/*copy.rs`. Before adding a label,
+  tooltip, status, aria-name, dialog or preview text, reuse its semantic key or
+  add a key to the nearest existing owner in **both** vi-VN and en. Do not add
+  another `resources!` macro, local translation map or hard-coded `view!` text.
+  This is an interim ownership policy, not selection of `leptos_i18n` or
+  `leptos_fluent`; compare those and a typed Rust + Fluent/ICU4X option in
+  [#168](https://github.com/loveoverflowcom/cantos/issues/168) and
+  [#167](https://github.com/loveoverflowcom/cantos/issues/167). Keep the locale
+  reactive without remounting active Studio forms or the player; ensure
+  `<html lang>`, a11y copy and story-language spans agree. Named parameter
+  interpolation must never expand braces inside inserted titles. Use focused
+  catalog tests while developing; defer broad verification to checkpoints.
 - **Material 3 Expressive.** Applied through tokens at each surface's intensity: a quiet,
   rectangular reading area in the editor; more expressive shape and motion in Theatre discovery and
   the player ([`material3-expressive.md`](../cantos-ui-design/references/material3-expressive.md)).
