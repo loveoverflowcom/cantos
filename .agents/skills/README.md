@@ -78,7 +78,8 @@ cargo xtask verify repository
 ```
 
 Its `scripts/check_repository.py` primitive also validates this directory: frontmatter, names, Codex metadata, index
-completeness, orphaned references and local links. Passing it proves skill hygiene only.
+completeness, orphaned references, local links, Claude symlinks and the shared-instruction import.
+Passing it proves skill hygiene only.
 
 ## Which skill to load
 
@@ -166,11 +167,18 @@ skills still route correctly after an edit. It is an evaluation input, not an au
 
 ## Runtime discovery
 
-| Runtime | Discovery |
+| Runtime | Discovery and invocation |
 |---|---|
-| Codex | scans `.agents/skills/` from the working directory up to the repository root; `agents/openai.yaml` supplies optional display metadata |
-| Claude Code | scans `.claude/skills/<name>/SKILL.md`; each `.claude/skills/<name>` entry is a relative symlink to `../../.agents/skills/<name>` |
-| Any other agent | read [`AGENTS.md`](../../AGENTS.md), then the `SKILL.md` named for the task |
+| Codex | discovers `.agents/skills/`; invoke `$cantos-engineering` or another exact skill name; `agents/openai.yaml` supplies Codex display metadata |
+| Claude Code | discovers `.claude/skills/<name>/SKILL.md` through the per-skill symlinks; invoke `/cantos-engineering` or another exact skill name; root [`CLAUDE.md`](../../CLAUDE.md) imports `AGENTS.md` |
+| Any other agent | read [`AGENTS.md`](../../AGENTS.md), then the canonical `SKILL.md` named for the task |
+
+Both runtimes use the same frontmatter, body and references. `agents/openai.yaml` is required by
+this repository's hygiene check, but is not Claude configuration. Keep Claude-only frontmatter,
+Codex tool names and runtime macros out of the shared contract. Available shell, file, browser,
+image and connected-service tools differ by session: follow the foundation's
+[runtime portability](cantos-engineering/references/local-execution.md#runtime-portability)
+before executing a tool-dependent step.
 
 Keep exactly one copy of every skill here. Do not add per-runtime copies, router aliases or a
 second index. The repository check fails when a skill lacks its Claude symlink or a symlink points
@@ -181,6 +189,25 @@ point the runtime at this README.
 Frontmatter stays portable across runtimes: only `name` (lowercase letters, digits and single
 hyphens, at most 64 characters, equal to the directory name) and `description` (at most 1024
 characters, stating what the skill does and when to use it).
+
+### Check discovery separately from execution
+
+Run `cargo xtask verify repository` and `cargo xtask preflight --changed-only` for shared-file
+and bootstrap validation. The checker requires a standalone, unindented, unfenced `@AGENTS.md` import in
+root `CLAUDE.md`; an instruction to read the file or a code example does not load it.
+
+For a Claude runtime check, start Claude Code in the checkout, type `/cantos-` and inspect the
+completion list. Use `/memory` to inspect the loaded `CLAUDE.md` and `AGENTS.md`. To check actual
+skill execution, invoke one bounded task such as `/cantos-code-review` with a local diff and
+record the selected owners and read-only outcome. Discovery alone does not verify that run;
+record authentication, permission or missing-tool blockers separately. Use the corresponding
+`$cantos-code-review` request in Codex when comparing decisions across runtimes.
+
+Claude's documented [skill discovery](https://code.claude.com/docs/en/skills) supports symlinked
+skill folders; its [memory imports](https://code.claude.com/docs/en/memory) support `@AGENTS.md`.
+If skills do not appear, inspect checkout symlinks, session skill restrictions and description
+budget before changing shared skills; use the runtime's explicit invocation when automatic
+selection misses a task. Do not change personal settings or install tools as a discovery fix.
 
 ## Maintaining skills
 
