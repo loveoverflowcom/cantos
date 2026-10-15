@@ -49,6 +49,11 @@ Canonical text, imports and Script IR stay in their existing PostgreSQL stores. 
 and scoped grants supply no listener/publication access; real-provider and deployment acceptance
 remain separate in the [evidence record](docs/evidence/provider-independent-storage.md).
 
+Studio's [private Work-cover control](apps/cantos-studio/web/README.md#private-work-artwork)
+uses that owner-only artwork boundary for original PNG/JPEG upload, admission, selection and
+explicit unlink. Its [UI evidence](docs/evidence/studio-private-artwork-ui.md) keeps browser
+fixtures separate from outstanding API/storage acceptance and public delivery.
+
 A voice model or provider named by a Studio planning fixture is only descriptive metadata.
 No source inside `services/cantos-api` may invoke speech engines or cloud TTS providers.
 

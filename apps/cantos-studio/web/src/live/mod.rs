@@ -1,4 +1,5 @@
 //! Typed live Catalog/Content/Brief/private-audio/delegation client boundary.
+pub mod artwork;
 mod command;
 mod state;
 pub use command::*;

@@ -1,0 +1,79 @@
+{
+  "source_base": "a079e72",
+  "runtime_source_sha256": "2220f58aa0c115404c03bdaea0fb08dfd51ba7c9d61d094729ae7e0bfc02e539",
+  "browser": "153.0.8010.36",
+  "viewport_matrix": [
+    {
+      "name": "preview-replacement-1280-light",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "font": "16px"
+    },
+    {
+      "name": "preview-replacement-320-dark-text200",
+      "width": 320,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 320,
+      "font": "32px"
+    },
+    {
+      "name": "replacement-1280-light",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "font": "16px"
+    },
+    {
+      "name": "conflict-1280-light",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "font": "16px"
+    },
+    {
+      "name": "current-1280-light",
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 1280,
+      "font": "16px"
+    },
+    {
+      "name": "current-320-dark",
+      "width": 320,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 320,
+      "font": "16px"
+    },
+    {
+      "name": "current-320-dark-text200",
+      "width": 320,
+      "height": 900,
+      "dpr": 1,
+      "scrollWidth": 320,
+      "font": "32px"
+    }
+  ],
+  "locale": "vi-VN",
+  "motion": "reduce",
+  "dpr": 1,
+  "backend": "Playwright static delivery + HTTP doubles; no API/storage",
+  "images": {
+    "replacement-1280-light.png": "6ee7f4dc240d4256a61f3987ffdab86e49783864c5797181d600725eb39b0e10",
+    "conflict-1280-light.png": "b0e8312a94d3c14e9df5482856184302bd26fdc4005d04b4c20a2e42d9deee31",
+    "current-1280-light.png": "55329d0c23ff1a8bc1b681500770bc91479ae134098a342a75bbd6b2d767f80d",
+    "current-320-dark.png": "7d0d832d1e7aa3ac44586e66d6f320279e0c6e657da4bfe291d68b468f9e5cbb",
+    "current-320-dark-text200.png": "322c98554b85b57e0c1f49ad12ec37e32eaf5a12761142820d6584f92481c82d"
+  },
+  "reference_html_sha256": "6d59f3f0c2367a1052687e9ed5fecf95df9d69f8d22111dd0990a947d53497c2",
+  "reference_id": "15Bb_vw4pwbBQpQEmA1zpXVohOGZz_4V8",
+  "reviewer": "Codex via view_image",
+  "reviewed_at_utc": "2026-10-15T14:52:17.587330+00:00",
+  "scope": "original synthetic browser screenshots; no reference media or credentials"
+}
