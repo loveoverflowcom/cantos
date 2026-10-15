@@ -55,6 +55,7 @@ internal enum class CopyKey(val vi: String, val en: String) {
     ConfirmClearHistory("Xác nhận xóa lịch sử", "Confirm clear history"),
     Cancel("Hủy", "Cancel"),
     Account("Tài khoản", "Account"),
+    MembershipPreview("Membership · bản xem thử", "Membership · preview"),
     AccountSpace("Không gian của bạn", "Your space"),
     AccountGuest("Người nghe khách", "Guest listener"),
     AccountPreviewTitle("Bản xem thử", "Preview"),

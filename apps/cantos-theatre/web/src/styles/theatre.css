@@ -310,3 +310,49 @@ body { margin: 0; }
   .theatre-progress { outline: var(--cantos-size-border) solid ButtonText; }
   .theatre-progress > span { background: Highlight; }
 }
+
+/* Issue128's opt-in diagnostic uses app-owned semantic HTML and canonical roles.
+   Shared auth components remain unqualified; this does not add an admission baseline. */
+.membership-preview { min-block-size: 100vh; padding: var(--cantos-space-lg); }
+.membership-preview * { box-sizing: border-box; }
+.membership-preview :where(h1,h2,p,label,a,button,summary) { overflow-wrap: anywhere; }
+.membership-preview :where(button,input,select,a,summary):focus-visible {
+  outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
+  outline-offset: var(--cantos-size-focus-offset);
+}
+.membership-preview h1 { font: var(--cantos-type-headline-weight) var(--cantos-type-headline-size)/var(--cantos-type-headline-line-height) var(--cantos-type-family-editorial); }
+.membership-preview h2 { font: var(--cantos-type-title-weight) var(--cantos-type-title-size)/var(--cantos-type-title-line-height) var(--cantos-type-family-editorial); }
+.membership-preview a { color: var(--cantos-color-primary); }
+.membership-preview main { min-inline-size: 0; }
+.membership-preview main:focus { outline: none; }
+.membership-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cantos-space-md); margin-block-end: var(--cantos-space-lg); }
+.membership-toolbar strong { margin-inline-end: auto; font-family: var(--cantos-type-family-editorial); font-size: var(--cantos-type-title-size); }
+.membership-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.25fr); gap: var(--cantos-space-xl); max-inline-size: 72rem; margin: var(--cantos-space-xl) auto; }
+.membership-story { align-self: start; overflow: hidden; }
+.membership-story img { display: block; inline-size: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: var(--cantos-web-shape-reading); margin-block-end: var(--cantos-space-lg); }
+.membership-preview form, .membership-actions { display: grid; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-lg); }
+.membership-preview form label { font-weight: var(--cantos-type-label-weight); }
+.membership-preview form input { inline-size: 100%; min-inline-size: 0; min-block-size: var(--cantos-size-control); padding: var(--cantos-space-md); border: var(--cantos-size-border) solid transparent; border-radius: var(--cantos-shape-auth-field); background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface); font: inherit; }
+.membership-preview form input[aria-invalid="true"] { border-color: var(--cantos-color-error); }
+.membership-preview form input[readonly] { border-color: var(--cantos-color-outline); }
+.membership-error { color: var(--cantos-color-error); margin: 0; }
+.membership-preview .theatre-action { margin-block: var(--cantos-space-xs); }
+.membership-preview .theatre-action[aria-disabled="true"] { cursor: default; }
+.membership-preview select { max-inline-size: 100%; min-block-size: var(--cantos-size-control); padding: var(--cantos-space-sm); font: inherit; color: var(--cantos-color-on-surface); background: var(--cantos-color-surface); border-color: var(--cantos-color-outline); }
+.membership-plans { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
+.membership-plans article:last-child { background: var(--cantos-color-primary-container); color: var(--cantos-color-on-primary-container); }
+.membership-tools { max-inline-size: 72rem; margin-inline: auto; }
+.membership-preview summary { cursor: pointer; padding: var(--cantos-space-sm); min-block-size: var(--cantos-size-control); }
+.membership-preview fieldset { min-inline-size: 0; border: 0; margin-block: var(--cantos-space-lg); }
+@media (max-width: 52.5rem) {
+  .membership-layout { grid-template-columns: minmax(0,1fr); }
+  .membership-story { display: none; }
+}
+@media (max-width: 30rem) {
+  .membership-preview { padding: var(--cantos-space-md); }
+  .membership-plans { grid-template-columns: minmax(0,1fr); }
+}
+.membership-preview main .theatre-action { min-block-size: var(--cantos-size-auth-primary); border-radius: var(--cantos-shape-pill); }
+.membership-preview main .theatre-action-tonal { min-block-size: var(--cantos-size-auth-secondary); }
+.membership-preview form input { min-block-size: var(--cantos-size-auth-field); }
+.membership-toolbar a { display: inline-flex; align-items: center; min-block-size: var(--cantos-size-control); }

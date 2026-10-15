@@ -89,6 +89,26 @@ val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
 }
 
 
+// Hand-authored semantic expectations shared with Web; copied into tests, never shipping code.
+val generatedMembershipDirectory = layout.buildDirectory.dir("generated/membershipVectors/commonTest/kotlin")
+val generateMembershipVectors = tasks.register("generateMembershipVectors") {
+    val fixture = rootProject.file("../web/fixtures/membership-interest-v1.json")
+    inputs.file(fixture)
+    outputs.dir(generatedMembershipDirectory)
+    doLast {
+        val json = fixture.readText(Charsets.UTF_8)
+        val quoted = json.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
+            .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
+        val output = generatedMembershipDirectory.get().asFile.resolve(
+            "com/cantos/theatre/domain/membership/MembershipVectors.kt",
+        )
+        output.parentFile.mkdirs()
+        output.writeText("// Generated from the shared hand-authored preview corpus. Do not edit.\n" +
+            "package com.cantos.theatre.domain.membership\n" +
+            "internal const val membershipVectorJson: String = \"$quoted\"\n", Charsets.UTF_8)
+    }
+}
+
 val generateClientBoundaryVectors = tasks.register("generateClientBoundaryVectors") {
     val fixture = rootProject.file("../../../packages/contracts/fixtures/client-boundary/v1/probe-cases.json")
     val nativeSessionFixture = rootProject.file("../../../packages/contracts/fixtures/theatre-identity/v1/native-session.json")
@@ -261,6 +281,7 @@ kotlin {
         }
         commonTest {
             kotlin.srcDir(generatePlaybackVectors)
+            kotlin.srcDir(generateMembershipVectors)
             kotlin.srcDir(generateClientBoundaryVectors)
             kotlin.srcDir(generateProtobufVectors)
             kotlin.srcDir(generateArtworkVectors)

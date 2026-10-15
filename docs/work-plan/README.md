@@ -151,14 +151,23 @@ Recommended order stays small and reviewable:
 
 1. Complete fresh Leptos and CMP runtime/accessibility/visual admission for the exact shared
    token/source revision. Do not accept a screenshot from the HTML prototype or a build instead.
-2. #128 may discover pure membership form/receipt/plan semantics independently; renderer use
-   waits for admission and must not invent prices, entitlements or checkout behavior.
+2. #128's [Membership interest boundary](../product/membership-interest.md) permits pure
+   form/receipt/plan state and explicitly labeled opt-in Web/CMP previews while production
+   submission remains unavailable. [Preview evidence](../evidence/theatre-membership-preview.md)
+   separates fixtures and renderer observations from actual receipt/API acceptance. Shared
+   variants remain preview-only until admission; no prices, entitlements or checkout are invented.
 3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
    retain the product-owned navigation requirements rather than copying prototype navigation.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
 
 This does not reorder publication/storage acceptance, change auth grants, or close consumer
 issues. GitHub owns execution status; the queue records only dependency order and rationale.
+
+After the bounded #128 preview, prioritize #12/#34 decisions on submitter/contact ownership,
+receipt persistence and reconciliation, and accepted plan data before a production Membership
+adapter. Keep real #129/#130 auth-return integration and fresh shared-component admission as
+separate review boundaries. Independent review of the preview remains required before relying
+on its implementation evidence.
 
 ## Existing foundations to retain
 

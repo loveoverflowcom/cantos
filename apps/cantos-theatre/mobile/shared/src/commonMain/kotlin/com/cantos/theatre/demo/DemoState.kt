@@ -6,6 +6,7 @@ sealed interface DemoRoute {
     data object Library : DemoRoute
     data object Settings : DemoRoute
     data object Account : DemoRoute
+    data object MembershipPreview : DemoRoute
     data object History : DemoRoute
     data object Queue : DemoRoute
     data object Player : DemoRoute

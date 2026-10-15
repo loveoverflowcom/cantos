@@ -7,6 +7,7 @@ pub mod application;
 pub mod core;
 mod features;
 mod infrastructure;
+pub mod membership_preview;
 pub mod messages;
 mod platform;
 pub mod view;

@@ -19,11 +19,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.cantos.theatre.domain.membership.MembershipState
 
 // A diagnostic desktop host for the exact shared mock app; it implements no native media.
 fun main() = application {
     val scope = rememberCoroutineScope()
     val container = remember { AppContainer.mock(scope) }
+    // Diagnostic desktop opt-in only; Android/iOS hosts always use unavailable defaults.
+    val membership = remember {
+        if (System.getenv("CANTOS_MEMBERSHIP_PREVIEW_FIXTURE") == "1") MembershipState.fixture()
+        else MembershipState.unavailable()
+    }
     DisposableEffect(container) { onDispose { container.close() } }
     Window(
         onCloseRequest = ::exitApplication,
@@ -46,6 +52,7 @@ fun main() = application {
         ) {
             CantosDemoApp(
                 appContainer = container,
+                membershipPreviewState = membership,
                 backHandler = { enabled, onBack ->
                     SideEffect {
                         backEnabled = enabled
