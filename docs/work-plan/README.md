@@ -184,8 +184,13 @@ Recommended order stays small and reviewable:
    the owner's Desktop. Android APK compilation is separate from the unavailable IDE capture
    and unrun native/reader acceptance. Complete the recorded production/native gaps; earlier
    PASS results never accept different follow-up source.
-3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
-   retain the product-owned navigation requirements rather than copying prototype navigation.
+3. #129's [Web Home/Auth/Account boundary](../evidence/theatre-web-auth-account.md) applies the
+   admitted shared variants to anonymous Home and explicit contextual auth, while retaining
+   #35's two primary destinations and avatar Account entry. Keep provider signup unavailable
+   until its exact capability/callback policy is accepted; a prototype form or route is no
+   registration receipt. Prioritize the recorded provider-return, cancellation, browser history
+   and focus evidence before broadening this Web slice. #130 native adoption remains independent
+   of this browser lifecycle and sandbox #122.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
 
 This does not reorder publication/storage acceptance, change auth grants, or close consumer
@@ -193,9 +198,10 @@ issues. GitHub owns execution status; the queue records only dependency order an
 
 After the bounded #128 preview, prioritize #12/#34 decisions on submitter/contact ownership,
 receipt persistence and reconciliation, and accepted plan data before a production Membership
-adapter. Keep real #129/#130 auth-return integration and fresh shared-component admission as
-separate review boundaries. Independent review of the preview remains required before relying
-on its implementation evidence.
+adapter. The #129 Web boundary preserves unavailable Membership information without importing
+preview receipt/plan fixtures into production; live-provider acceptance, fresh component admission
+and #130 native return handling retain their separate review boundaries. Independent review of
+the preview remains required before relying on its implementation evidence.
 
 ## Existing foundations to retain
 
@@ -216,6 +222,12 @@ inventory and token reconciliation: its [first slice](../evidence/issue143-cmp-p
 gallery's Design v3 tab, root-injected Light/Dark/System, named dp evidence constraints and capture
 records; its [order for the remaining batches](016-cmp-ui-system.md#design-v3-cmp-slice-issue-143)
 starts with Theatre compositions over registered primitives.
+
+The bounded [Web Back presentation comparison](../evidence/shared-back-v3-alignment.md) keeps
+blocked Back labels quiet while retaining readable disabled semantics. Its before/after pixel
+regions use unreviewed regression snapshots. Next, approve an exact Web disabled-state design
+baseline and complete its attributed recheck before expanding visual-fidelity claims; this does
+not admit a new shared component or change CMP/product rollout order.
 
 The [local visual-comparison slice](../evidence/visual-compare.md) supplies advisory pixel
 metrics/regions through the [existing UI method](../../.agents/skills/cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).

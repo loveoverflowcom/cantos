@@ -2,10 +2,10 @@ use crate::{
     app::{context::TheatreContext, routes::Route},
     application::catalog::Scenario,
     features::{
-        account::{Account, LiveAccount},
+        account::Account,
         common::*,
         discovery::Discover,
-        library::{History, Library, LiveLibrary},
+        library::{History, Library},
         player::{MiniPlayer, Player},
         queue::Queue,
         work_detail::WorkDetail,
@@ -73,7 +73,7 @@ pub fn Theatre() -> impl IntoView {
                                 Route::Queue => view! { <Queue ctx=ctx/> }.into_any(),
                                 Route::Settings => view! { <Settings ctx=ctx/> }.into_any(),
                                 Route::Account => view! { <Account ctx=ctx/> }.into_any(),
-                                Route::NotFound => view! { <Recovery ctx=ctx title=Key::NotFound help=Key::NotFoundHelp/> }.into_any(),
+                                Route::Auth(_) | Route::Membership(_) | Route::NotFound => view! { <Recovery ctx=ctx title=Key::NotFound help=Key::NotFoundHelp/> }.into_any(),
                             }}
                             <footer class="theatre-footer">{move || ctx.text(Key::Footer)}</footer>
                         </main>
@@ -269,9 +269,9 @@ mod tests {
     fn live_shell_mounts_account_and_library_without_mock_media_or_studio_authority() {
         Owner::new().with(|| {
             let html = view! { <LiveBoundary/> }.to_html();
-            assert!(html.contains("theatre-live-account-heading"));
-            assert!(html.contains("theatre-live-library-heading"));
-            assert!(html.contains("href=\"?mode=mock\""));
+            assert!(html.contains("theatre-public-home"));
+            assert!(html.contains("href=\"#account\""));
+            assert!(!html.contains("theatre-live-account-heading"));
             assert!(html.contains("role=\"status\""));
             for forbidden in [
                 "Cantos Theatre",
@@ -287,47 +287,15 @@ mod tests {
     }
 }
 
-/// Real listener account bootstrap, with the mock catalog/media remaining explicitly separate.
+mod live_shell;
+pub use live_shell::{AuthPreview, LiveBoundary};
+
+// Keep the existing shared foundation adoption at this root composition site.
 #[component]
-pub fn LiveBoundary() -> impl IntoView {
-    use crate::application::account_view::AccountViewState;
-    let state = RwSignal::new(AccountViewState::default());
-    let locale = RwSignal::new(Locale::Vietnamese);
-    let main = NodeRef::<leptos::html::Main>::new();
-    #[cfg(target_arch = "wasm32")]
-    crate::live::runtime::mount(state);
-    Effect::new(move |_| {
-        platform::set_title(&messages::format(
-            Key::PageTitle,
-            locale.get(),
-            &[(
-                "page",
-                messages::text(Key::Account, locale.get()).to_owned(),
-            )],
-        ));
-    });
-    view! {
-        <UiRoot class="theatre-shell"><Container width=ContainerWidth::Wide>
-            <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main" lang=move || locale.get().lang()>
-                <a class="theatre-skip" href="#theatre-main" on:click=move |event| {
-                    event.prevent_default();
-                    platform::focus_main(main);
-                }>{move || messages::text(Key::SkipContent, locale.get())}</a>
-                <h1>"Cantos"</h1>
-                <Select id="theatre-live-locale" label=Signal::derive(move || messages::text(Key::Locale, locale.get()).to_owned())
-                    value=Signal::derive(move || locale.get().lang().to_owned())
-                    on_input=Callback::new(move |value: String| match value.as_str() {
-                        "vi-VN" => locale.set(Locale::Vietnamese),
-                        "en" => locale.set(Locale::English),
-                        _ => (),
-                    })>
-                    <option value="vi-VN">"Tiếng Việt"</option><option value="en">"English"</option>
-                </Select>
-                <p>{move || messages::text(Key::LiveNotice, locale.get())}</p>
-                <LiveAccount state locale/>
-                <LiveLibrary state locale/>
-                <p><a class="theatre-text-link" href="?mode=mock">{move || messages::text(Key::OpenMock, locale.get())}</a></p>
-            </main>
-        </Container></UiRoot>
-    }
+fn LiveFrame(theme: RwSignal<Theme>, children: Children) -> impl IntoView {
+    view! { <UiRoot theme density=Density::Comfortable class="theatre-shell">{children()}</UiRoot> }
+}
+#[component]
+fn LiveContainer(children: Children) -> impl IntoView {
+    view! { <Container width=ContainerWidth::Wide>{children()}</Container> }
 }

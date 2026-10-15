@@ -81,3 +81,5 @@ pub fn set_title(title: &str) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn set_title(_title: &str) {}
+
+pub(crate) mod auth_browser;

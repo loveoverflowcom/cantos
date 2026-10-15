@@ -4,12 +4,14 @@ pub enum Mode {
     Live,
     Mock,
     MembershipPreview,
+    AuthPreview,
 }
 impl Mode {
     pub fn from_query(query: &str) -> Self {
         match query {
             "?mode=mock" => Self::Mock,
             "?mode=membership-preview" => Self::MembershipPreview,
+            "?mode=auth-preview" => Self::AuthPreview,
             _ => Self::Live,
         }
     }

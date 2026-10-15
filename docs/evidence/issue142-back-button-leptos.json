@@ -2,30 +2,30 @@
   "component_id": "back-button",
   "renderer": "leptos",
   "status": "PASS",
-  "reviewer": "Codex — issue142 browser compatibility recheck, 15 October 2026",
-  "reference": "Opened issue141 narrow BackButton reference and current390x844 visible/icon-only focus specimens; Enter one callback, loading/disabled inert. No native OS Back claim.",
+  "reviewer": "Codex root — shared Back v3 compatibility recheck with independent source/reference review, 15 October 2026",
+  "reference": "Fresh same-scenario Light/Dark/narrow200 before/after Back captures and source-backed quiet-action refinement; loading/disabled native inertness, Tab focus with a 3px outline and one Enter/Space callback rechecked. Historical Back reference reopened; no approved disabled design-pixel or OS Back claim.",
   "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
-  "source_sha256": "c8bf6aae2d787c593b86da2a2113cc1504ce7a6a15bf3c2c783dc8bf72bd47c8",
+  "source_sha256": "82e7446300057dc01e60a0a0947255a3b9433256a60d73b4330b7c6d36f46eec",
   "checks": {
     "structural": {
       "status": "PASS",
       "command": "cargo xtask ui-preview leptos verify",
-      "artifact": "docs/evidence/leptos-preview-scenarios.md"
+      "artifact": "docs/evidence/shared-back-v3-alignment.md"
     },
     "runtime": {
       "status": "PASS",
-      "command": "cargo xtask ui-preview leptos run; CUA trusted input, DOM/computed styles and opened captures",
-      "artifact": "docs/evidence/leptos-preview-scenarios.md"
+      "command": "cargo xtask ui-preview leptos run; CUA trusted keyboard/pointer, live DOM/computed roles and opened component captures; scoped compatibility review",
+      "artifact": "docs/evidence/shared-back-v3-alignment.md"
     },
     "accessibility": {
       "status": "PASS",
-      "command": "cargo xtask ui-preview leptos run; CUA trusted input, DOM/computed styles and opened captures",
-      "artifact": "docs/evidence/leptos-preview-scenarios.md"
+      "command": "cargo xtask ui-preview leptos run; CUA trusted keyboard/pointer, live DOM/computed roles and opened component captures; scoped compatibility review",
+      "artifact": "docs/evidence/shared-back-v3-alignment.md"
     },
     "visual": {
       "status": "PASS",
-      "command": "cargo xtask ui-preview leptos run; CUA trusted input, DOM/computed styles and opened captures",
-      "artifact": "docs/evidence/leptos-preview-scenarios.md"
+      "command": "cargo xtask ui-preview leptos run; CUA trusted keyboard/pointer, live DOM/computed roles and opened component captures; scoped compatibility review",
+      "artifact": "docs/evidence/shared-back-v3-alignment.md"
     }
   }
 }

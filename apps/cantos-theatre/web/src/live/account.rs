@@ -36,11 +36,11 @@ pub async fn session() -> Result<AccountScope, Failure> {
     let view: Session = serde_json::from_slice(&body).map_err(|_| Failure::Protocol)?;
     AccountScope::from_session(view.actor_id, view.session_id).map_err(|_| Failure::Protocol)
 }
-pub fn navigate_login() -> Result<(), Failure> {
+pub fn navigate_login(intent: &str) -> Result<(), Failure> {
     web_sys::window()
         .ok_or(Failure::Navigation)?
         .location()
-        .set_href("/api/v1/theatre/auth/login")
+        .set_href(&format!("/api/v1/theatre/auth/login?intent={intent}"))
         .map_err(|_| Failure::Navigation)
 }
 pub async fn delete_session(intent: &CleanupIntent) -> Result<(), Failure> {

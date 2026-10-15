@@ -499,6 +499,7 @@ async fn actual_http_login_callback_cookie_logout_and_expired_code_recovery() {
     let callback = format!("/api/v1/theatre/auth/callback?state={state}&code={code}");
     let response = request(&h, "GET", &callback, Some(&flow), None, None).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(response.headers()[header::LOCATION], "/#auth-return");
     let cookie = response
         .headers()
         .get_all(header::SET_COOKIE)
@@ -510,6 +511,26 @@ async fn actual_http_login_callback_cookie_logout_and_expired_code_recovery() {
         .next()
         .unwrap()
         .to_owned();
+    // A completion hash alone grants nothing; the app must confirm the actual cookie session.
+    assert_eq!(
+        request(&h, "GET", "/api/v1/theatre/session", None, None, None)
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request(
+            &h,
+            "GET",
+            "/api/v1/theatre/session",
+            Some(&cookie),
+            None,
+            None
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
     assert_eq!(
         request(&h, "GET", &callback, Some(&flow), None, None)
             .await
@@ -555,6 +576,290 @@ async fn actual_http_login_callback_cookie_logout_and_expired_code_recovery() {
         Some(AuthError::State)
     );
     assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), count + 1);
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL; signed-provider HTTP boundary"]
+async fn bound_provider_cancellation_returns_to_login_without_exchanging_or_issuing_a_session() {
+    let h = Harness::new().await;
+    let response = request(&h, "GET", "/api/v1/theatre/auth/login", None, None, None).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let url = response.headers()[header::LOCATION].to_str().unwrap();
+    let (state, code) = h.mock.issue(url, "cancelled-listener", None);
+    let flow = response.headers()[header::SET_COOKIE]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap()
+        .to_owned();
+    let token_calls = h.mock.data.token_calls.load(Ordering::SeqCst);
+    let callback = format!(
+        "/api/v1/theatre/auth/callback?state={state}&error=access_denied&error_description=ignored&return_to=https://example.com"
+    );
+    let response = request(&h, "GET", &callback, Some(&flow), None, None).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(response.headers()[header::LOCATION], "/#auth-cancelled");
+    assert!(!response.headers().contains_key(header::SET_COOKIE));
+    assert_eq!(h.count("theatre_identity_sessions").await, 0);
+    assert_eq!(h.count("actors").await, 0);
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), token_calls);
+    assert_eq!(
+        request(
+            &h,
+            "GET",
+            "/api/v1/theatre/session",
+            Some(&flow),
+            None,
+            None
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    for (path, cookie) in [
+        (callback.clone(), None),
+        (
+            format!(
+                "/api/v1/theatre/auth/callback?state={}&error=access_denied",
+                "f".repeat(64)
+            ),
+            Some(flow.as_str()),
+        ),
+        (
+            format!("/api/v1/theatre/auth/callback?state={state}&code=code&error=access_denied"),
+            Some(flow.as_str()),
+        ),
+        (
+            format!("/api/v1/theatre/auth/callback?state={state}&error="),
+            Some(flow.as_str()),
+        ),
+    ] {
+        let response = request(&h, "GET", &path, cookie, None, None).await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert!(!response.headers().contains_key(header::LOCATION));
+        assert!(!response.headers().contains_key(header::SET_COOKIE));
+    }
+    assert_eq!(h.count("theatre_identity_sessions").await, 0);
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), token_calls);
+    let forged_binder = format!("cantos_theatre_flow_{state}={}", "f".repeat(64));
+    let forged = request(&h, "GET", &callback, Some(&forged_binder), None, None).await;
+    assert_eq!(forged.status(), StatusCode::UNAUTHORIZED);
+    assert!(!forged.headers().contains_key(header::LOCATION));
+    assert!(!forged.headers().contains_key(header::SET_COOKIE));
+    let late_code = format!("/api/v1/theatre/auth/callback?state={state}&code={code}");
+    let late = request(&h, "GET", &late_code, Some(&flow), None, None).await;
+    assert_eq!(late.status(), StatusCode::UNAUTHORIZED);
+    assert!(!late.headers().contains_key(header::SET_COOKIE));
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), token_calls);
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL; per-flow UI nonce and exact cancellation"]
+async fn old_callback_keeps_its_ui_intent_and_cancellation_never_revokes_another_flow() {
+    let h = Harness::new().await;
+    let before = h.count("theatre_identity_flows").await;
+    for intent in [
+        "bad",
+        "",
+        &"a".repeat(33),
+        &"A".repeat(32),
+        "first&intent=second",
+    ] {
+        let response = request(
+            &h,
+            "GET",
+            &format!("/api/v1/theatre/auth/login?intent={intent}"),
+            None,
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert!(!response.headers().contains_key(header::SET_COOKIE));
+    }
+    assert_eq!(h.count("theatre_identity_flows").await, before);
+    let mut starts = Vec::new();
+    for (intent, subject) in [("1".repeat(32), "old-a"), ("2".repeat(32), "current-b")] {
+        let response = request(
+            &h,
+            "GET",
+            &format!("/api/v1/theatre/auth/login?intent={intent}"),
+            None,
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let (state, code) = h.mock.issue(
+            response.headers()[header::LOCATION].to_str().unwrap(),
+            subject,
+            None,
+        );
+        let cookies = response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(|value| {
+                value
+                    .to_str()
+                    .unwrap()
+                    .split(';')
+                    .next()
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(cookies.len(), 2);
+        assert!(cookies
+            .iter()
+            .any(|value| value == &format!("cantos_theatre_return_{state}={intent}")));
+        starts.push((state, code, intent, cookies.join("; ")));
+    }
+    let inventory = starts
+        .iter()
+        .map(|(_, _, _, cookie)| cookie.as_str())
+        .collect::<Vec<_>>()
+        .join("; ");
+    let mut issued = Vec::new();
+    for (state, code, intent, _) in &starts {
+        let response = request(
+            &h,
+            "GET",
+            &format!("/api/v1/theatre/auth/callback?state={state}&code={code}"),
+            Some(&inventory),
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            response.headers()[header::LOCATION],
+            format!("/#auth-return?intent={intent}")
+        );
+        let cookies = response
+            .headers()
+            .get_all(header::SET_COOKIE)
+            .iter()
+            .map(|value| value.to_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(cookies.len(), 2);
+        let cleared = cookies
+            .iter()
+            .find(|value| value.contains("Max-Age=0"))
+            .unwrap();
+        assert!(cleared.starts_with(&format!("cantos_theatre_return_{state}=")));
+        let cookie = cookies
+            .iter()
+            .find(|value| value.starts_with("cantos_theatre="))
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_owned();
+        issued.push(cookie);
+    }
+    let (old_state, _, old_intent, _) = &starts[0];
+    let response = request(
+        &h,
+        "GET",
+        &format!("/api/v1/theatre/auth/callback?state={old_state}&error=access_denied"),
+        Some(&format!("{inventory}; {}", issued[1])),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        response.headers()[header::LOCATION],
+        format!("/#auth-cancelled?intent={old_intent}")
+    );
+    assert!(response
+        .headers()
+        .get_all(header::SET_COOKIE)
+        .iter()
+        .all(|value| value
+            .to_str()
+            .unwrap()
+            .starts_with(&format!("cantos_theatre_return_{old_state}="))));
+    assert_eq!(
+        request(
+            &h,
+            "GET",
+            "/api/v1/theatre/session",
+            Some(&issued[0]),
+            None,
+            None
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        request(
+            &h,
+            "GET",
+            "/api/v1/theatre/session",
+            Some(&issued[1]),
+            None,
+            None
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL; cancellation fences a paused code exchange"]
+async fn provider_cancellation_during_exchange_prevents_late_session_issuance() {
+    let h = Harness::new().await;
+    let start = h.oidc().begin(&h.store, None).await.unwrap();
+    let (state, code) = h.mock.issue(&start.url, "late-cancelled-listener", None);
+    let cookie = start.cookie.split(';').next().unwrap().to_owned();
+    let pause = h.mock.pause_code(&code);
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "no-static-fixtures",
+    );
+    let path = format!("/api/v1/theatre/auth/callback?state={state}&code={code}");
+    let captured = cookie.clone();
+    let late = tokio::spawn(async move {
+        app.oneshot(
+            Request::builder()
+                .uri(path)
+                .header(header::COOKIE, captured)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(2), pause.entered.notified())
+        .await
+        .unwrap();
+    let cancelled = request(
+        &h,
+        "GET",
+        &format!("/api/v1/theatre/auth/callback?state={state}&error=access_denied"),
+        Some(&cookie),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(cancelled.status(), StatusCode::SEE_OTHER);
+    assert_eq!(cancelled.headers()[header::LOCATION], "/#auth-cancelled");
+    pause.release.notify_one();
+    let late = tokio::time::timeout(std::time::Duration::from_secs(2), late)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(late.status(), StatusCode::UNAUTHORIZED);
+    assert!(!late.headers().contains_key(header::SET_COOKIE));
+    assert_eq!(h.count("theatre_identity_sessions").await, 0);
 }
 
 #[tokio::test]

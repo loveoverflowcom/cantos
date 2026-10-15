@@ -18,8 +18,11 @@ existing code without changing behavior, migrations or wire contracts; the
 
 Cantos Studio is web-only. Do not implement, scaffold, build or maintain a mobile client unless explicitly requested in a future roadmap.
 
-Support here defines product scope, not implementation evidence. Theatre Web is a session-only
-UI mock selectable explicitly beside a real unsupported API probe and
+Support here defines product scope, not implementation evidence. Theatre Web defaults to an
+anonymous public discovery Home and a separate same-origin account/auth/readonly Library
+boundary, with an explicit session-only UI mock at `?mode=mock`. Real playback, verified provider
+signup and production identity/delivery acceptance remain separate. See the
+[Web implementation boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
 Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or live listener resources; a common/JVM HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
@@ -31,7 +34,7 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 ```text
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
-    web/                   Leptos CSR session-only mock     (package cantos-theatre)      MOCK
+    web/                   Leptos CSR public/account reads  (package cantos-theatre)      LIVE READS + MOCK
     mobile/                Kotlin Compose Multiplatform     (isolated mock, no audio/API) DEMO
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
@@ -54,6 +57,12 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 ```
 
 - **IMPLEMENTED** has code that existed before the restructure and kept its tests.
+- **LIVE READS** is the Theatre Web's actual anonymous published-work read and opt-in Theatre
+  BFF account/readonly Library boundary, plus explicit contextual auth presentation. This is
+  implemented client code, not a claim of live Kanidm signup, playback, full sync or production
+  acceptance. Home stays accessible without authentication; Account remains an avatar entry and
+  the [two primary destinations](../../apps/cantos-theatre/web/README.md#scope-and-honest-behavior)
+  are preserved.
 - **MOCK** is the session-only Theatre Web mock: synthetic catalog, simulated player and in-memory
   library/queue, with evidence in its [record](../evidence/theatre-web-mock.md). It has no listener
   API, audio, account or persistence and is not evidence for any Theatre work item.
@@ -130,8 +139,8 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
 
 | Shared | Where | Consumers today |
 | --- | --- | --- |
-| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio` |
-| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web mock; development gallery |
+| Wire DTOs, JSON Schemas, serialized fixtures, MessagePack goldens, the JSON/MessagePack byte codec, contract documents | `packages/contracts` | `cantos-api`, `cantos-studio`, `cantos-theatre` |
+| Semantic design tokens and Leptos primitives | `packages/ui-system` | Studio shell/editor/casting presentation; Theatre Web live auth/account and isolated mock; development gallery |
 
 Not shared, deliberately:
 
@@ -175,7 +184,7 @@ Trunk and refuses reserved surfaces instead of simulating them.
 cargo xtask build cantos-api           # service binaries (native)
 cargo xtask build cantos-forge         # producer-side Forge CLI (native); built, never run by xtask
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
-cargo xtask build cantos-theatre --web         # Theatre Web session-only mock through Trunk
+cargo xtask build cantos-theatre --web         # Theatre Web live boundary and isolated mock through Trunk
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
 cargo xtask theatre-demo build                 # shared mock + JVM diagnostic host
 cargo xtask theatre-demo android-build         # mock debug APK; existing Android SDK required

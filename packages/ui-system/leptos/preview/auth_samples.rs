@@ -166,8 +166,9 @@ pub fn BackButtonSamples(
         _ => ButtonState::Enabled,
     });
     let on_back = Callback::new(move |_| returns.update(|count| *count += 1));
+    // A neutral canvas keeps the icon circle distinct and exposes accidental label fills.
     view! {
-        <Surface tone=SurfaceTone::Container variant=SurfaceVariant::AccountGroup>
+        <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup>
             <Stack gap=Space::Sm>
                 <h3>"Back theo ngữ cảnh · host sở hữu nơi trở về"</h3>
                 <Select id="auth-back-state" label="Trạng thái Back mẫu" value=mode
