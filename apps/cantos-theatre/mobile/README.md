@@ -146,13 +146,15 @@ iosApp/                    SwiftUI application owner and Xcode scheme; consumes 
 ```
 
 The mobile Gradle project directly compiles the canonical `packages/ui-system/cmp` source
-as the isolated Android preview does. Only its theme/tokens are used. No package source,
-palette, registry or qualification is copied/changed. The explicitly approved shared
+as the isolated Android preview does, excluding its `com/cantos/ui/preview/**` diagnostics.
+Shell screens use its theme/tokens; Membership composes the six reviewed shared APIs described
+above. No package source, palette, registry or qualification is copied/changed. The explicitly approved shared
 [mock playback corpus](../../../packages/contracts/fixtures/theatre/playback/v1/README.md)
-is imported unchanged for tests; it is not a listener API DTO. App compositions use stable
+is imported unchanged for tests; it is not a listener API DTO. Shell compositions use stable
 native Material controls and official outlined icons; no reusable Cantos primitive is introduced.
-Registered Cantos wrappers remain unused and **0/29 qualified**. Their future adoption still
-requires fresh [two-renderer admission](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
+The current [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) owns
+qualification scope/freshness. Any further shared API or variant adoption still requires fresh
+[two-renderer admission](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
 
 ## Local commands
 
@@ -284,6 +286,72 @@ a metadata store. No storage library or durable adapter is adopted.
 `cargo xtask theatre-demo verify` runs these common/JVM tests. They are `example-tested` /
 `mock-integration-tested` evidence over a fake: they establish no durable persistence, SQLite
 schema or migration, Android/iOS process death or device behavior.
+
+## Scenario workbench
+
+The desktop-only `shared/src/desktopMain/.../app/workbench` host (`com.cantos.theatre.app.workbench`)
+orchestrates the actual
+`CantosDemoApp` over the existing mock ports and sandbox. It adds no second screen copy,
+storage simulator, real file/HTTP/SQL adapter, auth flow or native audio engine. The shared
+`DemoAppSession` binds route UI inputs and dispatches the existing `DemoEvent`s; screens retain
+their immutable projection and intent boundary. Android static previews keep their immutable
+seeds and are separate from the desktop's interactive controls.
+
+```sh
+CANTOS_THEATRE_WORKBENCH=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
+```
+
+`TheatreRecipe.select` validates a versioned synthetic fixture, seed, injected `PreviewSettings`,
+write latency and ordered `TheatreStep`s. Its fixture IDs are `theatre-fresh-v1`,
+`theatre-restored-v1`, `theatre-empty-v1`, `theatre-loading-v1`, `theatre-error-v1` and
+`theatre-offline-v1`. Fresh and Restored reuse #109's `FakeStorageSession` seeds. Empty/Loading/
+Error select existing catalog outcomes; Offline combines that unavailable catalog with refused
+fake progress writes. It simulates no device connectivity or native offline entitlement.
+Only seed 1 is supported, with at most 40 scripted intents and 0–5000 ms write latency.
+
+`TheatreWorkbenchController` owns one `TheatreMount` at a time. Select and **Reset to selected**
+remount that recipe; **Recreate** starts fresh controllers over the current synthetic projection.
+Appearance settings preserve accepted query, route and listening values while injecting the
+new theme, locale, density, scale, constraint and motion preference into the same owner/session
+and composition. The diagnostic controls use the admitted shared `Surface` with zero insets,
+an opaque canonical background and light/compact preferences; recipe preferences apply only to
+the Theatre frame. The composition root supplies the system-theme fact without replacing the
+selected owner. Snapshot transfer uses the admitted caller-controlled `TextField`; its compact
+single-line viewport accepts the complete versioned payload for copy/paste. The event log is
+read-only text. These diagnostics do not bypass shared-component admission.
+**Replay** resets the selected fixture and dispatches its supported app intents in order on an
+explicit simulation clock, 50 ms apart. The read-only projection and bounded event log expose
+the outcome; controls use app intents rather than changing the fake database. Timer choices
+still schedule nothing. Recorded simulation time establishes no native timer, background,
+network, audio or process-lifecycle behavior.
+
+Each owned mount has its own child scope, session and container. Replacement invalidates old
+session callbacks, cancels replay/work, then closes that mount once; callbacks captured before
+a later selection cannot act on it. Externally injected containers remain borrowed and are
+closed only by their external owner. Verify recipe and lifecycle claims through the existing
+`cargo xtask theatre-demo verify` route; Android/iOS behavior requires its own acceptance.
+Lifecycle controls are explicitly unavailable for a borrowed container: selecting/resetting,
+changing settings, replaying, recreating or restoring it cannot claim to rebuild its external
+owner. Closing the workbench invalidates its binding without closing that container.
+
+`encodeTheatreSnapshot` returns `TheatreSnapshotExport.Exported` or `UnsupportedState`;
+`decodeTheatreSnapshot` returns `TheatreSnapshotResult.Accepted`, `UnsupportedVersion`,
+`UnknownRecipe` or `Invalid`. The JSON schema is version 1 and bounds imported payloads at
+65,536 characters, navigation at 32 entries and each bookmark/progress/history list at 40;
+export validates those same limits before reporting success.
+Only declared synthetic query IDs (empty, `Đèn`, `Sơn Hà`) are exported; other typed search text
+stays local and export refuses it. Membership state, storage failures and transient or
+inconsistent playback states cannot be exported or recreated. Settle/reset them first.
+Supported stable snapshots contain recipe/settings, scripted intent IDs and synthetic UI values;
+restore creates owners through the same injection seam. It serializes no scopes, controllers,
+services, credential, native path, private text or media. Invalid payloads create no default
+live adapter and leave the current mount intact.
+
+The workbench imports only the self-contained shared preview settings directory in `desktopMain`;
+`commonMain` does not reverse-import shared preview orchestration. This is the bounded #144
+consumer seam. [#122](https://github.com/loveoverflowcom/cantos/issues/122) still owns extraction of
+the broader existing mock sandbox and proof of production APK/AAB source/dependency exclusion.
+No desktop preview, source-set check or mock APK build substitutes for that artifact proof.
 
 ## Design and acceptance
 

@@ -20,22 +20,28 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.cantos.theatre.domain.membership.MembershipState
+import com.cantos.theatre.app.workbench.TheatreWorkbench
 
 // A diagnostic desktop host for the exact shared mock app; it implements no native media.
 fun main() = application {
-    val scope = rememberCoroutineScope()
-    val container = remember { AppContainer.mock(scope) }
+    val workbench = System.getenv("CANTOS_THEATRE_WORKBENCH") == "1"
     // Diagnostic desktop opt-in only; Android/iOS hosts always use unavailable defaults.
     val membership = remember {
         if (System.getenv("CANTOS_MEMBERSHIP_PREVIEW_FIXTURE") == "1") MembershipState.fixture()
         else MembershipState.unavailable()
     }
-    DisposableEffect(container) { onDispose { container.close() } }
     Window(
         onCloseRequest = ::exitApplication,
         title = "Cantos · bản mô phỏng",
-        state = rememberWindowState(width = 420.dp, height = 900.dp),
+        state = rememberWindowState(width = if (workbench) 1200.dp else 420.dp, height = if (workbench) 1000.dp else 900.dp),
     ) {
+        if (workbench) {
+            TheatreWorkbench()
+            return@Window
+        }
+        val scope = rememberCoroutineScope()
+        val container = remember { AppContainer.mock(scope) }
+        DisposableEffect(container) { onDispose { container.close() } }
         var backEnabled by remember { mutableStateOf(false) }
         var backAction by remember { mutableStateOf<() -> Unit>({}) }
         Box(

@@ -104,6 +104,7 @@ fun CantosDemoPresentation(
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
     // The mock's product default stays Reduced; a diagnostics host may inject Full to observe motion.
     motionPreference: MotionPreference = MotionPreference.Reduced,
+    density: Density = Density.Comfortable,
 ) {
     val copy = DemoCopy(state.locale)
     val back = { dispatch(DemoEvent.Back) }
@@ -112,7 +113,7 @@ fun CantosDemoPresentation(
     CantosTheme(
         UiPreferences(
             theme = if (state.theme == DemoTheme.Dark) Theme.Dark else Theme.Light,
-            density = Density.Comfortable,
+            density = density,
             reducedMotion = motionPreference == MotionPreference.Reduced,
             textScale = textScale,
         ),
