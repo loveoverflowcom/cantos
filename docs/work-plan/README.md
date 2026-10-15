@@ -452,6 +452,12 @@ P1 metadata, thumbnails and transcripts are explicitly deferred. This is an auth
 extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
 without reordering identity/storage or broader publication/listener acceptance.
 
+The [Studio private artwork control](../evidence/studio-private-artwork-ui.md) consumes that
+contract for owner prepare/upload/admission, CAS selection and explicit clear. Prioritize
+actual owner/rights/storage/restart acceptance next; browser HTTP doubles and admitted private
+images do not satisfy public artwork or publication delivery. The Studio UI introduces no
+new backend dependency and does not reorder the broader queue; GitHub owns execution status.
+
 The [implemented private artwork contract](../../packages/contracts/artwork-v1.md) now reuses
 the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL
 upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG

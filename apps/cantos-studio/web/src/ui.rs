@@ -148,12 +148,14 @@ pub enum BlockReason {
     Pending,
     ReadOnly,
     ProductionReview,
+    Artwork(crate::live::artwork::copy::Key),
 }
 
 impl BlockReason {
     pub fn text(self, english: bool) -> &'static str {
         let copy = messages::copy(english);
         match self {
+            Self::Artwork(key) => crate::live::artwork::copy::text(key, english),
             Self::Busy => copy.busy,
             Self::ContextReady => text(Key::ControlBlocked, english),
             Self::SaveReview => text(Key::ValidateFirst, english),
@@ -260,7 +262,15 @@ fn confirm_discard_request(blocked: bool, open: RwSignal<bool>, confirm: Callbac
     }
 }
 
-/// Only explicit confirmation dispatches discard. Escape/cancel preserve the app draft.
+/// App-owned confirmation targets share the established modal/focus owner. Shared Dialog
+/// imports stay at this existing boundary; no new shared component qualification is inferred.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum DiscardTarget {
+    #[default]
+    Draft,
+    Artwork(String),
+}
+/// Only explicit confirmation dispatches the caller's action. Escape/cancel preserve its draft.
 #[component]
 pub fn DiscardDraftDialog(
     open: RwSignal<bool>,
@@ -268,18 +278,44 @@ pub fn DiscardDraftDialog(
     blocked: Signal<bool>,
     on_confirm: Callback<(), bool>,
     on_error: Callback<DialogError>,
+    #[prop(into, default = DiscardTarget::Draft.into())] target: Signal<DiscardTarget>,
 ) -> impl IntoView {
-    // Dialog text is structural in v0.2.0. Locale changes remount chrome, never app draft state.
+    // Structural locale/target changes remount chrome, never app draft state.
     move || {
+        use crate::live::artwork::copy::{text as artwork_text, Key as ArtworkKey};
         let language = english.get();
-        view! { <Dialog id="revision-discard-dialog" title=text(Key::Discard, language) close_label=text(Key::Cancel, language)
-        description=text(Key::DiscardConfirm, language) open=open
+        let (id, cancel_id, confirm_id, title, cancel, confirm, description, context, reason) =
+            match target.get() {
+                DiscardTarget::Draft => (
+                    "revision-discard-dialog",
+                    "revision-discard-cancel",
+                    "revision-discard-confirm",
+                    text(Key::Discard, language),
+                    text(Key::Cancel, language),
+                    text(Key::DiscardNow, language),
+                    text(Key::DiscardConfirm, language),
+                    text(Key::PermissionHelp, language).to_owned(),
+                    BlockReason::ContextReady,
+                ),
+                DiscardTarget::Artwork(context) => (
+                    "artwork-clear-dialog",
+                    "artwork-clear-cancel",
+                    "artwork-confirm-clear",
+                    artwork_text(ArtworkKey::Clear, language),
+                    artwork_text(ArtworkKey::Cancel, language),
+                    artwork_text(ArtworkKey::Confirm, language),
+                    artwork_text(ArtworkKey::ClearHelp, language),
+                    context,
+                    BlockReason::Artwork(ArtworkKey::NeedCurrent),
+                ),
+            };
+        view! { <Dialog id=id title=title close_label=cancel description=description open=open
         on_close_request=Callback::new(move |_| open.set(false)) on_error=on_error
         actions=move || view! {
-            <Button id="revision-discard-cancel" variant=ButtonVariant::Secondary on_press=Callback::new(move |_| open.set(false))>{move || text(Key::Cancel, english.get())}</Button>
-            <ActionButton id="revision-discard-confirm" english=english variant=ButtonVariant::Danger blocked=blocked
-                on_press=Callback::new(move |_| confirm_discard_request(blocked.get_untracked(), open, on_confirm))>{move || text(Key::DiscardNow, english.get())}</ActionButton>
-        }><p>{move || text(Key::PermissionHelp, english.get())}</p></Dialog> }
+            <Button id=cancel_id variant=ButtonVariant::Secondary on_press=Callback::new(move |_| open.set(false))>{cancel}</Button>
+            <ActionButton id=confirm_id english=english variant=ButtonVariant::Danger blocked=blocked reason=reason
+                on_press=Callback::new(move |_| confirm_discard_request(blocked.get_untracked(), open, on_confirm))>{confirm}</ActionButton>
+        }><p>{context}</p></Dialog> }
     }
 }
 

@@ -1,5 +1,5 @@
 //! Concrete route plans reuse the server's raw DTOs. No domain policy is decided here.
-use super::delegation::IssuedGrant;
+use super::{artwork, delegation::IssuedGrant};
 use cantos_contracts::*;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
@@ -210,6 +210,26 @@ pub enum Command {
         credential: UploadCredential,
         bytes: Arc<Vec<u8>>,
     },
+    Artwork {
+        work: String,
+    },
+    PrepareImage {
+        work: String,
+        request: CreateImageIntentRequest,
+    },
+    ImageIntent {
+        work: String,
+        intent: String,
+    },
+    UploadImage {
+        work: String,
+        intent: ImageIntentDocument,
+        bytes: Arc<Vec<u8>>,
+    },
+    SetArtwork {
+        work: String,
+        request: SetWorkArtworkRequest,
+    },
     /// Owner-only Work delegation (ADR 0028), on the Studio cookie session.
     Delegations {
         work: String,
@@ -239,6 +259,10 @@ pub enum Reply {
     Review(AudioReviewDocument),
     Candidate(ReleaseCandidateResponse),
     Revoked,
+    Artwork(WorkArtworkResponse),
+    ImagePrepared(ImageIntentDocument),
+    ImageIntent(ImageIntentResponse),
+    ImageAdmitted(ImageAssetDocument),
     Delegations(DelegationGrantPage),
     /// The show-once secret is redacted from Debug; see `IssuedGrant`.
     DelegationIssued(Box<IssuedGrant>),
@@ -325,6 +349,30 @@ impl Command {
                     id(submission)?
                 )
             }
+            Self::Artwork { work } | Self::SetArtwork { work, .. } => {
+                format!("{base}/works/{}/artwork", id(work)?)
+            }
+            Self::PrepareImage { work, .. } => format!("{base}/works/{}/image-intents", id(work)?),
+            Self::ImageIntent { work, intent } => {
+                format!("{base}/works/{}/image-intents/{}", id(work)?, id(intent)?)
+            }
+            Self::UploadImage {
+                work,
+                intent,
+                bytes,
+            } => {
+                if bytes.is_empty()
+                    || bytes.len() > artwork::MAX_BYTES as usize
+                    || intent.work_id != *work
+                {
+                    return Err(ClientError::InvalidInput);
+                }
+                format!(
+                    "{base}/works/{}/image-intents/{}/bytes",
+                    id(work)?,
+                    id(&intent.id)?
+                )
+            }
             Self::Delegations { work, after } => {
                 let after = match after {
                     None => String::new(),
@@ -346,12 +394,12 @@ impl Command {
     }
     pub fn method(&self) -> &'static str {
         match self {
-            Self::PatchWork { .. } | Self::PatchUnit { .. } => "PATCH",
+            Self::PatchWork { .. } | Self::PatchUnit { .. } | Self::SetArtwork { .. } => "PATCH",
             Self::ArchiveWork { .. }
             | Self::ArchiveUnit { .. }
             | Self::Revoke { .. }
             | Self::RevokeDelegation { .. } => "DELETE",
-            Self::Upload { .. } => "PUT",
+            Self::Upload { .. } | Self::UploadImage { .. } => "PUT",
             Self::CreateWork(_)
             | Self::CreateUnit { .. }
             | Self::Reorder { .. }
@@ -360,7 +408,8 @@ impl Command {
             | Self::Prepare { .. }
             | Self::Review { .. }
             | Self::Candidate { .. }
-            | Self::IssueDelegation { .. } => "POST",
+            | Self::IssueDelegation { .. }
+            | Self::PrepareImage { .. } => "POST",
             _ => "GET",
         }
     }
@@ -397,10 +446,24 @@ impl Command {
             Self::Review { request, .. } => encode(request),
             Self::Candidate { request, .. } => encode(request),
             Self::IssueDelegation { request, .. } => encode(request),
+            Self::PrepareImage { request, .. } => encode(request),
+            Self::SetArtwork { request, .. } => encode(request),
             _ => Ok(None),
         }
     }
     pub fn decode(&self, status: u16, body: &[u8]) -> Result<Reply, ClientError> {
+        let artwork_status = match self {
+            Self::PrepareImage { .. } => Some(201),
+            Self::Artwork { .. }
+            | Self::SetArtwork { .. }
+            | Self::ImageIntent { .. }
+            | Self::UploadImage { .. } => Some(200),
+            _ => None,
+        };
+        if (200..300).contains(&status) && artwork_status.is_some_and(|expected| expected != status)
+        {
+            return Err(ClientError::Protocol { status });
+        }
         if self.expects_no_content() && (200..300).contains(&status) {
             return if status == 204 {
                 Ok(Reply::Revoked)
@@ -442,6 +505,10 @@ impl Command {
                 Reply::Candidate(parse(body, status)?)
             }
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => Reply::Revoked,
+            Self::Artwork { .. } | Self::SetArtwork { .. } => Reply::Artwork(parse(body, status)?),
+            Self::PrepareImage { .. } => Reply::ImagePrepared(parse(body, status)?),
+            Self::ImageIntent { .. } => Reply::ImageIntent(parse(body, status)?),
+            Self::UploadImage { .. } => Reply::ImageAdmitted(parse(body, status)?),
             Self::Delegations { .. } => Reply::Delegations(parse(body, status)?),
             Self::IssueDelegation { .. } => Reply::DelegationIssued(Box::new(
                 IssuedGrant::admit(status, parse(body, status)?)
@@ -519,6 +586,23 @@ impl Command {
             } => matches!(reply, Reply::Candidate(result)
                 if result.candidate.binding.unit_id == *unit && result.candidate.id == *candidate),
             Self::Revoke { .. } | Self::RevokeDelegation { .. } => matches!(reply, Reply::Revoked),
+            Self::Artwork { work } => {
+                matches!(reply, Reply::Artwork(r) if r.work_id == *work && r.work_revision > 0)
+            }
+            Self::SetArtwork { work, request } => matches!(reply, Reply::Artwork(r)
+                if r.work_id == *work && Some(r.work_revision) == request.expected_work_revision.checked_add(1)
+                    && r.artwork == request.artwork),
+            Self::PrepareImage { work, request } => matches!(reply, Reply::ImagePrepared(r)
+                if artwork::prepared_matches(work, request, r)),
+            Self::ImageIntent { work, intent } => matches!(reply, Reply::ImageIntent(r)
+                if r.intent.work_id == *work && r.intent.id == *intent && artwork::consistent_intent(r)),
+            Self::UploadImage {
+                work,
+                intent,
+                bytes,
+            } => matches!(reply, Reply::ImageAdmitted(r)
+                if intent.work_id == *work && intent.request.expected_byte_length == bytes.len() as u64
+                    && artwork::asset_matches(intent, r)),
             Self::Delegations { work, .. } => matches!(reply, Reply::Delegations(page)
                 if page.items.iter().all(|grant| grant.work_id == *work)
                     && page.next_after.as_deref().is_none_or(crate::adaptation::is_run_id)),
@@ -593,6 +677,11 @@ impl Reply {
             (Command::IssueDelegation { .. }, Self::DelegationIssued(issued)) => {
                 issued.grant.grantor_id == actor
             }
+            (Command::PrepareImage { .. }, Self::ImagePrepared(r)) => r.owner_id == actor,
+            (Command::UploadImage { .. }, Self::ImageAdmitted(r)) => r.owner_id == actor,
+            (Command::PrepareImage { .. } | Command::UploadImage { .. }, Self::ImageIntent(r)) => {
+                r.intent.owner_id == actor
+            }
             // Reads and editor mutations may legitimately return another owner's record.
             _ => true,
         }
@@ -602,6 +691,14 @@ impl Reply {
 impl Command {
     pub fn reconciliation_read(&self) -> Option<Self> {
         match self {
+            Self::PrepareImage { work, request } => Some(Self::ImageIntent {
+                work: work.clone(),
+                intent: request.id.clone(),
+            }),
+            Self::UploadImage { work, intent, .. } => Some(Self::ImageIntent {
+                work: work.clone(),
+                intent: intent.id.clone(),
+            }),
             Self::Prepare { unit, request } => Some(Self::Submission {
                 unit: unit.clone(),
                 submission: request.id.clone(),
@@ -618,6 +715,30 @@ impl Command {
         }
     }
     pub fn reconciles(&self, reply: &Reply, actor: &str) -> bool {
+        if let Reply::ImageIntent(status) = reply {
+            if status.intent.owner_id != actor || !artwork::consistent_intent(status) {
+                return false;
+            }
+            return match self {
+                Self::PrepareImage { work, request } => {
+                    artwork::prepared_matches(work, request, &status.intent)
+                }
+                Self::UploadImage {
+                    work,
+                    intent,
+                    bytes,
+                } => {
+                    status.intent == *intent
+                        && intent.work_id == *work
+                        && bytes.len() as u64 == intent.request.expected_byte_length
+                        && status
+                            .asset
+                            .as_ref()
+                            .is_some_and(|asset| artwork::asset_matches(intent, asset))
+                }
+                _ => false,
+            };
+        }
         let Reply::Submission(status) = reply else {
             return false;
         };

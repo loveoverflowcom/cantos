@@ -330,3 +330,39 @@ Host tests exercise the real pure wire adapter against independent Python golden
 editor reducer. They do not establish actual browser network counts, AbortController behavior,
 proxy behavior or PostgreSQL acceptance. Those are independent runtime gates, including save,
 lost body, timeout/navigation cancellation, exact reload and JSON rollback.
+
+## Private Work artwork
+
+The owner-only `studio-artwork` composition uses the existing [artwork-v1](../../../packages/contracts/artwork-v1.md)
+Studio routes through `live::Command` and its session-fenced dispatcher. Select an original
+PNG/JPEG, declare provenance and rights, prepare the 30-minute intent, upload raw bytes, then
+explicitly select the admitted asset with alt text and the displayed Work revision. The
+current cover and local replacement are separate. Upload admission never announces a saved
+cover or public delivery. Clearing requires confirmation and sends explicit `artwork: null`;
+source bytes and history remain intact.
+
+Client checks are hints: 1 byte–8 MiB, 1–4096 px per dimension, 16,777,216 pixels, provenance
+through 4096 UTF-8 bytes, 1–64 distinct valid rights IDs, and alt through 1024 UTF-8 bytes
+without control/line-separator characters. The server owns admission, ownership and rights.
+XHR progress displays observed transferred bytes only. Private preview reads verify the exact
+asset digest/hash/length/type and use transient Blob URLs, never credential-bearing image URLs.
+
+A failed request retains inputs. A revision conflict exposes submitted/current comparison after
+an explicit reload; it never silently rebases. An unknown prepare/PUT can read the exact intent;
+an unknown selection/clear replays the original operation and CAS request. New mutations and
+local discard are blocked while an operation is unresolved. Discarding a local replacement
+cannot revoke a committed upload. Artwork activity participates in existing workspace/session
+and unload guards; object URLs and listeners are released on replacement/disposal.
+
+Development composition preview: build with `cargo xtask build cantos-studio --web`, then use
+`?preview=studio-artwork` in the existing debug Studio runtime. It injects synthetic facts into
+the same form and makes no API/storage call. Its v1 scenarios are `empty`, `current`,
+`replacement`, `validating`, `preparing`, `prepared`, `uploading`, `awaiting-acknowledgement`,
+`admitted`, `failed`, `expired`, `unknown`, and `conflict`. Scenario selection explicitly resets
+projection; theme/locale retain draft text. This entry and its fixture module are excluded by
+`cfg(debug_assertions)` in release builds. It is a Studio-owned composition using established
+UI primitives, not a new shared component or a native Studio surface.
+
+See the [implementation/evidence record](../../../docs/evidence/studio-private-artwork-ui.md)
+for browser fixtures, commands and unrun API/storage acceptance. The normal app launcher still
+requires its documented local API; mock-browser observations do not waive that prerequisite.
