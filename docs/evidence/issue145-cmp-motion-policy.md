@@ -220,6 +220,35 @@ where it previously shared the effects easing, and the copy's opacity keeps the 
 reduced first frame and the settled frame are byte-identical to develop's reduced capture, and all
 16 pre-existing splash captures (reduced) are byte-identical to clean develop's.
 
+## Visual recheck with `cargo xtask visual-compare`
+
+After the PR was opened, the local comparator was run once more over every pair where a clean-develop
+capture exists for the same scenario (`cargo xtask visual-compare --python /usr/bin/python3 --self-test`
+passed first: Pillow 11.3.0, 12 tests). The design v3 source HTML has no Auth action, launch or motion
+specimen (its specimens are `button`, `mini-player`, `expanded-player` and so on), so there is no design
+reference for these frames and none was invented; each reference is a clean-develop capture
+(`unreviewed`, not an approved baseline), pinned by SHA-256 in the pair metadata.
+
+| Scenario | Reference vs actual | Result |
+| --- | --- | --- |
+| `issue145-splash-light-vi-390x844-reduced` | develop vs branch, 390×844, light, vi, reduced final frame | `equal`, 0 of 329160 px |
+| `issue145-splash-dark-vi-320x568-text2-reduced` | develop vs branch, 320×568, dark, vi, text 2.0× | `equal`, 0 of 181760 px |
+| `issue145-splash-full-settled-vs-develop-final-r2` | develop's reduced final frame vs the branch's full-motion frame settled at 368 ms, 390×844, light, en | `equal`, 0 of 329160 px |
+| `issue145-auth-press-mid-flight` | `AuthActionMotionTest` animated mid-press frame, develop vs branch, 300×60 | `equal`, 0 of 18000 px |
+| `issue145-auth-press-reduced-pressed` | same test, reduced motion, settled pressed frame | `equal`, 0 of 18000 px |
+
+The first attempt at the third pair returned `scenario_mismatch` with no score because the pairing metadata
+declared different `state` values for the two sides (a develop reduced frame and a branch full-motion
+frame). That was a metadata error, not a pixel finding: the scenario is the same final frame, and the
+motion mode belongs in the renderer note. It was re-paired as `…-r2` with the same policy otherwise.
+There was nothing to repair in the implementation: the comparator found no pixel difference, so the
+mid-flight Auth frame (same duration and easing as develop) and every final frame are unchanged.
+The `overlay.png` of the `-r2` pair was opened: a plain 50/50 blend with no numbered region. A pixel
+`equal` is not UX approval, says nothing about frames the pairs do not cover (the new full-motion
+mid frames have no develop counterpart), and the reports carry `font` as an unknown provenance gap.
+The bundles are ignored local artifacts (`artifacts/ui-evidence/issue145-recheck/`, copied to
+`artifacts/ui-evidence/issue145-motion/visual-compare/` in the main checkout), not committed.
+
 ## Qualification re-binding
 
 Any `.kt` file under `packages/ui-system/cmp` is part of the CMP source digest, so the six
