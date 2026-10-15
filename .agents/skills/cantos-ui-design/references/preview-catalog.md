@@ -84,8 +84,11 @@ unsupported until a concrete consumer and its input/focus/cancellation policy ex
    read the OS or create services, ports, mock owners, network, audio or auth effects. Regenerate
    CSS/Rust/Kotlin and both catalogues with the existing
    generator primitives. Never patch generated files or duplicate native palettes.
-4. Run `cargo xtask verify repository`, the affected Rust/Web gates, and
-   `cargo xtask ui-preview cmp verify`. Use `cargo xtask ui-preview leptos run` and
+4. At a coherent component checkpoint, run affected Rust/Web gates and
+   `cargo xtask ui-preview cmp verify` under the foundation's
+   [verification cadence](../../cantos-engineering/references/verification-cadence.md);
+   reuse valid evidence and use handoff preflight for gates already in its plan.
+   Use `cargo xtask ui-preview leptos run` and
    `cargo xtask ui-preview cmp run` for the runtime review. Inspect the actual design reference
    and rendered pixels, realistic Vietnamese text, narrow/wide space, light/dark, text scaling,
    keyboard/focus and relevant interrupted/repeated interactions. Record cancellation/reversal,
@@ -102,7 +105,7 @@ unsupported until a concrete consumer and its input/focus/cancellation policy ex
 6. Only then import the new component in `apps/`. Record lookup IDs/APIs/variants, any missing-kind
    rationale, scenario IDs and the evidence/remaining blocker in the PR. The repository gate rejects unregistered APIs,
    missing examples, generated drift, stale qualification and new import sites without both
-   fresh records. Run `cargo xtask preflight --changed-only` before handoff.
+   fresh records. Complete the foundation's handoff checks without duplicating covered gates.
 
 If any required check is `NOT_RUN`, `UNSUPPORTED`, failed or blocked, leave the component
 unqualified and outside real app adoption. Report the exact blocker and resume the same scenario

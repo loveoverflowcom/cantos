@@ -213,18 +213,16 @@ Numbers add no evidence level. For Web, use [performance and caching](../cantos-
 
 ## 7. Verification tiers
 
-| Tier | What runs |
-|---|---|
-| Every change today | `cargo xtask verify repository` (repository checks, Python unit tests, `git diff --check`) |
-| Every code change | the focused test first, then `cargo xtask preflight --changed-only`, which selects fmt, clippy, tests, contracts, Web, mutation and PostgreSQL gates from the diff and broadens when impact is uncertain; plus the cheapest regression per behavior change |
-| Pipeline / publication change | fault-injected crash, retry, duplicate-delivery and stale-revision cases at the changed step |
-| UI change | the renderer skill's evidence loop: driven flow, inspected captures, viewports, themes, Vietnamese text, focus, text scaling |
-| Phase exit | the work plan's [review boundary](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence) with live and mocked evidence labeled separately |
+The [verification cadence](references/verification-cadence.md) owns timing: DEV focused checks,
+CHECKPOINT module/renderer evidence, HANDOFF final-diff preflight and CRITICAL targeted evidence.
+Edits and intermediate commits do not each trigger preflight. Reuse valid evidence and avoid
+checks already covered by the handoff plan. Other skills reference this policy's schedule.
 
 For handoff, follow the [local handoff policy](references/local-execution.md#local-handoff-and-pr-completion)
 and report [independent gates](references/verification-strategy.md#independent-verification-gates).
 Core verification is independent of integration acceptance; a layer's acceptance never establishes
-production or phase-exit acceptance of the whole feature. Docs-only work needs no integration test.
+production or the work plan's [phase-exit acceptance](../../../docs/work-plan/project-planning.md#phase-exit-and-review-evidence).
+Pipeline/publication and UI evidence remain the owner's obligations; docs-only needs no integration test.
 
 Repository-level checks go through [`cargo xtask`](../../../xtask/README.md); scripts are its
 primitives. Report each gate as xtask printed it (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`, which
@@ -238,10 +236,11 @@ types that carry meaning, exhaustive matches, exact error enums, early returns o
 `unwrap`/`expect` in production paths, explicit imports, comments that state *why*. Follow
 [`clean-code.md`](references/clean-code.md).
 
-After the final edit and before any commit or handoff: list changed paths, run the formatter of
-each touched toolchain in check mode, then lint and tests. A green test run does not waive
-formatting. Preserve unrelated work in a dirty tree; report files a formatter touched that you did
-not edit.
+At checkpoint/handoff, list changed paths and ensure format (check mode), lint and test evidence
+covers each touched toolchain's final inputs under the [cadence policy](references/verification-cadence.md).
+Use preflight for included checks; intermediate commits do not require rerunning the set.
+A green test run does not waive formatting. Preserve unrelated work in a dirty tree; report
+files a formatter touched that you did not edit.
 
 ## 9. Completion report
 
@@ -286,6 +285,7 @@ A report must state actionable residual risk.
 | assertion strength, or a small kernel worth bounded model checking | [`mutation-and-formal.md`](references/mutation-and-formal.md) |
 | a parser or decoder of bytes nobody on the team controls: DOCX/Markdown import, AI output, provider bodies, manifests, audio | [`fuzzing.md`](references/fuzzing.md) |
 | running checks, resource limits, remote CI, secrets, what may be executed | [`local-execution.md`](references/local-execution.md) |
+| when to run checks, milestones, risk, evidence reuse and invalidation | [`verification-cadence.md`](references/verification-cadence.md) |
 | emitting or reviewing logs, diagnostic events, levels, redaction, correlation IDs or telemetry | [`structured-observability.md`](references/structured-observability.md); investigating a failure or log goes through [`cantos-diagnostics`](../cantos-diagnostics/SKILL.md) |
 | reviewing an existing PR, range, patch or local diff | [`diff-review.md`](references/diff-review.md), entered through [`cantos-code-review`](../cantos-code-review/SKILL.md) |
 

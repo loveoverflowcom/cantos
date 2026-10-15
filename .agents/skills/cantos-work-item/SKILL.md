@@ -181,8 +181,10 @@ each owner's rules. Before handing off, answer each line for the slice (a senten
 
 ## 9. Verify by tier
 
-Run the [foundation tiers](../cantos-engineering/SKILL.md#7-verification-tiers) that apply, with the
-commands the repository actually provides, in its
+Use the foundation's [verification cadence](../cantos-engineering/references/verification-cadence.md)
+for milestones, risk and evidence reuse. Run focused checks while implementing, affected
+module/renderer checks at coherent checkpoints and preflight once for the final handoff;
+intermediate edits or commits do not restart that campaign. Use implemented commands in its
 [layered order](../cantos-engineering/references/verification-strategy.md#layered-verification).
 Use its [local handoff policy](../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
 to deliver independently verified layers when requested. Fill the

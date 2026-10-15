@@ -63,9 +63,11 @@ the command fails before running anything.
 
 ## Focused first, proportionate after
 
-1. Run the single test or check that settles the claim.
-2. Then the module or package suite (`cargo xtask verify <suite>`).
-3. Then `cargo xtask preflight --changed-only`, which runs its gates sequentially.
+Use the [verification cadence](verification-cadence.md) as the single scheduling policy.
+Choose the cheapest check that settles the current claim during DEV; expand to affected
+module/renderer checks at a coherent CHECKPOINT and preflight at HANDOFF. This is not a
+mandatory single-test → module-suite → preflight chain after every edit. Reuse attributable
+results with unchanged inputs and do not duplicate gates already covered by the handoff plan.
 
 Docs-only or read-only work must not start a heavy build merely to "have a baseline". Report any
 required gate that remains unrun on the residual-risk line.
@@ -86,10 +88,10 @@ evidence. Required tests, merge protection, CI and production acceptance retain 
 
 | Change or claim | Local evidence |
 |---|---|
-| pure-domain behavior change | L1–L3 obligations, focused deterministic regression, applicable module tests/static checks and changed-only preflight; no infrastructure prerequisite |
+| pure-domain behavior change | L1–L3 obligations and focused deterministic regression; applicable module/static checks at checkpoint and changed-only preflight at handoff under the cadence policy; no infrastructure prerequisite |
 | flow spanning application modules or an external adapter | production code exercised together with deterministic mocks/fakes at external boundaries; report `mock-integration-tested` and name the doubles |
 | PostgreSQL constraints, SQL, transactions, migrations or concurrent writes | disposable real local PostgreSQL checks to accept those semantics; an unavailable run permits a requested PR only with that verification explicitly incomplete |
-| documents or skills only | repository verification and changed-only preflight; no application or integration test required |
+| documents or skills only | handoff preflight includes repository verification; use the docs-only fallback below when Cargo/Rust is unavailable; no application or integration test required |
 
 For mocked integration, exercise the real handler/application/adapter code and assert observable
 results and relevant errors, timeouts or retry behavior. A fabricated successful response or a
@@ -104,6 +106,9 @@ record it as deferred acceptance rather than claiming it from mocks.
   sufficient for requested core commit/push/PR delivery while I/O acceptance remains pending.
   L4 results may be delivered as mocked evidence without a real API; adapter/SQL changes whose
   real checks cannot run may also be handed off for review with verification incomplete.
+- Intermediate commits use applicable checkpoint evidence. A completed handoff runs preflight
+  under the [cadence and reuse rules](verification-cadence.md); the subsequent commit, push and
+  PR for the same content do not each require another run.
 - `FAIL` blocks a clean handoff and a core-verified claim for the affected scope: fix it or
   report the actual failure. Never disguise it as an environment gap or use `--skip` to hide it.
   `NOT_RUN`, `UNSUPPORTED` and zero selected tests do not satisfy required checks.

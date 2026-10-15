@@ -16,7 +16,12 @@ List the checks actually run and their results. Include screenshots for UI chang
 cargo xtask preflight --changed-only
 ```
 
-Paste the preflight summary, plus any `cargo xtask verify` suite you ran separately. Report gates as
+Follow the foundation's [verification cadence](../.agents/skills/cantos-engineering/references/verification-cadence.md):
+run preflight once for the final handoff, or cite a still-valid run covering the same final
+inputs. Do not rerun its covered gates separately or repeat preflight just for commit/push/PR
+packaging. Include the checked source revision/dirty-content identity and any later changes.
+
+Paste the preflight summary, plus any additional owner checks you ran separately. Report gates as
 xtask printed them (`PASS`, `FAIL`, `NOT_RUN`, `UNSUPPORTED`) and explain every skipped or
 unsupported gate. Add device or runtime checks once those implementations exist.
 

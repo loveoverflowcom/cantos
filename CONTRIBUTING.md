@@ -52,6 +52,13 @@ Attach the relevant reference and before/after evidence to design work. Cover ke
 
 ## Verification
 
+Follow the foundation's [verification cadence](.agents/skills/cantos-engineering/references/verification-cadence.md):
+focused checks while developing, affected module/renderer checks at coherent checkpoints and
+preflight on the final diff at handoff. Keep targeted evidence for high-risk invariants.
+Intermediate edits/commits do not each trigger preflight; reuse attributable results while
+their inputs remain valid. The handoff plan already includes repository/format and selected
+suites, so do not run their standalone equivalents again merely to satisfy another checklist.
+
 Implementation handoff and PR creation use the foundation's [local handoff policy](.agents/skills/cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion):
 verify the pure core first, record independent layer results and deliver verified layers when
 requested even if infrastructure acceptance is pending. Record deferred checks with their

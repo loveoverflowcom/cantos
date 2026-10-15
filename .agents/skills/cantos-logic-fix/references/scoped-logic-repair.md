@@ -69,8 +69,9 @@ gate could not run. Never call database concurrency pure-domain verified, a host
 device-tested, or a partial result full-feature verified/production-ready. An actual failing
 regression stays `FAIL`, not deferred acceptance.
 
-Before a requested commit/PR run focused checks, format/lint touched toolchains,
-`cargo xtask verify repository` and `cargo xtask preflight --changed-only`. Follow
+Schedule focused/checkpoint checks and final handoff preflight through the foundation's
+[cadence and reuse policy](../../cantos-engineering/references/verification-cadence.md).
+Do not add a repository run before preflight or repeat the campaign for each edit/commit. Follow
 [local handoff](../../cantos-engineering/references/local-execution.md#local-handoff-and-pr-completion)
 for missing gates and the narrow docs-only fallback. Do not wait/poll for remote CI. This method
 grants no commit, push, upload, PR or other outward-action authority.

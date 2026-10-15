@@ -23,6 +23,9 @@
 
 ## Layered verification
 
+Use [verification cadence](verification-cadence.md) for DEV/CHECKPOINT/HANDOFF timing, risk and
+evidence reuse. The layers below define claim obligations, not suites to rerun after every edit.
+
 Apply the foundation's [required order](../SKILL.md#the-required-order) to each changed claim.
 Choose the cheapest adequate oracle within each layer; these layers organize work and do not
 replace the evidence vocabulary or add a runner.
@@ -171,7 +174,8 @@ design, so do not adopt them speculatively.
 
 1. Reproduce it with the smallest failing test at the owning layer.
 2. Keep the minimized input as a named regression.
-3. Fix; run the single test, the module suite, then proportionate broader checks.
+3. Fix; rerun the focused regression, then use the cadence policy for affected checkpoint and
+   handoff checks. Expand sooner only for an uncovered risk or changed boundary.
 
 ## Mocked and live evidence are different rows
 
