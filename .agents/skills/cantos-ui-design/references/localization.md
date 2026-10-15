@@ -8,8 +8,8 @@
 > sees it. Use whenever a change adds or edits copy, a label, an error, a status name, an
 > accessibility name, a date or a number shown to a person.
 
-The [brief](../../../../docs/product/brief.md), design scenarios and current
-applications already use `vi-VN` and `en`. **Resources and typed keys exist** on both
+The current applications already expose Vietnamese and English UI choices (`vi-VN` and
+`en` on Web). **Resources and typed keys exist** on both
 renderers; what remains undecided is a unified catalog format, library, generator and
 persistent locale policy. Treat the code below as implemented where explicitly identified,
 and all replacement approaches as candidates pending
@@ -21,21 +21,29 @@ and all replacement approaches as candidates pending
 
 | Surface | Existing source of UI copy | Known gap |
 |---|---|---|
-| Theatre Web | `apps/cantos-theatre/web/src/messages.rs` (`Locale`, `resources!`, tests), `features/auth_copy.rs`, `membership_preview/copy.rs` | Multiple macros; `format()` uses iterative `String::replace`, risking substitution inside inserted titles; root locale lives in memory |
-| Studio Web | `apps/cantos-studio/web/src/messages.rs`, `messages/*`, `live/*copy.rs` (structs, keys, `english: bool`) | Multiple resource interfaces; root locale lives in memory |
-| Theatre CMP | `demo/DemoCopy.kt`, `features/auth/presentation/AuthCopy.kt`, `features/membership/presentation/MembershipCopy.kt` (Kotlin `vi/en` enum copy) | App `PreferencesController` locale is memory-only |
-| CMP splash | `commonMain/composeResources/values/strings.xml` and `values-en/strings.xml` via `stringResource` | Separate native resource selection may disagree with app-owned `DemoLocale`; not yet verified as aligned |
+| Theatre Web | [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs) (`Locale`, `resources!`, tests), [`features/auth_copy.rs`](../../../../apps/cantos-theatre/web/src/features/auth_copy.rs), [`membership_preview/copy.rs`](../../../../apps/cantos-theatre/web/src/membership_preview/copy.rs) | Multiple macros; `format()` folds `String::replace` over evolving output, risking substitution inside inserted titles; locale is session memory |
+| Studio Web | [`messages.rs`](../../../../apps/cantos-studio/web/src/messages.rs), [`messages/`](../../../../apps/cantos-studio/web/src/messages), [`live/copy.rs`](../../../../apps/cantos-studio/web/src/live/copy.rs), [`live/dashboard_copy.rs`](../../../../apps/cantos-studio/web/src/live/dashboard_copy.rs), [`live/delegation/copy.rs`](../../../../apps/cantos-studio/web/src/live/delegation/copy.rs), [`live/artwork/copy.rs`](../../../../apps/cantos-studio/web/src/live/artwork/copy.rs) | Structs, keys and `english: bool` coexist; root locale is session memory |
+| Theatre CMP shared presentation | [`ShellCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellCopy.kt) (`CopyKey`, `ShellText`, `ShellCopy`), [`AuthCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AuthCopy.kt), [`MembershipCopy.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/membership/presentation/MembershipCopy.kt) | [`ShellLocale`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellState.kt) and [`PreferenceLocale`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/preferences/PreferencesController.kt) are separate representations; preference authority is memory-only |
+| Theatre CMP sandbox copy | [`preview-sandbox/.../app/DemoShellCopy.kt`](../../../../apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/app/DemoShellCopy.kt) injects `DemoShellCopyOverrides` into shared presentation | Demo diagnostics belong in the sandbox, not the shared catalog; production release exclusion is not yet accepted ([isolation record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md)) |
+| CMP optional launch presentation | [`values/strings.xml`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/values/strings.xml) and [`values-en/strings.xml`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/values-en/strings.xml), consumed by [`CantosLocalLaunch.kt`](../../../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/launch/presentation/CantosLocalLaunch.kt) via `stringResource` | Compose resource selection is separate from `ShellLocale`; native launch resources and skip/show behavior have their own [launch evidence](../../../../docs/evidence/theatre-cmp-launch.md), not app-locale alignment evidence |
+
+This is a source inventory, not a new ownership architecture or a runtime test result.
+Follow the caller to its actual owner; do not restore the removed `demo/DemoCopy.kt` or
+move sandbox-only wording into `:shared` to satisfy this map.
 
 **While the decision is open:** search the current app/feature copy owner and existing
 semantic key **before** adding any UI, preview, accessibility or error string. Reuse the
-existing key where its meaning matches; otherwise extend the nearest existing owner in
-**both** vi-VN and en, with a focused resource/placeholder test. Do not invent a new
+existing key **within that owner's API** where its meaning matches; otherwise extend that
+owner in **both** Vietnamese and English, with a focused resource/placeholder test. Equal
+English wording alone does not authorize merging keys, moving copy between applications,
+or introducing a shared catalog. Do not invent a new
 feature-local translation enum/macro, copy text into `view!`/`@Composable`, or introduce a
 new dependency just because the framework offers one. This transitional policy does not
-block ordinary UI fixes pending #167.
+block ordinary UI fixes pending #167 or require a catalog/locale migration during them.
 
-**No library selection yet.** Explicitly compare these alternatives on pinned versions:
-- Web: `leptos_i18n` (0.5.x for Leptos 0.7), `leptos_fluent` (0.3.x), current typed
+**No library selection yet.** The issue's candidate version tracks are not compatibility
+evidence. A spike must resolve exact versions against the actual Cargo/Gradle pins:
+- Web: `leptos_i18n`, `leptos_fluent`, current typed
   Rust catalogs plus Fluent/ICU4X adapters. See #168.
 - CMP: Compose Multiplatform Resources (already used for splash), moko-resources,
   Lyricist; compare a generated typed-catalog baseline as well. See #169.
@@ -52,19 +60,24 @@ callers rather than importing app-owned resource sets.
 message template exactly once. Injected work titles such as `Lời hẹn {time}` must retain
 their braces; never recursively expand title content. UI locale must remain independent
 from a Work's content language; switching it must not rewrite Script IR, reset playback,
-discard Studio drafts or change server authorization. Keep `<html lang>`, mixed-language
-content spans, CMP splash, accessible names and application preference aligned when touched.
+discard Studio drafts or change server authorization. When changing locale behavior, check
+document `<html lang>` as well as inner containers, mixed-language content spans, launch
+resources and accessible names. Existing code does not establish complete alignment; report
+remaining gaps rather than implying this docs-only change fixes them.
 
-## 1. Decisions to record before the first string
+## 1. Open decisions before adopting or migrating resources
+
+These are review questions for #167, not permission to implement a preferred answer or a
+prerequisite to reuse an existing resource. Record a selected strategy only after acceptance.
 
 | Decision | Options to weigh | Constraint |
 |---|---|---|
-| locale set | `vi-VN` and `en` already implemented; confirm future locale/fallback policy in #167 | the base locale is the structural source of truth; every required locale is complete before a UI change merges |
+| locale set | Vietnamese and English already implemented; confirm BCP-47 variants, future locales and source/fallback policy in #167 | preserve both existing translations; do not silently select a canonical source locale |
 | default and fallback | **candidate policy**: stored choice, then approved browser/OS preference, then `vi-VN`; current roots use memory defaults | a missing key is a visible build or test failure, never a silent English fallback in a view |
 | framework, Web | `leptos_i18n`, `leptos_fluent`, existing typed catalog + Fluent/ICU4X (all candidates, #168) | must support named parameters, CLDR plural rules and locale-aware formatting; verify the version |
 | framework, CMP | Compose Multiplatform Resources, moko-resources, Lyricist (all candidates, #169) | must run on Android and iOS; typed access preferred over string lookup |
 | one catalog or two | one source catalog with generated Web and Kotlin consumers, or two resource sets with a parity check | the same semantic key must mean the same thing on both renderers |
-| storage and switching | **proposed** key-value port plus root locale; existing roots are memory-only | switching never reloads unsaved Studio edits |
+| storage and switching | **proposed** key-value preference and app-owned locale; storage port, precedence and first-render behavior require review; existing roots are memory-only | switching never reloads unsaved Studio edits; this PR adds no storage authority |
 
 Record the outcome with [`templates/adr.md`](../../../../templates/adr.md) and
 [#167](https://github.com/loveoverflowcom/cantos/issues/167). A decision made
@@ -101,13 +114,15 @@ Two languages are on screen at once, and they are not the same thing.
 ## 3. Semantic keys
 
 Keys name a meaning, not the English copy. Group by surface, then by role.
+The dotted names below are illustrative, not an accepted namespace/API or permission to
+rename or consolidate the current catalogs; that ownership decision remains in #167.
 
 | Good | Counterexample | Why |
 |---|---|---|
 | `studio.script.save.action` | `Save` | the text can change without breaking references |
 | `theatre.player.bookmark.add.name` | `bookmark_button_1` | role and place are readable |
 | `publish.blocker.qc_blocking_finding` | `error_17` | one key per domain variant, so the mapping is checkable |
-| `common.cancel` reused for every "Cancel" | five `*.cancel` keys with one meaning | reuse the key only when the **meaning** is identical, not merely the English word |
+| reuse an existing owner's cancel key for the same action | duplicate keys inside that owner for one meaning | reuse only when the **meaning** is identical; equal English wording does not establish shared ownership |
 
 - A key is stable. Rename by adding the new key, migrating references and retiring the old one in
   one change; never repurpose a key for a different meaning.
@@ -150,7 +165,7 @@ Never `if count == 1` in a view.
 
 | Value | Rule |
 |---|---|
-| position and duration | a single formatter shared by Web and CMP (`12:05`, `1:02:09`); the accessible form is a spoken duration (`12 phút 5 giây`), not the clock text |
+| position and duration | compare renderer adapters against a reviewed output contract (`12:05`, `1:02:09` as target examples); current Web/CMP helpers are independent and hour-boundary support needs evidence; the accessible form is a spoken duration (`12 phút 5 giây`), not the clock text |
 | dates and times | locale formatter; show time zone only when it matters; never an ISO string in the UI |
 | numbers and percentages | locale grouping and decimal marks; a download percentage is an integer unless the design says otherwise |
 | money | integer minor units plus currency from the domain ([cost and budget](../../cantos-production-pipeline/references/cost-and-budget.md#2-money-is-integers-with-a-currency)); format with the currency's own minor-unit count (VND has none) — never a float, never a hard-coded symbol |
@@ -219,10 +234,19 @@ accessibility name, description and alternative text. When in doubt it is visibl
 | `lang` and locale tags | a DOM or semantics test that mixed-language spans are tagged | `DOM-tested`, `semantics-tested` |
 | layout | pseudo-locale and long-name captures, **opened** | `screenshot-inspected` |
 
-Partial checks exist already: Theatre Web `messages.rs` tests vi/en
-key/placeholder parity; CMP `DemoCopyTest.kt` checks parity, non-recursive title
-braces, numeric labels and spoken time. There is **no unified cross-renderer parity
-gate or `cargo xtask i18n check` command** yet. Report only checks actually run.
+Partial checks exist already; their source is not proof they ran in a particular report:
+- Theatre Web [`messages.rs`](../../../../apps/cantos-theatre/web/src/messages.rs),
+  `every_resource_has_both_locales_and_matching_parameters`, checks nonblank pairs and
+  placeholder **sets** plus selected count/duration/speed examples. It does not check
+  placeholder multiplicity, literal title braces or every Web copy owner.
+- CMP [`preview-sandbox/.../DemoCopyTest.kt`](../../../../apps/cantos-theatre/mobile/preview-sandbox/src/commonTest/kotlin/com/cantos/theatre/demo/DemoCopyTest.kt)
+  exercises shared `ShellCopy`: nonblank pairs, placeholder names/multiplicity, literal
+  title braces, selected numeric labels and spoken time. It does not establish all
+  auth/membership/launch or sandbox-override parity, or native locale switching.
+
+There is **no unified cross-renderer parity gate or `cargo xtask i18n check` command** yet.
+Use the existing renderer gates in [xtask](../../../../xtask/README.md); a candidate
+test/scan above is not an implemented command. Report only checks actually run.
 Prefer a focused resource test during DEV, affected renderer evidence at CHECKPOINT,
 and handoff preflight on the final diff; no full verification after each small edit.
 
