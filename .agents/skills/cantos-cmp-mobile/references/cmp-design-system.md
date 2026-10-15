@@ -53,7 +53,7 @@ reads the operating system, a file or the network, and never builds a service, p
 |---|---|---|---|
 | theme | `UiPreferences.theme`, the *resolved* `Theme` | implemented; `ThemeModeTest`, gallery and Android preview roots | `ThemeMode { Light, Dark, System }.resolve(systemIsDark)` is pure; only a composition root resolves `System`, from a host fact (`isSystemInDarkTheme()` in the gallery and preview roots, the preferences owner in an app). `UiPreferences` has no mode or host-fact field, so a nested theme cannot re-resolve `System` (type-enforced) |
 | density, text scale | `UiPreferences.density`, `textScale` | implemented; `UiPreferencesTest`, `ThemeFoundationTest`, gallery probe | scale is an absolute multiplier on the host font scale (`LocalPlatformFontScale × textScale`); a nested theme replaces it, never compounds it |
-| reduced motion | `UiPreferences.reducedMotion` | partial: the field and motion-role resolution exist (`AuthActionShape`, token catalog); the gallery sets it with a manual chip and no code reads the OS setting | rule: the host resolves the OS setting and injects it; durations resolve to 0 and state feedback stays immediate |
+| motion | `UiPreferences.reducedMotion`, projected as `UiPreferences.motion`; components call `rememberMotionSpec(intent, property)` | implemented for two consumers: `AuthActionShape` and the Theatre launch entrance (`MotionPolicyTest`, `AuthShapeTimelineTest`, `LaunchMotionReplayTest`). The gallery sets it with a manual chip and the Theatre mock defaults to Reduced (`CantosDemoPresentation(motionPreference = …)` injects Full). **No code reads the OS setting**: Android and iOS adapters are `NOT_RUN` | the host resolves the OS setting and injects it; `Reduced` is `Instant` for every intent and property and state feedback stays immediate. A toggle proves the fixture, never the OS signal |
 | fonts | `uiFontFamily`, `editorialFontFamily` | implemented as parameters; a nested theme that names none inherits the host's (`ThemeFoundationTest`); the desktop gallery host injects the shared Noto bundle (`PreviewFonts`, `PreviewFontsTest`) | licensed families are injected by the composition root; a host that injects none keeps the platform sans/serif and says so in evidence. Static Noto masters exist for 400 and 700 only |
 | locale | caller-supplied strings and accessible names | rule | components format nothing from the OS locale; fixtures are vi-VN |
 | gestures | typed intents shared with a button/keyboard alternative | rule; the package has no gesture code | cancellation, reversal and focus are explicit; no animation-end callback gates an intent |
@@ -171,6 +171,14 @@ removes travel, overshoot and continuous animation (marquee titles, wavy indicat
 keeping immediate state feedback. No animation delays an action; the mini-player expansion is
 interruptible and never moves a control away from the finger mid-gesture. A still image proves
 none of this; motion needs a runtime recording on a device.
+
+In code, a component takes its spec from the injected preference (`rememberMotionSpec`, then
+`MotionSpec.toAnimationSpec()` or `Animatable.animateWith`) and never reads the OS or hard-codes a
+duration or easing; the mapping and its gesture-value contract are in
+[motion.md § 4](../../cantos-ui-design/references/motion.md). The pinned Material3 1.8.2 has no
+`MotionScheme`, so CMP uses `tween` with named easings until the pin moves by ADR. There is no
+mini ↔ full player, sheet, dialog or drag consumer in the package yet; none of those samples
+exists, and none may be claimed from a duration token alone.
 
 ## Localization
 

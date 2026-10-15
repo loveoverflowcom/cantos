@@ -191,7 +191,7 @@ implemented runtime gates.
 | **UI-STRING** every visible and accessibility string is a localized resource with a semantic key | untranslatable UI; English fallbacks; leaked provider errors | `studio.publish.action` in vi-VN and en / `"Publish"` literal; `error.to_string()` shown | literal scan, key and placeholder parity (proposed) · manual | logs and developer-only diagnostics |
 | **UI-STATE** each component has a state matrix; disabled carries a reason; status is never color alone | dead-end controls; QC blocks invisible to color-blind users | icon + text + tone for `Blocking`, reason beside a disabled Publish / grey button, red dot only | matrix tests and per-state captures · manual | — |
 | **UI-A11Y** names state action + item + state; focus visible, contained, restored; drag and gestures have alternatives | keyboard or screen-reader dead ends; focus lost after dialogs | `Phát tập 3: Một lời hẹn` / an unnamed ▶ icon | `accessibility-checked`; `screen-reader-walked` only when it happened · manual | — |
-| **UI-MOTION** motion uses intent tokens, never delays an action or moves a target under the user, stays interruptible; reduced motion keeps feedback | blocked or mis-tapped input; vestibular harm | play dispatches on press and the morph decorates it / waiting for the morph to finish | exhaustive motion-spec test (proposed), runtime recording · manual | — |
+| **UI-MOTION** motion uses intent tokens, never delays an action or moves a target under the user, stays interruptible; reduced motion keeps feedback | blocked or mis-tapped input; vestibular harm | play dispatches on press and the morph decorates it / waiting for the morph to finish | `MotionPolicyTest` exhaustive mapping and virtual-clock replay on CMP (Leptos mapping not implemented), runtime recording · manual | — |
 | **UI-PIXELS** a visual claim needs opened, attributed captures of the changed states and a same-scenario recheck | "it compiles" passes for "it looks right" | before/after at the same 320 CSS px, dark, vi-VN / rechecking with a shorter English string | review ledger · manual | no rendered effect |
 
 ## Evidence selection
@@ -208,7 +208,7 @@ Use the foundation vocabulary verbatim; this table only selects among it.
 | keyboard, focus and semantics | driven keyboard/focus walk plus semantics assertions | `accessibility-checked` | real assistive technology |
 | a screen reader can operate it | named TalkBack/VoiceOver/NVDA walkthrough | `screen-reader-walked` | other readers or versions |
 | layout, theme, locale, text scale | capture **and open** each image | `screenshot-inspected`, `cross-viewport-inspected`, `cross-theme-inspected` | interaction, motion, semantics |
-| motion, interruption, reduced motion | recording or frame profile on the target while reversing mid-flight | `interaction-tested` or `device-tested`, artifact in provenance | smoothness on other hardware |
+| motion, interruption, reduced motion | recording or frame profile on the target while reversing mid-flight; a manual-clock replay covers ordering, intent-before-clock and final state only ([labels](references/motion.md#6-evidence)) | `interaction-tested` or `device-tested`, artifact in provenance | smoothness, frame pacing, the OS reduce-motion signal, other hardware |
 | insets, back, native input, media controls | run on a named device, emulator or simulator | `device-tested` | other OS versions |
 
 Captured but unopened images stay `screenshot-captured`. A desktop or JVM render is never
