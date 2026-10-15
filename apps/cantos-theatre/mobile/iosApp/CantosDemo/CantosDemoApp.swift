@@ -38,7 +38,11 @@ private struct CantosComposeView: UIViewControllerRepresentable {
     let owner: DemoOwner
 
     func makeUIViewController(context: Context) -> UIViewController {
-        owner.viewController()
+        let controller = owner.viewController()
+        // Match the launch layer while Compose prepares its first frame; this named color
+        // follows system appearance without creating another owner or launch view.
+        controller.view.backgroundColor = UIColor(named: "LaunchBackground")
+        return controller
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {

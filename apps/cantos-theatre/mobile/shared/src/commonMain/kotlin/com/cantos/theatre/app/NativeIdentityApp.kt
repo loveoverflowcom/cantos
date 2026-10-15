@@ -1,6 +1,7 @@
 package com.cantos.theatre.app
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -26,13 +27,14 @@ import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.NativeAccountFailure
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.UiPreferences
+import com.cantos.ui.Theme
 
 /** Opt-in account boundary. It never imports or projects mock Library state. */
 @Composable
 fun NativeIdentityApp(controller: NativeAccountController) {
     val state by controller.state.collectAsState()
-    CantosTheme(UiPreferences()) {
-        Surface(modifier = Modifier.fillMaxSize()) {
+    CantosTheme(UiPreferences(theme = if (isSystemInDarkTheme()) Theme.Dark else Theme.Light)) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.safeDrawingPadding().padding(24.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Cantos", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
