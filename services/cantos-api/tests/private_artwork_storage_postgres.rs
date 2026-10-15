@@ -182,6 +182,7 @@ impl Harness {
                      catalog_members,catalog_operations TO cantos_app;
                  GRANT INSERT ON catalog_works,catalog_work_revisions,catalog_members,
                      catalog_operations TO cantos_app;
+                 GRANT UPDATE(revoked) ON sessions TO cantos_app;
                  GRANT UPDATE(revision) ON catalog_clock TO cantos_app;
                  GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app;
                  GRANT UPDATE(role),DELETE ON catalog_members TO cantos_app;
