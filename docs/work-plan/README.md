@@ -127,6 +127,32 @@ measured consumer and its semantic oracle before Range formatting, Ogg parsing o
 retain independent Kani/Quint results and the existing publication/storage gates. This does not
 reorder the backend capabilities above or revive DBSP production jobs.
 
+## Auth/account shared-foundation sequencing
+
+[Issue 127](https://github.com/loveoverflowcom/cantos/issues/127) adds the scoped
+[auth/account v0.4.0 contract](../../packages/ui-system/shared/README.md#scoped-authaccount-mapping-v040)
+and official local Logo Kit to both shared renderers, before app-level adoption. Its
+[evidence ledger](../evidence/ui-auth-account-v2.md) keeps implementation tests separate from
+missing runtime/design admission. New primitives and variants remain unqualified and preview-only.
+PR 132's 15 October follow-up repairs Web auth press interpolation and narrow large-text
+layout; real Chrome interaction, both themes and 320 px/200% text now have local evidence.
+CMP desktop motion tests and the SDK 35 preview build also pass. Prioritize the remaining
+Android host/device accessibility and both-renderer qualification before consumer adoption;
+the shared-foundation ordering is unchanged.
+
+Recommended order stays small and reviewable:
+
+1. Complete fresh Leptos and CMP runtime/accessibility/visual admission for the exact shared
+   token/source revision. Do not accept a screenshot from the HTML prototype or a build instead.
+2. #128 may discover pure membership form/receipt/plan semantics independently; renderer use
+   waits for admission and must not invent prices, entitlements or checkout behavior.
+3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
+   retain the product-owned navigation requirements rather than copying prototype navigation.
+4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
+
+This does not reorder publication/storage acceptance, change auth grants, or close consumer
+issues. GitHub owns execution status; the queue records only dependency order and rationale.
+
 ## Existing foundations to retain
 
 The [internal actor registry](../architecture/identity-registry.md) keeps legacy ownership intact

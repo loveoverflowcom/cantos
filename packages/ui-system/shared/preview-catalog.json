@@ -30,7 +30,13 @@
         "disabled",
         "loading",
         "focus",
-        "composed-content"
+        "composed-content",
+        "auth-primary",
+        "auth-secondary",
+        "auth-outlined",
+        "pressed",
+        "long-vietnamese",
+        "large-text"
       ],
       "leptos": {
         "status": "registered",
@@ -151,7 +157,10 @@
         "readonly",
         "selection",
         "ime-action",
-        "blank-error"
+        "blank-error",
+        "auth-tonal",
+        "long-vietnamese",
+        "large-text"
       ],
       "leptos": {
         "status": "registered",
@@ -480,7 +489,13 @@
         "high",
         "reading",
         "long-text",
-        "inset-none"
+        "inset-none",
+        "auth",
+        "profile",
+        "membership",
+        "account-group",
+        "primary-container",
+        "large-text"
       ],
       "leptos": {
         "status": "registered",
@@ -608,6 +623,60 @@
       "cmp": {
         "status": "implemented-unverified",
         "reason": "Desktop preview compiles with the pinned toolchain; native runtime, accessibility, visual qualification and mobile device evidence remain unverified."
+      }
+    },
+    {
+      "id": "back-button",
+      "name": "BackButton",
+      "family": "navigation",
+      "states": [
+        "enabled",
+        "disabled",
+        "loading",
+        "focus",
+        "pressed",
+        "icon-only",
+        "named",
+        "long-vietnamese",
+        "large-text",
+        "light",
+        "dark"
+      ],
+      "leptos": {
+        "status": "implemented-unverified",
+        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
+      }
+    },
+    {
+      "id": "logo",
+      "name": "Logo",
+      "family": "icons",
+      "states": [
+        "cantos-light",
+        "cantos-dark",
+        "cantos-mono",
+        "studio-light",
+        "studio-dark",
+        "studio-mono",
+        "symbol-light",
+        "symbol-dark",
+        "symbol-mono",
+        "decorative",
+        "named",
+        "aspect-fit",
+        "transparent-knockout"
+      ],
+      "leptos": {
+        "status": "implemented-unverified",
+        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
+      },
+      "cmp": {
+        "status": "implemented-unverified",
+        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
       }
     }
   ],

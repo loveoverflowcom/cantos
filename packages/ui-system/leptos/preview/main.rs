@@ -13,14 +13,17 @@ use leptos::prelude::*;
 /// Offline sample picture; real hosts pass an authorized same-origin or object URL.
 const PREVIEW_AVATAR_IMAGE: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23886638'/%3E%3Ccircle cx='32' cy='26' r='12' fill='%23f6e7ca'/%3E%3Cpath d='M12 60c2-14 12-20 20-20s18 6 20 20z' fill='%23f6e7ca'/%3E%3C/svg%3E";
 
+pub mod auth_samples;
 pub mod catalog;
 mod discovery;
 pub mod foundation_samples;
 pub mod interaction_samples;
+mod logo_samples;
 #[path = "../src/preview_catalog.rs"]
 pub mod preview_catalog;
 pub mod token_sample;
 
+use auth_samples::{AuthActionSamples, AuthFieldSamples, AuthSurfaceSamples, BackButtonSamples};
 use discovery::{ComponentCatalog, FamilyNavigation, TokenCatalog};
 use foundation_samples::{ComposedButtonSample, FieldFoundationSamples, NestedThemeSample};
 use interaction_samples::{LayoutFeedbackContractSamples, SelectionContractSamples};
@@ -152,6 +155,7 @@ pub fn Gallery(
                         <section id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
                             aria-labelledby="gallery-navigation-heading">
                             <Stack gap=Space::Sm>
+                                <BackButtonSamples/>
                                 <h2 id="gallery-navigation-heading">"Điều hướng native bằng liên kết"</h2>
                                 <FamilyNavigation current_anchor=current_anchor family=catalog_family query=catalog_query/>
                                 <Link id="gallery-link" href=href("#gallery-fields")
@@ -163,7 +167,8 @@ pub fn Gallery(
                         <section id="gallery-actions" class="cui-gallery-family" data-sample-family="actions" aria-labelledby="gallery-actions-heading"
                             hidden=move || !catalog::family_matches("actions", catalog_family.get(), &catalog_query.get())>
                             <Stack>
-                                <h2 id="gallery-actions-heading">"Hành động và bộ lọc"</h2>
+                                <AuthActionSamples/>
+                                    <h2 id="gallery-actions-heading">"Hành động và bộ lọc"</h2>
                                 <Select id="gallery-action-state" label="Trạng thái các nút và chip"
                                     value=action_mode on_input=Callback::new(move |value| action_mode.set(value))>
                                     <option value="enabled">"Sẵn sàng"</option>
@@ -200,6 +205,7 @@ pub fn Gallery(
                             hidden=move || !catalog::family_matches("fields", catalog_family.get(), &catalog_query.get())>
                             <Surface tone=SurfaceTone::Plain>
                                 <Stack>
+                                    <AuthFieldSamples/>
                                     <h2 id="gallery-fields-heading">"Trường nhập và lựa chọn điều khiển"</h2>
                                     <Select id="gallery-field-state" label="Trạng thái các trường mẫu"
                                         value=field_mode on_input=Callback::new(move |value| field_mode.set(value))>
@@ -341,6 +347,7 @@ pub fn Gallery(
                             hidden=move || !catalog::family_matches("layout", catalog_family.get(), &catalog_query.get())>
                             <Stack>
                                 <LayoutFeedbackContractSamples/>
+                                    <AuthSurfaceSamples/>
                                     <h2 id="gallery-layout-heading">"Bố cục ghép và vùng đọc"</h2>
                                 <Grid columns=GridColumns::Three>
                                     <Surface tone=SurfaceTone::Plain inset=Space::Sm><p>"Surface · Plain · Sm"</p><p>"Một nhóm yên tĩnh, không mặc định thêm viền."</p></Surface>
@@ -378,6 +385,7 @@ pub fn Gallery(
                         <section id="gallery-icons" class="cui-gallery-family" data-sample-family="icons" aria-labelledby="gallery-icons-heading"
                             hidden=move || !catalog::family_matches("icons", catalog_family.get(), &catalog_query.get())>
                             <Stack gap=Space::Sm>
+                                <logo_samples::LogoSamples/>
                                 <h2 id="gallery-icons-heading">"Biểu tượng outlined chính thức"</h2>
                                 <p class="cui-gallery-note">"Icon là nội dung trang trí và không tự tạo accessible name; ví dụ luôn có văn bản bên cạnh. Tập offline dùng đúng hình học từ nguồn đã ghi nhận."</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Xs class="cui-gallery-icons">

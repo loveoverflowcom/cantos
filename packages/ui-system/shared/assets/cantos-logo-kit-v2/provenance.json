@@ -1,0 +1,142 @@
+{
+  "brand": "Cantos",
+  "kit_version": "2.0.0",
+  "source_issue": "https://github.com/loveoverflowcom/cantos/issues/127",
+  "source_folder": "https://drive.google.com/drive/folders/1nIIehbnR1t2sXD0tKsYTXyHwekNtVly7",
+  "source_guide": "https://drive.google.com/file/d/1kdOLYIXvpOkyYmK3MJtyIgIeP57b7Kj1/view",
+  "imported_at": "2026-10-14",
+  "source_manifest_sha256": "b3ff9ab96c52e58b12252afb6601cf349823a8ba154a8ac78c17cc37feefd13b",
+  "rights": {
+    "mark": "Project-owner-supplied official assets for issue #127. The kit does not specify a separate logo/trademark or general redistribution license; no such permission is inferred.",
+    "font_outlines": "Outlined Noto Serif Regular / Noto Sans Bold lettering; no fonts redistributed or loaded at runtime. The supplied SIL OFL 1.1 applies to the source fonts, not a license grant for the Cantos mark."
+  },
+  "variants": [
+    {
+      "file": "cantos-symbol.svg",
+      "kind": "symbol",
+      "theme": "light",
+      "viewBox": [
+        64,
+        64
+      ]
+    },
+    {
+      "file": "cantos-logo.svg",
+      "kind": "lockup",
+      "theme": "light",
+      "viewBox": [
+        283,
+        96
+      ]
+    },
+    {
+      "file": "cantos-studio-logo.svg",
+      "kind": "studio-lockup",
+      "theme": "light",
+      "viewBox": [
+        283,
+        96
+      ]
+    },
+    {
+      "file": "cantos-symbol-dark.svg",
+      "kind": "symbol",
+      "theme": "dark",
+      "viewBox": [
+        64,
+        64
+      ]
+    },
+    {
+      "file": "cantos-logo-dark.svg",
+      "kind": "lockup",
+      "theme": "dark",
+      "viewBox": [
+        283,
+        96
+      ]
+    },
+    {
+      "file": "cantos-studio-logo-dark.svg",
+      "kind": "studio-lockup",
+      "theme": "dark",
+      "viewBox": [
+        283,
+        96
+      ]
+    },
+    {
+      "file": "cantos-symbol-mono.svg",
+      "kind": "symbol",
+      "theme": "mono",
+      "viewBox": [
+        64,
+        64
+      ]
+    },
+    {
+      "file": "cantos-logo-mono.svg",
+      "kind": "lockup",
+      "theme": "mono",
+      "viewBox": [
+        283,
+        96
+      ]
+    },
+    {
+      "file": "cantos-studio-logo-mono.svg",
+      "kind": "studio-lockup",
+      "theme": "mono",
+      "viewBox": [
+        283,
+        96
+      ]
+    }
+  ],
+  "files": {
+    "Logo-Guide.md": {
+      "source_path": "Logo-Guide.md",
+      "sha256": "8eaf3303113f87d23bf0fc37ae12b35817f5acc6b1de83c6c07fc0ad707c098e"
+    },
+    "OFL.txt": {
+      "source_path": "source/fonts/OFL.txt",
+      "sha256": "e2e177a32561584d4fc13aaa3cd8e53758a12910f013fe9ca125419111722029"
+    },
+    "svg/cantos-logo-dark.svg": {
+      "source_path": "svg/cantos-logo-dark.svg",
+      "sha256": "6e10809563d4b65ed48c78aed3ea7b35aebc35ce915c6161cdd1c8a7d47a85a6"
+    },
+    "svg/cantos-logo-mono.svg": {
+      "source_path": "svg/cantos-logo-mono.svg",
+      "sha256": "51726f8de2423be36574923562b654db50a7f5607e4e706f6bc3eb41707d495a"
+    },
+    "svg/cantos-logo.svg": {
+      "source_path": "svg/cantos-logo.svg",
+      "sha256": "c08edaad1e3571f67bccac4367301baae248b9c0168aecdfa6afad674c56de05"
+    },
+    "svg/cantos-studio-logo-dark.svg": {
+      "source_path": "svg/cantos-studio-logo-dark.svg",
+      "sha256": "92948478bf072bccecb32590cc13556b2c110dc7440c78b64d957925923ad00e"
+    },
+    "svg/cantos-studio-logo-mono.svg": {
+      "source_path": "svg/cantos-studio-logo-mono.svg",
+      "sha256": "ad996cf8deb3983dfbb1f9247c797f3157edd4b351e508cd0e35b7e20516e8a5"
+    },
+    "svg/cantos-studio-logo.svg": {
+      "source_path": "svg/cantos-studio-logo.svg",
+      "sha256": "0442fcc0cfda72a1bdf5946133166507d13fac36fa454b61256ab18469c70284"
+    },
+    "svg/cantos-symbol-dark.svg": {
+      "source_path": "svg/cantos-symbol-dark.svg",
+      "sha256": "2a8e60f2bfda6b26ff0b409ee149e14e7bb1acb29ef23c3ed3b22bfdb351ce53"
+    },
+    "svg/cantos-symbol-mono.svg": {
+      "source_path": "svg/cantos-symbol-mono.svg",
+      "sha256": "e85ce3316e6b2ebee9a9025cea8429e2296cabb8bf8be9884b384cf9e166ace0"
+    },
+    "svg/cantos-symbol.svg": {
+      "source_path": "svg/cantos-symbol.svg",
+      "sha256": "5845decd2d648d92be5a8d11dde69525c31e58058e0d8f5819804fb827941cbd"
+    }
+  }
+}

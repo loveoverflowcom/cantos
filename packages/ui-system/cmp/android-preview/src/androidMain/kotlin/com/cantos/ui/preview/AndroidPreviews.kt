@@ -99,3 +99,43 @@ fun AndroidNestedThemeDarkLargePreview() {
         ComponentExample(PreviewExample.Surface, "reading", {}, Modifier)
     }
 }
+
+@Preview(
+    name = "Auth / account · sáng · 390 dp · tiếng Việt",
+    widthDp = 390, heightDp = 1400, locale = "vi-rVN", fontScale = 1f,
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+)
+@Composable
+fun AndroidAuthAccountLightPreview() {
+    AndroidSamplePage(Theme.Light, Density.Comfortable) {
+        AuthAccountSpecimen()
+    }
+}
+
+@Preview(
+    name = "Auth / account · tối · 390 dp · chữ 2×",
+    widthDp = 390, heightDp = 1800, locale = "vi-rVN", fontScale = 2f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+fun AndroidAuthAccountDarkLargePreview() {
+    AndroidSamplePage(Theme.Dark, Density.Comfortable) {
+        AuthAccountSpecimen("auth-error")
+    }
+}
+
+@Preview(
+    name = "Auth states · tối · 840 dp · tiếng Việt",
+    widthDp = 840, heightDp = 1400, locale = "vi-rVN", fontScale = 1f,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+fun AndroidAuthStatesDarkPreview() {
+    AndroidSamplePage(Theme.Dark, Density.Comfortable) {
+        listOf("auth-primary", "auth-secondary", "auth-outlined", "pressed", "disabled", "loading").forEach { state ->
+            ComponentExample(PreviewExample.Button, state, {}, Modifier)
+        }
+        ComponentExample(PreviewExample.BackButton, "named", {}, Modifier)
+        ComponentExample(PreviewExample.Logo, "studio-dark", {}, Modifier)
+    }
+}

@@ -155,6 +155,24 @@ class TokenContract(unittest.TestCase):
         self.assertEqual(css_value(self.source["tokens"]["elevation.overlay"]),
                          "0rem 0.5rem 1.5rem -0.125rem rgba(0, 0, 0, 0.16)")
 
+    def test_fractional_auth_outline_retains_web_and_native_units_without_rounding(self):
+        self.source["version"] = "0.4.0"
+        self.source["tokens"]["size.authOutline"] = token("dimension", 1.5)
+        generated = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)
+        self.assertEqual(css_value(token("dimension", 1.5)), "0.09375rem")
+        self.assertIn("--cantos-size-auth-outline: 0.09375rem;", generated[OUTPUTS["css"]])
+        self.assertIn('TokenValue("size.authOutline", "dimension", "1.5", "1.5", null, null, null)',
+                      generated[OUTPUTS["kotlin"]])
+        self.assertIn('Self::SizeAuthOutline => "0.09375rem",', generated[OUTPUTS["rust"]])
+
+    def test_scoped_motion_requires_an_explicit_zero_reduced_motion_mapping(self):
+        self.source["tokens"]["motion.shape.duration"] = token("duration", 220)
+        self.refuse("reduced_motion: expected keys")
+        self.source["reduced_motion"]["motion.shape.duration"] = 0
+        generated = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)
+        self.assertIn("--cantos-motion-shape-duration: 0ms;", generated[OUTPUTS["css"]])
+        self.assertIn('"motion.shape.duration"', generated[OUTPUTS["kotlin"]])
+
     def test_generation_covers_aliases_themes_density_motion_and_static_system_fallback(self):
         generated = outputs(json.dumps(self.source), SAMPLE_TEMPLATE)
         css, rust, foundation = (generated[OUTPUTS[name]] for name in ("css", "rust", "foundation"))
@@ -486,7 +504,10 @@ WEB_SHAPE_ROLES = {
     "--cantos-web-shape-overlay": "1.5rem",
     "--cantos-web-shape-panel": "1.5rem",
 }
-CANONICAL_SHAPE_USE = re.compile(r"var\(\s*--cantos-shape-(?!pill\b)[a-z-]+")
+# These historical CMP roles must not leak into Web's regular controls. Scoped
+# auth/account roles are intentionally shared, and do not redefine that scale.
+CANONICAL_SHAPE_USE = re.compile(
+    r"var\(\s*--cantos-shape-(?:detail|control|reading|field|container|overlay|thumbnail)\b")
 
 
 def web_roles():
@@ -529,7 +550,7 @@ class WebShapeIndependence(unittest.TestCase):
         generated = OUTPUTS["foundation"].read_text(encoding="utf-8")
         self.assertEqual(CANONICAL_SHAPE_USE.findall(generated), [])
 
-    def test_changing_every_shared_shape_value_leaves_web_corners_and_pill_untouched(self):
+    def test_changing_regular_shared_shape_values_leaves_web_corners_and_pill_untouched(self):
         source = load_source(SOURCE.read_bytes())
         template = TEMPLATE.read_text(encoding="utf-8")
         baseline = outputs(json.dumps(source), template)

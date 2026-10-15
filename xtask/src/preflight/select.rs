@@ -255,7 +255,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
 
 fn classify_script(script: &str, impact: &mut Impact) {
     match script {
-        "ui_tokens.py" | "ui_icons.py" | "studio_tokens.py" | "ui_preview_catalog.py" => {
+        "ui_tokens.py"
+        | "ui_icons.py"
+        | "ui_logos.py"
+        | "studio_tokens.py"
+        | "ui_preview_catalog.py" => {
             impact.packages.insert(UI_PACKAGE.to_owned());
             impact.gates.insert(Gate::CmpUiPreview);
             impact.gates.insert(Gate::TheatreCmpDemo);
@@ -710,6 +714,7 @@ mod tests {
             "packages/ui-system/leptos/src/fields.rs",
             "scripts/ui_tokens.py",
             "scripts/ui_icons.py",
+            "scripts/ui_logos.py",
             "scripts/studio_tokens.py",
             "scripts/ui_preview_catalog.py",
             "packages/ui-system/shared/preview-catalog.json",

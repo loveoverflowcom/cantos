@@ -38,6 +38,14 @@
     "warning_amber": {
       "path": "src/alert/warning_amber/materialiconsoutlined/24px.svg",
       "sha256": "fc42aa44a2a9ec7fb65ab036b511ce9c9fa1a048f29c0af81a56e65433f5e1a6"
+    },
+    "arrow_back": {
+      "path": "src/navigation/arrow_back/materialiconsoutlined/24px.svg",
+      "sha256": "5eab5a4557e97143f2166479366672a76bbc31d805be62efa75c7d1a10e13cf2"
+    },
+    "arrow_forward": {
+      "path": "src/navigation/arrow_forward/materialiconsoutlined/24px.svg",
+      "sha256": "c29eb7e21c41d67577daf325415ddbe8c00efb08523ea307b0e4eb1ecd51f938"
     }
   }
 }

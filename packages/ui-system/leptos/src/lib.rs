@@ -1,12 +1,14 @@
 //! Cantos Web foundation. Apps own localized content, routes, effects and permission state.
 
 mod avatar;
+mod back;
 mod button;
 mod dialog;
 mod feedback;
 mod fields;
 mod icons;
 mod layout;
+mod logo;
 mod navigation;
 mod root;
 pub mod tokens;
@@ -15,6 +17,7 @@ pub use avatar::{
     avatar_image_src, avatar_initials, avatar_seed, avatar_tone, Avatar, AvatarInitials,
     AvatarSize, AvatarTone,
 };
+pub use back::BackButton;
 pub use button::{
     AccessibleName, Button, ButtonState, ButtonVariant, DisabledReason, EmptyAccessibleName,
     EmptyDisabledReason, IconButton,
@@ -23,13 +26,14 @@ pub use dialog::{Dialog, DialogCloseReason, DialogError};
 pub use feedback::{Announcement, Badge, EmptyState, ErrorState, LoadingState, Status, StatusTone};
 pub use fields::{
     Checkbox, ChoiceState, FieldError, FieldHelp, FieldLabel, FieldState, NumberField, Radio,
-    RangeField, Select, Switch, TextArea, TextField, TextFieldKind,
+    RangeField, Select, Switch, TextArea, TextField, TextFieldKind, TextFieldVariant,
 };
 pub use icons::{Icon, IconName};
 pub use layout::{
     Container, ContainerWidth, Grid, GridColumns, Space, Stack, StackDirection, Surface,
-    SurfaceTone,
+    SurfaceTone, SurfaceVariant,
 };
+pub use logo::{Logo, LogoTone, LogoVariant};
 pub use navigation::{FilterChip, InvalidLinkHref, Link, LinkHref, NavItem, NavTabs};
 pub use root::{Density, Theme, UiRoot};
 

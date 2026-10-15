@@ -1,4 +1,4 @@
-# Shared semantic contract v0.3.0
+# Shared semantic contract v0.4.0
 
 [`tokens.json`](tokens.json) is the sole active source. This is a bounded Cantos JSON schema,
 not a claim of DTCG conformance. The generator validates it before any output write.
@@ -13,7 +13,7 @@ it is not a live second theme.
 | `aliases` | Legacy semantic role → direct canonical role; no chains or cycles |
 | `contrast_pairs` | Named foreground/background color roles with text/nontext floor |
 | `density` | Compact/comfortable logical control dimensions; common roles, no per-app palette |
-| `reduced_motion` | Motion durations replaced by zero under the browser preference |
+| `reduced_motion` | Every shared duration has an explicit zero mapping under reduced motion |
 
 Supported types: `color` (sRGB six-digit hex), `dimension` (non-negative logical units),
 `number` (line-height or opacity), `fontFamily`, `fontWeight`, `duration` (milliseconds),
@@ -38,7 +38,7 @@ The Theatre CMP mock now supplies the exact Noto Sans/Serif resource families (S
 and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
 keeps hashes and the outstanding production artwork-rights boundary. Other hosts, including Web,
 retain local/system fallbacks. Shared theme callers may inject licensed font families without
-changing platform font scale. The shared package itself contains no font or painting files.
+changing platform font scale. The shared package itself contains no font or painting files; official logo vectors are local path-outlined assets with their own [provenance](assets/cantos-logo-kit-v2/README.md).
 
 v0.2.1 adds `color.playerSurface`, `color.onPlayerSurface` and `color.playerAccent` from the
 Mobile v2 handoff. Both themes deliberately retain the separate dark player surface and pale
@@ -57,7 +57,7 @@ v0.2.2 standardizes the existing shape roles instead of adding a mobile-only tok
 | `shape.container` | 16 | large; story/continue cards and large covers |
 | `shape.overlay` | 20 | extraLarge; dialogs |
 | `shape.thumbnail` | 10 | compact artwork, including mini-player; explicit requested exception |
-| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators only |
+| `shape.pill` (Full) | proportional in CMP; 999 logical units in CSS | circular icon controls, genuine chips/badges/indicators; scoped auth actions in v0.4.0 |
 
 `CantosShapes` is the typed CMP adapter over these roles; `CantosTheme` maps the five Material
 slots from it. Values live only in `tokens.json`. Ordinary containers never use Full. Stock
@@ -77,7 +77,7 @@ declared once, in the [stylesheet template](../leptos/foundation.css.in), not in
 | `--cantos-web-shape-overlay` | 24 (1.5rem) | `shape.overlay` | featured container, mini-player, dialogs |
 | `--cantos-web-shape-panel` | 24 (1.5rem) | none (Web v2 base panel) | primary page panels that hold nested cards, covers or rows (Theatre continue-listening, account identity); nested items keep `container` |
 
-Web CSS reads only these roles plus the shared `shape.pill`; it never reads the shared
+Regular Web CSS reads only these roles plus the shared `shape.pill`; it never reads the shared
 `shape.{control,reading,field,container,overlay}` custom properties, so the CMP scale can change
 without moving a Web corner. The generator refuses a template custom property outside
 `--cantos-web-*` or one that shadows a canonical role, and `scripts/test_ui_tokens.py`
@@ -104,6 +104,42 @@ v0.3.0 adds avatar identity roles: six `color.avatar<Tone>` / `color.onAvatar<To
 (Lavender, Gold, Sage, Rose, Sky, Clay) and `size.avatarSmall|Medium|Large` (32/40/64). The
 hues are muted container tones beside Lavender Ink, not status colors; every pair is a 4.5
 text contrast check in both themes (measured 7.7–9.4). Existing roles are unchanged.
+
+## Scoped auth/account mapping (v0.4.0)
+
+[Issue 127](https://github.com/loveoverflowcom/cantos/issues/127)'s supplied
+[design v2](https://drive.google.com/drive/folders/1oJ8Y8NzmjfFh_qSAx_qV6tNH9JIKlERx)
+introduces additive roles for concrete auth/account consumers; it does not change the regular
+CMP scale, Web mapping, player, mini-player, editor, colors, fonts or density roles.
+
+| Role | Logical units | Scope |
+| --- | --- | --- |
+| `size.authPrimary`, `size.authSecondary` | 60, 56 | Minimum action height; intrinsic text height may grow |
+| `size.authIcon` | 28 | Decorative circle in the filled auth action; no independent name |
+| `size.authField`, `shape.authField` | 56, 20 | Tonal text entry with external label/help/error |
+| `size.backControl` | 48 | Contextual Back hit area; host owns destination/cancellation |
+| `size.authOutline` | 1.5 | Functional outlined auth action; regular `size.border=1` unchanged |
+| `shape.authPressed` | 16 | Auth press target radius; feedback never delays dispatch |
+| `shape.authContainer`, `shape.profileContainer` | 36, 36 | Quiet tone-grouped auth/profile surfaces |
+| `shape.membershipContainer`, `shape.accountGroup` | 32, 28 | Membership and account reading groups |
+| `motion.shape.duration` | 220 ms | Interruptible shape feedback; reduced motion 0 |
+
+Web maps dimensions exactly to rem (`1.5` becomes `0.09375rem`, 1.5 CSS px at a 16 px root),
+including text/browser zoom. Native mappings retain `1.5` as Double before dp conversion, never
+round it to an integer. Android Back geometry meets the 48 dp target; the same logical geometry
+exceeds iOS's 44 pt project target. Native platform behavior still needs device acceptance.
+
+Capsule is an explicit variant, not a change to every Button or Surface. Profile/member text
+uses the surface's paired foreground (`onPrimaryContainer` on `primaryContainer`), never a
+muted foreground on that background. All existing contrast pairs remain active. Functional
+focus/error/selected boundaries stay intact; only these surfaces omit decorative borders.
+
+Both package-local previews register concrete specimens and state controls. New `BackButton`
+and `Logo` remain **implemented-unverified** and unqualified until fresh two-renderer runtime,
+accessibility and inspected-reference evidence exists. Variants likewise remain preview-only:
+no real app adopts them in this issue. [Evidence and pending admission](../../../docs/evidence/ui-auth-account-v2.md)
+separate implemented source from executed gates. Future #128–#131 consumers retain their own
+product/backend/auth/navigation acceptance boundaries.
 
 ## Avatar
 

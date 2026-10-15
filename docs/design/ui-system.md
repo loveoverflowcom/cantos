@@ -74,6 +74,27 @@ Discovery emphasizes cover art, title, genre, synopsis, duration, and episode av
 
 Web and mobile share vocabulary and state meaning, while navigation, safe areas, touch, back behavior, and native media integration adapt to the platform. Mobile playback requirements are in [mobile.md](../architecture/mobile.md).
 
+## Auth/account expression scope
+
+The [v0.4.0 shared contract](../../packages/ui-system/shared/README.md#scoped-authaccount-mapping-v040)
+adds explicit auth actions, tonal fields, Back and auth/profile/member surfaces from
+[design v2](https://drive.google.com/drive/folders/1oJ8Y8NzmjfFh_qSAx_qV6tNH9JIKlERx).
+Auth/account is Medium: one filled primary, a separate tonal secondary, quiet surface grouping
+and no connected Login/Register toggle. Capsule/pressed morphing is scoped to those actions;
+regular listening, player, mini-player, editor and table controls retain their existing scale.
+This is a shared foundation, not auth, membership activation, billing or an app-navigation change.
+
+Use the existing Lavender Ink color pairs and local Noto families. Profile/member text on a
+primary container uses `onPrimaryContainer`; muted text is not a substitute. Group these
+containers by surface and spacing, without decorative outlines, while preserving functional
+focus, error and selected boundaries. Logo lettering stays local vector paths, preserving
+transparent knockout and aspect ratio. Listener marks say Cantos, creator marks Cantos Studio.
+
+Both package previews must receive fresh structural, runtime, accessibility and visual evidence
+before real application adoption. [Issue 127 evidence](../evidence/ui-auth-account-v2.md) records
+executed checks and missing renderer/platform acceptance; prototype HTML/PNG and compilation
+never qualify a renderer. Consumer issues #128–#131 keep their own product requirements.
+
 ## Components and interaction states
 
 New shared components follow the user-requested

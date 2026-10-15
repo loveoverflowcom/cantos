@@ -10,6 +10,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | --- | --- |
 | `UiRoot` | Reactive `Theme` and `Density`; one scoped boundary, optional class and children |
 | `Button` | Native `type="button"`; primary/tonal/secondary/text/danger; reactive `ButtonState`, `on_press`, label children and optional decorative `icon` |
+| `BackButton` | Typed localized name + required host callback; native non-submit contextual return, visible or icon-only label; no route/history ownership |
 | `IconButton` | Same action state with an official `IconName` and nonempty `AccessibleName`; label remains in accessible text |
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
 | `FilterChip` | Controlled `selected`, native `aria-pressed`, `on_change(bool)`; blocked/loading reason |
@@ -83,12 +84,15 @@ to text/icons.
 Load [`tokens.css`](tokens.css), then [`foundation.css`](foundation.css), then scoped app styles.
 Edit [`foundation.css.in`](foundation.css.in) and run `python3 scripts/ui_tokens.py`; generated files
 are committed and must not be hand-edited. All selectors are scoped by `.cantos-ui`; semantic values
-come from canonical v0.2.0 roles. No per-component dark palette, font download or artwork is bundled.
-System/local font fallbacks remain explicit. Layout measures (75ch/76rem and dialog maximum) are
+come from the [canonical source](../shared/tokens.json). No per-component dark palette or remote
+font/artwork download is required. Official Logo Kit SVG documents are bundled locally and their
+letterforms are paths; UI system/local font fallbacks remain explicit. Layout measures
+(75ch/76rem and dialog maximum) are
 renderer geometry; spacing, colors, type, targets, density, focus and the pill shape use shared tokens.
-Corner radii use the Web-only `--cantos-web-shape-{control,reading,container,overlay,panel}` roles declared
-in `foundation.css.in` ([mapping](../shared/README.md#web-shape-mapping)); components, apps and the
-gallery never read the shared CMP `shape.*` scale directly.
+Regular corner radii use the Web-only `--cantos-web-shape-{control,reading,container,overlay,panel}`
+roles declared in `foundation.css.in` ([mapping](../shared/README.md#web-shape-mapping)); they never
+read the regular shared CMP shape scale directly. Opt-in auth/account variants use their separate
+canonical semantic roles without modifying that established Web mapping.
 
 Button and FilterChip labels use the shared `cui-control-label` anatomy hook. Supporting browsers
 center the font's cap-to-baseline box with `text-box-trim`, keeping icons in their own flex item;
@@ -147,6 +151,46 @@ persistent labels, help and error descriptions. Hover adds the shared state laye
 retains the full contrast outline. Invalid controls use an error surface and transient bottom cue
 plus text. Forced colors retains a functional boundary. Grouping uses spacing and tonal surfaces,
 not permanent field outlines or section separators.
+
+## Auth/account design-v2 specimens
+
+The opt-in `ButtonVariant::AuthPrimary`, `AuthSecondary` and `AuthOutlined` reuse the native
+non-submit Button and its controlled loading/disabled reasons and synthetic-event guard.
+Only these variants use the canonical auth CTA dimensions, capsule shape and interruptible
+pressed radius. The leading primary icon is decorative, with one visible text label. The
+outlined variant uses the fractional auth outline role; regular secondary boundaries and the
+existing focus width remain unchanged. The CSS transition is not a native Material spring.
+Reduced motion removes that transition without delaying intent delivery.
+
+`TextFieldVariant::AuthTonal` changes only the controlled TextField's minimum height and radius.
+Native type/autocomplete, raw values, persistent labels, composition callbacks, read-only
+selection, help/error/reason associations and caller-owned validation stay the existing contract.
+`SurfaceVariant::{Auth, Profile, Membership, AccountGroup}` selects scoped geometry independently
+from tone. Pair a profile's `SurfaceTone::PrimaryContainer` with its inherited
+`onPrimaryContainer` foreground, including explanatory text, rather than muted body ink.
+No variant changes regular listening/editor controls, reading regions or mini-player geometry.
+
+`BackButton` requires a nonblank localized `AccessibleName` and an `on_back` callback. Its native
+button is never a submit/link, and blocked states preserve a visible reason. The default shows
+the same name next to the circular arrow; `icon_only=true` retains that name as visually hidden
+text. The host alone resolves contextual return destinations, cancellation and draft/scroll
+retention. This primitive does not call browser history, choose a fallback route, authenticate,
+log out or implement native system Back.
+
+The actual [auth specimens](preview/auth_samples.rs) live in the existing actions, fields,
+navigation and layout gallery families. They expose host-driven enabled/loading/disabled and
+field error/read-only states, long Vietnamese labels, retained values and intent counters.
+Press/keyboard-focus states use real native interaction, not a fake screenshot state flag.
+Ordinary controls sit alongside the scoped variants as regression specimens. The existing
+theme controls apply light/dark to all examples. Check actual 320px reflow and browser 200%
+text scale; no fixed label height or text clipping is introduced by the variant.
+
+The [semantic tests](tests/auth_account.rs) assert native action names/blocked descriptions,
+retained escaped input values, field error associations and observable package fixtures.
+String rendering does not execute browser events or establish focus, clipping, motion or
+screen-reader behavior. These APIs remain **implemented-unverified and unqualified for app
+adoption** until both real Leptos/CMP previews satisfy the shared admission contract. They add
+no application route, auth/payment integration or backend authority.
 
 ## Consumer map
 

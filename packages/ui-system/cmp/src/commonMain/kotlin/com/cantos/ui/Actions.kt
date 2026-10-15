@@ -1,20 +1,27 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -27,6 +34,8 @@ fun Button(
     state: ButtonState = ButtonState.Enabled,
     variant: ButtonVariant = ButtonVariant.Primary,
     controlModifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource? = null,
+    icon: String? = null,
 ) {
     Button(
         name = AccessibleName.of(label),
@@ -35,6 +44,8 @@ fun Button(
         state = state,
         variant = variant,
         controlModifier = controlModifier,
+        interactionSource = interactionSource,
+        icon = icon,
     ) {
         Text(label)
     }
@@ -51,10 +62,12 @@ fun Button(
     state: ButtonState = ButtonState.Enabled,
     variant: ButtonVariant = ButtonVariant.Primary,
     controlModifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource? = null,
+    icon: String? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-        ButtonControl(onPress, controlModifier, state, variant, name = name, content = content)
+        ButtonControl(onPress, controlModifier, state, variant, name = name, interactionSource = interactionSource, icon = icon, content = content)
         state.reason()?.let { FieldHelp(it) }
     }
 }
@@ -68,28 +81,41 @@ internal fun ButtonControl(
     variant: ButtonVariant = ButtonVariant.Primary,
     name: AccessibleName? = null,
     description: String? = null,
+    interactionSource: MutableInteractionSource? = null,
+    minimumHeightRole: String? = null,
+    contentPadding: PaddingValues? = null,
+    icon: String? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val interactions = interactionSource ?: remember { MutableInteractionSource() }
+    val auth = variant.isAuth()
+    val shape = if (auth) authActionShape(interactions) else CantosShapes.control
+    val minimumHeight = tokenDp(minimumHeightRole ?: when (variant) {
+        ButtonVariant.AuthPrimary -> "size.authPrimary"
+        ButtonVariant.AuthSecondary, ButtonVariant.AuthOutlined -> "size.authSecondary"
+        else -> "size.control"
+    })
     val background = when (variant) {
-        ButtonVariant.Primary -> tokenColor("color.primary")
-        ButtonVariant.Tonal -> tokenColor("color.primaryContainer")
+        ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.primary")
+        ButtonVariant.Tonal, ButtonVariant.AuthSecondary -> tokenColor("color.primaryContainer")
         ButtonVariant.Danger -> tokenColor("color.errorContainer")
-        ButtonVariant.Secondary, ButtonVariant.Text -> Color.Transparent
+        ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> Color.Transparent
     }
     val foreground = when (variant) {
-        ButtonVariant.Primary -> tokenColor("color.onPrimary")
-        ButtonVariant.Tonal -> tokenColor("color.onPrimaryContainer")
+        ButtonVariant.Primary, ButtonVariant.AuthPrimary -> tokenColor("color.onPrimary")
+        ButtonVariant.Tonal, ButtonVariant.AuthSecondary -> tokenColor("color.onPrimaryContainer")
         ButtonVariant.Danger -> tokenColor("color.error")
-        ButtonVariant.Secondary, ButtonVariant.Text -> tokenColor("color.primary")
+        ButtonVariant.Secondary, ButtonVariant.Text, ButtonVariant.AuthOutlined -> tokenColor("color.primary")
     }
     androidx.compose.material3.Button(
         onClick = { if (state.canPress()) onPress() },
         enabled = state.canPress(),
-        modifier = modifier.heightIn(min = tokenDp("size.control")).cantosFocus().actionState(state, description)
+        modifier = modifier.heightIn(min = minimumHeight).cantosFocus(if (auth) "shape.pill" else "shape.control").actionState(state, description)
             .semantics { name?.let { contentDescription = it.text } },
-        shape = CantosShapes.control,
-        border = if (variant == ButtonVariant.Secondary) BorderStroke(
-            tokenDp("size.border"), tokenColor("color.outline"),
+        shape = shape,
+        interactionSource = interactions,
+        border = if (variant == ButtonVariant.Secondary || variant == ButtonVariant.AuthOutlined) BorderStroke(
+            tokenDp(if (auth) "size.authOutline" else "size.border"), tokenColor("color.outline"),
         ) else null,
         colors = ButtonDefaults.buttonColors(
             containerColor = background,
@@ -97,13 +123,71 @@ internal fun ButtonControl(
             disabledContainerColor = tokenColor("color.surfaceContainer"),
             disabledContentColor = tokenColor("color.onSurfaceVariant"),
         ),
-        contentPadding = PaddingValues(horizontal = tokenDp("space.controlInline")),
+        contentPadding = contentPadding ?: if (auth) PaddingValues(horizontal = tokenDp("space.lg"), vertical = tokenDp("space.inset"))
+            else PaddingValues(horizontal = tokenDp("space.controlInline")),
     ) {
-        if (state is ButtonState.Loading) {
+        if (icon != null) {
+            ActionIcon(icon, state, variant)
+            Spacer(Modifier.size(tokenDp("space.sm")))
+        } else if (state is ButtonState.Loading) {
             Icon("expand_more")
             Spacer(Modifier.size(tokenDp("space.sm")))
         }
         content()
+    }
+}
+
+/** Leading icons are decorative; the native action keeps the sole localized name.
+ * Only AuthPrimary uses the contrast-paired circle, including its blocked tonal state.
+ */
+@Composable
+private fun ActionIcon(icon: String, state: ButtonState, variant: ButtonVariant) {
+    if (variant == ButtonVariant.AuthPrimary) {
+        val circleRole = if (state.canPress()) "color.onPrimary" else "color.onSurfaceVariant"
+        val glyphRole = if (state.canPress()) "color.primary" else "color.surfaceContainer"
+        Box(
+            Modifier.size(tokenDp("size.authIcon")).background(tokenColor(circleRole), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, tint = tokenColor(glyphRole)) }
+    } else {
+        Icon(icon)
+    }
+}
+
+/** Contextual Back only dispatches the host intent. It never navigates or signs out itself.
+ * iconOnly keeps a full localized name; a visible label reflows at large text sizes.
+ */
+@Composable
+fun BackButton(
+    name: AccessibleName,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    state: ButtonState = ButtonState.Enabled,
+    iconOnly: Boolean = true,
+    controlModifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource? = null,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        ButtonControl(
+            onPress = onBack,
+            modifier = controlModifier.widthIn(min = tokenDp("size.backControl")),
+            state = state,
+            variant = ButtonVariant.AuthSecondary,
+            name = name,
+            interactionSource = interactionSource,
+            minimumHeightRole = "size.backControl",
+            contentPadding = PaddingValues(
+                horizontal = tokenDp(if (iconOnly) "space.inset" else "space.lg"),
+                vertical = tokenDp("space.inset"),
+            ),
+        ) {
+            Icon("arrow_back")
+            if (!iconOnly) {
+                Spacer(Modifier.size(tokenDp("space.sm")))
+                Text(name.text)
+            }
+        }
+        state.reason()?.let { FieldHelp(it) }
     }
 }
 
