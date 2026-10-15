@@ -235,6 +235,11 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
   --kotlin-native-home /absolute/path/to/installed/kotlin-native-2.2.20
 ```
 
+To hand the **demo** APK to testers through Firebase App Distribution use the explicit
+`cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
+It distributes this mock only: it establishes no production readiness, and the production APK/AAB
+distribution stays `UNSUPPORTED` until a real production Android host exists (#122).
+
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
 classpaths and, when Android is enabled, shared Android release compile/runtime classpaths for

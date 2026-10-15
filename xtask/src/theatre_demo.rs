@@ -23,7 +23,7 @@ use crate::{
 const RUN_JVM_ARGS: &str = "-Xms64m -Xmx2g -Dfile.encoding=UTF-8";
 const KOTLIN_NATIVE_VERSION: &str = "2.2.20";
 const ANDROID_PLATFORM: &str = "platforms/android-35/android.jar";
-const ANDROID_BUILD_TOOLS: &str = "build-tools/35.0.0";
+pub const ANDROID_BUILD_TOOLS: &str = "build-tools/35.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum DemoAction {
@@ -95,12 +95,20 @@ pub fn desktop_command(workspace: &Workspace, task: &str) -> CommandSpec {
         )
 }
 
-fn android_command(workspace: &Workspace) -> CommandSpec {
+/// The one Gradle invocation that builds the Android debug mock; distribution reuses it as is.
+pub fn android_command(workspace: &Workspace) -> CommandSpec {
     gradle_command(workspace).args([
         "-Pcantos.android=true",
         "-Pandroid.builder.sdkDownload=false",
         ":androidApp:assembleDebug",
     ])
+}
+
+/// The already installed Android SDK named by the environment, if any; never downloaded.
+pub fn android_sdk_from_environment() -> Option<PathBuf> {
+    std::env::var_os("ANDROID_HOME")
+        .or_else(|| std::env::var_os("ANDROID_SDK_ROOT"))
+        .map(PathBuf::from)
 }
 
 fn ios_command(workspace: &Workspace, compiler_home: &str) -> CommandSpec {
@@ -153,7 +161,7 @@ fn pinned_native_version(stdout: &[u8], stderr: &[u8]) -> bool {
     }) == Some(true)
 }
 
-fn local_executable(path: &Path) -> bool {
+pub fn local_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -166,7 +174,7 @@ fn local_executable(path: &Path) -> bool {
     }
 }
 
-fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
+pub fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
     if !project.join("androidApp/build.gradle.kts").is_file()
         || !project
             .join("androidApp/src/main/AndroidManifest.xml")
@@ -248,9 +256,7 @@ pub fn execute(
         )],
         DemoAction::Verify => vec![Gate::TheatreCmpDemo.step(workspace)],
         DemoAction::AndroidBuild => {
-            let sdk = std::env::var_os("ANDROID_HOME")
-                .or_else(|| std::env::var_os("ANDROID_SDK_ROOT"))
-                .map(PathBuf::from);
+            let sdk = android_sdk_from_environment();
             if let Err(reason) =
                 android_prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref())
             {

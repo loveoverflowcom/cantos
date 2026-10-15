@@ -51,6 +51,9 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Explicit remote tester distribution (Firebase App Distribution, demo APK only). A remote
+    /// write; never invoked by build, run, verify, preflight or ci.
+    Distribute(crate::distribute::DistributeArgs),
     /// Studio Kanidm operator plan or read-only OIDC metadata check; no automatic bootstrap.
     Kanidm(crate::kanidm::KanidmArgs),
     /// Explicit Podman local infrastructure lifecycle; never used by build/test/run.
@@ -457,6 +460,94 @@ mod tests {
         ] {
             assert!(parse(line).is_err(), "{line}");
         }
+    }
+
+    #[test]
+    fn distribute_firebase_separates_channel_variant_and_artifact() {
+        use crate::distribute::{DistributeArgs, Provider};
+        let Task::Distribute(DistributeArgs {
+            provider: Provider::Firebase(args),
+        }) = parse(
+            "distribute firebase cantos-theatre --channel demo --groups cantos-internal --dry-run",
+        )
+        .unwrap()
+        else {
+            panic!("not a distribute task");
+        };
+        assert_eq!(format!("{:?}", args.channel), "Demo");
+        assert_eq!(
+            format!("{:?}", args.artifact),
+            "Apk",
+            "apk is the default artifact"
+        );
+        assert_eq!(args.groups, ["cantos-internal"]);
+        assert!(args.testers.is_empty() && args.dry_run && args.app_id.is_none());
+
+        let Task::Distribute(DistributeArgs {
+            provider: Provider::Firebase(args),
+        }) = parse(
+            "distribute firebase cantos-theatre --channel demo --artifact apk \
+             --app-id 1:123:android:abc --groups a,b,a --testers q@example.com,r@example.com \
+             --release-notes-file notes.txt",
+        )
+        .unwrap()
+        else {
+            panic!("not a distribute task");
+        };
+        assert_eq!(args.app_id.as_deref(), Some("1:123:android:abc"));
+        // Raw splitting only: trimming and deduplication belong to the pure request.
+        assert_eq!(args.groups, ["a", "b", "a"]);
+        assert_eq!(args.testers.len(), 2);
+        assert_eq!(
+            args.release_notes_file.as_deref(),
+            Some(std::path::Path::new("notes.txt"))
+        );
+        // Recognized-but-unavailable values still parse; the request refuses them as UNSUPPORTED.
+        assert!(parse(
+            "distribute firebase cantos-theatre --channel production --artifact aab --groups g"
+        )
+        .is_ok());
+        assert!(parse(
+            "distribute firebase cantos-theatre --channel demo --artifact aab --groups g"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn distribute_rejects_missing_unknown_or_scope_widening_arguments() {
+        for line in [
+            "distribute",
+            "distribute firebase",
+            "distribute firebase cantos-theatre --groups g",
+            "distribute firebase cantos-theatre --channel nightly --groups g",
+            "distribute firebase cantos-studio --channel demo --groups g",
+            "distribute firebase cantos-api --channel demo --groups g",
+            "distribute firebase cantos-theatre --channel demo --artifact ipa --groups g",
+            "distribute firebase cantos-theatre --channel demo --groups g --release-notes a --release-notes-file b",
+            "distribute firebase cantos-theatre --channel demo --groups g --no-build",
+            "distribute firebase cantos-theatre --channel demo --groups g --apk-path x.apk",
+            "distribute firebase cantos-theatre --channel demo --groups g --retry 3",
+            "distribute gcs cantos-theatre --channel demo --groups g",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
+        // Empty entries survive parsing so the request can reject them as a usage error.
+        let parsed = Cli::try_parse_from([
+            "cargo xtask",
+            "distribute",
+            "firebase",
+            "cantos-theatre",
+            "--channel",
+            "demo",
+            "--groups",
+            "a,,b",
+        ])
+        .unwrap();
+        let Task::Distribute(args) = parsed.command else {
+            panic!("not a distribute task");
+        };
+        let crate::distribute::Provider::Firebase(args) = args.provider;
+        assert_eq!(args.groups, ["a", "", "b"]);
     }
 
     #[test]
