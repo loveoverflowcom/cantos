@@ -80,4 +80,23 @@ class CaptureRecordTest {
         val json = sidecar(scenario.copy(name = "a\"b\\c\nd"), ImageBitmap(1, 1), ByteArray(1))
         assertTrue(json.contains("\"name\": \"a\\\"b\\\\c\\nd\""))
     }
+
+    @Test
+    fun a_motion_frame_states_its_recipe_mark_time_and_timebase_and_disclaims_recordings_and_the_os_signal() {
+        val frame = CaptureFrame(recipe = "press-hold", mark = "mid", timeMillis = 112, timebase = ManualClockTimebase)
+        val json = sidecar(scenario.copy(frame = frame), ImageBitmap(1, 1), ByteArray(1))
+        assertTrue(json.contains("\"frame\": {\"recipe\": \"press-hold\", \"mark\": \"mid\", \"time_ms\": 112, \"timebase\": \"$ManualClockTimebase\"}"))
+        listOf("android-device", "ios-device", "os-window", "screen-reader", "design-pixel-match", "runtime-recording", "os-reduce-motion").forEach {
+            assertTrue(json.contains("\"$it\""), it)
+        }
+        assertTrue(json.contains("\"reduced_motion\": false"))
+    }
+
+    @Test
+    fun a_capture_without_a_frame_keeps_the_sidecar_it_always_had() {
+        val json = sidecar(scenario, ImageBitmap(1, 1), ByteArray(1))
+        assertFalse(json.contains("\"frame\""))
+        assertFalse(json.contains("runtime-recording"))
+        assertFalse(json.contains("os-reduce-motion"))
+    }
 }

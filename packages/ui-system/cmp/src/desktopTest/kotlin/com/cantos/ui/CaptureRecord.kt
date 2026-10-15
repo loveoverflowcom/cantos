@@ -11,6 +11,13 @@ import org.jetbrains.skia.Image
 /** Renderer label of every record written here; it never claims Android, iOS, an OS window or a screen reader. */
 internal const val JvmTestRootRenderer = "jvm-desktop-compose-test-root"
 
+/**
+ * One instant of a replayed interaction. [timebase] names the clock that produced [timeMillis]: a
+ * manual test clock advances only when the test says so, so it proves ordering and final state but
+ * nothing about real frame pacing.
+ */
+internal data class CaptureFrame(val recipe: String, val mark: String, val timeMillis: Long, val timebase: String)
+
 /** Everything needed to reproduce and honestly label one JVM test-root capture. */
 internal data class CaptureScenario(
     val name: String,
@@ -25,6 +32,7 @@ internal data class CaptureScenario(
     val viewportHeightDp: Int,
     val hostDensity: Float,
     val hostFontScale: Float,
+    val frame: CaptureFrame? = null,
 )
 
 internal fun captureDirectory(): File =
@@ -61,15 +69,22 @@ private fun nullable(value: String?): String = value?.let(::quoted) ?: "null"
 
 internal fun sidecar(scenario: CaptureScenario, bitmap: ImageBitmap, png: ByteArray): String {
     val preferences = scenario.preferences
-    val fields = listOf(
+    // A manual-clock frame is also not a recording and not the OS reduce-motion signal.
+    val notEvidenceOf = listOf("android-device", "ios-device", "os-window", "screen-reader", "design-pixel-match") +
+        if (scenario.frame != null) listOf("runtime-recording", "os-reduce-motion") else emptyList()
+    val fields = listOfNotNull(
         "schema" to quoted("cantos-ui-capture-v1"),
         "name" to quoted(scenario.name),
         "renderer" to quoted(JvmTestRootRenderer),
-        "not_evidence_of" to "[\"android-device\", \"ios-device\", \"os-window\", \"screen-reader\", \"design-pixel-match\"]",
+        "not_evidence_of" to notEvidenceOf.joinToString(", ", "[", "]") { quoted(it) },
         "section" to quoted(scenario.section),
         "component" to nullable(scenario.component),
         "state" to nullable(scenario.state),
         "design_specimen" to nullable(scenario.specimen),
+        scenario.frame?.let { frame ->
+            "frame" to "{\"recipe\": ${quoted(frame.recipe)}, \"mark\": ${quoted(frame.mark)}, " +
+                "\"time_ms\": ${frame.timeMillis}, \"timebase\": ${quoted(frame.timebase)}}"
+        },
         "theme_mode" to quoted(scenario.themeMode.name),
         "system_is_dark" to scenario.systemIsDark.toString(),
         "theme" to quoted(preferences.theme.tokenName),
