@@ -157,7 +157,8 @@ reorder the backend capabilities above or revive DBSP production jobs.
 [auth/account v0.4.0 contract](../../packages/ui-system/shared/README.md#scoped-authaccount-mapping-v040)
 and official local Logo Kit to both shared renderers, before app-level adoption. Its
 [evidence ledger](../evidence/ui-auth-account-v2.md) keeps implementation tests separate from
-missing runtime/design admission. New primitives and variants remain unqualified and preview-only.
+missing runtime/design admission. The six Membership APIs now have the bounded admission
+record below; other primitives/variants and native acceptance remain pending.
 PR 132's 15 October follow-up repairs Web auth press interpolation and narrow large-text
 layout; real Chrome interaction, both themes and 320 px/200% text now have local evidence.
 CMP desktop motion tests and the SDK 35 preview build also pass. Prioritize the remaining
@@ -168,14 +169,32 @@ Recommended order stays small and reviewable:
 
 1. Complete fresh Leptos and CMP runtime/accessibility/visual admission for the exact shared
    token/source revision. Do not accept a screenshot from the HTML prototype or a build instead.
-2. #128 may discover pure membership form/receipt/plan semantics independently; renderer use
-   waits for admission and must not invent prices, entitlements or checkout behavior.
+2. #128's [Membership interest boundary](../product/membership-interest.md) permits pure
+   form/receipt/plan state and explicitly labeled opt-in Web/CMP previews while production
+   submission remains unavailable. [Preview evidence](../evidence/theatre-membership-preview.md)
+   separates fixtures and renderer observations from actual receipt/API acceptance. Shared
+   variants remain preview-only until admission; no prices, entitlements or checkout are invented.
+   PR 137's resumed review repairs reopened plan-selector state and adds repeated IME Done
+   coverage. Fresh Rust/Web/CMP and browser observations are recorded separately from recovered
+   disk/Python failures, the unavailable media-tool contract gate and native/production acceptance.
+   Its [CMP design follow-up](../evidence/pr137-cmp-design-v2.md) replaces local visual wrappers
+   with six admitted shared APIs, adds scoped token v0.5.0 and external tonal-field labels,
+   and retains the unavailable/fixture boundary. Fresh real Compose images are delivered on
+   the owner's Desktop. Android APK compilation is separate from the unavailable IDE capture
+   and unrun native/reader acceptance. Complete the recorded production/native gaps; earlier
+   PASS results never accept different follow-up source.
 3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
    retain the product-owned navigation requirements rather than copying prototype navigation.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
 
 This does not reorder publication/storage acceptance, change auth grants, or close consumer
 issues. GitHub owns execution status; the queue records only dependency order and rationale.
+
+After the bounded #128 preview, prioritize #12/#34 decisions on submitter/contact ownership,
+receipt persistence and reconciliation, and accepted plan data before a production Membership
+adapter. Keep real #129/#130 auth-return integration and fresh shared-component admission as
+separate review boundaries. Independent review of the preview remains required before relying
+on its implementation evidence.
 
 ## Existing foundations to retain
 

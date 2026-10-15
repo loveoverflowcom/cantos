@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import com.cantos.ui.CantosTypography
 import com.cantos.ui.AccessibleName
 import com.cantos.ui.BackButton
 import com.cantos.ui.Button
@@ -97,7 +98,7 @@ internal fun AuthAccountSpecimen(
         BackButton(AccessibleName.of("Quay lại Tài khoản"), { onEvent("back:account") })
         Surface(tone = SurfaceTone.Surface, variant = SurfaceVariant.Auth, inset = com.cantos.ui.Space.Lg) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                Text("Câu chuyện đang đợi bạn.", style = MaterialTheme.typography.headlineMedium)
+                Text("Câu chuyện đang đợi bạn.", style = CantosTypography.authHeading)
                 Text("Nội dung công khai vẫn có thể nghe ngay. Đây là mẫu UI, không mở xác thực hay gửi thông tin.")
                 AuthActionSample(if (state == "idle") "auth-primary" else state, { onEvent("auth:primary") })
                 AuthActionSample("auth-secondary", { onEvent("auth:secondary") })
@@ -128,7 +129,7 @@ internal fun AuthAccountSpecimen(
         Surface(tone = SurfaceTone.Container, variant = SurfaceVariant.Membership, inset = com.cantos.ui.Space.Lg) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                 Text("Cantos Membership", style = MaterialTheme.typography.titleLarge)
-                Text("Một người nghe. Một người đồng hành.", style = MaterialTheme.typography.headlineSmall)
+                Text("Một người nghe. Một người đồng hành.", style = CantosTypography.membershipTitle)
                 FieldHelp("Mẫu giao diện, không tự cấp quyền hội viên hay phát sinh thanh toán.")
                 Button("Tìm hiểu Membership", { onEvent("membership:learn") }, variant = ButtonVariant.AuthSecondary)
             }

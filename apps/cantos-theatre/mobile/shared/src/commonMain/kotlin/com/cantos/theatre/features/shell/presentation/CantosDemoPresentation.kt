@@ -69,6 +69,7 @@ import com.cantos.theatre.demo.DemoEpisode
 import com.cantos.theatre.demo.DemoEvent
 import com.cantos.theatre.demo.DemoListeningFailure
 import com.cantos.theatre.demo.DemoRoute
+import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.demo.DemoState
 import com.cantos.theatre.demo.DemoTheme
 import com.cantos.theatre.demo.DemoWork
@@ -85,8 +86,8 @@ import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 /** The same isolated mock composition is mounted by Android, iOS and the JVM diagnostic host.
- * Native Material controls consume the canonical theme. Unqualified Cantos component wrappers
- * are deliberately not adopted, copied, re-exported or registered as qualified here.
+ * Native Material controls consume the canonical theme. Membership supplies slots composed
+ * from the shared design-v2 primitives; their bounded admission is recorded separately.
  */
 @Composable
 fun CantosDemoPresentation(
@@ -97,6 +98,9 @@ fun CantosDemoPresentation(
     textScale: Float = 1f,
     onThemeChanged: (Boolean) -> Unit = {},
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
+    membershipContent: @Composable () -> Unit = {},
+    membershipHeader: (@Composable () -> Unit)? = null,
+    membershipScreen: MembershipScreen = MembershipScreen.Intro,
 ) {
     val copy = DemoCopy(state.locale)
     val back = { dispatch(DemoEvent.Back) }
@@ -124,7 +128,7 @@ fun CantosDemoPresentation(
                     }
                 },
             ) {
-                DemoHeader(state, copy, dispatch)
+                if (state.route == DemoRoute.MembershipPreview && membershipHeader != null) membershipHeader() else DemoHeader(state, copy, dispatch)
                 when (state.listeningFailure) {
                     null -> Unit
                     DemoListeningFailure.MemoryStoreUnavailable -> Column(
@@ -137,16 +141,16 @@ fun CantosDemoPresentation(
                         }
                     }
                 }
-                val scroll = remember(state.route) { androidx.compose.foundation.ScrollState(0) }
+                val scroll = remember(state.route, membershipScreen) { androidx.compose.foundation.ScrollState(0) }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
                         Modifier.widthIn(max = tokenDp("breakpoint.expanded"))
-                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp("space.md"))
+                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (state.route == DemoRoute.MembershipPreview) "space.section" else "space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
                             .testTag("screen"),
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
-                        Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
+                        if (state.route != DemoRoute.MembershipPreview) Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.testTag("demo-notice"))
                         when (val route = state.route) {
@@ -160,13 +164,14 @@ fun CantosDemoPresentation(
                             DemoRoute.Player -> PlayerScreen(state, catalog, copy, dispatch)
                             DemoRoute.Queue -> QueueScreen(state, catalog, copy, dispatch)
                             DemoRoute.Account -> AccountScreen(copy, dispatch)
+                            DemoRoute.MembershipPreview -> membershipContent()
                             DemoRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
                             DemoRoute.Settings -> SettingsScreen(state, copy, dispatch)
                             DemoRoute.Unavailable -> SelectionUnavailable(copy, dispatch)
                         }
                     }
                 }
-                if (state.route != DemoRoute.Player && state.route != DemoRoute.Queue) {
+                if (state.route != DemoRoute.Player && state.route != DemoRoute.Queue && state.route != DemoRoute.MembershipPreview) {
                     MiniPlayer(state, catalog, copy, dispatch)
                     DemoTabs(state, copy, dispatch)
                 }
@@ -184,6 +189,7 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
         DemoRoute.Player -> CopyKey.Player
         DemoRoute.Queue -> CopyKey.Queue
         DemoRoute.Account -> CopyKey.Account
+        DemoRoute.MembershipPreview -> CopyKey.MembershipPreview
         DemoRoute.History -> CopyKey.History
         DemoRoute.Settings -> CopyKey.Settings
         DemoRoute.Unavailable -> CopyKey.SelectionUnavailable
@@ -193,6 +199,7 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
 private fun headerTitleKey(route: DemoRoute): CopyKey = when (route) {
     DemoRoute.Player -> CopyKey.Player
     DemoRoute.Account -> CopyKey.AccountSpace
+    DemoRoute.MembershipPreview -> CopyKey.Brand
     DemoRoute.Discovery, DemoRoute.Search, DemoRoute.Library, is DemoRoute.Work, DemoRoute.Queue,
     DemoRoute.History, DemoRoute.Settings, DemoRoute.Unavailable -> CopyKey.Brand
 }

@@ -46,6 +46,38 @@ import org.junit.Test
 
 /** Actual shared wrappers on the JVM Compose renderer, not Android/iOS or TalkBack. */
 class AuthAccountComponentTest {
+    @Test
+    fun auth_tonal_label_stays_above_the_edit_control_for_raw_and_rich_values() {
+        var rich by mutableStateOf(false)
+        var invalid by mutableStateOf(false)
+        compose.setContent {
+            UiRoot(preferences = UiPreferences(textScale = 2f)) {
+                if (rich) {
+                    TextField("Tên của bạn · Ỗ, Ữ", TextFieldValue("Nguyễn Thị Ánh"), {},
+                        variant = TextFieldVariant.AuthTonal,
+                        error = if (invalid) "Kiểm tra tên đã nhập." else null,
+                        controlModifier = Modifier.testTag("tonal-control"))
+                } else {
+                    TextField("Tên của bạn · Ỗ, Ữ", "", {},
+                        variant = TextFieldVariant.AuthTonal,
+                        error = if (invalid) "Kiểm tra tên đã nhập." else null,
+                        controlModifier = Modifier.testTag("tonal-control"))
+                }
+            }
+        }
+        listOf(false, true).forEach { richValue ->
+            listOf(false, true).forEach { hasError ->
+                compose.runOnIdle {
+                    rich = richValue
+                    invalid = hasError
+                }
+                val label = compose.onNodeWithText("Tên của bạn · Ỗ, Ữ", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val control = compose.onNodeWithTag("tonal-control").fetchSemanticsNode().boundsInRoot
+                assertTrue(label.bottom <= control.top, "Auth label must remain outside the tonal input")
+            }
+        }
+    }
+
     @get:Rule
     val compose = createComposeRule()
 

@@ -3,13 +3,14 @@
 pub enum Mode {
     Live,
     Mock,
+    MembershipPreview,
 }
 impl Mode {
     pub fn from_query(query: &str) -> Self {
-        if query == "?mode=mock" {
-            Self::Mock
-        } else {
-            Self::Live
+        match query {
+            "?mode=mock" => Self::Mock,
+            "?mode=membership-preview" => Self::MembershipPreview,
+            _ => Self::Live,
         }
     }
 }
@@ -97,6 +98,14 @@ mod tests {
     fn mock_is_explicit_and_unknown_mode_never_falls_back_to_fake_success() {
         assert_eq!(Mode::from_query(""), Mode::Live);
         assert_eq!(Mode::from_query("?mode=mock"), Mode::Mock);
+        assert_eq!(
+            Mode::from_query("?mode=membership-preview"),
+            Mode::MembershipPreview
+        );
+        assert_eq!(
+            Mode::from_query("?mode=membership-preview&fixture=1"),
+            Mode::Live
+        );
         assert_eq!(Mode::from_query("?mode=unknown"), Mode::Live);
         assert_eq!(classify(200, b"{}"), ProbePhase::Failed(Failure::Protocol));
         assert_eq!(

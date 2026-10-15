@@ -778,3 +778,17 @@
   object-fit: contain;
   flex-shrink: 0;
 }
+
+/* Scoped Design v2 type roles, independent from regular reader/editor headings. */
+.cantos-ui .cui-auth-heading {
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-auth-heading-size);
+  font-weight: var(--cantos-type-auth-heading-weight);
+  line-height: var(--cantos-type-auth-heading-line-height);
+}
+.cantos-ui .cui-membership-heading {
+  font-family: var(--cantos-type-family-editorial);
+  font-size: var(--cantos-type-membership-title-size);
+  font-weight: var(--cantos-type-membership-title-weight);
+  line-height: var(--cantos-type-membership-title-line-height);
+}

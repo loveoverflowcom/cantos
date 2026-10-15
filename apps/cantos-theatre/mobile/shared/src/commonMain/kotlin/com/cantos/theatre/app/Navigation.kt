@@ -7,6 +7,7 @@ sealed interface TheatreRoute {
     data object Search : TheatreRoute
     data object Library : TheatreRoute
     data object Account : TheatreRoute
+    data object MembershipPreview : TheatreRoute
     data object History : TheatreRoute
     data object Settings : TheatreRoute
     data object Queue : TheatreRoute
@@ -55,7 +56,7 @@ private fun navigate(state: NavigationState, route: TheatreRoute): NavigationSta
     TheatreRoute.Discovery, TheatreRoute.Library -> NavigationState(listOf(route))
     TheatreRoute.Search -> NavigationState(listOf(TheatreRoute.Discovery, TheatreRoute.Search))
     TheatreRoute.History -> NavigationState(listOf(TheatreRoute.Library, TheatreRoute.History))
-    TheatreRoute.Account, TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work -> {
+    TheatreRoute.Account, TheatreRoute.MembershipPreview, TheatreRoute.Settings, TheatreRoute.Queue, TheatreRoute.Player, TheatreRoute.Unavailable, is TheatreRoute.Work -> {
         val existingIndex = state.stack.indexOf(route)
         NavigationState(if (existingIndex >= 0) state.stack.take(existingIndex + 1) else state.stack + route)
     }

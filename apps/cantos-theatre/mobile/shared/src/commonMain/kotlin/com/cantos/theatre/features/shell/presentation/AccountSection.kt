@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,6 +96,10 @@ internal fun AccountScreen(copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+    TextButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.MembershipPreview)) },
+        modifier = Modifier.fillMaxWidth().testTag("membership-preview-entry")) {
+        Text(copy.text(CopyKey.MembershipPreview))
     }
     Surface(
         onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Settings)) },

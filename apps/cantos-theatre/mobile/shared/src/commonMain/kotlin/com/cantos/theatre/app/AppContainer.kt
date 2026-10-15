@@ -316,6 +316,7 @@ fun DemoRoute.toTheatreRoute(): TheatreRoute = when (this) {
     DemoRoute.Library -> TheatreRoute.Library
     DemoRoute.History -> TheatreRoute.History
     DemoRoute.Account -> TheatreRoute.Account
+    DemoRoute.MembershipPreview -> TheatreRoute.MembershipPreview
     DemoRoute.Settings -> TheatreRoute.Settings
     DemoRoute.Queue -> TheatreRoute.Queue
     DemoRoute.Player -> TheatreRoute.Player

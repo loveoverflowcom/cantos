@@ -119,7 +119,7 @@ pub fn AuthSurfaceSamples() -> impl IntoView {
         <Stack gap=Space::Sm>
             <div data-preview-scenario="auth-container">
                 <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth inset=Space::Lg>
-                    <h3>"Auth · vùng nội dung yên tĩnh"</h3>
+                    <h3 class="cui-auth-heading">"Auth · vùng nội dung yên tĩnh"</h3>
                     <p>"Nhắm mắt lại. Mở một thế giới. Surface tonal và khoảng trống phân nhóm thay cho viền trang trí."</p>
                 </Surface>
             </div>
@@ -132,7 +132,7 @@ pub fn AuthSurfaceSamples() -> impl IntoView {
             </div>
             <div data-preview-scenario="membership-container">
                 <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Membership inset=Space::Lg>
-                    <h3>"Một người nghe. Một người đồng hành."</h3>
+                    <h3 class="cui-membership-heading">"Một người nghe. Một người đồng hành."</h3>
                     <p>"Cantos Membership · ví dụ nội dung, không cấp quyền hội viên hoặc thanh toán."</p>
                 </Surface>
             </div>

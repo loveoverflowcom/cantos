@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "boundary": "Explicit session-only preview; not an accepted backend, identity, pricing or entitlement contract.",
+  "validation": [
+    { "id": "blank-fields", "name": " ", "email": " ", "errors": ["NameRequired", "EmailRequired"] },
+    { "id": "independent-errors", "name": "A\nB", "email": "two@@example.com", "errors": ["NameInvalid", "EmailInvalid"] },
+    { "id": "trimmed-vietnamese", "name": "  Nguyễn Ánh  ", "email": "  anh@example.com  ", "errors": [] },
+    { "id": "no-domain-dot-policy", "name": "Ánh", "email": "a@b", "errors": [] },
+    { "id": "empty-local", "name": "Ánh", "email": "@example.com", "errors": ["EmailInvalid"] },
+    { "id": "empty-domain", "name": "Ánh", "email": "anh@", "errors": ["EmailInvalid"] },
+    { "id": "email-space", "name": "Ánh", "email": "anh @example.com", "errors": ["EmailInvalid"] },
+    { "id": "unicode-contact", "name": "🌙🌙🌙", "email": "ánh@vídụ.vn", "errors": [] },
+    { "id": "name-scalar-upper-bound", "name": "🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙", "email": "a@b", "errors": [] },
+    { "id": "name-scalar-over-bound", "name": "🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙🌙", "email": "a@b", "errors": ["NameTooLong"] },
+    { "id": "email-scalar-upper-bound", "name": "Ánh", "email": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé@b", "errors": [] },
+    { "id": "email-scalar-over-bound", "name": "Ánh", "email": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé@b", "errors": ["EmailTooLong"] }
+  ],
+  "scenarios": [
+    {
+      "id": "production-unavailable-never-received", "mode": "unavailable",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Nguyễn Ánh" },
+        { "type": "edit-email", "value": "anh@example.com" },
+        { "type": "submit", "expectedRefusal": "Unavailable", "expect": { "screen": "form", "submission": "failed", "receipt": false } },
+        { "type": "account-registered", "accepted": false, "expect": { "screen": "form", "submission": "failed", "receipt": false } }
+      ]
+    },
+    {
+      "id": "receipt-survives-plan-failure", "mode": "fixture",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "  Nguyễn Ánh  " },
+        { "type": "edit-email", "value": "  anh@example.com  " },
+        { "type": "submit", "saveAs": "first", "operationId": 1, "requestId": 1, "payloadName": "Nguyễn Ánh", "payloadEmail": "anh@example.com", "expect": { "screen": "form", "submission": "pending", "receipt": false } },
+        { "type": "submit", "expectedRefusal": "AlreadyPending", "expect": { "screen": "form", "submission": "pending", "receipt": false } },
+        { "type": "finish", "attempt": "first", "outcome": "received", "accepted": true, "expect": { "screen": "received", "submission": "received", "receipt": true } },
+        { "type": "open-plans", "accepted": true, "expect": { "screen": "plans:received", "submission": "received", "receipt": true } },
+        { "type": "plans-status", "value": "failed", "expect": { "screen": "plans:received", "submission": "received", "receipt": true, "plansStatus": "failed" } },
+        { "type": "back", "expect": { "screen": "received", "submission": "received", "receipt": true } },
+        { "type": "open-intro" },
+        { "type": "open-form", "accepted": false, "expect": { "screen": "received", "submission": "received", "receipt": true } }
+      ]
+    },
+    {
+      "id": "unknown-retries-same-intent-fresh-fence", "mode": "fixture",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Ánh" },
+        { "type": "edit-email", "value": "anh@example.com" },
+        { "type": "submit", "saveAs": "first", "operationId": 1, "requestId": 1 },
+        { "type": "finish", "attempt": "first", "outcome": "unknown", "accepted": true, "expect": { "screen": "form", "submission": "unknown", "receipt": false } },
+        { "type": "edit-email", "value": "changed@example.com", "expectedRefusal": "OutcomeUnknown", "expect": { "screen": "form", "submission": "unknown", "receipt": false, "email": "anh@example.com" } },
+        { "type": "submit", "saveAs": "retry", "operationId": 1, "requestId": 2, "payloadEmail": "anh@example.com" },
+        { "type": "finish", "attempt": "first", "outcome": "received", "accepted": false, "expect": { "screen": "form", "submission": "pending", "receipt": false } },
+        { "type": "finish", "attempt": "retry", "outcome": "received", "accepted": true, "expect": { "screen": "received", "submission": "received", "receipt": true } }
+      ]
+    },
+    {
+      "id": "back-fences-pending-with-safe-draft", "mode": "fixture",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Ánh" },
+        { "type": "edit-email", "value": "anh@example.com" },
+        { "type": "submit", "saveAs": "first" },
+        { "type": "back", "expect": { "screen": "intro", "submission": "unknown", "receipt": false, "name": "Ánh" } },
+        { "type": "finish", "attempt": "first", "outcome": "received", "accepted": false },
+        { "type": "open-form" },
+        { "type": "finish", "attempt": "first", "outcome": "received", "accepted": false, "expect": { "screen": "form", "submission": "unknown", "receipt": false } },
+        { "type": "submit", "saveAs": "retry", "operationId": 1, "requestId": 2 },
+        { "type": "finish", "attempt": "retry", "outcome": "received", "accepted": true, "expect": { "screen": "received", "submission": "received", "receipt": true } }
+      ]
+    },
+    {
+      "id": "session-clear-never-leaks-or-reuses-id", "mode": "fixture",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Người A" },
+        { "type": "edit-email", "value": "a@example.com" },
+        { "type": "submit", "saveAs": "a", "operationId": 1, "requestId": 1 },
+        { "type": "clear-session", "expect": { "screen": "intro", "submission": "idle", "receipt": false, "name": "", "email": "" } },
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Người B" },
+        { "type": "edit-email", "value": "b@example.com" },
+        { "type": "submit", "saveAs": "b", "operationId": 2, "requestId": 2 },
+        { "type": "finish", "attempt": "a", "outcome": "received", "accepted": false, "expect": { "screen": "form", "submission": "pending", "receipt": false, "email": "b@example.com" } },
+        { "type": "finish", "attempt": "b", "outcome": "received", "accepted": true, "expect": { "screen": "received", "submission": "received", "receipt": true } }
+      ]
+    },
+    {
+      "id": "plans-return-to-every-source-without-submitting", "mode": "fixture",
+      "actions": [
+        { "type": "show-received", "accepted": false, "expect": { "screen": "intro", "submission": "idle", "receipt": false } },
+        { "type": "open-plans", "accepted": true, "expect": { "screen": "plans:intro", "submission": "idle", "receipt": false } },
+        { "type": "back", "expect": { "screen": "intro", "submission": "idle", "receipt": false } },
+        { "type": "open-account" },
+        { "type": "open-plans", "accepted": true, "expect": { "screen": "plans:account", "submission": "idle", "receipt": false } },
+        { "type": "back", "expect": { "screen": "account", "submission": "idle", "receipt": false } },
+        { "type": "account-registered", "accepted": true },
+        { "type": "open-plans", "accepted": true, "expect": { "screen": "plans:account-registered", "submission": "idle", "receipt": false } },
+        { "type": "back", "expect": { "screen": "account-registered", "submission": "idle", "receipt": false } },
+        { "type": "deep-plans" },
+        { "type": "back", "expect": { "screen": "account", "submission": "idle", "receipt": false } }
+      ]
+    },
+    {
+      "id": "known-failure-retry-and-corrected-intent", "mode": "fixture",
+      "actions": [
+        { "type": "open-form" },
+        { "type": "edit-name", "value": "Ánh" },
+        { "type": "edit-email", "value": "anh@example.com" },
+        { "type": "submit", "saveAs": "first", "operationId": 1, "requestId": 1 },
+        { "type": "finish", "attempt": "first", "outcome": "failed", "accepted": true, "expect": { "screen": "form", "submission": "failed", "receipt": false, "email": "anh@example.com" } },
+        { "type": "submit", "saveAs": "retry", "operationId": 1, "requestId": 2 },
+        { "type": "finish", "attempt": "retry", "outcome": "failed", "accepted": true },
+        { "type": "edit-email", "value": "corrected@example.com" },
+        { "type": "submit", "saveAs": "corrected", "operationId": 3, "requestId": 3, "payloadEmail": "corrected@example.com", "expect": { "screen": "form", "submission": "pending", "receipt": false } }
+      ]
+    }
+  ]
+}
