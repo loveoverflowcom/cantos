@@ -37,7 +37,7 @@ runtime is included or requested by this decision package.
 | Decision to record | Recommended starting point | Still required before its implementation |
 | --- | --- | --- |
 | Metadata authority | B: exact immutable metadata revision selected with the eligible release; no implicit live editorial override | Accept A/B/C; decide cross-unit representative replacement, correction and legacy-release behavior |
-| Taxonomy and localization | Persisted, bounded curated vocabulary with stable IDs; revisioned assignments and explicit label/localization owner, not a Rust enum copied from mock labels | Name vocabulary editor/authority, permitted values, locale/fallback policy and measured cardinality/input bounds; decide whether genre and category are distinct |
+| Taxonomy and localization | Persisted, bounded curated vocabulary with stable IDs; revisioned assignments and explicit label/localization owner, not a Rust enum copied from mock labels | Name vocabulary curator and Work-assignment writer separately, permitted values, locale/fallback policy and measured cardinality/input bounds; decide whether genre and category are distinct |
 | Filtering and facets | Extend the existing works/search path only for admitted keys; OR within a genre selection, AND with existing q/kind/language; preserve representative-first selection | Accept ANY versus ALL and canonicalization; approve limits, unknown/retired-ID handling and cursor version boundary; require a real consumer and cost evidence before a facet/count endpoint |
 | Public attribution | Separate public, revision-bound attribution from Studio ownership, producer identity and private casting | Select public roles and Work/unit inheritance; record display-name publication authority, current revocation semantics, and whether loss of mandatory attribution suppresses a field or denies the release |
 | Podcast grouping | Optional explicit podcast-only grouping; no inferred Season 1 and no reinterpretation of unit position | Decide group identity/order/display numbers, ungrouped placement, cross-release consistency and historical reorder policy; retain flat novel/story chapter order |
@@ -48,6 +48,22 @@ and filter its explicitly approved genre assignments without altering old-client
 leaking draft metadata. Credits and seasons remain separate decisions/slices; they are not
 placeholder fields in that first outcome. The owner may instead choose a different first
 capability. The matrix and acceptance plan must then be updated before coding.
+
+### Minimum gate for the first genre slice
+
+For that narrow outcome, the applicable authority, taxonomy/localization, filtering and wire
+choices need explicit owner acceptance. Attribution and podcast grouping may be explicitly
+deferred without deciding their eventual values; they must stay absent from the new runtime
+contract. This is not permission to waive an unaccepted prerequisite of the selected slice or
+to treat #157's separate P0 artwork decision as accepted. Record the exact applicable gate and
+source/consumer evidence through the matrix's
+[owner review worksheet](../work-plan/public-metadata-decision-handoff.md#owner-review-worksheet).
+
+An accepted genre slice must include a usable, authorized source of assignments, not just a
+public read type with invented fixture data. Vocabulary curation and assigning vocabulary IDs
+to a Work are different authorities. No existing Studio ownership, delegate action or producer
+grant silently authorizes a new global taxonomy operation. Exact authoring actions and their
+revision/retry semantics still need review before selecting their implementation.
 
 ## Alternatives
 

@@ -1,0 +1,16 @@
+/* Studio-owned composition geometry; canonical semantic tokens remain unchanged. */
+.studio-artwork { container-type: inline-size; }
+.artwork-heading p { max-inline-size: 65ch; color: var(--cantos-color-on-surface-variant); }
+.artwork-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: var(--cantos-space-lg); margin-block: var(--cantos-space-lg); }
+.artwork-current, .artwork-replacement { margin: 0; min-inline-size: 0; padding: var(--cantos-space-md); border: 1px solid var(--cantos-color-outline-variant); border-radius: var(--cantos-web-shape-reading); }
+.artwork-current figcaption, .artwork-replacement h4 { margin-block: 0 var(--cantos-space-md); font-weight: var(--cantos-type-label-weight); }
+.artwork-image { display: block; max-inline-size: 100%; inline-size: 100%; block-size: 15rem; object-fit: contain; background: var(--cantos-color-surface-container); margin-block: var(--cantos-space-md); }
+.artwork-placeholder { min-block-size: 10rem; display: grid; place-items: center; background: var(--cantos-color-surface-container); color: var(--cantos-color-on-surface-variant); }
+.artwork-fields { display: grid; gap: var(--cantos-space-md); }
+.studio-artwork p, .studio-artwork small { overflow-wrap: anywhere; }
+.studio-artwork input[type=file] { max-inline-size: 100%; min-block-size: var(--cantos-size-control); font: inherit; }
+.studio-artwork input[type=file]:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-primary); outline-offset: var(--cantos-size-focus-offset); }
+.artwork-actions { margin-block: var(--cantos-space-lg); }
+@container (max-width: 36rem) { .artwork-columns { grid-template-columns: minmax(0, 1fr); } }
+/* Keep the browser-owned file button legible under 200% text scaling. */
+.studio-artwork input[type=file]::file-selector-button { max-inline-size: 100%; white-space: normal; font: inherit; }

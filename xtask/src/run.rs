@@ -1,13 +1,14 @@
 //! `run` and `app`: local process plans and their supervised execution.
 //!
 //! `run` builds what the target needs and starts every implemented local process for it.
-//! `app` starts only an app's Web frontend and requires its backend to be running already.
+//! `app` starts only Web: Studio requires an existing API; Theatre warns when its catalog
+//! dependency is unavailable so explicit offline previews remain usable.
 //! Neither command provisions PostgreSQL, Kanidm, object storage or any provider: the API uses
 //! an explicit `DATABASE_URL` or the disposable cluster retained by `verify postgres --keep`.
 
-use std::{net::SocketAddr, path::PathBuf, process::ExitCode, time::Duration};
+use std::{io::IsTerminal, net::SocketAddr, path::PathBuf, process::ExitCode, time::Duration};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 
 use crate::{
@@ -32,7 +33,7 @@ pub enum RunTarget {
     CantosApi,
     /// Cantos Studio: with --web, the API plus a `trunk serve` frontend.
     CantosStudio,
-    /// Cantos Theatre: with --web, the `trunk serve` skeleton (no backend exists).
+    /// Cantos Theatre: with --web, the API plus a `trunk serve` frontend.
     #[value(alias = "cantos")]
     CantosTheatre,
 }
@@ -69,6 +70,11 @@ pub enum Requirement {
     /// Another process must already accept connections here.
     Listening {
         name: &'static str,
+        addr: SocketAddr,
+        hint: String,
+    },
+    /// Frontend-only Theatre can still serve explicit offline previews when this fails.
+    TheatreApi {
         addr: SocketAddr,
         hint: String,
     },
@@ -238,26 +244,47 @@ pub fn plan_run(
                 open: None,
             })
         }
-        RunTarget::CantosStudio => {
-            app_surface(App::Studio, options.surface)?;
-            if options.web_origin.is_some() {
-                return Err(Refusal::Usage(
-                    "run cantos-studio --web sets the API origin to the Trunk server itself".into(),
-                ));
-            }
-            let profile = check_flags(options, true, true)?;
-            let origin = App::Studio.web_origin();
-            let (requirement, api) =
-                api_service(workspace, profile, options.test_cluster, Some(&origin));
-            Ok(LaunchPlan {
-                requirements: vec![requirement],
-                prepare: vec![api_build(workspace, profile)],
-                services: vec![api, trunk_service(workspace, App::Studio, profile)],
-                open: options.open.then_some(origin),
-            })
-        }
-        RunTarget::CantosTheatre => theatre(workspace, options),
+        RunTarget::CantosStudio => run_web(workspace, App::Studio, options),
+        RunTarget::CantosTheatre => run_web(workspace, App::Theatre, options),
     }
+}
+
+fn run_web(
+    workspace: &Workspace,
+    app: App,
+    options: &LaunchOptions,
+) -> Result<LaunchPlan, Refusal> {
+    app_surface(app, options.surface)?;
+    let profile = check_flags(options, true, true)?;
+    let origin = app.web_origin();
+    if options
+        .web_origin
+        .as_ref()
+        .is_some_and(|value| value != &origin)
+    {
+        return Err(Refusal::Usage(format!(
+            "run {} --web requires --web-origin {origin}, matching its Trunk server; \
+             use run cantos-api --web-origin ORIGIN with app {} --web for a separate profile",
+            app.cli_name(),
+            app.cli_name()
+        )));
+    }
+    let (requirement, mut api) =
+        api_service(workspace, profile, options.test_cluster, Some(&origin));
+    let mut frontend = trunk_service(workspace, app, profile);
+    if app == App::Theatre {
+        api.readiness = Readiness::TheatreCatalog;
+        frontend.readiness = Readiness::TheatreWeb;
+        if options.test_cluster {
+            api.command = api.command.env("CANTOS_TEST_CONTEXT", "theatre");
+        }
+    }
+    Ok(LaunchPlan {
+        requirements: vec![requirement],
+        prepare: vec![api_build(workspace, profile)],
+        services: vec![api, frontend],
+        open: options.open.then_some(origin),
+    })
 }
 
 pub fn plan_app(
@@ -292,7 +319,14 @@ fn theatre(workspace: &Workspace, options: &LaunchOptions) -> Result<LaunchPlan,
     app_surface(App::Theatre, options.surface)?;
     let profile = check_flags(options, false, true)?;
     Ok(LaunchPlan {
-        requirements: Vec::new(),
+        requirements: vec![Requirement::TheatreApi {
+            addr: api_addr(),
+            hint: "start `cargo xtask run cantos-api --web-origin http://127.0.0.1:8082` \
+                   with a migrated app-role DATABASE_URL, or use \
+                   `cargo xtask run cantos-theatre --web [--test-cluster]`; \
+                   explicit ?mode=mock or ?mode=membership-preview remain offline previews"
+                .into(),
+        }],
         prepare: Vec::new(),
         services: vec![trunk_service(workspace, App::Theatre, profile)],
         open: options.open.then_some(App::Theatre.web_origin()),
@@ -323,6 +357,25 @@ fn check_preconditions(
                     problems.push(format!("{name} is not listening on {addr}: {hint}"));
                 }
             }
+            Requirement::TheatreApi { addr, hint } => {
+                let observed = probe::probe(*addr, &Readiness::TheatreCatalog);
+                match observed {
+                    probe::Probe::Ready => println!(
+                        "Theatre API anonymous catalog reachable at http://{addr}/api/v1/theatre/works?limit=20"
+                    ),
+                    _ => {
+                        let warning = format!(
+                            "WARNING: FRONTEND ONLY. Theatre API catalog is unavailable at http://{addr} \
+                             ({observed:?}). Live Home is not ready. Next: {hint}"
+                        );
+                        if std::io::stderr().is_terminal() {
+                            eprintln!("\x1b[31m{warning}\x1b[0m");
+                        } else {
+                            eprintln!("{warning}");
+                        }
+                    }
+                }
+            }
         }
     }
     for service in &plan.services {
@@ -337,7 +390,7 @@ fn check_preconditions(
         }
         if !probe::port_is_free(service.addr) {
             let alternative = if service.addr == api_addr() {
-                "; if it is a Cantos API you started, use `cargo xtask app cantos-studio --web`"
+                "; if it is a Cantos API you started, use `cargo xtask app <cantos-studio|cantos-theatre> --web`"
             } else {
                 ""
             };
@@ -384,12 +437,18 @@ pub fn launch(
             service.command.display(workspace.root())
         );
         supervisor.spawn(&service.name, &service.command)?;
-        if !supervisor.await_ready(service.addr, &service.readiness, service.timeout)? {
+        let ready = supervisor
+            .await_ready(service.addr, &service.readiness, service.timeout)
+            .with_context(|| readiness_hint(service))?;
+        if !ready {
             supervisor.shutdown();
             println!("Interrupted before {} became ready.", service.name);
             return Ok(ExitCode::SUCCESS);
         }
-        println!("{} ready on http://{}", service.name, service.addr);
+        println!(
+            "{} ready on http://{} ({:?})",
+            service.name, service.addr, service.readiness
+        );
     }
 
     if let Some(url) = &plan.open {
@@ -397,7 +456,10 @@ pub fn launch(
             println!("Could not open a browser ({error:#}); visit {url}");
         }
     }
-    println!("\nAll processes are ready. Press Ctrl-C to stop the processes xtask started.");
+    println!(
+        "\n{} Press Ctrl-C to stop the processes xtask started.",
+        ready_summary(plan)
+    );
 
     let outcome = supervisor.wait()?;
     supervisor.shutdown();
@@ -409,6 +471,26 @@ pub fn launch(
         Wait::Exited { name, status } => {
             bail!("{name} exited with {status}; the other processes were stopped")
         }
+    }
+}
+
+fn readiness_hint(service: &Service) -> &'static str {
+    match service.readiness {
+        Readiness::TheatreCatalog => "Theatre API startup failed: check the API output, local PostgreSQL availability, app-role grants/migrations and any explicitly configured issuer. No database or identity is provisioned; no mock fallback is selected.",
+        Readiness::TheatreWeb => "Theatre Web startup failed: check Trunk output and GET /api/v1/theatre/works?limit=20 at both http://127.0.0.1:8080 and http://127.0.0.1:8082. The API and proxy must return JSON; /session success is optional.",
+        _ => "Local process startup failed; inspect the process output and configured local dependencies.",
+    }
+}
+
+fn ready_summary(plan: &LaunchPlan) -> &'static str {
+    if plan
+        .services
+        .iter()
+        .any(|service| service.name == API_SERVER_BIN)
+    {
+        "All processes are ready."
+    } else {
+        "Frontend is ready; backend availability and live integration are separate."
     }
 }
 
@@ -548,26 +630,128 @@ mod tests {
     }
 
     #[test]
-    fn theatre_has_only_its_trunk_server() {
-        let workspace = workspace();
-        for plan in [
-            plan_run(
-                &workspace,
-                RunTarget::CantosTheatre,
-                &web(Default::default()),
-            )
-            .unwrap(),
-            plan_app(
-                &workspace,
-                AppTarget::CantosTheatre,
-                &web(Default::default()),
-            )
-            .unwrap(),
+    fn theatre_run_requires_a_database_and_starts_api_before_trunk() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosTheatre,
+            &web(Default::default()),
+        )
+        .unwrap();
+        assert_eq!(plan.services.len(), 2);
+        assert_eq!(plan.services[0].addr, loopback(8080));
+        assert_eq!(plan.services[1].addr, loopback(8082));
+        assert!(matches!(
+            &plan.requirements[..],
+            [Requirement::EnvVar {
+                name: "DATABASE_URL",
+                ..
+            }]
+        ));
+        assert_eq!(
+            env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+            Some("http://127.0.0.1:8082")
+        );
+        assert_eq!(plan.prepare.len(), 1);
+    }
+
+    #[test]
+    fn theatre_test_cluster_is_an_explicit_retained_database_profile() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosTheatre,
+            &web(LaunchOptions {
+                test_cluster: true,
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        assert!(matches!(&plan.requirements[..], [Requirement::File { .. }]));
+        assert_eq!(
+            env_of(&plan.services[0], "CANTOS_TEST_CONTEXT").as_deref(),
+            Some("theatre")
+        );
+    }
+
+    #[test]
+    fn theatre_app_preserves_offline_previews_without_claiming_integrated_readiness() {
+        let plan = plan_app(
+            &workspace(),
+            AppTarget::CantosTheatre,
+            &web(Default::default()),
+        )
+        .unwrap();
+        assert!(plan.prepare.is_empty());
+        assert_eq!(plan.services.len(), 1);
+        assert_eq!(plan.services[0].addr, loopback(8082));
+        assert!(
+            matches!(&plan.requirements[..], [Requirement::TheatreApi { addr, .. }] if *addr == loopback(8080))
+        );
+        assert_eq!(
+            plan.services[0].readiness,
+            Readiness::Http {
+                path: "/",
+                marker: "<title>Cantos</title>"
+            }
+        );
+        assert_eq!(
+            ready_summary(&plan),
+            "Frontend is ready; backend availability and live integration are separate."
+        );
+    }
+
+    #[test]
+    fn full_stack_theatre_checks_anonymous_catalog_directly_and_through_proxy() {
+        let plan = plan_run(
+            &workspace(),
+            RunTarget::CantosTheatre,
+            &web(Default::default()),
+        )
+        .unwrap();
+        assert_eq!(plan.services[0].readiness, Readiness::TheatreCatalog);
+        assert_eq!(plan.services[1].readiness, Readiness::TheatreWeb);
+        assert_eq!(ready_summary(&plan), "All processes are ready.");
+    }
+
+    #[test]
+    fn web_profile_origin_must_match_its_actual_trunk_origin() {
+        for (target, origin) in [
+            (RunTarget::CantosStudio, "http://127.0.0.1:8081"),
+            (RunTarget::CantosTheatre, "http://127.0.0.1:8082"),
         ] {
-            assert!(plan.requirements.is_empty());
-            assert_eq!(plan.services.len(), 1);
-            assert_eq!(plan.services[0].addr, loopback(8082));
+            let options = web(LaunchOptions {
+                web_origin: Some(origin.into()),
+                ..Default::default()
+            });
+            let plan = plan_run(&workspace(), target, &options).unwrap();
+            assert_eq!(
+                env_of(&plan.services[0], "CANTOS_WEB_ORIGIN").as_deref(),
+                Some(origin)
+            );
+            let wrong = web(LaunchOptions {
+                web_origin: Some("http://localhost:3000".into()),
+                ..Default::default()
+            });
+            assert!(
+                matches!(plan_run(&workspace(), target, &wrong), Err(Refusal::Usage(message)) if message.contains("matching its Trunk server"))
+            );
         }
+    }
+
+    #[test]
+    fn unavailable_advisory_catalog_does_not_block_frontend_preview() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+        let plan = LaunchPlan {
+            requirements: vec![Requirement::TheatreApi {
+                addr,
+                hint: "start the API explicitly".into(),
+            }],
+            prepare: Vec::new(),
+            services: Vec::new(),
+            open: None,
+        };
+        check_preconditions(&plan, &FakeTools::all(), &workspace()).unwrap();
     }
 
     #[test]
@@ -595,14 +779,6 @@ mod tests {
                 RunTarget::CantosTheatre,
                 &LaunchOptions::default()
             ),
-            Err(Refusal::Usage(_))
-        ));
-        let cluster_for_theatre = web(LaunchOptions {
-            test_cluster: true,
-            ..Default::default()
-        });
-        assert!(matches!(
-            plan_run(&workspace, RunTarget::CantosTheatre, &cluster_for_theatre),
             Err(Refusal::Usage(_))
         ));
         let open_api = LaunchOptions {

@@ -74,7 +74,7 @@ pub enum Task {
         #[arg(long)]
         dbsp_experimental: bool,
     },
-    /// Build what the target needs, start its local processes and supervise them until Ctrl-C.
+    /// Start API + Web for Studio/Theatre, or the API alone; supervise until Ctrl-C.
     Run {
         #[arg(value_enum)]
         target: RunTarget,
@@ -88,11 +88,11 @@ pub enum Task {
         /// Serve the API against the disposable cluster kept by `verify postgres --keep`.
         #[arg(long)]
         test_cluster: bool,
-        /// CANTOS_WEB_ORIGIN for the API (a loopback http origin, e.g. http://127.0.0.1:8081).
+        /// API loopback origin; Web profiles require their Trunk origin (Studio 8081, Theatre 8082).
         #[arg(long, value_name = "ORIGIN")]
         web_origin: Option<String>,
     },
-    /// Serve an app's Web client against an already running backend; never builds or starts it.
+    /// Serve only Web; Studio requires an API, Theatre warns if anonymous catalog is unavailable.
     App {
         #[arg(value_enum)]
         target: AppTarget,

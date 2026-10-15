@@ -24,6 +24,28 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+For the Theatre local-development handoff, prioritize
+[#183](https://github.com/loveoverflowcom/cantos/issues/183)'s bounded launch/readiness repair
+before the real-capability acceptance matrix/runbook in
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) and the cross-client mapping in
+[#180](https://github.com/loveoverflowcom/cantos/issues/180). This makes a failed API dependency
+observable before consumers assess their integration. Then continue the independently gated
+Web listening and real public-delivery work in
+[#13](https://github.com/loveoverflowcom/cantos/issues/13) and
+[#170](https://github.com/loveoverflowcom/cantos/issues/170), retaining #12's listener contract
+and #10/#11's storage/publication prerequisites. Startup and an empty anonymous Work page do
+not accept those capabilities. The [local-run compatibility/evidence ledger](../evidence/theatre-local-run.md)
+records option A as proposed pending review, the frontend-only migration path and separately
+unrun acceptance; GitHub owns implementation and review status. This DX sequence does not
+authorize a provider, schema, publication or native playback change.
+
+The optional [Membership plan publication proposal](../product/membership-plan-publication.md)
+for [#176](https://github.com/loveoverflowcom/cantos/issues/176) has a separate recommended
+order: product/source decision under #34, accepted versioned contract with Web/CMP consumers,
+pure publication rules and source/API acceptance, then each client adapter. Keep plan display
+independent of interest receipt delivery and payment/entitlement. No plan DTO, database or
+commercial source should precede that decision gate; this does not reorder media/listener work.
+
 The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
 [issue #113](https://github.com/loveoverflowcom/cantos/issues/113). The
 [source-bound RFC](../architecture/work-scoped-delegation-rfc.md) compared the options; the
@@ -470,6 +492,12 @@ claimed by these planning docs. The scope is API/DB, not Studio UI or public art
 P1 metadata, thumbnails and transcripts are explicitly deferred. This is an authorized narrow
 extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
 without reordering identity/storage or broader publication/listener acceptance.
+
+The [Studio private artwork control](../evidence/studio-private-artwork-ui.md) consumes that
+contract for owner prepare/upload/admission, CAS selection and explicit clear. Prioritize
+actual owner/rights/storage/restart acceptance next; browser HTTP doubles and admitted private
+images do not satisfy public artwork or publication delivery. The Studio UI introduces no
+new backend dependency and does not reorder the broader queue; GitHub owns execution status.
 
 The [implemented private artwork contract](../../packages/contracts/artwork-v1.md) now reuses
 the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL

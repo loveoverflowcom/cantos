@@ -4,7 +4,7 @@ use gloo_net::http::Request;
 use wasm_bindgen::{closure::Closure, JsCast};
 use web_sys::{AbortController, RequestCredentials, Window};
 
-struct Deadline {
+pub(crate) struct Deadline {
     window: Window,
     timer: i32,
     controller: AbortController,
@@ -17,7 +17,7 @@ impl Drop for Deadline {
     }
 }
 impl Deadline {
-    fn new(controller: AbortController) -> Result<Self, ClientError> {
+    pub(crate) fn new(controller: AbortController) -> Result<Self, ClientError> {
         let window = web_sys::window().ok_or(ClientError::Transport)?;
         let abort = controller.clone();
         let callback = Closure::wrap(Box::new(move || abort.abort()) as Box<dyn FnMut()>);
@@ -39,7 +39,11 @@ pub async fn execute(
     command: &Command,
     controller: AbortController,
     session_fence: Option<crate::session::SessionFence>,
+    progress: Option<leptos::prelude::Callback<artwork::platform::Transfer>>,
 ) -> Result<Reply, ClientError> {
+    if matches!(command, Command::UploadImage { .. }) {
+        return artwork::platform::upload(command, controller, session_fence, progress).await;
+    }
     let path = command.path()?;
     let deadline = Deadline::new(controller)?;
     let signal = deadline.controller.signal();

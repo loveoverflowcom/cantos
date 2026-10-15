@@ -19,6 +19,7 @@ pub(super) struct Dispatch {
     pub(super) abort: StoredValue<Option<AbortController>, LocalStorage>,
     pub(super) complete: Callback<(Command, Result<Reply, ClientError>)>,
     pub(super) api: crate::api::StudioHttp,
+    pub(super) progress: Option<Callback<artwork::platform::Transfer>>,
 }
 impl Dispatch {
     pub(super) fn abort(self) {
@@ -46,7 +47,7 @@ impl Dispatch {
         };
         self.run(sending, ticket, command);
     }
-    fn reconcile(self) {
+    pub(super) fn reconcile(self) {
         if self.session_pending.get_untracked() {
             return;
         }
@@ -81,7 +82,18 @@ impl Dispatch {
         let api = self.api.snapshot();
         let session_fence = api.fence();
         spawn_local(async move {
-            let reply = browser::execute(&command, controller, session_fence).await;
+            let progress = self.progress.map(|callback| {
+                Callback::new(move |value| {
+                    if self
+                        .state
+                        .try_with_untracked(|s| s.accepts(ticket))
+                        .unwrap_or(false)
+                    {
+                        callback.run(value);
+                    }
+                })
+            });
+            let reply = browser::execute(&command, controller, session_fence, progress).await;
             if self
                 .state
                 .try_with_untracked(|s| s.accepts(ticket))
@@ -257,9 +269,12 @@ pub fn ContentWorkspace(
         })
     });
     let abort = StoredValue::new_local(None::<AbortController>);
+    let artwork_unresolved = RwSignal::new(false);
+    let artwork_busy = RwSignal::new(false);
     let delegation_unresolved = RwSignal::new(false);
     let delegation_busy = RwSignal::new(false);
     let dispatch = Dispatch {
+        progress: None,
         state,
         session_pending,
         abort,
@@ -327,6 +342,8 @@ pub fn ContentWorkspace(
             if actor_changed {
                 // Reset child activity while the Work controls are still mounted, before the
                 // selected-Work Show disposes them and their local reactive signals.
+                artwork_unresolved.set(false);
+                artwork_busy.set(false);
                 delegation_unresolved.set(false);
                 delegation_busy.set(false);
                 facts.set(Facts::default());
@@ -379,10 +396,16 @@ pub fn ContentWorkspace(
     });
     Effect::new(move |_| {
         busy.set(
-            file_busy.get() || delegation_busy.get() || state.with(|s| s.phase() == Phase::Pending),
+            file_busy.get()
+                || artwork_busy.get()
+                || delegation_busy.get()
+                || state.with(|s| s.phase() == Phase::Pending),
         );
         activity.set(
-            file_busy.get() || delegation_unresolved.get() || state.with(|s| s.pending().is_some()),
+            file_busy.get()
+                || artwork_unresolved.get()
+                || delegation_unresolved.get()
+                || state.with(|s| s.pending().is_some()),
         )
     });
     on_cleanup(move || {
@@ -394,6 +417,7 @@ pub fn ContentWorkspace(
         session_pending.get()
             || actor.get().is_empty()
             || file_busy.get()
+            || artwork_unresolved.get()
             || delegation_unresolved.get()
             || state.with(|s| s.phase() == Phase::Pending || s.pending().is_some())
     });
@@ -562,6 +586,12 @@ pub fn ContentWorkspace(
                 <ActionButton id="live-create-unit" english=english reason=BlockReason::ContextReady blocked=blocked on_press=Callback::new(move |_|dispatch.build((|| {let w=facts.with_untracked(|f|f.work.clone()).ok_or(ClientError::InvalidInput)?;Ok(Command::CreateUnit {work:w.id,request:CreateContentUnitRequest {operation_id:uuid()?,id:uuid()?,kind:if w.kind=="podcast" {"episode"}else {"chapter"}.into(),expected_work_revision:w.revision,details:UnitDetailsDto {title:unit_title.get_untracked(),description:description.get_untracked(),source:None,script:None,content_digest:None}}})})()))>{move ||text(Key::CreateUnit,english.get())}</ActionButton>
             </details>
         </Show>
+        <super::artwork::panel::ArtworkPanel actor=actor work=Signal::derive(move ||facts.with(|f|f.work.clone())) english=english
+            session_pending=session_pending session_epoch=session_epoch workspace_busy=Signal::derive(move ||file_busy.get()||delegation_unresolved.get()||state.with(|s|s.pending().is_some()))
+            unresolved=artwork_unresolved busy=artwork_busy dirty=dirty on_revision=Callback::new(move |revision:u64|facts.update(|f|{
+                if let Some(work)=&mut f.work {work.revision=work.revision.max(revision);
+                    if let Some(cached)=f.works.iter_mut().find(|w|w.id==work.id){cached.revision=work.revision;}}
+            }))/>
         <super::delegation::panel::DelegationPanel actor=actor work=Signal::derive(move || facts.with(|f| f.work.clone())) english=english
             session_pending=session_pending unresolved=delegation_unresolved busy=delegation_busy dirty=dirty/>
         <Show when=move ||facts.with(|f|f.unit.is_some())>

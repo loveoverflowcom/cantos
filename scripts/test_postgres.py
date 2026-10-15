@@ -2,7 +2,7 @@
 """Run revision, import, adaptation and production tests in a new disposable cluster.
 
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
-test cluster for local Studio inspection; its explicit stop command is printed.
+test cluster for local Studio and Theatre inspection; its explicit stop command is printed.
 """
 import argparse
 import hashlib
@@ -131,6 +131,44 @@ def isolated_environment():
     # must also belong to this run rather than exposing an inherited static directory.
     return {key: value for key, value in os.environ.items()
             if not key.startswith(("PG", "CANTOS_")) and key != "DATABASE_URL"}
+
+
+def prepare_theatre_fixture(env, port, audio):
+    """Reuse the retained synthetic audio DB for empty anonymous discovery, never publication.
+
+    The audio fixture already has all migrations and Catalog/private-Media read grants.
+    Add only the missing reads used by Media's listener query and its two narrow predicates.
+    This runs inside fresh disposable verification, never when serving the retained database.
+    """
+    database = audio["database"]
+    if not isinstance(database, str) or not re.fullmatch(r"cantos_test_[a-z0-9_]+", database):
+        raise ValueError("Theatre fixture requires a disposable test database name")
+    admin_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{database}"
+    observed = run(["psql", "-X", admin_url, "-v", "ON_ERROR_STOP=1", "-At", "-c",
+                    "GRANT SELECT ON audio_distribution_clearances,audio_publication_approvals,"
+                    "audio_releases,audio_release_withdrawals,audio_publication_pointers,"
+                    "audio_listener_works,audio_listener_units,audio_listener_releases TO cantos_app; "
+                    "GRANT EXECUTE ON FUNCTION catalog_listener_discoverable(text,text),"
+                    "listener_actor_active(text) TO cantos_app; "
+                    "SELECT (SELECT count(*) FROM audio_releases)"
+                    "+(SELECT count(*) FROM audio_publication_pointers)"
+                    "+(SELECT count(*) FROM audio_listener_releases);"], env=env)
+    if observed.splitlines()[-1:] != ["0"]:
+        raise RuntimeError("expected the retained synthetic audio fixture to have no publications")
+    return f"postgresql://cantos_app@127.0.0.1:{port}/{database}"
+
+
+def theatre_probe(port):
+    """Actual anonymous JSON discovery on the empty synthetic app-role database."""
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/v1/theatre/works?limit=20",
+        headers={"Accept": "application/json"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=3) as response:
+        assert response.status == 200
+        assert response.headers.get_content_type() == "application/json"
+        assert response.headers["Cache-Control"] == "no-store"
+        assert json.load(response) == {"items": [], "next_cursor": None}
 
 
 def http(port, fixture, method="GET"):
@@ -755,6 +793,7 @@ def main():
         editor = json.loads((EDITOR_EVIDENCE / "editor-api-journey.json").read_text())
         catalog = json.loads((CATALOG_EVIDENCE / "http-restart.json").read_text())
         audio = json.loads((CATALOG_EVIDENCE / "audio-restart.json").read_text())
+        theatre_app_url = prepare_theatre_fixture(env, port, audio)
         migration_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}"
         run(["psql", "-X", migration_url, "-v", "ON_ERROR_STOP=1", "-c",
              "GRANT INSERT ON source_records,script_evidence TO cantos_app; "
@@ -781,6 +820,7 @@ def main():
             audio_http_port = free_port()
             audio_host = start_host(audio_env, audio_http_port, catalog_log, audio, readiness=lambda p, f: audio_recovery(p, f))
             audio_before = audio_recovery(audio_http_port, audio)
+            theatre_probe(audio_http_port)
             catalog_before = catalog_recovery(catalog_http_port, catalog)
             editor_before = editor_recovery(editor_env, editor_http_port, editor_app_url, editor)
             assert http(http_port, fixture, "POST") == fixture["response"]
@@ -825,6 +865,8 @@ def main():
             catalog_host = start_host(catalog_env, catalog_http_port, catalog_log, catalog, readiness=catalog_probe)
             audio_host = start_host(audio_env, audio_http_port, catalog_log, audio, readiness=lambda p, f: audio_recovery(p, f))
             audio_after = audio_recovery(audio_http_port, audio)
+            theatre_probe(audio_http_port)
+            print("PASS: Theatre anonymous JSON empty catalog through the app-role HTTP host before and after PostgreSQL restart; no publication or playback acceptance")
             assert audio_before == audio_after
             (CATALOG_EVIDENCE / "audio-server-restart.json").write_text(json.dumps({"provenance": audio["provenance"], "before": audio_before, "after": audio_after, "checks": "real socket HTTP; killed API host; PostgreSQL restart; exact original-operation prepare/PUT/candidate replay; owner GET/HEAD SHA-256/length/type/ETag; first/middle/suffix/final ranges and 416; local read-access 303"}, ensure_ascii=False, indent=2) + "\n")
             print("PASS: Audio Lifecycle actual socket HTTP + API kill + PostgreSQL restart + exact immutable receipts/reviews/candidates + original PUT replay + owner byte GET/HEAD/Range integrity + refreshable local read access")
@@ -871,8 +913,9 @@ def main():
             print("PASS: original TXT/DOCX/failed-input bytes and SHA-256 + HTTP kill + PostgreSQL restart + immutable receipt replay")
             print("PASS: HTTP process kill + PostgreSQL restart + migration replay + exact export/actor/time + same-operation replay")
             print("PASS: MessagePack head/replay decoded by the independent oracle equal the JSON revision; 406 stays a JSON error")
-        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "app_url": app_url, "catalog_app_url": catalog_app_url,
-            "audio_app_url": audio_env["DATABASE_URL"], "audio_root": audio["root"], "script": fixture["script"]}, indent=2) + "\n")
+        (EVIDENCE / "run.json").write_text(json.dumps({"cluster": str(cluster), "port": port, "retained": args.keep, "app_url": app_url, "catalog_app_url": catalog_app_url,
+            "audio_app_url": audio_env["DATABASE_URL"], "audio_root": audio["root"],
+            "theatre_app_url": theatre_app_url, "script": fixture["script"]}, indent=2) + "\n")
         (EDITOR_EVIDENCE / "run.json").write_text(json.dumps({
             "cluster": str(cluster), "data": str(data), "port": port,
             "app_url": editor_app_url, "script": editor["script"],

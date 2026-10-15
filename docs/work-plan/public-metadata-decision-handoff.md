@@ -16,10 +16,11 @@ The first recommended runtime slice is genres plus existing works/search filteri
 the owner selects the vocabulary and semantics. Public attribution and optional seasons must
 not slip into that PR as unreviewed fields.
 
-Source inventory refreshed to `develop@6818642a7c62cb35c9da04ed6d7ac2daeb1008b1` after its
-CMP sandbox integration. The earlier inspected base was `a079e72`; the public DTOs, query,
-projection, revision facade and behavior catalog cited below are unchanged by that integration.
-Issue #177 and #157 were read with their comments on 2026-10-15; neither had comments or
+Source inventory refreshed to `develop@c6353c77b59161b2600d83c330db9c01c334e0ec`, including
+Membership proposal #182, Studio private artwork #185 and Theatre local-run #186. Earlier
+inventories used `a079e72` and `6818642`; the public DTOs/schema/query, projection, revision
+facade, listener readers and behavior catalog cited below are unchanged by these integrations.
+Issue #177 and #157 were re-read with their comments at 15:24 UTC on 2026-10-15; neither had comments or
 linked acceptance evidence. The consumer issues #158/#159 also explicitly defer P1 wiring
 until the relevant public capability is accepted.
 The following are **inspection facts**, not newly executed runtime tests:
@@ -41,6 +42,14 @@ Retain [Discovery v1](../../packages/contracts/theatre-discovery-v1.md) and
 The [private artwork plan](012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
 requires a separate use case/decision for each P1 family. Its historical private-cover baseline
 is not current public metadata acceptance. Do not reimplement q/kind/language search v1.
+
+The newer [Studio private artwork UI](../evidence/studio-private-artwork-ui.md) consumes the
+existing owner-only artwork contract; it grants no public image or metadata disclosure. The
+[Theatre local-run repair](../evidence/theatre-local-run.md) adds actual API/proxy catalog
+readiness, including a valid empty page; startup is not a nonempty publication, P1 metadata,
+public delivery or client acceptance test. The separate
+[Membership publication proposal](../product/membership-plan-publication.md) also remains a
+proposal, not a commercial or metadata source. None supplies #157's missing P1 decision.
 
 ## Field, source, release, visibility and consumer matrix
 
@@ -68,6 +77,28 @@ For every new optional field the owner must distinguish at least: not authored, 
 empty/not applicable, unavailable/withheld and a supplied approved value. The public response
 must not reveal a private reason or evidence. Whether those distinctions are public states,
 omission or null is a wire decision, not a requirement to expose all four statuses.
+
+## Owner review worksheet
+
+Record the following evidence in the owning #157/#177 discussion or accepted decision, not as
+a second execution-status board in this file. Each accepted item needs the named owner,
+exact selected semantics, source/contract revision, concrete consumer and explicit exclusions.
+An empty worksheet, a recommendation, a merged document or a passing fixture is not acceptance.
+
+| Evidence required for a proposed genre-only first slice | Decision boundary to resolve |
+| --- | --- |
+| Scope and dependency receipt | Name the chosen capability and the applicable #157 acceptance evidence; identify any still-blocking dependency. Explicitly defer credits/seasons and all excluded families rather than invent their values or declaring the whole issue accepted |
+| Source and write authority | Name vocabulary curator separately from the authorized Work-assignment writer and the real authoring/source consumer. Define allowed actions, revision guard, retries and how the approved assignment reaches a release; do not grant new delegate/global taxonomy rights by inference |
+| Release and vocabulary identity | Select A/B/C and bind assignments plus label/localization facts consistently. Under recommended B, pin their accepted revisions; any live-label exception is an explicit authority/compatibility choice, not an implicit escape from B |
+| Representative and legacy records | Decide how a newer eligible unit release selects Work metadata and how old releases without genre data remain truthful. No union across unrelated releases, backfill from a draft head or rewrite of historical digests |
+| Public vocabulary, removal and privacy | State which IDs/labels are publicly discoverable and what withdrawing a vocabulary entry means for pinned assignments and cursors. Validate unknown values only against the admitted public vocabulary; hidden/private and absent IDs must not become distinguishable existence probes |
+| Filter and query budget | Accept ANY/ALL, canonical ID ordering/deduplication, exact typed errors, query/selection bounds and representative-before-filter semantics. Record measured SQL/cardinality budgets and the conditions for any separate facets endpoint |
+| Wire and client receipt | Select an explicit compatible version/capability boundary, optionality and literal old/new fixtures. Name the Web/CMP decoding/drift-check consumer and distinguish contract review from actual renderer/native acceptance |
+
+Accepting these applicable decisions can prepare a genre-only implementation boundary while
+other families remain deferred. It does not implement the capability, approve a prototype,
+accept unrun PostgreSQL/client behavior or waive an unmet dependency. The excluded attribution
+and season rows need their own applicable decisions only when their slices are selected.
 
 ## Compatibility and query rules to settle before coding
 
@@ -105,6 +136,11 @@ omission or null is a wire decision, not a requirement to expose all four status
    unit ID, keyset or position. Current first-public-position semantics survive republish and
    draft reorder. Versioned public reordering/grouping requires an explicit policy and tests,
    not an ORDER BY change hidden in the metadata slice.
+8. **Vocabulary lifecycle:** a public filter validator must not look up private taxonomy entries
+   and expose their existence through distinct errors, labels, counts or cursor behavior.
+   Decide removal/retirement and its effect on pinned assignments before building the read
+   index. Any live vocabulary fact affecting matching/presentation requires its own explicit
+   version and cursor compatibility policy; immutable release binding alone does not settle it.
 
 ## Behavior and evidence plan
 
@@ -118,6 +154,7 @@ capability accepted or clone the audio model merely to populate the catalog.
 | Approved projection only; absent value is truthful | Literal shape/semantic fixtures for every admitted field and absent/empty/withheld state; reject forged revision/source | Real HTTP response plus private-name/provider/storage/rights-evidence sentinels absent from body, errors, cursors, facets and logs |
 | No implicit current-head or unrelated-unit attribution | Pin old revision, edit draft, replace one unit release, compare exact expected representative and credits/genres | PostgreSQL publish/replacement/withdrawal and restart; failed replacement leaves prior release unchanged |
 | Multi-genre semantics and exact errors | Hand-written ANY/ALL table, duplicate/permuted IDs, unknown/retired IDs, max bounds, mixed q/kind/language and exact errors | Real SQL differential results against reviewed pure oracle; no duplicate works or private facet counts |
+| Vocabulary authoring/removal has no hidden authority path | Separate curator/Work-writer allow/deny, stale revision and retry tables; compare absent/private/withdrawn-ID public responses with an independent expected response | Real SQL atomic source-to-release binding, concurrent vocabulary retirement and negative HTTP/error/facet/cursor leakage checks; no timing noninterference claim from matching JSON alone |
 | Stable bounded pagination | Cursor mismatch/expiry/restart/type/work cases and equal-anchor tie-break fixtures | Concurrent publish/withdraw/reorder/genre replacement between pages; unchanged anchors once, continue through empty page with next cursor |
 | Podcast without season and novel chapters | Explicit no-season podcast, mixed grouped/ungrouped episodes, duplicate display labels and flat novel/story fixtures | Real SQL order/revision rejection and Web/CMP decode/render using exactly the accepted shared fixture |
 | Old-client compatibility | Preserve current v1 literal responses/readers; new-version positive and old-reader rejection tests | Version negotiation/unsupported version and actual Web/CMP drift checks; a Rust build is not CMP wire acceptance |
@@ -132,9 +169,11 @@ They are not genre/credit/season or real PostgreSQL acceptance.
 
 ## Recommended review sequence and stopping conditions
 
-1. Product/Catalog/Publication owners record the six ADR choices and #157's applicable matrix
-   acceptance. Name the first capability and concrete Web/CMP consumers. Leave all undecided
-   metadata families out of types and migrations. No owner is assigned by this document.
+1. Product/Catalog/Publication owners record the applicable ADR choices and #157's exact matrix
+   acceptance for the selected first capability. For genre-only work, use the worksheet above
+   and explicitly defer attribution/seasons rather than requiring their eventual design first.
+   Name the real authoring/source and Web/CMP consumers. Leave excluded families out of types
+   and migrations; no dependency is waived and no owner is assigned by this document.
 2. For an accepted genre slice, agree the versioned contract/presence/compatibility corpus and
    pure assignment/filter/revision/error semantics; execute L1–L3 before introducing I/O. Keep
    current v1 responses and the rest of search unchanged.
