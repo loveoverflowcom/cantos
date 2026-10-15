@@ -6,14 +6,25 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import com.cantos.theatre.application.preferences.PreferenceTheme
+import platform.UIKit.UIScreen
+import platform.UIKit.UIUserInterfaceStyle
+import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
+import com.cantos.ui.UiPreferences
 
 /** SwiftUI's application owner shares one mock controller across mounted view controllers. */
 class IosDemoOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val container = AppContainer.mock(scope)
+    private val container = AppContainer.mock(scope).also {
+        val dark = UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyle.UIUserInterfaceStyleDark
+        it.preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light)
+    }
 
     fun viewController(): UIViewController = ComposeUIViewController {
-        CantosDemoApp(appContainer = container)
+        // The retained local container already exists; skip the optional branded frame.
+        CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
+            CantosDemoApp(appContainer = container)
+        }
     }
 
     fun close() {

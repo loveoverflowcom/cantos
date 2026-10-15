@@ -20,6 +20,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import platform.Foundation.NSDate
 import platform.UIKit.UIViewController
+import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
+import com.cantos.ui.UiPreferences
 
 /** Swift-only foreign boundary; all outcomes are translated before entering common owners. */
 class IosStoreRead(val value: String?, val failure: String?) {
@@ -78,7 +80,10 @@ class IosNativeOwner(apiOrigin: String, issuer: String, platform: IosIdentityPla
     }
     fun viewController(): UIViewController = ComposeUIViewController {
         val account = controller
-        if (account != null) NativeIdentityApp(account) else CantosDemoApp()
+        // A server/session request is never essential local launch readiness.
+        CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
+            if (account != null) NativeIdentityApp(account) else CantosDemoApp()
+        }
     }
     fun callback(state: String, code: String, hasError: Boolean) {
         controller?.callback(NativeCallback("com.cantos.theatre:/oauth2/callback", state, code, hasError))

@@ -38,5 +38,7 @@ dependencies {
     implementation(project(":shared"))
     // Android-only Activity host and native system Back integration, no media dependency.
     implementation("androidx.activity:activity-compose:1.10.1")
+    // Stable compat release; the existing diagnostic host floor is API 23.
+    implementation("androidx.core:core-splashscreen:1.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.0")
 }

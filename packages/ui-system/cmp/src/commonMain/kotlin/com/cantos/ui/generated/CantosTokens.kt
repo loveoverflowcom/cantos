@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971
+// Generated from Cantos UI tokens v0.4.0 sha256:15ab3bca01d29c3e8c98a938ffcddc2583f1c15c472b37656d3fe76de7938a42
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.3.0"
+    const val version: String = "0.4.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -54,17 +54,30 @@ object CantosTokens {
         TokenValue("motion.emphasis.duration", "duration", "260", "260", null, null, null),
         TokenValue("motion.feedback.duration", "duration", "140", "140", null, null, null),
         TokenValue("motion.navigation.duration", "duration", "260", "260", null, null, null),
+        TokenValue("motion.shape.duration", "duration", "220", "220", null, null, null),
+        TokenValue("shape.accountGroup", "dimension", "28", "28", null, null, null),
+        TokenValue("shape.authContainer", "dimension", "36", "36", null, null, null),
+        TokenValue("shape.authField", "dimension", "20", "20", null, null, null),
+        TokenValue("shape.authPressed", "dimension", "16", "16", null, null, null),
         TokenValue("shape.container", "dimension", "16", "16", null, null, null),
         TokenValue("shape.control", "dimension", "8", "8", null, null, null),
         TokenValue("shape.detail", "dimension", "4", "4", null, null, null),
         TokenValue("shape.field", "dimension", "12", "12", null, null, "shape.reading"),
+        TokenValue("shape.membershipContainer", "dimension", "32", "32", null, null, null),
         TokenValue("shape.overlay", "dimension", "20", "20", null, null, null),
         TokenValue("shape.pill", "dimension", "999", "999", null, null, null),
+        TokenValue("shape.profileContainer", "dimension", "36", "36", null, null, null),
         TokenValue("shape.reading", "dimension", "12", "12", null, null, null),
         TokenValue("shape.thumbnail", "dimension", "10", "10", null, null, null),
+        TokenValue("size.authField", "dimension", "56", "56", null, null, null),
+        TokenValue("size.authIcon", "dimension", "28", "28", null, null, null),
+        TokenValue("size.authOutline", "dimension", "1.5", "1.5", null, null, null),
+        TokenValue("size.authPrimary", "dimension", "60", "60", null, null, null),
+        TokenValue("size.authSecondary", "dimension", "56", "56", null, null, null),
         TokenValue("size.avatarLarge", "dimension", "64", "64", null, null, null),
         TokenValue("size.avatarMedium", "dimension", "40", "40", null, null, null),
         TokenValue("size.avatarSmall", "dimension", "32", "32", null, null, null),
+        TokenValue("size.backControl", "dimension", "48", "48", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
         TokenValue("size.control", "dimension", "44", "44", "44", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),
@@ -107,7 +120,7 @@ object CantosTokens {
     )
     val names: List<String> = entries.map { it.name }
     private val byName = entries.associateBy { it.name }
-    private val reducedRoles = setOf("motion.emphasis.duration", "motion.feedback.duration", "motion.navigation.duration")
+    private val reducedRoles = setOf("motion.emphasis.duration", "motion.feedback.duration", "motion.navigation.duration", "motion.shape.duration")
 
     fun raw(name: String, theme: String = "light", density: String = "compact"): String {
         require(theme == "light" || theme == "dark") { "Unknown theme: $theme" }

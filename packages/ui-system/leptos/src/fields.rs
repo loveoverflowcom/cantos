@@ -124,6 +124,23 @@ impl TextFieldKind {
     }
 }
 
+/// Geometry only; values, validation and composition behavior stay caller-controlled.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextFieldVariant {
+    #[default]
+    Regular,
+    AuthTonal,
+}
+
+impl TextFieldVariant {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Regular => "regular",
+            Self::AuthTonal => "auth-tonal",
+        }
+    }
+}
+
 /// Label primitive for an app-composed native control with the same stable ID.
 #[component]
 pub fn FieldLabel(
@@ -258,6 +275,7 @@ fn InputField(
     on_composition_start: Option<Callback<CompositionEvent>>,
     on_composition_end: Option<Callback<CompositionEvent>>,
     input_type: &'static str,
+    variant: TextFieldVariant,
     state: Signal<FieldState>,
     help: Signal<Option<String>>,
     error: Signal<Option<String>>,
@@ -275,7 +293,7 @@ fn InputField(
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
     let error_reference = error_reference(id.clone(), error);
     view! {
-        <div class=move || format!("cui-field {}", class.get()) data-state=move || state.get().as_str()>
+        <div class=move || format!("cui-field {}", class.get()) data-variant=variant.as_str() data-state=move || state.get().as_str()>
             <FieldLabel for_id=id.clone()>{move || label.get()}</FieldLabel>
             <input id=id.clone() class="cui-field-control" type=input_type name=name required=required
                 placeholder=placeholder autocomplete=autocomplete min=min max=max step=step
@@ -315,6 +333,7 @@ pub fn TextField(
     #[prop(optional)] on_composition_start: Option<Callback<CompositionEvent>>,
     #[prop(optional)] on_composition_end: Option<Callback<CompositionEvent>>,
     #[prop(optional)] kind: TextFieldKind,
+    #[prop(optional)] variant: TextFieldVariant,
     #[prop(into, default = FieldState::Editable.into())] state: Signal<FieldState>,
     #[prop(into, default = None.into())] help: Signal<Option<String>>,
     #[prop(into, default = None.into())] error: Signal<Option<String>>,
@@ -326,7 +345,7 @@ pub fn TextField(
     #[prop(into, optional)] autocomplete: Option<String>,
 ) -> impl IntoView {
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type=kind.as_str()
+        <InputField id=id label=label value=value on_input=on_input input_type=kind.as_str() variant=variant
             on_composition_start=on_composition_start on_composition_end=on_composition_end
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=autocomplete min=None max=None step=None/>
@@ -353,7 +372,7 @@ pub fn NumberField(
     #[prop(into, optional)] step: Option<String>,
 ) -> impl IntoView {
     view! {
-        <InputField id=id label=label value=value on_input=on_input input_type="number"
+        <InputField id=id label=label value=value on_input=on_input input_type="number" variant=TextFieldVariant::Regular
             on_composition_start=None on_composition_end=None
             state=state help=help error=error described_by=described_by class=class name=name
             required=required placeholder=placeholder autocomplete=None min=min max=max step=step/>

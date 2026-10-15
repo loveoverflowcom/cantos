@@ -3,30 +3,43 @@ package com.cantos.theatre.demo
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.content.res.Configuration
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.cantos.theatre.app.CantosDemoApp
 import com.cantos.theatre.app.NativeIdentityApp
 import com.cantos.theatre.adapters.identity.parseAndroidCallback
 import com.cantos.ui.generated.CantosTokens
+import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
+import com.cantos.ui.UiPreferences
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The process owners initialize locally and synchronously. Never hold this window
+        // for catalog/identity IO or an animation, and never add a second splash Activity.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
-        updateSystemBars(dark = false)
+        updateSystemBars(dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
         deliverNativeCallback(intent)
+        val host = application as CantosDemoApplication
+        val native = host.nativeIdentity
+        val container = if (native == null) host.container else null
         setContent {
-            val native = (application as CantosDemoApplication).nativeIdentity
-            if (native != null) NativeIdentityApp(native) else CantosDemoApp(
-                appContainer = (application as CantosDemoApplication).container,
-                onThemeChanged = ::updateSystemBars,
-                backHandler = { enabled, onBack ->
-                    BackHandler(enabled = enabled, onBack = onBack)
-                },
-            )
+            // Both local constructors have completed. Remote identity/catalog work belongs
+            // to the destination and cannot turn this back into an opening presentation.
+            CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
+                if (native != null) NativeIdentityApp(native) else CantosDemoApp(
+                    appContainer = container,
+                    onThemeChanged = ::updateSystemBars,
+                    backHandler = { enabled, onBack ->
+                        BackHandler(enabled = enabled, onBack = onBack)
+                    },
+                )
+            }
         }
     }
 

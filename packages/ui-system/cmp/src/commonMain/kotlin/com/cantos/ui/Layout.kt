@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -30,18 +31,31 @@ fun Surface(
     modifier: Modifier = Modifier,
     tone: SurfaceTone = SurfaceTone.Surface,
     inset: Space = Space.Md,
+    variant: SurfaceVariant = SurfaceVariant.Regular,
     content: @Composable () -> Unit,
 ) {
     val role = when (tone) {
         SurfaceTone.Surface, SurfaceTone.Reading -> "color.surface"
         SurfaceTone.Container -> "color.surfaceContainer"
         SurfaceTone.Raised -> "color.surfaceContainerHigh"
+        SurfaceTone.PrimaryContainer -> "color.primaryContainer"
     }
-    androidx.compose.material3.Surface(modifier, color = tokenColor(role), contentColor = tokenColor("color.onSurface"),
-        shape = if (tone == SurfaceTone.Reading) CantosShapes.reading else CantosShapes.container) {
-        Box(Modifier.padding(inset.value())) {
-            if (tone == SurfaceTone.Reading) ProvideTextStyle(typeStyle("editor", editorial = true), content)
-            else content()
+    val foreground = if (tone == SurfaceTone.PrimaryContainer) "color.onPrimaryContainer" else "color.onSurface"
+    val shape = when (variant) {
+        SurfaceVariant.Regular -> if (tone == SurfaceTone.Reading) CantosShapes.reading else CantosShapes.container
+        SurfaceVariant.Auth -> CantosShapes.auth
+        SurfaceVariant.Profile -> CantosShapes.profile
+        SurfaceVariant.Membership -> CantosShapes.membership
+        SurfaceVariant.AccountGroup -> CantosShapes.accountGroup
+    }
+    androidx.compose.material3.Surface(modifier, color = tokenColor(role), contentColor = tokenColor(foreground),
+        shape = shape) {
+        val supportingRole = if (tone == SurfaceTone.PrimaryContainer) "color.onPrimaryContainer" else "color.onSurfaceVariant"
+        CompositionLocalProvider(LocalSupportingTextRole provides supportingRole) {
+            Box(Modifier.padding(inset.value())) {
+                if (tone == SurfaceTone.Reading) ProvideTextStyle(typeStyle("editor", editorial = true), content)
+                else content()
+            }
         }
     }
 }

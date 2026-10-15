@@ -892,6 +892,7 @@ name = "cantos-ui"
 version = "0.2.0"
 dependencies = [
  "leptos",
+ "web-sys",
 ]
 
 [[package]]

@@ -73,6 +73,13 @@ separates local and mocked results from real-provider acceptance. It does not co
 deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
 write target moves no existing objects.
 
+The [Long Vân follow-up](../evidence/longvan-s3-acceptance.md#offline-harness-hardening-and-live-blocker)
+keeps provider acceptance blocked after an anonymous cache-HIT read exposed a private-ACL
+probe. Offline harness diagnostics and ownership guards do not resolve that deployment
+boundary. The next storage-operator step is to correct and reverify private access after
+signed reads warm the exact URL; full provider acceptance and the three prepared speech
+uploads through Cantos API follow only after that gate. Those audio uploads remain NOT_RUN.
+
 The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
 extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
 retaining the audio envelope and original-target reads. Its additive migration0023 stays
@@ -135,6 +142,32 @@ candidates in [issue 125](https://github.com/loveoverflowcom/cantos/issues/125).
 measured consumer and its semantic oracle before Range formatting, Ogg parsing or syntax changes;
 retain independent Kani/Quint results and the existing publication/storage gates. This does not
 reorder the backend capabilities above or revive DBSP production jobs.
+
+## Auth/account shared-foundation sequencing
+
+[Issue 127](https://github.com/loveoverflowcom/cantos/issues/127) adds the scoped
+[auth/account v0.4.0 contract](../../packages/ui-system/shared/README.md#scoped-authaccount-mapping-v040)
+and official local Logo Kit to both shared renderers, before app-level adoption. Its
+[evidence ledger](../evidence/ui-auth-account-v2.md) keeps implementation tests separate from
+missing runtime/design admission. New primitives and variants remain unqualified and preview-only.
+PR 132's 15 October follow-up repairs Web auth press interpolation and narrow large-text
+layout; real Chrome interaction, both themes and 320 px/200% text now have local evidence.
+CMP desktop motion tests and the SDK 35 preview build also pass. Prioritize the remaining
+Android host/device accessibility and both-renderer qualification before consumer adoption;
+the shared-foundation ordering is unchanged.
+
+Recommended order stays small and reviewable:
+
+1. Complete fresh Leptos and CMP runtime/accessibility/visual admission for the exact shared
+   token/source revision. Do not accept a screenshot from the HTML prototype or a build instead.
+2. #128 may discover pure membership form/receipt/plan semantics independently; renderer use
+   waits for admission and must not invent prices, entitlements or checkout behavior.
+3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
+   retain the product-owned navigation requirements rather than copying prototype navigation.
+4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
+
+This does not reorder publication/storage acceptance, change auth grants, or close consumer
+issues. GitHub owns execution status; the queue records only dependency order and rationale.
 
 ## Existing foundations to retain
 
@@ -448,3 +481,16 @@ preserves25 existing function bodies/signatures, apart from required visibility.
 `527507c28217e36eb05a6cd2e8c839a38827faab2b4c9a71f80da1b678319551`.
 Production stays closed until live current-group/client/credential/rotation and named native
 OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.
+
+## Theatre native launch handoff
+
+The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
+synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP
+presentation. Do not introduce a timer or a remote readiness gate to make that frame visible.
+Next, prioritize shared logo/component admission in [#127](https://github.com/loveoverflowcom/cantos/issues/127),
+then the configured identity/guest-shell composition in [#130](https://github.com/loveoverflowcom/cantos/issues/130),
+coordinating [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s release isolation.
+Native launch acceptance still needs the pinned iOS toolchain, API23 fallback, OS callbacks,
+restoration and screen-reader observations. The evidence record distinguishes the diagnostic
+Android runtime from JVM captures; it does not accept production native listening or change
+the backend sequence above. GitHub owns implementation and acceptance status.

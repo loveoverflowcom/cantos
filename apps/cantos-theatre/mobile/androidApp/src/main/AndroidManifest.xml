@@ -6,9 +6,10 @@
         android:allowBackup="false"
         android:label="Cantos"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.Cantos">
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.Cantos.Starting"
             android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>

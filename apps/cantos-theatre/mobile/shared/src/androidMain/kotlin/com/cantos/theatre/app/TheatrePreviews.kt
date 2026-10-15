@@ -1,5 +1,9 @@
 package com.cantos.theatre.app
 
+import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
+import com.cantos.ui.Theme
+import com.cantos.ui.UiPreferences
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
@@ -77,4 +81,17 @@ fun TheatreFreshSessionPreview() {
 @Composable
 fun TheatreRestoredSessionPreview() {
     FakeStorageSessionApp(FakeStorageSession.Restored)
+}
+
+/** Pending local initialization is a static preview input, never a native-host timer. */
+@Preview(name = "Local launch · vi · light", widthDp = 390, heightDp = 844, locale = "vi")
+@Composable
+fun TheatreLocalLaunchLightPreview() {
+    CantosLocalLaunch(false, UiPreferences(reducedMotion = true)) {}
+}
+
+@Preview(name = "Local launch · vi · dark · 2x", widthDp = 320, heightDp = 568, locale = "vi", fontScale = 2f)
+@Composable
+fun TheatreLocalLaunchLargePreview() {
+    CantosLocalLaunch(false, UiPreferences(theme = Theme.Dark, reducedMotion = true)) {}
 }

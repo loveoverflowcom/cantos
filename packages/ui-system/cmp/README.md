@@ -246,6 +246,48 @@ remain 0/29 and mobile acceptance is NOT_RUN.
 
 ## Explicit platform differences
 
+### Auth/account foundation v0.4.0 (issue #127)
+
+The new roles are scoped variants over the existing controlled primitives, not an app auth
+implementation or a replacement for ordinary listening/editor shapes:
+
+- `ButtonVariant.AuthPrimary`, `AuthSecondary` and `AuthOutlined` use intrinsic capsule
+  geometry with 60/56 dp minimums, paired filled/tonal colors and a fractional 1.5 dp functional
+  outline only on `AuthOutlined`. Their stable-CMP pressed-shape fallback interpolates the
+  measured capsule to the 16 dp role with the interruptible 220 ms token tween. Reduced motion
+  makes the tween immediate; this is not a native M3 spring claim. An optional native
+  `interactionSource` supports actual press specimens without adding a synthetic state prop.
+  Both overloads accept a decorative `icon` name; only `AuthPrimary` wraps it in the paired
+  circle. Disabled/loading circles use the blocked button's foreground/background pair rather
+  than retaining enabled primary colors. The text/control supplies the sole accessible name.
+- `TextFieldVariant.AuthTonal` is available on both raw-string and `TextFieldValue` overloads.
+  The 56 dp minimum and 20 dp corner do not impose a fixed text height. Functional error/focus
+  boundaries surround the native field only; help/error/blocking text remains outside their
+  paint. `controlModifier` targets the native focus/edit node. Selection/IME composition stays
+  host-controlled, and unavailable fields keep the supplied value.
+- `SurfaceVariant.Auth`, `Profile`, `Membership` and `AccountGroup` select only geometry
+  (36/36/32/28 dp). Tone is independent. `SurfaceTone.PrimaryContainer` inherits
+  `color.onPrimaryContainer`, not muted text; callers must preserve that pair in child content.
+  There is no decorative card border.
+- `BackButton` requires a nonblank `AccessibleName` and a host `onBack` callback. Its 48 dp
+  minimum is separate from regular controls. CMP defaults to an icon-only specimen; `iconOnly =
+  false` exposes the same localized text and grows intrinsically. Loading/disabled reasons stay
+  visible and block callbacks. The primitive does not own routes, history, logout, Android Back
+  or iOS navigation.
+
+`AuthAccountSamples.kt` is package-local anatomy only. Its display-name field is illustrative,
+never an embedded native password or login form. The actual shared gallery declares auth,
+profile/member/group, real pressed/focus, blocked/error and long Vietnamese/2× specimens.
+`AuthAccountComponentTest` and `AuthAccountCaptureTest` exercise/capture those wrappers through
+the JVM renderer when the supported verify command can execute; test declarations alone do not
+prove execution or inspected pixels.
+
+The Android host has `AndroidAuthAccountLightPreview`, `AndroidAuthAccountDarkLargePreview` and
+`AndroidAuthStatesDarkPreview`. Each uses the real common components. Capture one only through
+`cargo xtask compose-preview ui-system-cmp` with the existing `AndroidPreviews.kt` file; missing
+SDK/CLI/ready Android Studio is `UNSUPPORTED`, not mobile evidence. The shared variants remain
+unqualified for new app adoption until both renderer records meet the existing admission gate.
+
 - `Link` invokes a caller URI callback. HTML anchor/target/download/history are web-only; preview
   callbacks do not launch a browser or navigate the production apps.
 - `NumberField` keeps raw decimal text and supplies the native decimal-keyboard hint. HTML

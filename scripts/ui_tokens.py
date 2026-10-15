@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0")
+VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",
@@ -279,7 +279,11 @@ def validate(source):
             if ratio < floor:
                 raise ValueError(f"{theme}: {foreground} on {background} contrast {ratio:.3f} < {floor:g}")
 
-    _object(source["reduced_motion"], "reduced_motion", REDUCED_ROLES)
+    # Every shared duration needs an explicit reduced-motion mapping. This also
+    # preserves the required historical intents while accepting scoped new ones.
+    duration_roles = {role for role, token in source["tokens"].items()
+                      if token["type"] == "duration"}
+    _object(source["reduced_motion"], "reduced_motion", REDUCED_ROLES | duration_roles)
     for role, value in source["reduced_motion"].items():
         if role not in source["tokens"] or source["tokens"][role]["type"] != "duration":
             raise ValueError(f"{role}: reduced motion requires a shared duration token")

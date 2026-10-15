@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.3.0 sha256:bc7639125fd02dab5f5b7489460b24e2596e402db345a3df0236c9cfc383a971
+/* Generated from Cantos UI tokens v0.4.0 sha256:15ab3bca01d29c3e8c98a938ffcddc2583f1c15c472b37656d3fe76de7938a42
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -45,16 +45,29 @@
   --cantos-motion-emphasis-duration: 260ms;
   --cantos-motion-feedback-duration: 140ms;
   --cantos-motion-navigation-duration: 260ms;
+  --cantos-motion-shape-duration: 220ms;
+  --cantos-shape-account-group: 1.75rem;
+  --cantos-shape-auth-container: 2.25rem;
+  --cantos-shape-auth-field: 1.25rem;
+  --cantos-shape-auth-pressed: 1rem;
   --cantos-shape-container: 1rem;
   --cantos-shape-control: 0.5rem;
   --cantos-shape-detail: 0.25rem;
+  --cantos-shape-membership-container: 2rem;
   --cantos-shape-overlay: 1.25rem;
   --cantos-shape-pill: 62.4375rem;
+  --cantos-shape-profile-container: 2.25rem;
   --cantos-shape-reading: 0.75rem;
   --cantos-shape-thumbnail: 0.625rem;
+  --cantos-size-auth-field: 3.5rem;
+  --cantos-size-auth-icon: 1.75rem;
+  --cantos-size-auth-outline: 0.09375rem;
+  --cantos-size-auth-primary: 3.75rem;
+  --cantos-size-auth-secondary: 3.5rem;
   --cantos-size-avatar-large: 4rem;
   --cantos-size-avatar-medium: 2.5rem;
   --cantos-size-avatar-small: 2rem;
+  --cantos-size-back-control: 3rem;
   --cantos-size-border: 0.0625rem;
   --cantos-size-control: 2.75rem;
   --cantos-size-focus-offset: 0.25rem;
@@ -234,5 +247,6 @@
     --cantos-motion-emphasis-duration: 0ms;
     --cantos-motion-feedback-duration: 0ms;
     --cantos-motion-navigation-duration: 0ms;
+    --cantos-motion-shape-duration: 0ms;
   }
 }

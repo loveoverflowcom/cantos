@@ -15,7 +15,7 @@ class PreviewModelTest {
     fun every_registered_component_has_exactly_one_native_example() {
         val registered = PreviewCatalog.components.map { it.id }.sorted()
         val implemented = PreviewExample.entries.map { it.id }.sorted()
-        assertEquals(30, registered.size)
+        assertEquals(32, registered.size)
         assertEquals(registered, registered.distinct())
         assertEquals(registered, implemented)
         PreviewCatalog.components.forEach { component ->
@@ -75,12 +75,12 @@ class PreviewModelTest {
 
     @Test
     fun catalog_search_and_family_filter_compose_without_mutation() {
-        assertEquals(30, filterComponents("", null).size)
+        assertEquals(32, filterComponents("", null).size)
         assertEquals(listOf("icon-button"), filterComponents(" ICON-BUTTON ", "actions").map { it.id })
         assertEquals(emptyList(), filterComponents("icon-button", "fields"))
         assertEquals(listOf("text-area", "text-field"), filterComponents("text", "fields").map { it.id }.sorted())
         assertEquals(emptyList(), filterComponents("không tồn tại", null))
-        assertEquals(30, PreviewCatalog.components.size)
+        assertEquals(32, PreviewCatalog.components.size)
     }
 
     @Test
@@ -96,14 +96,14 @@ class PreviewModelTest {
 
     @Test
     fun generated_density_aliases_and_motion_are_resolved_by_role() {
-        assertEquals("0.3.0", CantosTokens.version)
+        assertEquals("0.4.0", CantosTokens.version)
         assertEquals(CantosTokens.names.size, CantosTokens.names.distinct().size)
         assertEquals(44.0, CantosTokens.number("size.control", "compact"))
         assertEquals(48.0, CantosTokens.number("size.control", "comfortable"))
         assertEquals(12.0, CantosTokens.number("space.controlInline", "compact"))
         assertEquals(16.0, CantosTokens.number("space.controlInline", "comfortable"))
         assertEquals(CantosTokens.number("shape.reading"), CantosTokens.number("shape.field"))
-        listOf("motion.feedback.duration", "motion.navigation.duration", "motion.emphasis.duration").forEach { role ->
+        listOf("motion.feedback.duration", "motion.navigation.duration", "motion.emphasis.duration", "motion.shape.duration").forEach { role ->
             assertTrue(CantosTokens.number(role) > 0)
             assertEquals(0.0, CantosTokens.number(role, reducedMotion = true))
         }
@@ -128,7 +128,7 @@ class PreviewModelTest {
 
     @Test
     fun every_official_icon_has_visible_vector_paths() {
-        val names = listOf("add", "check", "close", "dark_mode", "expand_more", "light_mode", "menu_book", "search", "warning_amber")
+        val names = listOf("add", "arrow_back", "arrow_forward", "check", "close", "dark_mode", "expand_more", "light_mode", "menu_book", "search", "warning_amber")
         assertEquals(names, CantosIcons.icons.map { it.name })
         CantosIcons.icons.forEach { icon ->
             assertEquals("0 0 24 24", icon.viewBox)

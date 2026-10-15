@@ -5,6 +5,8 @@ use leptos::prelude::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IconName {
     Add,
+    ArrowBack,
+    ArrowForward,
     Check,
     Close,
     DarkMode,
@@ -18,6 +20,8 @@ pub enum IconName {
 impl IconName {
     pub const ALL: &'static [Self] = &[
         Self::Add,
+        Self::ArrowBack,
+        Self::ArrowForward,
         Self::Check,
         Self::Close,
         Self::DarkMode,
@@ -37,6 +41,8 @@ pub fn Icon(name: IconName) -> impl IntoView {
             fill="currentColor" aria-hidden="true" focusable="false">
             {match name {
                 IconName::Add => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></g> }.into_any(),
+                IconName::ArrowBack => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"></path></g> }.into_any(),
+                IconName::ArrowForward => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"></path></g> }.into_any(),
                 IconName::Check => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"></path></g> }.into_any(),
                 IconName::Close => view! { <g><path d="M0 0h24v24H0V0z" fill="none"></path><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"></path></g> }.into_any(),
                 IconName::DarkMode => view! { <g><rect fill="none" height="24" width="24"></rect><path d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></g> }.into_any(),

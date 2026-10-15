@@ -55,12 +55,14 @@ fun FieldState.reason(): String? = when (this) {
     is FieldState.Loading -> reason.text
 }
 
-enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger }
+enum class ButtonVariant { Primary, Tonal, Secondary, Text, Danger, AuthPrimary, AuthSecondary, AuthOutlined }
+enum class TextFieldVariant { Regular, AuthTonal }
 enum class StatusTone { Neutral, Info, Success, Warning, Error }
 enum class Theme(val tokenName: String) { Light("light"), Dark("dark") }
 enum class Density(val tokenName: String) { Compact("compact"), Comfortable("comfortable") }
 enum class StackDirection { Vertical, Horizontal, Wrap }
-enum class SurfaceTone { Surface, Container, Raised, Reading }
+enum class SurfaceTone { Surface, Container, Raised, Reading, PrimaryContainer }
+enum class SurfaceVariant { Regular, Auth, Profile, Membership, AccountGroup }
 enum class ContainerWidth { Reading, Wide, Fluid }
 
 /** Shared semantic spacing names; values stay in the generated token source. */
