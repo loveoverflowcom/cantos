@@ -83,6 +83,14 @@ Reuse canonical tokens, fonts and assets; do not copy prototype CSS or create an
 
 All rows are `needs-decision`; this preview selects no production policy on their behalf.
 
+[#175](https://github.com/loveoverflowcom/cantos/issues/175)'s
+[proposed receipt ADR](../decisions/0031-membership-interest-receipts.md) compares signed-in,
+guest and explicit-linking admission, with contact/privacy/retention and abuse questions before
+production contracts or storage. Its [source and recovery handoff](../work-plan/membership-interest-handoff.md)
+maps the existing consumers and SQL/HTTP/client failure oracles. The signed-in recommendation
+is unaccepted; preview diagnostic redaction can proceed independently and establishes no
+durable receipt or production collection policy.
+
 The separate [read-only plan publication proposal](membership-plan-publication.md) for
 [#176](https://github.com/loveoverflowcom/cantos/issues/176) compares source alternatives and
 lists the product/version/cache decisions required before plan DTOs or storage. It selects no

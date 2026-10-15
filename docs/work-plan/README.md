@@ -39,6 +39,15 @@ records option A as proposed pending review, the frontend-only migration path an
 unrun acceptance; GitHub owns implementation and review status. This DX sequence does not
 authorize a provider, schema, publication or native playback change.
 
+For [#175](https://github.com/loveoverflowcom/cantos/issues/175), review the
+[proposed interest-receipt ADR](../decisions/0031-membership-interest-receipts.md) and
+[source/recovery handoff](membership-interest-handoff.md) before adding production contract
+or persistence. Recommended order is named submitter/contact/privacy/retention/abuse policy
+acceptance, shared Web/CMP contract and pure core, real SQL/HTTP recovery/ownership tests, then
+client adoption. Existing preview diagnostic privacy hardening is independent; it accepts
+neither the recommended signed-in policy nor durable submission. Keep #12 identity and #129/#130
+client acceptance separate; this does not reorder media delivery or authorize guest linking.
+
 The optional [Membership plan publication proposal](../product/membership-plan-publication.md)
 for [#176](https://github.com/loveoverflowcom/cantos/issues/176) has a separate recommended
 order: product/source decision under #34, accepted versioned contract with Web/CMP consumers,

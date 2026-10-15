@@ -1,5 +1,7 @@
 //! Session-only Membership interest preview. This is not an identity or payment contract.
 
+use std::fmt;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum MembershipMode {
     #[default]
@@ -81,16 +83,28 @@ pub enum FinishOutcome {
     Unknown,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct MembershipDraft {
     pub name: String,
     pub email: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+impl fmt::Debug for MembershipDraft {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("MembershipDraft([redacted])")
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
 pub struct RegistrationPayload {
     name: String,
     email: String,
+}
+
+impl fmt::Debug for RegistrationPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("RegistrationPayload([redacted])")
+    }
 }
 
 impl RegistrationPayload {
@@ -397,9 +411,58 @@ pub fn validate(draft: &MembershipDraft) -> Vec<FieldError> {
 mod tests {
     use super::{
         validate, EditRefusal, FieldError, FinishOutcome, MembershipDraft, MembershipMode,
-        MembershipScreen, MembershipState, PlansOrigin, PlansStatus, SubmissionStatus,
-        SubmitRefusal,
+        MembershipScreen, MembershipState, PlansOrigin, PlansStatus, RegistrationPayload,
+        SubmissionStatus, SubmitRefusal,
     };
+
+    #[test]
+    fn debug_redacts_direct_contact_values() {
+        let name = "Lê Ánh Quyên direct-contact-canary";
+        let email = "direct-contact-canary175@example.invalid";
+        let draft = MembershipDraft {
+            name: name.into(),
+            email: email.into(),
+        };
+        let payload = RegistrationPayload {
+            name: name.into(),
+            email: email.into(),
+        };
+        for diagnostic in [format!("{draft:?}"), format!("{payload:?}")] {
+            assert!(
+                !diagnostic.contains(name) && !diagnostic.contains(email),
+                "direct contact appeared in diagnostics: {diagnostic}"
+            );
+            assert!(diagnostic.contains("[redacted]"));
+        }
+    }
+
+    #[test]
+    fn debug_redacts_nested_contact_through_pending_and_finished_attempts() {
+        let name = "Phạm Đỗ Kiều nested-contact-canary";
+        let email = "nested-contact-canary175@example.invalid";
+        let mut pending = MembershipState::fixture();
+        assert!(pending.open_form());
+        assert_eq!(pending.set_name(format!("  {name}  ")), Ok(()));
+        assert_eq!(pending.set_email(format!("  {email}  ")), Ok(()));
+        let attempt = pending.begin_submission().expect("valid fixture");
+        let mut diagnostics = vec![format!("{attempt:?}"), format!("{pending:?}")];
+        for outcome in [
+            FinishOutcome::Failed,
+            FinishOutcome::Unknown,
+            FinishOutcome::Received,
+        ] {
+            let mut finished = pending.clone();
+            assert!(finished.finish(&attempt, outcome));
+            diagnostics.push(format!("{finished:?}"));
+            diagnostics.push(format!("{:?}", finished.receipt()));
+        }
+        for diagnostic in diagnostics {
+            assert!(
+                !diagnostic.contains(name) && !diagnostic.contains(email),
+                "nested contact appeared in diagnostics: {diagnostic}"
+            );
+        }
+    }
 
     fn form() -> MembershipState {
         let mut state = MembershipState::fixture();
