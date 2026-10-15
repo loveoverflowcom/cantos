@@ -164,8 +164,29 @@
   --cui-design-measure: 68ch;
 }
 
-/* Rem-based roles scale together, including nested roots, without remounting controls. */
-:root:has(.cui-preview[data-text-scale="200"]) { font-size: 200%; }
+/* Capture canonical sizes at the gallery boundary; hidden samples never scale the document. */
+.cantos-ui:has(> .cui-preview) {
+  --cui-gallery-base-auth-heading: var(--cantos-type-auth-heading-size);
+  --cui-gallery-base-body: var(--cantos-type-body-size);
+  --cui-gallery-base-editor: var(--cantos-type-editor-size);
+  --cui-gallery-base-headline: var(--cantos-type-headline-size);
+  --cui-gallery-base-label: var(--cantos-type-label-size);
+  --cui-gallery-base-membership-title: var(--cantos-type-membership-title-size);
+  --cui-gallery-base-metadata: var(--cantos-type-metadata-size);
+  --cui-gallery-base-title: var(--cantos-type-title-size);
+}
+.cui-preview[data-text-scale="200"],
+.cui-preview[data-text-scale="200"] .cantos-ui {
+  --cantos-type-auth-heading-size: calc(var(--cui-gallery-base-auth-heading) * 2);
+  --cantos-type-body-size: calc(var(--cui-gallery-base-body) * 2);
+  --cantos-type-editor-size: calc(var(--cui-gallery-base-editor) * 2);
+  --cantos-type-headline-size: calc(var(--cui-gallery-base-headline) * 2);
+  --cantos-type-label-size: calc(var(--cui-gallery-base-label) * 2);
+  --cantos-type-membership-title-size: calc(var(--cui-gallery-base-membership-title) * 2);
+  --cantos-type-metadata-size: calc(var(--cui-gallery-base-metadata) * 2);
+  --cantos-type-title-size: calc(var(--cui-gallery-base-title) * 2);
+}
+.cui-preview[data-text-scale="200"] { font-size: 200%; }
 
 :where(.cantos-ui) .cui-preview[data-motion="reduced"],
 :where(.cantos-ui) .cui-preview[data-motion="reduced"] .cantos-ui {

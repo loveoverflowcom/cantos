@@ -9,9 +9,13 @@
 
 The vocabulary is the foundation's [§ 6](../../cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified);
 oracle selection is [`verification-strategy.md`](../../cantos-engineering/references/verification-strategy.md);
-visual judgement is [`visual-review.md`](../../cantos-ui-design/references/visual-review.md). No Web test
-harness exists yet. Tools named here are **candidates** to choose, pin and record in an ADR, after
-checking their current documentation; never cite a test command the repository does not define.
+visual judgement is [`visual-review.md`](../../cantos-ui-design/references/visual-review.md).
+Native SSR component tests and the diagnostic CSR gallery exist in
+[`cantos-ui`](../../../../packages/ui-system/leptos/README.md); use
+`cargo xtask ui-preview leptos verify` and `cargo xtask ui-preview leptos run` for that package.
+The examples below describe candidate browser-test support, not an implemented `TestWorld` or
+comprehensive capture harness. Check manifests and current documentation before selecting a
+tool; never cite a test command the repository does not define.
 
 ## 1. Choose the evidence layer
 
@@ -137,6 +141,7 @@ Follow the [shared UI loop](../../cantos-ui-design/SKILL.md#shared-ui-loop) and 
 
 ```text
 start the app with `cargo xtask run|app <app> --web` (never a hand-rolled server)
+  or diagnostics with `cargo xtask ui-preview leptos run`
 → run the scenario: cantos-ui-inspector scenarios, e.g. studio-script-editor-v1.json or
   theatre-web-player-v1.json, copied to working notes when adapted
 → open every capture; record path, state, viewport, theme, zoom, reviewer (agent | human)
@@ -149,6 +154,17 @@ Scenario format and ownership are in [`scenarios.md`](../../cantos-ui-inspector/
 reuse [`studio-script-editor-v1.json`](../../cantos-ui-inspector/scenarios/studio-script-editor-v1.json)
 and [`theatre-web-player-v1.json`](../../cantos-ui-inspector/scenarios/theatre-web-player-v1.json)
 when they cover the changed state. A scenario edited between runs cannot show that a fix worked.
+
+For component diagnostics, use the
+[preview replay method](../../cantos-ui-design/references/preview-catalog.md#replay-a-preview-scenario)
+and the package's [typed URL recipe](../../../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay).
+Discover the existing ID/variant, select and reload the recipe, drive actual input, inspect the
+intent log and semantic state, capture/open the result, then reset and repeat the identical recipe
+after a change. Keep filter/theme changes distinct from reset. Matrix and isolated modes render
+the same production controls with host-owned fixtures; a forced CSS pseudo-state is not input
+evidence. Record simulated specimen frame width separately from the actual browser viewport/DPR,
+and text scale separately from native browser zoom. For motion, record labelled early/mid/final
+frames and interruption under System and Reduced; no recording claim follows from SSR or PNGs.
 
 ## 6. The matrix — choose from what changed
 

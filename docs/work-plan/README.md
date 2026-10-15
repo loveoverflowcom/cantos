@@ -205,8 +205,12 @@ baseline and distinguish proposed anatomy from renderer admission. For #141, pri
 shared controls/layout batches with a concrete consumer, then Theatre cover/episode/player
 primitives, then Web-owned Studio tables/editor/upload/QC/access compositions. Each batch follows
 lookup → reuse/extend → declare and preview → state/theme/motion evidence → admission → product
-adoption. Keep #129/#131 product rollout, the later motion/scenario workbench and #140 pixel
-comparison separate; local/JVM evidence does not complete native or screen-reader acceptance.
+adoption. The [#142 scenario workbench](015-leptos-ui-system.md#reproducible-leptos-preview-scenarios)
+adds exact replay for existing controls; next, use its
+[recipe contract](../../packages/ui-system/leptos/README.md#scenario-recipes-and-replay) and
+[browser evidence](../evidence/leptos-preview-scenarios.md) to close the affected runtime gaps
+before expanding proposal batches. Keep #129/#131 product rollout and #140 pixel comparison
+separate; local/JVM evidence does not complete native or screen-reader acceptance.
 
 The [local visual-comparison slice](../evidence/visual-compare.md) supplies advisory pixel
 metrics/regions through the [existing UI method](../../.agents/skills/cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
