@@ -248,23 +248,36 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
     // missing reader. This host shares the disposable DB/session, but has no storage registry.
     let mut no_storage_config = a.h.config.clone();
     no_storage_config.user("cantos_app");
-    let no_storage_app = router(
-        AppState {
-            store: Store::new(no_storage_config).unwrap(),
-            web_origin: ORIGIN.into(),
-        },
-        "unused-public-root",
-    );
-    for method in ["GET", "HEAD"] {
-        for conditions in [
-            vec![],
-            vec![("if-none-match", "*")],
-            vec![("if-match", "\"other\"")],
-            vec![("range", "bytes=9999999-")],
-        ] {
-            let (status, _, _) =
-                preview(&no_storage_app, method, &path, Some(ALICE), &conditions).await;
-            assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    let no_storage = Store::new(no_storage_config).unwrap();
+    // A healthy replacement is not a reader for the immutable historical target either.
+    let config_path = a.root.0.join("replacement-storage.toml");
+    fs::write(&config_path, format!(
+        "version = 1\n[storage]\nactive_write_target = \"replacement-private\"\n[storage.targets.replacement-private]\ndriver = \"filesystem\"\nprivate_root = {:?}\n",
+        a.root.0.join("replacement").to_str().unwrap(),
+    )).unwrap();
+    let replacement_only = no_storage
+        .clone()
+        .with_storage_config(&config_path)
+        .unwrap();
+    for store in [no_storage, replacement_only] {
+        let unavailable_app = router(
+            AppState {
+                store,
+                web_origin: ORIGIN.into(),
+            },
+            "unused-public-root",
+        );
+        for method in ["GET", "HEAD"] {
+            for conditions in [
+                vec![],
+                vec![("if-none-match", "*")],
+                vec![("if-match", "\"other\"")],
+                vec![("range", "bytes=9999999-")],
+            ] {
+                let (status, _, _) =
+                    preview(&unavailable_app, method, &path, Some(ALICE), &conditions).await;
+                assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+            }
         }
     }
     let (status, headers, body) = preview(&a.h.app, "GET", &path, Some(ALICE), &[]).await;

@@ -88,6 +88,11 @@ impl StorageRegistry {
             .cloned()
             .ok_or(StoreError::Storage(StorageError::Unavailable))
     }
+    /// Configured routing only, with no adapter call or byte-availability claim. HTTP
+    /// preconditions must not hide an already-known missing historical target.
+    pub(crate) fn ensure_read_target(&self, object: &PrivateObjectRef) -> Result<(), StoreError> {
+        self.resolve(object.target()).map(|_| ())
+    }
     pub(crate) async fn persist_audio(
         &self,
         verified: VerifiedAudio,
