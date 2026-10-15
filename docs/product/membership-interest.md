@@ -83,6 +83,11 @@ Reuse canonical tokens, fonts and assets; do not copy prototype CSS or create an
 
 All rows are `needs-decision`; this preview selects no production policy on their behalf.
 
+The separate [read-only plan publication proposal](membership-plan-publication.md) for
+[#176](https://github.com/loveoverflowcom/cantos/issues/176) compares source alternatives and
+lists the product/version/cache decisions required before plan DTOs or storage. It selects no
+commercial terms or implementation and remains independent of interest receipt persistence.
+
 | Boundary | Required decision / acceptance owner |
 | --- | --- |
 | Submitter and contact | #12/#34: signed-in versus guest admission, permitted profile source, editable contact email, contact validation and privacy/retention policy. Current session DTO has no name/email projection. |

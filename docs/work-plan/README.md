@@ -24,6 +24,13 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+The optional [Membership plan publication proposal](../product/membership-plan-publication.md)
+for [#176](https://github.com/loveoverflowcom/cantos/issues/176) has a separate recommended
+order: product/source decision under #34, accepted versioned contract with Web/CMP consumers,
+pure publication rules and source/API acceptance, then each client adapter. Keep plan display
+independent of interest receipt delivery and payment/entitlement. No plan DTO, database or
+commercial source should precede that decision gate; this does not reorder media/listener work.
+
 The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
 [issue #113](https://github.com/loveoverflowcom/cantos/issues/113). The
 [source-bound RFC](../architecture/work-scoped-delegation-rfc.md) compared the options; the
