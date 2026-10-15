@@ -2,6 +2,7 @@ package com.cantos.theatre.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +17,9 @@ import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.adapters.mock.toWorkKey
 import com.cantos.theatre.application.catalog.CatalogState
 import com.cantos.theatre.application.catalog.CatalogStatus
+import com.cantos.theatre.application.identity.AccountView
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.listening.ListeningFailure
 import com.cantos.theatre.application.listening.ListeningState
 import com.cantos.theatre.application.preferences.PreferenceLocale
@@ -43,6 +47,12 @@ import com.cantos.theatre.domain.playback.PlaybackState
 import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
+import com.cantos.theatre.features.auth.presentation.AccountContent
+import com.cantos.theatre.features.auth.presentation.AuthHeader
+import com.cantos.theatre.features.auth.presentation.AuthIntent
+import com.cantos.theatre.features.auth.presentation.LoginScreen
+import com.cantos.theatre.features.auth.presentation.RegisterScreen
+import com.cantos.theatre.features.auth.presentation.authReturnFor
 import com.cantos.theatre.features.shell.presentation.CantosDemoPresentation
 import com.cantos.theatre.features.membership.presentation.MembershipPreview
 import com.cantos.theatre.features.membership.presentation.MembershipHeader
@@ -57,10 +67,12 @@ fun CantosDemoApp(
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     appContainer: AppContainer? = null,
     membershipPreviewState: MembershipState = MembershipState.unavailable(),
+    // Only for the default container; an injected one already carries its own (or no) identity.
+    account: NativeAccountController? = null,
 ) {
     val parentScope = rememberCoroutineScope()
-    val container = remember(initialState, appContainer) {
-        appContainer ?: AppContainer.mock(parentScope, initialState)
+    val container = remember(initialState, appContainer, account) {
+        appContainer ?: AppContainer.mock(parentScope, initialState, account = account)
     }
     DisposableEffect(container) {
         onDispose { if (appContainer == null) container.close() }
@@ -76,23 +88,40 @@ fun CantosDemoApp(
     val listening by container.listening.state.collectAsState()
     val playback by container.playback.state.collectAsState()
     val preferences by container.preferences.state.collectAsState()
+    val accountView = container.accountState.collectAsState().value.toAccountView()
+    // A private draft or receipt must not outlive the account that made it (logout, expiry, switch);
+    // a guest draft survives signing in, so Membership -> Login -> success resumes the same intent.
+    val signedIn = accountView == AccountView.SignedIn
+    var wasSignedIn by remember(container) { mutableStateOf(signedIn) }
+    LaunchedEffect(signedIn) {
+        if (wasSignedIn && !signedIn) membership = membership.reduce(MembershipEvent.ClearSession).state
+        wasSignedIn = signedIn
+    }
+    // Feedback for an explicit restore that found nothing; it belongs to the Login entry only.
+    var nothingSaved by remember(container) { mutableStateOf(false) }
+    LaunchedEffect(navigation.route) { nothingSaved = false }
     val projection = projectDemoState(
         navigation, catalog, listening, playback, preferences, query, libraryTab, timer, initialState,
     )
     val dispatch: (DemoEvent) -> Unit = { event ->
         when (event) {
-            is DemoEvent.Navigate -> {
-                if (navigation.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
-                    membership = membership.reduce(MembershipEvent.OpenIntro).state
+            is DemoEvent.Navigate -> when (event.route) {
+                // Auth opens only through the container's guarded intents, never as a bare route.
+                DemoRoute.Login -> container.openLogin()
+                DemoRoute.Register -> container.openRegister()
+                else -> {
+                    if (navigation.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
+                        membership = membership.reduce(MembershipEvent.OpenIntro).state
+                    }
+                    container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
                 }
-                container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
             }
             DemoEvent.Back -> if (navigation.route == TheatreRoute.MembershipPreview &&
                 membership.screen != MembershipScreen.Intro && membership.screen != MembershipScreen.Account) {
                 membership = membership.reduce(MembershipEvent.Back).state
             } else {
                 if (navigation.route == TheatreRoute.MembershipPreview) membership = membership.reduce(MembershipEvent.OpenIntro).state
-                container.navigate(NavigationEvent.Back)
+                container.back()
             }
             DemoEvent.Reset -> {
                 query = ""
@@ -135,6 +164,23 @@ fun CantosDemoApp(
             is DemoEvent.SetTimer -> timer = event.timer
         }
     }
+    // Every account intent is an explicit listener action; the container and owner decide the outcome.
+    val onAuth: (AuthIntent) -> Unit = { intent ->
+        when (intent) {
+            AuthIntent.BeginLogin -> container.beginLogin()
+            AuthIntent.CancelLogin -> container.cancelLogin()
+            AuthIntent.RestoreSession -> nothingSaved = container.restoreSession() == RestoreOutcome.NothingSaved
+            AuthIntent.RetryCleanup, AuthIntent.Logout -> container.logout()
+            AuthIntent.OpenLogin -> container.openLogin()
+            AuthIntent.OpenRegister -> container.openRegister()
+            AuthIntent.OpenHome -> dispatch(DemoEvent.Navigate(DemoRoute.Discovery))
+            AuthIntent.OpenLibrary -> dispatch(DemoEvent.Navigate(DemoRoute.Library))
+            AuthIntent.OpenMembership -> dispatch(DemoEvent.Navigate(DemoRoute.MembershipPreview))
+            AuthIntent.OpenSettings -> dispatch(DemoEvent.Navigate(DemoRoute.Settings))
+            AuthIntent.ToggleTheme -> dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark))
+            AuthIntent.Back -> dispatch(DemoEvent.Back)
+        }
+    }
     CantosDemoPresentation(
         projection, catalog.lastKnownInventory.toDemoView(), dispatch, modifier, textScale, onThemeChanged, backHandler,
         membershipContent = {
@@ -147,6 +193,16 @@ fun CantosDemoApp(
                 onToggleTheme = { dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark)) })
         },
         membershipScreen = membership.screen,
+        accountContent = { loginFocus ->
+            AccountContent(projection.locale, projection.theme, accountView, onAuth, loginFocus)
+        },
+        authContent = {
+            if (projection.route == DemoRoute.Register) RegisterScreen(projection.locale, onAuth)
+            else LoginScreen(projection.locale, accountView, nothingSaved, onAuth)
+        },
+        authHeader = {
+            AuthHeader(projection.locale, projection.theme, authReturnFor(projection.stack), onAuth)
+        },
     )
 }
 
@@ -173,6 +229,8 @@ fun projectDemoState(
             TheatreRoute.Library -> DemoRoute.Library
             TheatreRoute.Account -> DemoRoute.Account
             TheatreRoute.MembershipPreview -> DemoRoute.MembershipPreview
+            TheatreRoute.Login -> DemoRoute.Login
+            TheatreRoute.Register -> DemoRoute.Register
             TheatreRoute.History -> DemoRoute.History
             TheatreRoute.Settings -> DemoRoute.Settings
             TheatreRoute.Queue -> DemoRoute.Queue

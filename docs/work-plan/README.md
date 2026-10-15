@@ -190,7 +190,9 @@ Recommended order stays small and reviewable:
    until its exact capability/callback policy is accepted; a prototype form or route is no
    registration receipt. Prioritize the recorded provider-return, cancellation, browser history
    and focus evidence before broadening this Web slice. #130 native adoption remains independent
-   of this browser lifecycle and sandbox #122.
+   of this browser lifecycle and sandbox #122; its first [guest-first CMP slice](../evidence/theatre-cmp-auth-account.md)
+   composes the same contextual Back and fenced completion semantics over the existing native
+   account owner, with provider, device and assistive-technology acceptance still unrun.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.
 
 This does not reorder publication/storage acceptance, change auth grants, or close consumer

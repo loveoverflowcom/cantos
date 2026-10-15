@@ -7,6 +7,9 @@ sealed interface DemoRoute {
     data object Settings : DemoRoute
     data object Account : DemoRoute
     data object MembershipPreview : DemoRoute
+    /** Optional account intents. Their origin is the route below them in the stack. */
+    data object Login : DemoRoute
+    data object Register : DemoRoute
     data object History : DemoRoute
     data object Queue : DemoRoute
     data object Player : DemoRoute
@@ -226,6 +229,8 @@ sealed interface DemoEvent {
 }
 
 fun canGoBack(state: DemoState): Boolean = state.stack.size > 1
+
+fun DemoRoute.isAuth(): Boolean = this == DemoRoute.Login || this == DemoRoute.Register
 
 fun filteredWorks(state: DemoState, catalog: DemoCatalogView): List<DemoWork> {
     if (state.catalogMode != DemoCatalogMode.Ready) return emptyList()

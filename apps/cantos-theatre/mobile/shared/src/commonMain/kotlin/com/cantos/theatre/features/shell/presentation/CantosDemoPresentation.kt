@@ -45,6 +45,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -76,6 +78,7 @@ import com.cantos.theatre.demo.DemoWork
 import com.cantos.theatre.demo.canGoBack
 import com.cantos.theatre.demo.continuingProgress
 import com.cantos.theatre.demo.filteredWorks
+import com.cantos.theatre.demo.isAuth
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Density
@@ -87,8 +90,9 @@ import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 /** The same isolated mock composition is mounted by Android, iOS and the JVM diagnostic host.
- * Native Material controls consume the canonical theme. Membership supplies slots composed
- * from the shared design-v2 primitives; their bounded admission is recorded separately.
+ * Native Material controls consume the canonical theme. Membership and the optional account flow
+ * supply slots composed from the shared design-v2 primitives; their bounded admission is recorded
+ * separately. The shell owns only where the slots sit, never an account decision.
  */
 @Composable
 fun CantosDemoPresentation(
@@ -102,6 +106,11 @@ fun CantosDemoPresentation(
     membershipContent: @Composable () -> Unit = {},
     membershipHeader: (@Composable () -> Unit)? = null,
     membershipScreen: MembershipScreen = MembershipScreen.Intro,
+    // Receives the requester that Back restores when it closes an auth intent opened from Account.
+    accountContent: @Composable (loginFocus: FocusRequester) -> Unit = {},
+    // Login and Register bodies; the root reads the route from its own projection.
+    authContent: @Composable () -> Unit = {},
+    authHeader: (@Composable () -> Unit)? = null,
     // The mock's product default stays Reduced; a diagnostics host may inject Full to observe motion.
     motionPreference: MotionPreference = MotionPreference.Reduced,
 ) {
@@ -109,6 +118,7 @@ fun CantosDemoPresentation(
     val back = { dispatch(DemoEvent.Back) }
     SideEffect { onThemeChanged(state.theme == DemoTheme.Dark) }
     backHandler(canGoBack(state), back)
+    val entryFocus = rememberAuthEntryFocus(state.stack)
     CantosTheme(
         UiPreferences(
             theme = if (state.theme == DemoTheme.Dark) Theme.Dark else Theme.Light,
@@ -130,7 +140,9 @@ fun CantosDemoPresentation(
                     }
                 },
             ) {
-                if (state.route == DemoRoute.MembershipPreview && membershipHeader != null) membershipHeader() else DemoHeader(state, copy, dispatch)
+                if (state.route == DemoRoute.MembershipPreview && membershipHeader != null) membershipHeader()
+                else if (state.route.isAuth() && authHeader != null) authHeader()
+                else DemoHeader(state, copy, dispatch, entryFocus.account)
                 when (state.listeningFailure) {
                     null -> Unit
                     DemoListeningFailure.MemoryStoreUnavailable -> Column(
@@ -143,16 +155,17 @@ fun CantosDemoPresentation(
                         }
                     }
                 }
-                val scroll = remember(state.route, membershipScreen) { androidx.compose.foundation.ScrollState(0) }
+                val scroll = rememberRouteScroll(state.stack, membershipScreen)
+                val framed = state.route == DemoRoute.MembershipPreview || state.route.isAuth()
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(
                         Modifier.widthIn(max = tokenDp("breakpoint.expanded"))
-                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (state.route == DemoRoute.MembershipPreview) "space.section" else "space.md"))
+                            .fillMaxWidth().verticalScroll(scroll).padding(tokenDp(if (framed) "space.section" else "space.md"))
                             .semantics { paneTitle = routeTitle(state.route, copy) }
                             .testTag("screen"),
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
-                        if (state.route != DemoRoute.MembershipPreview) Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
+                        if (!framed) Text(copy.text(CopyKey.DemoNotice), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.testTag("demo-notice"))
                         when (val route = state.route) {
@@ -165,7 +178,8 @@ fun CantosDemoPresentation(
                             }
                             DemoRoute.Player -> PlayerScreen(state, catalog, copy, dispatch)
                             DemoRoute.Queue -> QueueScreen(state, catalog, copy, dispatch)
-                            DemoRoute.Account -> AccountScreen(copy, dispatch)
+                            DemoRoute.Account -> accountContent(entryFocus.login)
+                            DemoRoute.Login, DemoRoute.Register -> authContent()
                             DemoRoute.MembershipPreview -> membershipContent()
                             DemoRoute.History -> HistoryScreen(state, catalog, copy, dispatch)
                             DemoRoute.Settings -> SettingsScreen(state, copy, dispatch)
@@ -173,7 +187,8 @@ fun CantosDemoPresentation(
                         }
                     }
                 }
-                if (state.route != DemoRoute.Player && state.route != DemoRoute.Queue && state.route != DemoRoute.MembershipPreview) {
+                // Auth is a focused task: no mini-player or tab bar can cover its Back or actions.
+                if (state.route != DemoRoute.Player && state.route != DemoRoute.Queue && !framed) {
                     MiniPlayer(state, catalog, copy, dispatch)
                     DemoTabs(state, copy, dispatch)
                 }
@@ -192,6 +207,8 @@ private fun routeTitle(route: DemoRoute, copy: DemoCopy): String = copy.text(
         DemoRoute.Queue -> CopyKey.Queue
         DemoRoute.Account -> CopyKey.Account
         DemoRoute.MembershipPreview -> CopyKey.MembershipPreview
+        DemoRoute.Login -> CopyKey.SignIn
+        DemoRoute.Register -> CopyKey.CreateAccount
         DemoRoute.History -> CopyKey.History
         DemoRoute.Settings -> CopyKey.Settings
         DemoRoute.Unavailable -> CopyKey.SelectionUnavailable
@@ -203,11 +220,11 @@ private fun headerTitleKey(route: DemoRoute): CopyKey = when (route) {
     DemoRoute.Account -> CopyKey.AccountSpace
     DemoRoute.MembershipPreview -> CopyKey.Brand
     DemoRoute.Discovery, DemoRoute.Search, DemoRoute.Library, is DemoRoute.Work, DemoRoute.Queue,
-    DemoRoute.History, DemoRoute.Settings, DemoRoute.Unavailable -> CopyKey.Brand
+    DemoRoute.History, DemoRoute.Settings, DemoRoute.Unavailable, DemoRoute.Login, DemoRoute.Register -> CopyKey.Brand
 }
 
 @Composable
-private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -> Unit, accountFocus: FocusRequester) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = tokenDp("space.sm"), vertical = tokenDp("space.xs")),
         verticalAlignment = Alignment.CenterVertically,
@@ -230,7 +247,8 @@ private fun DemoHeader(state: DemoState, copy: DemoCopy, dispatch: (DemoEvent) -
             color = MaterialTheme.colorScheme.primary,
         )
         if (state.route != DemoRoute.Account) {
-            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Account)) }, modifier = Modifier.size(tokenDp("size.control")).testTag("account")) {
+            IconButton(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Account)) },
+                modifier = Modifier.size(tokenDp("size.control")).focusRequester(accountFocus).testTag("account")) {
                 Icon(Icons.Outlined.AccountCircle, copy.text(CopyKey.Account))
             }
         }

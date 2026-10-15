@@ -13,6 +13,9 @@ import com.cantos.theatre.adapters.mock.toEpisodeKey
 import com.cantos.theatre.adapters.mock.toPlaybackSource
 import com.cantos.theatre.adapters.mock.toWorkKey
 import com.cantos.theatre.application.catalog.CatalogController
+import com.cantos.theatre.application.identity.NativeAccountController
+import com.cantos.theatre.application.identity.NativeAccountState
+import com.cantos.theatre.application.identity.toAccountView
 import com.cantos.theatre.application.listening.ListeningController
 import com.cantos.theatre.application.playback.PlaybackController
 import com.cantos.theatre.application.preferences.PreferenceLocale
@@ -48,6 +51,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+enum class RestoreOutcome { Refused, Requested, NothingSaved }
 
 /** Composition inputs only. This immutable seed is never a writable application store. */
 data class AppStartState(
@@ -79,6 +85,8 @@ class AppContainer(
     start: AppStartState,
     private val resetStart: AppStartState = start,
     private val changeScenario: ((CatalogScenario) -> Unit)? = null,
+    /** Optional process-owned identity boundary. This container observes it and never closes it. */
+    val account: NativeAccountController? = null,
 ) {
     private val ownerJob = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext.minusKey(Job) + ownerJob)
@@ -88,6 +96,8 @@ class AppContainer(
     val playback = PlaybackController(scope, mediaEngine, ::recordCommittedPlayback)
     private val mutableNavigation = MutableStateFlow(start.navigation)
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()
+    /** Null when no identity boundary is configured: a guest-only shell, never a failure. */
+    val accountState: StateFlow<NativeAccountState?> = account?.state ?: MutableStateFlow(null)
     private var closed = false
     private var resetEpoch = 0L
     private var initialRestorePending = true
@@ -97,10 +107,80 @@ class AppContainer(
         // Restoring the mounted player is not a listening visit; preserve explicit empty seeds.
         playback.restoreForReset(start.playback) { initialRestorePending = false }
         if (start.wantsSimulation) playback.dispatch(PlaybackEvent.PlayRequested)
+        // A confirmed session closes an auth intent that is still open. With none open (Back,
+        // another destination, an explicit restore) this is inert, so a late completion can
+        // never navigate or reopen anything.
+        account?.let { owner ->
+            scope.launch {
+                owner.state.collect { if (it is NativeAccountState.SignedIn) navigate(NavigationEvent.AuthCompleted) }
+            }
+        }
     }
 
     fun navigate(event: NavigationEvent) {
         if (!closed) mutableNavigation.update { reduceNavigation(it, event) }
+    }
+
+    /** Back closes the open auth intent first: a pending login is cancelled, so its callback is fenced. */
+    fun back() {
+        if (closed) return
+        if (navigation.value.route.isAuth) cancelLogin()
+        navigate(NavigationEvent.Back)
+    }
+
+    /** Only an explicit listener intent opens Login, and a signed-in listener has none. */
+    fun openLogin(): Boolean {
+        val owner = account ?: return false
+        if (closed || owner.state.value is NativeAccountState.SignedIn) return false
+        // A failure from an earlier attempt is not the result of this one.
+        if (owner.state.value is NativeAccountState.Failed) owner.cancelLogin()
+        navigate(NavigationEvent.OpenLogin)
+        return true
+    }
+
+    /** Registration is an explained-unavailable destination: it never reaches the identity owner. */
+    fun openRegister(): Boolean {
+        val owner = account ?: return false
+        val state = owner.state.value
+        if (closed || state is NativeAccountState.SignedIn || state == NativeAccountState.Pending) return false
+        navigate(NavigationEvent.OpenRegister)
+        return true
+    }
+
+    /** One attempt, only from the open Login route, and never while another is pending or cleanup is owed. */
+    fun beginLogin(): Boolean {
+        val owner = account ?: return false
+        if (closed || navigation.value.route != TheatreRoute.Login) return false
+        if (!owner.state.value.toAccountView().canBeginLogin) return false
+        owner.beginLogin()
+        return true
+    }
+
+    /**
+     * An explicit restore of the credential this device still holds; never automatic. The owner
+     * settles a missing credential synchronously, so a [NativeAccountState.SignedOut] right after
+     * the call means there was nothing to restore and the screen can say so.
+     */
+    fun restoreSession(): RestoreOutcome {
+        val owner = account ?: return RestoreOutcome.Refused
+        if (closed || navigation.value.route != TheatreRoute.Login || !owner.state.value.toAccountView().canBeginLogin) {
+            return RestoreOutcome.Refused
+        }
+        owner.restore()
+        return if (owner.state.value == NativeAccountState.SignedOut) RestoreOutcome.NothingSaved else RestoreOutcome.Requested
+    }
+
+    /** Abandons a pending attempt and stays on the entry; the browser is not reopened. */
+    fun cancelLogin() {
+        val owner = account ?: return
+        if (!closed && owner.state.value == NativeAccountState.Pending) owner.cancelLogin()
+    }
+
+    /** Also retries a cleanup that failed: the owner hides the account before any I/O. */
+    fun logout() {
+        val owner = account ?: return
+        val state = owner.state.value
+        if (!closed && (state is NativeAccountState.SignedIn || state == NativeAccountState.CleanupRequired)) owner.logout()
     }
 
     /** The catalog boundary refuses a missing/unsupported source before any engine command. */
@@ -263,6 +343,7 @@ class AppContainer(
         fun mock(
             scope: CoroutineScope,
             seed: DemoState = FakeStorageSession.Demo.seed(),
+            account: NativeAccountController? = null,
             storage: (ListeningSnapshot) -> FakeStorageDatabase = ::FakeStorageDatabase,
         ): AppContainer {
             val inventory = mockInventory()
@@ -271,7 +352,7 @@ class AppContainer(
             val port = MockCatalogPort(inventory, seed.catalogMode.toScenario())
             val container = AppContainer(
                 scope, port, FakePersistentProgressPort(storage(start.listening)), MockMediaEngine(), start, defaults,
-                changeScenario = port::setScenario,
+                changeScenario = port::setScenario, account = account,
             )
             if (seed.catalogMode != DemoCatalogMode.Ready) container.catalog.refresh()
             return container
@@ -317,6 +398,8 @@ fun DemoRoute.toTheatreRoute(): TheatreRoute = when (this) {
     DemoRoute.History -> TheatreRoute.History
     DemoRoute.Account -> TheatreRoute.Account
     DemoRoute.MembershipPreview -> TheatreRoute.MembershipPreview
+    DemoRoute.Login -> TheatreRoute.Login
+    DemoRoute.Register -> TheatreRoute.Register
     DemoRoute.Settings -> TheatreRoute.Settings
     DemoRoute.Queue -> TheatreRoute.Queue
     DemoRoute.Player -> TheatreRoute.Player

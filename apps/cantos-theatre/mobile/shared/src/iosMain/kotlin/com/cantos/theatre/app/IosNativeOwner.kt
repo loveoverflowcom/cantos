@@ -82,7 +82,7 @@ class IosNativeOwner(apiOrigin: String, issuer: String, platform: IosIdentityPla
         val account = controller
         // A server/session request is never essential local launch readiness.
         CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
-            if (account != null) NativeIdentityApp(account) else CantosDemoApp()
+            CantosDemoApp(account = account)
         }
     }
     fun callback(state: String, code: String, hasError: Boolean) {
