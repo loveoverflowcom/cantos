@@ -341,7 +341,9 @@ fn Plans(state: RwSignal<MembershipState>, locale: RwSignal<Locale>) -> impl Int
                 let status=match event_target_value(&ev).as_str() { "loading"=>PlansStatus::Loading,"empty"=>PlansStatus::Empty,"unavailable"=>PlansStatus::Unavailable,"failed"=>PlansStatus::Failed,_=>PlansStatus::Unpublished };
                 state.update(|s| s.set_plans_status(status));
             }>
-                {[("unpublished",CopyKey::Unpublished),("loading",CopyKey::PlansLoading),("empty",CopyKey::PlansEmpty),("unavailable",CopyKey::PlansUnavailable),("failed",CopyKey::PlansFailed)].into_iter().map(move |(value,key)| view! {<option value=value>{label(locale,key)}</option>}).collect_view()}
+                {[("unpublished",CopyKey::Unpublished,PlansStatus::Unpublished),("loading",CopyKey::PlansLoading,PlansStatus::Loading),("empty",CopyKey::PlansEmpty,PlansStatus::Empty),("unavailable",CopyKey::PlansUnavailable,PlansStatus::Unavailable),("failed",CopyKey::PlansFailed,PlansStatus::Failed)].into_iter().map(move |(value,key,status)| view! {
+                    <option value=value selected=move || state.get().plans_status() == status prop:selected=move || state.get().plans_status() == status>{label(locale,key)}</option>
+                }).collect_view()}
             </select>
         </details>
     }
@@ -488,6 +490,39 @@ mod tests {
         assert_eq!(state.receipt(), None);
         assert_eq!(restore_history(&mut state, "#account"), None);
         assert_eq!(state.screen(), MembershipScreen::Account);
+    }
+
+    #[test]
+    fn reopening_plans_keeps_the_fixture_selector_on_the_current_status() {
+        for (status, value) in [
+            (PlansStatus::Unpublished, "unpublished"),
+            (PlansStatus::Loading, "loading"),
+            (PlansStatus::Empty, "empty"),
+            (PlansStatus::Unavailable, "unavailable"),
+            (PlansStatus::Failed, "failed"),
+        ] {
+            Owner::new().with(|| {
+                let mut state = fixture();
+                let issued = state.begin_submission().unwrap();
+                state.finish(&issued, FinishOutcome::Received);
+                state.open_plans();
+                state.set_plans_status(status);
+                state.back();
+                state.open_plans();
+                assert_eq!(state.receipt(), Some(&issued));
+                let state = RwSignal::new(state);
+                let locale = RwSignal::new(Locale::Vietnamese);
+                let html = view! { <Plans state locale/> }.to_html();
+                let option = html
+                    .split("<option")
+                    .find(|option| option.starts_with(&format!(" value=\"{value}\"")))
+                    .unwrap()
+                    .split('>')
+                    .next()
+                    .unwrap();
+                assert!(option.contains("selected"), "{status:?}: {option}");
+            });
+        }
     }
 
     #[test]

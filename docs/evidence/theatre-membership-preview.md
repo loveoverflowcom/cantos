@@ -1,6 +1,129 @@
 # Theatre Membership preview — issue 128
 
-## Current handoff status — acceptance deferred by owner
+## Current follow-up — PR 137 completion review
+
+On 15 October 2026 a new owner request resumed review, repair and local verification of
+[PR 137](https://github.com/loveoverflowcom/cantos/pull/137). Worktree
+`/Users/manh.pd1/.codex/worktrees/pr137-completion/cantos`, branch `codex/pr137-completion`,
+was created from fetched `develop@f05b09bf24243bb99bc869f5009628294ebb15d8` and fast-forwarded
+through PR input `540ebe44589bf4ab3407b51b9b3e8ff0c09b52a7`. The owner checkout was preserved.
+The earlier acceptance deferral below is historical; it does not constrain this resumed task.
+This remains the issue-permitted preview slice, not production Membership or issue 128 closure.
+
+Invariant/owner: the Web plan control must project the same `PlansStatus` as the displayed
+content after Back/reopening; receipt, account completion and paid access remain independent.
+A fresh read-only source review covered all 32 input PR paths, both membership cores, the
+hand-authored corpus, mounting/mode boundaries, presentation/tests and owning docs. It found one
+P2 confirmed presentation defect: selecting Failed, returning and reopening Plans retained the
+failed core state but recreated the select on its first, unpublished option. The five options
+now derive both their rendered selected attribute and DOM property from the existing state.
+No core, production adapter, shared component, token or contract was changed. A focused second
+source review found no further actionable issue in the follow-up code/test diff.
+
+The new SSR regression calls production `Plans` after receipt → Plans → Back → Plans and uses
+independent expected values for all five statuses. It failed before repair and passed afterward.
+The CMP regression exercises Email IME Done twice through production `CantosDemoApp` and asserts
+first-error Name focus, inline errors and no receipt. It is JVM semantics input, not native IME.
+
+### Fresh evidence and independent layers
+
+Logs and local-only images are ignored under `artifacts/agent-runs/pr137-completion/`.
+`source-manifest.json` and `artifact-manifest.json` bind paths/bytes to SHA-256; final follow-up
+code did not change after the passing checks. Documentation summaries were refreshed afterward.
+Use `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0` and
+`CARGO_TARGET_DIR=/Users/manh.pd1/Projects/Mine/cantos/target`. Existing Gradle 8.14.3 is at
+`/Users/manh.pd1/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin`;
+existing JDK 17.0.19 is at
+`/Users/manh.pd1/Library/Java/JavaVirtualMachines/ms-17.0.19/Contents/Home`.
+Prefix `/opt/homebrew/bin` (Python 3.14.8), then their bin directories to `PATH`, and set
+`JAVA_HOME` to that JDK. Installations, credentials, services and shared caches were not
+provisioned or deleted.
+
+| Layer / command or oracle | Actual follow-up result | Scope / log |
+| --- | --- | --- |
+| L1 ownership and L2 state barriers | Source-reviewed | Closed preview modes/origins, opaque attempts, exact callback fences; no authority or payment effect; unchanged cores |
+| L3 selector regression: `cargo test --locked -p cantos-theatre membership_preview::tests::reopening_plans_keeps_the_fixture_selector_on_the_current_status` | FAIL before repair → PASS after repair | One selected test; `selector-red.log`, `selector-green.log`; SSR HTML, not live DOM |
+| L3 `cargo xtask verify rust` | PASS | Format, workspace Clippy and workspace tests; `final-rust.log` includes the new history and selector regressions |
+| L3/L4 `cargo xtask theatre-demo verify` | PASS | 272 tests, 39 XML reports, zero failures/errors/skips; new repeated IME Done test executed; `cmp.log` |
+| L4 Web walkthrough: `cargo xtask run cantos-theatre --web` | Observed | Real Leptos CSR/Chrome DOM and keyboard/pointer interaction; no API; `web-runtime.log`, `web/` |
+| `cargo xtask verify web` | PASS after disk recovery | Web lint, Studio/Theatre builds and shared Leptos preview; `web-retry.log`; original disk failure retained in `final-web.log` |
+| `cargo xtask verify contracts` | UNSUPPORTED | Missing installed `ffmpeg`/`ffprobe`; four independent contract/reference gates NOT_RUN due prerequisite precheck; `final-contracts.log` |
+| `cargo xtask preflight --changed-only` | PASS | All seven selected gates, no skips; repository includes 401 Python tests; `preflight-python314.log` and final `preflight-final.log` |
+| L5 production/native | NOT_RUN | No Membership HTTP/SQL, live identity/signup/receipt, durable storage, payment, OS Back or screen-reader acceptance |
+
+The first workspace run had `FAIL` at unchanged
+`probe::tests::port_ownership_reflects_an_existing_listener` (port rebind assertion).
+The xtask tree/dependencies equal develop. A single-thread exact rerun passed (1 test), and
+the final full workspace gate passed. The cause remains unconfirmed, consistent with a
+scheduling/environment race; no unrelated source fix was made. Both logs are retained as
+`rust.log` and `probe-rerun.log`. The first Web run exhausted disk during the unrelated Studio
+build; after free space returned, the unchanged-source rerun passed all four Web gates
+(`web-retry.log`). No cache deletion was performed by this task. The first preflight failed
+because PATH selected macOS
+Python 3.9 (missing `tomllib`/`os.waitid`); `preflight.log` retains its five failures/48 errors.
+Selecting existing Homebrew Python 3.14.8 resolved that prerequisite: all 401 Python tests and
+all seven preflight gates passed in `preflight-python314.log`, with no script/test source change.
+Contracts remain incomplete until trusted media tools are available. No failure was skipped
+or rewritten as a successful gate.
+
+The later standalone `cargo xtask verify repository` had FAIL at three unchanged
+`test_render_compose_preview.CaptureTest` timeout/cleanup tests (3 failures/401 tests;
+`repository.log`). These scripts/tests exactly match develop. Both the earlier preflight and
+final preflight ran all 401 tests successfully; final `preflight-final.log` records every gate
+PASS. Diagnosis is flaky unchanged subprocess timing, with startup/scheduling delay only a
+hypothesis: the tests share a one-second prerequisite/render budget. Missing stop-marker alone
+does not establish a leaked process, and temporary fixture cleanup removed the exact phase
+metadata. No tests/assertions were weakened. Retain this intermittent infrastructure risk;
+no further identical suite run was needed after the final PASS.
+
+### Design, opened pixels and interaction observations
+
+The issue 128 Drive handoff and complete Mobile HTML were read. Five actual reference PNGs
+were downloaded and opened: Web form/plans and mobile form/received/plans. The Web HTML download
+repeatedly ended with incomplete bytes; no Web HTML runtime claim is made. The reference
+layout/flow is a design proposal; its fake timers, prefilled contacts and payment-detail
+fixtures were not copied. References are retained in `design/` with PNG SHA-256 provenance.
+
+The same Chrome scenario before/after the selector repair was opened at the actual
+DOM-measured 1600×1125 CSS viewport, light, Vietnamese, same Failed fixture. The selected
+option now agrees with the error status. All five plan statuses were independently exercised
+through Back/reopen. Clean-tab browser Back traversed Plans → receipt → normalized old form
+→ intro; Forward still traversed receipt entries → Plans with the received origin.
+After session clear, old receipt entries normalized to intro without private contact/receipt.
+Account-complete fixture → Plans → Back returned to account-complete without a receipt.
+Pending prevented duplicate submission; unknown outcome locked both inputs and offered
+same-intent retry. Blank click/Enter submission focused Name. A Tab tour traversed Back,
+Name and Email with visible focus outlines.
+
+Opened Web captures: `web/selector-{before,after}-1600-light.png`,
+`form-invalid-light-narrow.png`, `receipt-dark-390.png`, `plans-dark-390.png` and
+`form-english-light-320.png`. Actual narrow DOM viewports were 390×843 and 320×800 CSS px;
+scroll width equaled viewport width, labels/diacritics/actions remained readable. Chrome
+inherited 80% page zoom; viewport overrides were compensated using measured DOM dimensions.
+Native desktop permission was unavailable, so real 200% browser zoom was NOT_RUN. No new motion
+was introduced; reduced-motion recording and screen-reader walks were NOT_RUN. Only browser
+extension diagnostics were observed in the checked console output, not app runtime errors.
+Temporary viewport overrides, created tabs and the xtask-owned Web process were closed/stopped.
+
+All twelve JVM Membership images were opened by the CMP reviewer. They include light/dark
+390×844, English form and 320×800 at textScale 2. Receipt/plans top and scrolled-actions images
+are separate: headings and email wrap; both receipt CTAs and Explore labels fit. In the plans
+actions capture the Explore pill is flush with the bottom edge, while its full two-line label
+remains inside the image; offscreen prior content is intentionally cropped after scrolling.
+The parent additionally opened the English form and both large-text action captures. Image
+files, scenario TXT and unmerged semantics are under `cmp/`; this is `screenshot-inspected` /
+`cross-theme-inspected`, never Android/iOS evidence. Existing Kotlin formatter/lint tooling is
+not configured; touched test style/imports were manually reviewed and compiler/tests ran.
+
+Residual risk / next acceptance: rerun contracts with trusted `ffmpeg`/`ffprobe` on PATH.
+The broad Web retry and changed-only preflight passed; the earlier failures stay recorded.
+Intermittent unchanged infrastructure tests remain a risk. Native/platform and screen-reader
+acceptance, real 200% browser zoom and production Membership policy remain
+separate. No API, schema, pricing, entitlement, provider cost, playback, rights or approval
+behavior changed. Issue 128 and shared admission/release-isolation dependencies remain open;
+remote CI is not checked and no merge is requested.
+
+## Historical handoff at 540ebe4 — acceptance deferred by owner
 
 On 15 October 2026 the owner explicitly requested that the review stop remaining acceptance,
 document unchecked work, and push the scoped source for their own review. No further Chrome

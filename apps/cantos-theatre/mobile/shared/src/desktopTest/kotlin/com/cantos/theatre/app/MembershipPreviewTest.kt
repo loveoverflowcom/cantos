@@ -20,6 +20,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -89,6 +90,24 @@ class MembershipPreviewTest {
             email.assertIsFocused()
             onNodeWithTag("membership-submit").performScrollTo().performClick()
             onNodeWithTag("membership-name").assertIsFocused()
+        }
+    }
+
+    @Test
+    fun ime_done_refocuses_first_invalid_field_on_each_unchanged_submit() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { MembershipTestRoot() }
+            onNodeWithTag("membership-start").performScrollTo().performClick()
+            val email = onNodeWithTag("membership-email").performScrollTo()
+            email.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+            email.assertIsFocused().performImeAction()
+            onNodeWithTag("membership-name").assertIsFocused()
+            onNodeWithText("Nhập tên bạn muốn sử dụng.").assertExists()
+            onNodeWithText("Nhập địa chỉ email.").assertExists()
+            email.performScrollTo().performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+            email.assertIsFocused().performImeAction()
+            onNodeWithTag("membership-name").assertIsFocused()
+            onNodeWithTag("membership-receipt").assertDoesNotExist()
         }
     }
 
