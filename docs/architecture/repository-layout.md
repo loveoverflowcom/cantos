@@ -23,7 +23,12 @@ anonymous public discovery Home and a separate same-origin account/auth/readonly
 boundary, with an explicit session-only UI mock at `?mode=mock`. Real playback, verified provider
 signup and production identity/delivery acceptance remain separate. See the
 [Web implementation boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
-Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md), without native audio or live listener resources; a common/JVM HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
+Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md): its
+production-safe `:shared` KMP module contains the UI/domain/application and ports, and the
+separate `:preview-sandbox` module contains mock adapters, fixtures and demo composition.
+There is no production Android host; production release graph/APK/AAB exclusion remains
+**BLOCKED / NOT_RUN**. Native audio and live listener resources remain absent; a common/JVM
+HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation
@@ -35,7 +40,10 @@ in [decision 0009](../decisions/0009-monorepo-layout.md).
 apps/
   cantos-theatre/          Cantos Theatre: the listener product (user-facing name: Cantos)
     web/                   Leptos CSR public/account reads  (package cantos-theatre)      LIVE READS + MOCK
-    mobile/                Kotlin Compose Multiplatform     (isolated mock, no audio/API) DEMO
+    mobile/                Kotlin Compose Multiplatform     (isolated demo; no native audio) DEMO
+      shared/              Production-safe UI/domain/application, ports and non-mock adapters
+      preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
+      androidApp/          Explicit demo Android host; no production host implemented
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
@@ -69,6 +77,8 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
 - **DEMO** is the isolated Theatre CMP mock: shared Kotlin screens and Android/iOS host wiring,
   with target evidence in its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md).
   It implements no native audio, listener API, background playback, downloads or durable sync.
+  The [sandbox extraction record](../evidence/issue122-cmp-sandbox-isolation.md) distinguishes
+  module/source checks from the unrun production artifact checks; a demo build does not accept #122.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   claim live Kanidm acceptance: the API now has opt-in [Studio OIDC](studio-oidc.md) alongside
@@ -157,6 +167,11 @@ Not shared, deliberately:
   Gradle package and its Android preview host are component diagnostics, not Studio Mobile.
   Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
   libraries only for concrete consumers.
+  Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; demo hosts select both
+  explicitly. `:shared` has no reverse sandbox dependency or implicit mock fallback. A future
+  production host consumes `:shared` and production adapters only. Static source/build guards
+  protect the declared boundary; actual production release classpaths and APK/AAB contents
+  still require independent inspection when that host exists.
 
 ## Cargo workspace
 
@@ -186,8 +201,9 @@ cargo xtask build cantos-forge         # producer-side Forge CLI (native); built
 cargo xtask build cantos-studio --web  # Studio Web through Trunk
 cargo xtask build cantos-theatre --web         # Theatre Web live boundary and isolated mock through Trunk
 cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native listening absent
-cargo xtask theatre-demo build                 # shared mock + JVM diagnostic host
+cargo xtask theatre-demo build                 # shared core + preview-sandbox JVM diagnostic host
 cargo xtask theatre-demo android-build         # mock debug APK; existing Android SDK required
+cargo xtask distribute firebase cantos-theatre --channel demo --groups g --dry-run  # opt-in demo-APK tester distribution; plan only with --dry-run
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```

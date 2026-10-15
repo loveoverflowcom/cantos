@@ -23,7 +23,7 @@ use crate::{
 const RUN_JVM_ARGS: &str = "-Xms64m -Xmx2g -Dfile.encoding=UTF-8";
 const KOTLIN_NATIVE_VERSION: &str = "2.2.20";
 const ANDROID_PLATFORM: &str = "platforms/android-35/android.jar";
-const ANDROID_BUILD_TOOLS: &str = "build-tools/35.0.0";
+pub const ANDROID_BUILD_TOOLS: &str = "build-tools/35.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum DemoAction {
@@ -43,12 +43,14 @@ pub enum DemoAction {
     },
 }
 
-/// The mock has a root Gradle build and a shared source module; a README is insufficient.
+/// Both KMP modules must exist: production-safe shared code and the explicit demo sandbox.
 pub fn project_exists(dir: &Path) -> bool {
     cmp_gradle_project_exists(dir)
         && dir.join("shared/build.gradle.kts").is_file()
         && dir.join("shared/src/commonMain/kotlin").is_dir()
-        && dir.join("shared/src/desktopMain/kotlin").is_dir()
+        && dir.join("preview-sandbox/build.gradle.kts").is_file()
+        && dir.join("preview-sandbox/src/commonMain/kotlin").is_dir()
+        && dir.join("preview-sandbox/src/desktopMain/kotlin").is_dir()
 }
 
 pub fn tools() -> Vec<Tool> {
@@ -69,9 +71,14 @@ fn gradle_command(workspace: &Workspace) -> CommandSpec {
 }
 
 /// Match the launch JVM to Gradle's requested JVM so run cannot detach from its owned group.
-/// The shared Gradle module checks this launcher PID before executing the desktop task.
+/// The sandbox Gradle module checks this launcher PID before executing the desktop task.
 pub fn desktop_command(workspace: &Workspace, task: &str) -> CommandSpec {
-    let command = gradle_command(workspace).args([format!(":shared:{task}")]);
+    let mut command = gradle_command(workspace);
+    if task == "desktopTest" {
+        // Moving mock bindings must never drop the independently runnable shared-core tests.
+        command = command.args([":shared:desktopTest"]);
+    }
+    let command = command.args([format!(":preview-sandbox:{task}")]);
     if task != "run" {
         return command;
     }
@@ -88,7 +95,8 @@ pub fn desktop_command(workspace: &Workspace, task: &str) -> CommandSpec {
         )
 }
 
-fn android_command(workspace: &Workspace) -> CommandSpec {
+/// The one Gradle invocation that builds the Android debug mock; distribution reuses it as is.
+pub fn android_command(workspace: &Workspace) -> CommandSpec {
     gradle_command(workspace).args([
         "-Pcantos.android=true",
         "-Pandroid.builder.sdkDownload=false",
@@ -96,11 +104,18 @@ fn android_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
+/// The already installed Android SDK named by the environment, if any; never downloaded.
+pub fn android_sdk_from_environment() -> Option<PathBuf> {
+    std::env::var_os("ANDROID_HOME")
+        .or_else(|| std::env::var_os("ANDROID_SDK_ROOT"))
+        .map(PathBuf::from)
+}
+
 fn ios_command(workspace: &Workspace, compiler_home: &str) -> CommandSpec {
     gradle_command(workspace).args([
         "-Pcantos.ios=true".to_owned(),
         format!("-Pkotlin.native.home={compiler_home}"),
-        ":shared:linkDebugFrameworkIosSimulatorArm64".to_owned(),
+        ":preview-sandbox:linkDebugFrameworkIosSimulatorArm64".to_owned(),
     ])
 }
 
@@ -146,7 +161,7 @@ fn pinned_native_version(stdout: &[u8], stderr: &[u8]) -> bool {
     }) == Some(true)
 }
 
-fn local_executable(path: &Path) -> bool {
+pub fn local_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -159,12 +174,15 @@ fn local_executable(path: &Path) -> bool {
     }
 }
 
-fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
+pub fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'static str> {
     if !project.join("androidApp/build.gradle.kts").is_file()
         || !project
             .join("androidApp/src/main/AndroidManifest.xml")
             .is_file()
         || !project.join("shared/src/androidMain/kotlin").is_dir()
+        || !project
+            .join("preview-sandbox/src/androidMain/kotlin")
+            .is_dir()
     {
         return Err("Android mock Gradle module, manifest or shared Android sources are missing");
     }
@@ -238,9 +256,7 @@ pub fn execute(
         )],
         DemoAction::Verify => vec![Gate::TheatreCmpDemo.step(workspace)],
         DemoAction::AndroidBuild => {
-            let sdk = std::env::var_os("ANDROID_HOME")
-                .or_else(|| std::env::var_os("ANDROID_SDK_ROOT"))
-                .map(PathBuf::from);
+            let sdk = android_sdk_from_environment();
             if let Err(reason) =
                 android_prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref())
             {
@@ -258,12 +274,12 @@ pub fn execute(
             }
             if !workspace
                 .path(THEATRE_MOBILE_DIR)
-                .join("shared/src/iosMain/kotlin")
+                .join("preview-sandbox/src/iosMain/kotlin")
                 .is_dir()
             {
                 return Ok(unsupported(
                     "Theatre mock iOS simulator framework",
-                    "shared iOS mock sources are missing",
+                    "sandbox iOS mock sources are missing",
                 ));
             }
             if !ios_sdk_available() {
@@ -326,12 +342,16 @@ mod tests {
         let workspace = workspace();
         assert_eq!(
             desktop_command(&workspace, "compileKotlinDesktop").display(workspace.root()),
-            "gradle --project-dir apps/cantos-theatre/mobile --no-daemon -Dorg.gradle.java.installations.auto-download=false --max-workers 2 -Pkotlin.compiler.execution.strategy=in-process --no-configuration-cache :shared:compileKotlinDesktop"
+            "gradle --project-dir apps/cantos-theatre/mobile --no-daemon -Dorg.gradle.java.installations.auto-download=false --max-workers 2 -Pkotlin.compiler.execution.strategy=in-process --no-configuration-cache :preview-sandbox:compileKotlinDesktop"
         );
         assert_eq!(
             Gate::TheatreCmpDemo.commands(&workspace),
             [desktop_command(&workspace, "desktopTest")]
         );
+        assert!(desktop_command(&workspace, "desktopTest").args.ends_with(&[
+            ":shared:desktopTest".to_owned(),
+            ":preview-sandbox:desktopTest".to_owned(),
+        ]));
         let android = android_command(&workspace);
         assert!(android.args.ends_with(&[
             "-Pcantos.android=true".to_owned(),
@@ -342,7 +362,7 @@ mod tests {
         assert!(ios.args.ends_with(&[
             "-Pcantos.ios=true".to_owned(),
             "-Pkotlin.native.home=/tmp/compiler home".to_owned(),
-            ":shared:linkDebugFrameworkIosSimulatorArm64".to_owned()
+            ":preview-sandbox:linkDebugFrameworkIosSimulatorArm64".to_owned()
         ]));
         for command in [android, ios, desktop_command(&workspace, "desktopTest")] {
             assert_eq!(command.program, "gradle");
@@ -358,7 +378,8 @@ mod tests {
         let command = desktop_command(&workspace(), "run");
         assert_eq!(command.program, "/bin/sh");
         assert_eq!(command.args[..3], ["-c", "export JAVA_OPTS=\"-Xms64m -Xmx2g -Dfile.encoding=UTF-8 -Dcantos.theatre.demo.launcherPid=$$\"; exec gradle \"$@\"", "cantos-theatre-demo"]);
-        assert!(command.args.contains(&":shared:run".to_owned()));
+        assert!(command.args.contains(&":preview-sandbox:run".to_owned()));
+        assert!(!command.args.contains(&":shared:run".to_owned()));
         assert!(command
             .args
             .contains(&format!("-Dorg.gradle.jvmargs={RUN_JVM_ARGS}")));
@@ -422,8 +443,12 @@ mod tests {
         std::fs::write(dir.join("build.gradle.kts"), "").unwrap();
         assert!(!project_exists(&dir));
         std::fs::create_dir_all(dir.join("shared/src/commonMain/kotlin")).unwrap();
-        std::fs::create_dir_all(dir.join("shared/src/desktopMain/kotlin")).unwrap();
         std::fs::write(dir.join("shared/build.gradle.kts"), "").unwrap();
+        assert!(!project_exists(&dir));
+        std::fs::create_dir_all(dir.join("preview-sandbox/src/commonMain/kotlin")).unwrap();
+        std::fs::create_dir_all(dir.join("preview-sandbox/src/desktopMain/kotlin")).unwrap();
+        assert!(!project_exists(&dir));
+        std::fs::write(dir.join("preview-sandbox/build.gradle.kts"), "").unwrap();
         assert!(project_exists(&dir));
         std::fs::remove_dir_all(dir).unwrap();
     }
@@ -493,6 +518,7 @@ mod tests {
             .contains("module"));
         std::fs::create_dir_all(dir.join("androidApp/src/main")).unwrap();
         std::fs::create_dir_all(dir.join("shared/src/androidMain/kotlin")).unwrap();
+        std::fs::create_dir_all(dir.join("preview-sandbox/src/androidMain/kotlin")).unwrap();
         std::fs::write(dir.join("androidApp/build.gradle.kts"), "").unwrap();
         std::fs::write(dir.join("androidApp/src/main/AndroidManifest.xml"), "").unwrap();
         assert!(android_prerequisite(&dir, None)

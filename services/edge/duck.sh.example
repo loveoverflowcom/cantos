@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# DuckDNS updater for cantoss.duckdns.org. Install as root, mode 0700, outside Git.
+# Empty ip= makes DuckDNS use the caller's public IPv4. The token is read from a
+# root-only file (mode 0600) and never appears in this script, cron or the log.
+set -euo pipefail
+dir=/root/cantos-services/duckdns
+tokfile=$dir/cantoss.token
+[[ -s $tokfile ]] || { echo NO_TOKEN >"$dir/duck-cantoss.log"; exit 1; }
+printf 'url="https://www.duckdns.org/update?domains=cantoss&token=%s&ip="\n' "$(<"$tokfile")" \
+  | curl -sS -K - -o "$dir/duck-cantoss.log"

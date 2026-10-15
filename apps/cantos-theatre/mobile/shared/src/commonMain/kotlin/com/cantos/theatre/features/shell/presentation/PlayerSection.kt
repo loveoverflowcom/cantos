@@ -33,20 +33,20 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
-import com.cantos.theatre.demo.CopyKey
-import com.cantos.theatre.demo.DemoCatalogView
-import com.cantos.theatre.demo.DemoCopy
-import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.DemoState
-import com.cantos.theatre.demo.PlaybackUiStatus
-import com.cantos.theatre.demo.clockTime
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCatalogView
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.PlaybackUiStatus
+import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.ui.CantosShapes
 import com.cantos.ui.tokenColor
 import com.cantos.ui.tokenDp
 
 @Composable
-internal fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun PlayerScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     val episode = catalog.episode(state.selectedEpisode)
     val work = episode?.let { catalog.work(it.workId) }
     if (episode == null || work == null || episode.durationSeconds <= 0 || state.positionSeconds > episode.durationSeconds) {
@@ -61,7 +61,7 @@ internal fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
             modifier = Modifier.semantics { heading() })
         Text(copy.text(playbackStatusKey(state.playbackStatus)),
             modifier = Modifier.testTag("simulation-status").semantics { liveRegion = LiveRegionMode.Polite })
-        Slider(value = state.positionSeconds.toFloat(), onValueChange = { dispatch(DemoEvent.SeekTo(it.toInt())) },
+        Slider(value = state.positionSeconds.toFloat(), onValueChange = { dispatch(ShellEvent.SeekTo(it.toInt())) },
             valueRange = 0f..episode.durationSeconds.toFloat(), modifier = Modifier.fillMaxWidth().testTag("seek").semantics {
                 contentDescription = copy.text(CopyKey.Position)
                 stateDescription = copy.text(CopyKey.PositionSpoken, "elapsed" to copy.spokenTime(state.positionSeconds), "total" to copy.spokenTime(episode.durationSeconds))
@@ -77,7 +77,7 @@ internal fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
         SectionHeading(CopyKey.Bookmarks, copy)
         state.bookmarks.forEach { bookmark ->
             val markedEpisode = catalog.episode(bookmark.episodeId)
-            if (markedEpisode != null) TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(DemoEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
+            if (markedEpisode != null) TextButton(shape = MaterialTheme.shapes.small, onClick = { dispatch(ShellEvent.OpenBookmark(bookmark)) }, modifier = Modifier.semantics {
                 contentDescription = copy.text(CopyKey.OpenBookmark, "title" to markedEpisode.title, "time" to copy.spokenTime(bookmark.positionSeconds))
             }) {
                 Text(copy.text(CopyKey.BookmarkCaption, "title" to markedEpisode.title, "time" to clockTime(bookmark.positionSeconds)))
@@ -88,7 +88,7 @@ internal fun PlayerScreen(state: DemoState, catalog: DemoCatalogView, copy: Demo
 }
 
 @Composable
-internal fun QueueScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun QueueScreen(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     Text(copy.text(CopyKey.Queue), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
     Text(copy.text(CopyKey.NextExplanation))
     val episode = catalog.episode(state.selectedEpisode)
@@ -103,14 +103,14 @@ internal fun QueueScreen(state: DemoState, catalog: DemoCatalogView, copy: DemoC
 }
 
 @Composable
-internal fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCopy, dispatch: (DemoEvent) -> Unit) {
+internal fun MiniPlayer(state: ShellState, catalog: ShellCatalogView, copy: ShellCopy, dispatch: (ShellEvent) -> Unit) {
     val episode = catalog.episode(state.selectedEpisode) ?: return
     Surface(color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
         shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()
             .padding(horizontal = tokenDp("space.md"), vertical = tokenDp("space.sm")).testTag("mini-player")) {
         Row(Modifier.padding(tokenDp("space.sm")), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Surface(onClick = { dispatch(DemoEvent.Navigate(DemoRoute.Player)) },
+            Surface(onClick = { dispatch(ShellEvent.Navigate(ShellRoute.Player)) },
                 color = tokenColor("color.playerSurface"), contentColor = tokenColor("color.onPlayerSurface"),
                 modifier = Modifier.weight(1f).testTag("mini-open").semantics {
                     role = Role.Button
@@ -127,7 +127,7 @@ internal fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCo
                     }
                 }
             }
-            FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(DemoEvent.ToggleSimulation) },
+            FilledTonalIconButton(shape = CantosShapes.full, onClick = { dispatch(ShellEvent.ToggleSimulation) },
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = tokenColor("color.playerAccent"), contentColor = tokenColor("color.playerSurface")),
                 modifier = Modifier.size(tokenDp("size.control")).testTag("mini-transport")) {
@@ -139,10 +139,10 @@ internal fun MiniPlayer(state: DemoState, catalog: DemoCatalogView, copy: DemoCo
 }
 
 private fun playbackStatusKey(status: PlaybackUiStatus): CopyKey = when (status) {
-    PlaybackUiStatus.Idle -> CopyKey.MockIdle
-    PlaybackUiStatus.Loading -> CopyKey.MockLoading
-    PlaybackUiStatus.Paused -> CopyKey.MockPaused
-    PlaybackUiStatus.Simulating -> CopyKey.MockPlaying
-    PlaybackUiStatus.Buffering -> CopyKey.MockBuffering
-    PlaybackUiStatus.Ended -> CopyKey.MockEnded
+    PlaybackUiStatus.Idle -> CopyKey.PlaybackIdle
+    PlaybackUiStatus.Loading -> CopyKey.PlaybackLoading
+    PlaybackUiStatus.Paused -> CopyKey.PlaybackPaused
+    PlaybackUiStatus.Simulating -> CopyKey.PlaybackSimulating
+    PlaybackUiStatus.Buffering -> CopyKey.PlaybackBuffering
+    PlaybackUiStatus.Ended -> CopyKey.PlaybackEnded
 }

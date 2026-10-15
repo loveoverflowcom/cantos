@@ -30,27 +30,26 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import com.cantos.theatre.demo.CopyKey
-import com.cantos.theatre.demo.DemoCatalogMode
-import com.cantos.theatre.demo.DemoCopy
-import com.cantos.theatre.demo.DemoEvent
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoState
-import com.cantos.theatre.demo.DemoTheme
-import com.cantos.theatre.demo.DemoTimer
-import com.cantos.theatre.demo.SupportedUiSpeedPercents
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellEvent
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellState
+import com.cantos.theatre.presentation.model.ShellTheme
+import com.cantos.theatre.presentation.model.ShellTimer
+import com.cantos.theatre.presentation.model.SupportedUiSpeedPercents
 import com.cantos.ui.tokenDp
 
-internal enum class PreferencePanel(val title: CopyKey) {
+internal enum class PreferencePanel(val title: CopyKey?) {
     Theme(CopyKey.Theme), Language(CopyKey.Language), Speed(CopyKey.Speed), Timer(CopyKey.Timer),
-    Diagnostics(CopyKey.DemoTools),
+    Diagnostics(null),
 }
 
-internal fun timerKey(timer: DemoTimer): CopyKey = when (timer) {
-    DemoTimer.Off -> CopyKey.TimerOff
-    DemoTimer.Fifteen -> CopyKey.Timer15
-    DemoTimer.Thirty -> CopyKey.Timer30
-    DemoTimer.EndOfEpisode -> CopyKey.TimerEnd
+internal fun timerKey(timer: ShellTimer): CopyKey = when (timer) {
+    ShellTimer.Off -> CopyKey.TimerOff
+    ShellTimer.Fifteen -> CopyKey.Timer15
+    ShellTimer.Thirty -> CopyKey.Timer30
+    ShellTimer.EndOfEpisode -> CopyKey.TimerEnd
 }
 
 @Composable
@@ -72,17 +71,18 @@ internal fun PreferenceRow(title: String, value: String, onClick: () -> Unit, mo
 @Composable
 internal fun PreferenceDialog(
     panel: PreferencePanel,
-    state: DemoState,
-    copy: DemoCopy,
-    dispatch: (DemoEvent) -> Unit,
+    state: ShellState,
+    copy: ShellCopy,
+    dispatch: (ShellEvent) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val diagnostics = LocalShellDiagnostics.current
     val selectedFocus = remember { FocusRequester() }
     LaunchedEffect(panel) {
         withFrameNanos { }
-        selectedFocus.requestFocus()
+        if (panel != PreferencePanel.Diagnostics) selectedFocus.requestFocus()
     }
-    fun choose(event: DemoEvent) {
+    fun choose(event: ShellEvent) {
         dispatch(event)
         if (panel != PreferencePanel.Diagnostics) onDismiss()
     }
@@ -90,54 +90,37 @@ internal fun PreferenceDialog(
         shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier.testTag("preference-dialog"),
         onDismissRequest = onDismiss,
-        title = { Text(copy.text(panel.title)) },
+        title = {
+            val title = panel.title
+            if (title != null) Text(copy.text(title))
+            else diagnostics?.let { Text(if (state.locale == ShellLocale.Vietnamese) it.title.vi else it.title.en) }
+        },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 when (panel) {
-                    PreferencePanel.Theme -> DemoTheme.entries.forEach { theme ->
-                        PreferenceOption(copy.text(if (theme == DemoTheme.Light) CopyKey.Light else CopyKey.Dark),
-                            state.theme == theme, "theme-$theme", selectedFocus) { choose(DemoEvent.SetTheme(theme)) }
+                    PreferencePanel.Theme -> ShellTheme.entries.forEach { theme ->
+                        PreferenceOption(copy.text(if (theme == ShellTheme.Light) CopyKey.Light else CopyKey.Dark),
+                            state.theme == theme, "theme-$theme", selectedFocus) { choose(ShellEvent.SetTheme(theme)) }
                     }
-                    PreferencePanel.Language -> DemoLocale.entries.forEach { locale ->
-                        PreferenceOption(copy.text(if (locale == DemoLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English),
-                            state.locale == locale, "locale-$locale", selectedFocus) { choose(DemoEvent.SetLocale(locale)) }
+                    PreferencePanel.Language -> ShellLocale.entries.forEach { locale ->
+                        PreferenceOption(copy.text(if (locale == ShellLocale.Vietnamese) CopyKey.Vietnamese else CopyKey.English),
+                            state.locale == locale, "locale-$locale", selectedFocus) { choose(ShellEvent.SetLocale(locale)) }
                     }
                     PreferencePanel.Speed -> SupportedUiSpeedPercents.forEach { speed ->
                         PreferenceOption(copy.speed(speed), state.speedPercent == speed, "speed-$speed", selectedFocus) {
-                            choose(DemoEvent.SetSpeed(speed))
+                            choose(ShellEvent.SetSpeed(speed))
                         }
                     }
                     PreferencePanel.Timer -> {
                         Text(copy.text(CopyKey.TimerSimulationNote), style = MaterialTheme.typography.bodySmall)
-                        DemoTimer.entries.forEach { timer ->
+                        ShellTimer.entries.forEach { timer ->
                             PreferenceOption(copy.text(timerKey(timer)), state.timer == timer, "timer-$timer", selectedFocus) {
-                                choose(DemoEvent.SetTimer(timer))
+                                choose(ShellEvent.SetTimer(timer))
                             }
                         }
                     }
-                    PreferencePanel.Diagnostics -> {
-                        Text(copy.text(CopyKey.CatalogStateNote), style = MaterialTheme.typography.bodySmall)
-                        DemoCatalogMode.entries.forEach { mode ->
-                            val key = when (mode) {
-                                DemoCatalogMode.Ready -> CopyKey.Ready
-                                DemoCatalogMode.Loading -> CopyKey.LoadingMode
-                                DemoCatalogMode.Empty -> CopyKey.EmptyMode
-                                DemoCatalogMode.Error -> CopyKey.ErrorMode
-                            }
-                            PreferenceOption(copy.text(key), state.catalogMode == mode, "catalog-$mode", selectedFocus) {
-                                choose(DemoEvent.CatalogMode(mode))
-                            }
-                        }
-                        Text(copy.text(CopyKey.IntegrationsPending), style = MaterialTheme.typography.bodySmall)
-                        Text(copy.text(CopyKey.ResetNote), style = MaterialTheme.typography.bodySmall)
-                        TextButton(shape = MaterialTheme.shapes.small, onClick = {
-                            onDismiss()
-                            dispatch(DemoEvent.Reset)
-                        }, modifier = Modifier.testTag("reset")) {
-                            Text(copy.text(CopyKey.Reset))
-                        }
-                    }
+                    PreferencePanel.Diagnostics -> diagnostics?.content?.invoke(state, dispatch, onDismiss)
                 }
             }
         },

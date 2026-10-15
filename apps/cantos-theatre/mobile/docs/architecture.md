@@ -1,10 +1,17 @@
 # Theatre CMP mock architecture and evidence
 
-Status: implemented mock architecture; JVM verification and Android compilation recorded below.
-This follows the requested 407-line architecture brief, preserves the existing stack and stays
-on [draft PR63](https://github.com/loveoverflowcom/cantos/pull/63). The
+The current source has production-safe `:shared` and a separate `:preview-sandbox` KMP module.
+The sandbox depends on shared UI/domain/application/ports; demo hosts select sandbox composition
+explicitly. Current checks belong to the [#122 isolation record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
+There is no production Android host, so release compile/runtime graph and actual APK/AAB
+exclusion are **BLOCKED / NOT_RUN**. A demo APK establishes neither production exclusion nor
+native listening acceptance. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
+remains proposed.
+
+The historical architecture/evidence below began with the requested 407-line brief and
+[PR63](https://github.com/loveoverflowcom/cantos/pull/63). Its
 [phase1 checkpoint](mock-skeleton.md) is commit `2a425a87ab20aba4061d2910bf02df62c32652e9`.
-There is one KMP shared module, no extra service/crate, no FFI and no generic MVI framework.
+The source extraction adds no service, FFI or generic MVI framework and preserves the existing stack.
 
 The later [#35 library MVP record](../../../../docs/evidence/theatre-cmp-library-mvp.md)
 supersedes the navigation/library observations below: two primary destinations, three direct
@@ -20,31 +27,35 @@ Linux diagnostic record remains attributed in the historical checkpoint, separat
 
 ## Ownership and execution
 
-`AppContainer` creates one playback controller and one engine for the app owner. Android retains
+Shared `AppContainer` requires explicit ports, an `AppStartState` and one media engine, and
+creates one playback controller for the app owner. There is no `AppContainer.mock` factory
+or default mock fallback in shared main code. Android's demo retains
 that container in its Application; desktop retains it above the Window; iOS SwiftUI retains an
 `IosDemoOwner` through `StateObject`. The root composition accepts an injected container and
-does not dispose a caller-owned one. Its default diagnostic owner closes with the root composition.
+does not dispose a caller-owned one. Its default diagnostic owner is confined to the sandbox's
+`CantosDemoApp` and closes with that composition.
 Navigation, detail, player and settings do not construct another engine. Native lifetime behavior
-still needs device/simulator evidence; compiled common/JVM tests prove the app wiring with fakes.
+still needs device/simulator evidence; common/JVM regression suites exercise app wiring with
+mock ports, with current execution recorded separately from the historical ledger below.
 
 | Owner | Authoritative value | Boundary |
 | --- | --- | --- |
-| `domain/publication` | synthetic Work/Episode keys and immutable catalog inventory | no approved release, asset URL, rights, API or framework dependency |
+| `domain/publication` | Work/Episode keys, immutable catalog inventory and playback-source conversion | no synthetic fixture corpus, approved release, asset URL, rights, API or framework dependency |
 | `domain/playback` | generation/session, intent and observed fake-engine phase | pure `reducePlayback -> PlaybackTransition(nextState, effects)` |
 | `domain/listening` | separate SavedWork, Bookmark, ProgressRecord and accepted-play history collections | no completion inference, account, outbox or reconciliation policy |
 | `application/catalog` | immutable catalog StateFlow and monotonic request tags | CatalogPort replies cannot replace a newer/reset request |
 | `application/playback` | one serialized event loop and a separate ordered effect worker | only observation callbacks enter MediaEngine.events; matching source/generation required |
-| `application/listening` | one ordered memory-write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted; the shared fake storage database serializes every port it serves ([fake storage](../README.md#fake-storage-simulator)) |
+| `application/listening` | one ordered write owner and typed store failure | ProgressPort I/O is outside state assignment; failed writes are not accepted; the sandbox mock database serializes every port it serves ([mock storage](../README.md#mock-storage-simulator)) |
 | `application/preferences` / `app/Navigation` | independent preferences and pure navigation state | StateFlow.update functions perform pure transitions only |
-| `demo` | `DemoState`/`DemoCatalogView` projection and `DemoCopy` vi/en resources (`CopyKey`, `clockTime`) | leaf package: imports only `demo` and `kotlin`, so presentation reads it without depending on `app` (no `features` ↔ `app` cycle) |
-| `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosDemoPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `SettingsSection.kt` as same-package, state-free section files (a file split, not new owners). Account/auth content arrives as slots; `RouteRestoration.kt` keeps per-entry scroll and restores the entry focus after Back from auth |
-| `features/auth/presentation` | `AccountView` (an `application/identity` projection), route and theme from `DemoState` | stateless Login, Register-unavailable and guest/signed-in Account over the #127 variants; emits `AuthIntent` only, with no controller, port or provider; listener copy in `AuthCopy.kt` |
+| `presentation/model` | neutral immutable `ShellState`, `ShellEvent`, `ShellCatalogView` and keyed `ShellCopy` vi/en text (`CopyKey`, `clockTime`) | pure shared leaf consumed by shell, auth and Membership; synthetic defaults, IDs and fixture mappings stay in the sandbox |
+| `features/shell/presentation` | supplied read-only projection/catalog metadata | emits intents; no fixture/reducer/port/I/O imports; `CantosPresentation.kt` is the root and shared helpers, with `PlayerSection.kt`, `LibrarySection.kt` and `SettingsSection.kt` as same-package, state-free section files. Account/auth content arrives as slots; `RouteRestoration.kt` keeps per-entry scroll and restores focus after Back from auth; artwork is injected with a neutral fallback |
+| `features/auth/presentation` | `AccountView` (an `application/identity` projection), route and theme from `ShellState` | stateless Login, Register-unavailable and guest/signed-in Account over the #127 variants; emits `AuthIntent` only, with no controller, port or provider; listener copy in `AuthCopy.kt` |
 | `application/identity` | `NativeAccountController` (one owner, unchanged) and the pure `AccountView` projection | `AppContainer` observes it, never closes it, and gates `openLogin/beginLogin/restoreSession/back/logout` over the pure `Login`/`Register` navigation suffix |
 
-The root derives `DemoState` for rendering; it does not own a writable aggregate mirroring the
+The sandbox root derives `ShellState` through `projectDemoState` for rendering; it does not own a writable aggregate mirroring the
 controllers. Query, timer selection, confirmation and scroll remain screen-local. The legacy
 library-tab seed is diagnostic compatibility only; no library tabs are rendered. Fixture data
-is under `adapters/mock`, and simulated local storage under its
+is under sandbox `adapters/mock`, and simulated local storage under its
 [`sandbox`](#mock-app-sandbox), separate from presentation metadata and domain rules. The current
 six presentation identifiers are diagnostic fixture identifiers, not production publication IDs.
 No DownloadedAsset/offline subsystem is added without a consumer.
@@ -60,8 +71,8 @@ flowchart LR
   Playback --> Core[Pure playback transition]
   Playback -->|ordered effects| Engine[MediaEngine / MockMediaEngine]
   Engine -->|fenced observations| Playback
-  Listening --> PP[ProgressPort / FakePersistentProgressPort]
-  PP --> DB[(Sandbox FakeStorageDatabase)]
+  Listening --> PP[ProgressPort / MockPersistentProgressPort]
+  PP --> DB[(Sandbox MockStorageDatabase)]
   Catalog --> View[Derived projection]
   Playback --> View
   Listening --> View
@@ -79,48 +90,74 @@ reviewed consumers, not implementations implied by these interfaces.
 
 ## Mock app sandbox
 
-All mock and fake adapters are under `adapters/mock`; simulated local storage and its presets
-form one sandbox subpackage. Real adapters (`adapters/http`, `adapters/identity`) never import
+All mock adapters are under `preview-sandbox/.../adapters/mock`; simulated local storage and
+its presets form one sandbox subpackage. Shared real adapters (`adapters/http`, `adapters/identity`) never import
 it. The Studio pilot Protobuf codec is not an adapter: it is a `commonTest` fixture
 (`studiopilotfixtures`) with no shipping consumer.
 
 ```text
-shared/src/commonMain/kotlin/com/cantos/theatre/
+preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/
   adapters/mock/
     DemoFixtures.kt, DemoMapping.kt   synthetic catalog corpus and fixture <-> domain mapping
     MockCatalogPort.kt                scripted CatalogPort scenarios
-    MockMediaEngine.kt                command recorder and fake acknowledgements, no audio
+    MockMediaEngine.kt                command recorder and mock acknowledgements, no audio
     sandbox/
-      database/FakeStorageDatabase.kt          serialized memory database, faults, epoch reset
-      database/FakePersistentProgressPort.kt   ProgressPort connection, opt-in latency
-      sessions/FakeStorageSessions.kt          FakeStorageSession presets: Demo, Fresh, Restored
+      database/MockStorageDatabase.kt          serialized memory database, faults, epoch reset
+      database/MockPersistentProgressPort.kt   ProgressPort connection, opt-in latency
+      sessions/MockStorageSessions.kt          MockStorageSession presets: Demo, Fresh, Restored
   app/
-    AppContainer.kt                   AppContainer.mock(scope, seed = Demo, storage = ::FakeStorageDatabase)
-    FakeStorageSessionApp.kt          mountFakeStorageSession / FakeStorageSessionApp wiring
-shared/src/androidMain/.../app/TheatrePreviews.kt  CantosDemoApp(...) and FakeStorageSessionApp(Fresh|Restored)
-shared/src/commonTest/.../ports/ProgressPortContract.kt             adapter-agnostic port contract (ADR 0026)
-shared/src/commonTest/.../adapters/mock/sandbox/database/FakePersistentProgressPortContractTest.kt
-shared/src/commonTest/.../adapters/mock/sandbox/database/FakeStorageDatabaseTest.kt
-shared/src/desktopTest/.../adapters/mock/sandbox/database/FakeStorageContentionTest.kt
+    MockAppContainer.kt               mockAppContainer(scope, seed, storage = ::MockStorageDatabase)
+    MockStorageSessionApp.kt          mountMockStorageSession / MockStorageSessionApp wiring
+    CantosDemoApp.kt, DemoAppSession.kt    mock projection, intent and mount orchestration
+    DemoShellPresentation.kt          diagnostic shell/Membership slot composition
+  demo/                              demoState(), synthetic DemoWorkIds / DemoEpisodeIds
+preview-sandbox/src/androidMain/.../app/TheatrePreviews.kt  CantosDemoApp(...) / MockStorageSessionApp(Fresh|Restored)
+preview-sandbox/src/commonTest/.../ports/ProgressPortContract.kt             adapter-agnostic contract (ADR 0026)
+preview-sandbox/src/commonTest/.../adapters/mock/sandbox/database/MockPersistentProgressPortContractTest.kt
+preview-sandbox/src/commonTest/.../adapters/mock/sandbox/database/MockStorageDatabaseTest.kt
+preview-sandbox/src/desktopTest/.../adapters/mock/sandbox/database/MockStorageContentionTest.kt
 ```
 
 | Consumer | Entry | Storage |
 | --- | --- | --- |
-| Android, iOS and desktop demo hosts; `CantosDemoApp()` | `AppContainer.mock(scope)` | `Demo` preset in a new database |
-| `CantosDemoApp(initialState = …)` previews and JVM tests | `AppContainer.mock(scope, seed)` | caller seed in a new database |
-| Fresh/Restored previews, UI/capture tests | `FakeStorageSessionApp(preset)` | preset in a new database exposed by the mount |
-| Controller/application tests | `FakePersistentProgressPort(FakeStorageDatabase(seed), config)` | explicit database, optionally shared by several ports |
+| Android, iOS and desktop demo hosts; `CantosDemoApp()` | sandbox `mockAppContainer(scope)` | `Demo` preset in a new database |
+| `CantosDemoApp(initialState = …)` previews and JVM tests | sandbox `mockAppContainer(scope, seed)` | caller seed in a new database |
+| Fresh/Restored previews, UI/capture tests | `MockStorageSessionApp(preset)` | preset in a new database exposed by the mount |
+| Controller/application tests | `MockPersistentProgressPort(MockStorageDatabase(seed), config)` | explicit database, optionally shared by several ports |
 
-Dependency direction is unchanged: `domain`, `ports` and `application` cannot import
+The inward layer direction is unchanged: `domain`, `ports` and `application` cannot import
 `adapters` (the repository `check_theatre_architecture` guard rejects it), and `features` cannot
-import `adapters` or `app`. Sandbox code imports only `domain`, `ports`, `demo` and coroutines;
-it never imports `app`, so the composition-root mount stays in `app/FakeStorageSessionApp.kt`.
+import `adapters` or `app`. Storage adapters never import the sandbox composition root;
+`MockStorageSessionApp` stays in sandbox `app`. Mock integration/port contracts and JVM
+UI/workbench tests move with their adapters; shared domain/core tests stay in `:shared`, so
+tests introduce no `:shared` → `:preview-sandbox` cycle. Sample art/provenance moves to sandbox
+resources; fonts, brand and production-safe localization remain shared.
 The former `MemoryProgressPort` was a single-port special case of the default database and is
 removed. There is no mock app documents directory: no consumer performs file I/O.
 [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed)
 keeps this database as the listening double, assigns a file-system double to #16 download
 staging and the real SQL engine to a future metadata store, and binds any durable `ProgressPort`
-to the shared `ProgressPortContract` this fake already passes.
+to the adapter-agnostic `ProgressPortContract`. No directory, file, SQLite or HTTP mock
+consumer/library is introduced. Cantos-owned types use `Mock`; third-party `FakeFileSystem`
+and `okio-fakefilesystem` retain their upstream names.
+
+```text
+:preview-sandbox --> :shared
+desktop/iOS demo --> :preview-sandbox (exports :shared to the Swift host)
+:androidApp demo --> :shared + :preview-sandbox
+future production host --> :shared + production adapters only
+```
+
+Shared main source and declared Gradle dependency guards are bounded static evidence, not
+resolved release classpaths or DEX/resource inspection. The separate
+`:shared:assertProductionSafeDependencies` Gradle task inspects resolved shared desktop
+compile/runtime graphs and shared Android release compile/runtime graphs when Android is enabled;
+main compilation, assemble and `desktopTest` depend on it. Its report is
+`shared/build/reports/production-boundary/resolved-dependencies.txt`. Execution and scope are
+recorded in [#122 evidence](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
+A future production host must prove
+both release graphs and its actual APK/AAB exclude sandbox code, resources and test dependencies;
+debug flags and R8 removal alone cannot establish that boundary.
 
 ## Playback and reset invariants
 
@@ -173,7 +210,11 @@ from its owner (`b4aa7e36c03c0c8e862fd5e038799a8bc33bad40` and
 `7213fca7d043582350d45f02b277b0481a1807e1`, locally `aa9c8cb356d33a840ca0593883919c08c7865625`
 and `65c206e0ffac406e3788747250032fc039d21532`); this adds no second corpus.
 
-## Executed local evidence
+## Historical executed local evidence
+
+This ledger and its captures describe the phase2 source named below, before #122 extraction.
+They are retained without promoting their counts, APK hash, paths or renderer results to the
+current module graph. Current extraction evidence is recorded [separately](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 Source: checkpoint/cherry-pick above plus the architecture working diff. Installed tools remain
 Rust 1.87.0, Kotlin 2.2.20, Compose 1.9.0, Material3 1.8.2, Gradle 8.14.3, JDK21, Android
@@ -242,7 +283,8 @@ Remote CI is not checked, polled or used as handoff evidence.
 All eight PNGs and accompanying semantics were opened after the 105-test pass. The integrated
 109-test regeneration is inspected independently after retaining the remote card-shape/endonym
 fixes; the earlier shape images do not certify changed pixels.
-They remain ignored in `shared/build/reports/theatre-demo/`; capture metadata's inspection-pending
+Their historical output was `shared/build/reports/theatre-demo/`; current sandbox captures use
+`preview-sandbox/build/reports/theatre-demo/`. Capture metadata's inspection-pending
 flag is unchanged, and this record supplies the subsequent inspection. Shared qualified
 components remain **0/29**; app evidence grants no two-renderer admission.
 

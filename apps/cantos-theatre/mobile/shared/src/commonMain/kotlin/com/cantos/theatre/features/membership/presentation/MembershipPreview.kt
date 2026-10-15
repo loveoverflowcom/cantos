@@ -1,6 +1,5 @@
 package com.cantos.theatre.features.membership.presentation
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,29 +18,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import com.cantos.theatre.demo.DemoLocale
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.domain.membership.MembershipFieldError
-import com.cantos.theatre.domain.membership.MembershipFinishOutcome
 import com.cantos.theatre.domain.membership.MembershipMode
 import com.cantos.theatre.domain.membership.MembershipScreen
 import com.cantos.theatre.domain.membership.MembershipState
 import com.cantos.theatre.domain.membership.PlansStatus
 import com.cantos.theatre.domain.membership.SubmissionStatus
-import com.cantos.theatre.resources.Res
-import com.cantos.theatre.resources.son_ha_moon
 import com.cantos.ui.ButtonState
 import com.cantos.ui.ButtonVariant
 import com.cantos.ui.DisabledReason
@@ -49,13 +45,25 @@ import com.cantos.ui.FieldState
 import com.cantos.ui.TextField
 import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.tokenDp
-import org.jetbrains.compose.resources.painterResource
+
+/** Optional approved introductory artwork, supplied by the host that owns its provenance. */
+typealias MembershipIntroArtworkContent = @Composable (Modifier) -> Unit
+val LocalMembershipIntroArtwork = staticCompositionLocalOf<MembershipIntroArtworkContent?> { null }
+
+/** Optional host diagnostics. Commands still pass through the same capability reducer. */
+typealias MembershipDiagnosticsContent = @Composable (
+    MembershipState,
+    ShellLocale,
+    (MembershipEvent) -> Unit,
+    (PlansStatus) -> String,
+) -> Unit
+val LocalMembershipDiagnostics = staticCompositionLocalOf<MembershipDiagnosticsContent?> { null }
 
 /** Controlled preview of the actual pure core. It never dispatches HTTP, auth or audio. */
 @Composable
 fun MembershipPreview(
     state: MembershipState,
-    locale: DemoLocale,
+    locale: ShellLocale,
     dispatch: (MembershipEvent) -> Unit,
     onExplore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -64,10 +72,9 @@ fun MembershipPreview(
     Column(modifier.fillMaxWidth().testTag("membership-preview"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         when (state.screen) {
             MembershipScreen.Intro -> {
-                Image(painterResource(Res.drawable.son_ha_moon), null,
-                    // Reference-specific artwork crop; canonical container geometry stays shared.
+                LocalMembershipIntroArtwork.current?.invoke(
                     Modifier.fillMaxWidth().aspectRatio(2f).clip(RoundedCornerShape(tokenDp("shape.membershipContainer"))),
-                    contentScale = ContentScale.Crop)
+                )
                 MembershipHeading(copy, MembershipText.IntroTitle, MembershipText.IntroBody)
                 MembershipCard {
                     Text(copy.text(MembershipText.Brand), style = MaterialTheme.typography.titleLarge)
@@ -132,7 +139,7 @@ fun MembershipPreview(
             Text(copy.text(MembershipText.Unavailable), modifier = Modifier.testTag("membership-unavailable"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            FixtureControls(state, copy, dispatch)
+            LocalMembershipDiagnostics.current?.invoke(state, locale, dispatch, copy::plans)
         }
     }
 }
@@ -191,33 +198,6 @@ private fun MembershipForm(state: MembershipState, copy: MembershipCopy, dispatc
         }
         MembershipAction(copy.text(label), "membership-submit", state = actionState) {
             submit()
-        }
-    }
-}
-
-@Composable
-private fun FixtureControls(state: MembershipState, copy: MembershipCopy, dispatch: (MembershipEvent) -> Unit) {
-    Column(Modifier.fillMaxWidth().testTag("membership-fixture-controls"), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        Text(copy.text(MembershipText.FixtureTools), style = MaterialTheme.typography.labelLarge)
-        state.pendingAttempt?.let { attempt ->
-            listOf(MembershipFinishOutcome.Received to MembershipText.ConfirmFixture,
-                MembershipFinishOutcome.Failed to MembershipText.FailFixture,
-                MembershipFinishOutcome.Unknown to MembershipText.TimeoutFixture).forEach { (outcome, label) ->
-                TextButton(onClick = { dispatch(MembershipEvent.Finish(attempt, outcome)) }, modifier = Modifier.testTag("membership-fixture-$outcome")) {
-                    Text(copy.text(label))
-                }
-            }
-        }
-        if (state.screen is MembershipScreen.Plans) PlansStatus.entries.forEach { status ->
-            TextButton(onClick = { dispatch(MembershipEvent.SetPlansStatus(status)) }, modifier = Modifier.testTag("membership-plan-$status")) {
-                Text(copy.plans(status))
-            }
-        }
-        TextButton(onClick = { dispatch(MembershipEvent.ShowAccountRegisteredFixture) }, modifier = Modifier.testTag("membership-account-registered")) {
-            Text(copy.text(MembershipText.AccountFixtureAction))
-        }
-        TextButton(onClick = { dispatch(MembershipEvent.ClearSession) }, modifier = Modifier.testTag("membership-clear-session")) {
-            Text(copy.text(MembershipText.ClearSession))
         }
     }
 }

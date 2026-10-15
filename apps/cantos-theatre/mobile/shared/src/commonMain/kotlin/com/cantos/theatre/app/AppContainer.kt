@@ -1,19 +1,8 @@
 package com.cantos.theatre.app
 
-import com.cantos.theatre.adapters.mock.CatalogScenario
-import com.cantos.theatre.adapters.mock.MockCatalogPort
-import com.cantos.theatre.adapters.mock.MockMediaEngine
-import com.cantos.theatre.adapters.mock.mockInventory
-import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
-import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageConfig
-import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
-import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
-import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
-import com.cantos.theatre.adapters.mock.seedListening
-import com.cantos.theatre.adapters.mock.toEpisodeKey
-import com.cantos.theatre.adapters.mock.toPlaybackSource
-import com.cantos.theatre.adapters.mock.toWorkKey
 import com.cantos.theatre.application.catalog.CatalogController
+import com.cantos.theatre.application.catalog.CatalogStatus
+import com.cantos.theatre.domain.publication.toPlaybackSource
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.application.identity.NativeAccountState
 import com.cantos.theatre.application.identity.toAccountView
@@ -23,12 +12,6 @@ import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.preferences.PreferencesController
 import com.cantos.theatre.application.preferences.PreferencesState
-import com.cantos.theatre.demo.DemoCatalogMode
-import com.cantos.theatre.demo.DemoLocale
-import com.cantos.theatre.demo.DemoProgress
-import com.cantos.theatre.demo.DemoRoute
-import com.cantos.theatre.demo.DemoState
-import com.cantos.theatre.demo.DemoTheme
 import com.cantos.theatre.domain.listening.Bookmark
 import com.cantos.theatre.domain.listening.ListeningEvent
 import com.cantos.theatre.domain.listening.ListeningSnapshot
@@ -68,7 +51,7 @@ data class AppStartState(
     init {
         val episode = inventory.episode(EpisodeKey(WorkKey(playback.source.workId), playback.source.episodeIndex))
         require(episode != null && episode.durationMs == playback.source.durationMs) {
-            "App seed must select a duration pinned by its synthetic catalog"
+            "App seed must select a duration pinned by its catalog"
         }
     }
 }
@@ -85,7 +68,7 @@ class AppContainer(
     val mediaEngine: MediaEngine,
     start: AppStartState,
     private val resetStart: AppStartState = start,
-    private val changeScenario: ((CatalogScenario) -> Unit)? = null,
+    private val changeScenario: ((CatalogStatus) -> Unit)? = null,
     /** Optional process-owned identity boundary. This container observes it and never closes it. */
     val account: NativeAccountController? = null,
 ) {
@@ -270,26 +253,26 @@ class AppContainer(
         return true
     }
 
-    fun setCatalogScenario(mode: DemoCatalogMode) {
+    fun setCatalogStatus(mode: CatalogStatus) {
         if (closed) return
-        changeScenario?.invoke(mode.toScenario())
+        changeScenario?.invoke(mode)
         catalog.refresh()
     }
 
     fun retryCatalog() {
         if (closed) return
-        changeScenario?.invoke(CatalogScenario.Ready)
+        changeScenario?.invoke(CatalogStatus.Ready)
         catalog.refresh()
     }
 
     /** Restore allocates a fresh playback generation, fencing every pre-reset callback. */
     fun reset() {
         if (closed) return
-        check(resetEpoch < Long.MAX_VALUE) { "Mock reset epoch exhausted" }
+        check(resetEpoch < Long.MAX_VALUE) { "Reset epoch exhausted" }
         resetEpoch += 1L
         val epoch = resetEpoch
         progressResetPending = true
-        changeScenario?.invoke(CatalogScenario.Ready)
+        changeScenario?.invoke(CatalogStatus.Ready)
         catalog.reset(resetStart.inventory)
         listening.reset(resetStart.listening)
         preferences.reset()
@@ -335,83 +318,4 @@ class AppContainer(
         playback.close()
     }
 
-    companion object {
-        /**
-         * Every mock mount stores listening data in one fake storage database; [storage]
-         * receives the exact listening seed the controller starts with. Reset restores the
-         * [FakeStorageSession.Demo] preset.
-         */
-        fun mock(
-            scope: CoroutineScope,
-            seed: DemoState = FakeStorageSession.Demo.seed(),
-            account: NativeAccountController? = null,
-            progressConfig: FakeStorageConfig = FakeStorageConfig(),
-            storage: (ListeningSnapshot) -> FakeStorageDatabase = ::FakeStorageDatabase,
-        ): AppContainer {
-            val inventory = mockInventory()
-            val start = startState(inventory, seed)
-            val defaults = startState(inventory, FakeStorageSession.Demo.seed())
-            val port = MockCatalogPort(inventory, seed.catalogMode.toScenario())
-            val container = AppContainer(
-                scope, port, FakePersistentProgressPort(storage(start.listening), progressConfig), MockMediaEngine(), start, defaults,
-                changeScenario = port::setScenario, account = account,
-            )
-            if (seed.catalogMode != DemoCatalogMode.Ready) container.catalog.refresh()
-            return container
-        }
-    }
-}
-
-private fun startState(inventory: CatalogInventory, seed: DemoState): AppStartState {
-    val key = seed.selectedEpisode.toEpisodeKey()
-    val episode = requireNotNull(inventory.episode(key)) { "Diagnostic seed must select a known fixture" }
-    val source = requireNotNull(episode.toPlaybackSource()) { "Diagnostic source must match the mock contract" }
-    val position = seed.positionMs.coerceIn(0L, episode.durationMs)
-    val listening = seedListening(inventory, key, position, seed.savedWorks, seed.bookmarks)
-    return AppStartState(
-        inventory = inventory,
-        listening = ListeningSnapshot(
-            savedWorks = listening.savedWorks,
-            bookmarks = listening.bookmarks,
-            progress = seed.progress.mapNotNull { it.toProgressRecord(inventory) }
-                .asReversed().distinctBy { it.episode }.asReversed(),
-            history = seed.history.mapNotNull { it.toProgressRecord(inventory) }.distinctBy { it.episode.work },
-        ),
-        playback = PlaybackSnapshot(source, position, seed.speedPercent * 10),
-        navigation = NavigationState(seed.stack.map { it.toTheatreRoute() }),
-        preferences = PreferencesState(
-            if (seed.theme == DemoTheme.Dark) PreferenceTheme.Dark else PreferenceTheme.Light,
-            if (seed.locale == DemoLocale.English) PreferenceLocale.English else PreferenceLocale.Vietnamese,
-        ),
-        wantsSimulation = seed.transportRequested,
-    )
-}
-
-private fun DemoProgress.toProgressRecord(inventory: CatalogInventory): ProgressRecord? {
-    val key = episodeId.toEpisodeKey()
-    val episode = inventory.episode(key) ?: return null
-    return ProgressRecord(key, positionMs.coerceIn(0L, episode.durationMs), episode.durationMs)
-}
-
-fun DemoRoute.toTheatreRoute(): TheatreRoute = when (this) {
-    DemoRoute.Discovery -> TheatreRoute.Discovery
-    DemoRoute.Search -> TheatreRoute.Search
-    DemoRoute.Library -> TheatreRoute.Library
-    DemoRoute.History -> TheatreRoute.History
-    DemoRoute.Account -> TheatreRoute.Account
-    DemoRoute.MembershipPreview -> TheatreRoute.MembershipPreview
-    DemoRoute.Login -> TheatreRoute.Login
-    DemoRoute.Register -> TheatreRoute.Register
-    DemoRoute.Settings -> TheatreRoute.Settings
-    DemoRoute.Queue -> TheatreRoute.Queue
-    DemoRoute.Player -> TheatreRoute.Player
-    DemoRoute.Unavailable -> TheatreRoute.Unavailable
-    is DemoRoute.Work -> TheatreRoute.Work(id.toWorkKey())
-}
-
-private fun DemoCatalogMode.toScenario(): CatalogScenario = when (this) {
-    DemoCatalogMode.Ready -> CatalogScenario.Ready
-    DemoCatalogMode.Loading -> CatalogScenario.Loading
-    DemoCatalogMode.Empty -> CatalogScenario.Empty
-    DemoCatalogMode.Error -> CatalogScenario.Error
 }

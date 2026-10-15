@@ -1,0 +1,1 @@
+Error: App Distribution could not find your app projects/000000000000/apps/1:000000000000:android:0123456789abcdef. Make sure to onboard your app by pressing the "Get started" button on the App Distribution page in the Firebase console: https://console.firebase.google.com/project/_/appdistribution

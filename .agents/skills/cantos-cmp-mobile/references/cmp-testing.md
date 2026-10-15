@@ -27,11 +27,12 @@ Studio Mobile has no target. The shared
 prove the adapter contract, not Compose rendering. Robolectric remains a separately configured
 JVM test candidate, not an automatic fallback.
 
-Theatre has an isolated Gradle mock. Actual repository commands:
+Theatre has production-safe `:shared` and the separate KMP `:preview-sandbox` mock module.
+Actual repository commands:
 
 ```text
-cargo xtask theatre-demo build          # :shared:compileKotlinDesktop
-cargo xtask theatre-demo verify         # :shared:desktopTest, common + desktop tests
+cargo xtask theatre-demo build          # shared + preview-sandbox desktop compilation
+cargo xtask theatre-demo verify         # both modules' common/desktop suites
 cargo xtask theatre-demo android-build  # mock debug APK, not device tests
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
 ```
@@ -43,6 +44,31 @@ tasks before proposing a new xtask gate; the actual JVM target is `desktop`, not
 Read the build files to learn which source sets each task compiles and runs. Record selected,
 executed and skipped counts per target from the test reports. `NO-SOURCE`, `UP-TO-DATE` from a
 different revision, or a filter that matched nothing is not a pass.
+
+Keep pure domain/application tests in `:shared`. Tests needing synthetic catalog/media/storage
+adapters, `ProgressPortContract` bindings, mock composition or workbench fixtures live in
+`preview-sandbox/src/commonTest` or `desktopTest`; shared tests must not depend back on the
+sandbox to reach a helper. The contract suite is adapter-agnostic, while latency, fault,
+cancellation and reset-epoch controls remain mock-only. Preserve assertions and suite selection
+when moving a test; a successful task with no selected tests proves no regression claim.
+
+For build isolation, inspect the source/Gradle guard and its negative fixtures first, then
+resolve/compile the actual module graph. A future production Android host must exclude
+`:preview-sandbox`, `okio-fakefilesystem`, `ktor-client-mock` and test dependencies from both
+`releaseCompileClasspath` and `releaseRuntimeClasspath`. Independently inspect the real APK/AAB
+DEX/classes, resources and manifest for mock entrypoints/fixtures and diagnostic controls.
+The current `androidApp` is a demo host (`com.cantos.theatre.demo`), so production graph/artifact
+evidence is **BLOCKED / NOT_RUN**, not a result inferred from its APK or R8 removal. Source guards
+are bounded lexical checks; they establish neither resolved Gradle contents nor packaged exclusion.
+Current results belong in the [#122 record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
+
+`:shared:assertProductionSafeDependencies` is the separate resolved dependency guard integrated
+with main compilation, assemble and `desktopTest`, so the existing `theatre-demo build` and
+`verify` routes reach it. It checks shared desktop compile/runtime configurations and, with the
+Android opt-in, shared Android release compile/runtime configurations. Inspect
+`shared/build/reports/production-boundary/resolved-dependencies.txt` for the actual configurations
+and resolved components; report missing/unresolved graphs as failures. Its source declaration
+does not establish an executed result, and its library graphs do not accept production APK/AAB exclusion.
 
 ## Evidence selection
 
@@ -73,10 +99,11 @@ different revision, or a filter that matched nothing is not a pass.
   test time source) injected into the controller
   ([KT-CONCURRENCY](kotlin-conventions.md#kt-concurrency--structured-injected-controllable)).
   Never wait with real delays.
-- Fakes implement ports: `FakeMediaEngine` records commands and emits scripted `EngineEvent`s;
-  `FakeListenerApi` scripts accepted, duplicate, stale, `401` and timeout responses; a fake file
+- Mocks implement ports: `MockMediaEngine` records commands and emits scripted `EngineEvent`s;
+  an illustrative `MockListenerApi` scripts accepted, duplicate, stale, `401` and timeout responses; a mock file
   system (Okio's is a candidate) supports crash hooks. Never mock the reducer under test.
-  The mock's existing [fake storage simulator](../../../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
+  Keep Cantos-owned names `Mock`; retain third-party Okio `FakeFileSystem` unchanged.
+  The existing [mock storage simulator](../../../../apps/cantos-theatre/mobile/README.md#mock-storage-simulator)
   covers shared-session load/store/recreate, latency, write faults and reset fencing behind
   `ProgressPort`; it is memory-only and never `integration-tested` storage.
 - Keep the oracle independent: expected values come from the owning document or vector, never

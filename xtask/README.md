@@ -16,15 +16,17 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 | Layer | Owns |
 | --- | --- |
 | Cargo, rustup, Trunk, Python 3, Git, PostgreSQL binaries | Primitive tool execution |
-| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and the test-cluster Studio host. Their logic is reused, not rewritten |
+| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and its retained-fixture API host. Their logic is reused, not rewritten |
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
 | GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
 
 Tool detection never installs anything. Explicit `verify behavior --setup` alone installs its
 locked npm development dependency; ordinary verification never fetches it. xtask does not
 install other toolchains, initialize/start Podman Machine, change connections, call
-providers, create cloud resources, publish or deploy. Only explicit `services up` starts local
-container infrastructure; build/test/run/preflight never do.
+providers, create cloud resources, publish or deploy, with **one explicit, opt-in exception**:
+`distribute firebase` ([below](#distribute-firebase)) builds the Theatre Android *demo* APK and
+hands it to Firebase App Distribution. Only explicit `services up` starts local container
+infrastructure; build/test/run/preflight/ci never start it and never reach distribution.
 
 ## Commands
 
@@ -38,8 +40,8 @@ cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offl
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
-cargo xtask run cantos-studio --web [--test-cluster] [--open]
-cargo xtask run cantos-theatre --web [--open]
+cargo xtask run cantos-studio --web [--test-cluster] [--web-origin URL] [--open]
+cargo xtask run cantos-theatre --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
 
@@ -61,6 +63,8 @@ cargo xtask services [--instance NAME] up postgresql|kanidm [--timeout-seconds 6
 cargo xtask services [--instance NAME] up --all
 cargo xtask services [--instance NAME] logs postgresql|kanidm
 cargo xtask services [--instance NAME] down postgresql|kanidm|--all
+cargo xtask distribute firebase cantos-theatre --channel demo [--artifact apk] \
+  (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 cargo xtask visual-compare --reference PNG --actual PNG --scenario ID \
@@ -88,7 +92,8 @@ Mobile and `services/kanidm` (configuration only) are not built. See the
 
 `dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
 produces an optimized local artifact. It is not a production image, a signed bundle or a
-deployment; none of those exist yet.
+deployment; none of those exist yet. (`distribute firebase` hands a *demo* debug APK to testers;
+it is not a production release either.)
 
 Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
 inherited `NO_COLOR=1`).
@@ -125,22 +130,69 @@ Browser timings, V8 cache hits, host compression/headers and deploy/rollback acc
 | --- | --- | --- |
 | `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
 | `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
-| `run cantos-theatre --web`, `app cantos-theatre --web` | `trunk serve` for the Theatre skeleton on 8082 | nothing; no listener API exists |
+| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-api`; a readable Theatre public catalog, including a legitimate empty page |
+| `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews; live mode needs an API already listening on 8080 |
 | `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+
+**Compatibility proposal — pending review ([#183](https://github.com/loveoverflowcom/cantos/issues/183)).**
+Option A changes Theatre `run` from frontend-only to API+Web, matching Studio. Existing
+frontend-only users should replace `run cantos-theatre --web` with
+`app cantos-theatre --web`; keep the explicit preview query when working offline. A running
+API on 8080 is reused only through `app`, never taken over by `run`. This implementation is
+delivered for review in a Draft PR; it does not declare the compatibility choice accepted.
+See the [decision and evidence ledger](../docs/evidence/theatre-local-run.md).
+
+Web `run` profiles select their actual Trunk origin. An explicit `--web-origin` must exactly
+match `http://127.0.0.1:8081` for Studio or `http://127.0.0.1:8082` for Theatre; a different
+port or `localhost` is rejected before launch. Host identity matters for cookies and callbacks.
+Standalone `run cantos-api --web-origin URL` remains configurable within its loopback HTTP
+origin contract. `app` starts no API and takes neither `--web-origin` nor `--test-cluster`.
+The development host has one Web origin; simultaneous Studio and Theatre authentication
+against that one host is not established by these profiles.
 
 `--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
 retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask
 never reads, prints or invents a database URL. It sets `CANTOS_ENV=development` and the loopback
-bind address; the server itself refuses anything else.
+bind address; the server itself refuses anything else. Theatre selects
+`CANTOS_TEST_CONTEXT=theatre` and the retained record's separate `theatre_app_url`, backed by
+the disposable audio fixture with bounded public-discovery read grants. It does not seed a
+published Work or enable public media delivery. A retained record predating that field must be
+recreated by an explicit fresh `verify postgres --keep`, never patched to point to another DB.
+
+With an already-exported migrated local app-role `DATABASE_URL`, the one-command Theatre
+profile is:
+
+```sh
+cargo xtask run cantos-theatre --web
+# Alternative: only after a successful explicit disposable verification retained its cluster.
+cargo xtask run cantos-theatre --web --test-cluster
+```
+
+The [Theatre runbook](../apps/cantos-theatre/web/README.md#build-run-and-checks) lists modes,
+manual HTTP smoke checks and corrective actions. `run`/`app` never provision PostgreSQL,
+roles, migrations, credentials, Kanidm, S3 or Podman. The explicit verification command owns
+its disposable test-cluster setup; operator-owned databases remain operator-managed.
 
 Process lifecycle:
 
 - Preconditions are checked before any build: required variables and files, tools, and that
   every port is free. A taken port fails with an explanation; xtask never stops a process it did
   not start, and never looks processes up by port or name.
-- Each service starts in its own process group with inherited output. Readiness is a TCP accept
-  for the API and an HTTP 200 containing the app's `<title>` for Trunk (up to 15 minutes for the
-  first WASM build). A process that exits before readiness fails the command.
+- Each service starts in its own process group with inherited output. Standalone API and
+  Studio retain their existing TCP API readiness and Studio's HTML-title readiness. Theatre
+  full-stack readiness requires HTTP 200 with a JSON catalog envelope from
+  `/api/v1/theatre/works?limit=20` on 8080, then the Theatre HTML title and the same JSON catalog-envelope
+  route through Trunk on 8082. A zero-item page is success;
+  a 404, typed unavailable error, non-JSON body or connection failure is not ready. Probes use
+  bounded waits/backoff: the API has 60 seconds and Trunk up to 15 minutes for its first WASM
+  build. A process that exits before readiness fails the command.
+- `/api/v1/theatre/session` is optional for anonymous discovery and is not a readiness gate.
+  An unconfigured/unauthenticated session's 404/401 does not invalidate a working public catalog.
+  A successful catalog probe establishes no provider login, publication delivery or playback.
+- Theatre `app` probes its existing catalog dependency before launch and prints a prominent
+  `WARNING` if it is missing or invalid (red on a suitable terminal). It still permits explicit
+  offline previews. Its final readiness message always describes **frontend-only** readiness;
+  it does not certify an integrated API, including when the advisory probe succeeded.
 - Ctrl-C, SIGTERM or SIGHUP stops every started group, newest first: SIGINT (graceful for Axum and
   Trunk), then SIGKILL after 10 seconds. If any service exits by itself, the others are stopped and
   the command fails.
@@ -269,7 +321,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `web-build` | `trunk build --locked` per Web client | trunk, wasm32 target |
 | `ui-preview` | `trunk build preview.html --locked --dist ../../../target/ui-foundation-preview` in the shared Leptos package | trunk, wasm32 target |
 | `cmp-ui-preview` | installed Gradle `desktopTest` in the shared CMP package, with no persistent daemon or JDK provisioning | compatible gradle, java, real CMP Gradle project |
-| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest` in the isolated Theatre mock | compatible gradle, java, real Theatre mock project |
+| `theatre-cmp-demo` | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` in the isolated Theatre mock | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 
@@ -522,6 +574,8 @@ separates the original mock adapter checks from real rendering recorded in the
 | `preflight/` | Git change collection, the Cargo package graph and pure selection |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
+| `distribute/` | explicit demo-APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
+| `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
 Plans are values: tests assert exact commands with a recording runner and fake tools, while
@@ -534,15 +588,120 @@ Add a command only for an implemented, reviewed capability. The isolated Theatre
 planned through `theatre-demo`; production native listening remains `UNSUPPORTED`. Studio is web-only;
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
-in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure.
+in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure; the
+single exception is the demo-APK `distribute firebase` command, which stays outside every gate,
+preflight selection and CI job.
+
+### distribute firebase
+
+```sh
+# Local plan only: no tool probe, Gradle, Firebase, login, upload, receipt or artifact write.
+cargo xtask distribute firebase cantos-theatre --channel demo --groups cantos-internal --dry-run
+
+# Build, inspect and intentionally distribute. A REMOTE WRITE that may notify testers.
+cargo xtask distribute firebase cantos-theatre --channel demo --artifact apk \
+  --app-id 1:1234567890:android:0a1b2c3d4e5f67890 --groups cantos-internal \
+  --release-notes-file release-notes.txt
+```
+
+This is the single opt-in exception to "xtask publishes nothing" ([ADR 0012](../docs/decisions/0012-xtask-command-surface.md)
+defers release commands). `build`, `run`, `verify`, `preflight`, `ci` and `build all` never invoke
+it and gain no Firebase tool or credential requirement; a test asserts that no ordinary gate, CI
+or build plan contains a Firebase/distribution command. Studio is Web-only and is not a target.
+The operator quickstart, signing notes and acceptance checklist are in
+[Firebase distribution](../apps/cantos-theatre/mobile/docs/firebase-distribution.md).
+
+**Channel, variant and artifact are different things.** `--channel` is a distribution policy
+and is required. Phase A maps `demo` onto the existing `debug` Gradle variant
+(`:androidApp:assembleDebug`); there is no Gradle flavor named demo and no `assembleDemo`.
+`--artifact` defaults to `apk`. The recognized-but-unavailable combinations `demo+aab` and
+`production+{apk,aab}` report `UNSUPPORTED` before any tool starts (no fallback to demo); invalid
+targets, values and flag combinations are usage errors (exit 2).
+
+**Recipients and notes.** At least one `--groups` or `--testers` entry is required (comma
+separated, trimmed, deduplicated, empty entries rejected, union of both); there is no implicit
+"all testers". Tester addresses reach the Firebase CLI only through a private run-owned file and
+never appear in output or the receipt (only a count). `--release-notes` and
+`--release-notes-file` are mutually exclusive; with neither, a short demo-labeled summary of the
+version and source identity is generated. Notes are passed as a file, so multiline and Unicode text
+is preserved exactly. Nothing tracked is modified.
+
+**Configuration** is nonsecret: `--app-id` takes precedence over `CANTOS_FIREBASE_DEMO_APP_ID`,
+and the effective ID and its source are shown. There is no default project or app and no
+production fallback; an App ID is not a package name or a Firebase project ID. The optional
+`CANTOS_FIREBASE_DEMO_CERT_SHA256` rejects an APK signed with a different certificate. The CLI
+authenticates with its own `firebase login` or Application Default Credentials; xtask reads,
+prints and stores no credential and never logs in.
+
+**Stages** (each failure stops the rest; unreached stages are `NOT_RUN`):
+
+1. *Local prerequisites*: installed Gradle 8.13–8.14.3, JDK 17+, the Theatre Gradle project and
+   Android SDK platform 35 / build-tools 35.0.0 including `aapt2` and `apksigner`.
+2. *Firebase CLI*: `firebase --version` must be 15.x and at least 15.34.0, the release whose
+   output contract the adapter was written against. xtask installs nothing.
+3. *Run record*: a new private directory `artifacts/distributions/<run-id>/` (ignored by Git;
+   concurrent runs never share one) and the first receipt.
+4. *Firebase destination*: read-only `firebase apps:sdkconfig ANDROID <app-id>`. The response must
+   name the requested app and its registered package must equal `com.cantos.theatre.demo`. Only
+   those two facts are parsed in memory; the configuration (which includes an API key) is never
+   printed or stored. A nonexistent app makes this CLI exit 0 with an empty client list, so the
+   response itself is checked, not the exit status. Failure here stops before the build.
+5. *Android build*: the existing `theatre-demo android-build` Gradle invocation, reused as is
+   (`--no-daemon`, bounded workers, no JDK/SDK auto-download).
+6. *APK inspection and staging*: the variant's `output-metadata.json` must declare exactly one
+   unsplit APK for the debug variant and `com.cantos.theatre.demo`; zero, several or split outputs
+   are refused, never chosen by glob order. The declared file is copied to a run-owned read-only
+   path while hashing, then `aapt2` and `apksigner` verify package, version (matching Gradle),
+   debuggable, demo version label, exactly one valid signer and any configured certificate.
+   Gradle `UP-TO-DATE` output is valid when these checks pass; mtime is not provenance. Just
+   before the upload the staged bytes are hashed again and must still match.
+7. *Intent receipt*: written (atomically) before the remote write. If it cannot be written, nothing
+   is uploaded.
+8. *Firebase distribution*: one `firebase appdistribution:distribute` call, never retried.
+9. *Final receipt*: the observed outcome and durable console/tester links.
+
+**Remote outcomes.** The Firebase CLI uploads, updates the release notes, then distributes, and
+prints the release links after the upload, before the later stages. A link or an "uploaded" line
+is therefore not distribution success. The adapter reports exactly one of: confirmed (exit 0 and a
+recognized release; service-side acceptance only, not installation, startup or listening),
+rejected (a recognized refusal before any upload), partial (the release exists but notes or
+distribution failed; the release identity is kept), unknown (timeout after 20 minutes,
+interruption, output lost or over 4 MiB, changed or unrecognized output, an unclassified failure)
+and not-started. Anything not recognized after the write may have begun is *unknown*, never a
+success. A failed or uncertain run exits nonzero with a typed reason and keeps the existing
+vocabulary (`FAIL` with the detail; no global `UNKNOWN`). On partial or unknown, **reconcile in
+the Firebase console before replaying**: stopping a local child does not undo a remote upload, a
+repeated binary may update an existing release, and a replay can notify testers again.
+
+**Receipt and redaction.** `receipt.json` (schema version 1) records the run ID, source commit with
+a dirty flag and content fingerprint, tool versions, channel and the actual Gradle variant/task,
+package/version, staged SHA-256 and size, signing fingerprint, effective App ID, group aliases,
+tester count, notes digest, stage results with timestamps and the release identity with its
+durable console and tester links. If persisting the final receipt fails after a successful
+remote write, the report prints a recovery pointer and exits nonzero. Output, saved diagnostics
+and argv are redacted before display: no tester address, token, credential, SDK configuration or
+signed `binary_download_uri` (it expires after about an hour and is not even representable in the
+release record). The CLI may leave `firebase-debug.log` in the private run directory; keep it out of
+shared CI artifacts.
+
+**Signing.** The demo channel accepts the signed debug APK and records its certificate
+fingerprint. Debug keystores differ between machines (and CI), so an APK signed elsewhere cannot
+update an installed one in place. Supply a stable key through the existing Android signing
+mechanisms and set `CANTOS_FIREBASE_DEMO_CERT_SHA256` to enforce it; xtask never creates,
+commits or replaces keys. Production signing is a separate, unimplemented decision.
+
+Deliberately absent from Phase A: `--no-build`, an arbitrary artifact path, an interactive wizard,
+a provider plugin framework, automatic recovery or retry, and any Firebase SDK, Crashlytics,
+Google Services plugin or `google-services.json` in the app. The production APK/AAB and an
+optional manual CI workflow are follow-ups with their own acceptance.
 
 ### theatre-demo
 
 An explicitly isolated mock command surface; starts no API, database, identity or audio adapter.
 
 ```sh
-cargo xtask theatre-demo build          # :shared:compileKotlinDesktop
-cargo xtask theatre-demo verify         # :shared:desktopTest; common + JVM Compose tests/captures
+cargo xtask theatre-demo build          # :preview-sandbox:compileKotlinDesktop (depends on :shared)
+cargo xtask theatre-demo verify         # :shared:desktopTest + :preview-sandbox:desktopTest
 cargo xtask theatre-demo run            # same app, supervised diagnostic desktop window
 cargo xtask theatre-demo android-build  # -Pcantos.android=true :androidApp:assembleDebug
 cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20
@@ -551,8 +710,16 @@ cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/nati
 Build/verify/run require installed Gradle 8.13, 8.14.1, 8.14.2 or 8.14.3 and a full JDK 17+. Android checks an existing
 absolute SDK path, platform35 and build-tools35.0.0 before Gradle; downloads are disabled.
 iOS checks the installed compiler's exact2.2.20 version plus an available Xcode simulator SDK,
-then links only `:shared:linkDebugFrameworkIosSimulatorArm64`; no compiler/LLVM is downloaded.
+then links only `:preview-sandbox:linkDebugFrameworkIosSimulatorArm64`, which exports the shared
+core through the existing `CantosTheatreDemo` framework; no compiler/LLVM is downloaded.
 Missing prerequisites are `UNSUPPORTED`, failed executed steps are `FAIL`.
+
+The demo desktop, Android and iOS hosts explicitly consume `:preview-sandbox`; the production-safe
+`:shared` module never depends on it. Verification retains both the independent shared-core suite
+and sandbox port/workbench/UI tests. These commands produce demo evidence only. No production
+Android host exists yet, so production `releaseCompileClasspath` / `releaseRuntimeClasspath` and
+APK/AAB class/resource/manifest exclusion remain `BLOCKED` / `NOT_RUN`; a demo debug APK cannot
+accept those claims. See the [isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 The local `theatre-cmp-demo` preflight gate runs mock common/JVM tests when its source/build
 inputs or consumed CMP/shared tokens change. It does not stand for native acceptance or

@@ -1,0 +1,9 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "example-project",
+    "storage_bucket": "example-project.firebasestorage.app"
+  },
+  "client": [],
+  "configuration_version": "1"
+}

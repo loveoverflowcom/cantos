@@ -24,6 +24,28 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+For the Theatre local-development handoff, prioritize
+[#183](https://github.com/loveoverflowcom/cantos/issues/183)'s bounded launch/readiness repair
+before the real-capability acceptance matrix/runbook in
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) and the cross-client mapping in
+[#180](https://github.com/loveoverflowcom/cantos/issues/180). This makes a failed API dependency
+observable before consumers assess their integration. Then continue the independently gated
+Web listening and real public-delivery work in
+[#13](https://github.com/loveoverflowcom/cantos/issues/13) and
+[#170](https://github.com/loveoverflowcom/cantos/issues/170), retaining #12's listener contract
+and #10/#11's storage/publication prerequisites. Startup and an empty anonymous Work page do
+not accept those capabilities. The [local-run compatibility/evidence ledger](../evidence/theatre-local-run.md)
+records option A as proposed pending review, the frontend-only migration path and separately
+unrun acceptance; GitHub owns implementation and review status. This DX sequence does not
+authorize a provider, schema, publication or native playback change.
+
+The optional [Membership plan publication proposal](../product/membership-plan-publication.md)
+for [#176](https://github.com/loveoverflowcom/cantos/issues/176) has a separate recommended
+order: product/source decision under #34, accepted versioned contract with Web/CMP consumers,
+pure publication rules and source/API acceptance, then each client adapter. Keep plan display
+independent of interest receipt delivery and payment/entitlement. No plan DTO, database or
+commercial source should precede that decision gate; this does not reorder media/listener work.
+
 The [Work-scoped delegation review](work-scoped-delegation-handoff.md) follows
 [issue #113](https://github.com/loveoverflowcom/cantos/issues/113). The
 [source-bound RFC](../architecture/work-scoped-delegation-rfc.md) compared the options; the
@@ -234,9 +256,14 @@ make selected component/state or mock composition, synthetic session seed and or
 reproducible through reset/recreation and versioned snapshots. Use those recipes to close the
 affected renderer/state/lifecycle gaps before expanding #143's proposal batches. Preserve #109's
 memory-session semantics; replay does not implement durable storage, native audio or OS process
-death. Next, complete [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s broader sandbox
-extraction and production APK/AAB source/dependency exclusion acceptance before native product
-rollout. This orchestration slice qualifies no shared API and does not reorder the backend queue;
+death. The [#122 module extraction](../evidence/issue122-cmp-sandbox-isolation.md) keeps these
+diagnostics in `:preview-sandbox`, which consumes the neutral UI and owners in `:shared`.
+Before native product rollout, prioritize a real production Android host, then inspect its
+release compile/runtime graphs and APK/AAB classes, resources and manifest for sandbox exclusion.
+The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
+#144's replay/lifecycle semantics and #130's guest/account boundary while composing production
+adapters; add storage libraries only with #16/#17's consumers and reviewed account policy.
+This orchestration slice qualifies no shared API and does not reorder the backend queue;
 GitHub owns implementation and acceptance status.
 
 The bounded [Web Back presentation comparison](../evidence/shared-back-v3-alignment.md) keeps
@@ -346,15 +373,20 @@ API sequence above. GitHub owns status.
   and keeps large-text controls and preference dialogs within that same isolated mock boundary.
   The [radius normalization](../evidence/theatre-cmp-shapes.md) keeps the same mock anatomy
   while sharing shape roles with the existing design system.
-  The [fake storage simulator](../../apps/cantos-theatre/mobile/README.md#fake-storage-simulator)
+  The [mock storage simulator](../../apps/cantos-theatre/mobile/README.md#mock-storage-simulator)
   ([#109](https://github.com/loveoverflowcom/cantos/issues/109)) exercises shared-session
   load/store/recreate, latency, faults and reset fencing before the local metadata store ADR;
   it is memory-only and supplies no durable persistence or process-death evidence. Its database
   and presets form one [mock app sandbox](../../apps/cantos-theatre/mobile/docs/architecture.md#mock-app-sandbox)
-  that also backs `AppContainer.mock`, replacing the separate memory progress adapter.
+  in `:preview-sandbox`, replacing the separate memory progress adapter. Its composition
+  factories are explicit; the production-safe `:shared` module has no mock fallback.
   [ADR 0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) (proposed) records the
-  per-layer storage test doubles and adoption gates and adds the shared `ProgressPort` contract
-  suite; Okio/SQLDelight-style dependencies wait for their #16/#17 consumers.
+  separate KMP build boundary, per-layer storage test doubles and adoption gates. The
+  adapter-agnostic `ProgressPort` contract and its mock bindings stay together in sandbox tests;
+  core-only tests stay in `:shared` to avoid a reverse test dependency. Okio/SQLDelight-style
+  dependencies wait for their #16/#17 consumers. Next, the real production Android host and its
+  release graph/APK/AAB inspection must establish exclusion before claiming #122 acceptance;
+  those checks remain blocked by the absent host.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 
@@ -452,6 +484,12 @@ P1 metadata, thumbnails and transcripts are explicitly deferred. This is an auth
 extension of the wire pilot, preserving JSON default and its outstanding acceptance gates,
 without reordering identity/storage or broader publication/listener acceptance.
 
+The [Studio private artwork control](../evidence/studio-private-artwork-ui.md) consumes that
+contract for owner prepare/upload/admission, CAS selection and explicit clear. Prioritize
+actual owner/rights/storage/restart acceptance next; browser HTTP doubles and admitted private
+images do not satisfy public artwork or publication delivery. The Studio UI introduces no
+new backend dependency and does not reorder the broader queue; GitHub owns execution status.
+
 The [implemented private artwork contract](../../packages/contracts/artwork-v1.md) now reuses
 the reviewed private-storage boundary. The next scoped acceptance is disposable PostgreSQL
 upgrade/constraints/grants, actual owner HTTP/rights/session behavior, read plans and host/PG
@@ -511,14 +549,14 @@ GitHub owns PR execution/merge status and broader issues remain open.
 ## Theatre mobile architecture dependency guard
 
 `check_theatre_architecture` in [check_repository.py](../../scripts/check_repository.py) runs in
-the `repository` gate (and CI) and rejects import, fully qualified-name and package/directory
-violations for `domain`, `ports`, `application`, `features` and `demo` under
-`apps/cantos-theatre/mobile/shared/src/*Main`; `adapters` and `app` are explicitly unguarded.
-`DemoCopy` moved to the leaf `demo` package to remove a `features` → `app` import cycle. The
-guard is lexical (no overload/alias resolution) and does not prove behavior such as clocks or
-random sources in `domain`. Evidence: `statically-checked, example-tested`
-(negative fixtures plus real-tree mutants). This tooling change does not reorder the product
-queue; GitHub owns PR execution status.
+the `repository` gate and retains the inward layer/package checks. The sandbox extraction
+extends the production-safe shared boundary to `app` and `adapters`, with main-source,
+declared Gradle dependency/source-routing and resource guards. Its scope and actual negative
+checks are recorded in [#122 evidence](../evidence/issue122-cmp-sandbox-isolation.md).
+The guard is lexical: it does not establish compiler/Gradle resolution, runtime behavior or
+production DEX/resource exclusion. Retain it while adding production adapters, then inspect
+the real release graphs and artifacts when a production Android host exists. This tooling
+change does not reorder the product queue; GitHub owns implementation and acceptance status.
 
 ## Editor workspace hygiene
 

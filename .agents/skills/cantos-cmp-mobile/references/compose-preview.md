@@ -2,7 +2,7 @@
 
 Use Android Studio's layout renderer for a quick pixel and semantics pass over actual Compose
 code. Theatre Mobile's isolated mock has a Gradle Android host and existing wrappers in
-`shared/src/androidMain`; its capture target still requires the official CLI and ready IDE.
+`preview-sandbox/src/androidMain`; its capture target still requires the official CLI and ready IDE.
 Studio is web-only and has no mobile capture target; never scaffold one for preview evidence. The separate `ui-system-cmp` target selects a real Android library host in
 `packages/ui-system/cmp/android-preview`, with thin wrappers around the shared components and
 existing deterministic fixtures. The [PR43 host record](../../../../docs/evidence/cmp-pr43-android-preview.md)
@@ -70,7 +70,7 @@ The Theatre mock has real wrappers around the same shared app. Compile with
 
 ```sh
 cargo xtask compose-preview cantos-theatre \
-  --file apps/cantos-theatre/mobile/shared/src/androidMain/kotlin/com/cantos/theatre/app/TheatrePreviews.kt \
+  --file apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/com/cantos/theatre/app/TheatrePreviews.kt \
   --composable TheatrePlayerDarkPreview \
   --label player-dark-390-vi
 ```
@@ -158,7 +158,7 @@ not close the [native acceptance matrix](../../../../docs/architecture/mobile.md
 
 Use the [shared pairing/comparison method](../../cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison)
 and `cargo xtask visual-compare`; this does not rerun capture or require a new device harness.
-Theatre `DemoCaptureTest` and shared `AuthAccountCaptureTest` already export JVM PNGs and
+Theatre sandbox `DemoCaptureTest` and shared `AuthAccountCaptureTest` already export JVM PNGs and
 metadata/semantics. The shared `PreviewCaptureTest` also writes a `<name>.json` sidecar
 (`cantos-ui-capture-v1`) beside each PNG: scenario, section/specimen, theme mode and resolved
 theme, UI density, preview text scale, the dp viewport, bitmap pixels, host density and font

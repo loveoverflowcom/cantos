@@ -98,6 +98,10 @@ impl Facts {
                 next.submission = None;
                 next.candidate = None;
             }
+            Reply::Artwork(_)
+            | Reply::ImagePrepared(_)
+            | Reply::ImageIntent(_)
+            | Reply::ImageAdmitted(_) => {}
             // Delegation grants are projected by the delegation panel, never content facts.
             Reply::Delegations(_) | Reply::DelegationIssued(_) => {}
         }

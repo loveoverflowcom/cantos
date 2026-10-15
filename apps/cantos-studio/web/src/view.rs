@@ -250,6 +250,13 @@ async fn recover_changed_session(
 
 #[component]
 pub fn Studio() -> impl IntoView {
+    // The existing Studio composition root also hosts its offline debug form preview.
+    #[cfg(debug_assertions)]
+    if crate::live::artwork::preview::requested() {
+        let theme = RwSignal::new(Theme::Light);
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::live::artwork::preview::Preview theme=theme/></UiRoot>}.into_any();
+    }
+
     let bootstrap_api = StudioHttp::new();
     let state = RwSignal::new(Editor::default());
     let issues = RwSignal::new(Vec::<FieldIssue>::new());
@@ -734,5 +741,5 @@ pub fn Studio() -> impl IntoView {
         </main>
         </Container>
         </UiRoot>
-    }
+    }.into_any()
 }

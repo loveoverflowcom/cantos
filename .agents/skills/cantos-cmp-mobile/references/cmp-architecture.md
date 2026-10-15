@@ -24,21 +24,24 @@ Feature packages cannot manipulate another feature's internal state. No circular
 
 | Layer | Current `com.cantos.theatre` package / responsibility |
 |---|---|
-| Domain | `domain/playback`: `PlaybackState`, `PlaybackEvent`, `PlaybackEffect`, `reducePlayback`; `domain/publication` and `domain/listening` hold synthetic catalog/listening rules |
+| Domain | shared `domain/playback`: `PlaybackState`, `PlaybackEvent`, `PlaybackEffect`, `reducePlayback`; `domain/publication` and `domain/listening` hold catalog/listening values and rules; synthetic corpus belongs to the sandbox |
 | Application | `application/{playback,catalog,listening,preferences}`: independent authorities, event processing and effect interpretation |
 | Ports | `ports/{MediaEngine,CatalogPort,ProgressPort}`: required capabilities, no vendor implementations |
-| Adapters / infrastructure | `adapters/mock`: fake acknowledgements and synthetic fixtures; `adapters/mock/sandbox/{database,sessions}`: the one memory-only fake storage database and its presets; no production HTTP/native audio/durable storage |
-| Presentation | `features/shell/presentation`: stateless Compose screen functions; `app/CantosDemoApp.kt` binds projections/intents |
-| Composition root | `app/AppContainer.kt` wires owners/ports; Android `CantosDemoApplication`, iOS `MainViewController`/SwiftUI owner and desktop host supply lifetimes |
+| Adapters / infrastructure | sandbox `adapters/mock` and `adapters/mock/sandbox/{database,sessions}`: mock acknowledgements, synthetic fixtures and memory storage; shared HTTP/identity adapters remain separate; native audio/durable storage is absent |
+| Presentation | shared `features/shell/presentation/CantosPresentation.kt` renders neutral immutable models/intents from the `presentation/model` leaf consumed by shell/auth/Membership; sandbox `app/CantosDemoApp.kt` and `DemoShellPresentation.kt` bind diagnostic projections/intents/slots to that same UI |
+| Composition root | shared `app/AppContainer.kt` requires injected owners/ports/start state; sandbox `mockAppContainer` selects mocks explicitly; Android `CantosDemoApplication`, sandbox iOS `MainViewController`/SwiftUI owner and desktop host supply demo lifetimes |
 
 Good Kotlin: `fun reducePlayback(state: PlaybackState, event: PlaybackEvent): PlaybackTransition`
 uses plain domain values. Counterexample: `domain/playback` importing `android.media.*`,
 `Composable` or `application.PlaybackController`. The `repository` gate
 (`check_theatre_architecture`) rejects import, fully qualified-name and package/directory
 violations for `domain`, `ports`, `application`, `features` and `demo`; compile the touched
-targets as well, because package boundaries inside the shared Gradle module are not
-compiler-enforced and the guard is lexical (it does not resolve overloads, and `adapters` and
-`app` are unguarded). Exception: framework code belongs in presentation/adapter
+targets as well. All shared main sources, including `app`/`adapters`, resources and declared
+Gradle dependency/source routing are additionally checked for sandbox re-entry. The static
+guard traverses supported literal project dependency declarations; it is bounded lexical
+parsing, without overload resolution or resolved Gradle/artifact proof. Its actual scope and
+negative fixtures are recorded in [#122 evidence](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
+Exception: framework code belongs in presentation/adapter
 source, never in domain; a small feature may colocate declarations while preserving import
 direction. DDD boundaries follow capability and invariant owners, not a mandatory class hierarchy.
 
@@ -77,8 +80,17 @@ remain in `androidMain` / `iosMain` or Swift.
 
 ## Current layout and future capabilities
 
-The implemented mock uses the layer packages in ARC-01 within one shared module. The following
-feature/capability sketch is **future guidance only**; keep actual paths authoritative and
+The implementation keeps ARC-01's production-safe UI/domain/application/ports in `:shared` and
+mock adapters, fixtures, previews, diagnostic composition and workbench in `:preview-sandbox`.
+The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
+Existing hosts are demo hosts. A future production host consumes shared plus production
+adapters and must establish release graph and actual APK/AAB exclusion independently; the
+absent production host leaves that acceptance **BLOCKED / NOT_RUN**. Build/verify integrate
+`:shared:assertProductionSafeDependencies` for resolved shared desktop and opt-in Android
+release compile/runtime graphs; its report is `shared/build/reports/production-boundary/resolved-dependencies.txt`.
+That library guard is separate from the lexical source guard and production artifact acceptance;
+record actual runs through the [testing reference](cmp-testing.md#discover-before-executing).
+The following feature/capability sketch is **future guidance only**; keep actual paths authoritative and
 add a folder/module only for a concrete consumer:
 
 Start with the fewest Gradle modules the chosen CMP template needs (typically one shared KMP
