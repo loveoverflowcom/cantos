@@ -152,9 +152,16 @@ generators write adjacent files. Do not edit these files by hand or add a per-ap
 `space.*` and wrapper control sizes map to dp; type sizes map to sp. Material primitives retain
 native intrinsic metrics. Exact pixel parity with web intrinsic metrics is not claimed.
 
-The source names Noto Sans and Noto Serif. The preview explicitly resolves these roles to the
-platform sans/serif fallback; it does not redistribute embedded design-handoff fonts. Reviewed
-font resources and Vietnamese glyph/rendering checks remain necessary before app adoption.
+The source names Noto Sans and Noto Serif. `CantosTheme` takes licensed families as parameters and
+a nested theme that names none inherits the host's, so an injected family reaches every nested
+specimen. The **desktop** preview host (`Main.kt`) injects the shared bundle through `PreviewFonts`:
+Gradle copies the four committed faces and their provenance from
+[`../shared/assets/noto-fonts`](../shared/assets/noto-fonts/README.md) onto the classpath, and nothing is
+duplicated in Git or read from installed fonts. Its static masters are 400 and 700, so a requested 500
+or 600 resolves to the nearest of them. The test captures, the Android Studio wrappers and any
+host that injects nothing keep the reviewed platform sans/serif fallback; the Theatre mock injects
+its own copies of the same bytes. Glyph placement still needs an opened capture, and reviewed font
+resources for each product host remain necessary before app adoption.
 
 Reduced-motion inspection resolves the three canonical duration roles to zero. The pending
 sample is deliberately static. This is not a platform reduced-motion adapter or a claim about

@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density as DisplayDensity
 import androidx.compose.ui.unit.Dp
@@ -101,6 +102,7 @@ import com.cantos.ui.TextFieldVariant
 import com.cantos.ui.Theme
 import com.cantos.ui.ThemeMode
 import com.cantos.ui.UiPreferences
+import com.cantos.ui.RootContent
 import com.cantos.ui.UiRoot
 import com.cantos.ui.filterComponents
 import com.cantos.ui.generated.CantosIcons
@@ -132,6 +134,9 @@ fun PreviewApp(
     systemIsDark: Boolean = false,
     initialThemeMode: ThemeMode = if (initialPreferences.theme == Theme.Dark) ThemeMode.Dark else ThemeMode.Light,
     initialSpecimenId: String? = null,
+    /** Licensed families the composition root loaded; null keeps the reviewed platform fallback. */
+    uiFontFamily: FontFamily? = null,
+    editorialFontFamily: FontFamily? = null,
 ) {
     // Read outside UiRoot: the host's own density and font scale, before the preview text multiplier.
     val host = LocalDensity.current
@@ -153,7 +158,7 @@ fun PreviewApp(
         section = 0
         event = "Opened $id from the design inventory. Registration is not qualification."
     }
-    UiRoot(preferences = preferences) {
+    PreviewRoot(preferences, uiFontFamily, editorialFontFamily) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val viewportWidth = maxWidth
             val viewportHeight = maxHeight
@@ -217,6 +222,21 @@ fun PreviewApp(
             }
         }
     }
+}
+
+/**
+ * The gallery root: the same theme and background as [UiRoot], plus the families the composition root
+ * injected. [UiRoot] stays unchanged so no registered API gains a parameter for a preview-only need;
+ * nested specimen themes inherit these families.
+ */
+@Composable
+private fun PreviewRoot(
+    preferences: UiPreferences,
+    uiFontFamily: FontFamily?,
+    editorialFontFamily: FontFamily?,
+    content: @Composable () -> Unit,
+) {
+    CantosTheme(preferences, uiFontFamily, editorialFontFamily) { RootContent(Modifier, content) }
 }
 
 /**

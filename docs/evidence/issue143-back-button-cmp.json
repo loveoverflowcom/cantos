@@ -3,9 +3,9 @@
   "renderer": "cmp",
   "status": "PASS",
   "reviewer": "Claude Sonnet 5.5 \u2014 CMP digest re-binding review (issue #143), 15 October 2026",
-  "reference": "No design reference was re-opened. The visual basis remains the issue 141 review (docs/evidence/issue141-cmp-preview.md). No implementation file of this component changed in issue 143, and 46 of 50 CMP capture PNGs, including every component and logo capture, are byte-identical to a clean develop run. Scope and residual risk: docs/evidence/issue143-cmp-preview.md.",
+  "reference": "No design reference was re-opened for this component. The visual basis remains the issue 141 review (docs/evidence/issue141-cmp-preview.md). No implementation file of this component changed in issue 143. The shared CantosTheme.kt change (a nested theme inherits host-injected font families) leaves a theme with no injected family unchanged, and all 54 CMP capture PNGs taken before it, including every component and logo capture, are byte-identical after it. Scope and residual risk: docs/evidence/issue143-cmp-preview.md.",
   "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
-  "source_sha256": "fba0263006c54af0484431fbb95a3bedfe182dc5176cfeb9259d9d6829442042",
+  "source_sha256": "191bfd2ed04d74747a25da635b9c4d7cb03da204029c62232253bcfd64fc60d0",
   "checks": {
     "structural": {
       "status": "PASS",

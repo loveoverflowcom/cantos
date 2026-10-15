@@ -15,8 +15,12 @@ fun main() = application {
     val window = rememberWindowState(width = ViewportPreset.Wide.widthDp.dp, height = windowHeight)
     Window(onCloseRequest = ::exitApplication, state = window, title = "Cantos UI System · CMP") {
         // This host is the composition root: it owns the operating-system query and injects the fact.
-        PreviewApp(systemIsDark = isSystemInDarkTheme(), onWidthPreset = { preset ->
-            window.size = DpSize(preset.widthDp.dp, window.size.height)
-        })
+        // It also owns font delivery: the licensed Noto bundle, injected so the gallery matches the design's families.
+        PreviewApp(
+            systemIsDark = isSystemInDarkTheme(),
+            onWidthPreset = { preset -> window.size = DpSize(preset.widthDp.dp, window.size.height) },
+            uiFontFamily = PreviewFonts.ui,
+            editorialFontFamily = PreviewFonts.editorial,
+        )
     }
 }

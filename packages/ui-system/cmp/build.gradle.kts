@@ -18,6 +18,15 @@ if (gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "run" })
     }
 }
 
+// The shared, byte-identical Noto bundle (provenance and OFL licence included) is copied, never
+// duplicated in Git, under one namespaced classpath root for the desktop host and its tests.
+val syncPreviewFonts by tasks.registering(Sync::class) {
+    from(layout.projectDirectory.dir("../shared/assets/noto-fonts")) {
+        include("*.ttf", "OFL.txt", "provenance.json")
+    }
+    into(layout.buildDirectory.dir("generated/preview-fonts/cantos-preview-fonts"))
+}
+
 kotlin {
     jvm("desktop") {
         compilerOptions {
@@ -39,6 +48,7 @@ kotlin {
             dependencies {
                 implementation(compose.desktop.currentOs)
             }
+            resources.srcDir(files(layout.buildDirectory.dir("generated/preview-fonts")).builtBy(syncPreviewFonts))
         }
         val desktopTest by getting {
             dependencies {

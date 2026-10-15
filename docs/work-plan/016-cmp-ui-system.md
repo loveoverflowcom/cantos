@@ -147,8 +147,12 @@ adoption:
    raw Material controls today (Membership already uses the shared Button, TextField, Surface, Badge,
    BackButton and Logo), so these are app-owned compositions over registered primitives with a
    preview first, never copied controls.
-2. CMP font delivery: load the shared Noto bundle in the preview host with Vietnamese glyph and
-   metric observations, separate from the Web bundle's evidence.
+2. CMP font delivery. Done for the desktop preview host (shared Noto bundle, nested-theme
+   inheritance, opened type-specimen comparison against the design's fonts in the
+   [evidence](../evidence/issue143-cmp-preview.md#type-specimen-against-the-design-fonts)). Still open:
+   the Android Studio wrappers and each product host, and the line-box difference that drifts text
+   up to 8 px against the CSS reference (a shared theme decision with product-wide layout impact, so
+   its own reviewed change).
 3. Android Studio captures of the Design v3 wrappers once a ready Quail 2+ project exists; JVM
    captures stay a different renderer.
 4. Per-component two-renderer admission for any new shared primitive, with the Leptos side owned
