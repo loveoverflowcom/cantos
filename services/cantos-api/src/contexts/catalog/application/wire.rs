@@ -450,6 +450,7 @@ pub fn unit_page(
 
 /// Pure admission/representation for the separate content lifecycle.
 pub use super::content::wire as content;
+pub use super::delegation::wire as delegation;
 
 #[cfg(test)]
 mod tests {

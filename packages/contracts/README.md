@@ -43,6 +43,14 @@ The [Production Brief v1 contract](production-brief-v1.md) exports immutable Cat
 rights/guidance/profile pins and independent expiring read permissions. It produces no audio
 and grants no upload/review/publication authority.
 
+The [Work-scoped delegation v1 contract](delegation-v1.md) implements the
+[ADR 0028](../../docs/decisions/0028-work-scoped-delegation.md) first slice: owner-issued,
+show-once `cantos_dlg_` bearer grants for `work:read`, `content:read` and `content:write` on one
+Work, recorded under a registered delegate actor and revocable behind the Catalog clock. Its
+[schema](schema/delegation/v1.schema.json) and [fixtures](fixtures/delegation/v1/README.md) are
+shared with the wire and PostgreSQL HTTP tests. It grants no Script, Brief, audio, review or
+publication authority and replaces no producer grant.
+
 The [Publication v1 contract](publication-v1.md) adds current-owner distribution clearance,
 exact approval, complete readiness blockers, immutable releases, atomic active pointers and
 withdrawal receipts over private candidates. Its JSON schema/fixtures and Studio routes are

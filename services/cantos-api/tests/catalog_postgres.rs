@@ -1649,7 +1649,9 @@ async fn settled_catalog_records_are_immutable_and_app_has_no_delete_identity_up
     for query in [
         "UPDATE catalog_work_revisions SET snapshot=snapshot",
         "DELETE FROM catalog_unit_revisions",
-        "TRUNCATE catalog_operations",
+        // Delegated lineage (0026) references receipts, so only CASCADE reaches the trigger;
+        // a plain TRUNCATE is refused earlier by that foreign key (asserted below).
+        "TRUNCATE catalog_operations CASCADE",
         "UPDATE catalog_works SET owner_id='bob'",
     ] {
         assert_eq!(
@@ -1664,6 +1666,16 @@ async fn settled_catalog_records_are_immutable_and_app_has_no_delete_identity_up
             "{query}"
         );
     }
+    assert_eq!(
+        h.admin
+            .batch_execute("TRUNCATE catalog_operations")
+            .await
+            .unwrap_err()
+            .code()
+            .unwrap()
+            .code(),
+        "0A000"
+    );
     assert_eq!(h.counts().await["works"], 1);
     assert_eq!(h.counts().await["unit_revisions"], 1);
 }
@@ -1749,7 +1761,7 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(versions, (1..=25).collect::<Vec<_>>());
+    assert_eq!(versions, (1..=26).collect::<Vec<_>>());
     let preserved_versions = if catalog_already_applied {
         "version<=13 AND version<>10"
     } else {

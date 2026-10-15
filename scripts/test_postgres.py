@@ -730,6 +730,8 @@ def main():
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "catalog_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--skip", "catalog_http_recovery_after_server_restart"], env=env, output=EVIDENCE / "catalog-http-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
+        run(["cargo", "test", "-p", "cantos-api", "--test", "delegation_http_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "delegation-http-postgres-tests.log")
+        reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::media::postgres::artwork::tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "contexts::media::image_application::postgres::postgres_tests", "--", "--ignored", "--test-threads=1"], env=env, output=EVIDENCE / "private-artwork-repository-postgres-tests.log")

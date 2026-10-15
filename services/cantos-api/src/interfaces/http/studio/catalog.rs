@@ -41,6 +41,7 @@ pub(super) fn routes() -> Router<AppState> {
         )
         .merge(super::content::routes())
         .merge(super::briefs::owner_routes())
+        .merge(super::delegation::owner_routes())
         .method_not_allowed_fallback(|| async {
             failure(
                 StatusCode::METHOD_NOT_ALLOWED,
@@ -302,7 +303,10 @@ struct HistoryQuery {
 fn page_limit() -> u64 {
     20
 }
-fn page_cursor(limit: u64, cursor: Option<&str>) -> Result<Option<CatalogCursor>, Vec<FieldIssue>> {
+pub(super) fn page_cursor(
+    limit: u64,
+    cursor: Option<&str>,
+) -> Result<Option<CatalogCursor>, Vec<FieldIssue>> {
     if !(1..=50).contains(&limit) {
         return Err(vec![issue("limit", "out_of_range")]);
     }

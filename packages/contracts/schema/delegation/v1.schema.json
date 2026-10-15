@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.example/contracts/delegation/v1",
+  "$defs": {
+    "DelegationAction": {
+      "enum": [
+        "work:read",
+        "content:read",
+        "content:write"
+      ]
+    },
+    "IssueDelegationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "id",
+        "delegate_actor_id",
+        "actions",
+        "expires_at"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "delegate_actor_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DelegationAction"
+          }
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "DelegationGrantResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "work_id",
+        "grantor_id",
+        "delegate_actor_id",
+        "actions",
+        "issued_at",
+        "expires_at",
+        "revoked_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "work_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "grantor_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "delegate_actor_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DelegationAction"
+          }
+        },
+        "issued_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "revoked_at": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "IssueDelegationResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant",
+        "token"
+      ],
+      "properties": {
+        "grant": {
+          "$ref": "#/$defs/DelegationGrantResponse"
+        },
+        "token": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^cantos_dlg_[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "DelegationGrantPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "next_after"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/DelegationGrantResponse"
+          }
+        },
+        "next_after": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
