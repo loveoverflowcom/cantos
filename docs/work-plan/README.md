@@ -459,6 +459,15 @@ and rollback. Profile the Studio editor before changing its projection strategy,
 SSR/Islands/lazy splitting as compatibility experiments with their own adoption evidence.
 This work does not reorder identity, storage, publication or listener acceptance.
 
+For [#154](https://github.com/loveoverflowcom/cantos/issues/154), keep the
+[Web player interaction boundary](../evidence/theatre-web-player-interaction.md) independent
+of live delivery: prioritize the native-range draft/commit contract and root-session continuity,
+then paired browser interaction and accessibility observations. Measure transport/timeline
+consumers before further scheduling or throttling changes. Complete Chromium/Firefox/Safari
+input, zoom, focus and resize-observer cleanup evidence before accepting the UI; real audio,
+Range, expiry recovery and preload comparisons still follow #13/#120. Host work counts and
+asset inventories do not satisfy either runtime gate or reorder the publication dependencies.
+
 ## Versioned binary transport pilot
 
 [Issue #97](https://github.com/loveoverflowcom/cantos/issues/97) delivers the bounded Studio

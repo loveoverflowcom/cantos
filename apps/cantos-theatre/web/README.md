@@ -15,6 +15,11 @@ release assets with `cargo xtask web-performance cantos-theatre` and narrows moc
 reactive projections. Deterministic work counters and bundle bytes are separate from browser
 latency, actual audio and production static-cache acceptance.
 
+The [player interaction record](../../../docs/evidence/theatre-web-player-interaction.md)
+describes the isolated mock's local scrub draft, one final seek, root-owned pending
+acknowledgement and narrow transport projection. It includes the A/B/C decision and deferred
+browser/audio acceptance; no browser latency improvement is claimed.
+
 ## Scope and honest behavior
 
 The default entrypoint opens public Home without a login wall. It reads actual published work
