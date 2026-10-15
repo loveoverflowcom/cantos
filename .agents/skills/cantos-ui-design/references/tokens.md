@@ -9,8 +9,9 @@ Token families, roles and their rules are owned by
 [UI system § Semantic tokens](../../../../docs/design/ui-system.md#semantic-tokens). This
 reference owns the pipeline that keeps both renderers faithful to them. Implemented so far: the
 canonical source `packages/ui-system/shared/tokens.json`, `scripts/ui_tokens.py`, generated scoped
-CSS and typed Rust, plus a compatibility `scripts/studio_tokens.py` CLI. Studio consumes shared
-roles; Theatre integration and Kotlin output remain deferred. The
+CSS, typed Rust and Kotlin lookup metadata, plus a compatibility `scripts/studio_tokens.py` CLI.
+Studio, Theatre Web and the CMP foundation consume these roles; `CantosTheme` maps the native
+palette, typography, shapes and injected preferences. The
 [shared schema](../../../../packages/ui-system/shared/README.md) and
 [migration](../../../../docs/architecture/ui-system-migration.md) describe implemented ownership;
 illustrations below remain proposed unless that contract implements them.
@@ -29,12 +30,12 @@ CSS custom properties          Kotlin theme mapping
 component styles               CantosTheme + component wrappers
 ```
 
-| Decision for the first slice | Constraint | Candidates |
+| Implemented decision | Constraint | Owner |
 |---|---|---|
-| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | **implemented:** `packages/ui-system/shared/tokens.json` v0.2.0; v0.1.0 is an immutable legacy snapshot; interchange contracts stay in `packages/contracts/` |
-| source format | names, types, theme variants and references expressible without code | Design Tokens Community Group JSON (check its current status), or a small project schema |
-| generator | deterministic, dependency-light, runnable on Linux and macOS, covered by tests | a repository script, a Rust `xtask`, or a Node tool such as Style Dictionary |
-| generated outputs | committed with a drift test, or built on demand by both toolchains | choose one; committing keeps Trunk and Gradle builds free of the generator |
+| source location | owned by neither app; reviewed by both renderer owners; versioned with the code | `packages/ui-system/shared/tokens.json`; the legacy snapshot is immutable migration evidence |
+| source format | names, types, paired themes, aliases and contrast pairs validated before generation | [bounded shared schema](../../../../packages/ui-system/shared/README.md), not a claim of DTCG conformance |
+| generator | deterministic, dependency-light, covered by tests; repository checks run through `cargo xtask` | `scripts/ui_tokens.py` is the implementation primitive |
+| generated outputs | committed with drift checks so Trunk/Gradle builds need no generator | scoped CSS, Rust token API, Kotlin lookup and preview metadata |
 
 Record the choices with [`templates/adr.md`](../../../../templates/adr.md). Mechanics for wiring the
 outputs into each build belong to
@@ -57,24 +58,25 @@ edits a generator template; neither touches component code.
 A semantic name says what the value **does**, never what it looks like: `color.primary`, not
 `color.lavender`; `space.sm`, not `space.8`. Renderer names are derived mechanically:
 
-| Semantic role | CSS (proposed) | CMP (proposed) |
+| Semantic role | CSS | CMP mapping |
 |---|---|---|
-| `color.onPrimaryContainer` | `--cantos-color-on-primary-container` | generated `ColorScheme.onPrimaryContainer` |
-| `color.surfaceContainer` | `--cantos-color-surface-container` | generated `ColorScheme.surfaceContainer` |
-| `color.success` / `color.onSuccess` | `--cantos-color-success` / `--cantos-color-on-success` | `CantosTheme.extendedColors.success` / `onSuccess` |
-| `color.focus` | `--cantos-color-focus` | `CantosTheme.extendedColors.focus` |
-| `type.metadata` | `--cantos-type-metadata-size`, `-line-height`, `-weight`, `-tracking` | `CantosTheme.typography.metadata` |
-| `shape.control` | `--cantos-shape-control` | `CantosTheme.shapes.control` |
-| `elevation.overlay` | `--cantos-elevation-overlay` | `CantosTheme.elevation.overlay` |
-| `motion.navigation` | `--cantos-motion-navigation-duration`, `-easing` | `CantosTheme.motion.navigation` (spring spec) |
+| `color.onPrimaryContainer` | `--cantos-color-on-primary-container` | `CantosTheme` → `ColorScheme.onPrimaryContainer` |
+| `color.surfaceContainer` | `--cantos-color-surface-container` | `CantosTheme` → `ColorScheme.surfaceContainer` |
+| `color.success` / `color.successContainer` | `--cantos-color-success` / `--cantos-color-success-container` | `tokenColor` lookup; paired foreground/container |
+| `color.focus` | `--cantos-color-focus` | generated named lookup |
+| `type.metadata.*` | `--cantos-type-metadata-size`, `-line-height`, `-weight` | `typeStyle("metadata")` → Material body-small mapping |
+| `shape.control` | regular Web uses the separate Web shape role | `CantosShapes.control` → Material small mapping |
+| `elevation.overlay` | `--cantos-elevation-overlay` | generated structured shadow lookup |
+| `motion.navigation.*` | duration/easing custom properties | generated duration/easing lookup; no native spring claim |
 
 Where a Cantos role means the same thing as a Material 3 `ColorScheme` or `Typography` role, map
 to it so stock Material components pick it up. Roles Material lacks — success, warning, focus,
-metadata type — go into an extension object; never smuggle them into an unrelated Material role
+metadata type — use named lookup/extension mappings; never smuggle them into an unrelated Material role
 (`tertiary` as "warning" breaks the day a component uses `tertiary` for its own purpose).
 
-The implemented source names the full eight-step rhythm explicitly in the shared contract.
-Existing `sm/md/lg` meanings remain compatible; native mappings remain deferred.
+The shared contract owns the spacing rhythm and distinct Web/CMP shape scales. Inspect its
+current mappings rather than copying a numeric snapshot into a component or skill. Semantic
+roles come before platform mappings; CSS px must never be copied directly into dp/sp.
 
 ## 4. Units per platform
 
@@ -89,8 +91,9 @@ Share semantics and relationships, never raw pixels ([UI system](../../../../doc
 
 ## 5. Source sketch
 
-Illustrative only; no values are decided. Placeholders make missing decisions visible instead of
-inventing them.
+Illustrative only, not the implemented schema or a second source. The active source and exact
+version live in `shared/tokens.json`; proposed deltas must reconcile there. Placeholders in a
+design proposal make missing decisions visible instead of inventing them.
 
 ```json
 {
@@ -134,8 +137,8 @@ that produced it, and is never edited by hand:
 | Why / failure | a hand patch makes one renderer drift silently and is overwritten on the next run |
 | Good | edit the source or the generator template, regenerate, commit source and outputs together |
 | Counterexample | changing a value inside the generated Kotlin "just for iOS" |
-| Oracle | drift test: regenerate into a temporary directory and diff with the committed files (proposed) |
-| Enforcement / exception | manual until the drift test exists · none |
+| Oracle | implemented generator `--check` and drift tests via `cargo xtask verify repository` |
+| Enforcement / exception | source/output drift is statically checked · none |
 
 Released token versions are immutable values: a change produces a new version, never a rewrite of
 an old one. In code the generated Kotlin is `val`s and immutable data classes; CSS roles are
@@ -156,6 +159,12 @@ defined at the root and theme scopes and never reassigned by component selectors
 
 Theme switching changes role values per theme scope; it never adds `.dark .button` overrides.
 Studio and Theatre share one brand and palette; they differ in density and layout, not in roles.
+Resolve Light/Dark/System at the host's appropriate boundary. Inject density, locale, licensed
+font families/font scale, motion/gesture preferences and immutable projections/intents through
+context or values; a reusable component never reads the OS or creates a service/port/mock owner.
+Current Leptos `UiRoot` scopes theme/density; native `CantosTheme` receives concrete preferences
+and optional font families. Do not claim a universal preference API exists where the renderer
+only has a narrower contract. Observe nested themes without resetting entered values or focus.
 
 ## 8. Rule of three
 
@@ -163,7 +172,7 @@ Studio and Theatre share one brand and palette; they differ in density and layou
 |---|---|
 | Scope | spacing, radius, size, duration or color values written in component code |
 | Why / failure | copied literals diverge under the next theme or brand change; premature tokens bloat the contract |
-| Good | a third use of the same value **with the same meaning** becomes a semantic or component token; until then a named local constant in the component |
+| Good | reuse an existing semantic role; a repeated new meaning earns a reviewed role; local geometry has a named constant with units, scope and reason |
 | Counterexample | a fourth copy of `12px` for "row gap"; or a global token for a one-off illustration offset |
 | Oracle | literal scan of component styles and Kotlin outside generated files (proposed); review |
 | Enforcement / exception | manual · renderer-local geometry for a platform convention, with the reason written beside it |
@@ -176,7 +185,7 @@ encode them once in the checker and link the document. The source lists the pair
 function evaluates every pair in every theme:
 
 ```rust
-// Illustrative, proposed — no token checker exists yet.
+// Illustrative Rust shape; the implemented checker and known-value tests are Python.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContrastFloor {
     Text,
@@ -229,7 +238,8 @@ disabled text; those need inspected captures.
 
 Generator drift, both-theme contrast, CSS-role completeness and placeholder/type refusal now
 have implemented checks in `scripts/test_ui_tokens.py`; typed Rust mapping has native smoke.
-No-raw-literal/reference-tier gates and Kotlin mapping checks remain **proposed**. Runtime
+No-raw-literal/reference-tier gates remain **proposed**; native theme/shape tests independently
+check their mappings, and generator drift includes Kotlin output. Runtime
 contrast, interaction and native evidence remain separate; cite the exact executed result.
 
 ## 11. Common mistakes

@@ -1,27 +1,54 @@
-# Two-renderer component admission
+# Component-first lookup and two-renderer admission
 
 The user-requested development apps live inside the shared renderer packages:
 [`leptos/preview`](../../../../packages/ui-system/leptos/README.md) and
 [`cmp`](../../../../packages/ui-system/cmp/README.md). They are diagnostics, not Studio/Theatre
 routes, a listener implementation, or a production approval surface.
 
-## Required sequence for a new shared component
+## Lookup before product markup
 
-1. Inspect [`shared/preview-catalog.json`](../../../../packages/ui-system/shared/preview-catalog.json)
-   and the existing public APIs. Record one stable API name, component ID, family and the actual
-   component states. States describe concrete host-driven scenarios, not invented props.
+1. Search the existing public APIs and
+   [`shared/preview-catalog.json`](../../../../packages/ui-system/shared/preview-catalog.json)
+   by stable ID, API, family, variant and state. Inspect the actual sample and contract rather
+   than matching only its appearance. Record the consumer and the IDs/variants/states reused.
+2. Reuse a fitting contract. If only a variant or state is missing, extend that existing owner
+   with bounded typed inputs/intents and deterministic examples; preserve callbacks, controlled
+   values, stable IDs and compatibility sites. Explain the missing behavior in the PR.
+3. If no kind fits, classify it as shared primitive, composition, app-owned or platform-specific.
+   Declare its stable ID, anatomy, variants, typed states/intents, intended consumer, owner and
+   concrete preview scenario IDs **before** product markup/import. A planned specimen may use
+   side-effect-free fixtures, but must state its reason and must not export an empty public API,
+   invent backend fields or become qualified from a mockup.
+
+The [owning UI contract](../../../../docs/design/ui-system.md#components-and-interaction-states)
+defines the requirement. The existing galleries are the workbench; do not create a competing
+gallery or hide a reusable button/field/card/palette in a product feature. Studio/Admin Web
+compositions stay Web-owned and never scaffold Studio Mobile. Design/proposal status in the
+[v3 inventory](../../../../packages/ui-system/shared/design-inventory-v3.json) is separate from
+code registration and renderer qualification; adding a proposed specimen changes neither.
+
+## Required sequence for a new or extended shared component
+
+1. Complete the lookup above and preserve the existing API/state baseline. Use concrete host-driven
+   scenario IDs, not invented props or screenshot-only state flags.
 2. Declare the component in **both** previews. Implement actual examples and deterministic
    anatomy/state/callback tests. If a target is unsupported or platform-specific, state its
    reason explicitly; registration and an unsupported placeholder never count as a pass.
 3. Keep every token in [`shared/tokens.json`](../../../../packages/ui-system/shared/tokens.json).
    Tokens retain semantic names. Inspect each affected name/value in both previews, including
-   theme/density/alias behavior. Regenerate CSS/Rust/Kotlin and both catalogues with the existing
+   theme/density/alias behavior. The host injects scoped Light/Dark/System preferences, density,
+   locale, font scale, motion/gesture policy and immutable projections/intents; components do not
+   read the OS or create services, ports, mock owners, network, audio or auth effects. Regenerate
+   CSS/Rust/Kotlin and both catalogues with the existing
    generator primitives. Never patch generated files or duplicate native palettes.
 4. Run `cargo xtask verify repository`, the affected Rust/Web gates, and
    `cargo xtask ui-preview cmp verify`. Use `cargo xtask ui-preview leptos run` and
    `cargo xtask ui-preview cmp run` for the runtime review. Inspect the actual design reference
    and rendered pixels, realistic Vietnamese text, narrow/wide space, light/dark, text scaling,
-   keyboard/focus and relevant interrupted/repeated interactions. Desktop Compose evidence
+   keyboard/focus and relevant interrupted/repeated interactions. Record cancellation/reversal,
+   keyboard alternatives to gestures and immediate dispatch separately from animation. Run the
+   same scenario with reduced motion; input value and focus must survive theme/nested-theme
+   changes. Desktop Compose evidence
    does not establish Android/iOS device behavior. A PNG is not a preview runtime.
 5. Record fresh component evidence for **both** renderers before first real application use.
    The [catalog contract](../../../../packages/ui-system/shared/README.md#preview-registration-and-adoption)
@@ -29,7 +56,8 @@ routes, a listener implementation, or a production approval surface.
    artifacts, current token digest and source digests (including build inputs and the declared
    component/state contract). These records document review; the
    structural gate cannot authenticate a reviewer or compare design pixels on its own.
-6. Only then import the new component in `apps/`. The repository gate rejects unregistered APIs,
+6. Only then import the new component in `apps/`. Record lookup IDs/APIs/variants, any missing-kind
+   rationale, scenario IDs and the evidence/remaining blocker in the PR. The repository gate rejects unregistered APIs,
    missing examples, generated drift, stale qualification and new import sites without both
    fresh records. Run `cargo xtask preflight --changed-only` before handoff.
 

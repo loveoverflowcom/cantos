@@ -199,6 +199,15 @@ on its implementation evidence.
 
 ## Existing foundations to retain
 
+The [Leptos v3 workbench](../evidence/leptos-preview-v3.md) and
+[complete design inventory](../evidence/ui-design-inventory-v3.md) retain the existing API/state
+baseline and distinguish proposed anatomy from renderer admission. For #141, prioritize bounded
+shared controls/layout batches with a concrete consumer, then Theatre cover/episode/player
+primitives, then Web-owned Studio tables/editor/upload/QC/access compositions. Each batch follows
+lookup → reuse/extend → declare and preview → state/theme/motion evidence → admission → product
+adoption. Keep #129/#131 product rollout, the later motion/scenario workbench and #140 pixel
+comparison separate; local/JVM evidence does not complete native or screen-reader acceptance.
+
 The [local visual-comparison slice](../evidence/visual-compare.md) supplies advisory pixel
 metrics/regions through the [existing UI method](../../.agents/skills/cantos-ui-design/references/visual-review.md#10-reference-pairing-and-local-comparison).
 Recommended next review order: version/approve exact platform design baselines, calibrate real

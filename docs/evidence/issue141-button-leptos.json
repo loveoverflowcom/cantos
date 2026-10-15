@@ -1,0 +1,31 @@
+{
+  "component_id": "button",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex \u2014 issue141 actual browser review, 15 October 2026",
+  "reference": "Authenticated v3 source HTML isolated Button enabled/light at1280x900, original Logo Kit v2 and existing anatomy/state contracts; qualitative opened-image inspection, no pixel-fidelity claim",
+  "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
+  "source_sha256": "119f3dcf8490e7309c4127adb4103116ef2bb6170851bc8107057c293ea2618c",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify",
+      "artifact": "docs/evidence/leptos-preview-v3.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; CUA native browser input and opened captures",
+      "artifact": "docs/evidence/leptos-preview-v3.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; CUA native browser input and opened captures",
+      "artifact": "docs/evidence/leptos-preview-v3.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run; CUA native browser input and opened captures",
+      "artifact": "docs/evidence/leptos-preview-v3.md"
+    }
+  }
+}

@@ -26,9 +26,10 @@ component stylesheet    SCSS (or plain CSS) beside the component that owns it
 Leptos view!            structure, state and semantic class names
 ```
 
-Examples below use an illustrative `--cantos-<family>-<role>` naming. The real mapping from
-`color.primary`, `space.sm`, `shape.pill` and the other roles to CSS names is decided in
-[`tokens.md`](../../cantos-ui-design/references/tokens.md); follow it once it exists.
+Generated `Token::css_variable()` and `tokens.css` define the implemented name mapping.
+Regular Web shapes use the separate renderer roles documented by the
+[shared contract](../../../../packages/ui-system/shared/README.md#web-shape-mapping); never
+replace them with CMP radii. The examples below illustrate component structure.
 
 ## Rules
 
@@ -36,11 +37,11 @@ Examples below use an illustrative `--cantos-<family>-<role>` naming. The real m
 |---|---|---|---|---|---|
 | No color literals in component styles | dark theme or a palette change misses a screen; contrast drifts | `color: var(--cantos-color-on-surface)` | `color: #4b3f72` | style gate (proposed); review | exception: the generated token file; `transparent`, `currentColor` |
 | No radius literals; use shape roles | rounded-everything; pills on reading surfaces | `border-radius: var(--cantos-shape-pill)` on the speed chip | `border-radius: 14px` | style gate (proposed) | exception: `0` |
-| Spacing from space roles | inconsistent rhythm between Studio panes | `gap: var(--cantos-space-sm)` | `gap: 10px` | review | one-off layout measures (`max-inline-size: 70ch`) may be local SCSS variables |
+| Spacing/inset/gap/padding/margin, stroke, focus, elevation and motion consume semantic roles | inconsistent rhythm and boundaries between Studio panes | `gap: var(--cantos-space-sm)` | copied `gap: 10px` | review | local geometry has a named constant with units, scope and reason |
 | Semantic class names; readable `view!` | utility walls hide structure and state | `class="dialogue-row"` | `class="flex gap-2 px-3 py-1 rounded-lg bg-..."` | review; gate counts classes per element (proposed) | small shared utilities such as `visually-hidden` |
 | Style state from semantic attributes | visual state and accessible state diverge | `.dialogue-row[aria-invalid="true"]`, `[aria-current="page"]`, `[data-draft-status="conflict"]` | `class:red-border=...` with no `aria-invalid` | DOM test asserts the attribute; capture shows the style | — |
 | Themes switch at the root through tokens | per-component `.dark` overrides drift | generated `:root` / `[data-theme="dark"]` blocks | `.dark .mini-player { background: ... }` | cross-theme inspection | — |
-| Every transition or animation has a reduced-motion path | vestibular harm; motion delaying action | motion tokens collapse under `prefers-reduced-motion`; travel replaced by opacity where feedback is needed | a slide-in with no reduced variant | gate flags animation without a reduced block (proposed); capture with reduced motion | — |
+| Every transition names its properties and has a reduced-motion path | unintended layout animation; vestibular harm; delayed action | motion tokens collapse under `prefers-reduced-motion`; feedback remains immediate | `transition: all`; a slide-in with no reduced variant | review, runtime reversal/reduced-motion observations | — |
 | Visible focus is never removed | keyboard users lose their place | `:focus-visible` outline using the focus role | `outline: none` with no replacement | gate (proposed); focus-tour capture | — |
 | Panes adapt to their container, not the viewport | the Studio inspector overflows on a wide screen with both panes open | `@container` on the pane | `@media (max-width: …)` for a pane that is narrow on desktop | capture with both side panes open | page-level layout may use media queries |
 
@@ -61,6 +62,15 @@ preference until the listener chooses, without a flash before WASM loads:
 The shell sets `data-theme` only after an explicit choice, and reads a stored choice through the
 fallible storage helper. Light and dark are checked separately for contrast; one passing theme
 says nothing about the other.
+
+That snippet is illustrative: the current `UiRoot` uses a scoped `.cantos-ui` boundary with
+reactive `Theme::{Light, Dark, System}` and density values. Keep the mounted tree and controlled
+values stable while changing those attributes, including nested roots; verify entered text,
+selection and focus survive. Locale, font readiness/scale, motion/gesture policy and immutable
+projections/intents come from the host context or value injection appropriate to their owner.
+A reusable component must not read OS preferences or construct services, ports, mock owners,
+network/audio/auth effects. Scripted motion consumes the injected policy; CSS resolves media
+preferences through the styling boundary. No universal new DI API is implied.
 
 ## Component stylesheets
 

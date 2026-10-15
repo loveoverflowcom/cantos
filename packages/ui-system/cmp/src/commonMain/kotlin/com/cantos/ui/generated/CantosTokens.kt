@@ -1,4 +1,4 @@
-// Generated from Cantos UI tokens v0.5.0 sha256:e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c
+// Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741
 // by python3 scripts/ui_tokens.py. Do not edit.
 package com.cantos.ui.generated
 
@@ -9,7 +9,7 @@ data class TokenValue(
 )
 
 object CantosTokens {
-    const val version: String = "0.5.0"
+    const val version: String = "0.6.0"
     val entries: List<TokenValue> = listOf(
         TokenValue("breakpoint.expanded", "dimension", "840", "840", null, null, null),
         TokenValue("breakpoint.medium", "dimension", "600", "600", null, null, null),
@@ -81,7 +81,7 @@ object CantosTokens {
         TokenValue("size.avatarSmall", "dimension", "32", "32", null, null, null),
         TokenValue("size.backControl", "dimension", "48", "48", null, null, null),
         TokenValue("size.border", "dimension", "1", "1", null, null, null),
-        TokenValue("size.control", "dimension", "44", "44", "44", "48", null),
+        TokenValue("size.control", "dimension", "48", "48", "48", "48", null),
         TokenValue("size.focusOffset", "dimension", "4", "4", null, null, null),
         TokenValue("size.focusWidth", "dimension", "3", "3", null, null, null),
         TokenValue("size.icon", "dimension", "24", "24", null, null, null),
@@ -104,7 +104,7 @@ object CantosTokens {
         TokenValue("type.authHeading.size", "dimension", "32", "32", null, null, null),
         TokenValue("type.authHeading.weight", "fontWeight", "400", "400", null, null, null),
         TokenValue("type.body.lineHeight", "number", "1.55", "1.55", null, null, null),
-        TokenValue("type.body.size", "dimension", "14", "14", null, null, null),
+        TokenValue("type.body.size", "dimension", "16", "16", null, null, null),
         TokenValue("type.body.weight", "fontWeight", "400", "400", null, null, null),
         TokenValue("type.editor.lineHeight", "number", "1.9", "1.9", null, null, null),
         TokenValue("type.editor.size", "dimension", "14", "14", null, null, null),

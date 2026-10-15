@@ -1,0 +1,91 @@
+# Design v3 inventory and compatibility
+
+[Issue 141](https://github.com/loveoverflowcom/cantos/issues/141) adds design discovery to the
+existing Leptos component gallery. The [companion inventory](../../packages/ui-system/shared/design-inventory-v3.json)
+maps all 102 reference specimens to current APIs, intended consumers, ownership, anatomy,
+canonical token roles and bounded design-state matrices. These records describe a proposal;
+the [runtime catalog](../../packages/ui-system/shared/preview-catalog.json) remains the sole
+source of public component registrations and qualification references.
+
+The authenticated [design manifest](https://drive.google.com/file/d/1MO6du9vxTM0yfPxn38HVl7u-OgAXCb81/view)
+was read through the connected Drive tool on 2026-10-15. Its complete original JSON has SHA-256
+`368c24b10b92b2a522ac749bb6a41cfcd3c67e22c111b6f9a49cf2930dd251de` and version
+`3.0.0-design`. The [implementation handoff](https://drive.google.com/file/d/17_s9ix7Qtzj76-RwLbCQLA42qob8g3gq/view)
+was read alongside it. The inventory stores those source URLs and the raw manifest hash;
+its generated metadata carries its own normalized content digest. Offline design PNGs are
+not Chromium/CMP pixel baselines. This mapping neither imports the proposed token file as a
+second theme nor treats the reference's existing/proposed labels as runtime evidence.
+
+## Baseline and mapping
+
+The inspected baseline is develop `2d816d9592075f7c3bdeb0a53b8896b2e7178043` with 32 public APIs
+and 198 registered component/state pairs. The original catalog bytes have SHA-256
+`182be1f3bf2a55bc99b78e712d69ee581beb58adc9571d708bb870e4f086b173`.
+The inventory contains a historical snapshot of its complete declarations, exact compatibility
+import sites and then-current qualification references. The historical snapshot is not read as
+active registration or approval. Current qualifications may be refreshed through the existing
+admission gate without rewriting history.
+
+The issue's earlier `f05b09bf` survey reported no qualifications. The inspected starting revision
+already includes PR137's six records for Button, TextField, Surface, Badge, BackButton and Logo.
+Their freshness is still checked against current renderer/token bytes; their existence does not
+accept the new gallery or qualify any planned specimen.
+
+| Inventory layer | Meaning and policy |
+| --- | --- |
+| 32 `existing` specimens | One-to-one baseline ID mapping; preserve public API name, family, all baseline states and exact compatibility sites. Design family regrouping does not rename APIs. |
+| 70 `proposed` specimens | Planned primitives/compositions only; name a consumer and owner, list existing building blocks and anatomy, retain the reference's requested state matrix. No empty public API is exported. |
+| Current runtime registration | Look up the mapped IDs in the canonical catalog, including each renderer's status/reason. Missing registration is explicit. |
+| Current qualification | Existing fresh evidence rules continue to apply; the inventory supplies no qualification or compatibility exemption. |
+
+`NavTabs` keeps native-link navigation. The design's navigation-tab label and keyboard states
+do not create an ARIA tablist/panel contract. A separate tab widget requires a concrete consumer,
+typed intent/state contract and admission. Similarly, proposed mixed-checkbox, determinate-loading
+or named-icon states are requested design states; they do not add props to the current APIs.
+
+Shared candidates remain in the UI-system owner until a real consumer justifies implementation.
+Theatre content/player/library compositions stay with Theatre, and Studio tables/editor/private
+audio/access compositions stay Web owned. Admin specimens name a dedicated reserved Admin Web
+owner; they grant no Studio-session authority and add no Admin client. Studio/Access proposal
+entries cannot declare CMP support. Volume and bottom-sheet specimens retain explicit platform
+policy exceptions. Planned states never claim native audio, storage, download, auth or publication
+effects.
+
+## Generator and cheapest independent evidence
+
+The existing `scripts/ui_preview_catalog.py` primitive validates the companion and generates
+`DesignSpecimen`/`DESIGN_SPECIMENS` into the existing Rust preview metadata. Existing `COMPONENTS`
+and the Kotlin public registry retain their runtime-only role. `scripts/check_repository.py`
+loads the companion through the same validator, so `cargo xtask verify repository` checks its
+mapping and generated drift. There is no second gallery, generator command or adoption runner.
+
+`test_ui_design_inventory.py` has six deterministic tests covering the exact 32/198/70 mapping,
+lost states/renamed APIs/removed APIs, widened compatibility sites, missing ownership/consumers,
+forged API/token links, empty matrices/anatomy, duplicate/missing specimens, Web-only scope,
+deterministic generation and unchanged public registrations. `test_ui_preview_catalog.py`
+continues to exercise admission refusal and qualification freshness; its new shared-input case
+checks that changing Web font bytes, provenance/license or design inventory invalidates Leptos
+qualification without invalidating CMP from an unused Web input.
+
+Focused Python primitives ran 6 inventory and 32 catalog tests successfully with Homebrew Python
+3.14. These are `example-tested` and `statically-checked` metadata/admission claims, not browser
+or device evidence. The default macOS Python 3.9.6 cannot run the existing TOML alias oracle;
+the focused catalog run succeeded with `PATH=/opt/homebrew/bin:$PATH`. The first combined
+`RUSTUP_TOOLCHAIN=1.98.1 CARGO_BUILD_JOBS=2 cargo xtask verify repository` attempt stopped in
+repository checking on in-progress font-link/generated drift and stale qualifications, before
+the Python suite. Final branch gates and browser observations belong in the overall issue141
+evidence record after source and fresh qualification artifacts settle.
+
+Invariant: design discovery must preserve the API/state/compatibility baseline and cannot admit
+a proposal into an app. Owner/boundary: shared metadata generator and existing admission gate.
+Provenance: the manifest hash and inspected baseline above; tests use deterministic fixture
+repositories and real canonical inventory data, with no service calls. L1/L2: documented owner
+and separate declarations, validated closed metadata fields and atomic rejection. L3: focused
+example-tested validation/generation and existing qualification tests. L4/L5: no application,
+database or HTTP behavior changes; rendered inspector/browser evidence is separately required.
+Deferred acceptance: actual planned controls need typed API/intents, real preview states and
+fresh required renderer evidence before product adoption. Execution blockers/failures: the
+initial combined repository run and Python-path failure are recorded above. Not covered /
+residual risk: anatomy/token lists are reviewed implementation guidance, not rendered anatomy
+proof; 70 planned specimens remain unimplemented and unqualified, and no native or screen-reader
+acceptance follows from inventory checks.

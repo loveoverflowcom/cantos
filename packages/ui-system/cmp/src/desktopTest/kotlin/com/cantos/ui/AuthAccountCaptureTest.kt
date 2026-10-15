@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
@@ -92,6 +93,18 @@ class AuthAccountCaptureTest {
         }
     }
 
+    @Test
+    fun every_badge_tone_retains_readable_vietnamese_status_at_large_text_in_both_themes() {
+        val labels = listOf("Bản nháp chưa xuất bản · Ỗ, Ữ", "Thông tin cần xem lại", "Đã duyệt bản ghi",
+            "Cần kiểm tra quyền sử dụng", "Chưa thể xuất bản nội dung")
+        listOf(Theme.Light, Theme.Dark).forEach { theme ->
+            capture("badges-${theme.tokenName}-390-text2", UiPreferences(theme = theme, textScale = 2f),
+                height = 1000, badgeLabels = labels) {
+                StatusTone.entries.zip(labels).forEach { (tone, label) -> Badge(label, tone = tone) }
+            }
+        }
+    }
+
     @OptIn(ExperimentalTestApi::class)
     private fun capture(
         name: String,
@@ -100,6 +113,7 @@ class AuthAccountCaptureTest {
         wholeScene: Boolean = false,
         focus: FocusRequester? = null,
         fieldFocus: FocusRequester? = null,
+        badgeLabels: List<String> = emptyList(),
         content: @Composable () -> Unit,
     ) {
         runDesktopComposeUiTest(width = 390, height = height) {
@@ -147,6 +161,25 @@ class AuthAccountCaptureTest {
             check(output.isDirectory || output.mkdirs()) { "Could not create auth screenshot output directory" }
             val bytes = requireNotNull(Image.makeFromBitmap(bitmap.asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)).bytes
             File(output, "cmp-auth-$name.png").writeBytes(bytes)
+            badgeLabels.forEach { label ->
+                onNodeWithText(label).assertIsDisplayed().assertHasNoClickAction()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { getLayout ->
+                        val layouts = mutableListOf<TextLayoutResult>()
+                        assertTrue(getLayout(layouts))
+                        val layout = layouts.single()
+                        // Intrinsic Text can retain a wider cached paragraph constraint than
+                        // its actual width; measure each drawn line instead of that cache width.
+                        assertFalse(layout.didOverflowHeight, "Status '$label' must retain every line")
+                        assertEquals(label.length, layout.getLineEnd(layout.lineCount - 1))
+                        (0 until layout.lineCount).forEach { line ->
+                            assertFalse(layout.isLineEllipsized(line))
+                            assertTrue(layout.getLineRight(line) <= layout.size.width + 1f,
+                                "Status '$label' line $line exceeds its rendered width")
+                        }
+                        if (label == badgeLabels.first()) assertTrue(layout.lineCount > 1,
+                            "The long Vietnamese status must exercise actual wrapping")
+                    }
+            }
         }
     }
 }

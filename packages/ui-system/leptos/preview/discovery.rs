@@ -70,8 +70,11 @@ pub fn ComponentCatalog(
 }
 
 #[component]
-pub fn TokenCatalog(#[prop(default = "")] initial_query: &'static str) -> impl IntoView {
-    let query = RwSignal::new(initial_query.to_owned());
+pub fn TokenCatalog(
+    #[prop(default = "")] initial_query: &'static str,
+    #[prop(optional)] query: Option<RwSignal<String>>,
+) -> impl IntoView {
+    let query = query.unwrap_or_else(|| RwSignal::new(initial_query.to_owned()));
     view! {
         <section id="gallery-tokens" aria-labelledby="gallery-tokens-heading">
             <Stack gap=Space::Sm>

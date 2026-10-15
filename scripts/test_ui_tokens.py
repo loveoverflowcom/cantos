@@ -450,6 +450,22 @@ class TokenContract(unittest.TestCase):
 
 
 class CanonicalRepositoryTokens(unittest.TestCase):
+    def test_v3_readable_body_and_targets_keep_platform_units_and_editor_role(self):
+        source = validate(load_source(SOURCE.read_bytes()))
+        self.assertEqual(source["version"], "0.6.0")
+        self.assertEqual(source["tokens"]["type.body.size"], token("dimension", 16))
+        self.assertEqual(source["tokens"]["type.editor.size"], token("dimension", 14))
+        self.assertEqual(source["tokens"]["size.control"], token("dimension", 48))
+        self.assertEqual(source["density"]["compact"], {"size.control": 48, "space.controlInline": 12})
+        self.assertEqual(source["density"]["comfortable"], {"size.control": 48, "space.controlInline": 16})
+        generated = outputs(SOURCE.read_bytes(), TEMPLATE.read_text(encoding="utf-8"))
+        self.assertIn("--cantos-type-body-size: 1rem;", generated[OUTPUTS["css"]])
+        self.assertIn("--cantos-size-control: 3rem;", generated[OUTPUTS["css"]])
+        self.assertIn('TokenValue("type.body.size", "dimension", "16", "16", null, null, null)',
+                      generated[OUTPUTS["kotlin"]])
+        self.assertIn('TokenValue("size.control", "dimension", "48", "48", "48", "48", null)',
+                      generated[OUTPUTS["kotlin"]])
+
     def test_reported_wrong_type_mutations_of_actual_source_are_refused(self):
         cases = [("type.body.size", "number", 14, "dimension"),
                  ("type.family.ui", "color", "#ff0000", "fontFamily"),

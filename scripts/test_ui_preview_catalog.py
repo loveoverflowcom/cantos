@@ -269,6 +269,23 @@ class PreviewCatalog(unittest.TestCase):
         self.assertEqual(before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
         self.assertEqual(self.failures(), [])
 
+    def test_shared_web_fonts_and_design_inventory_invalidate_only_leptos(self):
+        for relative in (
+            "packages/ui-system/shared/assets/noto-fonts/NotoSans-Regular.ttf",
+            "packages/ui-system/shared/assets/noto-fonts/NotoSerif-Bold.ttf",
+            "packages/ui-system/shared/assets/noto-fonts/provenance.json",
+            "packages/ui-system/shared/assets/noto-fonts/README.md",
+            "packages/ui-system/shared/assets/noto-fonts/OFL.txt",
+            "packages/ui-system/shared/design-inventory-v3.json",
+        ):
+            with self.subTest(relative=relative):
+                path = self.write(relative, "original rendering input\n")
+                self.qualify()
+                native_before = catalog.renderer_digest("cmp", self.root, self.source["components"])
+                path.write_text("changed rendering input\n")
+                self.assertIn("button/leptos: stale source or token qualification", self.failures())
+                self.assertEqual(native_before, catalog.renderer_digest("cmp", self.root, self.source["components"]))
+
     def test_unsupported_is_declared_but_never_silently_approved(self):
         self.source["components"][0]["cmp"]["status"] = "unsupported"
         self.write("packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/Components.kt", "// Unsupported: explicit native reason\n")

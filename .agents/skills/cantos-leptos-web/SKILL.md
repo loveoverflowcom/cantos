@@ -33,15 +33,14 @@ and never infer client/device acceptance from model simulation.
 
 Use for Leptos components, routes, signals, resources, actions, `view!` markup, `web-sys` or
 `wasm-bindgen` code, CSS/SCSS, Web component or browser tests, and for these Web surfaces:
-Studio import and adaptation review, the script editor, casting, production progress and partial
-regeneration ([#8](../../../docs/work-plan/project-planning.md#ordered-implementation-issues)), QC
+Studio import and adaptation review, the script editor, casting, external-audio intake/review, QC
 and publication controls, and Theatre discovery, episode pages, the mini-player and full player.
 
 | The task is instead about… | Use |
 |---|---|
 | visual intent, token values, type scale, motion intent, copy, accessibility targets | [`cantos-ui-design`](../cantos-ui-design/SKILL.md) (this skill applies its output) |
 | Script IR shape, IDs, revisions, validator errors, import/adaptation output | [`cantos-script-ir`](../cantos-script-ir/SKILL.md) |
-| what regenerates, job states, costs, budgets, QC records | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
+| external producer instructions, intake states, stale audio and QC records | [`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) |
 | rights, approvals, publish gates, manifests, signed delivery | [`cantos-publication`](../cantos-publication/SKILL.md) |
 | playback state meaning, progress and bookmark sync, listener API | [`cantos-listening`](../cantos-listening/SKILL.md) |
 | Android/iOS Theatre in Compose Multiplatform | [`cantos-cmp-mobile`](../cantos-cmp-mobile/SKILL.md) |
@@ -53,19 +52,20 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Ground rules
 
-- **Repository reality.** Studio Web, the Theatre Web skeleton and the shared `cantos-ui`
+- **Repository reality.** Studio Web, Theatre Web's scoped live account/Library boundary and
+  explicitly isolated listening mock, and the shared `cantos-ui`
   foundation are Leptos CSR packages built with Trunk. Build, serve and verify Web through
   [`cargo xtask`](../../../xtask/README.md) (`build|run|app <app> --web`, `verify web`);
-  native component examples and a development gallery exist, while an automated browser test
-  harness does not. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
+  native string-render component tests and the package-local searchable development gallery exist;
+  browser observations remain separately recorded. Discover manifests, scripts and CI before citing a command. Other commands, crates, paths and
   types in this skill and its references are **proposed** or **candidates** until the repository
   implements them; a library becomes a dependency only through a recorded decision
   ([`templates/adr.md`](../../../templates/adr.md)) and a pinned, verified version.
 - **One API group per client.** The Studio client calls only `/api/v1/studio/*` (base from
-  `cantos_contracts::routes::STUDIO_BASE`); the Theatre client will call only `/api/v1/theatre/*`.
+  `cantos_contracts::routes::STUDIO_BASE`); the Theatre client calls only `/api/v1/theatre/*`.
   Neither calls the legacy unprefixed `/api/v1/*` paths or the other group.
 - **Product requirements are owned by docs.** [`apps/cantos-studio/web/README.md`](../../../apps/cantos-studio/web/README.md),
-  [`apps/cantos-theatre/web/README.md`](../../../apps/cantos-theatre/web/README.md) (a skeleton),
+  [`apps/cantos-theatre/web/README.md`](../../../apps/cantos-theatre/web/README.md),
   [repository layout](../../../docs/architecture/repository-layout.md),
   the [UI system](../../../docs/design/ui-system.md), and the work items
   [010 (editor)](../../../docs/work-plan/010-import-and-edit-script.md),
@@ -77,17 +77,20 @@ the browser renders and drives it, the owner decides what is true.
 
 ## Web non-negotiables
 
-Before a new shared Web component enters a real app, declare its matching samples/states in both
-UI-system previews and complete [preview admission](../cantos-ui-design/references/preview-catalog.md).
+Before product markup, search public APIs and the preview catalog for the component ID, variant
+and state; record reuse or the missing-contract rationale. Extend an existing owner where it fits.
+A missing kind gets a stable declaration, anatomy, typed states/intents and preview scenarios
+before product code, then [preview admission](../cantos-ui-design/references/preview-catalog.md)
+before adoption. Keep Web-only compositions Web-owned and shared APIs under both-renderer gates.
 Keep existing gallery fixtures and controlled state; source/string-render tests are not visual approval.
 
 | Rule | Failure it prevents | Oracle | Depth |
 |---|---|---|---|
 | Studio and Theatre are separate surfaces and permission contexts with their own route roots, contexts and ports | a listener route reaches a private draft, preview or Studio port | Theatre routes mount with only `TheatreContext`; backend authorization tests | [`web-architecture.md`](references/web-architecture.md#1-two-surfaces-two-permission-contexts) |
 | Components render and dispatch; ports come from context; adapters own URLs, DTOs and error classification | transport and provider details leak into markup and cannot be tested without a network | component test runs on an in-memory port | [`web-architecture.md`](references/web-architecture.md#2-layering-inside-a-surface) |
-| Durable rules live in pure core crates; the browser renders server gates (approval, publish, budget, regeneration scope) and never decides them | drifted copies of gates; UI-only permission checks | review; same validator crate on both sides | [`web-architecture.md`](references/web-architecture.md#3-which-decisions-the-browser-may-make) |
+| Durable rules live in pure core crates; the browser renders server gates (approval, publish, intake scope) and never decides them | drifted copies of gates; UI-only permission checks | review; same validator crate on both sides | [`web-architecture.md`](references/web-architecture.md#3-which-decisions-the-browser-may-make) |
 | No credential, private object access or signed URL in client code, build-time config, routes, storage or logs | secrets shipped in the bundle; private media made shareable | review; proposed bundle grep | [`web-architecture.md`](references/web-architecture.md#5-secrets-and-private-media-never-reach-browser-code) |
-| Every remote state is explicit, failure is never empty, a stale response never wins, every mutation states its duplicate-submit behavior | "No episodes" on a 500; an old response replacing a new one; double-billed generation | out-of-order component test; per-state tests | [`leptos-async.md`](references/leptos-async.md) |
+| Every remote state is explicit, failure is never empty, a stale response never wins, every mutation states its duplicate-submit behavior | "No episodes" on a 500; an old response replacing a new one; duplicate intake or save | out-of-order component test; per-state tests | [`leptos-async.md`](references/leptos-async.md) |
 | A failed or conflicting request never costs the creator text; conflicts are never last write wins | lost dialogue after a timeout; silent overwrite of a competing edit | failing and conflicting fake ports | [`script-editor.md`](references/script-editor.md#4-draft-save-and-version-states) |
 | Playback state comes from media events through the shared reducer; one shell-owned `<audio>` survives navigation | a "playing" button over blocked audio; playback stopping on route change | real-browser playback and navigation test | [`dom-and-media-interop.md`](references/dom-and-media-interop.md#6-theatre-playback-through-htmlmediaelement) |
 | The editor keys rows by dialogue ID and never commits, reformats or rewrites text during IME composition | Telex/VNI input corrupted; edits attached to the wrong line | insert-above focus test; composition regression; recorded IME walkthrough | [`script-editor.md`](references/script-editor.md) |
@@ -127,13 +130,14 @@ these Web specifics:
               decision; never hand-roll a server or runner
 1  scope      surface + permission context, route, ports, the owning doc's acceptance line,
               the claim and its failure mode
+              lookup component ID/API/variant/state; reuse/extend or declare + preview missing kind
 2  core       a durable decision? → its owner's pure crate with plain #[test] first
 3  boundary   port provided through context; HTTP adapter over cantos-contracts DTOs, with the
               representation fixed by the client's codec constant; typed PortError
 4  async      resource/action states, request key, duplicate-submit policy, retry decision
-5  view       semantic HTML, NodeRef, cleanup, locale keys, token classes, attribute-driven state
-6  evidence   cheapest regression first: core → component with TestWorld → real-browser input
-7  look       documented app command → scenario → open captures → findings → fix → SAME scenario
+5  preview    semantic HTML, controlled values/intents, locale keys, token classes and injected preferences
+6  evidence   cheapest regression first: core → component → real-browser state/theme/motion scenarios
+7  adopt      admission → product import → documented app command → SAME scenario and opened captures
 8  tidy       formatter and linter of every touched toolchain, in check mode
 9  report     shared UI report + the Web additions below; residual risk never empty
 ```
@@ -150,6 +154,7 @@ the stylesheet formatter the package adopts. Skipping a step is a decision you s
 | a browser API | a `platform/` helper with a typed error | a component body |
 | a color, radius, spacing or motion value | a token role ([`tokens.md`](../cantos-ui-design/references/tokens.md)) | a component literal |
 | visible or accessible text | locale resources ([`localization.md`](../cantos-ui-design/references/localization.md)) | a `view!` literal |
+| theme/density/locale/font scale/motion or gesture policy; immutable projection + intents | scoped composition root/context or value injection | OS reads, service/port/mock construction or effects inside a reusable component |
 | an authorization or gate decision | the backend | anywhere in WASM |
 
 Before handing off, check states with [`component-states.md`](../cantos-ui-design/references/component-states.md),
@@ -164,6 +169,7 @@ extends the [foundation report](../cantos-engineering/SKILL.md#9-completion-repo
 
 ```text
 Surface / permission context:  Studio | Theatre; routes; ports and adapters touched
+Component lookup / scenarios: IDs/APIs/variants reused/extended; missing-kind rationale; scenario IDs and preview admission evidence
 Rendering mode / build:        CSR | SSR per ADR; exact build and serve command; debug | release
 Browsers / engines:            engine and version per result; headless | headed; flags used
 Backend for evidence:          fake ports | named local services | shared environment
@@ -193,8 +199,8 @@ A skill-only or docs-only edit needs no app run; say that no Web behavior was ex
 Foundation: [`cantos-engineering`](../cantos-engineering/SKILL.md). Shared UI policy:
 [`cantos-ui-design`](../cantos-ui-design/SKILL.md). Domain owners:
 [`cantos-script-ir`](../cantos-script-ir/SKILL.md) for editor content and validation,
-[`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) for casting, generation and
-progress, [`cantos-publication`](../cantos-publication/SKILL.md) for QC, approval and publish
+[`cantos-production-pipeline`](../cantos-production-pipeline/SKILL.md) for casting, external producer
+instructions and intake, [`cantos-publication`](../cantos-publication/SKILL.md) for QC, approval and publish
 controls, and [`cantos-listening`](../cantos-listening/SKILL.md) for
 [playback semantics](../cantos-listening/references/playback-semantics.md) and
 [progress sync](../cantos-listening/references/progress-sync.md). Scenarios for the visual loop:

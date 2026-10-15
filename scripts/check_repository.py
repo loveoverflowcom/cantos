@@ -863,12 +863,13 @@ def check():
 
     # The two diagnostics share one declaration source. Registration never means
     # runtime/design approval; new app imports need fresh evidence on both renderers.
-    from ui_preview_catalog import CATALOG, outputs, repository_failures, validate
+    from ui_preview_catalog import CATALOG, load_design_inventory, outputs, repository_failures, validate
     from ui_tokens import SOURCE, check_outputs, load_source, validate as validate_tokens
     try:
         catalog = validate(load_source(CATALOG.read_bytes()))
         tokens = validate_tokens(load_source(SOURCE.read_bytes()))
-        errors += check_outputs(outputs(catalog, tokens))
+        inventory = load_design_inventory(catalog, tokens)
+        errors += check_outputs(outputs(catalog, tokens, inventory=inventory))
         errors += repository_failures(catalog, tokens)
     except (OSError, ValueError) as error:
         errors.append(f"preview catalog: {error}")

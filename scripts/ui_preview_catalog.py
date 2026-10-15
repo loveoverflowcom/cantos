@@ -19,6 +19,7 @@ from ui_tokens import (
 )
 
 CATALOG = ROOT / "packages/ui-system/shared/preview-catalog.json"
+DESIGN_INVENTORY = ROOT / "packages/ui-system/shared/design-inventory-v3.json"
 RUST_OUTPUT = ROOT / "packages/ui-system/leptos/src/preview_catalog.rs"
 KOTLIN_OUTPUT = ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/PreviewCatalog.kt"
 FAMILIES = {"foundation", "actions", "navigation", "fields", "feedback", "layout", "icons", "dialog"}
@@ -27,6 +28,10 @@ STATUSES = {"registered", "implemented-unverified", "unsupported"}
 NAME = re.compile(r"[A-Z][A-Za-z0-9]*")
 ID = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 SHA = re.compile(r"[0-9a-f]{64}")
+DESIGN_SCOPES = {"shared-primitive", "shared-composition", "app-owned", "platform-specific"}
+DESIGN_FAMILIES = FAMILIES | {"choices", "content", "listening", "studio", "access"}
+DESIGN_TEXT_FIELDS = ("id", "name", "family", "design_status", "scope", "owner", "consumer", "reason", "description")
+DESIGN_LIST_FIELDS = ("states", "component_ids", "anatomy", "token_roles", "platforms")
 
 
 def source_text(content, keep_strings=True):
@@ -160,6 +165,107 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def named_design_values(values, label, maximum=24):
+    if not isinstance(values, list) or not 1 <= len(values) <= maximum:
+        raise ValueError(f"{label}: bounded nonempty list required")
+    for value in values:
+        text(value, label)
+    if len(set(values)) != len(values):
+        raise ValueError(f"{label}: duplicate value")
+
+
+def validate_design_inventory(inventory, source, tokens):
+    """Keep offline proposals outside the runtime registry and preserve the exact baseline.
+
+    Design states describe a bounded requested matrix, not implemented props. Registration,
+    qualification and guarded application adoption continue to use CATALOG alone.
+    """
+    object_keys(inventory, {"version", "source", "baseline", "specimens"}, "design inventory")
+    if type(inventory["version"]) is not int or inventory["version"] != 1:
+        raise ValueError("design inventory: supported version is 1")
+    provenance = inventory["source"]
+    object_keys(provenance, {"version", "url", "sha256", "handoff_url", "kind", "retrieved_on"}, "design source")
+    for key, value in provenance.items():
+        text(value, f"design source/{key}")
+    if not SHA.fullmatch(provenance["sha256"]):
+        raise ValueError("design source: raw manifest SHA-256 required")
+    if provenance["kind"] != "offline-static-design-proposal":
+        raise ValueError("design source: offline proposal provenance required")
+    for key in ("url", "handoff_url"):
+        if not re.fullmatch(r"https://drive\.google\.com/file/d/[A-Za-z0-9_-]+/view", provenance[key]):
+            raise ValueError(f"design source/{key}: canonical Drive file URL required")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", provenance["retrieved_on"]):
+        raise ValueError("design source: retrieval date required")
+    baseline = inventory["baseline"]
+    object_keys(baseline, {"source_revision", "catalog_sha256", "catalog_digest", "catalog_snapshot"}, "design baseline")
+    if not isinstance(baseline["source_revision"], str) or not re.fullmatch(r"[0-9a-f]{40}", baseline["source_revision"]):
+        raise ValueError("design baseline: source revision required")
+    for key in ("catalog_sha256", "catalog_digest"):
+        if not isinstance(baseline[key], str) or not SHA.fullmatch(baseline[key]):
+            raise ValueError(f"design baseline/{key}: SHA-256 required")
+    snapshot = validate(baseline["catalog_snapshot"])
+    if digest(snapshot) != baseline["catalog_digest"]:
+        raise ValueError("design baseline: snapshot digest mismatch")
+    entries = {entry["id"]: entry for entry in source["components"]}
+    original = {entry["id"]: entry for entry in snapshot["components"]}
+    if len(original) != 32 or sum(len(entry["states"]) for entry in original.values()) != 198:
+        raise ValueError("design baseline: exact 32 API / 198 state snapshot required")
+    for ident, entry in original.items():
+        current = entries.get(ident)
+        if current is None:
+            raise ValueError(f"baseline API missing: {ident}")
+        if (current["name"], current["family"]) != (entry["name"], entry["family"]):
+            raise ValueError(f"baseline API changed: {ident}")
+        if not set(entry["states"]) <= set(current["states"]):
+            raise ValueError(f"baseline states lost: {ident}")
+    if source["baseline_consumers"] != snapshot["baseline_consumers"]:
+        raise ValueError("design baseline: compatibility sites changed; explicit migration review required")
+    specimens = inventory["specimens"]
+    if not isinstance(specimens, list) or len(specimens) != 102:
+        raise ValueError("design inventory: exact 102 design specimens required")
+    seen, existing, proposed = set(), set(), set()
+    roles = set(tokens["tokens"]) | set(tokens["themes"]["light"]) | set(tokens["aliases"])
+    for entry in specimens:
+        object_keys(entry, set(DESIGN_TEXT_FIELDS + DESIGN_LIST_FIELDS), "design specimen")
+        for key in DESIGN_TEXT_FIELDS:
+            text(entry[key], f"design/{entry['id']}/{key}")
+        ident = entry["id"]
+        if not ID.fullmatch(ident) or ident in seen:
+            raise ValueError(f"design inventory: invalid or duplicate design id: {ident}")
+        seen.add(ident)
+        if entry["family"] not in DESIGN_FAMILIES:
+            raise ValueError(f"design/{ident}: unknown design family")
+        if entry["design_status"] not in {"existing", "proposed"}:
+            raise ValueError(f"design/{ident}: design status is not runtime qualification")
+        if entry["scope"] not in DESIGN_SCOPES:
+            raise ValueError(f"design/{ident}: unknown ownership scope")
+        for key in DESIGN_LIST_FIELDS:
+            named_design_values(entry[key], f"design/{ident}/{key}")
+        if not set(entry["component_ids"]) <= set(entries):
+            raise ValueError(f"design/{ident}: unknown runtime component")
+        if not set(entry["token_roles"]) <= roles:
+            raise ValueError(f"design/{ident}: unknown canonical token")
+        if not set(entry["platforms"]) <= {"web", "cmp"}:
+            raise ValueError(f"design/{ident}: unknown platform")
+        if entry["family"] in {"studio", "access"} and entry["platforms"] != ["web"]:
+            raise ValueError(f"design/{ident}: Studio and Admin proposals are Web only")
+        if entry["design_status"] == "existing":
+            existing.add(ident)
+            if ident not in original or entry["component_ids"] != [ident]:
+                raise ValueError(f"design/{ident}: existing design must map to its baseline API")
+        else:
+            proposed.add(ident)
+            if ident in original:
+                raise ValueError(f"design/{ident}: baseline API cannot become a proposal")
+    if existing != set(original) or len(proposed) != 70:
+        raise ValueError("design inventory: exact 32 existing / 70 proposed mapping required")
+    return inventory
+
+
+def load_design_inventory(source, tokens):
+    return validate_design_inventory(load_source(DESIGN_INVENTORY.read_bytes()), source, tokens)
+
+
 def renderer_digest(renderer, root=ROOT, declarations=None):
     """Invalidate approval for runtime/source edits and component/state contract changes.
 
@@ -180,6 +286,16 @@ def renderer_digest(renderer, root=ROOT, declarations=None):
     for relative in build_inputs:
         path = Path(root) / relative
         records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
+    if renderer == "leptos":
+        # Preview typography and discovery metadata live in shared inputs outside the
+        # renderer directory. Their generated outputs alone must not hide stale review.
+        shared_inputs = [Path(root) / DESIGN_INVENTORY.relative_to(ROOT)]
+        fonts = Path(root) / "packages/ui-system/shared/assets/noto-fonts"
+        if fonts.is_dir():
+            shared_inputs.extend(path for path in sorted(fonts.rglob("*")) if path.is_file())
+        for path in shared_inputs:
+            relative = path.relative_to(root).as_posix()
+            records[relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "absent"
     for path in sorted(directory.rglob("*")):
         relative = path.relative_to(directory)
         generated_output = relative.parts[0] in {"build", ".gradle"}
@@ -481,7 +597,7 @@ def repository_failures(source, token_source, root=ROOT):
     return failures
 
 
-def rust_render(source, tokens):
+def rust_render(source, tokens, inventory=None):
     header = f"// Generated by python3 scripts/ui_preview_catalog.py; catalog sha256:{digest(source)}. Do not edit."
     lines = [header, "", "pub struct RendererRegistration {", "    pub status: &'static str,", "    pub reason: &'static str,", "}", "",
              "pub struct ComponentRegistration {", "    pub id: &'static str,", "    pub name: &'static str,", "    pub family: &'static str,", "    pub states: &'static [&'static str],", "    pub leptos: RendererRegistration,", "    pub cmp: RendererRegistration,", "}", "",
@@ -509,7 +625,36 @@ def rust_render(source, tokens):
             lines.append(f"        {density}: {rendered},")
         lines += [f'        alias_of: {"Some(" + json.dumps(target) + ")" if target != role else "None"},', "    },"]
     lines += ["];", ""]
+    if inventory is not None:
+        lines += rust_design_inventory(inventory)
     return "\n".join(lines)
+
+
+def rust_design_inventory(inventory):
+    """Generate preview-only discovery metadata, never public API registrations."""
+    provenance = inventory["source"]
+    values = (("DESIGN_VERSION", provenance["version"]), ("DESIGN_SOURCE_URL", provenance["url"]),
+              ("DESIGN_SOURCE_SHA256", provenance["sha256"]),
+              ("DESIGN_BASELINE_SHA256", inventory["baseline"]["catalog_sha256"]))
+    lines = [f"// Offline design inventory sha256:{digest(inventory)}; registration and qualification remain separate."]
+    for name, value in values:
+        declaration = f"pub const {name}: &str = {json.dumps(value)};"
+        if len(declaration) > 100:
+            lines += [f"pub const {name}: &str =", f"    {json.dumps(value)};"]
+        else:
+            lines.append(declaration)
+    lines += ["", "#[derive(Clone, Copy, Debug, PartialEq, Eq)]", "pub struct DesignSpecimen {"]
+    lines += [f"    pub {key}: &'static str," for key in DESIGN_TEXT_FIELDS]
+    lines += [f"    pub {key}: &'static [&'static str]," for key in DESIGN_LIST_FIELDS]
+    lines += ["}", "", "pub const DESIGN_SPECIMENS: &[DesignSpecimen] = &["]
+    for entry in inventory["specimens"]:
+        lines += ["    DesignSpecimen {"]
+        lines += [f"        {key}: {json.dumps(entry[key], ensure_ascii=False)}," for key in DESIGN_TEXT_FIELDS]
+        lines += ["        " + key + ": &[" + ", ".join(json.dumps(value, ensure_ascii=False) for value in entry[key]) + "],"
+                  for key in DESIGN_LIST_FIELDS]
+        lines += ["    },"]
+    lines += ["];", ""]
+    return lines
 
 
 def kotlin_render(source):
@@ -523,9 +668,11 @@ def kotlin_render(source):
     return "\n".join(lines)
 
 
-def outputs(source, tokens, output_root=ROOT):
+def outputs(source, tokens, output_root=ROOT, inventory=None):
     source, tokens = validate(source), validate_tokens(tokens)
-    return {Path(output_root) / RUST_OUTPUT.relative_to(ROOT): rust_render(source, tokens),
+    if inventory is not None:
+        validate_design_inventory(inventory, source, tokens)
+    return {Path(output_root) / RUST_OUTPUT.relative_to(ROOT): rust_render(source, tokens, inventory),
             Path(output_root) / KOTLIN_OUTPUT.relative_to(ROOT): kotlin_render(source)}
 
 
@@ -538,12 +685,13 @@ def main(argv=None):
     try:
         source = validate(load_source(CATALOG.read_bytes()))
         tokens = validate_tokens(load_source(SOURCE.read_bytes()))
+        inventory = load_design_inventory(source, tokens)
         if args.digests:
             print(json.dumps({"tokens_sha256": digest(tokens),
                               "source_sha256": {renderer: renderer_digest(renderer, args.output_root, source["components"])
                                                 for renderer in sorted(RENDERERS)}}, indent=2))
             return 0
-        expected = outputs(source, tokens, args.output_root)
+        expected = outputs(source, tokens, args.output_root, inventory)
         if args.check:
             failures = check_outputs(expected) + repository_failures(source, tokens, args.output_root)
             if failures:

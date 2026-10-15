@@ -538,3 +538,89 @@ fn layout_recovery_samples_keep_reading_insets_wrapping_and_explicit_announcemen
     assert!(opening_tag(&html, "gallery-recovery-retry").contains("type=\"button\""));
     assert!(opening_tag(&html, "gallery-recovery-notes").contains("type=\"button\""));
 }
+
+#[test]
+fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api() {
+    let specimens = preview::preview_catalog::DESIGN_SPECIMENS;
+    assert_eq!(specimens.len(), 102);
+    let components = preview::preview_catalog::COMPONENTS;
+    assert_eq!(components.len(), 32);
+    assert_eq!(
+        components.iter().map(|api| api.states.len()).sum::<usize>(),
+        198
+    );
+    assert_eq!(
+        specimens
+            .iter()
+            .filter(|specimen| specimen.design_status == "proposed")
+            .count(),
+        70
+    );
+    for component in components {
+        let specimen = specimens
+            .iter()
+            .find(|entry| entry.id == component.id)
+            .expect("baseline specimen");
+        assert_eq!(
+            preview::catalog::specimen_registration(specimen).map(|api| api.id),
+            Some(component.id)
+        );
+    }
+    let proposed = specimens
+        .iter()
+        .find(|entry| entry.id == "mini-player")
+        .unwrap();
+    assert!(preview::catalog::specimen_registration(proposed).is_none());
+    assert!(preview::catalog::design_matches(
+        proposed,
+        "proposed",
+        "all",
+        " MINI-PLAYER "
+    ));
+    assert!(!preview::catalog::design_matches(
+        proposed,
+        "existing",
+        "all",
+        "mini-player"
+    ));
+    assert!(!preview::catalog::design_matches(
+        proposed,
+        "all",
+        "all",
+        "mini-player absent-state"
+    ));
+    assert!(!preview::catalog::design_matches(
+        proposed,
+        "all",
+        "platform-specific",
+        "mini-player"
+    ));
+}
+
+#[test]
+fn v3_workbench_renders_anatomy_states_tokens_and_honest_proposal_limits() {
+    let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
+    for entry in preview::preview_catalog::DESIGN_SPECIMENS {
+        assert!(
+            html.contains(&format!("data-design-specimen=\"{}\"", entry.id)),
+            "missing {}",
+            entry.id
+        );
+    }
+    for text in [
+        "Anatomy",
+        "Consumer dự kiến",
+        "Baseline states được giữ",
+        "State matrix thiết kế",
+        "Runtime Leptos / CMP",
+        "planned · chưa có public API; chưa qualified",
+    ] {
+        assert!(html.contains(text), "missing {text}");
+    }
+    assert!(html.contains(preview::preview_catalog::DESIGN_SOURCE_SHA256));
+    assert!(html.contains("id=\"gallery-large-text\""));
+    assert!(html.contains("id=\"gallery-reduced-motion\""));
+    assert!(html.contains("data-text-scale=\"100\""));
+    assert!(html.contains("data-motion=\"system\""));
+    assert!(!html.contains("role=\"tablist\""));
+}
