@@ -1,0 +1,31 @@
+{
+  "component_id": "button",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex \u2014 bounded JVM Compose review, 15 October 2026",
+  "reference": "Opened Mobile v2 request/received/plans references and current JVM light/dark/large-text/focus/logo specimens; v3 HTML source and accepted token delta reviewed. Scope and residual risk: docs/evidence/issue141-cmp-preview.md.",
+  "tokens_sha256": "25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741",
+  "source_sha256": "4dd8dab014506c8fa2e0ad4c619d8b1759af472b56e3e88a6d80921eee7cbe17",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 PATH=/Users/manh.pd1/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin:$PATH cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/issue141-cmp-preview.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 PATH=/Users/manh.pd1/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin:$PATH cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/issue141-cmp-preview.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 PATH=/Users/manh.pd1/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin:$PATH cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/issue141-cmp-preview.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "RUSTUP_TOOLCHAIN=1.98.1 PATH=/Users/manh.pd1/.gradle/wrapper/dists/gradle-8.14.3-bin/cv11ve7ro1n3o1j4so8xd9n66/gradle-8.14.3/bin:$PATH cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/issue141-cmp-preview.md"
+    }
+  }
+}

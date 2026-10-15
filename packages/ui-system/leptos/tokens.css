@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.5.0 sha256:e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c
+/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741
    by python3 scripts/ui_tokens.py. Do not edit. */
 :where(.cantos-ui) {
   color-scheme: light;
@@ -71,7 +71,7 @@
   --cantos-size-avatar-small: 2rem;
   --cantos-size-back-control: 3rem;
   --cantos-size-border: 0.0625rem;
-  --cantos-size-control: 2.75rem;
+  --cantos-size-control: 3rem;
   --cantos-size-focus-offset: 0.25rem;
   --cantos-size-focus-width: 0.1875rem;
   --cantos-size-icon: 1.5rem;
@@ -94,7 +94,7 @@
   --cantos-type-auth-heading-size: 2rem;
   --cantos-type-auth-heading-weight: 400;
   --cantos-type-body-line-height: 1.55;
-  --cantos-type-body-size: 0.875rem;
+  --cantos-type-body-size: 1rem;
   --cantos-type-body-weight: 400;
   --cantos-type-editor-line-height: 1.9;
   --cantos-type-editor-size: 0.875rem;
@@ -244,7 +244,7 @@
 }
 
 .cantos-ui[data-density="compact"] {
-  --cantos-size-control: 2.75rem;
+  --cantos-size-control: 3rem;
   --cantos-space-control-inline: 0.75rem;
 }
 

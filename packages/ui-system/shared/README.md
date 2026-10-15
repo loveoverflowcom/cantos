@@ -1,4 +1,11 @@
-# Shared semantic contract v0.5.0
+# Shared semantic contract v0.6.0
+
+v0.6.0 reconciles [design v3](../../../docs/design/ui-token-v3-reconciliation.md): UI body is
+16 logical units and the regular minimum control is 48 at both densities; compact/comfortable
+inline padding remains 12/16. Existing roles, editor typography, palettes, motion and the
+independent Web/CMP shape scales are preserved. The proposal's duplicate and future geometry
+roles are deferred with reasons; its older baseline never removes v0.5.0 additions. Generated
+CSS/Rust/Kotlin and both renderer consumers use this single source.
 
 v0.5.0 adds scoped auth/Membership type and symbol roles from the Mobile v2 reference:
 `type.authHeading` (32 / 1.22 / 400), `type.membershipTitle` (28 / 1.4 / 400),
@@ -47,11 +54,14 @@ The authenticated design package reviewed on 2026-10-11 supplies identical Laven
 for both products, Noto Sans UI / Noto Serif editorial names, 14/1.55 Web body, 14/1.9 editor,
 44 logical-unit Web targets, 48 for comfortable/touch intent, 140ms feedback and proposed 260ms
 navigation. Paper, lavender and muted gold preserve the quiet historical/fantasy character.
+These are the original reference values; current body/target values follow the v3 reconciliation above.
 The Theatre CMP mock now supplies the exact Noto Sans/Serif resource families (SIL OFL 1.1)
 and user-provided reference paintings; its [asset record](../../../apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/files/provenance.json)
-keeps hashes and the outstanding production artwork-rights boundary. Other hosts, including Web,
-retain local/system fallbacks. Shared theme callers may inject licensed font families without
-changing platform font scale. The shared package itself contains no font or painting files; official logo vectors are local path-outlined assets with their own [provenance](assets/cantos-logo-kit-v2/README.md).
+keeps hashes and the outstanding production artwork-rights boundary. The Leptos component preview
+also loads the [same local licensed font bytes](assets/noto-fonts/README.md); product Web hosts
+retain their existing local/system fallbacks. Shared theme callers may inject licensed font families
+without changing platform font scale. The shared package contains that attributed font bundle and
+no paintings; official logo vectors are local path-outlined assets with their own [provenance](assets/cantos-logo-kit-v2/README.md).
 
 v0.2.1 adds `color.playerSurface`, `color.onPlayerSurface` and `color.playerAccent` from the
 Mobile v2 handoff. Both themes deliberately retain the separate dark player surface and pale

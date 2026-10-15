@@ -1,10 +1,12 @@
 # Cantos UI System
 
 Status: product requirements plus an implemented [UI foundation](../../packages/ui-system/README.md).
-The live Leptos Studio save/read surface consumes [canonical v0.2.1 tokens](../../packages/ui-system/shared/tokens.json), with earlier
+The live Leptos Studio save/read surface consumes [canonical tokens](../../packages/ui-system/shared/tokens.json), with earlier
 [bounded browser observations](../evidence/script-revision-persistence.md#browser-observations).
 The [structured Studio editor](../evidence/studio-script-editor.md) now consumes those same roles;
-Theatre/CMP journeys and exact reference fidelity remain unimplemented.
+Theatre Web has a scoped live account/Library boundary and an explicitly isolated listening mock;
+Theatre CMP has an isolated mock and shared component previews. Production listening, native
+audio and exact reference fidelity retain their separately recorded acceptance gates.
 
 ## Direction and reference
 
@@ -43,7 +45,7 @@ Keep a versioned token source with platform mappings. Leptos consumes CSS variab
 | Motion | `motion.feedback`, `motion.navigation`, `motion.emphasis`, `motion.reduced` | Specify intent; choose supported framework mechanisms during implementation and verify each target. |
 
 Dynamic system colors must not silently replace Cantos's identity. Shared values belong in the
-canonical source, with generated CSS/Rust, contrast checks and a separate deferred CMP mapping.
+canonical source, with generated CSS/Rust/Kotlin, contrast checks and native theme mappings.
 Studio and Theatre vary density/layout, not palettes. The [foundation evidence](../evidence/ui-system-foundation.md)
 separates source/compile checks from pending runtime appearance, motion and interaction review.
 
@@ -103,12 +105,36 @@ never qualify a renderer. Consumer issues #128–#131 keep their own product req
 
 ## Components and interaction states
 
-New shared components follow the user-requested
+Component work begins with lookup in the public APIs,
+[registered preview catalog](../../packages/ui-system/shared/preview-catalog.json) and
+[v3 design inventory](../../packages/ui-system/shared/design-inventory-v3.json). Record the
+component ID/API, variant and state used by the intended consumer. Reuse a fitting contract or
+extend its existing owner when only a bounded variant/state is missing. If no kind fits, declare
+its stable ID, anatomy, typed states/intents, state matrix, consumer and classification (shared
+primitive, composition, app-owned or platform-specific), and render a preview specimen before
+product markup/import. Shared controls must not be copied into a feature to bypass admission.
+
+New or extended shared components follow the user-requested
 [two-preview admission contract](../../packages/ui-system/shared/README.md#preview-registration-and-adoption):
 declare actual examples and concrete state scenarios in both package-local Leptos and CMP apps,
 inspect named canonical tokens and the design reference, and pass the required renderer checks
 before first real application use. Registration/compilation alone is insufficient. Unsupported
 or unrun targets remain explicit and unqualified; current import compatibility never grants new approval.
+
+Design status (inherited/proposed), source registration and runtime qualification are separate.
+Future specimens can carry side-effect-free fixtures and an explicit planned/unsupported reason;
+they do not create public APIs, backend data or renderer approval. Studio/Admin Web compositions
+remain with their Web owner; they do not authorize Studio Mobile. The
+[component-first workflow](../../.agents/skills/cantos-ui-design/references/preview-catalog.md)
+owns the working sequence and evidence report.
+
+Theme choice has an explicit Light/Dark/System scope. The composition root/context or suitable
+value injection supplies theme, density, locale, font scale, motion/gesture policy and immutable
+projections/intents. Components do not read OS settings or construct services, ports, mock owners,
+network, audio or auth effects. Theme and nested-theme changes preserve entered values and focus.
+Visual values consume canonical paired semantic roles and platform mappings. Local geometry
+uses a named constant with units, scope and reason; no app-local palette, scattered magic
+spacing/stroke or `transition: all`. Preserve distinct Web and CMP shape scales and platform units.
 
 Document anatomy, variants, and states once for buttons, icon buttons, filter chips, navigation, text fields, episode rows, player controls, job status, QC findings, and confirmation dialogs. Cover idle, hover where relevant, focused, pressed, selected, disabled with reason, loading, error, empty, and success. Disabled actions need a discoverable reason when permissions, QC, or missing inputs block progress.
 
@@ -126,10 +152,16 @@ These are project targets to verify, not claims of compliance:
 - Screen-reader labels include action, item, and state. Playback controls remain operable without relying on cover art or waveform visuals.
 - Reduced-motion settings remove unnecessary travel, overshoot, and continuous animation while preserving immediate state feedback. No animation delays an action.
 - Motion stays interruptible and does not move a target away during interaction. Choose and profile framework-supported animation behavior; a still image cannot demonstrate smoothness.
+- Gestures share typed intents with button/keyboard alternatives and state cancellation/reversal
+  and focus behavior explicitly. Dispatch never waits for animation completion.
 
 ## Future validation matrix
 
 Record the viewport/device, theme, text scale, input method, build revision, observed result, and evidence when each check is run.
+Component work also records ID/variant, scenario ID, token/catalog digests, font readiness,
+locale, density/DPR and opened artifacts. A source assertion or design export is not a runtime
+interaction/motion observation. Offline v3 PNGs describe design intent; pixel comparisons need
+a reference rendered from the source HTML with matching viewport/state and recorded provenance.
 
 | Surface | Representative conditions | Required evidence |
 | --- | --- | --- |

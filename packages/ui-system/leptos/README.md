@@ -86,7 +86,9 @@ Edit [`foundation.css.in`](foundation.css.in) and run `python3 scripts/ui_tokens
 are committed and must not be hand-edited. All selectors are scoped by `.cantos-ui`; semantic values
 come from the [canonical source](../shared/tokens.json). No per-component dark palette or remote
 font/artwork download is required. Official Logo Kit SVG documents are bundled locally and their
-letterforms are paths; UI system/local font fallbacks remain explicit. Layout measures
+letterforms are paths. The preview loads [licensed local Noto fonts](../shared/assets/noto-fonts/README.md)
+without host-installed font lookup; product hosts retain explicit font-delivery ownership.
+Font readiness before capture is separate from bundle/source checks. Layout measures
 (75ch/76rem and dialog maximum) are
 renderer geometry; spacing, colors, type, targets, density, focus and the pill shape use shared tokens.
 Regular corner radii use the Web-only `--cantos-web-shape-{control,reading,container,overlay,panel}`

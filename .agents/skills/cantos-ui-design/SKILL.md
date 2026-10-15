@@ -50,7 +50,8 @@ listener surface for the technical name before calling UI work done.
 
 ## Repository reality
 
-Studio Web, the isolated Theatre Web/CMP mocks and `packages/ui-system` Web/CMP previews exist.
+Studio Web, Theatre Web's scoped live account/Library boundary and isolated Web/CMP listening
+mocks, and `packages/ui-system` Web/CMP previews exist.
 The authenticated design handoff supplies palette/font roles and official outlined icons.
 Native listening remains deferred; existing JVM/Studio host captures establish no device
 acceptance. Optional [local PNG comparison](references/visual-review.md#10-reference-pairing-and-local-comparison)
@@ -115,33 +116,27 @@ surfaces, one primary action hue per screen, status never by color alone, dark t
 rather than inverted, and dynamic color that never silently replaces the identity. Depth,
 M3 Expressive specifics and the candidate-component table: [`material3-expressive.md`](references/material3-expressive.md).
 
-Token *names* map one semantic role to each renderer; values stay open. Illustrative only:
-
-| Semantic role (doc-owned) | Leptos Web (proposed) | CMP (proposed) |
-|---|---|---|
-| `color.primary` / `color.onPrimary` | `--cantos-color-primary` / `--cantos-color-on-primary` | generated `ColorScheme.primary` / `onPrimary` |
-| `color.surfaceContainer` | `--cantos-color-surface-container` | generated `ColorScheme.surfaceContainer` |
-| `color.success`, `color.warning`, `color.focus` | `--cantos-color-success`, … | `CantosTheme.extendedColors` — M3 `ColorScheme` has no such roles |
-| `type.body` | `--cantos-type-body-size`, `-line-height`, `-weight` | one mapping to a `Typography` style, chosen once |
-| `shape.pill` | `--cantos-shape-pill` | `CantosTheme.shapes.pill` |
-| `motion.feedback` | duration/easing pair or JS spring parameters | spring spec from the motion mapping |
+Semantic names and selected values come from the canonical source, with the current Web/CMP
+mappings in [`tokens.md`](references/tokens.md) and the shared package contract. A proposal
+does not replace those mappings or implement a native spring merely by naming one.
 
 ## Shared UI loop
 
-New shared components must follow [two-renderer preview admission](references/preview-catalog.md):
-declare and test actual samples in both UI-system preview apps, inspect named tokens and design
-fidelity on each renderer, and keep unrun/unsupported components unqualified before real app use.
-Registration/parity/source tests never replace runtime, accessibility and inspected-reference QA.
+Use [component-first lookup and preview admission](references/preview-catalog.md) before product
+markup: find the API/variant/state, reuse or extend its contract, and declare a missing component
+with preview scenarios before product adoption. Shared APIs retain two-renderer admission;
+Web-owned compositions retain their explicit owner. Design status, source registration and
+runtime qualification are independent. Registration/parity/source tests never replace runtime QA.
 
 Every UI change follows this order on either renderer. Skipping a step is a decision you state.
 
 ```text
 1  name the screen/flow, its surface intensity and its consumers (Web, CMP or both)
 2  keep domain decisions out of UI: the backend or core decides, the UI renders typed facts
-3  implement through semantic tokens and shared component contracts (renderer skill for mechanics)
-4  localize every visible and accessibility string, in every required locale
-5  add the cheapest deterministic test for the changed behavior (presentation mapping, state matrix)
-6  render the production surface, drive the affected states, capture and open the images
+3  look up API + component ID + variant/state; reuse, extend, or declare and preview a missing kind
+4  implement/localize the owned preview through semantic roles and injected facts/intents
+5  test concrete state/theme/motion scenarios; render, drive, capture and open the affected previews
+6  complete admission before product import; then drive and inspect the production surface
 7  fix at the responsible owner and recheck the same scenario, unchanged
 8  format and lint with each touched toolchain
 9  report with the completion report below
@@ -155,16 +150,20 @@ Every UI change follows this order on either renderer. Skipping a step is a deci
    ([foundation § 4](../cantos-engineering/SKILL.md#4-functional-core-imperative-shell)). The UI
    receives values such as `Unavailable(BlockingQcFindings)` and maps them through a pure,
    exhaustive presentation function. Element state (open menu, focus, scroll) stays local.
-3. **Implement through contracts.** Consume semantic roles, never literals or reference tones;
-   reuse a component whose contract fits; never hand-edit generated token output.
-4. **Localize.** Semantic keys, parameters instead of concatenation, plural rules in resources,
-   mapped errors instead of raw provider or internal text; accessibility labels included.
-5. **Test cheaply.** A table test over every variant of the presentation mapping, then the
-   renderer's DOM or semantics test for names and states; see [Evidence selection](#evidence-selection).
-6. **Render and inspect.** Realistic Vietnamese content (`Người dẫn chuyện`,
+3. **Lookup before markup.** Record the catalog ID/API, variant and states that fit the consumer.
+   If one is missing, follow the [declaration/admission sequence](references/preview-catalog.md);
+   do not hide a reusable control or palette inside a feature to bypass it.
+4. **Implement the owned preview.** Consume semantic roles and root-injected preferences, immutable
+   projections and intents; never hand-edit generated output. Localize visible/accessibility copy
+   with semantic keys, parameters and resources; map errors instead of exposing internals.
+5. **Test and inspect previews.** Use the cheapest presentation-mapping/DOM/semantics regression,
+   then drive named state/theme/motion scenarios with realistic Vietnamese content (`Người dẫn chuyện`,
    `Ngày mai, mình có diễn tiếp không?`, `Ánh đèn cuối sân khấu`), the changed states, the
    viewports, themes and text scales the change can affect; open each image and record findings
    with [`visual-review.md`](references/visual-review.md).
+6. **Admit, then adopt.** Preserve the required renderer records and freshness checks; unsupported
+   or unrun evidence leaves shared APIs unqualified. Product use needs its own flow observations;
+   a gallery pass never proves an application flow.
 7. **Recheck the same scenario.** Same fixture, viewport, theme, locale, text scale and state; only
    the source differs. A scenario changed between runs proves nothing about the fix.
 8. **Format.** Each touched toolchain's formatter in check mode, then lint and tests.
@@ -180,6 +179,7 @@ implemented runtime gates.
 |---|---|---|---|---|
 | **UI-INTENT** write intent answers and intensity before styling | equal-weight chrome; decoration mistaken for hierarchy | full player: "goal keep listening; primary play/pause; secondary speed, timer, bookmark, download; Medium-High" / adding a gradient and rounder cards "to look expressive" | orientation test on inspected captures · manual | copy-only change with no layout effect |
 | **UI-CORE** the UI renders typed facts and never decides domain state | Web and CMP diverge; a UI-only gate is bypassable | API returns `Unavailable(StaleApproval { approved, current })` / Leptos comparing revision numbers to decide staleness | review for duplicated rules; mapping table test · manual | presentation-only state at its lifetime |
+| **UI-COMPONENT** lookup → reuse/extend → missing declaration + preview → state/theme/motion evidence → admission → product adoption | feature-local controls evade shared contracts or unqualified prototypes reach apps | record `button` + `AuthPrimary` and host-driven states / copy a filled button into a feature | [preview admission](references/preview-catalog.md), import gate + reviewed scenario evidence | app-owned compositions retain an explicit owner; no shared-admission exemption |
 | **UI-TOKEN** visual values come from one versioned semantic source; generated output is never hand-edited; a role change maps both consumers | Web/CMP palette drift; theme change misses literals | `var(--cantos-color-primary)` / a hex literal in a component; patching generated Kotlin | drift test and literal scan (proposed) · manual | renderer-local geometry with a stated reason |
 | **UI-STRING** every visible and accessibility string is a localized resource with a semantic key | untranslatable UI; English fallbacks; leaked provider errors | `studio.publish.action` in vi-VN and en / `"Publish"` literal; `error.to_string()` shown | literal scan, key and placeholder parity (proposed) · manual | logs and developer-only diagnostics |
 | **UI-STATE** each component has a state matrix; disabled carries a reason; status is never color alone | dead-end controls; QC blocks invisible to color-blind users | icon + text + tone for `Blocking`, reason beside a disabled Publish / grey button, red dot only | matrix tests and per-state captures · manual | — |
@@ -222,6 +222,7 @@ Command:                         <exact, reproducible>
 Provenance:                      source revision, fixtures, live vs mocked, artifacts
 Edge classes covered:
 Screen(s) / flow / consumers:    e.g. Studio script editor (Web); Theatre full player (Web, CMP)
+Component lookup / admission:    IDs/APIs/variants reused or extended; missing-kind rationale; scenario IDs and evidence; qualification or blocker
 Surface intensity:               <intensity row> — checked on <which captures>
 Renderer / target:               Leptos Web <browser, version> | CMP Android <device, API> | CMP iOS <device, OS>
 Tokens:                          roles added/changed · source version · Web and CMP mapped? · contrast record

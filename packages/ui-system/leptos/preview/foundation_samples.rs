@@ -7,6 +7,71 @@ use cantos_ui::{
 };
 use leptos::{html, prelude::*};
 
+/// Browser-only observation owned by the preview composition root, never a shared control.
+#[component]
+pub fn FontReadinessSample() -> impl IntoView {
+    let observation = RwSignal::new("NOT_RUN: chưa kiểm tra font trong browser.".to_owned());
+    view! {
+        <Stack gap=Space::Sm>
+            <Button id="gallery-font-check" variant=ButtonVariant::Text on_press=Callback::new(move |_| observation.set(font_observation()))>"Kiểm tra bốn font Noto đã tải"</Button>
+            <output id="gallery-font-readiness" role="status">{move || observation.get()}</output>
+        </Stack>
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn font_observation() -> String {
+    let Some(document) = leptos::web_sys::window().and_then(|window| window.document()) else {
+        return "UNSUPPORTED: browser document không có sẵn.".to_owned();
+    };
+    use leptos::wasm_bindgen::{closure::Closure, JsCast};
+    use std::{cell::RefCell, rc::Rc};
+    use web_sys::{FontFace, FontFaceLoadStatus};
+
+    let observed = Rc::new(RefCell::new(Vec::new()));
+    let collected = Rc::clone(&observed);
+    let callback = Closure::wrap(Box::new(move |face: FontFace| {
+        if let Ok(mut records) = collected.try_borrow_mut() {
+            records.push((
+                face.family().trim_matches('"').to_owned(),
+                face.weight(),
+                face.status(),
+            ));
+        }
+    }) as Box<dyn FnMut(FontFace)>);
+    if document
+        .fonts()
+        .for_each(callback.as_ref().unchecked_ref())
+        .is_err()
+    {
+        return "UNSUPPORTED: không đọc được FontFaceSet.".to_owned();
+    }
+    let Ok(faces) = observed.try_borrow() else {
+        return "UNSUPPORTED: không đọc được font observations.".to_owned();
+    };
+    let mut records = Vec::new();
+    for family in ["Noto Sans", "Noto Serif"] {
+        for weight in ["400", "700"] {
+            let result = match faces
+                .iter()
+                .find(|(name, face_weight, _)| name == family && face_weight == weight)
+            {
+                Some((_, _, FontFaceLoadStatus::Loaded)) => "loaded",
+                Some((_, _, FontFaceLoadStatus::Error)) => "FAIL: font tải lỗi",
+                Some(_) => "NOT_RUN: chưa tải xong",
+                None => "UNSUPPORTED: chưa khai báo face",
+            };
+            records.push(format!("{family} {weight}: {result}"));
+        }
+    }
+    records.join(" · ")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn font_observation() -> String {
+    "NOT_RUN: font readiness cần browser thật.".to_owned()
+}
+
 #[component]
 pub fn NestedThemeSample() -> impl IntoView {
     let dark = RwSignal::new(true);

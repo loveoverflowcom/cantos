@@ -8,8 +8,9 @@
 Requirements are owned by the [UI system](../../../../docs/design/ui-system.md#semantic-tokens)
 (Motion row), [§ Accessibility and motion acceptance](../../../../docs/design/ui-system.md#accessibility-and-motion-acceptance)
 and the Motion row of the [validation matrix](../../../../docs/design/ui-system.md#future-validation-matrix).
-Curves, durations and spring constants are open; choose and profile framework-supported
-mechanisms during implementation.
+The canonical source supplies current duration/effects mappings; a proposed spring or gesture
+mechanism needs a concrete consumer and target observations. A duration token alone does not
+implement a spring or qualify motion.
 
 ## 1. Intent tokens
 
@@ -71,6 +72,13 @@ velocity, such as a dragged player sheet. Mechanics belong to the renderer skill
 CMP has no common reduced-motion API to rely on: expose a `MotionPreference` from a platform
 adapter at the composition root and pass it down as a value. Never read the OS setting inside a
 component.
+
+The shared CMP theme already accepts a `reducedMotion` preference; its host owns how that value
+is resolved. On Web, CSS may resolve media preferences at the scoped styling boundary; resolve
+any script-driven gesture policy once at the host and inject values/intents. Do not add a DI
+framework or component-owned service merely to pass preferences. A gesture has the same typed
+intent as its button/keyboard alternative, with explicit cancellation, reversal, focus and input
+semantics; no animation-end callback controls intent delivery.
 
 | Remove | Keep |
 |---|---|
@@ -144,6 +152,10 @@ hand-maintaining two tables.
 ## 6. Evidence
 
 A still image cannot demonstrate smoothness, interruption or reduced motion. Split the claim:
+
+Name the component ID/variant and scenario ID in the admission/PR evidence. Record the same
+fixture, theme, font readiness/scale, viewport/density/DPR, preference and target for full/reduced
+runs. Preview controls and static values are useful diagnostics, not motion observations.
 
 | Part of the claim | Evidence | Level |
 |---|---|---|

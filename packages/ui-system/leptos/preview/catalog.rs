@@ -1,6 +1,8 @@
 //! Pure preview discovery over the generated shared registrations.
 
-use super::preview_catalog::{ComponentRegistration, TokenRegistration, COMPONENTS};
+use super::preview_catalog::{
+    ComponentRegistration, DesignSpecimen, TokenRegistration, COMPONENTS,
+};
 use cantos_ui::IconName;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,4 +128,33 @@ pub fn token_matches(token: &TokenRegistration, query: &str) -> bool {
             token.alias_of.unwrap_or_default()
         ),
     )
+}
+
+/// Design discovery is independent of public API registration and runtime admission.
+pub fn design_matches(specimen: &DesignSpecimen, status: &str, scope: &str, query: &str) -> bool {
+    (status == "all" || specimen.design_status == status)
+        && (scope == "all" || specimen.scope == scope)
+        && words_match(
+            query,
+            &format!(
+                "{} {} {} {} {} {} {} {} {} {} {}",
+                specimen.id,
+                specimen.name,
+                specimen.family,
+                specimen.owner,
+                specimen.consumer,
+                specimen.description,
+                specimen.states.join(" "),
+                specimen.anatomy.join(" "),
+                specimen.token_roles.join(" "),
+                specimen.component_ids.join(" "),
+                specimen.scope,
+            ),
+        )
+}
+
+pub fn specimen_registration(specimen: &DesignSpecimen) -> Option<&'static ComponentRegistration> {
+    COMPONENTS
+        .iter()
+        .find(|component| component.id == specimen.id)
 }

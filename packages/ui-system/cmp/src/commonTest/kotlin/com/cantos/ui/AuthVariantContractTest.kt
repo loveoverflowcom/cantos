@@ -36,7 +36,7 @@ class AuthVariantContractTest {
             assertEquals(56.0, CantosTokens.number("size.authField", density))
             assertEquals(48.0, CantosTokens.number("size.backControl", density))
         }
-        assertEquals(44.0, CantosTokens.number("size.control", "compact"))
+        assertEquals(48.0, CantosTokens.number("size.control", "compact"))
         assertEquals(48.0, CantosTokens.number("size.control", "comfortable"))
         assertEquals(8.0, CantosTokens.number("shape.control"))
         assertEquals(16.0, CantosTokens.number("shape.container"))

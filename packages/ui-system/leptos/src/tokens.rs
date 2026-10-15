@@ -1,7 +1,7 @@
-// Generated from Cantos UI tokens v0.5.0 sha256:e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c
+// Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741
 // by python3 scripts/ui_tokens.py. Do not edit.
 
-pub const VERSION: &str = "0.5.0";
+pub const VERSION: &str = "0.6.0";
 
 /// Canonical roles and migration aliases from the shared source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -543,7 +543,7 @@ impl Token {
             Self::SizeAvatarSmall => "2rem",
             Self::SizeBackControl => "3rem",
             Self::SizeBorder => "0.0625rem",
-            Self::SizeControl => "2.75rem",
+            Self::SizeControl => "3rem",
             Self::SizeFocusOffset => "0.25rem",
             Self::SizeFocusWidth => "0.1875rem",
             Self::SizeIcon => "1.5rem",
@@ -566,7 +566,7 @@ impl Token {
             Self::TypeAuthHeadingSize => "2rem",
             Self::TypeAuthHeadingWeight => "400",
             Self::TypeBodyLineHeight => "1.55",
-            Self::TypeBodySize => "0.875rem",
+            Self::TypeBodySize => "1rem",
             Self::TypeBodyWeight => "400",
             Self::TypeEditorLineHeight => "1.9",
             Self::TypeEditorSize => "0.875rem",

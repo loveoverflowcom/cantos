@@ -26,7 +26,7 @@ OUTPUTS = {
     "foundation": ROOT / "packages/ui-system/leptos/foundation.css",
     "kotlin": ROOT / "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/generated/CantosTokens.kt",
 }
-VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0")
+VERSIONS = ("0.2.0", "0.2.1", "0.2.2", "0.3.0", "0.4.0", "0.5.0", "0.6.0")
 TYPES = {
     "color", "dimension", "number", "fontFamily", "fontWeight", "duration",
     "cubicBezier", "shadow",

@@ -1,0 +1,36 @@
+{
+  "source": "https://drive.google.com/file/d/157jbpHUTKZ-tDzNfXD878nvnF4thWmM4/view",
+  "source_package_sha256": "bf55c2651c3db82fb1b7d07a44658c930d27175b0ebadc083f58dff865871fc9",
+  "upstream": "https://github.com/notofonts/latin-greek-cyrillic",
+  "version": "2.015",
+  "copyright": "Copyright 2022 The Noto Project Authors",
+  "license": "SIL-OFL-1.1",
+  "license_sha256": "e2e177a32561584d4fc13aaa3cd8e53758a12910f013fe9ca125419111722029",
+  "extraction": "Unmodified existing Theatre CMP reference font bytes; no subsetting, conversion or local host lookup.",
+  "files": {
+    "noto_sans_regular.ttf": {
+      "family": "Noto Sans",
+      "weight": 400,
+      "sha256": "f5f552c8c5edb61fe6efb824baf4d4de47b1a8689ab4925ff43f7bd6a4ebece5",
+      "source_path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/font/noto_sans_regular.ttf"
+    },
+    "noto_sans_bold.ttf": {
+      "family": "Noto Sans",
+      "weight": 700,
+      "sha256": "3a08a47daa00cade516425c15c57615aef2fd418ec9811a7b9f465088f92cc05",
+      "source_path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/font/noto_sans_bold.ttf"
+    },
+    "noto_serif_regular.ttf": {
+      "family": "Noto Serif",
+      "weight": 400,
+      "sha256": "19e72cd8d595fae5bd74a5206f5d938512e1183d4fed7abb1ec1be1d7efa5f88",
+      "source_path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/font/noto_serif_regular.ttf"
+    },
+    "noto_serif_bold.ttf": {
+      "family": "Noto Serif",
+      "weight": 700,
+      "sha256": "96656aa5cec8f1d6fd0e804c1fad397e1a1cfa082e6642124e0bda68cd8363ce",
+      "source_path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/font/noto_serif_bold.ttf"
+    }
+  }
+}

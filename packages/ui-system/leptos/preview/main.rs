@@ -15,6 +15,7 @@ const PREVIEW_AVATAR_IMAGE: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.
 
 pub mod auth_samples;
 pub mod catalog;
+pub mod design_samples;
 mod discovery;
 pub mod foundation_samples;
 pub mod interaction_samples;
@@ -24,8 +25,11 @@ pub mod preview_catalog;
 pub mod token_sample;
 
 use auth_samples::{AuthActionSamples, AuthFieldSamples, AuthSurfaceSamples, BackButtonSamples};
+use design_samples::{DesignInventory, PrototypeCompositions};
 use discovery::{ComponentCatalog, FamilyNavigation, TokenCatalog};
-use foundation_samples::{ComposedButtonSample, FieldFoundationSamples, NestedThemeSample};
+use foundation_samples::{
+    ComposedButtonSample, FieldFoundationSamples, FontReadinessSample, NestedThemeSample,
+};
 use interaction_samples::{LayoutFeedbackContractSamples, SelectionContractSamples};
 
 fn name(text: &str) -> AccessibleName {
@@ -49,6 +53,9 @@ pub fn Gallery(
 ) -> impl IntoView {
     let theme = RwSignal::new(Theme::Light);
     let density = RwSignal::new(Density::Compact);
+    let large_text = RwSignal::new(false);
+    let reduced_motion = RwSignal::new(false);
+    let token_query = RwSignal::new(String::new());
     let action_mode = RwSignal::new("enabled".to_owned());
     let field_mode = RwSignal::new("editable".to_owned());
     let show_errors = RwSignal::new(false);
@@ -113,16 +120,22 @@ pub fn Gallery(
 
     view! {
         <UiRoot theme=theme density=density>
-            <main class="cui-preview" lang="vi-VN" id="gallery-main">
+            <main class="cui-preview" lang="vi-VN" id="gallery-main"
+                data-text-scale=move || if large_text.get() { "200" } else { "100" }
+                data-motion=move || if reduced_motion.get() { "reduced" } else { "system" }>
                 <Container width=ContainerWidth::Wide class="cui-gallery-page">
                     <Stack gap=Space::Lg>
                         <header class="cui-gallery-header">
                             <p class="cui-gallery-eyebrow">"Cantos · UI system · Leptos"</p>
                             <h1 class="cui-preview-title">"Phòng mẫu component"</h1>
                             <p>"Một nơi thử trạng thái, nội dung Việt dài và thao tác bàn phím. Mọi thay đổi chỉ nằm trong bản mẫu đang mở."</p>
+                            <nav class="cui-gallery-index" aria-label="Các vùng phòng mẫu">
+                                <a href="#gallery-settings">"Hiển thị"</a>
+                                <a href="#gallery-design">"Design v3"</a>
+                                <a href="#gallery-catalog">"API hiện có"</a>
+                                <a href="#gallery-tokens">"Tokens"</a>
+                            </nav>
                         </header>
-
-                        <ComponentCatalog query=catalog_query family=catalog_family current_anchor=current_anchor/>
 
                         <Surface tone=SurfaceTone::Container>
                             <section id="gallery-settings" data-sample-family="foundation" aria-labelledby="gallery-settings-heading">
@@ -146,11 +159,33 @@ pub fn Gallery(
                                             checked=show_errors on_change=Callback::new(move |value| show_errors.set(value))
                                             help=Some("Lỗi được liên kết với các trường; không tự xác thực dữ liệu nhập.".to_owned())/>
                                     </Grid>
-                                    <p class="cui-gallery-note">"Font theo handoff: Noto Sans / Noto Serif khi có trên máy; dùng font hệ thống dự phòng. Bản mẫu không tải font, artwork hoặc âm thanh."</p>
+                                    <Grid columns=GridColumns::Two>
+                                        <Switch id="gallery-large-text" label="Chữ 200%" checked=large_text
+                                            on_change=Callback::new(move |next| large_text.set(next))
+                                            help=Some("Phóng chữ qua composition root; bố cục xuống cột và giữ nguyên dữ liệu nhập.".to_owned())/>
+                                        <Switch id="gallery-reduced-motion" label="Giảm chuyển động minh họa" checked=reduced_motion
+                                            on_change=Callback::new(move |next| reduced_motion.set(next))
+                                            help=Some("Tắt travel và lặp không thiết yếu; tắt tùy chọn để theo policy trình duyệt.".to_owned())/>
+                                    </Grid>
+                                    <details class="cui-foundation-details">
+                                    <summary>"Font tiếng Việt và theme lồng"</summary>
+                                    <p class="cui-gallery-note">"Locale vi-VN · Noto Sans / Noto Serif 400 và 700 được tải từ bundle có license, không phụ thuộc font cài trên máy. Kiểm tra font đã tải trước khi chụp; gallery không tải artwork hoặc âm thanh từ dịch vụ."</p>
+                                    <div id="gallery-font-proof" data-preview-scenario="noto-vietnamese">
+                                        <p>"Noto Sans 400 · Nguyễn Thị Ánh Nguyệt · Ỗ, Ẫ, ặ · "<strong>"Noto Sans 700 · Người dẫn chuyện"</strong></p>
+                                        <p class="cui-font-editorial">"Noto Serif 400 · Lời hẹn dưới chân Thanh Vân Sơn · "<strong>"Noto Serif 700 · Ỗ, Ẫ, ặ"</strong></p>
+                                    </div>
+                                    <FontReadinessSample/>
                                     <NestedThemeSample/>
+                                    </details>
                                 </Stack>
                             </section>
                         </Surface>
+
+                        <DesignInventory token_query=token_query on_sample=Callback::new(move |family| {
+                            catalog_family.set(family); catalog_query.set(String::new()); current_anchor.set(family.to_owned());
+                        })/>
+                        <ComponentCatalog query=catalog_query family=catalog_family current_anchor=current_anchor/>
+                        <PrototypeCompositions/>
 
                         <section id="gallery-navigation" data-sample-family="navigation" data-preview-scenario="overflow keyboard disabled"
                             aria-labelledby="gallery-navigation-heading">
@@ -442,7 +477,7 @@ pub fn Gallery(
                             </Surface>
                         </section>
 
-                        <TokenCatalog/>
+                        <TokenCatalog query=token_query/>
 
                         <footer class="cui-gallery-note">
                             <p>"Gallery chỉ minh họa component Leptos. Kiểm tra render, bàn phím, focus, screen reader và reduced motion là các bước quan sát riêng."</p>
