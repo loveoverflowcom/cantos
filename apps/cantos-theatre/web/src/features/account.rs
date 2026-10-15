@@ -71,6 +71,7 @@ pub(crate) fn Account(ctx: TheatreContext) -> impl IntoView {
                         <ul class="theatre-rows">
                             <LinkRow ctx=ctx route=Route::Settings asset="settings" label=Key::Settings help=Key::SettingsLinkHelp/>
                             <LinkRow ctx=ctx route=Route::Library asset="library_books" label=Key::Library help=Key::LibraryLinkHelp/>
+                            <li><a class="theatre-row theatre-row-link" href="?mode=membership-preview">{move || ctx.text(Key::MembershipPreview)}</a></li>
                         </ul>
                     </section>
                 </div>
@@ -126,6 +127,11 @@ pub(crate) fn LiveAccount(
                 </div>
             </div>
             <div class="theatre-account-content theatre-panel">
+                <section aria-labelledby="membership-unavailable-heading">
+                    <h3 id="membership-unavailable-heading">"Membership"</h3>
+                    <p id="membership-unavailable-reason">{move || messages::text(Key::MembershipUnavailable, locale.get())}</p>
+                    <button type="button" class="theatre-action" disabled aria-describedby="membership-unavailable-reason">{move || messages::text(Key::MembershipRegister, locale.get())}</button>
+                </section>
                 <div class="theatre-actions">
                     <Show when=move || state.get().can_login()>
                         <button type="button" class="theatre-action" on:click=move |_| {

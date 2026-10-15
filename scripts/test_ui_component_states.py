@@ -25,6 +25,52 @@ def ratio(a, b):
 
 
 class ComponentStates(unittest.TestCase):
+    def test_supporting_text_role_is_scoped_to_the_nearest_root_or_surface(self):
+        # Source contract, not a browser/cascade emulator. Every containment boundary
+        # must specify its own inherited role; an ancestor descendant-color override
+        # would reach through a nested Surface or independently themed UiRoot.
+        role = "--cantos-web-supporting-text-color"
+        neutral = "var(--cantos-color-on-surface-variant)"
+        paired = "var(--cantos-color-on-primary-container)"
+        owners = {
+            ":where(.cantos-ui)": neutral,
+            ":where(.cantos-ui) .cui-surface": neutral,
+            ':where(.cantos-ui) .cui-surface[data-tone="primary-container"]': paired,
+        }
+        consumers = {
+            ":where(.cantos-ui) .cui-field-help",
+            ":where(.cantos-ui) .cui-button-reason",
+        }
+        for filename in ("foundation.css.in", "foundation.css"):
+            css = (ROOT / "packages/ui-system/leptos" / filename).read_text()
+            css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+            bindings, colors = {}, {}
+            for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+                selector = selector.strip()
+                declarations = dict(re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", body))
+                if role in declarations:
+                    bindings[selector] = declarations[role].strip()
+                supporting_text = ".cui-field-help" in selector or ".cui-button-reason" in selector
+                if supporting_text and "color" in declarations:
+                    colors[selector] = declarations["color"].strip()
+            with self.subTest(filename=filename):
+                self.assertEqual(bindings, owners)
+                self.assertEqual(colors, {selector: f"var({role})" for selector in consumers})
+
+    def test_nearest_surface_supporting_roles_keep_contrast_in_both_themes(self):
+        source = json.loads((ROOT / "packages/ui-system/shared/tokens.json").read_text())
+        pairs = [("color.onPrimaryContainer", "color.primaryContainer")]
+        pairs += [("color.onSurfaceVariant", paper) for paper in (
+            "color.background", "color.surface", "color.surfaceContainer",
+            "color.surfaceContainerHigh",
+        )]
+        for theme, roles in source["themes"].items():
+            for ink, paper in pairs:
+                with self.subTest(theme=theme, ink=ink, paper=paper):
+                    self.assertGreaterEqual(
+                        ratio(channels(roles[ink]["value"]), channels(roles[paper]["value"])), 4.5
+                    )
+
     def test_studio_validation_controls_keep_unique_ids_across_mounted_panes(self):
         # Both panes remain mounted even while hidden. Inspect the real CSR callsites;
         # native string fixtures of a single action cannot detect this collision.

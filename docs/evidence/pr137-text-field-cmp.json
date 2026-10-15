@@ -1,0 +1,31 @@
+{
+  "component_id": "text-field",
+  "renderer": "cmp",
+  "status": "PASS",
+  "reviewer": "Codex — PR137 design review, 15 October 2026",
+  "reference": "Issue128 Mobile design-v2 request/received/plans PNGs and official local Logo Kit v2; opened in this review",
+  "tokens_sha256": "e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c",
+  "source_sha256": "0c0042214c4c7e8dc0ed8cd77247f5b938ad603fa454ae2677dd78a0f65f4fe7",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview cmp verify",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    }
+  }
+}

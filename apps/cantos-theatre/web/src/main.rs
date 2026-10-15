@@ -10,6 +10,9 @@ fn main() {
         cantos_theatre::live::Mode::Live => {
             leptos::mount::mount_to_body(cantos_theatre::view::LiveBoundary)
         }
+        cantos_theatre::live::Mode::MembershipPreview => {
+            leptos::mount::mount_to_body(cantos_theatre::membership_preview::MembershipPreview)
+        }
     }
 }
 #[cfg(not(target_arch = "wasm32"))]

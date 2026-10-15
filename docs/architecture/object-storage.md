@@ -296,4 +296,4 @@ pull-driven exact-length bodies, not storage scope or listener authority. The
 [transport record](../evidence/playback-range-transport.md) separates its deterministic evidence
 from a test-only Theatre publication fixture. No private target, `PrivateStorage`, Studio
 preview or presigned URL is promoted or exposed to Theatre by sharing this helper. Publication
-composition stays fail-closed until the [delivery decisions and live gates](../decisions/0027-publication-streaming-evidence-gates.md) are accepted.
+composition stays fail-closed until the [delivery decisions and live gates](../decisions/0028-publication-streaming-evidence-gates.md) are accepted.

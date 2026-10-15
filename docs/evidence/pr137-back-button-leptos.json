@@ -1,0 +1,31 @@
+{
+  "component_id": "back-button",
+  "renderer": "leptos",
+  "status": "PASS",
+  "reviewer": "Codex — PR137 design review, 15 October 2026",
+  "reference": "Issue128 Mobile design-v2 request/received/plans PNGs and official local Logo Kit v2; opened in this review",
+  "tokens_sha256": "e6f51e6414e3df3197a4714f735e9dd19e861ed3b718c95dbede29041509bc6c",
+  "source_sha256": "ad57a0d23b1b30db77221033f0c3d11be25937465f273e8a22c89d44a6e376eb",
+  "checks": {
+    "structural": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos verify",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "runtime": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "accessibility": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    },
+    "visual": {
+      "status": "PASS",
+      "command": "cargo xtask ui-preview leptos run",
+      "artifact": "docs/evidence/pr137-cmp-design-v2.md"
+    }
+  }
+}

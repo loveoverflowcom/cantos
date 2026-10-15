@@ -34,6 +34,9 @@ import com.cantos.theatre.demo.DemoTheme
 import com.cantos.theatre.demo.DemoTimer
 import com.cantos.theatre.demo.PlaybackUiStatus
 import com.cantos.theatre.domain.listening.ListeningEvent
+import com.cantos.theatre.domain.membership.MembershipEvent
+import com.cantos.theatre.domain.membership.MembershipScreen
+import com.cantos.theatre.domain.membership.MembershipState
 import com.cantos.theatre.domain.playback.PlaybackEvent
 import com.cantos.theatre.domain.playback.PlaybackIntent
 import com.cantos.theatre.domain.playback.PlaybackState
@@ -41,6 +44,8 @@ import com.cantos.theatre.domain.playback.PlaybackStatus
 import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
 import com.cantos.theatre.features.shell.presentation.CantosDemoPresentation
+import com.cantos.theatre.features.membership.presentation.MembershipPreview
+import com.cantos.theatre.features.membership.presentation.MembershipHeader
 
 /** Root composition: owners outlive every route; query, tab and timer selection stay local. */
 @Composable
@@ -51,6 +56,7 @@ fun CantosDemoApp(
     onThemeChanged: (Boolean) -> Unit = {},
     backHandler: @Composable (Boolean, () -> Unit) -> Unit = { _, _ -> },
     appContainer: AppContainer? = null,
+    membershipPreviewState: MembershipState = MembershipState.unavailable(),
 ) {
     val parentScope = rememberCoroutineScope()
     val container = remember(initialState, appContainer) {
@@ -63,6 +69,8 @@ fun CantosDemoApp(
     var libraryTab by remember(initialState) { mutableStateOf(initialState.libraryTab) }
     // Selection only. It schedules no timer and is never sent to a media engine.
     var timer by remember(initialState) { mutableStateOf(initialState.timer) }
+    // Separate, opt-in preview authority. No native identity/session is projected into it.
+    var membership by remember(initialState, appContainer, membershipPreviewState) { mutableStateOf(membershipPreviewState) }
     val navigation by container.navigation.collectAsState()
     val catalog by container.catalog.state.collectAsState()
     val listening by container.listening.state.collectAsState()
@@ -73,12 +81,24 @@ fun CantosDemoApp(
     )
     val dispatch: (DemoEvent) -> Unit = { event ->
         when (event) {
-            is DemoEvent.Navigate -> container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
-            DemoEvent.Back -> container.navigate(NavigationEvent.Back)
+            is DemoEvent.Navigate -> {
+                if (navigation.route == TheatreRoute.MembershipPreview || event.route == DemoRoute.MembershipPreview) {
+                    membership = membership.reduce(MembershipEvent.OpenIntro).state
+                }
+                container.navigate(NavigationEvent.Navigate(event.route.toTheatreRoute()))
+            }
+            DemoEvent.Back -> if (navigation.route == TheatreRoute.MembershipPreview &&
+                membership.screen != MembershipScreen.Intro && membership.screen != MembershipScreen.Account) {
+                membership = membership.reduce(MembershipEvent.Back).state
+            } else {
+                if (navigation.route == TheatreRoute.MembershipPreview) membership = membership.reduce(MembershipEvent.OpenIntro).state
+                container.navigate(NavigationEvent.Back)
+            }
             DemoEvent.Reset -> {
                 query = ""
                 libraryTab = DemoLibraryTab.Continuing
                 timer = DemoTimer.Off
+                membership = membership.reduce(MembershipEvent.ClearSession).state
                 container.reset()
             }
             is DemoEvent.ResumeEpisode -> if (!container.resumeEpisode(event.id.toEpisodeKey())) {
@@ -117,6 +137,16 @@ fun CantosDemoApp(
     }
     CantosDemoPresentation(
         projection, catalog.lastKnownInventory.toDemoView(), dispatch, modifier, textScale, onThemeChanged, backHandler,
+        membershipContent = {
+            MembershipPreview(membership, projection.locale, { membership = membership.reduce(it).state },
+                onExplore = { dispatch(DemoEvent.Navigate(DemoRoute.Discovery)) })
+        },
+        membershipHeader = {
+            MembershipHeader(projection.locale, projection.theme,
+                onBack = { dispatch(DemoEvent.Back) },
+                onToggleTheme = { dispatch(DemoEvent.SetTheme(if (projection.theme == DemoTheme.Dark) DemoTheme.Light else DemoTheme.Dark)) })
+        },
+        membershipScreen = membership.screen,
     )
 }
 
@@ -142,6 +172,7 @@ fun projectDemoState(
             TheatreRoute.Search -> DemoRoute.Search
             TheatreRoute.Library -> DemoRoute.Library
             TheatreRoute.Account -> DemoRoute.Account
+            TheatreRoute.MembershipPreview -> DemoRoute.MembershipPreview
             TheatreRoute.History -> DemoRoute.History
             TheatreRoute.Settings -> DemoRoute.Settings
             TheatreRoute.Queue -> DemoRoute.Queue

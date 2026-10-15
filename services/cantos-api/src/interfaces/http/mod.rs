@@ -325,12 +325,13 @@ async fn origin_and_cache(State(state): State<AppState>, request: Request, next:
             Err(_) => failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
         }
     };
-    // Binary audio retains the transport's stricter private/no-transform directives. This
-    // still forces no-store on every response, including errors and conditional responses.
-    let cache_control = if response.headers().get(header::CONTENT_TYPE)
-        == Some(&HeaderValue::from_static("audio/ogg"))
+    // Preserve the transport-owned policy, not a MIME heuristic: 304 has no Content-Type,
+    // while conditional rejections and other audio errors carry the surface's JSON body.
+    // Unrecognized/missing policies still cannot make a response cacheable.
+    let cache_control = if response.headers().get(header::CACHE_CONTROL)
+        == Some(&audio_transport::PRIVATE_CACHE_CONTROL)
     {
-        HeaderValue::from_static("private, no-store, no-transform")
+        audio_transport::PRIVATE_CACHE_CONTROL
     } else {
         HeaderValue::from_static("no-store")
     };
@@ -512,7 +513,112 @@ fn storage_error_response(error: StorageError) -> Response {
 mod tests {
     use super::*;
     use crate::contexts::media::read::StorageCapability;
+    use axum::{body::Body, routing::get};
     use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    fn middleware_state() -> AppState {
+        AppState {
+            store: Store::new(
+                "host=127.0.0.1 port=1 user=unused dbname=unused"
+                    .parse()
+                    .unwrap(),
+            )
+            .unwrap(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn outer_middleware_preserves_private_audio_policy_for_non_audio_responses() {
+        // Pool construction does not connect. These routes exercise only HTTP policy,
+        // independently of authentication, storage and PostgreSQL acceptance.
+        let state = middleware_state();
+        for status in [
+            StatusCode::OK,
+            StatusCode::NOT_MODIFIED,
+            StatusCode::BAD_REQUEST,
+            StatusCode::PRECONDITION_FAILED,
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let app = Router::new()
+                .route(
+                    "/api/v1/studio/fixture",
+                    get(move || async move {
+                        let mut response = status.into_response();
+                        if status != StatusCode::NOT_MODIFIED {
+                            response.headers_mut().insert(
+                                header::CONTENT_TYPE,
+                                HeaderValue::from_static(if status == StatusCode::OK {
+                                    "audio/ogg"
+                                } else {
+                                    "application/json"
+                                }),
+                            );
+                        }
+                        audio_transport::private_response(response)
+                    }),
+                )
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    origin_and_cache,
+                ));
+            for method in [axum::http::Method::GET, axum::http::Method::HEAD] {
+                let response = app
+                    .clone()
+                    .oneshot(
+                        Request::builder()
+                            .method(method)
+                            .uri("/api/v1/studio/fixture")
+                            .body(Body::empty())
+                            .unwrap(),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), status);
+                assert_eq!(
+                    response.headers()[header::CACHE_CONTROL],
+                    "private, no-store, no-transform",
+                    "{status}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn outer_middleware_does_not_trust_an_upstream_cacheable_policy() {
+        let state = middleware_state();
+        for policy in [None, Some("public, max-age=3600")] {
+            let app = Router::new()
+                .route(
+                    "/api/v1/studio/fixture",
+                    get(move || async move {
+                        let mut response = StatusCode::OK.into_response();
+                        if let Some(policy) = policy {
+                            response
+                                .headers_mut()
+                                .insert(header::CACHE_CONTROL, HeaderValue::from_static(policy));
+                        }
+                        response
+                    }),
+                )
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    origin_and_cache,
+                ));
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/studio/fixture")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        }
+    }
 
     #[tokio::test]
     async fn private_storage_errors_map_to_safe_existing_api_codes_without_internal_facts() {

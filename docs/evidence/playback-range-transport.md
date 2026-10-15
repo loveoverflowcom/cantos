@@ -37,7 +37,7 @@ acceptance, CDN/CORS, actual HTML audio, Android/iOS native playback, codec/prof
 acceptance, sparse index, mandatory prebuffer, time-bucket grants, offline cache or Protobuf.
 No release produced, existing release/pointer written, provider called, deployment or credentials.
 Normal host `UnavailablePlayback`/`UnavailableDelivery` remains unchanged and fail-closed.
-[ADR 0027](../decisions/0027-publication-streaming-evidence-gates.md) is **proposed**, not accepted.
+[ADR 0028](../decisions/0028-publication-streaming-evidence-gates.md) is **proposed**, not accepted.
 
 ## Claim and oracle ledger
 

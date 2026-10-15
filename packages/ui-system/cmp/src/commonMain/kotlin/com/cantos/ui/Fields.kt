@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField as MaterialTextField
 import androidx.compose.material3.TextFieldColors
@@ -15,6 +16,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -49,13 +51,14 @@ private fun KeyboardActions.guardedBy(state: FieldState): KeyboardActions = Keyb
 )
 
 @Composable
-private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant): Modifier = fillMaxWidth()
+private fun Modifier.fieldSemantics(messages: FieldMessages, variant: TextFieldVariant, label: String): Modifier = fillMaxWidth()
     .then(if (variant == TextFieldVariant.AuthTonal) Modifier.heightIn(min = tokenDp("size.authField")) else Modifier)
     .cantosFocus(if (variant == TextFieldVariant.AuthTonal) "shape.authField" else "shape.field")
     .then(if (variant == TextFieldVariant.AuthTonal && messages.error != null) Modifier.border(
         BorderStroke(tokenDp("size.authOutline"), tokenColor("color.error")), CantosShapes.authField,
     ) else Modifier)
     .semantics {
+        if (variant == TextFieldVariant.AuthTonal) contentDescription = label
         if (messages.description.isNotBlank()) stateDescription = messages.description
         messages.error?.let { error(it) }
     }
@@ -104,6 +107,7 @@ private fun FieldFrame(
     modifier: Modifier,
     variant: TextFieldVariant,
     messages: FieldMessages,
+    label: String,
     content: @Composable (Modifier) -> Unit,
 ) {
     if (variant == TextFieldVariant.Regular) {
@@ -111,6 +115,7 @@ private fun FieldFrame(
     } else {
         val supportGap = tokenDp("size.focusOffset") + tokenDp("size.focusWidth") + tokenDp("space.xs")
         Column(modifier, verticalArrangement = Arrangement.spacedBy(supportGap)) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
             content(Modifier)
             fieldSupportingText(messages)?.invoke()
         }
@@ -136,12 +141,12 @@ private fun ControlledTextField(
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
-    FieldFrame(modifier, variant, messages) { frameModifier ->
+    FieldFrame(modifier, variant, messages, label) { frameModifier ->
         MaterialTextField(
             value = value,
             onValueChange = { if (state.acceptsInput()) onValueChange(it) },
-            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant),
-            label = { Text(label) },
+            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
+            label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,
@@ -176,12 +181,12 @@ private fun ControlledTextField(
 ) {
     require(minLines > 0 && maxLines >= minLines) { "Expected positive ordered line limits" }
     val messages = fieldMessages(state, help, error)
-    FieldFrame(modifier, variant, messages) { frameModifier ->
+    FieldFrame(modifier, variant, messages, label) { frameModifier ->
         MaterialTextField(
             value = value,
             onValueChange = { if (state.acceptsValueChange(value, it)) onValueChange(it) },
-            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant),
-            label = { Text(label) },
+            modifier = frameModifier.then(controlModifier).fieldSemantics(messages, variant, label),
+            label = if (variant == TextFieldVariant.AuthTonal) null else ({ Text(label) }),
             enabled = state.isEnabled(),
             readOnly = state == FieldState.ReadOnly,
             isError = messages.error != null,

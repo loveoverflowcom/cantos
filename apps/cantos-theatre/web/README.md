@@ -51,6 +51,26 @@ sync, disk/account persistence, billing or provider code is integrated. Unsuppor
 with associated reasons. The fake adapter is not browser/native audio integration, and the
 in-memory cold-restore exercise is not reload/session persistence.
 
+## Membership interest preview
+
+Open `?mode=membership-preview` through the existing Web command below, or use the labeled
+Membership preview link in the mock Account screen. This separate diagnostic mounts no player,
+account adapter or network client. The default form explains unavailable submission; the live
+Account surface likewise keeps its Membership action disabled with a visible reason.
+
+The preview controls can explicitly start an empty fixture session. Fill name/email, submit,
+then manually select confirmed receipt, known failure or outcome-unknown timeout. No timer
+creates success. Unknown retry retains the same operation/contact payload and a fresh callback
+fence. Plans are a separate screen; their illustrative monthly/annual structure says **Chưa
+công bố**, with no price, plan selection or payment. Account-registration completion is another
+explicit fixture, independent of Membership submission.
+
+Back uses closed internal destinations and the browser hash history; direct plans entry falls
+back to Account. Reload clears the entire preview. Real identity returns, durable receipts and
+provider signup remain with their owners. See the [preview contract](../../../docs/product/membership-interest.md)
+and [acceptance ledger](../../../docs/evidence/theatre-membership-preview.md); source and test
+declarations do not establish browser or native acceptance.
+
 ## Implemented ownership and dependency direction
 
 | Module | Concrete responsibility |

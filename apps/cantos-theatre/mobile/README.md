@@ -1,5 +1,13 @@
 # Cantos Theatre CMP mock
 
+The [PR137 Membership design follow-up](../../../docs/evidence/pr137-cmp-design-v2.md) composes
+six reviewed shared primitives through scoped v0.5.0 tokens and permanently labeled tonal
+fields. `MembershipPreviews.kt` adds Android layout-renderer specimens around the actual app:
+form and receipt in both themes, unpublished periods in both themes and a narrow 2× form.
+Build them with `cargo xtask theatre-demo android-build`; capture through `cargo xtask
+compose-preview cantos-theatre` only with a ready IDE. JVM image output remains a separate
+renderer and does not establish device, IME, OS Back or screen-reader acceptance.
+
 This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens, an Android
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
 in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
@@ -183,6 +191,29 @@ download Gradle. Physical-device linking/signing and
 distribution are outside this mock. JVM `run` supervises its owned process group, with a
 foreground-launcher PID guard; it is not an Android/iOS run. Production
 `build/run cantos-theatre --mobile` stays `UNSUPPORTED`: native listening adapters are absent.
+
+## Membership interest preview
+
+The mock Account screen has a labeled **Membership · preview** entry. Its default single
+name/email form retains a session-only draft and reports real registration unavailable.
+It creates no account, receipt, entitlement, payment or audio command. Plans are a separate
+screen with unpublished illustrative monthly/annual layouts and no plan selection.
+The native configured identity screen and Android/iOS hosts are unchanged.
+
+The diagnostic desktop host alone can explicitly opt into manual fixture outcomes:
+
+```sh
+CANTOS_MEMBERSHIP_PREVIEW_FIXTURE=1 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
+```
+
+Open Account → Membership preview. Fixture controls can confirm a receipt, fail a request,
+mark its outcome unknown, display account completion, change plan loading/error states or
+clear the private preview session. Nothing completes on a timer. Unknown retry keeps the
+same operation and payload with a fresh callback fence; Back preserves the draft and fences
+pending results. Session clear removes draft/receipt/errors without reusing request IDs.
+The [scope and acceptance record](../../../docs/product/membership-interest.md) separates
+these preview rules from deferred backend, native and visual acceptance. Test/capture
+declarations become evidence only after the supported command executes and captures are opened.
 
 ## Android Studio preview
 

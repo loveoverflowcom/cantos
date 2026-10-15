@@ -135,4 +135,4 @@ fixture. The fixture pins actual arbitrary transport bytes but mocks publication
 authority; it is not playable-media admission, a public storage adapter or live delivery.
 No new endpoint, wire field, signer, provider or runtime switch is introduced. The normal
 PlaybackDelivery/PublicationDelivery composition remains unavailable. Production mode and
-cache security remain [proposed evidence-gated decisions](../../docs/decisions/0027-publication-streaming-evidence-gates.md).
+cache security remain [proposed evidence-gated decisions](../../docs/decisions/0028-publication-streaming-evidence-gates.md).
