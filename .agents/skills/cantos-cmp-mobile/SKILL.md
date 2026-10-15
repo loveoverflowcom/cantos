@@ -143,6 +143,18 @@ Kotlin rules below apply its taxonomy, containment and cancellation policy.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
+- **CMP localization before Composables.** Search existing `DemoCopy.kt`,
+  `AuthCopy.kt`, `MembershipCopy.kt` and `composeResources/values[/en]/strings.xml`
+  before adding a label, accessible name, state or dialog message. Reuse semantic
+  keys; update both languages and focused parity tests, not a new `*Copy` enum
+  or hard-coded `Text("...")`. Splash already uses `stringResource` while
+  other UI uses app `DemoLocale`: treat alignment as an **open gap**, not native
+  runtime evidence. Compare Compose Multiplatform Resources, moko-resources and
+  Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
+  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167).
+  Prefer a single root-owned UI locale and a key-value preference port; keep
+  mock preview state injectable and out of release APK/AAB (related #122).
+  Do not translate creator content or clear playback on locale changes.
 - **Honest evidence.** Cheapest deterministic test in `commonTest` first; OS behavior needs a
   named device, emulator or simulator; a missing environment is *blocked*, never *passed*.
   → [cmp-testing.md](references/cmp-testing.md)
