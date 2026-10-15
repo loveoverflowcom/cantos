@@ -127,6 +127,15 @@ backend sequence above is unchanged.
 
 ## Publication core and next listener boundary
 
+For proposed public genres, attribution and podcast grouping, review the
+[#177 decision matrix](public-metadata-decision-handoff.md) and
+[proposed ADR 0030](../decisions/0030-release-safe-public-metadata.md) as inputs to
+[#157](https://github.com/loveoverflowcom/cantos/issues/157)'s applicable P1 decisions.
+Record accepted source/release/rights/consumer and compatibility semantics before adding
+fields or migrations. Prefer one accepted genre/filter slice over implementing all proposal
+families together; retain existing q/kind/language search, public eligibility and flat chapter
+ordering. This is dependency guidance, not acceptance of P1 or a change to publication order.
+
 [Publication v1](../../packages/contracts/publication-v1.md) implements owner-authored distribution
 clearance, exact approval, all readiness blockers, immutable releases, atomic active pointers and
 minimal withdrawal over the existing candidate/intake path. [Verification](../evidence/publication-core.md)
