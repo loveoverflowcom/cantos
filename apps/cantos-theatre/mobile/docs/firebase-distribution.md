@@ -69,6 +69,10 @@ export CANTOS_FIREBASE_DEMO_CERT_SHA256=0123456789abcdef0123456789abcdef01234567
    ```
 
    With neither notes flag, a small demo-labeled summary of the version and source commit is used.
+   File notes must be a regular UTF-8 file and are limited to 16 KiB. The local reader consumes
+   at most 16 KiB plus one oversize-detection byte, including during `--dry-run`; on Unix it
+   opens nonblocking before rejecting special-file descriptors. Invalid notes stop before tool
+   probes, builds or Firebase calls. Symlinks to regular files remain usable.
 
 The result is a summary table with one row per stage, the run directory, and, on success, the
 Firebase console and tester links. Add `RUSTUP_TOOLCHAIN=1.98.1` as for the other xtask commands
