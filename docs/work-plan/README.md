@@ -64,6 +64,13 @@ separates local and mocked results from real-provider acceptance. It does not co
 deployment/delivery acceptance, #11's publication or #12's listener boundary. Changing the
 write target moves no existing objects.
 
+The [Long Vân follow-up](../evidence/longvan-s3-acceptance.md#offline-harness-hardening-and-live-blocker)
+keeps provider acceptance blocked after an anonymous cache-HIT read exposed a private-ACL
+probe. Offline harness diagnostics and ownership guards do not resolve that deployment
+boundary. The next storage-operator step is to correct and reverify private access after
+signed reads warm the exact URL; full provider acceptance and the three prepared speech
+uploads through Cantos API follow only after that gate. Those audio uploads remain NOT_RUN.
+
 The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
 extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
 retaining the audio envelope and original-target reads. Its additive migration0023 stays

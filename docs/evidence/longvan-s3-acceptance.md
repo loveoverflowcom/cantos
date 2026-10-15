@@ -3,8 +3,9 @@
 Status record for using Long Vân as a **configuration target** of the existing provider-independent
 private storage ([ADR 0022](../decisions/0022-provider-independent-private-storage.md),
 [object storage](../architecture/object-storage.md)). It separates what the repository implements,
-what was observed without credentials, and what is still `NOT_RUN`. No Long Vân credential was
-used to produce this record, and **Long Vân live acceptance has not run**.
+what was observed without credentials, and what is still `NOT_RUN`. The original profile
+record below used no credential. The [operational follow-up](#offline-harness-hardening-and-live-blocker)
+records a later private-access failure separately; **full Long Vân acceptance remains blocked**.
 
 ## Review boundary
 
@@ -14,7 +15,7 @@ Delivers:
   that the production configuration parser accepts (unit-tested) and that declares no
   unaccepted capability beyond the two the active write target requires;
 - an operator-run live-acceptance harness over the **production** S3 adapter, with a redacted
-  ledger and exact-key cleanup, plus a credential-free TLS preflight;
+  ledger and ownership-checked cleanup, plus a credential-free TLS preflight;
 - the observations below, the reconciliation of the supplied integration plan against the code,
   and the deferred-acceptance checklist.
 
@@ -111,7 +112,7 @@ bucket if Long Vân allows it. Never paste credentials into chat, a file or a co
 
 ```sh
 CANTOS_LIVE_S3_ENDPOINT=https://s3-hn1-r1.longvan.net \
-RUSTUP_TOOLCHAIN=1.87.0 TMPDIR=/private/tmp \
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp \
 cargo test -p cantos-api --lib --locked -- --ignored --nocapture live_endpoint_tls_preflight
 ```
 
@@ -125,7 +126,7 @@ export CANTOS_LIVE_S3_ENDPOINT=https://s3-hn1-r1.longvan.net
 export CANTOS_LIVE_S3_REGION='<region confirmed by Long Vân>'
 export CANTOS_LIVE_S3_BUCKET='<private test bucket>'
 export CANTOS_LIVE_S3_ACKNOWLEDGE=write-and-delete-private-probe-objects
-RUSTUP_TOOLCHAIN=1.87.0 TMPDIR=/private/tmp \
+RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp \
 cargo test -p cantos-api --lib --locked -- --ignored --nocapture live_private_bucket_acceptance
 ```
 
@@ -136,9 +137,18 @@ version-pinned bucket (otherwise they report `UNSUPPORTED`; the grant code paths
 but have not been exercised even against the fake provider).
 
 The test refuses to start without every input and the exact acknowledgement, writes only
-random probe objects under the adapter's `private/audio/` prefix, deletes exactly those, and
-prints the ledger without the endpoint, bucket, keys or any signed URL. It exits non-zero on
+random probe objects under the adapter's `private/audio/` prefix, and retains them by default.
+Cleanup additionally requires `CANTOS_LIVE_S3_CONDITIONAL_DELETE_VERIFIED=1`, an operator
+declaration of separately obtained evidence that this provider honors conditional DELETE.
+Do not set it from an assumption or from passing offline tests. The harness does not perform
+a destructive capability-discovery probe. Failed, changed, uncertain and versioned probes are
+retained even with that declaration. The harness
+prints the ledger without credentials, raw headers/bodies, endpoint, bucket or any signed URL.
+Retained probe keys are reported for the operator's private reconciliation record only. It exits non-zero on
 any `FAIL`. Clear the variables afterwards (`unset CANTOS_LIVE_S3_…`).
+
+A zero process exit with required `NOT_RUN`, `REVIEW` or `UNSUPPORTED` rows is not full target
+acceptance. Inspect every required ledger row; the default cleanup hold is deliberate.
 
 ### Acceptance criteria
 
@@ -148,10 +158,10 @@ any `FAIL`. Clear the variables afterwards (`unset CANTOS_LIVE_S3_…`).
 | `conditional_create_enforced` | a second create of the same key with different bytes returns `412` and the original bytes remain | `if_none_match_ignored`: the provider accepts a duplicate create; it **cannot** be the active write target. Not every S3-compatible release honors the header: ask Long Vân |
 | `read_pin_available` | the response carries a usable version ID or a strong ETag | none: reads fail closed and API delivery is unavailable |
 | `range_206_first_middle_final_suffix` | exact `206`, `Content-Length` and `Content-Range` for first, middle, final and suffix ranges | a proxy that drops `Range` returns `200` |
-| `anonymous_object_denied`, `anonymous_listing_denied` | `401/403` | `200` means public data: stop and fix the bucket policy; `404` is `REVIEW` |
+| `anonymous_object_denied`, `anonymous_listing_denied` | `401/403` | `200` means exposure: stop and investigate policy, authorization and any response cache; owner-only ACL alone does not establish privacy; `404` is `REVIEW` |
 | `size_ladder_up_to_envelope` | 1 MiB + 1 byte and 8 MiB (and 32 MiB when enabled) store and verify | `http_413…`: the gateway body limit (nginx-family defaults to 1 MiB) is below the 32 MiB envelope |
 | `presigned_*` | version-pinned grant serves `206`, unsigned is denied, a fresh request after expiry is denied | `no_usable_version_id` is `UNSUPPORTED`: delivery stays on the protected API stream |
-| `cleanup_current_object` | all probe objects deleted and then `404` | `UNSUPPORTED_BY_PERMISSION` lists the digests to remove manually; with versioning, non-current versions remain |
+| `cleanup_current_object` | eligible current probes deleted conditionally and then `404`, after separate conditional-DELETE verification | `NOT_RUN` by default, on uncertainty or for versioned probes; retained keys require operator reconciliation; delete permission is never widened automatically |
 
 A passing run accepts only the observed capabilities for that account and endpoint on that
 date. It is not a CORS, player, throughput, durability or SLA result.
@@ -189,7 +199,41 @@ date. It is not a CORS, player, throughput, durability or SLA result.
 
 | Check and status | Reason | Prerequisites and exact next command | Acceptance criteria | Owner and residual risk |
 | --- | --- | --- | --- | --- |
-| Long Vân live acceptance, `NOT_RUN` | no credential used; TLS blocked from the author's network | private test bucket, confirmed region, clean network; the two commands above | every `PASS` row above, or a recorded `FAIL`/`UNSUPPORTED` with a decision | operator; if `conditional_create_enforced` fails, Long Vân cannot be the write target |
+| Full Long Vân live acceptance, `NOT_RUN / BLOCKED` | later scoped diagnostics observed anonymous access to private-ACL probe bytes; the full harness was not run | resolve private access at the endpoint, private test bucket, confirmed region and valid TLS; the two commands above | every required `PASS` row above, including anonymous denial after signed reads warm the exact URL | operator; no private audio activation until privacy is reverified |
 | CORS from the real Studio origin, `NOT_RUN` | matters only for direct browser reads (grants) | browser DevTools from the real origin after grants pass | allowed origin reads, others blocked, `Range` and `Content-Range` readable | Studio owner; none while delivery stays on the API stream |
 | Opus playback and seek, `NOT_RUN` | no player consumes these objects until #11/#12 | publication and listener access landed | playback, seek and resume on Web and CMP | Theatre owners |
 | Throughput, latency, cost, `NOT_RUN` | deferred by request | representative audio, location, concurrency | recorded size, time to first byte, throughput, error rate | operator; unmeasured |
+
+## Offline harness hardening and live blocker
+
+The follow-up changes only the ignored test harness and its offline fake-provider tests.
+It does not change the production adapter, API, schema, ACL or policy. No real provider call
+is part of its offline verification; generated audio, credentials, account reports and raw
+request evidence stay outside Git.
+
+An operator's separately authorized, bounded probe observed a conditional conflict rejected
+with `412` and unchanged bytes, plus one exact `206` range. It also observed ordinary
+anonymous GET returning the actual private-ACL probe bytes with `X-Cache-Status: HIT`, while
+query variants returned `403 AccessDenied`. The full harness was not run. This is a private
+access failure, not full provider acceptance; the responsible cache/auth configuration remains
+unverified. **The three prepared speech samples have not been uploaded through Cantos API.**
+
+The harness now keeps attempted keys separate from probes whose absence, successful creation
+and actual-byte integrity were established. A failed or uncertain mutation halts later writes
+and cleanup. Cleanup is disabled unless the operator separately verified conditional DELETE;
+the existing write/delete acknowledgement alone is insufficient. Before enabled cleanup it
+rechecks integrity and the original read pin; only eligible current objects can receive a
+conditional DELETE. Versioned probes are retained rather than
+introducing version-history deletion. Unknown or changed objects remain for operator review;
+a generated key or idempotent adapter success alone is not ownership evidence.
+
+Anonymous diagnostics check the exact unsigned object URL, a no-cache request and a bounded
+query variant. They audit the built request and record only closed cache-header categories,
+body length/hash comparisons and status. A query denial cannot overrule an exact-URL leak.
+Raw provider header values, signed URLs and response bodies are never printed by diagnostics.
+
+Next acceptance belongs to the storage operator/provider: correct the private-access boundary,
+then verify anonymous denial of the exact URL after a legitimate signed read warms it, as well
+as query variants and signed hash/Range reads. Only then resume full provider acceptance and
+the three-audio API checksum/Range/replay/restart sequence. Header declarations and offline
+mocks do not repair or accept the live target.

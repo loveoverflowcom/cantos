@@ -7,7 +7,8 @@
 //! redacted ledger. Credentials, endpoint, bucket and signed URLs are never printed. Every
 //! unrun or unobservable capability stays `NOT_RUN`/`UNSUPPORTED`; a mocked or skipped check is
 //! never reported as a pass. The only effects are random probe objects under the adapter's fixed
-//! private prefix and, at the end, deletion of exactly those objects.
+//! private prefix and, only while ownership and integrity remain certain, conditional deletion
+//! of this run's unversioned probes. Uncertain or versioned objects are retained and reported.
 //!
 //! See `docs/evidence/longvan-s3-acceptance.md` for the command, the inputs and the criteria.
 
@@ -15,6 +16,9 @@ use futures_util::TryStreamExt;
 
 use super::*;
 use crate::contexts::media::domain::object_storage::ByteRange;
+
+#[path = "s3_live_acceptance/privacy.rs"]
+mod privacy;
 
 const ACKNOWLEDGE_VALUE: &str = "write-and-delete-private-probe-objects";
 const PRESIGN_EXPIRY_WAIT: Duration = Duration::from_secs(6);
@@ -60,6 +64,15 @@ impl Ledger {
             .any(|(_, outcome)| matches!(outcome, Outcome::Fail(_)))
     }
 
+    fn unsafe_to_mutate(&self) -> bool {
+        self.entries
+            .iter()
+            .any(|(_, outcome)| matches!(outcome, Outcome::Fail(_) | Outcome::Review(_)))
+            || ["anonymous_object_denied", "anonymous_listing_denied"]
+                .iter()
+                .any(|name| self.outcome(name) != Some(Outcome::Pass))
+    }
+
     fn print(&self) {
         println!("live_s3_acceptance:");
         for (name, outcome) in &self.entries {
@@ -84,6 +97,42 @@ impl Ledger {
     }
 }
 
+/// A successful seed HTTP response plus verified actual bytes and opaque read validators.
+/// Random keys alone, a successful adapter duplicate, and a failed PUT prove no ownership.
+struct OwnedProbe {
+    key: ObjectKey,
+    integrity: ObjectIntegrity,
+    location: VerifiedLocation,
+}
+
+#[derive(Default)]
+struct ProbeJournal {
+    attempted: Vec<ObjectKey>,
+    owned: Vec<OwnedProbe>,
+    deleted: Vec<ObjectKey>,
+    stopped: Option<&'static str>,
+}
+
+impl ProbeJournal {
+    fn stop(&mut self, reason: &'static str) -> &'static str {
+        self.stopped.get_or_insert(reason)
+    }
+
+    fn retained(&self, ledger: &mut Ledger) {
+        for key in &self.attempted {
+            if self.deleted.iter().any(|deleted| deleted == key) {
+                continue;
+            }
+            let kind = if self.owned.iter().any(|probe| probe.key == *key) {
+                "retained_owned_probe_key"
+            } else {
+                "orphaned_unproven_probe_key"
+            };
+            ledger.observe(kind, key.as_str());
+        }
+    }
+}
+
 struct Environment {
     endpoint: String,
     region: String,
@@ -93,6 +142,7 @@ struct Environment {
     force_path_style: bool,
     presigned_reads: bool,
     full_envelope: bool,
+    conditional_delete_verified: bool,
     request_timeout_ms: u64,
     /// Only the in-process fake provider tests permit plain-HTTP loopback.
     allow_loopback: bool,
@@ -145,6 +195,7 @@ impl Environment {
             force_path_style: flag("CANTOS_LIVE_S3_PATH_STYLE", true),
             presigned_reads: flag("CANTOS_LIVE_S3_PRESIGNED_READS", false),
             full_envelope: flag("CANTOS_LIVE_S3_FULL_ENVELOPE", false),
+            conditional_delete_verified: flag("CANTOS_LIVE_S3_CONDITIONAL_DELETE_VERIFIED", false),
             request_timeout_ms: value("CANTOS_LIVE_S3_REQUEST_TIMEOUT_MS")
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(60_000),
@@ -287,38 +338,88 @@ async fn tls_preflight(client: &Client, endpoint: &str) -> Outcome {
 
 async fn put_and_verify(
     storage: &S3Storage,
-    created: &mut Vec<ObjectKey>,
+    probes: &mut ProbeJournal,
     bytes: &[u8],
-) -> Result<(ObjectKey, ObjectIntegrity), StorageError> {
+) -> Result<(ObjectKey, ObjectIntegrity), &'static str> {
+    if probes.stopped.is_some() {
+        return Err("mutations_stopped");
+    }
     let (key, integrity) = expected(bytes);
-    created.push(key.clone());
-    storage
-        .put_bytes(
-            key.clone(),
-            integrity.clone(),
-            Bytes::copy_from_slice(bytes),
-            "audio/ogg",
-        )
-        .await?;
+    // Only an explicit authenticated 404 is absence. Never turn denied/unavailable into absent.
+    match raw_signed(storage, Method::GET, &key).await {
+        Ok(StatusCode::NOT_FOUND) => {}
+        Ok(StatusCode::OK) => return Err(probes.stop("probe_key_preexisting")),
+        Ok(_) => return Err(probes.stop("probe_absence_unproven")),
+        Err(_) => return Err(probes.stop("probe_absence_unavailable")),
+    }
+    probes.attempted.push(key.clone());
+    // The adapter deliberately accepts 412 for idempotent duplicates. A fresh seed instead
+    // requires a distinct successful create response; a racing 412 can never become ours.
+    match raw_put(storage, &key, bytes, true).await {
+        Ok(StatusCode::OK) => {}
+        Ok(StatusCode::PRECONDITION_FAILED) => {
+            return Err(probes.stop("seed_412_ownership_unproven"))
+        }
+        Ok(StatusCode::PAYLOAD_TOO_LARGE) => {
+            return Err(probes.stop("http_413_gateway_body_limit_below_object_envelope"))
+        }
+        Ok(StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT) => {
+            return Err(probes.stop("timeout_raise_CANTOS_LIVE_S3_REQUEST_TIMEOUT_MS"))
+        }
+        Ok(_) => return Err(probes.stop("seed_put_status_uncertain")),
+        Err(_) => return Err(probes.stop("seed_put_outcome_uncertain")),
+    }
+    let location = storage
+        .verify_location(&key, &integrity)
+        .await
+        .map_err(|_| probes.stop("seed_integrity_unproven"))?;
+    if location.version_id.is_none() && location.etag.is_none() {
+        return Err(probes.stop("seed_read_pin_unavailable"));
+    }
+    probes.owned.push(OwnedProbe {
+        key: key.clone(),
+        integrity: integrity.clone(),
+        location,
+    });
     Ok((key, integrity))
 }
 
-async fn conditional_create(storage: &S3Storage, created: &mut Vec<ObjectKey>) -> Outcome {
+async fn verify_owned(storage: &S3Storage, probe: &OwnedProbe) -> Result<(), &'static str> {
+    let current = storage
+        .verify_location(&probe.key, &probe.integrity)
+        .await
+        .map_err(|_| "owned_probe_integrity_unproven")?;
+    if current.version_id != probe.location.version_id || current.etag != probe.location.etag {
+        return Err("owned_probe_pin_changed");
+    }
+    Ok(())
+}
+
+async fn conditional_create(storage: &S3Storage, probes: &mut ProbeJournal) -> Outcome {
+    if probes.stopped.is_some() {
+        return Outcome::NotRun("safety_stop");
+    }
     let original = probe_bytes(2048);
-    let (key, integrity) = match put_and_verify(storage, created, &original).await {
+    let (key, _) = match put_and_verify(storage, probes, &original).await {
         Ok(object) => object,
-        Err(_) => return Outcome::NotRun("seed_put_failed"),
+        Err(reason) => return Outcome::Fail(reason),
     };
+    let owned = probes
+        .owned
+        .last()
+        .expect("successful seed records ownership");
+    if let Err(reason) = verify_owned(storage, owned).await {
+        probes.stop(reason);
+        return Outcome::Fail(reason);
+    }
     // Different bytes at the same key, which the adapter can never send, isolate whether the
     // provider enforces `If-None-Match: *` rather than silently overwriting an immutable object.
     let intruder = probe_bytes(2048);
-    match raw_put(storage, &key, &intruder, true).await {
-        Ok(StatusCode::PRECONDITION_FAILED) => {
-            match storage.verify_location(&key, &integrity).await {
-                Ok(_) => Outcome::Pass,
-                Err(_) => Outcome::Fail("object_changed_after_412"),
-            }
-        }
+    let outcome = match raw_put(storage, &key, &intruder, true).await {
+        Ok(StatusCode::PRECONDITION_FAILED) => match verify_owned(storage, owned).await {
+            Ok(_) => Outcome::Pass,
+            Err(_) => Outcome::Fail("object_changed_after_412"),
+        },
         Ok(StatusCode::OK) => Outcome::Fail("if_none_match_ignored: duplicate create accepted"),
         Ok(
             StatusCode::BAD_REQUEST | StatusCode::METHOD_NOT_ALLOWED | StatusCode::NOT_IMPLEMENTED,
@@ -327,7 +428,11 @@ async fn conditional_create(storage: &S3Storage, created: &mut Vec<ObjectKey>) -
         Ok(StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED) => Outcome::Fail("forbidden"),
         Ok(_) => Outcome::Fail("unexpected_status"),
         Err(error) => Outcome::Fail(error.code()),
+    };
+    if outcome != Outcome::Pass {
+        probes.stop("conditional_create_failed_or_uncertain");
     }
+    outcome
 }
 
 async fn ranges(storage: &S3Storage, key: &ObjectKey, bytes: &[u8]) -> Outcome {
@@ -362,6 +467,8 @@ async fn anonymous_denial(
     environment: &Environment,
     storage: &S3Storage,
     key: &ObjectKey,
+    integrity: &ObjectIntegrity,
+    ledger: &mut Ledger,
 ) -> (Outcome, Outcome) {
     let client = environment.plain_client();
     let object = match storage.object_url(key) {
@@ -374,10 +481,11 @@ async fn anonymous_denial(
         StatusCode::NOT_FOUND => Outcome::Review("provider_masks_with_404"),
         _ => Outcome::Review("unexpected_anonymous_status"),
     };
-    let object_outcome = match client.get(object.clone()).send().await {
-        Ok(response) => denial(response.status()),
-        Err(error) => Outcome::Fail(transport_reason(&error)),
-    };
+    let diagnostics = privacy::anonymous_object_check(object.clone(), integrity).await;
+    let object_outcome = diagnostics.outcome;
+    for (name, value) in diagnostics.observations {
+        ledger.observe(name, value);
+    }
     let mut listing = object;
     if storage.settings.force_path_style {
         listing.set_path(&format!("/{}", storage.settings.bucket));
@@ -467,72 +575,158 @@ async fn presigned(
 async fn size_ladder(
     environment: &Environment,
     storage: &S3Storage,
-    created: &mut Vec<ObjectKey>,
+    probes: &mut ProbeJournal,
 ) -> Outcome {
+    if probes.stopped.is_some() {
+        return Outcome::NotRun("safety_stop");
+    }
     let mut sizes = vec![MIB + 1, 8 * MIB];
     if environment.full_envelope {
         sizes.push(MAX_OBJECT_BYTES as usize);
     }
     for size in sizes {
         let bytes = probe_bytes(size);
-        let (key, integrity) = expected(&bytes);
-        created.push(key.clone());
-        match raw_put(storage, &key, &bytes, true).await {
-            Ok(StatusCode::OK) => {}
-            Ok(StatusCode::PAYLOAD_TOO_LARGE) => {
-                return Outcome::Fail("http_413_gateway_body_limit_below_object_envelope")
-            }
-            Ok(StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT) => {
-                return Outcome::Fail("timeout_raise_CANTOS_LIVE_S3_REQUEST_TIMEOUT_MS")
-            }
-            Ok(_) => return Outcome::Fail("unexpected_put_status"),
-            Err(error) => return Outcome::Fail(error.code()),
-        }
-        if let Err(error) = storage.verify_location(&key, &integrity).await {
-            return Outcome::Fail(error.code());
+        if let Err(reason) = put_and_verify(storage, probes, &bytes).await {
+            return Outcome::Fail(reason);
         }
     }
     Outcome::Pass
 }
 
-/// Deletes exactly the random probe objects this run created. The production port has no
-/// delete; this test-only effect never targets an object it did not just generate.
-async fn cleanup(storage: &S3Storage, created: &[ObjectKey], ledger: &mut Ledger) {
-    let mut denied = false;
-    let mut failed = false;
-    for key in created {
-        match raw_signed(storage, Method::DELETE, key).await {
-            Ok(StatusCode::NO_CONTENT | StatusCode::OK | StatusCode::NOT_FOUND) => {}
-            Ok(StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED) => denied = true,
-            _ => failed = true,
+/// No production delete port is added. Validate the entire owned set before the first DELETE,
+/// then require the verified opaque validator in each conditional DELETE. Atomic protection
+/// still depends on the provider honoring If-Match; fake tests do not establish that. Never retry.
+async fn cleanup(
+    storage: &S3Storage,
+    probes: &mut ProbeJournal,
+    conditional_delete_verified: bool,
+    ledger: &mut Ledger,
+) {
+    if probes.stopped.is_some() {
+        ledger.record("cleanup_current_object", Outcome::NotRun("safety_stop"));
+        probes.retained(ledger);
+        return;
+    }
+    if probes.owned.is_empty() {
+        ledger.record(
+            "cleanup_current_object",
+            Outcome::NotRun("no_proven_owned_probe"),
+        );
+        probes.retained(ledger);
+        return;
+    }
+    if !conditional_delete_verified {
+        ledger.record(
+            "cleanup_current_object",
+            Outcome::NotRun("conditional_delete_not_verified"),
+        );
+        probes.retained(ledger);
+        return;
+    }
+    // Deleting a version by ID would permanently purge it and widens the current-object
+    // runbook scope; deleting the current version could leave old versions behind. Retain it.
+    if probes
+        .owned
+        .iter()
+        .any(|probe| probe.location.version_id.is_some())
+    {
+        ledger.record(
+            "cleanup_current_object",
+            Outcome::NotRun("versioned_probe_retained"),
+        );
+        probes.retained(ledger);
+        return;
+    }
+    for probe in &probes.owned {
+        if probe.location.etag.is_none() {
+            probes.stop("cleanup_strong_etag_unavailable");
+            ledger.record(
+                "cleanup_current_object",
+                Outcome::NotRun("cleanup_strong_etag_unavailable"),
+            );
+            probes.retained(ledger);
+            return;
+        }
+        if let Err(reason) = verify_owned(storage, probe).await {
+            probes.stop(reason);
+            ledger.record("cleanup_current_object", Outcome::Fail(reason));
+            probes.retained(ledger);
+            return;
         }
     }
-    let outcome = if denied {
-        for key in created {
-            ledger.observe("orphaned_probe_key", key.as_str());
+    for probe in &probes.owned {
+        let etag = probe
+            .location
+            .etag
+            .as_ref()
+            .expect("all cleanup validators were checked before mutation");
+        let response = storage
+            .request(
+                Method::DELETE,
+                storage.object_url(&probe.key).expect("seeded key is valid"),
+                EMPTY_PAYLOAD_SHA256,
+                &[("if-match", etag.clone())],
+                None,
+            )
+            .await;
+        let outcome = match response {
+            Ok(response)
+                if matches!(response.status(), StatusCode::OK | StatusCode::NO_CONTENT) =>
+            {
+                match raw_signed(storage, Method::GET, &probe.key).await {
+                    Ok(StatusCode::NOT_FOUND) => Outcome::Pass,
+                    _ => Outcome::Fail("delete_absence_unconfirmed"),
+                }
+            }
+            Ok(response)
+                if matches!(
+                    response.status(),
+                    StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED
+                ) =>
+            {
+                Outcome::UnsupportedByPermission(
+                    "delete_forbidden: retained probes need operator review",
+                )
+            }
+            Ok(_) => Outcome::Fail("conditional_delete_failed_or_object_changed"),
+            Err(_) => Outcome::Fail("delete_outcome_uncertain"),
+        };
+        if outcome != Outcome::Pass {
+            probes.stop("cleanup_failed_or_uncertain");
+            ledger.record("cleanup_current_object", outcome);
+            probes.retained(ledger);
+            return;
         }
-        Outcome::UnsupportedByPermission("delete_forbidden: probe objects remain, remove manually")
-    } else if failed {
-        Outcome::Fail("delete_failed_probe_objects_may_remain")
-    } else {
-        let mut gone = true;
-        for key in created {
-            gone &= matches!(
-                raw_signed(storage, Method::GET, key).await,
-                Ok(StatusCode::NOT_FOUND)
-            );
-        }
-        if gone {
-            Outcome::Pass
-        } else {
-            Outcome::Fail("object_still_readable_after_delete")
-        }
-    };
-    ledger.record("cleanup_current_object", outcome);
+        probes.deleted.push(probe.key.clone());
+    }
+    ledger.record("cleanup_current_object", Outcome::Pass);
 }
 
-/// Runs every check, records each outcome and always attempts cleanup of its own probe objects.
-/// A failed check never skips a later independent check or the cleanup.
+fn complete_ledger(mut ledger: Ledger) -> Ledger {
+    for name in [
+        "put_head_get_integrity",
+        "duplicate_put_idempotent",
+        "read_pin_available",
+        "full_read_actual_bytes",
+        "range_206_first_middle_final_suffix",
+        "anonymous_object_denied",
+        "anonymous_listing_denied",
+        "presigned_get_range_206",
+        "presigned_unsigned_denied",
+        "presigned_expired_denied",
+        "conditional_create_enforced",
+        "size_ladder_up_to_envelope",
+        "cleanup_current_object",
+    ] {
+        if ledger.outcome(name).is_none() {
+            ledger.record(name, Outcome::NotRun("stopped_before_check"));
+        }
+    }
+    ledger
+}
+
+/// Read-only checks may collect diagnostics after a failure. No new mutation or cleanup can
+/// follow a failed/uncertain observation; attempted but unproven keys remain operator evidence.
 async fn run(environment: &Environment) -> Ledger {
     let mut ledger = Ledger::default();
     let preflight = ledger.record(
@@ -541,32 +735,46 @@ async fn run(environment: &Environment) -> Ledger {
     );
     if matches!(preflight, Outcome::Fail(_)) {
         // Nothing was written; the remaining capabilities were not exercised.
-        return ledger;
+        return complete_ledger(ledger);
     }
     let storage = match environment.storage() {
         Ok(storage) => storage,
         Err(error) => {
             ledger.record("adapter_configuration", Outcome::Fail(error.code()));
-            return ledger;
+            return complete_ledger(ledger);
         }
     };
-    let mut created = Vec::new();
+    let mut probes = ProbeJournal::default();
 
     let probe = probe_bytes(4096);
-    let seeded = put_and_verify(&storage, &mut created, &probe).await;
+    let seeded = put_and_verify(&storage, &mut probes, &probe).await;
     ledger.record(
         "put_head_get_integrity",
         match &seeded {
             Ok(_) => Outcome::Pass,
-            Err(error) => Outcome::Fail(error.code()),
+            Err(reason) => Outcome::Fail(reason),
         },
     );
     if let Ok((key, integrity)) = &seeded {
         ledger.record(
             "duplicate_put_idempotent",
-            match put_and_verify(&storage, &mut Vec::new(), &probe).await {
-                Ok(_) => Outcome::Pass,
-                Err(error) => Outcome::Fail(error.code()),
+            match verify_owned(&storage, &probes.owned[0]).await {
+                Ok(()) => match storage
+                    .put_bytes(
+                        key.clone(),
+                        integrity.clone(),
+                        Bytes::copy_from_slice(&probe),
+                        "audio/ogg",
+                    )
+                    .await
+                {
+                    Ok(()) => match verify_owned(&storage, &probes.owned[0]).await {
+                        Ok(()) => Outcome::Pass,
+                        Err(reason) => Outcome::Fail(reason),
+                    },
+                    Err(error) => Outcome::Fail(error.code()),
+                },
+                Err(reason) => Outcome::Fail(reason),
             },
         );
         match storage.verify_location(key, integrity).await {
@@ -612,7 +820,8 @@ async fn run(environment: &Environment) -> Ledger {
             "range_206_first_middle_final_suffix",
             ranges(&storage, key, &probe).await,
         );
-        let (object, listing) = anonymous_denial(environment, &storage, key).await;
+        let (object, listing) =
+            anonymous_denial(environment, &storage, key, integrity, &mut ledger).await;
         ledger.record("anonymous_object_denied", object);
         ledger.record("anonymous_listing_denied", listing);
         if environment.presigned_reads {
@@ -634,22 +843,33 @@ async fn run(environment: &Environment) -> Ledger {
             }
         }
     }
+    if ledger.unsafe_to_mutate() {
+        probes.stop("acceptance_check_failed_or_uncertain");
+    }
     ledger.record(
         "conditional_create_enforced",
-        conditional_create(&storage, &mut created).await,
+        conditional_create(&storage, &mut probes).await,
     );
     ledger.record(
         "size_ladder_up_to_envelope",
-        size_ladder(environment, &storage, &mut created).await,
+        size_ladder(environment, &storage, &mut probes).await,
     );
-    if !environment.full_envelope {
+    if !environment.full_envelope
+        && ledger.outcome("size_ladder_up_to_envelope") == Some(Outcome::Pass)
+    {
         ledger.observe(
             "size_ladder_max",
             "8 MiB; set CANTOS_LIVE_S3_FULL_ENVELOPE=1 for 32 MiB",
         );
     }
 
-    cleanup(&storage, &created, &mut ledger).await;
+    cleanup(
+        &storage,
+        &mut probes,
+        environment.conditional_delete_verified,
+        &mut ledger,
+    )
+    .await;
     for (name, reason) in [
         (
             "cors_web",
@@ -674,7 +894,7 @@ async fn run(environment: &Environment) -> Ledger {
     ] {
         ledger.record(name, Outcome::NotRun(reason));
     }
-    ledger
+    complete_ledger(ledger)
 }
 
 /// First, credential-free step: can this machine verify the endpoint's TLS chain with the
@@ -691,7 +911,7 @@ async fn live_endpoint_tls_preflight() {
 }
 
 #[tokio::test]
-#[ignore = "operator-run live provider acceptance; writes then deletes private probe objects; never part of a gate"]
+#[ignore = "operator-run live provider acceptance; writes probes with separately verified opt-in cleanup; never part of a gate"]
 async fn live_private_bucket_acceptance() {
     let environment = Environment::load();
     let ledger = run(&environment).await;
@@ -712,6 +932,37 @@ fn ledger_never_reports_a_review_or_not_run_entry_as_a_failure_or_pass() {
     assert!(!ledger.has_failure());
     ledger.record("e", Outcome::Fail("x"));
     assert!(ledger.has_failure());
+}
+
+#[test]
+fn further_mutations_require_both_private_access_checks_to_have_passed() {
+    for outcome in [
+        Outcome::NotRun("request_not_sent"),
+        Outcome::Unsupported("capability_missing"),
+        Outcome::UnsupportedByPermission("permission_missing"),
+        Outcome::Review("unusual_response"),
+        Outcome::Fail("bytes_exposed"),
+    ] {
+        for blocked_name in ["anonymous_object_denied", "anonymous_listing_denied"] {
+            let mut ledger = Ledger::default();
+            for name in ["anonymous_object_denied", "anonymous_listing_denied"] {
+                ledger.record(
+                    name,
+                    if name == blocked_name {
+                        outcome
+                    } else {
+                        Outcome::Pass
+                    },
+                );
+            }
+            assert!(ledger.unsafe_to_mutate(), "{blocked_name}: {outcome:?}");
+        }
+    }
+    let mut ledger = Ledger::default();
+    assert!(ledger.unsafe_to_mutate());
+    ledger.record("anonymous_object_denied", Outcome::Pass);
+    ledger.record("anonymous_listing_denied", Outcome::Pass);
+    assert!(!ledger.unsafe_to_mutate());
 }
 
 #[tokio::test]
@@ -756,10 +1007,21 @@ mod fake_provider_tests {
     type Objects = HashMap<String, (Vec<u8>, String)>;
 
     #[derive(Clone, Copy)]
+    enum SeedFault {
+        Racing412,
+        Failed,
+        StoredThenFailed,
+    }
+
+    #[derive(Clone, Copy)]
     struct Behavior {
         honor_if_none_match: bool,
         max_body_bytes: usize,
         public_read: bool,
+        missing_get_status: StatusCode,
+        seed_fault: Option<(usize, SeedFault)>,
+        replace_before_delete: bool,
+        versioned: bool,
     }
 
     impl Behavior {
@@ -767,13 +1029,27 @@ mod fake_provider_tests {
             honor_if_none_match: true,
             max_body_bytes: MAX_OBJECT_BYTES as usize,
             public_read: false,
+            missing_get_status: StatusCode::NOT_FOUND,
+            seed_fault: None,
+            replace_before_delete: false,
+            versioned: false,
         };
+    }
+
+    struct ObservedRequest {
+        method: Method,
+        key: String,
+        if_match: Option<String>,
+        if_none_match: Option<String>,
+        query: Option<String>,
     }
 
     #[derive(Clone)]
     struct Provider {
         behavior: Behavior,
         objects: Arc<Mutex<Objects>>,
+        requests: Arc<Mutex<Vec<ObservedRequest>>>,
+        seed_count: Arc<Mutex<usize>>,
     }
 
     struct Running {
@@ -835,6 +1111,19 @@ mod fake_provider_tests {
             };
         };
         let key = key.to_owned();
+        provider.requests.lock().unwrap().push(ObservedRequest {
+            method: parts.method.clone(),
+            key: key.clone(),
+            if_match: parts
+                .headers
+                .get("if-match")
+                .map(|value| value.to_str().unwrap().to_owned()),
+            if_none_match: parts
+                .headers
+                .get("if-none-match")
+                .map(|value| value.to_str().unwrap().to_owned()),
+            query: parts.uri.query().map(str::to_owned),
+        });
         let mut objects = provider.objects.lock().unwrap();
         match parts.method {
             Method::PUT if !authorized => reply(StatusCode::FORBIDDEN, vec![], vec![]),
@@ -853,11 +1142,50 @@ mod fake_provider_tests {
                     return reply(StatusCode::PRECONDITION_FAILED, vec![], vec![]);
                 }
                 let etag = format!("\"{}\"", &format!("{:x}", Sha256::digest(&body))[..32]);
+                if let std::collections::hash_map::Entry::Vacant(entry) = objects.entry(key.clone())
+                {
+                    let mut count = provider.seed_count.lock().unwrap();
+                    *count += 1;
+                    if let Some((at, fault)) = provider.behavior.seed_fault {
+                        if *count == at {
+                            return match fault {
+                                SeedFault::Racing412 => {
+                                    // A different writer wins after absence, even with identical bytes.
+                                    entry.insert((body, etag));
+                                    reply(StatusCode::PRECONDITION_FAILED, vec![], vec![])
+                                }
+                                SeedFault::Failed => {
+                                    reply(StatusCode::SERVICE_UNAVAILABLE, vec![], vec![])
+                                }
+                                SeedFault::StoredThenFailed => {
+                                    entry.insert((body, etag));
+                                    reply(StatusCode::SERVICE_UNAVAILABLE, vec![], vec![])
+                                }
+                            };
+                        }
+                    }
+                }
                 objects.insert(key, (body, etag.clone()));
                 reply(StatusCode::OK, vec![("etag", etag)], vec![])
             }
             Method::DELETE if !authorized => reply(StatusCode::FORBIDDEN, vec![], vec![]),
             Method::DELETE => {
+                if provider.behavior.replace_before_delete {
+                    objects.insert(
+                        key.clone(),
+                        (b"replacement".to_vec(), "\"replacement\"".to_owned()),
+                    );
+                }
+                let Some((_, current_etag)) = objects.get(&key) else {
+                    return reply(StatusCode::NOT_FOUND, vec![], vec![]);
+                };
+                let pin = parts
+                    .headers
+                    .get("if-match")
+                    .and_then(|value| value.to_str().ok());
+                if pin != Some(current_etag.as_str()) {
+                    return reply(StatusCode::PRECONDITION_FAILED, vec![], vec![]);
+                }
                 objects.remove(&key);
                 reply(StatusCode::NO_CONTENT, vec![], vec![])
             }
@@ -866,7 +1194,7 @@ mod fake_provider_tests {
                     return reply(StatusCode::FORBIDDEN, vec![], vec![]);
                 }
                 let Some((bytes, etag)) = objects.get(&key) else {
-                    return reply(StatusCode::NOT_FOUND, vec![], vec![]);
+                    return reply(provider.behavior.missing_get_status, vec![], vec![]);
                 };
                 let pin = parts
                     .headers
@@ -880,7 +1208,7 @@ mod fake_provider_tests {
                     .get("range")
                     .and_then(|value| value.to_str().ok())
                     .and_then(|raw| parse_range(raw, bytes.len()));
-                match range {
+                let mut response = match range {
                     Some((first, last)) => reply(
                         StatusCode::PARTIAL_CONTENT,
                         vec![
@@ -901,7 +1229,13 @@ mod fake_provider_tests {
                         ],
                         bytes.clone(),
                     ),
+                };
+                if provider.behavior.versioned {
+                    response
+                        .headers_mut()
+                        .insert("x-amz-version-id", "owned-version".parse().unwrap());
                 }
+                response
             }
             _ => reply(StatusCode::METHOD_NOT_ALLOWED, vec![], vec![]),
         }
@@ -911,6 +1245,8 @@ mod fake_provider_tests {
         let provider = Provider {
             behavior,
             objects: Arc::new(Mutex::new(HashMap::new())),
+            requests: Arc::new(Mutex::new(Vec::new())),
+            seed_count: Arc::new(Mutex::new(0)),
         };
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -938,14 +1274,268 @@ mod fake_provider_tests {
             force_path_style: true,
             presigned_reads: false,
             full_envelope: false,
+            // This in-process fake enforces If-Match; no real-provider claim is implied.
+            conditional_delete_verified: true,
             request_timeout_ms: 20_000,
             allow_loopback: true,
         }
     }
 
+    fn mutation_count(provider: &Provider, method: Method) -> usize {
+        provider
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.method == method)
+            .count()
+    }
+
+    #[tokio::test]
+    async fn even_identical_preexisting_bytes_never_authorize_put_or_cleanup() {
+        let running = serve(Behavior::WELL_BEHAVED).await;
+        let storage = environment(&running.endpoint).storage().unwrap();
+        let bytes = b"preexisting matching bytes";
+        let (key, _) = expected(bytes);
+        running.provider.objects.lock().unwrap().insert(
+            key.as_str().to_owned(),
+            (bytes.to_vec(), "\"preexisting\"".to_owned()),
+        );
+        let mut probes = ProbeJournal::default();
+        assert_eq!(
+            put_and_verify(&storage, &mut probes, bytes).await.err(),
+            Some("probe_key_preexisting")
+        );
+        assert_eq!(
+            put_and_verify(&storage, &mut probes, b"another probe")
+                .await
+                .err(),
+            Some("mutations_stopped")
+        );
+        let mut ledger = Ledger::default();
+        cleanup(&storage, &mut probes, true, &mut ledger).await;
+        assert!(probes.attempted.is_empty());
+        assert!(probes.owned.is_empty());
+        assert_eq!(mutation_count(&running.provider, Method::PUT), 0);
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+        assert_eq!(
+            running.provider.objects.lock().unwrap()[key.as_str()].0,
+            bytes
+        );
+    }
+
+    #[tokio::test]
+    async fn denied_or_failed_absence_never_becomes_absent() {
+        for status in [
+            StatusCode::UNAUTHORIZED,
+            StatusCode::FORBIDDEN,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            let running = serve(Behavior {
+                missing_get_status: status,
+                ..Behavior::WELL_BEHAVED
+            })
+            .await;
+            let ledger = run(&environment(&running.endpoint)).await;
+            assert_eq!(
+                ledger.outcome("put_head_get_integrity"),
+                Some(Outcome::Fail("probe_absence_unproven"))
+            );
+            assert_eq!(
+                ledger.outcome("conditional_create_enforced"),
+                Some(Outcome::NotRun("safety_stop"))
+            );
+            assert_eq!(
+                ledger.outcome("cleanup_current_object"),
+                Some(Outcome::NotRun("safety_stop"))
+            );
+            assert_eq!(mutation_count(&running.provider, Method::PUT), 0);
+            assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn seed_412_or_failed_put_never_claims_ownership_or_deletes_earlier_probes() {
+        for at in [1, 2] {
+            for fault in [
+                SeedFault::Racing412,
+                SeedFault::Failed,
+                SeedFault::StoredThenFailed,
+            ] {
+                let running = serve(Behavior {
+                    seed_fault: Some((at, fault)),
+                    ..Behavior::WELL_BEHAVED
+                })
+                .await;
+                let ledger = run(&environment(&running.endpoint)).await;
+                let reason = match fault {
+                    SeedFault::Racing412 => "seed_412_ownership_unproven",
+                    SeedFault::Failed | SeedFault::StoredThenFailed => "seed_put_status_uncertain",
+                };
+                let check = if at == 1 {
+                    "put_head_get_integrity"
+                } else {
+                    "conditional_create_enforced"
+                };
+                assert_eq!(ledger.outcome(check), Some(Outcome::Fail(reason)));
+                assert_eq!(
+                    ledger.outcome("size_ladder_up_to_envelope"),
+                    Some(Outcome::NotRun("safety_stop"))
+                );
+                assert_eq!(
+                    ledger.outcome("cleanup_current_object"),
+                    Some(Outcome::NotRun("safety_stop"))
+                );
+                // A later seed fails after the first probe's deliberate adapter duplicate.
+                assert_eq!(
+                    mutation_count(&running.provider, Method::PUT),
+                    if at == 1 { 1 } else { 3 }
+                );
+                assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+                let fault_stored = !matches!(fault, SeedFault::Failed);
+                assert_eq!(
+                    running.provider.objects.lock().unwrap().len(),
+                    at - 1 + usize::from(fault_stored)
+                );
+                assert!(ledger
+                    .observed
+                    .iter()
+                    .any(|(name, _)| *name == "orphaned_unproven_probe_key"));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn any_changed_probe_blocks_the_entire_cleanup_before_the_first_delete() {
+        for change_bytes in [false, true] {
+            let running = serve(Behavior::WELL_BEHAVED).await;
+            let storage = environment(&running.endpoint).storage().unwrap();
+            let mut probes = ProbeJournal::default();
+            put_and_verify(&storage, &mut probes, b"first owned probe")
+                .await
+                .unwrap();
+            let (key, _) = put_and_verify(&storage, &mut probes, b"second owned probe")
+                .await
+                .unwrap();
+            let changed = if change_bytes {
+                b"replacement bytes".to_vec()
+            } else {
+                b"second owned probe".to_vec()
+            };
+            running.provider.objects.lock().unwrap().insert(
+                key.as_str().to_owned(),
+                (changed.clone(), "\"changed\"".to_owned()),
+            );
+            let mut ledger = Ledger::default();
+            cleanup(&storage, &mut probes, true, &mut ledger).await;
+            let reason = if change_bytes {
+                "owned_probe_integrity_unproven"
+            } else {
+                "owned_probe_pin_changed"
+            };
+            assert_eq!(
+                ledger.outcome("cleanup_current_object"),
+                Some(Outcome::Fail(reason))
+            );
+            assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+            let objects = running.provider.objects.lock().unwrap();
+            assert_eq!(objects.len(), 2);
+            assert_eq!(objects[key.as_str()].0, changed);
+        }
+    }
+
+    #[tokio::test]
+    async fn conditional_delete_race_retains_replacement_and_stops_remaining_deletes() {
+        let running = serve(Behavior {
+            replace_before_delete: true,
+            ..Behavior::WELL_BEHAVED
+        })
+        .await;
+        let storage = environment(&running.endpoint).storage().unwrap();
+        let mut probes = ProbeJournal::default();
+        let (first, _) = put_and_verify(&storage, &mut probes, b"first owned probe")
+            .await
+            .unwrap();
+        let (second, _) = put_and_verify(&storage, &mut probes, b"second owned probe")
+            .await
+            .unwrap();
+        let original_etag = probes.owned[0].location.etag.clone();
+        let mut ledger = Ledger::default();
+        cleanup(&storage, &mut probes, true, &mut ledger).await;
+        assert_eq!(
+            ledger.outcome("cleanup_current_object"),
+            Some(Outcome::Fail("conditional_delete_failed_or_object_changed"))
+        );
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 1);
+        let requests = running.provider.requests.lock().unwrap();
+        let delete = requests
+            .iter()
+            .find(|request| request.method == Method::DELETE)
+            .unwrap();
+        assert_eq!(delete.if_match, original_etag);
+        assert!(delete.query.is_none());
+        let objects = running.provider.objects.lock().unwrap();
+        assert_eq!(objects[first.as_str()].0, b"replacement");
+        assert_eq!(objects[second.as_str()].0, b"second owned probe");
+        assert!(probes.deleted.is_empty());
+    }
+
+    #[tokio::test]
+    async fn versioned_probe_is_retained_without_current_delete_or_version_purge() {
+        let running = serve(Behavior {
+            versioned: true,
+            ..Behavior::WELL_BEHAVED
+        })
+        .await;
+        let storage = environment(&running.endpoint).storage().unwrap();
+        let mut probes = ProbeJournal::default();
+        put_and_verify(&storage, &mut probes, b"versioned owned probe")
+            .await
+            .unwrap();
+        let mut ledger = Ledger::default();
+        cleanup(&storage, &mut probes, true, &mut ledger).await;
+        assert_eq!(
+            ledger.outcome("cleanup_current_object"),
+            Some(Outcome::NotRun("versioned_probe_retained"))
+        );
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+        assert_eq!(running.provider.objects.lock().unwrap().len(), 1);
+        assert!(ledger
+            .observed
+            .iter()
+            .any(|(name, _)| *name == "retained_owned_probe_key"));
+    }
+
+    #[tokio::test]
+    async fn unverified_conditional_delete_retains_every_probe_without_any_delete() {
+        let running = serve(Behavior::WELL_BEHAVED).await;
+        let mut environment = environment(&running.endpoint);
+        environment.conditional_delete_verified = false;
+        let ledger = run(&environment).await;
+        assert_eq!(
+            ledger.outcome("cleanup_current_object"),
+            Some(Outcome::NotRun("conditional_delete_not_verified"))
+        );
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
+        assert_eq!(running.provider.objects.lock().unwrap().len(), 4);
+        assert_eq!(
+            ledger
+                .observed
+                .iter()
+                .filter(|(name, _)| *name == "retained_owned_probe_key")
+                .count(),
+            4
+        );
+        assert!(!ledger.has_failure());
+    }
+
     #[tokio::test]
     async fn well_behaved_provider_passes_every_runnable_check_and_cleans_up_only_its_probes() {
         let running = serve(Behavior::WELL_BEHAVED).await;
+        running.provider.objects.lock().unwrap().insert(
+            "unrelated-existing-key".to_owned(),
+            (b"untouched".to_vec(), "\"unrelated\"".to_owned()),
+        );
         let ledger = run(&environment(&running.endpoint)).await;
         ledger.print();
         for name in [
@@ -976,11 +1566,38 @@ mod fake_provider_tests {
             );
         }
         assert!(!ledger.has_failure());
-        assert!(running.provider.objects.lock().unwrap().is_empty());
+        let objects = running.provider.objects.lock().unwrap();
+        assert_eq!(objects.len(), 1);
+        assert_eq!(objects["unrelated-existing-key"].0, b"untouched");
+        drop(objects);
+        let requests = running.provider.requests.lock().unwrap();
+        let deletes: Vec<_> = requests
+            .iter()
+            .filter(|request| request.method == Method::DELETE)
+            .collect();
+        assert_eq!(deletes.len(), 4);
+        let mut deleted = std::collections::HashSet::new();
+        for request in deletes {
+            assert!(request
+                .if_match
+                .as_deref()
+                .is_some_and(|etag| etag.starts_with('"')));
+            assert!(
+                request.query.is_none(),
+                "version purges are outside cleanup scope"
+            );
+            assert!(deleted.insert(request.key.clone()), "never retry a DELETE");
+        }
+        for request in requests
+            .iter()
+            .filter(|request| request.method == Method::PUT)
+        {
+            assert_eq!(request.if_none_match.as_deref(), Some("*"));
+        }
     }
 
     #[tokio::test]
-    async fn provider_that_ignores_if_none_match_fails_instead_of_passing_and_still_cleans_up() {
+    async fn provider_that_ignores_if_none_match_stops_mutations_and_retains_probes() {
         let running = serve(Behavior {
             honor_if_none_match: false,
             ..Behavior::WELL_BEHAVED
@@ -992,7 +1609,16 @@ mod fake_provider_tests {
             Some(Outcome::Fail(_))
         ));
         assert!(ledger.has_failure());
-        assert!(running.provider.objects.lock().unwrap().is_empty());
+        assert_eq!(
+            ledger.outcome("size_ladder_up_to_envelope"),
+            Some(Outcome::NotRun("safety_stop"))
+        );
+        assert_eq!(
+            ledger.outcome("cleanup_current_object"),
+            Some(Outcome::NotRun("safety_stop"))
+        );
+        assert!(!running.provider.objects.lock().unwrap().is_empty());
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
     }
 
     #[tokio::test]
@@ -1009,12 +1635,13 @@ mod fake_provider_tests {
                 "http_413_gateway_body_limit_below_object_envelope"
             ))
         );
-        // Independent checks are not skipped by that failure.
+        // Earlier evidence remains, but no cleanup mutation may follow the failed PUT.
         assert_eq!(
             ledger.outcome("put_head_get_integrity"),
             Some(Outcome::Pass)
         );
-        assert!(running.provider.objects.lock().unwrap().is_empty());
+        assert!(!running.provider.objects.lock().unwrap().is_empty());
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
     }
 
     #[tokio::test]
@@ -1027,12 +1654,17 @@ mod fake_provider_tests {
         let ledger = run(&environment(&running.endpoint)).await;
         assert_eq!(
             ledger.outcome("anonymous_object_denied"),
-            Some(Outcome::Fail("anonymous_read_allowed"))
+            Some(Outcome::Fail("anonymous_object_bytes_exposed"))
         );
         assert_eq!(
             ledger.outcome("anonymous_listing_denied"),
             Some(Outcome::Fail("anonymous_read_allowed"))
         );
+        assert_eq!(
+            ledger.outcome("conditional_create_enforced"),
+            Some(Outcome::NotRun("safety_stop"))
+        );
+        assert_eq!(mutation_count(&running.provider, Method::DELETE), 0);
     }
 
     #[tokio::test]
@@ -1043,7 +1675,14 @@ mod fake_provider_tests {
             ledger.outcome("tls_dns_preflight"),
             Some(Outcome::Fail(_))
         ));
-        assert_eq!(ledger.entries.len(), 1);
+        assert_eq!(
+            ledger.outcome("put_head_get_integrity"),
+            Some(Outcome::NotRun("stopped_before_check"))
+        );
+        assert_eq!(
+            ledger.outcome("cleanup_current_object"),
+            Some(Outcome::NotRun("stopped_before_check"))
+        );
     }
 
     #[test]
@@ -1055,7 +1694,28 @@ mod fake_provider_tests {
             "CANTOS_LIVE_S3_REQUEST_TIMEOUT_MS" | "CANTOS_LIVE_S3_PRESIGNED_READS" => None,
             _ => Some("value".to_owned()),
         };
-        assert!(Environment::from_lookup(&complete).is_ok());
+        assert!(
+            !Environment::from_lookup(&complete)
+                .unwrap()
+                .conditional_delete_verified
+        );
+        for (value, expected) in [
+            ("1", true),
+            ("true", true),
+            ("0", false),
+            ("false", false),
+            ("yes", false),
+        ] {
+            let environment = Environment::from_lookup(&|name| {
+                if name == "CANTOS_LIVE_S3_CONDITIONAL_DELETE_VERIFIED" {
+                    Some(value.to_owned())
+                } else {
+                    complete(name)
+                }
+            })
+            .unwrap();
+            assert_eq!(environment.conditional_delete_verified, expected);
+        }
         let missing_secret = Environment::from_lookup(&|name| {
             (name != "CANTOS_LIVE_S3_SECRET_ACCESS_KEY")
                 .then(|| complete(name))
