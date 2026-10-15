@@ -23,6 +23,8 @@ const MAX_LIST_ITEMS: usize = 128;
 // Each evaluated field-set permits 8 KiB total, including two bytes per line for bookkeeping.
 const MAX_HEADER_BYTES: usize = 8 * 1024;
 const FIELD_LINE_COST: usize = 2;
+pub(crate) const PRIVATE_CACHE_CONTROL: HeaderValue =
+    HeaderValue::from_static("private, no-store, no-transform");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AudioTransportError {
@@ -227,10 +229,7 @@ fn private_headers(headers: &mut HeaderMap) {
     // supply a separately reviewed policy, not repurpose these private preview mechanics.
     // TODO(issue120): publication/media owner must integrate a publication-class read only
     // after verified promotion and current-public admission; never widen private storage.
-    headers.insert(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("private, no-store, no-transform"),
-    );
+    headers.insert(header::CACHE_CONTROL, PRIVATE_CACHE_CONTROL);
     headers.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),

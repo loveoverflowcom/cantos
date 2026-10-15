@@ -48,7 +48,10 @@ return `400` with existing `invalid_request`. A valid unsatisfiable range return
 If-Range with the exact strong ETag allows a range; a differing/weak/date validator falls back
 to full `200`. Malformed evaluated If-Range returns `400`. Strong `If-Match` failure returns
 `412` with `invalid_request`; weak `If-None-Match` equality (including `*`) returns empty `304`.
-Entity-tag preconditions are evaluated before Range, after current authorization. Repeated
+Entity-tag preconditions are evaluated before Range, after current authorization and configured
+readiness of the exact recorded storage target. A configured replacement write target cannot
+hide an unavailable historical target behind a 304/412/416; this is routing readiness, not
+remote object verification. Repeated
 list-valued entity-tag fields are combined with bounded parsing: at most 128 list members and
 8 KiB per evaluated field-set, including two bytes of bookkeeping per header line. Irrelevant
 headers remain ignored according to precondition precedence and HEAD semantics. No Last-Modified fact is

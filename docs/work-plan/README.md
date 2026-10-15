@@ -71,6 +71,14 @@ boundary. The next storage-operator step is to correct and reverify private acce
 signed reads warm the exact URL; full provider acceptance and the three prepared speech
 uploads through Cantos API follow only after that gate. Those audio uploads remain NOT_RUN.
 
+The [latest-develop consistency review](../evidence/develop-consistency-review-20261015.md)
+keeps exact historical-target readiness ahead of conditional private reads and preserves the
+transport cache policy through HTTP composition. The independent second review also repairs
+Leptos nested supporting-text role boundaries and the PostgreSQL preview helper's stale MIME
+cache oracle. Browser/computed-color and real SQL acceptance remain pending; this does not
+claim renderer parity, change the provider/publication acceptance order or accept either
+proposed ADR.
+
 The private Work artwork slice ([#105](https://github.com/loveoverflowcom/cantos/pull/105))
 extends this verified-payload/MIME boundary inside Media and reuses the same storage registry,
 retaining the audio envelope and original-target reads. Its additive migration0023 stays
@@ -122,7 +130,7 @@ Studio audit manifests do not themselves authorize Theatre playback.
 The bounded [Range transport prototype](../evidence/playback-range-transport.md) links #120's
 contract-fixture groundwork to that same sequence. Before connecting live Theatre audio, accept
 #10/#11's publication-class object isolation, version pinning and per-fetch expiry/withdrawal
-checks under the [proposed delivery decision gates](../decisions/0027-publication-streaming-evidence-gates.md).
+checks under the [proposed delivery decision gates](../decisions/0028-publication-streaming-evidence-gates.md).
 Shared Studio transport and mocked publication bytes do not replace those dependencies.
 
 ## Compiler compatibility review boundary

@@ -190,6 +190,25 @@ async fn preview(
     token: Option<&str>,
     headers: &[(&str, &str)],
 ) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    preview_with_cache(
+        app,
+        method,
+        path,
+        token,
+        headers,
+        "private, no-store, no-transform",
+    )
+    .await
+}
+
+async fn preview_with_cache(
+    app: &Router,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    headers: &[(&str, &str)],
+    expected_cache: &str,
+) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
     let mut request = Request::builder()
         .method(method)
         .uri(path)
@@ -205,15 +224,7 @@ async fn preview(
         .oneshot(request.body(Body::empty()).unwrap())
         .await
         .unwrap();
-    let expected_cache = if response
-        .headers()
-        .get("content-type")
-        .is_some_and(|value| value == "audio/ogg")
-    {
-        "private, no-store, no-transform"
-    } else {
-        "no-store"
-    };
+    // Assert the owning endpoint/layer contract, never infer it from the response MIME.
     assert_eq!(response.headers()["cache-control"], expected_cache);
     assert_eq!(response.headers()["x-content-type-options"], "nosniff");
     let status = response.status();
@@ -248,23 +259,36 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
     // missing reader. This host shares the disposable DB/session, but has no storage registry.
     let mut no_storage_config = a.h.config.clone();
     no_storage_config.user("cantos_app");
-    let no_storage_app = router(
-        AppState {
-            store: Store::new(no_storage_config).unwrap(),
-            web_origin: ORIGIN.into(),
-        },
-        "unused-public-root",
-    );
-    for method in ["GET", "HEAD"] {
-        for conditions in [
-            vec![],
-            vec![("if-none-match", "*")],
-            vec![("if-match", "\"other\"")],
-            vec![("range", "bytes=9999999-")],
-        ] {
-            let (status, _, _) =
-                preview(&no_storage_app, method, &path, Some(ALICE), &conditions).await;
-            assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    let no_storage = Store::new(no_storage_config).unwrap();
+    // A healthy replacement is not a reader for the immutable historical target either.
+    let config_path = a.root.0.join("replacement-storage.toml");
+    fs::write(&config_path, format!(
+        "version = 1\n[storage]\nactive_write_target = \"replacement-private\"\n[storage.targets.replacement-private]\ndriver = \"filesystem\"\nprivate_root = {:?}\n",
+        a.root.0.join("replacement").to_str().unwrap(),
+    )).unwrap();
+    let replacement_only = no_storage
+        .clone()
+        .with_storage_config(&config_path)
+        .unwrap();
+    for store in [no_storage, replacement_only] {
+        let unavailable_app = router(
+            AppState {
+                store,
+                web_origin: ORIGIN.into(),
+            },
+            "unused-public-root",
+        );
+        for method in ["GET", "HEAD"] {
+            for conditions in [
+                vec![],
+                vec![("if-none-match", "*")],
+                vec![("if-match", "\"other\"")],
+                vec![("range", "bytes=9999999-")],
+            ] {
+                let (status, _, _) =
+                    preview(&unavailable_app, method, &path, Some(ALICE), &conditions).await;
+                assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+            }
         }
     }
     let (status, headers, body) = preview(&a.h.app, "GET", &path, Some(ALICE), &[]).await;
@@ -385,7 +409,8 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
     assert_eq!(body.as_slice(), bytes.as_slice());
 
     let access_path = path.strip_suffix("/bytes").unwrap().to_owned() + "/read-access";
-    let (status, headers, body) = preview(&a.h.app, "GET", &access_path, Some(ALICE), &[]).await;
+    let (status, headers, body) =
+        preview_with_cache(&a.h.app, "GET", &access_path, Some(ALICE), &[], "no-store").await;
     assert_eq!(status, StatusCode::SEE_OTHER);
     assert_eq!(headers["location"], path);
     assert!(!headers.contains_key("x-cantos-read-expires-at"));
@@ -404,45 +429,63 @@ async fn owner_preview_pins_actual_rendition_bytes_ranges_and_independent_surfac
     let wrong_rendition_path = path.replace(rendition_id, &wrong_rendition);
     let wrong_unit_path = path.replace(&a.unit, &wrong_unit);
     let theatre_path = path.replace("/api/v1/studio/", "/api/v1/theatre/");
-    for (target, token, extra, expected) in [
-        (path.as_str(), Some(BOB), vec![], StatusCode::NOT_FOUND),
-        (path.as_str(), None, vec![], StatusCode::UNAUTHORIZED),
+    for (target, token, extra, expected, expected_cache) in [
+        (
+            path.as_str(),
+            Some(BOB),
+            vec![],
+            StatusCode::NOT_FOUND,
+            "private, no-store, no-transform",
+        ),
+        (
+            path.as_str(),
+            None,
+            vec![],
+            StatusCode::UNAUTHORIZED,
+            "no-store",
+        ),
         (
             path.as_str(),
             None,
             vec![("authorization", format!("Bearer {UPLOAD}"))],
             StatusCode::UNAUTHORIZED,
+            "no-store",
         ),
         (
             pending_path.as_str(),
             Some(ALICE),
             vec![],
             StatusCode::NOT_FOUND,
+            "private, no-store, no-transform",
         ),
         (
             wrong_rendition_path.as_str(),
             Some(ALICE),
             vec![],
             StatusCode::NOT_FOUND,
+            "private, no-store, no-transform",
         ),
         (
             wrong_unit_path.as_str(),
             Some(ALICE),
             vec![],
             StatusCode::NOT_FOUND,
+            "private, no-store, no-transform",
         ),
         (
             theatre_path.as_str(),
             Some(ALICE),
             vec![],
             StatusCode::NOT_FOUND,
+            "no-store",
         ),
     ] {
         let extra = extra
             .iter()
             .map(|(name, value)| (*name, value.as_str()))
             .collect::<Vec<_>>();
-        let (status, _, body) = preview(&a.h.app, "GET", target, token, &extra).await;
+        let (status, _, body) =
+            preview_with_cache(&a.h.app, "GET", target, token, &extra, expected_cache).await;
         assert_eq!(status, expected);
         let error: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(

@@ -1,4 +1,4 @@
-# ADR 0027: Publication streaming decisions remain evidence-gated
+# ADR 0028: Publication streaming decisions remain evidence-gated
 
 - Status: proposed
 - Date: 2026-10-14
