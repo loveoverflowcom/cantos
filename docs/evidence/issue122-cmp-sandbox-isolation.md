@@ -163,17 +163,33 @@ aggregate pass. Full output is retained in
 | Web lint, both Web builds, shared Leptos preview | PASS | Existing WASM lint/build commands complete; compilation does not establish browser runtime. |
 | Shared CMP preview | PASS | Existing Gradle desktop test gate completes; no device or official Android Studio capture claim. |
 | Script IR mutation | PASS | Baseline 16 tests passes and all nine bounded mutants are killed in a disposable copy. |
-| PostgreSQL | FAIL | 208 tests pass before one private-artwork additive-upgrade assertion fails: actual migration versions 1–26 versus expected 1–25. |
-| PostgreSQL phases after the failure | NOT_RUN | Later private-artwork repository/storage, listener/audio-intake and socket/restart phases were not reached. |
+| PostgreSQL, first attempt | FAIL | 208 tests pass before one private-artwork additive-upgrade assertion fails: actual migration versions 1–26 versus expected 1–25. |
+| PostgreSQL phases after the first failure | NOT_RUN | At that input, later private-artwork repository/storage, listener/audio-intake and socket/restart phases were not reached. |
 
 The failing assertion at `services/cantos-api/tests/support/private_artwork_postgres.rs:674`
 and the registry at `services/cantos-api/src/platform/postgres/migrations.rs` are unchanged from
 the fetched base. Both base and HEAD register migration `0026_catalog_delegation.sql`; the test
-still expects `(1..=25)`. The entire API source, contracts and Cargo lock have no branch diff.
-This is a source-confirmed pre-existing stale expectation; no baseline database execution is
-claimed. A one-line proposed test correction is recorded locally, with backend scope approval
-pending. Preserve the actual failure until an approved correction passes the real gate.
-Disk after the campaign was approximately 21 GiB free; resource deferral is no longer its blocker.
+still expected `(1..=25)`. At that input, the API source/tests, contracts and Cargo lock had no
+branch diff. This is a source-confirmed pre-existing stale expectation; no baseline database
+execution is claimed. The user then approved exactly one character, `25` to `26`, in the test.
+The strict inventory equality and every checksum/snapshot assertion remain unchanged.
+The corrected test file SHA-256 is
+`1c15a52d1ed22f37411b6526a7ff1a1ee75620901183c6b583f42bd4ab129fb0`;
+the 206 original implementation inputs above remain unchanged.
+
+`cargo xtask verify postgres` on a second new cluster passed the private-artwork suite, including
+the corrected assertion, and the later repository/storage/listener suites. It reached **239
+passed / 3 failed**: all three audio-intake failures share the existing
+`owner_audio_request` assertion at `services/cantos-api/tests/audio_intake_postgres.rs:1441`,
+which expects plain `no-store` for handler-owned GET/HEAD audio responses. The unchanged production
+transport returns `private, no-store, no-transform`; PUT still requires plain `no-store`.
+The helper and transport are unchanged from the fetched base. A proposed test-only helper patch
+preserves exact equality per method and rejects unexpected methods; separate scope approval is
+pending, and that source remains unchanged. No production cache policy is relaxed.
+The second gate is **FAIL**; socket/API/database restart phases were not reached (`NOT_RUN`).
+Its complete output and first failing audio suite are retained as
+`postgres-approved-expectation.log` and `postgres-second-failure.log` beside the initial log.
+Disk after the campaigns was approximately 20 GiB free; resource deferral is no longer the blocker.
 
 Independent source inspection still finds only the Android `.demo` app, whose unconditional
 sandbox dependency and mock composition root predate this PR. There is no production host or
@@ -195,10 +211,11 @@ The exact Kotlin/Native 2.2.20 and official Android preview CLI prerequisites re
   accept Studio layout rendering or device behavior.
 - **Verification owner (unassigned):** the initial approximately 3 GiB resource deferral has
   been cleared by the user's cleanup and the resumed campaign above. The PostgreSQL gate now
-  has an actual pre-existing test failure, with its later phases `NOT_RUN`. Approve the bounded
-  backend test repair separately, then rerun `cargo xtask verify postgres` on a new disposable
-  cluster. No successful unchanged heavy gate needs repetition. No gate is relaxed or remote CI
-  substituted; assignment is required before accepting the remaining backend integration scope.
+  has three actual pre-existing audio-helper test failures after the approved migration assertion
+  correction passed. Its restart phases remain `NOT_RUN`. Approve the separate bounded helper
+  repair, then rerun `cargo xtask verify postgres` on a new disposable cluster. No successful
+  unchanged heavy gate needs repetition. No gate is relaxed or remote CI substituted;
+  assignment is required before accepting the remaining backend integration scope.
 
 No schema/migration, Script IR/API DTO, publication/cache/audio revision, rights/approval policy
 or provider cost changes. No new persistence, path provider, SQLite engine, filesystem or HTTP
