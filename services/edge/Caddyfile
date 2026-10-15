@@ -1,0 +1,10 @@
+# Public HTTPS edge for the Cantos VPS. Caddy obtains and renews the Let's Encrypt
+# certificate itself (HTTP-01 on port 80), so DNS must already point at this host.
+cantoss.duckdns.org {
+	encode zstd gzip
+
+	# Placeholder until cantos-api has an accepted production deployment. Replace this
+	# with the reviewed route table (for example `handle /api/v1/* { reverse_proxy ... }`)
+	# only when that service exists; never expose a development host.
+	respond "Cantos is not deployed yet." 503
+}
