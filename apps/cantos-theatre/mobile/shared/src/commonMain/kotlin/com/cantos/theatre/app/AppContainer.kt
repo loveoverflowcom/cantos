@@ -5,6 +5,7 @@ import com.cantos.theatre.adapters.mock.MockCatalogPort
 import com.cantos.theatre.adapters.mock.MockMediaEngine
 import com.cantos.theatre.adapters.mock.mockInventory
 import com.cantos.theatre.adapters.mock.sandbox.database.FakePersistentProgressPort
+import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageConfig
 import com.cantos.theatre.adapters.mock.sandbox.database.FakeStorageDatabase
 import com.cantos.theatre.adapters.mock.sandbox.sessions.FakeStorageSession
 import com.cantos.theatre.adapters.mock.sandbox.sessions.seed
@@ -344,6 +345,7 @@ class AppContainer(
             scope: CoroutineScope,
             seed: DemoState = FakeStorageSession.Demo.seed(),
             account: NativeAccountController? = null,
+            progressConfig: FakeStorageConfig = FakeStorageConfig(),
             storage: (ListeningSnapshot) -> FakeStorageDatabase = ::FakeStorageDatabase,
         ): AppContainer {
             val inventory = mockInventory()
@@ -351,7 +353,7 @@ class AppContainer(
             val defaults = startState(inventory, FakeStorageSession.Demo.seed())
             val port = MockCatalogPort(inventory, seed.catalogMode.toScenario())
             val container = AppContainer(
-                scope, port, FakePersistentProgressPort(storage(start.listening)), MockMediaEngine(), start, defaults,
+                scope, port, FakePersistentProgressPort(storage(start.listening), progressConfig), MockMediaEngine(), start, defaults,
                 changeScenario = port::setScenario, account = account,
             )
             if (seed.catalogMode != DemoCatalogMode.Ready) container.catalog.refresh()

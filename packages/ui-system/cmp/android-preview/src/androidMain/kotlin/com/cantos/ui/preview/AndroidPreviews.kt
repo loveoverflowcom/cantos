@@ -19,6 +19,11 @@ import com.cantos.ui.ThemeMode
 import com.cantos.ui.UiPreferences
 import com.cantos.ui.UiRoot
 import com.cantos.ui.tokenDp
+import com.cantos.ui.preview.workbench.PreviewMode
+import com.cantos.ui.preview.workbench.PreviewRecipe
+import com.cantos.ui.preview.workbench.PreviewRecipeResult
+import com.cantos.ui.preview.workbench.PreviewSettings
+import com.cantos.ui.preview.workbench.ConstraintFrame
 
 /** Android Studio layout-renderer specimens of the actual common UI and preview fixtures.
  * These functions define static display inputs, never a product app or a device interaction.
@@ -175,4 +180,15 @@ fun AndroidDesignInventorySmallDarkLargePreview() {
 fun AndroidDesignInventoryExpandedPreview() {
     PreviewApp(initialSection = 2, initialSpecimenId = "button",
         systemIsDark = isSystemInDarkTheme(), initialThemeMode = ThemeMode.System)
+}
+
+/** Immutable seed only: no workbench controls, scope, port, replay effect or live adapter. */
+@Preview(name = "Recipe · field selection · 390 dp", widthDp = 390, heightDp = 844, locale = "vi-rVN")
+@Composable
+fun AndroidRecipeFieldPreview() {
+    when (val result = PreviewRecipe.of("text-field", "selection", PreviewMode.Isolated,
+        settings = PreviewSettings(constraints = ConstraintFrame(390, 844)))) {
+        is PreviewRecipeResult.Accepted -> RecipeFrame(result.recipe)
+        is PreviewRecipeResult.Rejected -> Text("Recipe unavailable: ${result.error}")
+    }
 }

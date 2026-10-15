@@ -295,6 +295,9 @@ kotlin {
         }
         val desktopMain by getting {
             kotlin.srcDir("src/jvmHttpMain/kotlin")
+            // Only the diagnostic host consumes preview settings; Android/iOS and commonMain
+            // keep the existing exclusion of the entire shared preview package.
+            kotlin.srcDir(rootProject.file("../../../packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/workbench/settings"))
             dependencies {
                 implementation(compose.desktop.currentOs)
             }
