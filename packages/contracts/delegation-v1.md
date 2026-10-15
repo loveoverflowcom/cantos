@@ -1,8 +1,10 @@
 # Work-scoped delegation v1
 
 Status: **implemented** for the [ADR 0028](../../docs/decisions/0028-work-scoped-delegation.md)
-first slice (Catalog read and content write on one Work). Studio Web has no management UI;
-production role provisioning is an operator step. Raw DTOs are in
+first slice (Catalog read and content write on one Work). The Studio Web owner panel
+(list, issue with a one-time reveal, revoke) consumes the owner routes; see the
+[Studio delegation UI evidence](../../docs/evidence/work-scoped-delegation-studio-ui.md).
+Production role provisioning is an operator step. Raw DTOs are in
 [`api/src/delegation.rs`](api/src/delegation.rs), the [schema](schema/delegation/v1.schema.json)
 and [synthetic fixtures](fixtures/delegation/v1/README.md) are shared with the tests.
 

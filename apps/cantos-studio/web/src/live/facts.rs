@@ -98,6 +98,8 @@ impl Facts {
                 next.submission = None;
                 next.candidate = None;
             }
+            // Delegation grants are projected by the delegation panel, never content facts.
+            Reply::Delegations(_) | Reply::DelegationIssued(_) => {}
         }
         next
     }

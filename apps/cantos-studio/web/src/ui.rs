@@ -306,6 +306,41 @@ pub fn ContextSelect(
     }.into_any()
 }
 
+/// Work delegation confirmation reuses the established Studio dialog adapter site.
+/// The caller supplies presentation text and owns the owner-authorized revoke effect.
+#[component]
+pub fn DelegationRevokeDialog(
+    open: RwSignal<bool>,
+    english: RwSignal<bool>,
+    blocked: Signal<bool>,
+    details: Signal<String>,
+    on_confirm: Callback<MouseEvent>,
+    on_error: Callback<DialogError>,
+) -> impl IntoView {
+    use crate::live::delegation::copy::{text, Key};
+    move || {
+        let language = english.get();
+        view! {
+            <Dialog id="delegation-revoke-dialog" title=text(Key::DialogTitle, language)
+                close_label=text(Key::DialogClose, language) open=open
+                on_close_request=Callback::new(move |_| open.set(false)) on_error=on_error
+                actions=move || view! {
+                    <Button id="delegation-revoke-keep" variant=ButtonVariant::Secondary
+                        on_press=Callback::new(move |_| open.set(false))>
+                        {move || text(Key::DialogKeep, english.get())}
+                    </Button>
+                    <ActionButton id="delegation-revoke-confirm" english=english variant=ButtonVariant::Danger
+                        blocked=blocked on_press=on_confirm>
+                        {move || text(Key::DialogConfirm, english.get())}
+                    </ActionButton>
+                }>
+                <p>{move || details.get()}</p>
+                <p>{move || text(Key::DialogBody, english.get())}</p>
+            </Dialog>
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
