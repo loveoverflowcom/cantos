@@ -106,20 +106,25 @@ impl Supervisor {
         timeout: Duration,
     ) -> Result<bool> {
         let deadline = Instant::now() + timeout;
+        let mut backoff = POLL;
         loop {
             if self.interrupted() {
                 return Ok(false);
             }
-            let managed = self
-                .children
-                .last_mut()
-                .context("no process has been started")?;
-            if let Some(status) = poll_exit(managed)? {
-                bail!(
-                    "{} exited with {status} before becoming ready at {addr}",
-                    managed.name
-                );
+            // An earlier dependency may die while the latest service is still compiling.
+            for managed in &mut self.children {
+                if let Some(status) = poll_exit(managed)? {
+                    bail!(
+                        "{} exited with {status} before becoming ready at {addr}",
+                        managed.name
+                    );
+                }
             }
+            let name = &self
+                .children
+                .last()
+                .context("no process has been started")?
+                .name;
             // The port was free when the child started, so an unexpected answer is most likely
             // the child itself still building; keep waiting and report it on timeout.
             let last = match probe::probe(addr, readiness) {
@@ -133,11 +138,12 @@ impl Supervisor {
                 };
                 bail!(
                     "{} did not become ready at {addr} within {}s ({observed})",
-                    managed.name,
+                    name,
                     timeout.as_secs()
                 );
             }
-            thread::sleep(POLL);
+            thread::sleep(backoff.min(deadline.saturating_duration_since(Instant::now())));
+            backoff = (backoff * 2).min(Duration::from_secs(1));
         }
     }
 
@@ -438,6 +444,33 @@ mod tests {
             error.to_string().contains("did not become ready"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn an_earlier_dependency_exit_aborts_later_service_readiness() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+        let mut supervisor = supervisor();
+        supervisor
+            .spawn("api dependency", &shell("exit 7"))
+            .unwrap();
+        supervisor
+            .spawn("frontend building", &shell("sleep 60"))
+            .unwrap();
+        let started = Instant::now();
+        let error = supervisor
+            .await_ready(addr, &Readiness::Tcp, Duration::from_secs(10))
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("api dependency exited with exit status: 7 before becoming ready"),
+            "{error}"
+        );
+        assert!(started.elapsed() < Duration::from_secs(5));
+        supervisor.shutdown();
+        assert!(supervisor.children.is_empty());
     }
 
     #[test]

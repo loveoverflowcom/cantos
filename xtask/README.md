@@ -16,7 +16,7 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 | Layer | Owns |
 | --- | --- |
 | Cargo, rustup, Trunk, Python 3, Git, PostgreSQL binaries | Primitive tool execution |
-| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and the test-cluster Studio host. Their logic is reused, not rewritten |
+| `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and its retained-fixture API host. Their logic is reused, not rewritten |
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
 | GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
 
@@ -38,8 +38,8 @@ cargo xtask web-performance cantos-studio|cantos-theatre  # release build + offl
 cargo xtask build all [--release]                  # the API, Forge and both Web clients
 
 cargo xtask run cantos-api [--test-cluster] [--web-origin URL]
-cargo xtask run cantos-studio --web [--test-cluster] [--open]
-cargo xtask run cantos-theatre --web [--open]
+cargo xtask run cantos-studio --web [--test-cluster] [--web-origin URL] [--open]
+cargo xtask run cantos-theatre --web [--test-cluster] [--web-origin URL] [--open]
 cargo xtask app cantos-studio --web [--open]
 cargo xtask app cantos-theatre --web [--open]
 
@@ -125,22 +125,69 @@ Browser timings, V8 cache hits, host compression/headers and deploy/rollback acc
 | --- | --- | --- |
 | `run cantos-api` | `cantos-server` on 127.0.0.1:8080 after building it | `DATABASE_URL` for a migrated local app-role database, or `--test-cluster` |
 | `run cantos-studio --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8081`, then `trunk serve` on 8081 (its `Trunk.toml` proxies `/api/` to 8080) | as `run cantos-api` |
-| `run cantos-theatre --web`, `app cantos-theatre --web` | `trunk serve` for the Theatre skeleton on 8082 | nothing; no listener API exists |
+| `run cantos-theatre --web` | the API with `CANTOS_WEB_ORIGIN=http://127.0.0.1:8082`, then `trunk serve` on 8082; checks anonymous discovery directly and through the proxy | as `run cantos-api`; a readable Theatre public catalog, including a legitimate empty page |
+| `app cantos-theatre --web` | only `trunk serve` on 8082; warns prominently when the existing API's public catalog cannot be reached or decoded | no API for explicit offline previews; live mode needs an API already listening on 8080 |
 | `app cantos-studio --web` | only `trunk serve` on 8081 | an API already listening on 8080, for example `run cantos-api --web-origin http://127.0.0.1:8081` |
+
+**Compatibility proposal — pending review ([#183](https://github.com/loveoverflowcom/cantos/issues/183)).**
+Option A changes Theatre `run` from frontend-only to API+Web, matching Studio. Existing
+frontend-only users should replace `run cantos-theatre --web` with
+`app cantos-theatre --web`; keep the explicit preview query when working offline. A running
+API on 8080 is reused only through `app`, never taken over by `run`. This implementation is
+delivered for review in a Draft PR; it does not declare the compatibility choice accepted.
+See the [decision and evidence ledger](../docs/evidence/theatre-local-run.md).
+
+Web `run` profiles select their actual Trunk origin. An explicit `--web-origin` must exactly
+match `http://127.0.0.1:8081` for Studio or `http://127.0.0.1:8082` for Theatre; a different
+port or `localhost` is rejected before launch. Host identity matters for cookies and callbacks.
+Standalone `run cantos-api --web-origin URL` remains configurable within its loopback HTTP
+origin contract. `app` starts no API and takes neither `--web-origin` nor `--test-cluster`.
+The development host has one Web origin; simultaneous Studio and Theatre authentication
+against that one host is not established by these profiles.
 
 `--test-cluster` serves the API through `scripts/serve_studio.py` against the disposable cluster
 retained by `cargo xtask verify postgres --keep`; that script refuses any other database. xtask
 never reads, prints or invents a database URL. It sets `CANTOS_ENV=development` and the loopback
-bind address; the server itself refuses anything else.
+bind address; the server itself refuses anything else. Theatre selects
+`CANTOS_TEST_CONTEXT=theatre` and the retained record's separate `theatre_app_url`, backed by
+the disposable audio fixture with bounded public-discovery read grants. It does not seed a
+published Work or enable public media delivery. A retained record predating that field must be
+recreated by an explicit fresh `verify postgres --keep`, never patched to point to another DB.
+
+With an already-exported migrated local app-role `DATABASE_URL`, the one-command Theatre
+profile is:
+
+```sh
+cargo xtask run cantos-theatre --web
+# Alternative: only after a successful explicit disposable verification retained its cluster.
+cargo xtask run cantos-theatre --web --test-cluster
+```
+
+The [Theatre runbook](../apps/cantos-theatre/web/README.md#build-run-and-checks) lists modes,
+manual HTTP smoke checks and corrective actions. `run`/`app` never provision PostgreSQL,
+roles, migrations, credentials, Kanidm, S3 or Podman. The explicit verification command owns
+its disposable test-cluster setup; operator-owned databases remain operator-managed.
 
 Process lifecycle:
 
 - Preconditions are checked before any build: required variables and files, tools, and that
   every port is free. A taken port fails with an explanation; xtask never stops a process it did
   not start, and never looks processes up by port or name.
-- Each service starts in its own process group with inherited output. Readiness is a TCP accept
-  for the API and an HTTP 200 containing the app's `<title>` for Trunk (up to 15 minutes for the
-  first WASM build). A process that exits before readiness fails the command.
+- Each service starts in its own process group with inherited output. Standalone API and
+  Studio retain their existing TCP API readiness and Studio's HTML-title readiness. Theatre
+  full-stack readiness requires HTTP 200 with a JSON catalog envelope from
+  `/api/v1/theatre/works?limit=20` on 8080, then the Theatre HTML title and the same JSON catalog-envelope
+  route through Trunk on 8082. A zero-item page is success;
+  a 404, typed unavailable error, non-JSON body or connection failure is not ready. Probes use
+  bounded waits/backoff: the API has 60 seconds and Trunk up to 15 minutes for its first WASM
+  build. A process that exits before readiness fails the command.
+- `/api/v1/theatre/session` is optional for anonymous discovery and is not a readiness gate.
+  An unconfigured/unauthenticated session's 404/401 does not invalidate a working public catalog.
+  A successful catalog probe establishes no provider login, publication delivery or playback.
+- Theatre `app` probes its existing catalog dependency before launch and prints a prominent
+  `WARNING` if it is missing or invalid (red on a suitable terminal). It still permits explicit
+  offline previews. Its final readiness message always describes **frontend-only** readiness;
+  it does not certify an integrated API, including when the advisory probe succeeded.
 - Ctrl-C, SIGTERM or SIGHUP stops every started group, newest first: SIGINT (graceful for Axum and
   Trunk), then SIGKILL after 10 seconds. If any service exits by itself, the others are stopped and
   the command fails.

@@ -24,6 +24,21 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+For the Theatre local-development handoff, prioritize
+[#183](https://github.com/loveoverflowcom/cantos/issues/183)'s bounded launch/readiness repair
+before the real-capability acceptance matrix/runbook in
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) and the cross-client mapping in
+[#180](https://github.com/loveoverflowcom/cantos/issues/180). This makes a failed API dependency
+observable before consumers assess their integration. Then continue the independently gated
+Web listening and real public-delivery work in
+[#13](https://github.com/loveoverflowcom/cantos/issues/13) and
+[#170](https://github.com/loveoverflowcom/cantos/issues/170), retaining #12's listener contract
+and #10/#11's storage/publication prerequisites. Startup and an empty anonymous Work page do
+not accept those capabilities. The [local-run compatibility/evidence ledger](../evidence/theatre-local-run.md)
+records option A as proposed pending review, the frontend-only migration path and separately
+unrun acceptance; GitHub owns implementation and review status. This DX sequence does not
+authorize a provider, schema, publication or native playback change.
+
 The optional [Membership plan publication proposal](../product/membership-plan-publication.md)
 for [#176](https://github.com/loveoverflowcom/cantos/issues/176) has a separate recommended
 order: product/source decision under #34, accepted versioned contract with Web/CMP consumers,

@@ -31,9 +31,10 @@ revisions with separate metadata/content sequences and full revision pinning.
 and independent expiring/revocable producer read grants; see [local evidence](docs/evidence/production-brief.md). [Audio Lifecycle v1](packages/contracts/audio-lifecycle-v1.md) adds Content/Brief-bound private submissions, real Opus-byte inspection, immutable renditions, named review and private candidates. Publication, Discovery and Library have backend cores; public media delivery remains unavailable.
 Studio Web retains the editorial flow and adds a real Catalog/text-or-recording Content/Brief/
 private-audio review workspace. The [client boundary](docs/work-plan/live-client-api-matrix.md)
-distinguishes connected forms from deferred controls and user acceptance. Theatre Web defaults
-to an unsupported live API boundary, with the isolated [UI mock](docs/evidence/theatre-web-mock.md)
-selected explicitly by `?mode=mock`. Theatre Mobile retains its isolated
+distinguishes connected forms from deferred controls and user acceptance. Theatre Web opens
+public Home through the implemented anonymous discovery API; an API outage remains unavailable,
+and the isolated [UI mock](docs/evidence/theatre-web-mock.md) is selected explicitly by
+`?mode=mock`. Theatre Mobile retains its isolated
 [CMP mock](apps/cantos-theatre/mobile/README.md), with production-safe UI/domain/application
 code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
 KMP module, plus a tested common/JVM listener transport seam;
@@ -78,7 +79,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
-- `apps/cantos-theatre/web`: session-only listener Web mock; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
+- `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
@@ -134,6 +135,19 @@ These commands require a local checkout with the documented toolchain. CI status
 evidence must be reported accurately; removing an obsolete TTS worker does not prove new
 upload/playback features exist.
 
+For local Theatre Web with an operator-supplied, migrated app-role `DATABASE_URL` already
+exported, run `cargo xtask run cantos-theatre --web`. It starts the API on 8080 with the
+Theatre origin 8082, then Trunk on 8082, and checks anonymous discovery directly and through
+the proxy. `--test-cluster` instead uses only the disposable fixture retained by
+`cargo xtask verify postgres --keep`; launch never provisions infrastructure. To reuse an
+API you already own, use `cargo xtask app cantos-theatre --web`. That command reports
+frontend-only readiness and warns if live discovery is unavailable; explicit
+`?mode=mock`, `?mode=membership-preview` and `?mode=auth-preview` still work offline.
+See the [local runbook](apps/cantos-theatre/web/README.md#build-run-and-checks) and
+[compatibility proposal and evidence](docs/evidence/theatre-local-run.md). This changes the
+previous frontend-only Theatre `run` behavior; option A remains **proposed pending review**,
+and startup success does not accept live playback or provider integration.
+
 The optional [Web performance inventory](docs/evidence/web-performance-patterns.md) rebuilds a
 release bundle and records asset hashes and offline compression sizes. It establishes no browser
 startup, cache-hit or production delivery result; those require separately attributed observations.
@@ -162,7 +176,8 @@ to redistribute narrative or voice material.
 [Theatre Discovery/Playback v1](packages/contracts/theatre-discovery-v1.md) adds anonymous
 current-public works/search/detail, ordered units and immutable manifest projections. Media
 authorization remains fail-closed with unavailable public delivery. PostgreSQL/runtime and
-Web/CMP live adapter acceptance are still required; current mock clients are unchanged.
+Web/CMP live adapter acceptance are still required. Theatre Web consumes the bounded anonymous
+Work list; its explicit mock and real playback boundary remain separate.
 [Evidence and boundaries](docs/evidence/theatre-discovery.md).
 
 The opt-in [Admin authorization and audit](docs/architecture/admin-authorization.md) backend
