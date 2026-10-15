@@ -78,9 +78,11 @@ ledger below pins each of them.
 
 Environment: macOS arm64, installed Gradle 8.14.3, Microsoft JDK 17.0.19, Rust 1.98.1, Homebrew
 Python 3.14 shim for the repository gate, Kotlin/CMP/Material3 2.2.20/1.9.0/1.8.2. Nothing was
-installed or provisioned. Base revision `68b2fc6ca22f8d67b515b1b703ddd3ccf95623eb` (develop after
-#150); the evidence below comes from the working tree that became this PR's head. Production
-composables ran on JVM Desktop Compose, not an OS window, emulator or phone.
+installed or provisioned. The slice was implemented and measured on base
+`68b2fc6ca22f8d67b515b1b703ddd3ccf95623eb` (develop after #150). The branch was then merged with
+develop `26dee0a78a8e1c53f538d8ff32ffc00d2029fc66` (after #151, the Leptos scenario workbench) and
+the gates in the second table were re-run on the merged tree. Production composables ran on JVM
+Desktop Compose, not an OS window, emulator or phone.
 
 Every command ran from the worktree with `RUSTUP_TOOLCHAIN=1.98.1`, Gradle on `PATH`, `LC_ALL=C` and
 `TMPDIR=/private/tmp` (plus `ANDROID_HOME` for the Android builds). Gates are reported as xtask printed them.
@@ -94,6 +96,30 @@ Every command ran from the worktree with `RUSTUP_TOOLCHAIN=1.98.1`, Gradle on `P
 | `python3 scripts/ui_preview_catalog.py --check` (Python 3.14) | PASS | Two registries, named tokens and guarded adoption agree. Before the six records were re-bound it failed on exactly those six records and the two Membership files that use them |
 | `cargo xtask verify repository` (Python 3.14 shim on `PATH`) | PASS | 693 text files and 19 skills, local links, 432 Python tests OK (5 optional skipped), generated-output drift and qualification freshness |
 | Mutation ledger (hand-run, not an xtask gate) | 22 of 22 killed | Below |
+
+**Post-merge re-run (develop `26dee0a`, #151).** The merge conflicted in four files: the shared
+`preview-catalog.json`, its two generated registries (`PreviewCatalog.kt`, `preview_catalog.rs`) and
+the work-plan README. The catalog keeps #151's Leptos evidence paths (`issue142-<id>-leptos.json`)
+beside this branch's CMP paths (`issue143-<id>-cmp.json`); both registries were regenerated from it
+(one catalog digest, `dab470b8…`, in both headers); the README keeps both paragraphs. #151 touched no
+hashed CMP source, so the CMP source digest stayed `fba02630…` and the six CMP records stayed fresh.
+The preflight's own `cmp-ui-preview` and `theatre-cmp-demo` gates reported `desktopTest` UP-TO-DATE
+(the merge left the compiled classes identical), which is a cached pass. So the cached test results
+were deleted and both gates re-run through xtask: the counts below were executed after the merge, on
+the merged tree.
+
+| Exact command | Result | Scope |
+| --- | --- | --- |
+| `python3 scripts/ui_preview_catalog.py --check` (Python 3.14) | PASS | Registries, named tokens and guarded adoption agree on the merged tree |
+| `cargo xtask ui-preview cmp verify` | PASS | `desktopTest` re-executed: 152 tests in 24 classes, 0 failed, errors or skipped. The eight captures written again have the same SHA-256 prefixes as the opened ones in the table below |
+| `cargo xtask ui-preview cmp android-build` | PASS | `compileDebugKotlinAndroid`; compiled, not rendered or captured |
+| `cargo xtask theatre-demo verify` | PASS | `:shared:desktopTest` re-executed: 273 tests in 39 classes, 0 failed, errors or skipped |
+| `cargo xtask verify repository` (Python 3.14 shim on `PATH`) | PASS | 700 text files and 19 skills, 432 Python tests OK (5 optional skipped), generated-output drift and qualification freshness |
+| `cargo xtask preflight --changed-only` (Python 3.14 shim, `CARGO_INCREMENTAL=0`) | PASS | Ten selected gates, none skipped: repository, rust-format, rust-lint, rust-tests, web-lint, web-build (Studio and Theatre), ui-preview, cmp-ui-preview, theatre-cmp-demo. The Rust and Web gates were selected because the shared catalog and its generated Rust registry changed; this PR changes no Rust behavior |
+
+Not re-run after the merge: `cargo xtask theatre-demo android-build` (the merge changed only the
+header comment of the generated registry, which that build compiles) and the hand-run mutation ledger
+(no gallery or capture code changed in the merge).
 
 ## Mutation ledger
 
@@ -173,7 +199,7 @@ qualifications").
 | --- | --- | --- |
 | `tokens_sha256` | `25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741` | unchanged |
 | CMP `source_sha256` | `4dd8dab014506c8fa2e0ad4c619d8b1759af472b56e3e88a6d80921eee7cbe17` | `fba0263006c54af0484431fbb95a3bedfe182dc5176cfeb9259d9d6829442042` |
-| Leptos `source_sha256` | `119f3dcf8490e7309c4127adb4103116ef2bb6170851bc8107057c293ea2618c` | unchanged: the six Leptos records stay fresh |
+| Leptos `source_sha256` | `119f3dcf8490e7309c4127adb4103116ef2bb6170851bc8107057c293ea2618c` | `c8bf6aae2d787c593b86da2a2113cc1504ce7a6a15bf3c2c783dc8bf72bd47c8` after merging #151, which re-bound its six Leptos records (`issue142-<id>-leptos.json`); this PR changes no Leptos-hashed file, and the CMP source digest did not move with the merge |
 
 I re-ran the command the old records name (`ui-preview cmp verify`, 152 tests), confirmed that no
 implementation file of the six components changed, and compared the captures (above). Six new records,
