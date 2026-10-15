@@ -21,7 +21,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,10 +149,16 @@ fun MembershipPreview(
 private fun MembershipForm(state: MembershipState, copy: MembershipCopy, dispatch: (MembershipEvent) -> Unit) {
     val nameFocus = remember { FocusRequester() }
     val emailFocus = remember { FocusRequester() }
+    // An equal finding list is still a new failed submit; focus follows that intent too.
+    var submitFocusTrigger by remember { mutableStateOf(false) }
+    val submit = {
+        dispatch(MembershipEvent.Submit)
+        submitFocusTrigger = !submitFocusTrigger
+    }
     val locked = state.submission == SubmissionStatus.Pending || state.submission == SubmissionStatus.Unknown || state.submission == SubmissionStatus.Received
     val nameError = state.fieldErrors.firstOrNull { it == MembershipFieldError.NameRequired || it == MembershipFieldError.NameTooLong || it == MembershipFieldError.NameInvalid }
     val emailError = state.fieldErrors.firstOrNull { it == MembershipFieldError.EmailRequired || it == MembershipFieldError.EmailTooLong || it == MembershipFieldError.EmailInvalid }
-    LaunchedEffect(state.fieldErrors) {
+    LaunchedEffect(state.fieldErrors, submitFocusTrigger) {
         if (state.fieldErrors.isNotEmpty()) {
             withFrameNanos { }
             if (nameError != null) nameFocus.requestFocus() else emailFocus.requestFocus()
@@ -169,7 +178,7 @@ private fun MembershipForm(state: MembershipState, copy: MembershipCopy, dispatc
             isError = emailError != null, supportingText = emailError?.let { { Text(copy.error(it)) } },
             shape = RoundedCornerShape(tokenDp("shape.authField")),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { if (state.submission != SubmissionStatus.Pending) dispatch(MembershipEvent.Submit) }))
+            keyboardActions = KeyboardActions(onDone = { if (state.submission != SubmissionStatus.Pending) submit() }))
         val status = when (state.submission) {
             SubmissionStatus.Idle -> null
             SubmissionStatus.Pending -> MembershipText.Pending
@@ -186,7 +195,7 @@ private fun MembershipForm(state: MembershipState, copy: MembershipCopy, dispatc
             SubmissionStatus.Idle, SubmissionStatus.Received -> MembershipText.Submit
         }
         MembershipAction(copy.text(label), "membership-submit", enabled = state.submission != SubmissionStatus.Pending && state.submission != SubmissionStatus.Received) {
-            dispatch(MembershipEvent.Submit)
+            submit()
         }
     }
 }

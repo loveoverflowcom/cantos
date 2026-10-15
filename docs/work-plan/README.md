@@ -156,6 +156,9 @@ Recommended order stays small and reviewable:
    submission remains unavailable. [Preview evidence](../evidence/theatre-membership-preview.md)
    separates fixtures and renderer observations from actual receipt/API acceptance. Shared
    variants remain preview-only until admission; no prices, entitlements or checkout are invented.
+   After the bounded history/focus repairs, final-head checks and remaining independent
+   acceptance are deferred to the owner; earlier implementation-session PASS results do not
+   accept that follow-up source. Keep this recheck ahead of client adoption.
 3. #129/#130 adopt Theatre auth/account independently of native lifecycle and sandbox #122;
    retain the product-owned navigation requirements rather than copying prototype navigation.
 4. #131 adopts login-only Studio Web/Bàn viết under its separate permission and UI boundary.

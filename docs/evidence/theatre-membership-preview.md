@@ -1,5 +1,15 @@
 # Theatre Membership preview — issue 128
 
+## Current handoff status — acceptance deferred by owner
+
+On 15 October 2026 the owner explicitly requested that the review stop remaining acceptance,
+document unchecked work, and push the scoped source for their own review. No further Chrome
+attempt, CI polling or verification gate is required by that revised task. This does not
+establish acceptance: the implementation-session PASS results below belong to input head
+`c0cf32ec3ea1b0845a777929ca9949aeaecd252a`, before the follow-up repairs described at the end.
+They are **not final-head results**. Independent review is partial; browser/native/live and
+remaining final-head gates are NOT_RUN/deferred. The PR remains a draft and issue 128 stays open.
+
 ## Boundary and provenance
 
 Base: `develop@f05b09bf24243bb99bc869f5009628294ebb15d8`; branch
@@ -54,7 +64,7 @@ Quint model/observer exists; no model or conformance claim is introduced.
 | L4 CMP | PASS | `semantics-tested`, `interaction-tested`: JVM Compose host, 5 Membership flows; full suite 270, failures 0/errors 0/skipped 0; not Android/iOS evidence |
 | L5 Membership HTTP/SQL | NOT_RUN | No accepted production contract/persistence; authentication, durable idempotency and restart acceptance remain open |
 | L5 native/provider | NOT_RUN | No device/OS Back/secure store/signup/payment or screen-reader acceptance |
-| Independent review | NOT_RUN | Parent commissions a separate Extra High review; implementation checks do not replace it |
+| Independent review | NOT_RUN (completion deferred) | Partial independent source inspection and follow-up repairs are recorded below; the owner will review remaining acceptance |
 
 ## Executed commands
 
@@ -64,7 +74,7 @@ Gradle 8.14.3 at `/private/tmp/cantos-gradle-8.14.3/gradle-8.14.3/bin`, and loca
 at `/private/tmp/cantos-audio-tools`. Prefix those directories to `PATH`. Ordinary sandbox
 process-group/native-cache failures were diagnosed; authorized normal-access runs resolved them.
 
-| Command | Current result | Raw output |
+| Command | Implementation-session result, before review repairs | Raw output |
 | --- | --- | --- |
 | `cargo xtask verify repository` | PASS; 401 Python tests | `repository-authorized.log` |
 | `cargo xtask verify rust` | PASS; format, workspace lint/tests | `verify-rust.log` |
@@ -133,3 +143,58 @@ No issue closure or merge is authorized by this preview.
 
 Final post-preflight free space: 2,282,048 KiB (about 2.18 GiB). All owned browser/server/build
 processes finished or were stopped through their task-owned supervisor; evidence is retained.
+
+## Independent follow-up — source repairs, not completed acceptance
+
+Input scope: three-dot diff `f05b09bf24243bb99bc869f5009628294ebb15d8...c0cf32ec3ea1b0845a777929ca9949aeaecd252a`,
+branch `feat/issue128-membership-interest`, initially clean with upstream 0/0. The reviewer read
+issue 128 and its empty comments, dependencies 12/34/127/129/130, the Drive handoff, the
+Membership contract, Rust/Kotlin state and renderer paths, navigation integration and relevant
+tests. Source inspection supports the issue-permitted preview scope; it does not accept a
+production contract or complete every independent review pass. Design HTML and final runtime
+comparison were not independently accepted.
+
+Two bounded findings were repaired under the owner's explicit authorization:
+
+| Finding | Trigger and consequence | Owning repair / evidence |
+| --- | --- | --- |
+| P2 · confirmed defect · logic · confirmed-from-source | In Web, browser Back after a receipt visits the completed form hash. Restoring that hash rejects reopening the form, then `set_hash` pushes another receipt entry. Repeated Back can revisit the same form and lose forward history. Clearing a session while old receipt entries remain has the same cause. | [`bind_history` / `restore_history`](../../apps/cantos-theatre/web/src/membership_preview.rs) replaces a normalized visited entry rather than pushing navigation. A pure regression covers completed-form/cleared-receipt normalization and the next valid destination. Source-confirmed; the new Rust test and browser history walkthrough are NOT_RUN. |
+| P2 · confirmed defect · rule · confirmed-from-source | In CMP, submit blank fields, focus Email, and submit again without editing. Equal `fieldErrors` do not restart `LaunchedEffect`, leaving focus on Email instead of the first invalid Name field required by issue 128. | [`MembershipForm`](../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/membership/presentation/MembershipPreview.kt) keys the focus effect by each submit intent too; button and IME share the trigger. A new JVM Compose regression reproduced the failure before the repair. Native/IME runtime acceptance is NOT_RUN. |
+
+These changes preserve the unavailable production default, operation/payload binding, receipt
+fences and separate plan origin. No auth, payment, API/SQL, PostgreSQL baseline or live S3 change
+was made. No tool was installed; no caches, other worktrees or Trash were deleted.
+
+| Claim / owner / target | Required by | Evidence held | Disposition |
+| --- | --- | --- | --- |
+| Preview receipt is separate from identity/entitlement; both client cores | issue 128; Membership boundary | Source inspection of default/fixture constructors, exact attempt comparison, retries, session clear and internal return origins; prior vectors/tests are not final-head reruns | Source scope held; live authority/durability deferred to 12/34 |
+| Web history normalization preserves traversal | issue 128 Back/lifecycle; Web renderer | Source-confirmed defect and minimal repair; new pure regression added, not executed | Final Rust/WASM and browser traversal acceptance deferred to owner |
+| CMP invalid submit moves focus to first error | issue 128 inline validation; CMP renderer | New JVM regression failed before repair: 271 tests, 1 failure; the repaired suite passed 271 tests with zero failures/errors/skips | Held for the JVM regression; native accessibility remains deferred |
+| Final layered gates and complete independent acceptance | Revised owner request | No remaining gates or browser/CI steps started after deferral | NOT_RUN; owner reviews before acceptance |
+
+Reviewer logs stay ignored in `artifacts/agent-runs/issue128-review/`. `cmp-red.log` is the
+pre-repair reproduction. The second `theatre-demo verify` was already running when acceptance
+was deferred; `cmp-green.log` reports `theatre-demo: PASS`. Its 39 JUnit XML reports total
+271 tests, zero failures/errors/skips, including the new repeated-submit regression. It ran
+the repaired Kotlin source with the new regression; neither Kotlin file changed afterward.
+No additional suite was started after deferral. This result is `semantics-tested` /
+`interaction-tested` on the JVM Compose host, not native or screen-reader acceptance.
+`cargo xtask preflight --changed-only --dry-run` printed seven planned gates but executed none.
+Repository/Rust/contracts/Web/preflight final-head execution is NOT_RUN by owner request.
+
+The loopback Web supervisor started successfully on 8082 from the input revision and was
+stopped through its owned session. Computer Use could not complete Chrome access: the Mac was
+locked and automatic unlock failed. The later owner instruction removed browser acceptance
+from this task, so Chrome was not retried or bypassed through another automation route.
+No final-head CI status was checked; CI is deferred by owner request.
+
+Owner review checklist: run final repository/affected Rust/Web/preflight gates; exercise browser
+Back/Forward through completed form and cleared receipt history; check the new Rust regression;
+recheck repeated invalid-submit focus and IME on the intended native hosts; inspect final
+light/dark/narrow/large-text layouts and screen-reader behavior. Production receipt/auth/API/SQL,
+pricing and entitlement remain separate decisions rather than unfinished preview test results.
+
+Residual risk: the Web repair is source-reviewed but unexecuted; independent visual/browser
+acceptance and the complete final-head gate set are explicitly deferred. JVM evidence cannot
+establish Android/iOS, OS Back, VoiceOver/TalkBack or live registration semantics. Delivery is
+source for owner review, not accepted, ready or a completed production Membership capability.

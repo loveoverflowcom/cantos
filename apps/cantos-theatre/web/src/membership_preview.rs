@@ -55,6 +55,15 @@ fn apply_hash(state: &mut MembershipState, hash: &str) {
     }
 }
 
+/// A visited stale/invalid route is normalized in its existing history slot.
+/// Pushing a new slot here would trap Back at completed forms or cleared receipts.
+#[cfg(any(target_arch = "wasm32", test))]
+fn restore_history(state: &mut MembershipState, hash: &str) -> Option<&'static str> {
+    apply_hash(state, hash);
+    let canonical = screen_hash(state.screen());
+    (canonical != hash).then_some(canonical)
+}
+
 #[cfg(target_arch = "wasm32")]
 fn sync_hash(screen: MembershipScreen) {
     if let Some(window) = leptos::web_sys::window() {
@@ -73,8 +82,10 @@ fn bind_history(state: RwSignal<MembershipState>) {
         let hash = leptos::web_sys::window()
             .and_then(|w| w.location().hash().ok())
             .unwrap_or_default();
-        state.update(|s| apply_hash(s, &hash));
-        sync_hash(state.get_untracked().screen());
+        let replacement = state.try_update(|s| restore_history(s, &hash)).flatten();
+        if let (Some(window), Some(canonical)) = (leptos::web_sys::window(), replacement) {
+            let _ = window.location().replace(canonical);
+        }
     };
     let initial_hash = leptos::web_sys::window()
         .and_then(|w| w.location().hash().ok())
@@ -451,6 +462,32 @@ mod tests {
         apply_hash(&mut state, "#membership-request");
         assert_eq!(state.screen(), MembershipScreen::Received);
         assert_eq!(state.receipt(), Some(&issued));
+    }
+
+    #[test]
+    fn history_recovery_normalizes_old_slots_without_another_navigation() {
+        let mut state = fixture();
+        let issued = state.begin_submission().unwrap();
+        state.finish(&issued, FinishOutcome::Received);
+        // Back visits the completed form, then the intro. A replacement must preserve
+        // the next Back destination; an appended receipt would visit the form forever.
+        assert_eq!(
+            restore_history(&mut state, "#membership-request"),
+            Some("#membership-received")
+        );
+        assert_eq!(state.receipt(), Some(&issued));
+        assert_eq!(restore_history(&mut state, "#membership"), None);
+        assert_eq!(state.screen(), MembershipScreen::Intro);
+        assert_eq!(state.receipt(), Some(&issued));
+
+        state.clear_session();
+        assert_eq!(
+            restore_history(&mut state, "#membership-received"),
+            Some("#membership")
+        );
+        assert_eq!(state.receipt(), None);
+        assert_eq!(restore_history(&mut state, "#account"), None);
+        assert_eq!(state.screen(), MembershipScreen::Account);
     }
 
     #[test]

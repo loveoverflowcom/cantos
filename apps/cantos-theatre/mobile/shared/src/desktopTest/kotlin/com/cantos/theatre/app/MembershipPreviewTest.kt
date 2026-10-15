@@ -78,6 +78,21 @@ class MembershipPreviewTest {
     }
 
     @Test
+    fun repeated_invalid_submit_refocuses_the_first_field_even_when_findings_are_unchanged() {
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent { MembershipTestRoot() }
+            onNodeWithTag("membership-start").performScrollTo().performClick()
+            onNodeWithTag("membership-submit").performScrollTo().performClick()
+            onNodeWithTag("membership-name").assertIsFocused()
+            val email = onNodeWithTag("membership-email").performScrollTo()
+            email.performSemanticsAction(SemanticsActions.RequestFocus) { assertTrue(it()) }
+            email.assertIsFocused()
+            onNodeWithTag("membership-submit").performScrollTo().performClick()
+            onNodeWithTag("membership-name").assertIsFocused()
+        }
+    }
+
+    @Test
     fun fixture_requires_manual_receipt_after_unknown_retry_and_plan_failure_keeps_it() {
         runDesktopComposeUiTest(width = 390, height = 844) {
             setContent { MembershipTestRoot(fixture = MembershipState.fixture()) }
