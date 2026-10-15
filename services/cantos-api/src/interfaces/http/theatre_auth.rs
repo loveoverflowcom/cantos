@@ -1,7 +1,7 @@
 //! Theatre-only OIDC HTTP boundary.
 use crate::{
     interfaces::http::{failure, AppState},
-    platform::theatre_identity::AuthError,
+    platform::theatre_identity::{AuthError, TheatreIdentity},
 };
 use axum::{
     extract::{Query, State},
@@ -25,12 +25,27 @@ pub(super) fn routes(enabled: bool) -> Router<AppState> {
 
 use crate::interfaces::http::cookies::unique_cookie;
 
-async fn login(State(state): State<AppState>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct LoginQuery {
+    intent: Option<String>,
+}
+
+async fn login(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    query: Result<Query<LoginQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
     let Some(oidc) = state.store.theatre_identity() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
     if oidc.web_origin() != state.web_origin {
         return error(AuthError::Configuration);
+    }
+    let Ok(Query(query)) = query else {
+        return error(AuthError::State);
+    };
+    if query.intent.as_deref().is_some_and(|v| !valid_ui_intent(v)) {
+        return error(AuthError::State);
     }
     if headers
         .get("sec-fetch-site")
@@ -50,15 +65,142 @@ async fn login(State(state): State<AppState>, headers: HeaderMap) -> Response {
         _ => return error(AuthError::State),
     }
     match oidc.begin(&state.store, previous.as_deref()).await {
-        Ok(start) => redirect(&start.url, &[start.cookie]),
+        Ok(start) => {
+            let mut values = vec![start.cookie];
+            if let Some(intent) = query.intent {
+                let flow_state = match authorization_state(&start.url) {
+                    Ok(value) => value,
+                    Err(e) => return error(e),
+                };
+                values.push(return_cookie(oidc, &flow_state, &intent, 600));
+            }
+            redirect(&start.url, &values)
+        }
         Err(e) => error(e),
+    }
+}
+
+fn valid_ui_intent(value: &str) -> bool {
+    value.len() == 32
+        && value
+            .bytes()
+            .all(|v| v.is_ascii_digit() || (b'a'..=b'f').contains(&v))
+}
+
+fn authorization_state(value: &str) -> Result<String, AuthError> {
+    let url = url::Url::parse(value).map_err(|_| AuthError::Configuration)?;
+    let mut states = url.query_pairs().filter(|(name, _)| name == "state");
+    let state = states
+        .next()
+        .ok_or(AuthError::Configuration)?
+        .1
+        .into_owned();
+    if states.next().is_some() || !crate::platform::theatre_identity::valid_secret(&state) {
+        return Err(AuthError::Configuration);
+    }
+    Ok(state)
+}
+
+fn return_cookie_name(oidc: &TheatreIdentity, state: &str) -> String {
+    let prefix = if oidc.session_name().starts_with("__Secure-") {
+        "__Secure-"
+    } else {
+        ""
+    };
+    format!("{prefix}cantos_theatre_return_{state}")
+}
+
+fn return_cookie(oidc: &TheatreIdentity, state: &str, intent: &str, age: u64) -> String {
+    let secure = if oidc.session_name().starts_with("__Secure-") {
+        "; Secure"
+    } else {
+        ""
+    };
+    format!(
+        "{}={intent}; HttpOnly; SameSite=Lax; Path=/api/v1/theatre/auth; Max-Age={age}{secure}",
+        return_cookie_name(oidc, state)
+    )
+}
+
+fn callback_intent(
+    headers: &HeaderMap,
+    oidc: &TheatreIdentity,
+    state: &str,
+) -> Result<Option<String>, AuthError> {
+    let expected = return_cookie_name(oidc, state);
+    let mut found = None;
+    for name in [
+        format!("cantos_theatre_return_{state}"),
+        format!("__Secure-cantos_theatre_return_{state}"),
+    ] {
+        if let Some(value) = unique_cookie(headers, &name)? {
+            if name != expected || !valid_ui_intent(&value) {
+                return Err(AuthError::State);
+            }
+            found = Some(value);
+        }
+    }
+    Ok(found)
+}
+
+fn callback_location(cancelled: bool, intent: Option<&str>) -> String {
+    let hash = if cancelled {
+        "auth-cancelled"
+    } else {
+        "auth-return"
+    };
+    match intent {
+        Some(intent) => format!("/#{hash}?intent={intent}"),
+        None => format!("/#{hash}"),
     }
 }
 
 #[derive(Deserialize)]
 struct Callback {
     state: String,
-    code: String,
+    code: Option<String>,
+    error: Option<ProviderCallbackError>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum ProviderCallbackError {
+    AccessDenied,
+    InvalidRequest,
+    UnauthorizedClient,
+    UnsupportedResponseType,
+    InvalidScope,
+    ServerError,
+    TemporarilyUnavailable,
+    InteractionRequired,
+    LoginRequired,
+    AccountSelectionRequired,
+    ConsentRequired,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CallbackResponse<'a> {
+    Code(&'a str),
+    Cancelled,
+}
+
+impl Callback {
+    fn response(&self) -> Result<CallbackResponse<'_>, AuthError> {
+        if !crate::platform::theatre_identity::valid_secret(&self.state) {
+            return Err(AuthError::State);
+        }
+        match (&self.code, self.error) {
+            (Some(code), None)
+                if !code.is_empty()
+                    && code.len() <= 4096
+                    && !code.chars().any(char::is_control) =>
+            {
+                Ok(CallbackResponse::Code(code))
+            }
+            (None, Some(_)) => Ok(CallbackResponse::Cancelled),
+            _ => Err(AuthError::State),
+        }
+    }
 }
 
 async fn callback(
@@ -72,6 +214,10 @@ async fn callback(
     let Ok(Query(query)) = query else {
         return error(AuthError::State);
     };
+    let response = match query.response() {
+        Ok(response) => response,
+        Err(e) => return error(e),
+    };
     let browser = match flow_inventory(&headers, oidc.flow_name()) {
         Ok(inventory) => match inventory
             .into_iter()
@@ -82,13 +228,42 @@ async fn callback(
         },
         _ => return error(AuthError::State),
     };
+    let intent = match callback_intent(&headers, oidc, &query.state) {
+        Ok(intent) => intent,
+        Err(e) => return error(e),
+    };
+    let cleared = intent
+        .as_ref()
+        .map(|_| return_cookie(oidc, &query.state, "", 0))
+        .into_iter()
+        .collect::<Vec<_>>();
+    if response == CallbackResponse::Cancelled {
+        // Only a browser-bound provider failure returns to the app. It grants no session,
+        // exchanges no code and never reflects provider text or a caller's return URL.
+        return match oidc
+            .cancel_callback(&state.store, &query.state, &browser)
+            .await
+        {
+            Ok(()) => redirect(&callback_location(true, intent.as_deref()), &cleared),
+            Err(e) => error(e),
+        };
+    }
+    let CallbackResponse::Code(code) = response else {
+        return error(AuthError::State);
+    };
     match oidc
-        .callback(&state.store, &query.state, &browser, &query.code)
+        .callback(&state.store, &query.state, &browser, code)
         .await
     {
         // Consumed/completed SQL flow remains one-time. A global expiry header here could
         // erase a newer flow cookie created by another tab while exchange was in flight.
-        Ok(complete) => redirect("/", &[complete.cookie]),
+        // The fixed hash is a completion intent only. The Web client restores its internal
+        // return context and confirms /session; no arbitrary redirect is accepted here.
+        Ok(complete) => {
+            let mut values = cleared;
+            values.push(complete.cookie);
+            redirect(&callback_location(false, intent.as_deref()), &values)
+        }
         Err(e) => error(e),
     }
 }
@@ -422,6 +597,158 @@ fn flow_inventory(headers: &HeaderMap, expected: &str) -> Result<Vec<(String, St
 mod tests {
     use super::*;
     use crate::interfaces::http::cookie_token_for_name;
+
+    fn callback_query(
+        query: &str,
+    ) -> Result<Query<Callback>, axum::extract::rejection::QueryRejection> {
+        let uri = format!("/auth/callback?{query}").parse().unwrap();
+        Query::<Callback>::try_from_uri(&uri)
+    }
+
+    #[test]
+    fn ui_return_nonce_is_bounded_and_exactly_bound_to_one_flow_cookie() {
+        let oidc = TheatreIdentity::new(
+            "http://127.0.0.1:9000/oauth2/openid/cantos-theatre-web-bff",
+            "http://127.0.0.1:8080",
+            "fixture".into(),
+        )
+        .unwrap();
+        let state_a = "a".repeat(64);
+        let state_b = "b".repeat(64);
+        let intent_a = "1".repeat(32);
+        let intent_b = "2".repeat(32);
+        assert!(valid_ui_intent(&intent_a));
+        for value in [
+            "",
+            "abc",
+            &"a".repeat(33),
+            &"A".repeat(32),
+            "https://example.com",
+        ] {
+            assert!(!valid_ui_intent(value));
+        }
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_str(&format!(
+            "cantos_theatre_return_{state_a}={intent_a}; cantos_theatre_return_{state_b}={intent_b}"
+        ))
+            .unwrap(),
+        );
+        assert_eq!(
+            callback_intent(&headers, &oidc, &state_a),
+            Ok(Some(intent_a.clone()))
+        );
+        assert_eq!(
+            callback_intent(&headers, &oidc, &state_b),
+            Ok(Some(intent_b.clone()))
+        );
+        assert_eq!(
+            callback_location(false, Some(&intent_a)),
+            format!("/#auth-return?intent={intent_a}")
+        );
+        assert_eq!(
+            callback_location(true, Some(&intent_b)),
+            format!("/#auth-cancelled?intent={intent_b}")
+        );
+        let cleared = return_cookie(&oidc, &state_a, "", 0);
+        assert!(cleared.starts_with(&format!("cantos_theatre_return_{state_a}=")));
+        assert!(cleared.contains("HttpOnly; SameSite=Lax; Path=/api/v1/theatre/auth; Max-Age=0"));
+        assert!(!cleared.contains(&state_b));
+        for value in [
+            format!("cantos_theatre_return_{state_a}=bad"),
+            format!("cantos_theatre_return_{state_a}={intent_a}; cantos_theatre_return_{state_a}={intent_a}"),
+            format!("__Secure-cantos_theatre_return_{state_a}={intent_a}"),
+        ] {
+            headers.insert(header::COOKIE, HeaderValue::from_str(&value).unwrap());
+            assert_eq!(callback_intent(&headers, &oidc, &state_a), Err(AuthError::State));
+        }
+        assert_eq!(
+            authorization_state(&format!("https://example.com/authorize?state={state_a}")),
+            Ok(state_a.clone())
+        );
+        assert_eq!(
+            authorization_state(&format!(
+                "https://example.com/authorize?state={state_a}&state={state_b}"
+            )),
+            Err(AuthError::Configuration)
+        );
+        let secure = TheatreIdentity::new(
+            "https://id.example.com/oauth2/openid/cantos-theatre-web-bff",
+            "https://cantos.example.com",
+            "fixture".into(),
+        )
+        .unwrap();
+        let cookie = return_cookie(&secure, &state_a, &intent_a, 600);
+        assert!(cookie.starts_with("__Secure-cantos_theatre_return_"));
+        assert!(cookie.ends_with("; Secure"));
+    }
+
+    #[test]
+    fn callback_code_and_provider_error_are_exclusive_and_state_is_required() {
+        let state = "a".repeat(64);
+        let accepted = callback_query(&format!("state={state}&code=provider-code")).unwrap();
+        assert_eq!(
+            accepted.response(),
+            Ok(CallbackResponse::Code("provider-code"))
+        );
+        for query in [
+            format!("state={state}"),
+            format!("state={state}&code="),
+            format!("state={state}&code=%0A"),
+            format!("state={state}&code=code&error=access_denied"),
+            format!("state={state}&code=&error=access_denied"),
+            "state=&code=code".into(),
+            "state=not-a-flow&error=access_denied".into(),
+        ] {
+            assert_eq!(
+                callback_query(&query).unwrap().response(),
+                Err(AuthError::State),
+                "unexpected acceptance: {query}"
+            );
+        }
+        for query in [
+            "code=code".into(),
+            format!("state={state}&error="),
+            format!("state={state}&error=unknown_provider_error"),
+            format!("state={state}&code=first&code=second"),
+            format!("state={state}&error=access_denied&error=server_error"),
+            format!("state={state}&state={state}&code=code"),
+        ] {
+            assert!(
+                callback_query(&query).is_err(),
+                "unexpected parsing: {query}"
+            );
+        }
+    }
+
+    #[test]
+    fn standard_provider_failures_are_non_authorizing_cancellation_intents() {
+        let state = "a".repeat(64);
+        for provider_error in [
+            "access_denied",
+            "invalid_request",
+            "unauthorized_client",
+            "unsupported_response_type",
+            "invalid_scope",
+            "server_error",
+            "temporarily_unavailable",
+            "interaction_required",
+            "login_required",
+            "account_selection_required",
+            "consent_required",
+        ] {
+            let query = callback_query(&format!(
+                "state={state}&error={provider_error}&error_description=ignored&error_uri=https://example.com&return_to=https://example.com"
+            ))
+            .unwrap();
+            assert_eq!(query.response(), Ok(CallbackResponse::Cancelled));
+        }
+        let oversized =
+            callback_query(&format!("state={state}&code={}", "a".repeat(4097))).unwrap();
+        assert_eq!(oversized.response(), Err(AuthError::State));
+    }
+
     #[test]
     fn immutable_flow_inventory_is_exact_bounded_and_rejects_mutable_fallback() {
         let mut headers = HeaderMap::new();

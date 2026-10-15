@@ -1,8 +1,12 @@
 pub(crate) mod account;
+pub(crate) mod auth;
+pub(crate) mod auth_copy;
+pub(crate) mod auth_preview;
 pub(crate) mod common;
 pub(crate) mod discovery;
 pub(crate) mod explore;
 pub(crate) mod library;
 pub(crate) mod player;
+pub(crate) mod public_home;
 pub(crate) mod queue;
 pub(crate) mod work_detail;

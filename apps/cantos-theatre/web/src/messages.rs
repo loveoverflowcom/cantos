@@ -330,6 +330,8 @@ pub fn route_key(route: Route) -> Key {
         Route::Queue => Key::Queue,
         Route::Settings => Key::Settings,
         Route::Account => Key::Account,
+        Route::Auth(_) => Key::SignIn,
+        Route::Membership(_) => Key::MembershipRegister,
         Route::NotFound => Key::NotFound,
     }
 }

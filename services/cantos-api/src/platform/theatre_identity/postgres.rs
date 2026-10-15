@@ -63,6 +63,44 @@ impl Store {
         })
     }
 
+    pub(super) async fn theatre_cancel_flow(
+        &self,
+        config: &OidcConfig,
+        state: &str,
+        browser: &str,
+    ) -> Result<Vec<(Vec<u8>, String)>, AuthError> {
+        let mut client = self.connection().await.map_err(unavailable)?;
+        let tx = client.transaction().await.map_err(unavailable)?;
+        let hash = token_hash(state);
+        // Issuance also locks the flow before its session. Cancel either wins that lock and
+        // fences final issuance, or revokes the exact already-issued session after it commits.
+        let row = tx.query_opt(
+            "UPDATE theatre_identity_flows SET consumed=true,cancelled=true WHERE state_hash=$1 AND browser_hash=$2 AND issuer=$3 AND client_id=$4 AND redirect_uri=$5 AND expires_at>clock_timestamp() RETURNING state_hash",
+            &[&hash, &token_hash(browser), &config.issuer, &config.client_id, &config.redirect],
+        ).await.map_err(unavailable)?;
+        if row.is_none() {
+            return Err(AuthError::State);
+        }
+        let rows = tx.query(
+            "UPDATE theatre_identity_sessions SET revoked=true,revocation_pending=true WHERE source_state_hash=$1 AND issuer=$2 AND client_id=$3 AND (NOT revoked OR revocation_pending) RETURNING token_hash,access_token",
+            &[&hash, &config.issuer, &config.client_id],
+        ).await.map_err(unavailable)?;
+        // Lock/trigger waits must not extend the private binder's cancellation authority.
+        let current: bool = tx.query_one(
+            "SELECT expires_at>clock_timestamp() FROM theatre_identity_flows WHERE state_hash=$1",
+            &[&hash],
+        ).await.map_err(unavailable)?.get(0);
+        if !current {
+            return Err(AuthError::Expired);
+        }
+        let batch = rows
+            .into_iter()
+            .map(|row| (row.get(0), row.get(1)))
+            .collect();
+        tx.commit().await.map_err(unavailable)?;
+        Ok(batch)
+    }
+
     pub(super) async fn theatre_finish(
         &self,
         config: &OidcConfig,

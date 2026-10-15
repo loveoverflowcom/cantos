@@ -1,7 +1,8 @@
 # Cantos Theatre Web
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a same-origin listener account boundary and an explicitly isolated session-only mock; users see
+a public discovery Home, a same-origin listener account/auth boundary and an explicitly isolated
+session-only mock; users see
 **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
 listening issue or UI-system qualification is completed by this foundation.
@@ -15,6 +16,13 @@ reactive projections. Deterministic work counters and bundle bytes are separate 
 latency, actual audio and production static-cache acceptance.
 
 ## Scope and honest behavior
+
+The default entrypoint opens public Home without a login wall. It reads actual published work
+summaries anonymously, independently of session availability. Account opens through the avatar;
+Login and Create account are explicit secondary routes. The two primary destinations remain
+**Khám phá** and **Của tôi**, following [#35](https://github.com/loveoverflowcom/cantos/issues/35).
+The Auth–Account v2 reference's third primary Account destination is intentionally not adopted,
+as required by [#129](https://github.com/loveoverflowcom/cantos/issues/129).
 
 The discovery/player/library preview below remains isolated at `?mode=mock`. Its sample
 state is never imported into the authenticated account, and its controls never call live APIs.
@@ -60,8 +68,9 @@ in-memory cold-restore exercise is not reload/session persistence.
 
 Open `?mode=membership-preview` through the existing Web command below, or use the labeled
 Membership preview link in the mock Account screen. This separate diagnostic mounts no player,
-account adapter or network client. The default form explains unavailable submission; the live
-Account surface likewise keeps its Membership action disabled with a visible reason.
+account adapter or network client. The default form explains unavailable submission. The live
+Account surface opens separate Membership information with an honest unavailable state; it
+does not mount this fixture form, submit interest, activate entitlement or expose payment.
 
 The preview controls can explicitly start an empty fixture session. Fill name/email, submit,
 then manually select confirmed receipt, known failure or outcome-unknown timeout. No timer
@@ -88,11 +97,16 @@ declarations do not establish browser or native acceptance.
 | `src/application/player_session.rs` | Commit pure transitions, then interpret effects through `MediaPort`; derived status/view `Memo`s |
 | `src/application/catalog.rs`, `ports.rs` | Catalog request/result identity and concrete catalog/media consumer boundaries |
 | `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership and private read projection lifecycle |
+| `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
+| `src/application/public_discovery.rs` | Independent anonymous read generation, duplicate admission and terminal response fencing |
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
+| `src/live/discovery.rs` | Anonymous fixed-JSON published-work read, bounded response decoding and explicit unavailable/protocol failures |
 | `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
-| `src/view.rs` | Root route composition plus existing shared-component compatibility import site for settings/recovery |
-| `src/messages.rs`, `platform.rs` | Typed locale resources; fallible browser navigation/title/focus only |
+| `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
+| `src/app/live_navigation.rs`, `src/platform/auth_browser.rs` | Browser history, contextual focus/scroll restoration, explicit provider return intent and current-session confirmation |
+| `src/messages.rs`, `src/features/auth_copy.rs` | Typed Vietnamese/English locale resources |
+| `src/platform.rs` | Fallible browser navigation/title/focus helpers |
 | `src/styles/theatre.css`, `assets/icons/` | Canonical-token layout; pinned licensed official Material Icons |
 
 The core imports no Leptos, browser, I/O or adapter. The application owns effect execution; features
@@ -140,12 +154,17 @@ references, not changed-app browser screenshots. Noto Sans/Serif (OFL, Vietnames
 [provenance](assets/provenance.json); works without a painting keep the typographic cover. Artwork usage rights are
 unverified. There is no font/icon CDN. See the [library/account v2 record](../../../docs/evidence/theatre-web-library-account-v2.md).
 
-Paper/purple v0.2.0 roles, tonal grouping, responsive rail and existing focus/reduced-motion/forced-
-color styling are retained. Shared imports `UiRoot`, `Container`, `Surface`, `Stack`, `Select` and
-`EmptyState` stay at the **same `src/view.rs` compatibility site**. Feature compositions use native
-HTML and existing canonical tokens, not new reusable shared primitives. No token, preview catalog,
-qualification, admission baseline or exemption is changed. The shared catalog remains **0/29
-qualified**; new reusable adoption still requires [both-preview admission](../../../packages/ui-system/shared/README.md#preview-registration-and-adoption).
+Paper/purple semantic roles, tonal grouping, responsive rail and existing focus/reduced-motion/
+forced-color styling are retained. The Auth–Account v2 composition reuses shared `Button` auth
+variants, `Surface` profile/auth/Membership/account-group variants, `BackButton` and the official
+`Logo`. The [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) records
+their renderer qualifications; the repository gate checks freshness before new imports are
+admitted. Existing compatibility uses retain their path-specific boundary. App layouts consume
+canonical token roles and introduce no shared primitive, token copy or admission exemption.
+The [v2 handoff](https://drive.google.com/file/d/1ETmdL9w1ywC10OqjPIrhV9ERy2l59tvJ/view)
+and actual Home/Login/guest/signed-account reference PNGs were read and opened for #129.
+Reference pixels are prototype HTML, not changed-app interaction evidence. The live auth brand
+panel uses the official symbol; the mock paintings retain their existing unverified-rights boundary.
 PR 02 adds inspected app captures and keyboard/focus observations at named viewports/themes.
 The library MVP has its own [observations and limitations](../../../docs/evidence/theatre-web-library-mvp.md);
 earlier captures do not establish its changed navigation or library behavior.
@@ -229,9 +248,36 @@ production or UI-system acceptance gate.
 
 ## Explicit live and mock modes
 
-The default entrypoint mounts the actual Theatre Web BFF account consumer. It bootstraps with
-`GET /api/v1/theatre/session`, redirects sign-in through `/api/v1/theatre/auth/login` and logs out
-with `DELETE /api/v1/theatre/session`. Provider tokens never reach JavaScript or browser storage.
+Open `?mode=auth-preview` for labeled, no-network Home/Auth/Account diagnostics using the same
+production composition. Its controls explicitly select Guest or synthetic A/B, hold and deliver
+an old session result, fail or acknowledge logout cleanup, and cancel an auth intent. Fixture
+completion exercises the existing account owner; it never proves provider login or registration.
+No timer or unavailable live response selects these fixtures. Unknown mode values stay live.
+The [issue 129 record](../../../docs/evidence/theatre-web-auth-account.md) separates browser
+observations, pure tests, signed-provider mocks and real disposable PostgreSQL evidence.
+
+The default entrypoint opens Home and sends one anonymous fixed-JSON
+`GET /api/v1/theatre/works?limit=20` with credentials omitted. Loading, empty success, connection
+failure and invalid response remain distinct; failure offers Retry and never substitutes a mock
+catalog. Published work IDs/titles/descriptions come from the actual DTO. This bounded read does
+not implement work-detail navigation or real playback. A session 401 or provider outage does not
+redirect Home to authentication.
+
+The account owner independently bootstraps with `GET /api/v1/theatre/session`. The explicit Login
+route starts `/api/v1/theatre/auth/login` only after the existing cookie-cleanup barrier allows it;
+logout uses `DELETE /api/v1/theatre/session`. Provider tokens never reach JavaScript or browser
+storage. Provider return context stores a canonical internal route and a nonsecret correlation
+intent in session storage; only its matching callback consumes it. The fixed callback return hash
+grants no authority: the mounted owner must confirm the current session before completing
+navigation. Contextual Back/cancel invalidates old presentation requests and restores the original
+entry's focus/scroll within the mounted session. Deep links without accepted context fall back to
+Home.
+
+Registration currently has an explicit unavailable state. The repository's pinned Kanidm
+configuration, Theatre router and identity handoff provide no verified self-registration entry or
+callback capability. Cantos therefore collects no password, invents no registration API and
+shows no successful registration from a route alone. Provider-supported signup and its security
+steps remain separately gated; Membership form/receipt/plans remain owned by #128.
 The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
 unavailable/protocol failure and unacknowledged logout. An expired session hides private data
 immediately and requires acknowledged session revocation before another login. Cleanup is stale-only;
@@ -240,7 +286,9 @@ than revoked by a delayed request.
 
 The authenticated session reads the first 20 Continue, Saved and History items through their actual
 Library endpoints, using JSON and same-origin cookies. The UI shows accepted progress positions
-and page counts; no Library mutation, pagination UI, real playback, history-start event, automatic
+and bounded page information; the Account profile uses a truthful signed-in fallback without
+exposing an actor UUID as a name, inventing totals or asserting Membership status. No Library
+mutation, pagination UI, real playback, history-start event, automatic
 guest import, durable outbox or full synchronization is introduced. Network/body bounds and
 the session-correlated response header are checked before any private projection is displayed.
 Account/session generation fences both success and failure; switching accounts never relabels an

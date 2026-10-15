@@ -269,8 +269,10 @@ No variant changes regular listening/editor controls, reading regions or mini-pl
 `BackButton` requires a nonblank localized `AccessibleName` and an `on_back` callback. Its native
 button is never a submit/link, and blocked states preserve a visible reason. The default shows
 the same name next to the circular arrow; `icon_only=true` retains that name as visually hidden
-text. The host alone resolves contextual return destinations, cancellation and draft/scroll
-retention. This primitive does not call browser history, choose a fallback route, authenticate,
+text. On Web, the outer action remains transparent in enabled, disabled and loading states;
+blocked text keeps the full-contrast disabled role. The neutral Back specimen makes unintended
+filled label capsules visible in both themes. The host alone resolves contextual return
+destinations, cancellation and draft/scroll retention. This primitive does not call browser history, choose a fallback route, authenticate,
 log out or implement native system Back.
 
 The actual [auth specimens](preview/auth_samples.rs) live in the existing actions, fields,

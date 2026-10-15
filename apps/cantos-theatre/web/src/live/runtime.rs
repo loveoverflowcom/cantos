@@ -104,11 +104,11 @@ pub fn logout(state: RwSignal<AccountViewState>) {
     leptos::task::spawn_local(cleanup(state, issued, intent, 1));
 }
 
-pub fn login(state: RwSignal<AccountViewState>) {
+pub fn login(state: RwSignal<AccountViewState>, intent: &str) {
     if !state.get_untracked().can_login() {
         return;
     }
-    if super::account::navigate_login().is_err() {
+    if super::account::navigate_login(intent).is_err() {
         state.update(AccountViewState::navigation_failed);
     }
 }

@@ -1,4 +1,7 @@
-use crate::core::ids::WorkId;
+use crate::{
+    application::auth_navigation::{AuthRoute, MembershipReturn, NavigationTarget},
+    core::ids::WorkId,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
@@ -11,10 +14,18 @@ pub enum Route {
     Queue,
     Settings,
     Account,
+    Auth(AuthRoute),
+    Membership(MembershipReturn),
     NotFound,
 }
 impl Route {
     pub fn from_hash(hash: &str) -> Self {
+        if let Some(auth) = AuthRoute::from_hash(hash) {
+            return Self::Auth(auth);
+        }
+        if let Some(member) = MembershipReturn::from_hash(hash) {
+            return Self::Membership(member);
+        }
         match hash.trim_start_matches('#') {
             "" | "discover" => Self::Discover,
             "explore" => Self::Explore,
@@ -42,7 +53,18 @@ impl Route {
             Self::Queue => "#queue".into(),
             Self::Settings => "#settings".into(),
             Self::Account => "#account".into(),
+            Self::Auth(auth) => auth.hash(),
+            Self::Membership(member) => member.hash(),
             Self::NotFound => "#not-found".into(),
+        }
+    }
+
+    pub fn from_target(target: NavigationTarget) -> Self {
+        match target {
+            NavigationTarget::Home => Self::Discover,
+            NavigationTarget::Account => Self::Account,
+            NavigationTarget::Auth(auth) => Self::Auth(auth),
+            NavigationTarget::Membership(member) => Self::Membership(member),
         }
     }
 
@@ -51,7 +73,13 @@ impl Route {
         match self {
             Self::Discover | Self::Explore | Self::Work(_) => Some(Self::Discover),
             Self::Library | Self::History => Some(Self::Library),
-            Self::Player | Self::Queue | Self::Settings | Self::Account | Self::NotFound => None,
+            Self::Player
+            | Self::Queue
+            | Self::Settings
+            | Self::Account
+            | Self::Auth(_)
+            | Self::Membership(_)
+            | Self::NotFound => None,
         }
     }
 }

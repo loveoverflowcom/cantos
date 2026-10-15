@@ -356,3 +356,68 @@ body { margin: 0; }
 .membership-preview main .theatre-action-tonal { min-block-size: var(--cantos-size-auth-secondary); }
 .membership-preview form input { min-block-size: var(--cantos-size-auth-field); }
 .membership-toolbar a { display: inline-flex; align-items: center; min-block-size: var(--cantos-size-control); }
+
+/* Auth–Account v2: app-owned layout; shared variants retain control/state geometry. */
+.theatre-live-app { --theatre-player-clearance: var(--cantos-space-xl); }
+.theatre-live-app .theatre-topbar select, .theatre-account-theme select {
+  min-block-size: var(--cantos-size-control); max-inline-size: 100%;
+  padding: var(--cantos-space-sm) var(--cantos-space-md);
+  font: inherit; color: var(--cantos-color-on-surface);
+  background: var(--cantos-color-surface-container); border: 0;
+  border-radius: var(--cantos-web-shape-control);
+}
+.theatre-logo-dark { display: none; }
+:where(.cantos-ui[data-theme="dark"]) .theatre-logo-light { display: none; }
+:where(.cantos-ui[data-theme="dark"]) .theatre-logo-dark { display: block; }
+.theatre-brand .cui-logo { inline-size: 100%; max-inline-size: 10rem; block-size: auto; }
+.theatre-auth { max-inline-size: 70rem; margin-inline: auto; }
+.theatre-auth-top { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
+.theatre-auth-brand { inline-size: 9rem; flex-shrink: 0; }
+.theatre-auth-brand .cui-logo { inline-size: 100%; block-size: auto; }
+.theatre-auth-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: center; }
+.theatre-auth-story { overflow: hidden; }
+.theatre-auth-art { min-block-size: 13rem; display: grid; place-items: center; background: var(--cantos-color-primary-container); padding: var(--cantos-space-xl); }
+.theatre-auth-art .cui-logo { inline-size: 7rem; block-size: auto; }
+.theatre-auth-story-copy { padding: var(--cantos-space-xl); }
+.theatre-auth-story-copy h2 { font-size: var(--cantos-type-headline-size); }
+.theatre-auth-copy { padding: var(--cantos-space-md); min-inline-size: 0; }
+.theatre-auth-copy h1 { font: var(--cantos-type-auth-heading-weight) var(--cantos-type-auth-heading-size)/var(--cantos-type-auth-heading-line-height) var(--cantos-type-family-editorial); }
+.theatre-auth-actions { display: grid; gap: var(--cantos-space-md); margin-block: var(--cantos-space-lg); }
+.theatre-auth-actions .cui-button { inline-size: 100%; }
+.theatre-auth-helper { font-size: var(--cantos-type-metadata-size); }
+.theatre-account-profile .theatre-avatar { margin-block-end: var(--cantos-space-lg); }
+.theatre-account-recovery { display: grid; gap: var(--cantos-space-sm); }
+.theatre-account-content { min-inline-size: 0; display: grid; gap: var(--cantos-space-lg); }
+.theatre-account-theme { display: grid; gap: var(--cantos-space-sm); margin-block: var(--cantos-space-lg); }
+.theatre-account-theme p { font-size: var(--cantos-type-metadata-size); }
+.theatre-account-links { list-style: none; margin: 0; padding: 0; }
+.theatre-account-links a { display: flex; align-items: center; min-block-size: var(--cantos-size-control); padding-block: var(--cantos-space-sm); }
+.theatre-home-auth-actions { display: flex; flex-wrap: wrap; gap: var(--cantos-space-sm); }
+.theatre-public-hero { max-inline-size: 48rem; padding-block: var(--cantos-space-xl); }
+.theatre-public-hero h1 { font-size: var(--cantos-type-auth-heading-size); }
+.theatre-public-work-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cantos-space-lg); }
+.theatre-public-work, .theatre-public-state { padding: var(--cantos-space-lg); }
+.theatre-membership-information { max-inline-size: 40rem; margin-inline: auto; }
+@media (prefers-color-scheme: dark) {
+  :where(.cantos-ui[data-theme="system"]) .theatre-logo-light { display: none; }
+  :where(.cantos-ui[data-theme="system"]) .theatre-logo-dark { display: block; }
+}
+@media (max-width: 55rem) {
+  .theatre-auth-layout { grid-template-columns: minmax(0, 1fr); }
+  .theatre-auth-story { display: none; }
+}
+@media (max-width: 34rem) {
+  .theatre-live-app .theatre-topbar { padding: var(--cantos-space-md); }
+  .theatre-live-app .theatre-main { padding-inline: var(--cantos-space-sm); }
+  .theatre-auth-top { align-items: flex-start; flex-wrap: wrap; }
+  .theatre-auth-brand { inline-size: 7rem; }
+  .theatre-auth-copy { padding-inline: 0; }
+  .theatre-locale-label { position: absolute; clip-path: inset(50%); inline-size: 1px; block-size: 1px; overflow: hidden; }
+}
+
+.theatre-live-app[data-auth="true"] { grid-template-columns: minmax(0, 1fr); }
+.theatre-live-app[data-auth="true"] :is(.theatre-rail, .theatre-topbar) { display: none; }
+.theatre-live-app[data-auth="true"] .theatre-main { padding-block-start: var(--cantos-space-xl); }
+.theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.theatre-auth-preview { margin: var(--cantos-space-md); padding: var(--cantos-space-md); border: var(--cantos-size-border) dashed var(--cantos-color-outline); }
+@media (max-width: 56.25rem) { .theatre-live-app .theatre-account { grid-template-columns: minmax(0, 1fr); } }

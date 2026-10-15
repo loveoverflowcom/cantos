@@ -2,8 +2,11 @@
 
 Implemented PR3 boundary for #12/#35; issue #34 has no accepted guest-import policy.
 Public Discovery/Playback stays guest where its existing policy permits. Persistent Saved,
-History and Continue/Progress requires a verified account. No Library domain, progress store,
-guest merge, native audio player, UI redesign or gateway is introduced.
+History and Continue/Progress requires a verified account. The identity boundary introduces no
+Library domain, progress store, guest merge, native audio player or gateway. The separately scoped
+[#129 Web presentation follow-up](../evidence/theatre-web-auth-account.md) mounts public Home and
+contextual auth/account over the existing identity owner; its runtime evidence remains distinct
+from live-provider and native acceptance.
 
 ## Decisions and critique of the original proposal
 
@@ -70,16 +73,45 @@ grants, credentials, TLS, network, container or production activation is provisi
 
 ## Web and CMP lifecycle
 
-The original pre-integration helper description below is retained as context. Current mounted
-consumers and native acceptance are recorded in the campaign section and the
+Theatre Web mounts its same-origin BFF account owner in the default application shell. Anonymous
+Home reads published work summaries independently with credentials omitted; session lookup,
+readonly Library and explicit Login/Account routes retain separate ownership. Account/session
+generation fences success and failure callbacks and clears private projections immediately on
+logout or session invalidation. Cleanup acknowledgement, stale-only cleanup and expected-session
+mismatch remain the login barrier. No durable offline outbox, Library write or implicit guest
+merge is claimed. The listening mock and auth-state diagnostic are explicitly selected modes;
+the auth diagnostic injects fixtures into the same Home/Auth/Account composition with live effects
+disabled. See the [Web implementation boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes)
+and [#129 evidence](../evidence/theatre-web-auth-account.md). Native acceptance is recorded separately
+in the campaign section and the
 [14 October evidence appendix](../evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026).
 
-Theatre Web has an unmounted same-origin BFF port and an account lifecycle core. Account/session
-generation fences success and failure callbacks, clears projection immediately on leaving and
-retains immutable account-owned intents. Once dispatched, unknown outcomes require receipt lookup
-first. Reauthentication asA can recover A's original intent/body;B cannot dispatch or acknowledge
-it. Storage is memory only in this helper: no durable offline outbox or actual Library UI sync is
-claimed. Existing anonymous/mock UI is preserved until separately integrated against proven API.
+The Web shell stores only canonical internal Login return context and a random 32-character
+lowercase-hex nonsecret UI intent, plus bounded nonsecret scroll/focus restoration data, in session
+storage. `/auth/login?intent=…` accepts that bounded intent; the backend binds it to the exact OAuth
+state with a separate state-named HttpOnly/SameSite=Lax companion cookie under
+`/api/v1/theatre/auth`, using the Secure namespace on HTTPS. This does not replace or extend the
+private browser binder, state/PKCE/nonce validation or flow expiry. Provider tokens remain off the
+browser boundary, and no password form or verified self-registration capability is introduced.
+
+Successful callbacks emit a fixed `/#auth-return?intent=…`; bound provider cancellation emits
+`/#auth-cancelled?intent=…`. Provider error text and caller redirect URLs are not reflected. A
+legacy callback without an intent has a fixed hash and no contextual completion authority. The
+pure parser accepts only the exact matching intent and canonical internal Login route: old A's
+callback cannot consume newer B's context. A matching completion is presentation intent only;
+the mounted owner must confirm the actual current `/session` before returning to the origin.
+Back, history navigation, cancel and logout synchronously invalidate old presentation epochs.
+
+Provider cancellation is durable and exact to its private state/browser binder, issuer, client,
+redirect and unexpired flow. It marks that flow consumed/cancelled and locks the flow before any
+session issued from it. A paused exchange then fails final issuance; if issuance committed first,
+only that flow's session is locally revoked. Fresh time is checked after lock/write waits. Local
+cancellation/revocation commits before bounded best-effort provider cleanup, retaining pending
+remote revocation on failure. Another flow/account B is not selected, and only A's nonsecret
+companion return cookie is expired; no shared session-cookie expiry or global logout is emitted.
+The [new callback/SQL scenarios](../evidence/theatre-web-auth-account.md#exact-provider-return-and-cancellation)
+cover exact correlation, forged binders, late issuance and A cancellation preserving B; signed
+provider mocks remain distinct from live Kanidm acceptance.
 
 CMP common code has equivalent account fences and a native login state machine. One owner uses
 system browser, fresh32byte entropy and S256; callback validates exact redirect/state before a

@@ -286,6 +286,11 @@
   color: var(--cantos-color-primary);
   border-radius: var(--cantos-shape-pill);
 }
+/* Back keeps its quiet text-action anatomy while blocked; the shared disabled
+   foreground/reason remain readable and the icon retains its tonal circle. */
+:where(.cantos-ui) .cui-back-button:disabled {
+  background: transparent;
+}
 :where(.cantos-ui) .cui-back-button .cui-button-icon {
   inline-size: var(--cantos-size-back-control);
   block-size: var(--cantos-size-back-control);

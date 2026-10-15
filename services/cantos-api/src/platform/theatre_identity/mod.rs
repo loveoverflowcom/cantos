@@ -137,6 +137,29 @@ impl TheatreIdentity {
         })
     }
 
+    /// Cancels only the exact browser-bound flow, including a callback already in flight.
+    /// Any session issued by this flow is revoked locally before best-effort provider cleanup;
+    /// another flow/account's cookie and session are never selected or expired.
+    pub async fn cancel_callback(
+        &self,
+        store: &Store,
+        state: &str,
+        browser: &str,
+    ) -> Result<(), AuthError> {
+        if !valid_secret(state) || !valid_secret(browser) {
+            return Err(AuthError::State);
+        }
+        let batch = store
+            .theatre_cancel_flow(&self.config, state, browser)
+            .await?;
+        for (hash, access) in batch {
+            if self.provider.revoke(&access, now()?).await.is_ok() {
+                store.theatre_revocation_hash_completed(&hash).await?;
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) async fn authenticate(
         &self,
         store: &Store,
