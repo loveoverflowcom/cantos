@@ -1,6 +1,7 @@
 package com.cantos.theatre.app
 
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import com.cantos.theatre.adapters.http.NativeIdentityClient
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.domain.identity.LoginSecret
@@ -36,7 +37,7 @@ interface IosIdentityPlatform : NativeHttpPort {
     fun clearLogoutBarrier(): String?
 }
 
-class IosNativeIdentityOwner(apiOrigin: String, issuer: String, platform: IosIdentityPlatform) {
+class IosNativeIdentityOwner(apiOrigin: String?, issuer: String?, platform: IosIdentityPlatform) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private fun failure(value: String?): CredentialFailure? = when (value) {
         null -> null
@@ -44,35 +45,38 @@ class IosNativeIdentityOwner(apiOrigin: String, issuer: String, platform: IosIde
         "corrupt" -> CredentialFailure.Corrupt
         else -> CredentialFailure.Unavailable
     }
-    private val configuration = NativeClientConfiguration.create(apiOrigin, issuer)
-    val controller = configuration?.let {
-        NativeAccountController(scope, it, NativeIdentityClient(it, platform),
-            object : IdentityCrypto {
-                override fun secret(): LoginSecret? = platform.secureSecret()?.let(LoginSecret::parse)
-                override fun challenge(verifier: LoginSecret): String? = platform.s256(verifier.value)
-            },
-            object : SystemBrowser {
-                override fun open(url: String): Boolean = platform.openBrowser(url)
-                override fun cancel() = platform.cancelBrowser()
-            },
-            object : CredentialStore {
-                override fun read(): CredentialRead {
-                    val result = platform.readCredential()
-                    val error = failure(result.failure)
-                    return if (error != null) CredentialRead.Failed(error) else result.value?.let { value -> CredentialRead.Found(value) } ?: CredentialRead.Missing
-                }
-                override fun write(value: String): CredentialFailure? = failure(platform.writeCredential(value))
-                override fun clear(): CredentialFailure? = failure(platform.clearCredential())
-            },
-            object : LogoutBarrier {
-                override fun read(): LogoutBarrierRead = when (platform.readLogoutBarrier()) {
-                    "clear" -> LogoutBarrierRead.Clear
-                    "pending" -> LogoutBarrierRead.Pending
-                    else -> LogoutBarrierRead.Unavailable
-                }
-                override fun mark(): CredentialFailure? = failure(platform.markLogoutBarrier())
-                override fun clear(): CredentialFailure? = failure(platform.clearLogoutBarrier())
-            }, now = { NSDate().timeIntervalSince1970.toLong() })
+    val availability = NativeClientConfiguration.resolve(apiOrigin, issuer)
+    val controller = when (val resolved = availability) {
+        is NativeIdentityAvailability.Available -> resolved.configuration.let {
+            NativeAccountController(scope, it, NativeIdentityClient(it, platform),
+                object : IdentityCrypto {
+                    override fun secret(): LoginSecret? = platform.secureSecret()?.let(LoginSecret::parse)
+                    override fun challenge(verifier: LoginSecret): String? = platform.s256(verifier.value)
+                },
+                object : SystemBrowser {
+                    override fun open(url: String): Boolean = platform.openBrowser(url)
+                    override fun cancel() = platform.cancelBrowser()
+                },
+                object : CredentialStore {
+                    override fun read(): CredentialRead {
+                        val result = platform.readCredential()
+                        val error = failure(result.failure)
+                        return if (error != null) CredentialRead.Failed(error) else result.value?.let { value -> CredentialRead.Found(value) } ?: CredentialRead.Missing
+                    }
+                    override fun write(value: String): CredentialFailure? = failure(platform.writeCredential(value))
+                    override fun clear(): CredentialFailure? = failure(platform.clearCredential())
+                },
+                object : LogoutBarrier {
+                    override fun read(): LogoutBarrierRead = when (platform.readLogoutBarrier()) {
+                        "clear" -> LogoutBarrierRead.Clear
+                        "pending" -> LogoutBarrierRead.Pending
+                        else -> LogoutBarrierRead.Unavailable
+                    }
+                    override fun mark(): CredentialFailure? = failure(platform.markLogoutBarrier())
+                    override fun clear(): CredentialFailure? = failure(platform.clearLogoutBarrier())
+                }, now = { NSDate().timeIntervalSince1970.toLong() })
+        }
+        is NativeIdentityAvailability.Missing, is NativeIdentityAvailability.Invalid -> null
     }
     fun callback(state: String, code: String, hasError: Boolean) {
         controller?.callback(NativeCallback("com.cantos.theatre:/oauth2/callback", state, code, hasError))

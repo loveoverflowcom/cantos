@@ -9,6 +9,8 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.Cantos">
+        <meta-data android:name="CantosApiOrigin" android:value="${cantosApiOrigin}" />
+        <meta-data android:name="CantosNativeIssuer" android:value="${cantosNativeIssuer}" />
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.Cantos.Starting"

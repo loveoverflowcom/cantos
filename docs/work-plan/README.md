@@ -654,6 +654,15 @@ OS/secure-store/provider acceptance, audit protection/retention and recovery gat
 
 ## Theatre native launch handoff
 
+For [#191](https://github.com/loveoverflowcom/cantos/issues/191), finish configured-artifact
+inspection and separately authorized Web/native provider, callback, secure-store and lifecycle
+acceptance after the [nonsecret build-input slice](../evidence/theatre-auth-activation.md).
+The existing Web BFF/proxy and native controller remain the owners; do not rebuild their
+protocol or infer live login from source tests or Android preview. Signup's capability and
+self-signup/invitation/defer decision remain with [#174](https://github.com/loveoverflowcom/cantos/issues/174),
+independent of existing-account login. Preview-only verification leaves the native compiled
+and live acceptance gaps explicit and does not reorder publication or authorize provisioning.
+
 The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
 synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP
 presentation. Do not introduce a timer or a remote readiness gate to make that frame visible.

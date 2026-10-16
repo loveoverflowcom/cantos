@@ -1,5 +1,19 @@
 # Live client capability boundary
 
+## Theatre identity activation
+
+For [#191](https://github.com/loveoverflowcom/cantos/issues/191), the
+[activation record](../evidence/theatre-auth-activation.md) and
+[owning handoff](theatre-identity-handoff.md) provide the auth evidence input for
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) /
+[#180](https://github.com/loveoverflowcom/cantos/issues/180). Native build-input wiring is
+source-tested only; configured artifacts, provider login, OS browser/secure-store/lifecycle
+and browser navigation acceptance remain unrun. The attempted Android CMP preview is
+`UNSUPPORTED` without the official CLI/ready IDE. Existing Web BFF/proxy source is present;
+signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
+
+## Studio capability baseline
+
 Baseline: `origin/develop@7396ede88466ef56dc9e7759956a4072d6672a5b`, inspected routes in
 `services/cantos-api/src/interfaces/http/studio/` and raw DTOs in
 `packages/contracts/api/src/`. This is an implementation boundary, not publication or user

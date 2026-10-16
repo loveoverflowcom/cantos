@@ -25,8 +25,35 @@ class TheatreAndroidIdentityHostTest(unittest.TestCase):
         self.assertEqual(application.get(ANDROID + "allowBackup"), "false")
         self.assertIsNone(application.get(ANDROID + "networkSecurityConfig"))
         self.assertNotEqual(application.get(ANDROID + "usesCleartextTraffic"), "true")
-        # Operators supply validated nonsecret origins; no live values are shipped here.
-        self.assertEqual(application.findall("meta-data"), [])
+        # Operators supply nonsecret origins through build inputs; source ships no live values.
+        self.assertEqual(
+            {node.get(ANDROID + "name"): node.get(ANDROID + "value")
+             for node in application.findall("meta-data")},
+            {"CantosApiOrigin": "${cantosApiOrigin}",
+             "CantosNativeIssuer": "${cantosNativeIssuer}"},
+        )
+
+    def test_native_configuration_build_inputs_reach_metadata_with_empty_defaults(self):
+        gradle = (MANIFEST.parents[2] / "build.gradle.kts").read_text()
+        for placeholder, property_name, environment_name in [
+            ("cantosApiOrigin", "cantos.apiOrigin", "CANTOS_API_ORIGIN"),
+            ("cantosNativeIssuer", "cantos.nativeIssuer", "CANTOS_NATIVE_ISSUER"),
+        ]:
+            self.assertRegex(
+                gradle,
+                rf'manifestPlaceholders\["{placeholder}"\]\s*=\s*'
+                rf'providers\.gradleProperty\("{property_name}"\)\s*'
+                rf'\.orElse\(providers\.environmentVariable\("{environment_name}"\)\)\s*'
+                r'\.orElse\(""\)\.get\(\)',
+            )
+        application = (MANIFEST.parent / "kotlin/com/cantos/theatre/demo/CantosDemoApplication.kt").read_text()
+        self.assertIn("NativeClientConfiguration.resolve(", application)
+        self.assertIn("is NativeIdentityAvailability.Available", application)
+        self.assertNotIn("NativeClientConfiguration.create(", application)
+        # Android may coerce literal booleans/numbers; preserve supplied input for invalid refusal.
+        for key in ["CantosApiOrigin", "CantosNativeIssuer"]:
+            self.assertIn(f'metadata?.get("{key}")?.toString()', application)
+            self.assertNotIn(f'getString("{key}")', application)
 
     def test_oauth_scheme_dispatch_reuses_the_process_host_without_extra_routes(self):
         activities = self.manifest.findall("application/activity")

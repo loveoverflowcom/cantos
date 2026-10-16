@@ -1,5 +1,12 @@
 # Theatre identity PR3 → Admin and native resource IO
 
+The [#191 activation slice](../evidence/theatre-auth-activation.md) adds nonsecret native build
+inputs and typed missing/invalid diagnostics on top of these owners. Its source regressions,
+preview prerequisites and unrun artifact/provider/device checks are recorded separately from
+the historical integrated results below. Signup remains gated by #174. See the
+[client evidence matrix](live-client-api-matrix.md#theatre-identity-activation) for the #179/#180
+handoff boundary; no earlier acceptance record is promoted to this new source.
+
 Current resumed status is in the [14 October appendix](#resumed-native-identity-handoff--14-october-2026); earlier sections
 retain the results and blockers of their original snapshots.
 

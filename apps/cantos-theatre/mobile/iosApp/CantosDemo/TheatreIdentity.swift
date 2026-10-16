@@ -147,9 +147,9 @@ private final class TheatreHttpCall: NSObject, URLSessionDataDelegate, NativeReq
     weak var owner: IosNativeOwner?
     private let apiOrigin: String
     private let credentials = TheatreCredentialStore()
-    private let barrier: TheatreLogoutBarrier?
+    private lazy var barrier = try? TheatreLogoutBarrier()
     private var browser: TheatreSystemBrowser?
-    init(apiOrigin: String) { self.apiOrigin = apiOrigin; barrier = try? TheatreLogoutBarrier(); super.init() }
+    init(apiOrigin: String) { self.apiOrigin = apiOrigin; super.init() }
     func secureSecret() -> String? { try? TheatreIdentityCrypto.secret() }
     func s256(verifier: String) -> String? { TheatreIdentityCrypto.challenge(verifier) }
     func openBrowser(url: String) -> Bool {
