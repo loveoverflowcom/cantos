@@ -364,6 +364,7 @@ body { margin: 0; }
 
 /* Auth–Account v2: app-owned layout; shared variants retain control/state geometry. */
 .theatre-live-app { --theatre-player-clearance: var(--cantos-space-xl); }
+.theatre-live-app #theatre-library-account { margin-block-start: var(--cantos-space-lg); }
 .theatre-live-app .theatre-topbar select, .theatre-account-theme select {
   min-block-size: var(--cantos-size-control); max-inline-size: 100%;
   padding: var(--cantos-space-sm) var(--cantos-space-md);

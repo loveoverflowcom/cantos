@@ -18,6 +18,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0-demo"
+        // Public origins only. Explicit Gradle properties override the environment, including empty opt-out.
+        // Manifest merger substitutes attribute values; no source or XML string is assembled from inputs.
+        manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")
+            .orElse(providers.environmentVariable("CANTOS_API_ORIGIN"))
+            .orElse("").get()
+        manifestPlaceholders["cantosNativeIssuer"] = providers.gradleProperty("cantos.nativeIssuer")
+            .orElse(providers.environmentVariable("CANTOS_NATIVE_ISSUER"))
+            .orElse("").get()
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

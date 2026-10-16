@@ -1,5 +1,28 @@
 # Live client capability boundary
 
+## Theatre identity activation
+
+For [#191](https://github.com/loveoverflowcom/cantos/issues/191), the
+[activation record](../evidence/theatre-auth-activation.md) and
+[owning handoff](theatre-identity-handoff.md) provide the auth evidence input for
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) /
+[#180](https://github.com/loveoverflowcom/cantos/issues/180). Native build-input wiring is
+source-tested only; configured artifacts, provider login, OS browser/secure-store/lifecycle
+and browser navigation acceptance remain unrun. The authorized tool-update follow-up now has
+an Android Studio Rabbit 1 discovery preview: `PASS`, PNG inspected and exported text-tree
+assertions passed after fixing the sandbox's debug-only tooling dependency. The earlier
+`UNSUPPORTED` CLI/IDE result remains historical; this host preview is not live auth or device
+acceptance. Shared/sandbox Android debug source compilation passed; native host packaging and
+iOS remain unrun. Existing Web BFF/proxy source is present;
+signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
+
+The [Mac Web follow-up](../evidence/theatre-web-auth-mac.md) adds mounted fixture callback,
+cancel/retry/logout, keyboard and viewport observations plus a bounded Guest-callback retry fix.
+It does not supersede real API/provider acceptance: no local identity API or test issuer/account
+was available. Signup policy/capability is still pending #174; PR #196 remains Draft.
+
+## Studio capability baseline
+
 Baseline: `origin/develop@7396ede88466ef56dc9e7759956a4072d6672a5b`, inspected routes in
 `services/cantos-api/src/interfaces/http/studio/` and raw DTOs in
 `packages/contracts/api/src/`. This is an implementation boundary, not publication or user

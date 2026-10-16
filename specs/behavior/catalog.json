@@ -794,6 +794,137 @@
         }
       ],
       "aliases": []
+    },
+    {
+      "id": "cantos.identity.theatre-registration",
+      "lifecycle": "draft",
+      "owner": "services/cantos-api/src/platform/theatre_registration/application.rs",
+      "sourceRefs": [
+        "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
+        "packages/contracts/theatre-identity-v1.md",
+        "services/cantos-api/migrations/0027_theatre_registration.sql"
+      ],
+      "model": "specs/behavior/identity/theatre_registration.qnt",
+      "module": "theatre_registration",
+      "scenarios": "specs/behavior/identity/theatre_registration_tests.qnt",
+      "scenarioModule": "theatre_registration_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.identity.theatre-registration.property.proof-before-create",
+          "declaration": "proofBeforeCreate"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.property.setup-only-new-person",
+          "declaration": "setupOnlyNewPerson"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.property.at-most-once",
+          "declaration": "atMostOnce"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.property.no-authority-issued",
+          "declaration": "noAuthorityIssued"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.property.blocked-sticky",
+          "declaration": "blockedSticky"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.identity.theatre-registration.run.expired",
+          "declaration": "expiredTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.rotated-proof",
+          "declaration": "rotatedProofTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.cancel",
+          "declaration": "cancelTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.single-use",
+          "declaration": "singleUseTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.uncertain-create",
+          "declaration": "uncertainCreateTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.uncertain-setup",
+          "declaration": "uncertainSetupTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.complete",
+          "declaration": "completeTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.uncertain-mail",
+          "declaration": "uncertainMailTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.identity.theatre-registration.witness.claimed",
+          "declaration": "claimed"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.witness.setup-dispatched",
+          "declaration": "setupDispatched"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.witness.complete-without-session",
+          "declaration": "completeWithoutSession"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.witness.stopped-after-unknown",
+          "declaration": "stoppedAfterUnknown"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "174",
+        "samples": 500,
+        "steps": 30,
+        "scenarioSamples": 1,
+        "witnessSamples": 3000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.identity.theatre-registration.control.proof-before-create",
+          "property": "cantos.identity.theatre-registration.property.proof-before-create",
+          "from": "proof == state.epoch and state.unexpired",
+          "to": "proof == state.epoch"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.control.setup-only-new-person",
+          "property": "cantos.identity.theatre-registration.property.setup-only-new-person",
+          "from": "state.phase == Created and state.person,",
+          "to": "state.phase == Creating and state.createCalls == 1,"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.control.at-most-once",
+          "property": "cantos.identity.theatre-registration.property.at-most-once",
+          "from": "state.phase == Creating and state.createCalls == 0,",
+          "to": "state.phase == Creating,"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.control.no-authority-issued",
+          "property": "cantos.identity.theatre-registration.property.no-authority-issued",
+          "from": "phase: if (accepted) Complete else Blocked",
+          "to": "phase: if (accepted) Complete else Blocked, session: accepted"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.control.blocked-sticky",
+          "property": "cantos.identity.theatre-registration.property.blocked-sticky",
+          "from": "val allowed = state.phase == Awaiting and proof == state.epoch and state.unexpired",
+          "to": "val allowed = Set(Awaiting, Blocked).contains(state.phase) and proof == state.epoch and state.unexpired"
+        }
+      ],
+      "aliases": []
     }
   ]
 }

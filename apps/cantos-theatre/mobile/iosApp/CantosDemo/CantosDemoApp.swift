@@ -15,23 +15,20 @@ struct CantosDemoApp: App {
 }
 
 @MainActor private final class DemoOwner: ObservableObject {
-    let bridge = IosDemoOwner()
-    private let native: IosNativeOwner?
-    private let platform: TheatreNativePlatform?
+    private let native: IosNativeOwner
+    private let platform: TheatreNativePlatform
 
     init() {
-        if let api = Bundle.main.object(forInfoDictionaryKey: "CantosApiOrigin") as? String,
-           let issuer = Bundle.main.object(forInfoDictionaryKey: "CantosNativeIssuer") as? String,
-           !api.isEmpty, !issuer.isEmpty {
-            let adapter = TheatreNativePlatform(apiOrigin: api)
-            let owner = IosNativeOwner(apiOrigin: api, issuer: issuer, platform: adapter)
-            adapter.owner = owner
-            platform = adapter; native = owner
-        } else { platform = nil; native = nil }
+        let api = Bundle.main.object(forInfoDictionaryKey: "CantosApiOrigin") as? String
+        let issuer = Bundle.main.object(forInfoDictionaryKey: "CantosNativeIssuer") as? String
+        let adapter = TheatreNativePlatform(apiOrigin: api ?? "")
+        let owner = IosNativeOwner(apiOrigin: api, issuer: issuer, platform: adapter)
+        adapter.owner = owner
+        platform = adapter; native = owner
     }
-    func viewController() -> UIViewController { native?.viewController() ?? bridge.viewController() }
+    func viewController() -> UIViewController { native.viewController() }
 
-    deinit { native?.close(); bridge.close() }
+    deinit { native.close() }
 }
 
 private struct CantosComposeView: UIViewControllerRepresentable {

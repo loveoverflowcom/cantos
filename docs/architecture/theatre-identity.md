@@ -8,6 +8,105 @@ Library domain, progress store, guest merge, native audio player or gateway. The
 contextual auth/account over the existing identity owner; its runtime evidence remains distinct
 from live-provider and native acceptance.
 
+## Accepted enrollment policy and current capability
+
+[ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md) accepts listener
+self-registration and limits Studio to one or two securely provisioned administrator accounts.
+The former self-signup/invitation/defer product choice is resolved. Theatre identity, account
+creation and Studio application admission remain separate facts; a Theatre account never gains
+Studio authority through signup or an existing registry binding.
+
+The [Theatre configuration contract](../../packages/contracts/theatre-identity-v1.md) reports
+login readiness separately from registration capability. Kanidm 1.10.5 has authenticated person
+creation and credential-update-intent APIs, although its public UI has no integrated signup.
+On 16 October the product owner approved a Theatre email-verification/onboarding module around
+those APIs, keeping the issuer and its credential UI. Missing integration configuration remains
+an unavailable capability; local adapter construction never establishes deployed authority or
+successful signup. The source audit, accepted direction and live-operation boundary are in
+ADR 0034. OIDC discovery alone cannot enable registration.
+
+The delivery order is pure registration rules and contract, deterministic adapters/HTTP/Web,
+disposable PostgreSQL, then separately authorized issuer/mail and real Web acceptance. No real
+provider account, service credential, standing grant, SMTP setup or security-setting change is
+authorized by code/test approval. Native signup wiring and device acceptance remain separate.
+See the
+[handoff](../work-plan/theatre-identity-handoff.md#accepted-enrollment-policy-and-web-first-handoff).
+
+### Email onboarding owner and effect boundaries
+
+`platform::theatre_registration` owns this workflow in the existing API. Its pure values and
+phase rules depend on neither HTTP, SQL, Kanidm nor SMTP. Application ports have PostgreSQL,
+Kanidm and vendor-neutral SMTP adapters plus isolated doubles; the Web layer consumes the
+versioned contract and does not construct authority. Registration never writes the actor
+registry, issues a session or changes Studio's administrator roster.
+
+The sequence is request → mailbox proof → positively acknowledged **new** provider person →
+credential-setup link sent to that mailbox → issuer credential UI → existing OIDC login/session
+confirmation. Registration accepts no password, provider person ID, issuer, role, arbitrary
+return URL or separate delivery recipient from the client. Verification links carry a random
+32-byte token in a fragment; only its purpose-separated hash is persisted. Opening the link
+shows a confirmation step; an explicit same-origin POST claims it before provider effects.
+GET/prefetch alone must have no account-creation effect.
+
+Migration0027 records the exact configured issuer namespace, immutable operation/email binding,
+hashed challenge, expiry, phase and acknowledged provider person ID. Budget receipts record
+accepted verification-mail starts, including later failed/uncertain delivery; raw verification
+or issuer setup secrets are not retained. SQL serializes the budget decision and token rotation,
+then atomically consumes a valid unexpired proof. A consumed, cancelled, replaced or expired
+proof cannot acquire another create lease. Locks are followed by a fresh expiry check.
+The current migration retains registration and append-only mail-budget receipts and refuses
+DELETE/TRUNCATE. It implements no age-based PII cleanup; accepting a retention period requires
+a reviewed cleanup/migration design rather than assuming expired proofs remove those rows.
+
+Before each non-idempotent create/intent/mail effect, the operation advances durably. The
+proposed provider name and UUID derive from an operation UUID, not email or caller input. Only a
+positive create acknowledgement yields the witness needed by the intent adapter. Conflict,
+lost response, malformed success, failed receipt commit or process loss cannot trigger a
+lookup-and-reset fallback. Once provisioning starts, public resend/retry cannot roll it back to
+a retryable proof. A rejected or uncertain effect blocks automatic recovery; no exactly-once
+email, background recovery or cleanup procedure is claimed. An operator must reconcile the
+exact operation before any specifically authorized recovery; existing people are never deleted
+or reset to repair a signup attempt.
+
+Mailbox proof does not resolve the policy for an address already present outside these
+registration receipts. The current adapter does not establish provider-wide email uniqueness;
+it must not claim to deny all existing-email signup or to link identities by mailbox. That
+policy, bounded ASCII/case-insensitive deduplication and operation-derived account naming remain
+review items before activation. Changing mailbox requires a separate proof; there is no
+client-controlled mutation of an in-flight binding.
+
+SMTP acceptance, inbox delivery, verified mailbox, setup-link delivery, completed credentials
+and authenticated Theatre session are distinct facts. UI copy and evidence must keep them
+separate. Public request handling returns a generic acknowledgement before bounded mail work;
+suppressed duplicates, cooldown/quota decisions and existing local receipts do not expose an
+account-existence response. This does not constitute a measured network timing proof or solve
+Internet abuse. Every registration POST requires socket peer metadata and process-local rolling
+global/peer attempt admission plus bounded concurrent effects. IPv4-mapped IPv6 is normalized
+before a private-key HMAC partitions the actual peer; forwarded headers are ignored. These
+attempt counters reset on restart and do not coordinate across hosts. Durable accepted-mail
+budgets/cooldown remain a separate PostgreSQL boundary. Deployment-wide ingress limiting,
+reverse-proxy behavior, personal quota-metadata retention and cleanup need explicit review;
+only `direct_peer` is implemented.
+
+Host composition defaults off. `platform::theatre_registration::config` requires an existing
+Theatre Web identity adapter, explicit provider bearer/HMAC/SMTP inputs, all bounded lifetime,
+budget and attempt values, and `PEER_POLICY=direct_peer`. Missing or standalone false `ENABLED`
+disables only when no other registration/SMTP inputs are present; partial/orphan setup fails
+startup. `POLICY_APPROVED=true` and `ISSUER_ACCESS_APPROVED=true` under the
+`CANTOS_THEATRE_REGISTRATION_` prefix are required operator declarations. They cannot establish
+effective provider privileges or live delivery. Construction performs no discovery, network
+probe, account/grant/credential creation or mail send. The
+[runbook input table](../../services/kanidm/README.md#explicit-host-inputs) owns the exact names
+and constructor bounds; no fixture value is selected as a production default.
+
+Activation also requires effective Kanidm target protection. `idm_people_on_boarding` can
+reset existing people; neither the group name nor Cantos's new-person witness makes a stolen
+bearer safe. A separate operator/security review must establish issuer-side protection for
+existing Theatre/Studio people or approve a concrete alternative and residual blast radius.
+Studio's one/two-subject server admission remains required but is not a provider credential
+protection mechanism. Keep registration disabled while that gate and the unapproved live mail,
+credential-delivery, retention and recovery policies remain unresolved.
+
 ## Decisions and critique of the original proposal
 
 The October13 proposal described an old develop snapshot. Current develop has merged Publication,
@@ -92,7 +191,9 @@ storage. `/auth/login?intent=…` accepts that bounded intent; the backend binds
 state with a separate state-named HttpOnly/SameSite=Lax companion cookie under
 `/api/v1/theatre/auth`, using the Secure namespace on HTTPS. This does not replace or extend the
 private browser binder, state/PKCE/nonce validation or flow expiry. Provider tokens remain off the
-browser boundary, and no password form or verified self-registration capability is introduced.
+browser boundary. Registration has a distinct hashed mailbox proof and never upgrades that
+proof into a session; setup-mail acknowledgement directs the listener back to the existing
+login/session owner. No password form or fabricated account completion is introduced.
 
 Successful callbacks emit a fixed `/#auth-return?intent=…`; bound provider cancellation emits
 `/#auth-cancelled?intent=…`. Provider error text and caller redirect URLs are not reflected. A

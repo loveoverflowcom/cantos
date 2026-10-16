@@ -1,0 +1,66 @@
+[
+  {
+    "kind": "email_request",
+    "valid": true,
+    "value": {
+      "email": "nguoi.nghe@example.invalid"
+    }
+  },
+  {
+    "kind": "email_request",
+    "valid": false,
+    "value": {
+      "email": "nguoi.nghe@example.invalid",
+      "role": "studio_admin"
+    }
+  },
+  {
+    "kind": "email_request",
+    "valid": false,
+    "value": {
+      "email": "nguoi.nghe@example.invalid",
+      "password": "fixture-only"
+    }
+  },
+  {
+    "kind": "email_request",
+    "valid": false,
+    "value": {
+      "email": null
+    }
+  },
+  {
+    "kind": "email_request",
+    "valid": false,
+    "value": {}
+  },
+  {
+    "kind": "proof_request",
+    "valid": true,
+    "value": {
+      "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "kind": "proof_request",
+    "valid": false,
+    "value": {
+      "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "person_id": "existing-person"
+    }
+  },
+  {
+    "kind": "proof_request",
+    "valid": false,
+    "value": {
+      "token": [
+        "fixture"
+      ]
+    }
+  },
+  {
+    "kind": "proof_request",
+    "valid": false,
+    "value": {}
+  }
+]

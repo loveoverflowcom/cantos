@@ -9,12 +9,26 @@ use crate::{
 };
 use leptos::prelude::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PendingAuthRequest {
+    Outbound(AuthRequestFence),
+    ConfirmingReturn(AuthRequestFence),
+}
+
+impl PendingAuthRequest {
+    fn fence(self) -> AuthRequestFence {
+        match self {
+            Self::Outbound(fence) | Self::ConfirmingReturn(fence) => fence,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct LiveNavigation {
     pub route: RwSignal<Route>,
     preview: bool,
     intents: RwSignal<AuthIntentState>,
-    pending: RwSignal<Option<AuthRequestFence>>,
+    pending: RwSignal<Option<PendingAuthRequest>>,
     returned: StoredValue<Option<(Route, browser::ReturnSnapshot)>>,
 }
 
@@ -44,7 +58,10 @@ impl LiveNavigation {
         };
         let mut intents = AuthIntentState::new(auth);
         let pending = if callback_kind == "#auth-return" && restored.is_some() {
-            intents.begin().ok()
+            intents
+                .begin()
+                .ok()
+                .map(PendingAuthRequest::ConfirmingReturn)
         } else {
             None
         };
@@ -100,26 +117,7 @@ impl LiveNavigation {
             }
         });
         Effect::new(move |_| {
-            if state.get().phase() == SessionPhase::SignedIn {
-                if let Some(fence) = navigation.pending.get_untracked() {
-                    let mut accepted = false;
-                    navigation.intents.update(|s| {
-                        accepted = navigation.route.get_untracked() == Route::Auth(fence.route())
-                            && s.finish(fence)
-                    });
-                    navigation.pending.set(None);
-                    browser::clear_provider_return();
-                    if accepted {
-                        browser::go(
-                            navigation.route,
-                            Route::from_target(fence.route().origin.target()),
-                            true,
-                        );
-                    }
-                }
-            } else if matches!(state.get().phase(), SessionPhase::Failed(_)) {
-                navigation.cancel();
-            }
+            navigation.observe_session(state.get().phase());
         });
         #[cfg(target_arch = "wasm32")]
         {
@@ -165,6 +163,38 @@ impl LiveNavigation {
         navigation
     }
 
+    fn observe_session(self, phase: SessionPhase) {
+        if phase == SessionPhase::SignedIn {
+            if let Some(request) = self.pending.get_untracked() {
+                let fence = request.fence();
+                let mut accepted = false;
+                self.intents.update(|s| {
+                    accepted =
+                        self.route.get_untracked() == Route::Auth(fence.route()) && s.finish(fence)
+                });
+                self.pending.set(None);
+                browser::clear_provider_return();
+                if accepted {
+                    browser::go(
+                        self.route,
+                        Route::from_target(fence.route().origin.target()),
+                        true,
+                    );
+                }
+            }
+        } else if matches!(phase, SessionPhase::Failed(_))
+            || (phase == SessionPhase::Guest
+                && matches!(
+                    self.pending.get_untracked(),
+                    Some(PendingAuthRequest::ConfirmingReturn(_))
+                ))
+        {
+            // Guest after callback confirmation means cookie cleanup was acknowledged.
+            // An outbound redirect can still be in flight while the current session is Guest.
+            self.cancel();
+        }
+    }
+
     pub fn open_auth(self, auth: AuthRoute) {
         if !matches!(self.route.get_untracked(), Route::Auth(_)) {
             self.returned.set_value(Some((
@@ -207,7 +237,7 @@ impl LiveNavigation {
             return;
         };
         if self.preview {
-            self.pending.set(Some(fence));
+            self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
             return;
         }
         let Some(intent) = browser::save_provider_return(auth) else {
@@ -218,7 +248,7 @@ impl LiveNavigation {
         if let Some((destination, snapshot)) = self.returned.get_value() {
             browser::save_return_snapshot(destination, snapshot);
         }
-        self.pending.set(Some(fence));
+        self.pending.set(Some(PendingAuthRequest::Outbound(fence)));
         #[cfg(target_arch = "wasm32")]
         crate::live::runtime::login(state, &intent);
         #[cfg(not(target_arch = "wasm32"))]
@@ -247,5 +277,159 @@ impl LiveNavigation {
             Route::Auth(a) => a.origin,
             _ => ReturnDestination::Home,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::{
+        account::AccountScope,
+        account_view::{AccountFailure, SessionCompletion},
+    };
+
+    fn returned_login() -> (LiveNavigation, AuthRequestFence) {
+        let auth = AuthRoute::login(ReturnDestination::Account);
+        let mut intents = AuthIntentState::new(Some(auth));
+        let fence = intents.begin().unwrap();
+        (
+            LiveNavigation {
+                route: RwSignal::new(Route::Auth(auth)),
+                preview: true,
+                intents: RwSignal::new(intents),
+                pending: RwSignal::new(Some(PendingAuthRequest::ConfirmingReturn(fence))),
+                returned: StoredValue::new(None),
+            },
+            fence,
+        )
+    }
+
+    fn signed_out_cleanup(
+        state: RwSignal<AccountViewState>,
+    ) -> crate::application::account::AccountGeneration {
+        let mut current = state.write();
+        let lookup = current.begin_refresh().unwrap();
+        let SessionCompletion::Cleanup(cleanup) = current
+            .finish_session(lookup, Err(AccountFailure::SignedOut))
+            .unwrap()
+        else {
+            panic!("a missing callback session must require cookie cleanup")
+        };
+        cleanup
+    }
+
+    #[test]
+    fn callback_without_session_releases_its_fence_only_after_cleanup_and_allows_retry() {
+        Owner::new().with(|| {
+            let (nav, old) = returned_login();
+            let state = RwSignal::new(AccountViewState::default());
+            let cleanup = signed_out_cleanup(state);
+            nav.observe_session(state.get_untracked().phase());
+            assert!(!state.get_untracked().can_login());
+            assert_eq!(
+                nav.pending.get_untracked(),
+                Some(PendingAuthRequest::ConfirmingReturn(old))
+            );
+
+            assert!(!state
+                .write()
+                .finish_logout(cleanup, Err(AccountFailure::Unavailable)));
+            nav.observe_session(state.get_untracked().phase());
+            nav.login(state);
+            assert!(!state.get_untracked().can_login());
+            assert_eq!(
+                nav.pending.get_untracked(),
+                Some(PendingAuthRequest::ConfirmingReturn(old))
+            );
+            assert!(nav.intents.get_untracked().accepts(old));
+
+            let retry = state.write().begin_logout().unwrap();
+            assert!(state.write().finish_logout(retry, Ok(())));
+            nav.observe_session(state.get_untracked().phase());
+            assert!(state.get_untracked().can_login());
+            assert_eq!(
+                nav.route.get_untracked(),
+                Route::Auth(AuthRoute::login(ReturnDestination::Account))
+            );
+            assert_eq!(nav.pending.get_untracked(), None);
+            assert!(!nav.intents.get_untracked().accepts(old));
+
+            nav.login(state);
+            let Some(PendingAuthRequest::Outbound(current)) = nav.pending.get_untracked() else {
+                panic!("retry must start a new outbound request")
+            };
+            assert_ne!(current, old);
+            let before = nav.intents.get_untracked();
+            nav.login(state);
+            assert_eq!(
+                nav.pending.get_untracked(),
+                Some(PendingAuthRequest::Outbound(current))
+            );
+            assert_eq!(nav.intents.get_untracked(), before);
+        });
+    }
+
+    #[test]
+    fn outbound_login_is_retained_while_guest_and_during_unacknowledged_cleanup() {
+        Owner::new().with(|| {
+            let (nav, _) = returned_login();
+            nav.cancel();
+            let state = RwSignal::new(AccountViewState::default());
+            let cleanup = signed_out_cleanup(state);
+            assert!(state.write().finish_logout(cleanup, Ok(())));
+            nav.login(state);
+            let pending = nav.pending.get_untracked();
+            assert!(matches!(pending, Some(PendingAuthRequest::Outbound(_))));
+            for phase in [
+                SessionPhase::Guest,
+                SessionPhase::Checking,
+                SessionPhase::LogoutPending,
+            ] {
+                nav.observe_session(phase);
+                assert_eq!(nav.pending.get_untracked(), pending);
+            }
+            nav.observe_session(SessionPhase::Failed(AccountFailure::Unavailable));
+            assert_eq!(nav.pending.get_untracked(), None);
+        });
+    }
+
+    #[test]
+    fn cancelled_callback_and_stale_session_cannot_complete_a_repeated_login() {
+        Owner::new().with(|| {
+            let (nav, old_auth) = returned_login();
+            let state = RwSignal::new(AccountViewState::default());
+            let old_lookup = state.write().begin_refresh().unwrap();
+            nav.cancel();
+            let cleanup = state.write().begin_logout().unwrap();
+            assert!(state.write().finish_logout(cleanup, Ok(())));
+            nav.login(state);
+            let pending = nav.pending.get_untracked();
+            assert!(matches!(pending, Some(PendingAuthRequest::Outbound(_))));
+            nav.login(state);
+            assert_eq!(nav.pending.get_untracked(), pending);
+            assert!(!nav.intents.get_untracked().accepts(old_auth));
+
+            let scope = AccountScope::from_session(
+                "listener-a".into(),
+                uuid::Uuid::from_u128(1).to_string(),
+            )
+            .unwrap();
+            assert_eq!(
+                state.write().finish_session(old_lookup, Ok(scope.clone())),
+                Ok(SessionCompletion::Ignored)
+            );
+            nav.observe_session(state.get_untracked().phase());
+            assert_eq!(nav.pending.get_untracked(), pending);
+            assert!(matches!(nav.route.get_untracked(), Route::Auth(_)));
+
+            let current_lookup = state.write().begin_refresh().unwrap();
+            assert!(matches!(
+                state.write().finish_session(current_lookup, Ok(scope)),
+                Ok(SessionCompletion::Authenticated(_))
+            ));
+            nav.observe_session(state.get_untracked().phase());
+            assert_eq!(nav.route.get_untracked(), Route::Account);
+            assert_eq!(nav.pending.get_untracked(), None);
+        });
     }
 }

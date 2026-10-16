@@ -15,6 +15,7 @@ import com.cantos.theatre.app.AppContainer
 import com.cantos.theatre.application.preferences.PreferenceTheme
 import com.cantos.theatre.application.identity.NativeAccountController
 import com.cantos.theatre.domain.identity.NativeClientConfiguration
+import com.cantos.theatre.domain.identity.NativeIdentityAvailability
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,24 +31,33 @@ class CantosDemoApplication : Application() {
             it.preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light)
         }
     }
-    val nativeIdentity: NativeAccountController? by lazy {
+    @Suppress("DEPRECATION") // Bundle.get preserves non-string manifest literals for typed refusal.
+    val nativeIdentityAvailability: NativeIdentityAvailability by lazy {
         val metadata = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA).metaData
-        val api = metadata?.getString("CantosApiOrigin")
-        val issuer = metadata?.getString("CantosNativeIssuer")
-        val configuration = if (api != null && issuer != null) NativeClientConfiguration.create(api, issuer) else null
-        configuration?.let {
-            NativeAccountController(
-                scope = scope,
-                configuration = it,
-                api = NativeIdentityClient(it, AndroidNativeHttp(scope, it.apiOrigin)),
-                crypto = AndroidIdentityCrypto(),
-                browser = AndroidSystemBrowser(this),
-                store = AndroidCredentialStore(this),
-                barrier = AndroidLogoutBarrier(this),
-                now = { System.currentTimeMillis() / 1000 },
-            )
+        NativeClientConfiguration.resolve(
+            apiOrigin = metadata?.get("CantosApiOrigin")?.toString(),
+            issuer = metadata?.get("CantosNativeIssuer")?.toString(),
+        )
+    }
+    val nativeIdentity: NativeAccountController? by lazy {
+        when (val availability = nativeIdentityAvailability) {
+            is NativeIdentityAvailability.Missing -> null
+            is NativeIdentityAvailability.Invalid -> null
+            is NativeIdentityAvailability.Available -> createNativeIdentity(availability.configuration)
         }
     }
+
+    private fun createNativeIdentity(configuration: NativeClientConfiguration): NativeAccountController =
+        NativeAccountController(
+            scope = scope,
+            configuration = configuration,
+            api = NativeIdentityClient(configuration, AndroidNativeHttp(scope, configuration.apiOrigin)),
+            crypto = AndroidIdentityCrypto(),
+            browser = AndroidSystemBrowser(this),
+            store = AndroidCredentialStore(this),
+            barrier = AndroidLogoutBarrier(this),
+            now = { System.currentTimeMillis() / 1000 },
+        )
 
     override fun onTerminate() {
         // Emulator shutdown only; ordinary process death loses all mock memory.

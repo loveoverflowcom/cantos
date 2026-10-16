@@ -201,6 +201,109 @@ fn config_and_cookie_policy_cannot_enable_remote_http_or_cross_origin_metadata()
 use crate::platform::oidc::mock;
 
 #[test]
+fn studio_admission_requires_one_or_two_distinct_exact_operator_subjects() {
+    use crate::platform::identity::domain::ExternalIdentityKey;
+
+    let issuer = claims()["iss"].as_str().unwrap().to_owned();
+    for subjects in [
+        vec![],
+        vec!["one", "two", "three"],
+        vec!["one", "one"],
+        vec![""],
+        vec!["  "],
+        vec!["line\nbreak"],
+    ] {
+        assert!(matches!(
+            administrators::StudioAdministrators::new(
+                &issuer,
+                subjects.into_iter().map(String::from).collect()
+            ),
+            Err(AuthError::Configuration)
+        ));
+    }
+    assert!(matches!(
+        administrators::StudioAdministrators::new(&issuer, vec!["x".repeat(513)]),
+        Err(AuthError::Configuration)
+    ));
+    for subjects in [vec!["Đặng-Minh"], vec!["Đặng-Minh", "đặng-minh"]] {
+        let administrators = administrators::StudioAdministrators::new(
+            &issuer,
+            subjects.iter().map(|subject| (*subject).into()).collect(),
+        )
+        .unwrap();
+        for subject in subjects {
+            assert_eq!(
+                administrators.authorize(&ExternalIdentityKey::new(&issuer, subject).unwrap()),
+                Ok(())
+            );
+        }
+        for (other_issuer, subject) in [
+            (issuer.as_str(), "ĐẶNG-MINH"),
+            (issuer.as_str(), " Đặng-Minh"),
+            (issuer.as_str(), "theatre-self-signup"),
+            (
+                "https://other.example/oauth2/openid/cantos-studio-web-bff",
+                "Đặng-Minh",
+            ),
+            (
+                "https://idm.example/oauth2/openid/cantos-theatre-web-bff",
+                "Đặng-Minh",
+            ),
+        ] {
+            assert_eq!(
+                administrators.authorize(&ExternalIdentityKey::new(other_issuer, subject).unwrap()),
+                Err(AuthError::Inactive)
+            );
+        }
+    }
+}
+
+#[test]
+fn verified_provider_identity_and_claimed_groups_cannot_self_enroll_in_studio() {
+    let signer = Signer::new("one");
+    let keys = keys(&signer);
+    let issuer = claims()["iss"].as_str().unwrap().to_owned();
+    let administrators =
+        administrators::StudioAdministrators::new(&issuer, vec!["preprovisioned".into()]).unwrap();
+    let mut value = claims();
+    value["email"] = json!("admin@example.test");
+    value["groups"] = json!(["cantos_creators", "idm_admins"]);
+    let proof = verify(&signer.sign(value), &keys, &issuer, "nonce", 100).unwrap();
+    assert_eq!(
+        administrators.authorize(proof.key()),
+        Err(AuthError::Inactive)
+    );
+    let mut value = claims();
+    value["sub"] = json!("preprovisioned");
+    let proof = verify(&signer.sign(value), &keys, &issuer, "nonce", 100).unwrap();
+    assert_eq!(administrators.authorize(proof.key()), Ok(()));
+}
+
+#[test]
+fn studio_metadata_client_is_deny_all_until_configured_and_rejects_theatre_client() {
+    let config = OidcConfig::new(
+        "https://idm.example/oauth2/openid/cantos-studio-web-bff",
+        "https://studio.example",
+        "fixture".into(),
+    )
+    .unwrap();
+    let oidc = StudioOidc::new(config).unwrap();
+    assert_eq!(oidc.administrators().err(), Some(AuthError::Configuration));
+    let oidc = oidc.with_admin_subjects(vec!["one".into()]).unwrap();
+    assert!(oidc.administrators().is_ok());
+    let theatre = OidcConfig::theatre_web(
+        "https://idm.example/oauth2/openid/cantos-theatre-web-bff",
+        "https://cantos.example",
+        "fixture".into(),
+    )
+    .unwrap();
+    assert_eq!(
+        StudioOidc::new(theatre).err(),
+        Some(AuthError::Configuration)
+    );
+}
+
+#[test]
 fn immutable_browser_inventory_is_bounded_duplicate_free_and_has_no_identity_authority() {
     let values = (0..MAX_BROWSER_FLOWS)
         .map(|i| (format!("{i:064x}"), "b".repeat(64)))

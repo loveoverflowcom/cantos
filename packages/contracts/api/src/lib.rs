@@ -184,3 +184,4 @@ pub use publication::*;
 pub mod listener_library;
 
 pub mod theatre_identity;
+pub mod theatre_registration;

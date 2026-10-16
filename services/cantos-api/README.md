@@ -58,7 +58,11 @@ The [actor registry](../../docs/architecture/identity-registry.md) is implemente
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
 The registry itself authenticates no provider. The separate opt-in
 [Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
-callbacks and hashed Studio sessions on the current route group.
+callbacks and hashed Studio sessions on the current route group. Studio OIDC requires
+`CANTOS_STUDIO_ADMIN_SUBJECTS`, an operator-owned JSON array of one or two exact issuer-scoped
+subjects; callback and each authenticated request refuse all other identities. This admission
+policy grants no separate Admin capability or Work permission, exposes no public Studio signup
+and provisions no account or credentials. See the [operator contract](../kanidm/README.md#studio-administrator-provisioning-contract).
 [OIDC evidence](../../docs/evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
 records the latest signed mocks/real PostgreSQL and observed Studio browser checks separately
 from deferred Kanidm, unobserved runtime/accessibility and production acceptance.
@@ -104,8 +108,9 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–26 (26 migrations), including original private storage0015, Admin0022, coordinated
-private Artwork0023 and additive Work-scoped delegation0026. Historical SQL bytes/checksums are unchanged.
+versions 1–27 (27 migrations), including original private storage0015, Admin0022, coordinated
+private Artwork0023, additive Work-scoped delegation0026 and opt-in Theatre registration0027.
+Historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in

@@ -42,10 +42,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|_| "OIDC requires an operator-supplied client secret")?;
         let config = OidcConfig::new(&issuer, &web_origin, secret)
             .map_err(|_| "invalid Studio OIDC config")?;
-        let oidc = StudioOidc::new(config).map_err(|_| "OIDC client unavailable")?;
+        let subjects = env::var("CANTOS_STUDIO_ADMIN_SUBJECTS")
+            .map_err(|_| "Studio requires its operator-provisioned administrator subjects")?;
+        let subjects = serde_json::from_str::<Vec<String>>(&subjects)
+            .map_err(|_| "Studio administrator subjects must be a JSON array")?;
+        let oidc = StudioOidc::new(config)
+            .map_err(|_| "OIDC client unavailable")?
+            .with_admin_subjects(subjects)
+            .map_err(|_| "Studio requires one or two distinct valid administrator subjects")?;
         store = store.with_studio_oidc(oidc);
-    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some() {
-        return Err("OIDC secret requires explicit issuer".into());
+    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some()
+        || env::var_os("CANTOS_STUDIO_ADMIN_SUBJECTS").is_some()
+    {
+        return Err("Studio secret/administrator subjects require explicit issuer".into());
     }
     if let Ok(issuer) = env::var("CANTOS_THEATRE_OIDC_ISSUER") {
         let secret = env::var("CANTOS_THEATRE_OIDC_SECRET")
@@ -76,13 +85,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if env::var_os("CANTOS_ADMIN_OIDC_SECRET").is_some() {
         return Err("Admin secret requires explicit issuer".into());
     }
+    if let Some(registration) = cantos_api::platform::theatre_registration::config::from_lookup(
+        store.clone(),
+        &web_origin,
+        |name| env::var(name).ok(),
+    )
+    .map_err(|_| "invalid or incomplete Theatre registration configuration")?
+    {
+        store = store.with_theatre_registration(registration);
+    }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");
-    axum::serve(listener, router(state, &dist))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await?;
+    axum::serve(
+        listener,
+        router(state, &dist).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await?;
     Ok(())
 }

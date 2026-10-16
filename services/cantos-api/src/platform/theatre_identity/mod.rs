@@ -45,6 +45,10 @@ impl TheatreIdentity {
         &self.config.web_origin
     }
 
+    pub(crate) fn registration_issuer_matches(&self, issuer: &str) -> bool {
+        self.config.issuer == issuer
+    }
+
     /// Read-only discovery/JWKS contract check; success is metadata evidence, never a live login.
     pub async fn verify_metadata(&self) -> Result<(), AuthError> {
         self.provider.verify_metadata(now()?).await

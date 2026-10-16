@@ -7,8 +7,12 @@ See the [architecture](../../docs/architecture/theatre-identity.md) for the trus
 
 | Route | Admission / response |
 | --- | --- |
+| GET `/api/v1/theatre/auth/configuration` | Public read-only capability, always mounted; no account/session/provider I/O or credential fields |
 | GET `/api/v1/theatre/auth/login` | Same-origin navigation; redirects to exact Theatre Web issuer, `openid`, code + S256 |
 | GET `/api/v1/theatre/auth/callback` | Exact browser/state/nonce/redirect; consumed before one exchange; opaque cookie only |
+| POST `/api/v1/theatre/auth/registration` | Exact Origin; email-only request; generic 202 acknowledgement, no session or provider person before proof |
+| POST `/api/v1/theatre/auth/registration/verify` | Exact Origin; explicit token-only confirmation; 200 `setup_link_sent` or `unavailable`, never account/session completion |
+| POST `/api/v1/theatre/auth/registration/cancel` | Exact Origin; token-only cancellation of an unconsumed proof; generic 202 acknowledgement |
 | GET `/api/v1/theatre/session` | Theatre cookie; `{actor_id, session_id}` as nonsecret display/fencing facts |
 | DELETE `/api/v1/theatre/session` | Exact Origin; works for expired sessions; local revoke/cancel before remote revoke; guarded UI 204 without shared cookie expiry |
 | Library / Progress / operation receipts | Existing [Library contract](listener-library-v1.md), sealed Listener principal; Web cookie admission |
@@ -25,6 +29,108 @@ never a Web cookie. Cookie/bearer mixtures are refused. Web `/session` accepts o
 Absent Theatre configuration retains default-deny account admission and existing guest routes.
 No automatic guest import/merge. Login/logout never emits history, moves playback or imports
 mock state. Client intent IDs/bodies are stable; A's pending intents cannot be submitted asB.
+
+## Registration policy and implemented capability
+
+[ADR0034](../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
+public self-registration for Theatre and separately provisioned Studio administrators. Theatre
+registration never creates Studio authority or changes a Studio admission list. Product approval
+does not establish provider support or authorize live account/provider configuration changes.
+
+The Web capability DTO is `theatre_identity::Configuration`, with the strict
+[configuration schema](schemas/theatre-auth-configuration-v1.schema.json). Login and signup
+availability are separate values. A configured registration module reports:
+
+```json
+{"login":"oidc","registration":{"status":"email_verification"}}
+```
+
+`login` is `unconfigured` without a Theatre Web BFF adapter, including native-only configuration;
+registration is then `unavailable` with `identity_unconfigured`. A missing registration module
+reports `registration_unconfigured`; `provider_unsupported` remains an explicit unavailable
+reason and does not imply that Kanidm lacks onboarding APIs. `email_verification` means the
+reviewed module/adapters have been mounted from explicit configuration, not that the issuer or
+mail transport was probed or a real account created. Metadata responses are public, `no-store`
+and `no-referrer`; they read no cookie, return no provider/client secret, set no session cookie
+and allocate no registration flow. Only GET/HEAD is accepted. Other surfaces and the deprecated
+Studio alias do not inherit this route. Malformed/unknown metadata remains a client failure.
+
+Kanidm1.10.5 lacks an integrated public signup UI but supports authenticated
+[person creation and credential-update intents](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/v1.rs).
+Upstream documents [credential links for onboarding](https://github.com/kanidm/kanidm/blob/v1.10.5/book/src/accounts/authentication_and_credentials.md).
+The approved Theatre module supplies mailbox proof and durable new-person ownership around
+those privileged operations. There is no password-create handler, arbitrary enrollment URL,
+client-selected issuer/person ID/role or automatic account linking.
+
+### Email registration facts and receipts
+
+The strict [`theatre_registration` DTOs](api/src/theatre_registration.rs) and
+[registration schema](schemas/theatre-registration-v1.schema.json) accept an email-only request
+or a token-only confirmation/cancellation request. Unknown fields, password, person ID, issuer,
+recipient override and caller role are refused. A receipt contains only a closed status; no
+email, raw proof, provider setup token/URL, account ID or session credential is returned.
+
+These three POST routes accept JSON up to 2KiB and require the exact configured Web `Origin`;
+`Sec-Fetch-Site: cross-site` is refused. They do not use a Studio/Theatre session as onboarding
+authority. Missing module returns 404; malformed/unknown-field JSON or invalid email returns
+400, wrong Origin returns 403, and infrastructure/unavailable execution returns 503. Every route
+requires the real socket peer for its HMAC quota partition; missing peer returns 503. IPv4-mapped
+IPv6 is normalized, and forwarded headers never select the quota peer. All responses inherit
+the Theatre `no-store`/`no-referrer` boundary. GET/HEAD cannot verify, cancel or create a
+registration. Responses never set an authentication cookie.
+
+All three routes use bounded process-local rolling global/peer attempt admission and an
+in-flight semaphore. Saturated start requests retain the generic 202 acknowledgement without
+dispatch; verify/cancel saturation returns 503 without consuming proof. These counters reset
+on process restart and are not shared by multiple hosts. Durable PostgreSQL accepted-mail
+budgets and recipient cooldown independently gate new verification sends; those receipts
+survive restart. This is not a claim of deployment-wide rate limiting, trusted proxy support or
+measured enumeration resistance.
+
+- `{"status":"accepted"}` acknowledges an eligible public request without revealing whether
+  a duplicate/cooldown/quota decision suppressed mail. It does not promise a sent or delivered
+  message, verified mailbox or provider account.
+- `{"status":"setup_link_sent"}` means the workflow positively acknowledged a new person,
+  requested an intent for that exact person and received SMTP acceptance for the setup email.
+  It proves neither inbox delivery nor completed credentials or login.
+- `{"status":"unavailable"}` refuses unusable proof or stopped/uncertain onboarding. It is
+  never an instruction to reset an existing account or blindly replay create/intent/send.
+
+The application sends a verification link at the pinned Web origin with the proof in
+`#register-verify?token=…`. Opening it presents confirmation; it must not automatically perform
+an effectful request. Explicit confirmation posts the proof in the body, preventing ordinary
+link scanners/prefetch from provisioning. The Web owner removes the fragment, keeps raw proof
+only in current memory and fences delayed completion after cancel/history/logout. No proof
+belongs in persistent browser storage, referrer, log or shared cache. The server retains only a
+purpose-separated SHA256 hash and atomically claims an unexpired token once. Resend rotates the
+challenge only before provisioning; a cancelled, expired, replaced or consumed proof cannot
+create a second person. Reload requiring a new proof must say so rather than fabricate success.
+
+The durable operation pins the exact issuer namespace, verified email, generated UUID/name and
+new-person acknowledgement. No existing-account search by email/name grants intent authority.
+Conflict, timeout/lost response, malformed acknowledgement, receipt failure and uncertain mail
+stop automatic replay and retain a blocked/stalled operation for reconciliation. Cancellation
+invalidates an unconsumed proof only; it cannot reset/revoke an account/session or recall an
+already dispatched provider operation. Setup secrets are not persisted for automatic retry.
+
+Current candidate policy uses bounded ASCII addresses, case-insensitive local deduplication,
+operation-derived provider names and explicit bounded lifetime/cooldown/global/network settings.
+These, external-existing-email handling, retention/cleanup, proxy/network partition policy and
+manual recovery need review before activation. The built-in Kanidm onboarding group can reset
+existing people: live acceptance must verify effective issuer target protection separately from
+the application's new-person guard. No live principal, credential, grant, SMTP setup or account
+is authorized by the code/test approval. See the
+[operator runbook](../../services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution).
+The host defaults off and requires every explicit policy, adapter and secret input before
+mounting this capability. `POLICY_APPROVED` and `ISSUER_ACCESS_APPROVED` are operator declarations
+under the `CANTOS_THEATRE_REGISTRATION_` prefix; they do not inspect actual grants or replace
+the live acceptance record. Partial/orphan configuration fails startup, rather than silently
+enabling a reduced workflow.
+
+After setup, listeners use the existing OIDC flow and server-confirmed session. A registration
+receipt, redirect or verified mailbox cannot authenticate the account, admit Studio/Admin,
+grant Membership/producer authority or merge guest data. Isolated fixtures, SMTP peer tests and
+Web browser doubles remain separate from real issuer/inbox/session and native acceptance.
 
 Native client is fixed `cantos-theatre-native`, scope `openid`, callback
 `com.cantos.theatre:/oauth2/callback`. System-browser adapters parse exact URI, reject fragments,

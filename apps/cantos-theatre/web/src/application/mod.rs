@@ -5,4 +5,6 @@ pub mod catalog;
 pub mod player_session;
 pub mod ports;
 pub mod public_discovery;
+pub mod registration;
 pub(crate) mod scrub;
+pub mod signup;

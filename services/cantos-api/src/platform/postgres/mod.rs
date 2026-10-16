@@ -90,6 +90,7 @@ impl Store {
             studio_oidc: None,
             theatre_identity: None,
             theatre_native: None,
+            theatre_registration: None,
         })
     }
 

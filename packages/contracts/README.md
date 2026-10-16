@@ -297,6 +297,9 @@ records deferred browser/SQL/Native acceptance, measured costs and JSON rollback
 [Theatre Identity v1](theatre-identity-v1.md) keeps Web cookie and native opaque bearer purposes
 separate. Native public-client flow/exchange/session DTOs share the strict
 [native schema](schemas/theatre-native-identity-v1.schema.json) and [nonsecret session fixture](fixtures/theatre-identity/v1/native-session.json).
+The public Web [configuration schema](schemas/theatre-auth-configuration-v1.schema.json)
+separately reports login configuration and registration readiness. Accepted Theatre self-registration
+remains unavailable with the current pinned Kanidm adapter; OIDC login is not registration capability.
 The provider bearer never reaches either client. Session UUID headers reject late account
 intents and correlate private responses; they are fences, never authentication evidence.
 Combined Theatre verification is pending; the Android host activation exception and actual

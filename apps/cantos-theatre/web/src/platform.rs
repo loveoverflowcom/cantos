@@ -166,3 +166,4 @@ pub fn set_title(title: &str) {
 pub fn set_title(_title: &str) {}
 
 pub(crate) mod auth_browser;
+pub(crate) mod signup_browser;

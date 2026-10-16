@@ -34,6 +34,10 @@ if (androidEnabled) {
             setProperty("compose", true)
         }
     }
+    dependencies {
+        // Android Studio loads ComposeViewAdapter from the preview module's debug classpath.
+        add("debugImplementation", "androidx.compose.ui:ui-tooling:1.9.0")
+    }
 }
 
 if (iosEnabled) {

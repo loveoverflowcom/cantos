@@ -69,8 +69,61 @@ boundary when both validated configuration keys are present. That boundary is no
 screen: it is composed into the [guest shell](#guest-first-account-and-auth) (the #130 change edits
 only `MainActivity`'s composition and the Application's container wiring, not the manifest, callback
 filter or callback delivery). Missing or invalid configuration keeps the guest-only mock with Sign in
-disabled and explained. No live origins are supplied in the manifest, and no app was installed or OS
-network/TLS setting changed by this source integration.
+disabled and explained. The build inputs below default to empty; the repository supplies no live
+origins and changes no OS network/TLS setting.
+
+### Native identity build inputs and operator diagnostics
+
+For Android, set the nonsecret environment variables `CANTOS_API_ORIGIN` and
+`CANTOS_NATIVE_ISSUER` before the existing `cargo xtask theatre-demo android-build` command.
+Alternatively, put `cantos.apiOrigin` and `cantos.nativeIssuer` in an operator-owned Gradle
+user-home `gradle.properties`, outside Git. Gradle properties take precedence over the
+environment, including an explicit empty value to disable identity. The selected values flow
+through manifest placeholders into `CantosApiOrigin` / `CantosNativeIssuer` application metadata.
+The package remains `com.cantos.theatre.demo`; configured identity does not replace the mock
+catalog, player or storage with production adapters.
+
+For iOS, the existing `CantosDemo` target's Debug and Release build settings
+`CANTOS_API_ORIGIN` / `CANTOS_NATIVE_ISSUER` default to empty. Both configurations consume the
+minimal `CantosDemo/Info.plist` source through `INFOPLIST_FILE`, expand its two Cantos keys and
+merge the generated system keys. Supply values as explicit Xcode build-setting overrides or an
+operator-owned Xcode configuration; plain environment variables may lose to the target defaults.
+The shared scheme builds `com.cantos.theatre.demo`. The existing
+`cargo xtask theatre-demo ios-build --kotlin-native-home /absolute/installed/native-2.2.20`
+links only the simulator framework; open the existing Xcode project and Run the host separately
+when native acceptance is authorized. Framework linking does not prove the built app's Info.plist.
+No iOS build or toolchain installation was performed for the #191 slice.
+
+Both hosts call the same pure `NativeClientConfiguration.resolve` before creating a controller.
+It retains the existing HTTPS API-origin and exact native-issuer/callback rules. It does not
+normalize origins or accept a Studio/Web issuer. Inspect Android Application's
+`nativeIdentityAvailability` or iOS owner's `availability` in the debugger:
+
+| Outcome | Meaning / next check |
+| --- | --- |
+| `Missing(ApiOrigin/Issuer/Both)` | A required key is absent or empty; check build inputs and selected artifact |
+| `Invalid(ApiOrigin/Issuer)` | A supplied value fails the existing strict configuration grammar; correct that key |
+| `Available` | Client configuration is syntactically valid; API/provider/session acceptance remains separate |
+
+Missing keys take diagnostic precedence: if either key is absent/empty, `Missing` identifies
+those keys before validating the other value. Once both are supplied, invalid API origin is
+reported before invalid issuer. Every unavailable outcome keeps identity disabled.
+
+The Android sandbox owns its debug-only `ui-tooling:1.9.0` runtime as well as preview annotations.
+Android Studio renders the sandbox module directly, so tooling declared only in `androidApp`
+does not supply its `ComposeViewAdapter`. This dependency is conditional on the Android opt-in;
+it adds nothing to desktop/iOS-only or Android release configurations.
+
+Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
+preserves non-string manifest literals for invalid-value refusal instead of treating them as
+missing. iOS creates no account controller or logout-barrier directory for unavailable config.
+The existing guest UI retains its generic unavailable explanation; these operator diagnostics
+do not add another user-facing auth state machine.
+
+The backend must independently have `CANTOS_THEATRE_NATIVE_ISSUER` configured, an authorized
+public client/callback, reachable HTTPS API/provider and an existing account. No client secret
+belongs in either app. See the [activation evidence and acceptance boundary](../../../docs/evidence/theatre-auth-activation.md)
+for Web configuration, preview instructions and outstanding artifact/device/provider checks.
 
 The cleanup controller retains the exact exchanged credential even when OS persistence fails
 or revocation has an unknown outcome. A pending durable denial marker with a missing, corrupt

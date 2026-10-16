@@ -8,19 +8,45 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
-    Router,
+    Json, Router,
 };
-use cantos_contracts::ErrorCode;
+use cantos_contracts::{theatre_identity as dto, ErrorCode};
 use serde::Deserialize;
 
 pub(super) fn routes(enabled: bool) -> Router<AppState> {
+    let routes = Router::new().route("/auth/configuration", get(configuration));
     if !enabled {
-        return Router::new();
+        return routes;
     }
-    Router::new()
+    routes
+        .merge(super::theatre_registration::routes())
         .route("/auth/login", get(login))
         .route("/auth/callback", get(callback))
         .route("/session", get(session).delete(logout_handler))
+}
+
+async fn configuration(State(state): State<AppState>) -> Json<dto::Configuration> {
+    let (login, reason) = if state.store.theatre_identity().is_some() {
+        (
+            dto::LoginMethod::Oidc,
+            dto::RegistrationUnavailableReason::RegistrationUnconfigured,
+        )
+    } else {
+        (
+            dto::LoginMethod::Unconfigured,
+            dto::RegistrationUnavailableReason::IdentityUnconfigured,
+        )
+    };
+    Json(dto::Configuration {
+        login,
+        registration: if state.store.theatre_identity().is_some()
+            && state.store.theatre_registration().is_some()
+        {
+            dto::Registration::EmailVerification {}
+        } else {
+            dto::Registration::Unavailable { reason }
+        },
+    })
 }
 
 use crate::interfaces::http::cookies::unique_cookie;

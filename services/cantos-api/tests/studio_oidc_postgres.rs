@@ -59,13 +59,31 @@ impl Harness {
         .await;
         let oidc_config =
             OidcConfig::new(&mock.issuer(), "http://127.0.0.1:8080", "fixture".into()).unwrap();
-        let store = Store::new(config)
-            .unwrap()
-            .with_studio_oidc(StudioOidc::new(oidc_config.clone()).unwrap());
+        let store = Store::new(config).unwrap().with_studio_oidc(
+            StudioOidc::new(oidc_config.clone())
+                .unwrap()
+                .with_admin_subjects(vec!["minh".into(), "another".into()])
+                .unwrap(),
+        );
         Self { admin, store, mock }
     }
     fn oidc(&self) -> &StudioOidc {
         self.store.studio_oidc().unwrap()
+    }
+
+    fn replace_admin_subjects(&mut self, subjects: &[&str]) {
+        let config = OidcConfig::new(
+            &self.mock.issuer(),
+            "http://127.0.0.1:8080",
+            "fixture".into(),
+        )
+        .unwrap();
+        self.store = self.store.clone().with_studio_oidc(
+            StudioOidc::new(config)
+                .unwrap()
+                .with_admin_subjects(subjects.iter().map(|subject| (*subject).into()).collect())
+                .unwrap(),
+        );
     }
     async fn start(&self, previous: Option<&str>) -> (String, String, String) {
         let start = self.oidc().begin(&self.store, previous).await.unwrap();
@@ -140,6 +158,111 @@ impl Harness {
         config.dbname(&db);
         connect(&config).await
     }
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL"]
+async fn unlisted_provider_account_creates_no_studio_actor_session_or_cookie() {
+    let h = Harness::new().await;
+    let start = h.oidc().begin(&h.store, None).await.unwrap();
+    let (state, code) = h.mock.issue(&start.url, "theatre-self-signup", None);
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "/nonexistent",
+    );
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/studio/auth/callback?state={state}&code={code}"
+                ))
+                .header(header::COOKIE, start.cookie.split(';').next().unwrap())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert!(!response.headers().contains_key(header::SET_COOKIE));
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+        serde_json::json!({"code":"unauthenticated","current_revision":null,"issues":[]})
+    );
+    for table in [
+        "actors",
+        "actor_external_identities",
+        "sessions",
+        "studio_oidc_sessions",
+    ] {
+        assert_eq!(h.count(table).await, 0, "{table}");
+    }
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), 1);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/v1/studio/auth/callback?state={state}&code={code}"
+                ))
+                .header(header::COOKIE, start.cookie.split(';').next().unwrap())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(h.mock.data.token_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+#[ignore = "requires xtask disposable PostgreSQL"]
+async fn removing_subject_from_studio_roster_denies_existing_session_without_deleting_history() {
+    let mut h = Harness::new().await;
+    let (token, _) = h.login(None).await;
+    h.replace_admin_subjects(&["another"]);
+    let introspections = h.mock.data.introspection_calls.load(Ordering::SeqCst);
+    assert!(matches!(
+        h.store.authenticate(&token).await,
+        Err(cantos_api::platform::postgres::StoreError::Unauthenticated)
+    ));
+    let app = router(
+        AppState {
+            store: h.store.clone(),
+            web_origin: "http://127.0.0.1:8080".into(),
+        },
+        "/nonexistent",
+    );
+    for path in [
+        "/api/v1/studio/session",
+        "/api/v1/studio/works",
+        "/api/v1/scripts/any/head",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(header::COOKIE, format!("cantos_session={token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{path}");
+    }
+    assert_eq!(
+        h.mock.data.introspection_calls.load(Ordering::SeqCst),
+        introspections
+    );
+    assert_eq!(h.count("actors").await, 1);
+    assert_eq!(h.count("actor_external_identities").await, 1);
+    assert_eq!(h.count("sessions").await, 1);
+    h.replace_admin_subjects(&["minh"]);
+    assert!(h.store.authenticate(&token).await.is_ok());
 }
 
 #[tokio::test]
@@ -373,7 +496,6 @@ async fn studio_http_session_paths_csrf_cookie_and_development_credentials_are_i
         serde_json::json!({"mode":"oidc"})
     );
     for path in [
-        "/api/v1/theatre/auth/configuration",
         "/api/v1/admin/auth/configuration",
         "/api/v1/auth/configuration",
     ] {
@@ -550,8 +672,8 @@ async fn wait_for_finish_lock(admin: &Client) {
 async fn frozen_a_requests_and_stale_cleanup_cannot_read_or_revoke_cookie_b() {
     const FENCE: &str = "x-cantos-studio-session";
     let h = Harness::new().await;
-    let (a, actor_a) = h.login_subject("account-a").await;
-    let (b, actor_b) = h.login_subject("account-b").await;
+    let (a, actor_a) = h.login_subject("minh").await;
+    let (b, actor_b) = h.login_subject("another").await;
     assert_ne!(actor_a, actor_b);
     let app = router(
         AppState {
@@ -785,7 +907,7 @@ async fn acknowledged_logout_cancels_consumed_guest_callbacks_without_the_latest
         let mut attempts = Vec::new();
         // Use actual Set-Cookie name semantics: the old mutable implementation loses A1/A2
         // when a newer begin overwrites it; the repair keeps bounded independent binders.
-        for subject in ["guest-a1", "guest-a2"] {
+        for subject in ["minh", "another"] {
             let cookie = jar
                 .iter()
                 .map(|(name, value)| format!("{name}={value}"))
@@ -1906,6 +2028,8 @@ impl Harness {
             )
             .unwrap(),
         )
+        .unwrap()
+        .with_admin_subjects(vec!["minh".into(), "another".into()])
         .unwrap();
         self.store = self.store.clone().with_studio_oidc(oidc);
     }
@@ -1938,7 +2062,7 @@ async fn independent_logins_and_operator_registration_share_one_atomic_identity(
 
     // Independent lock oracle for the stated PR1 framing. Hold it until BOTH adapters wait;
     // a mismatched SQL/Rust digest cannot pass by registering before the other call reaches SQL.
-    let subject = "operator-race";
+    let subject = "another";
     let issuer = h.mock.issuer();
     let mut digest = Sha256::new();
     digest.update(b"cantos-identity-registry-v1");

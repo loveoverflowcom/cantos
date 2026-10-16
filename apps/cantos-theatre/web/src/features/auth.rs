@@ -2,14 +2,18 @@
 use super::{
     account::account_failure_key,
     auth_copy::{self, CopyKey},
+    signup::SignupPanel,
 };
 use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, AuthStep, ReturnDestination},
+        registration::{ConfigurationFailure, RegistrationPhase, RegistrationState},
+        signup::{SignupPhase, SignupState},
     },
     messages::{self, Key, Locale},
 };
+use cantos_contracts::theatre_identity::RegistrationUnavailableReason;
 use cantos_ui::{
     AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, IconName, Logo,
     LogoTone, LogoVariant, Space, Surface, SurfaceTone, SurfaceVariant,
@@ -41,6 +45,26 @@ fn blocked_login_key(state: &AccountViewState) -> Key {
         SessionPhase::Failed(failure) => account_failure_key(failure),
         SessionPhase::LogoutPending if state.cleanup_in_flight() => Key::AccountLogoutPending,
         SessionPhase::LogoutPending => Key::AccountLogoutRetryHelp,
+    }
+}
+
+fn registration_key(phase: RegistrationPhase) -> CopyKey {
+    match phase {
+        RegistrationPhase::Idle | RegistrationPhase::Checking => CopyKey::SignupChecking,
+        RegistrationPhase::Available => CopyKey::SignupEmailHelp,
+        RegistrationPhase::Unavailable(RegistrationUnavailableReason::IdentityUnconfigured) => {
+            CopyKey::SignupNotConfigured
+        }
+        RegistrationPhase::Unavailable(RegistrationUnavailableReason::ProviderUnsupported) => {
+            CopyKey::SignupProviderUnsupported
+        }
+        RegistrationPhase::Unavailable(RegistrationUnavailableReason::RegistrationUnconfigured) => {
+            CopyKey::SignupRegistrationUnconfigured
+        }
+        RegistrationPhase::Failed(ConfigurationFailure::Unavailable) => {
+            CopyKey::SignupServiceUnavailable
+        }
+        RegistrationPhase::Failed(ConfigurationFailure::Protocol) => CopyKey::SignupInvalidResponse,
     }
 }
 
@@ -116,6 +140,8 @@ pub(crate) fn SessionRecovery(
 #[component]
 pub(crate) fn AuthPage(
     state: RwSignal<AccountViewState>,
+    registration: RwSignal<RegistrationState>,
+    signup: RwSignal<SignupState>,
     locale: RwSignal<Locale>,
     route: AuthRoute,
     on_back: Callback<()>,
@@ -125,6 +151,12 @@ pub(crate) fn AuthPage(
     on_membership: Callback<()>,
     on_refresh: Callback<()>,
     on_logout: Callback<()>,
+    on_registration_refresh: Callback<()>,
+    on_signup_submit: Callback<()>,
+    on_signup_verify: Callback<()>,
+    on_signup_new: Callback<()>,
+    on_signup_cancel: Callback<()>,
+    on_signup_login: Callback<()>,
 ) -> impl IntoView {
     // Success is unavailable until a provider registration receipt exists. In particular a
     // reconstructed completion URL is not a receipt and never opens Membership success actions.
@@ -178,18 +210,34 @@ pub(crate) fn AuthPage(
                         }.into_any()
                     } else {
                         view! {
+                            <Show when=move || registration.get().phase() == RegistrationPhase::Available || signup.get().phase() != SignupPhase::Editing
+                                fallback=move || view! {
                             <div class="theatre-auth-actions">
-                                {move || DisabledReason::new(auth_copy::text(CopyKey::SignupUnavailable, locale.get())).ok().map(|reason| view! {
+                                <div id="theatre-registration-status" role="status" aria-live="polite" aria-atomic="true">
+                                {move || {
+                                    let phase = registration.get().phase();
+                                    DisabledReason::new(auth_copy::text(registration_key(phase), locale.get())).ok().map(|reason| view! {
                                     <Button id="theatre-registration-unavailable" variant=ButtonVariant::AuthPrimary
-                                        state=ButtonState::Disabled(reason)>
+                                        state=if matches!(phase, RegistrationPhase::Idle | RegistrationPhase::Checking) { ButtonState::Loading(reason) } else { ButtonState::Disabled(reason) }>
                                         {label(locale, CopyKey::CreateAccount)}
                                     </Button>
-                                })}
+                                })}}
+                                </div>
+                                <Show when=move || matches!(registration.get().phase(), RegistrationPhase::Failed(_))>
+                                    <Button id="theatre-registration-refresh" variant=ButtonVariant::AuthSecondary
+                                        on_press=Callback::new(move |_| on_registration_refresh.run(()))>
+                                        {label(locale, CopyKey::SignupRetry)}
+                                    </Button>
+                                </Show>
                                 <Button id="theatre-register-back" variant=ButtonVariant::AuthSecondary
                                     on_press=Callback::new(move |_| on_back.run(()))>
                                     {label(locale, back_key(route))}
                                 </Button>
                             </div>
+                                }>
+                                <SignupPanel state=signup locale on_submit=on_signup_submit on_verify=on_signup_verify
+                                    on_new_request=on_signup_new on_cancel=on_signup_cancel on_login=on_signup_login/>
+                            </Show>
                             {(route.step == AuthStep::RegistrationComplete).then(|| view! {
                                 <p role="status">{label(locale, CopyKey::RegistrationUnconfirmed)}</p>
                             })}
@@ -225,14 +273,111 @@ mod tests {
     }
 
     fn render(route: AuthRoute, initial: AccountViewState, language: Locale) -> String {
+        let mut availability = RegistrationState::default();
+        let issued = availability.begin().unwrap();
+        assert!(availability.finish(
+            issued,
+            Ok(cantos_contracts::theatre_identity::Configuration {
+                login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
+                registration: cantos_contracts::theatre_identity::Registration::Unavailable {
+                    reason: RegistrationUnavailableReason::ProviderUnsupported,
+                },
+            })
+        ));
+        render_with_registration(route, initial, language, availability)
+    }
+
+    fn render_with_registration(
+        route: AuthRoute,
+        initial: AccountViewState,
+        language: Locale,
+        availability: RegistrationState,
+    ) -> String {
         Owner::new().with(|| {
             let state = RwSignal::new(initial);
             let locale = RwSignal::new(language);
+            let registration = RwSignal::new(availability);
+            let signup = RwSignal::new(SignupState::default());
             let noop = Callback::new(|()| {});
-            view! { <AuthPage state locale route on_back=noop on_register=noop on_login=noop
-            on_home=noop on_membership=noop on_refresh=noop on_logout=noop/> }
+            view! { <AuthPage state registration signup locale route on_back=noop on_register=noop on_login=noop
+            on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop
+            on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop/> }
             .to_html()
         })
+    }
+
+    #[test]
+    fn registration_loading_unconfigured_unsupported_and_failures_stay_closed_with_named_recovery()
+    {
+        use cantos_contracts::theatre_identity::{Configuration, LoginMethod, Registration};
+        for language in [Locale::Vietnamese, Locale::English] {
+            for (result, key, retry) in [
+                (None, CopyKey::SignupChecking, false),
+                (
+                    Some(Ok(Configuration {
+                        login: LoginMethod::Unconfigured,
+                        registration: Registration::Unavailable {
+                            reason: RegistrationUnavailableReason::IdentityUnconfigured,
+                        },
+                    })),
+                    CopyKey::SignupNotConfigured,
+                    false,
+                ),
+                (
+                    Some(Ok(Configuration {
+                        login: LoginMethod::Oidc,
+                        registration: Registration::Unavailable {
+                            reason: RegistrationUnavailableReason::ProviderUnsupported,
+                        },
+                    })),
+                    CopyKey::SignupProviderUnsupported,
+                    false,
+                ),
+                (
+                    Some(Err(ConfigurationFailure::Unavailable)),
+                    CopyKey::SignupServiceUnavailable,
+                    true,
+                ),
+                (
+                    Some(Err(ConfigurationFailure::Protocol)),
+                    CopyKey::SignupInvalidResponse,
+                    true,
+                ),
+            ] {
+                let mut availability = RegistrationState::default();
+                let issued = availability.begin().unwrap();
+                if let Some(result) = result {
+                    assert!(availability.finish(issued, result));
+                }
+                let html = render_with_registration(
+                    AuthRoute::register(ReturnDestination::Account),
+                    guest(),
+                    language,
+                    availability,
+                );
+                assert!(html.contains(auth_copy::text(key, language)));
+                assert!(html.contains("id=\"theatre-registration-status\" role=\"status\" aria-live=\"polite\" aria-atomic=\"true\""));
+                assert_eq!(html.contains("id=\"theatre-registration-refresh\""), retry);
+                let opening = html
+                    .split("id=\"theatre-registration-unavailable\"")
+                    .nth(1)
+                    .unwrap()
+                    .split('>')
+                    .next()
+                    .unwrap();
+                assert!(opening.contains("disabled"));
+                assert!(opening.contains("theatre-registration-unavailable-reason"));
+                for forbidden in [
+                    "<input",
+                    "<form",
+                    "type=\"password\"",
+                    "Registration complete",
+                    "Cantos Theatre",
+                ] {
+                    assert!(!html.contains(forbidden), "{forbidden}");
+                }
+            }
+        }
     }
 
     fn native_button_name(html: &str, id: &str) -> String {

@@ -262,15 +262,18 @@ Recommended order stays small and reviewable:
    PASS results never accept different follow-up source.
 3. #129's [Web Home/Auth/Account boundary](../evidence/theatre-web-auth-account.md) applies the
    admitted shared variants to anonymous Home and explicit contextual auth, while retaining
-   #35's two primary destinations and avatar Account entry. Keep provider signup unavailable
-   until its exact capability/callback policy is accepted; a prototype form or route is no
-   registration receipt. Prioritize the recorded provider-return, cancellation, browser history
-   and focus evidence before broadening this Web slice. #130 native adoption remains independent
+   #35's two primary destinations and avatar Account entry. [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md)
+   accepts listener self-registration; keep current unsupported provider signup explicitly
+   unavailable until its exact mechanism and return contract are implemented and accepted.
+   A prototype form or route is no registration receipt. Prioritize the recorded provider-return,
+   cancellation, browser history and focus evidence before broadening this Web slice. #130 native adoption remains independent
    of this browser lifecycle and sandbox #122; its first [guest-first CMP slice](../evidence/theatre-cmp-auth-account.md)
    composes the same contextual Back and fenced completion semantics over the existing native
    account owner, with provider, device and assistive-technology acceptance still unrun.
 4. #131's [Studio shell slice](../evidence/studio-login-dashboard.md) adopts login-only
-   entry and a bounded Bàn viết projection over the existing authorized workspace. Keep live
+   entry and a bounded Bàn viết projection over the existing authorized workspace. Apply
+   ADR 0034's one or two securely provisioned Studio administrator accounts through server-side
+   admission; Theatre signup cannot grant this authority. Keep live
    issuer/group denial, full browser/assistive-technology acceptance and exact artwork fidelity
    separate from synthetic-HTTP UI evidence. The next review should finish those acceptance
    gaps before expanding dashboard summaries or changing the editor/data owners.
@@ -678,6 +681,41 @@ Production stays closed until live current-group/client/credential/rotation and 
 OS/secure-store/provider acceptance, audit protection/retention and recovery gates are accepted.
 
 ## Theatre native launch handoff
+
+The [Mac Web auth and spacing slice](../evidence/theatre-web-auth-mac.md) repairs the returned
+Guest callback retry and the Library Account-entry gap, with browser fixture/visual evidence.
+Next accept existing-account Web login against an operator-prepared API/issuer/test account and
+apply [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md): Theatre listeners
+self-register; Studio has no public signup and admits only one or two securely provisioned
+administrators. Verify Studio admission at callback and every protected request, including
+refusal of a valid Theatre account and removal from the configured Studio subjects. These local
+checks can progress independently of the missing live issuer/client/test account. Local fixtures
+do not accept real signup, session reload or provider logout. Keep the existing Draft PR #196 and
+native acceptance gaps; no provisioning is implied by this order.
+
+For [#191](https://github.com/loveoverflowcom/cantos/issues/191), finish configured-artifact
+inspection and separately authorized Web/native provider, callback, secure-store and lifecycle
+acceptance after the [nonsecret build-input slice](../evidence/theatre-auth-activation.md).
+The existing Web BFF/proxy and native controller remain the owners; do not rebuild their
+protocol or infer live login from source tests or Android preview. [#174](https://github.com/loveoverflowcom/cantos/issues/174)
+continues to own email-verified self-registration and its Web/native contract. After ADR0034's
+product choice, the owner approved code and isolated tests in the same Draft PR #196 for a
+Theatre module that verifies email before creating a new Kanidm person, then sends an issuer
+credential-setup link. Kanidm1.10.5 has those authenticated APIs although its public UI lacks
+integrated signup; keep the issuer and existing OIDC/session owner. First finish pure/contract,
+deterministic adapter/HTTP/Web and disposable-PostgreSQL evidence. Then review external
+existing-email policy, naming/canonicalization, TTL/quota/retention/recovery and effective
+issuer protection before requesting specific service-principal/grant/mail authorization.
+The built-in onboarding group can reset existing people; do not infer least privilege from its
+name or call an application-only new-person guard issuer protection. Missing configuration
+remains disabled, and SMTP acceptance alone is not inbox or account completion. Real accounts,
+credentials, standing grants, SMTP and security changes still need separate explicit authority.
+Native and live acceptance gaps stay explicit; this does not reorder publication.
+The [second independent review](../evidence/theatre-auth-activation.md#second-independent-review--16-october-2026)
+and authorized tool-update follow-up distinguish a passed Android host preview from pending
+configured-artifact and live acceptance. CLI 1.0.16500706 / Studio Rabbit 1 now render the
+existing guest discovery wrapper after the sandbox's debug-only tooling correction; source
+compilation and inspected static pixels/text do not accept OS callbacks or live identity.
 
 The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
 synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP
