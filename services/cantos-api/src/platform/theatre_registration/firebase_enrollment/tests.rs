@@ -323,6 +323,7 @@ pub(crate) struct ActionServer {
     task: tokio::task::JoinHandle<()>,
     pub(crate) bodies: Arc<Mutex<Vec<serde_json::Value>>>,
     wrong_purpose: Arc<AtomicBool>,
+    provider_disabled: Arc<AtomicBool>,
     disconnect_consume: Arc<AtomicBool>,
     reached: Arc<Notify>,
     release: Arc<Notify>,
@@ -334,6 +335,8 @@ impl ActionServer {
         let address = listener.local_addr().unwrap();
         let bodies = Arc::new(Mutex::new(Vec::new()));
         let wrong_purpose = Arc::new(AtomicBool::new(false));
+        let provider_disabled = Arc::new(AtomicBool::new(false));
+        let disabled = provider_disabled.clone();
         let disconnect_consume = Arc::new(AtomicBool::new(false));
         let reached = Arc::new(Notify::new());
         let release = Arc::new(Notify::new());
@@ -391,6 +394,12 @@ impl ActionServer {
                 if consuming && disconnect.load(Ordering::SeqCst) {
                     continue;
                 }
+                if !consuming && disabled.load(Ordering::SeqCst) {
+                    let error = r#"{"error":{"code":400,"message":"PASSWORD_LOGIN_DISABLED"}}"#;
+                    let wire = format!("HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{error}", error.len());
+                    let _ = stream.write_all(wire.as_bytes()).await;
+                    continue;
+                }
                 let enrollment = memory.current().enrollment;
                 let response = if consuming {
                     serde_json::json!({"localId":enrollment.uid(),"email":enrollment.registration().email().as_str()})
@@ -406,6 +415,7 @@ impl ActionServer {
             task,
             bodies,
             wrong_purpose,
+            provider_disabled,
             disconnect_consume,
             reached,
             release,
@@ -736,6 +746,33 @@ async fn successor_email_conflict_requires_reconciliation_without_adoption_or_pr
         .unwrap()
         .is_none());
     assert_eq!(*events.lock().unwrap(), ["prepare", "bootstrap", "prepare"]);
+}
+
+#[tokio::test]
+async fn a_project_without_password_login_is_a_configuration_fault_not_an_unusable_link() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let memory = Arc::new(Memory::awaiting(events.clone()));
+    let server = ActionServer::start(memory.clone(), None).await;
+    let service = service(memory.clone(), &server, None, None);
+    server.provider_disabled.store(true, Ordering::SeqCst);
+    assert!(matches!(
+        service.confirm(Uuid::from_u128(1), "actual-action").await,
+        Err(RegistrationError::Configuration)
+    ));
+    // Nothing consumed, nothing provisioned, and the lease is released for a later retry.
+    assert_eq!(memory.current().phase, Phase::AwaitingAction);
+    assert_eq!(
+        *events.lock().unwrap(),
+        ["claim", "inspect", "release_inspection"]
+    );
+    server.provider_disabled.store(false, Ordering::SeqCst);
+    assert!(matches!(
+        service
+            .confirm(Uuid::from_u128(1), "actual-action")
+            .await
+            .unwrap(),
+        ConfirmationOutcome::SetupReady(_)
+    ));
 }
 
 #[tokio::test]
