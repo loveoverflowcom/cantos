@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Production host: no permission, network, identity callback or diagnostic entry point
-     until a production adapter consumes it. Launcher artwork stays with the demo host (#122). -->
+<!-- Production host. Release declares no permission, no API origin and never permits
+     cleartext: the live public catalog composes only where INTERNET and an origin are declared
+     (today only the debug overlay, src/debug/AndroidManifest.xml). Launcher artwork stays with
+     the demo host (#122). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="false"
         android:label="Cantos"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Cantos">
         <activity
             android:name=".app.TheatreActivity"

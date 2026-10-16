@@ -5,12 +5,17 @@ use crate::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, MembershipReturn},
         public_discovery::PublicDiscoveryState,
+        public_work::{Request as WorkRequest, WorkDetailPhase, WorkDetailState},
         registration::RegistrationState,
         signup::SignupState,
     },
     features::{
-        account::LiveAccount, auth::AuthPage, common::PersonGlyph, library::LiveLibrary,
-        public_home::PublicHome,
+        account::LiveAccount,
+        auth::AuthPage,
+        common::PersonGlyph,
+        library::LiveLibrary,
+        public_home::{self, PublicHome},
+        public_work::PublicWorkDetail,
     },
     messages::{self, Key, Locale},
     platform::{self, auth_browser, signup_browser},
@@ -40,6 +45,47 @@ fn refresh_discovery(state: RwSignal<PublicDiscoveryState>) {
     }
     #[cfg(not(target_arch = "wasm32"))]
     let _ = state;
+}
+
+/// Issue one public Work request and the automatic page requests it implies. Focus follows only
+/// the listener intent that issued it: a detail retry focuses the heading, a page intent its
+/// first new row, its failure or the list status. Automatic page one never moves focus.
+fn run_work_request(state: RwSignal<WorkDetailState>, request: WorkRequest, focus: bool) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use crate::application::public_work::Step;
+        leptos::task::spawn_local(async move {
+            let (mut step, page_focus) = match request {
+                WorkRequest::Work(ticket) => {
+                    let result = crate::live::public_work::load_work(ticket.work()).await;
+                    let Some(step) = state.try_update(|s| s.finish_work(&ticket, result)) else {
+                        return;
+                    };
+                    if focus && step != Step::Ignored {
+                        platform::focus_by_id(crate::features::public_work::HEADING_ID.to_owned());
+                    }
+                    (step, false)
+                }
+                WorkRequest::Page(ticket) => (Step::Continue(ticket), focus),
+            };
+            while let Step::Continue(ticket) = step {
+                let result = crate::live::public_work::load_units(&ticket).await;
+                let Some(next) = state.try_update(|s| s.finish_page(&ticket, result)) else {
+                    return;
+                };
+                if next == Step::Settled && page_focus {
+                    if let Some(target) =
+                        state.try_with_untracked(crate::features::public_work::page_focus_target)
+                    {
+                        platform::focus_by_id(target);
+                    }
+                }
+                step = next;
+            }
+        });
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (state, request, focus);
 }
 
 fn refresh_registration(state: RwSignal<RegistrationState>) {
@@ -98,6 +144,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let state = RwSignal::new(AccountViewState::default());
     let discovery = RwSignal::new(PublicDiscoveryState::default());
     let registration = RwSignal::new(RegistrationState::default());
+    let work_detail = RwSignal::new(WorkDetailState::default());
     let locale = RwSignal::new(Locale::Vietnamese);
     let theme = RwSignal::new(Theme::System);
     let main = NodeRef::<leptos::html::Main>::new();
@@ -158,7 +205,73 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         refresh_discovery(discovery);
         refresh_registration(registration);
     }
-    Effect::new(move |_| platform::set_title(&messages::page_title(locale.get(), nav.route.get())));
+    // The live detail is keyed by the route's server ID; leaving fences every outstanding read.
+    Effect::new(move |_| match nav.route.get() {
+        Route::PublicWork(id) => {
+            let mut issued = None;
+            work_detail.update(|s| issued = s.open(id));
+            match issued {
+                Some(ticket) if !preview && network_allowed.get_untracked() => {
+                    run_work_request(work_detail, WorkRequest::Work(ticket), false)
+                }
+                // Preview mode has no catalog network, and an unsafe link blocks it until cleared:
+                // both settle as the honest unavailable state, which Retry leaves once allowed.
+                Some(ticket) => work_detail.update(|s| {
+                    let _ = s.finish_work(
+                        &ticket,
+                        Err(crate::application::public_work::CatalogReadError::Unavailable),
+                    );
+                }),
+                None => (),
+            }
+        }
+        _ => {
+            if work_detail.with_untracked(|s| s.work_id().is_some()) {
+                work_detail.update(|s| {
+                    let _ = s.leave();
+                });
+            }
+        }
+    });
+    let on_open_work = Callback::new(move |id| nav.open_work(id, public_home::work_link_id(id)));
+    let on_work_back = Callback::new(move |()| nav.close_work());
+    let on_work_retry = Callback::new(move |()| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        work_detail.update(|s| issued = s.retry());
+        if let Some(request) = issued {
+            run_work_request(work_detail, request, true);
+        }
+    });
+    let on_work_more = Callback::new(move |()| {
+        if preview || !network_allowed.get_untracked() {
+            return;
+        }
+        let mut issued = None;
+        work_detail.update(|s| issued = s.load_more());
+        if let Some(ticket) = issued {
+            run_work_request(work_detail, WorkRequest::Page(ticket), true);
+        }
+    });
+    Effect::new(move |_| {
+        let route = nav.route.get();
+        let title = match route {
+            Route::PublicWork(id) => work_detail.with(|s| match s.phase() {
+                WorkDetailPhase::Ready { work, .. } if s.work_id() == Some(id) => {
+                    Some(messages::format(
+                        Key::PageTitle,
+                        locale.get(),
+                        &[("page", work.title.clone())],
+                    ))
+                }
+                _ => None,
+            }),
+            _ => None,
+        };
+        platform::set_title(&title.unwrap_or_else(|| messages::page_title(locale.get(), route)));
+    });
     Effect::new(move |_| platform::set_document_language(locale.get().lang()));
     let on_login = Callback::new(move |()| {
         crate::live::signup::leave(signup, preview);
@@ -280,7 +393,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                         <Button id="theatre-membership-login" variant=ButtonVariant::Tonal focus_on_press=true on_press=Callback::new(move |_| nav.open_auth(AuthRoute::login(nav.origin())))>{move || messages::text(Key::SignIn,locale.get())}</Button>
                                     </section>
                                 }.into_any(),
-                                _ => view! { <PublicHome state=discovery locale on_login on_register on_refresh=Callback::new(move |()| { if !preview { refresh_discovery(discovery); } })/> }.into_any(),
+                                Route::PublicWork(_) => view! { <PublicWorkDetail state=work_detail locale on_back=on_work_back on_retry=on_work_retry on_load_more=on_work_more/> }.into_any(),
+                                _ => view! { <PublicHome state=discovery locale on_login on_register on_open_work on_refresh=Callback::new(move |()| { if !preview { refresh_discovery(discovery); } })/> }.into_any(),
                             }}
                         </main>
                     </super::LiveContainer>

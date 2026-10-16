@@ -1,13 +1,16 @@
 use crate::{
     application::auth_navigation::{AuthRoute, MembershipReturn, NavigationTarget},
-    core::ids::WorkId,
+    core::{ids::WorkId, public_ids::PublicWorkId},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
     Discover,
     Explore,
+    /// Isolated mock fixture detail; only the `?mode=mock` shell renders it.
     Work(WorkId),
+    /// Live public detail keyed by the server-issued canonical UUID; the mock shell refuses it.
+    PublicWork(PublicWorkId),
     Library,
     History,
     Player,
@@ -35,11 +38,20 @@ impl Route {
             "queue" => Self::Queue,
             "settings" => Self::Settings,
             "account" => Self::Account,
-            value => value
-                .strip_prefix("work/")
-                .and_then(WorkId::from_slug)
-                .map(Self::Work)
-                .unwrap_or(Self::NotFound),
+            value => match value.strip_prefix("work/") {
+                Some(key) => WorkId::from_slug(key)
+                    .map(Self::Work)
+                    .or_else(|| PublicWorkId::parse(key).map(Self::PublicWork))
+                    .unwrap_or(Self::NotFound),
+                None => Self::NotFound,
+            },
+        }
+    }
+    /// The isolated mock shell has no live catalog: a public ID is an unknown route there.
+    pub fn from_mock_hash(hash: &str) -> Self {
+        match Self::from_hash(hash) {
+            Self::PublicWork(_) => Self::NotFound,
+            route => route,
         }
     }
     pub fn hash(self) -> String {
@@ -47,6 +59,7 @@ impl Route {
             Self::Discover => "#discover".into(),
             Self::Explore => "#explore".into(),
             Self::Work(id) => format!("#work/{}", id.slug()),
+            Self::PublicWork(id) => format!("#work/{id}"),
             Self::Library => "#library".into(),
             Self::History => "#history".into(),
             Self::Player => "#player".into(),
@@ -71,7 +84,9 @@ impl Route {
     /// Detail and history routes belong to one of the two main navigation destinations.
     pub fn primary_navigation(self) -> Option<Self> {
         match self {
-            Self::Discover | Self::Explore | Self::Work(_) => Some(Self::Discover),
+            Self::Discover | Self::Explore | Self::Work(_) | Self::PublicWork(_) => {
+                Some(Self::Discover)
+            }
             Self::Library | Self::History => Some(Self::Library),
             Self::Player
             | Self::Queue
@@ -109,6 +124,35 @@ mod tests {
             );
         }
         assert_eq!(Route::from_hash("#work/secret-draft"), Route::NotFound);
+    }
+
+    #[test]
+    fn public_work_route_admits_only_a_canonical_server_id_and_keeps_mock_slugs_separate() {
+        let canonical = "10000000-0000-4000-8000-00000000000a";
+        let id = PublicWorkId::parse(canonical).unwrap();
+        let route = Route::from_hash(&format!("#work/{canonical}"));
+        assert_eq!(route, Route::PublicWork(id));
+        assert_eq!(route.hash(), format!("#work/{canonical}"));
+        assert_eq!(Route::from_hash(&route.hash()), route);
+        assert_eq!(route.primary_navigation(), Some(Route::Discover));
+        assert_eq!(
+            Route::from_hash("#work/son-ha-ky"),
+            Route::Work(WorkId::Mountain)
+        );
+        assert_eq!(Route::from_mock_hash(&route.hash()), Route::NotFound);
+        assert_eq!(
+            Route::from_mock_hash("#work/den-khuya"),
+            Route::Work(WorkId::River)
+        );
+        for rejected in [
+            "#work/10000000-0000-4000-8000-00000000000A",
+            "#work/{10000000-0000-4000-8000-00000000000a}",
+            "#work/1000000000004000800000000000000a",
+            "#work/10000000-0000-4000-8000-00000000000a/units",
+            "#work/",
+        ] {
+            assert_eq!(Route::from_hash(rejected), Route::NotFound, "{rejected}");
+        }
     }
 
     #[test]

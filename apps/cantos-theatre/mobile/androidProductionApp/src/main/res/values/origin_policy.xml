@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Release: only https API origins. The debug source set overrides this to true. -->
+    <bool name="cantos_loopback_origin_allowed">false</bool>
+</resources>

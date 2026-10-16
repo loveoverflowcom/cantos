@@ -31,7 +31,7 @@ pub fn decode_response(
     if page.items.len() > 20
         || (page.items.is_empty() && page.next_cursor.is_some())
         || page.items.iter().any(|work| {
-            uuid::Uuid::parse_str(&work.work_id).is_err()
+            crate::core::public_ids::PublicWorkId::parse(&work.work_id).is_none()
                 || !ids.insert(work.work_id.as_str())
                 || work.title.trim().is_empty()
                 || work.language.trim().is_empty()
@@ -117,7 +117,13 @@ mod tests {
     #[test]
     fn impossible_or_duplicate_work_identity_is_rejected_before_rendering() {
         let valid: serde_json::Value = serde_json::from_slice(PAGE).unwrap();
-        for (key, bad_value) in [("work_id", "not-a-work"), ("title", " "), ("language", "")] {
+        for (key, bad_value) in [
+            ("work_id", "not-a-work"),
+            ("work_id", "{00000000-0000-0000-0000-000000000001}"),
+            ("work_id", "0000000000000000000000000000000A"),
+            ("title", " "),
+            ("language", ""),
+        ] {
             let mut bad = valid.clone();
             bad["items"][0][key] = serde_json::json!(bad_value);
             assert_eq!(

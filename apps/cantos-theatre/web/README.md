@@ -103,7 +103,8 @@ declarations do not establish browser or native acceptance.
 | Module | Concrete responsibility |
 | --- | --- |
 | `src/app/context.rs` | One root composition: independent catalog/player/library/progress/queue handles; explicit user commands; locale/theme/navigation |
-| `src/app/routes.rs` | Typed hash routes; no player construction |
+| `src/app/routes.rs` | Typed hash routes; no player construction. `#work/<slug>` is the mock fixture route; `#work/<canonical uuid>` is the live public route, which the mock shell treats as unknown |
+| `src/core/public_ids.rs` | Canonical lower-case public Work UUID admission; never a slug, title or position |
 | `src/core/ids.rs`, `catalog.rs` | Synthetic typed keys and catalog read models; no publication authority |
 | `src/core/playback/` | Framework-free immutable state, events, ordered effects and `reduce(state, event) -> Transition` |
 | `src/core/listening/` | Separate saved-work/bookmark, progress, simulated history and queue facts/rules |
@@ -112,8 +113,10 @@ declarations do not establish browser or native acceptance.
 | `src/application/account.rs`, `account_view.rs` | Pure session generation, logout acknowledgement, immutable intent ownership and private read projection lifecycle |
 | `src/application/auth_navigation.rs` | Closed internal auth return destinations and checked request epochs; routes never establish a session or registration receipt |
 | `src/application/public_discovery.rs` | Independent anonymous read generation, duplicate admission and terminal response fencing |
+| `src/application/public_work.rs` | Pure live Work detail and unit-walk state machine: route generation and page-request fencing, empty-continuation follow-up budget, same-cursor page retry, `invalid_cursor` restart with `unit_id` de-duplication, terminal empty list |
 | `src/live/account.rs`, `library.rs`, `runtime.rs` | Same-origin Theatre BFF transport, bounded actual Library reads and mounted browser lifecycle; no mock fallback |
 | `src/live/discovery.rs` | Anonymous fixed-JSON published-work read, bounded response decoding and explicit unavailable/protocol failures |
+| `src/live/public_work.rs` | Anonymous `GET /works/{id}` and `/works/{id}/units` reads; strict shared-DTO decoding, route identity, unit kind and exact `ListenerError` classification |
 | `src/infrastructure/` | Only implemented `MockCatalog` and deterministic `FakeMedia`; no empty future adapters |
 | `src/features/` | App-private discovery/search/work/library/player/queue HTML compositions; screen-owned search/filter and confirmation state |
 | `src/view.rs`, `src/view/live_shell.rs` | Separate mock/live route compositions; Home remains available when identity fails |
@@ -225,6 +228,12 @@ It selects the retained Theatre fixture (`CANTOS_TEST_CONTEXT=theatre`, `theatre
 which has bounded discovery read grants and no invented publication. It refuses another DB
 or a record without that field; explicitly rerun disposable verification if the record is too
 old. `run` starts no PostgreSQL service and applies no role grants or migrations.
+
+To see published Works, run `cargo xtask seed theatre` once against that retained cluster before
+`run`. It publishes synthetic novel, story and podcast Works through the real Studio flows; `run
+--test-cluster` then serves that seed database and says so on its first line. The
+[seeded catalog runbook](../../../docs/deployment/theatre-seeded-catalog.md) lists the dataset,
+stable IDs, a live withdrawal, reset and troubleshooting. Playback remains unavailable.
 
 To reuse an already-running API, use separate terminals. The API terminal requires the same
 operator-prepared `DATABASE_URL` (or its retained test-cluster option):
@@ -344,9 +353,18 @@ observations, pure tests, signed-provider mocks and real disposable PostgreSQL e
 The default entrypoint opens Home and sends one anonymous fixed-JSON
 `GET /api/v1/theatre/works?limit=20` with credentials omitted. Loading, empty success, connection
 failure and invalid response remain distinct; failure offers Retry and never substitutes a mock
-catalog. Published work IDs/titles/descriptions come from the actual DTO. This bounded read does
-not implement work-detail navigation or real playback. A session 401 or provider outage does not
-redirect Home to authentication.
+catalog. Published work IDs/titles/descriptions come from the actual DTO. A session 401 or provider
+outage does not redirect Home to authentication.
+
+Each Home card title links to `#work/<work_id>`, keyed by the server's canonical UUID. The live
+detail reads `GET /api/v1/theatre/works/{id}` and then `/works/{id}/units?limit=20` with
+credentials omitted, the shared deadline and bounded bodies. It distinguishes loading, the merged
+`not_found` answer (no reason is guessed), retryable unavailable and protocol failures, a terminal
+empty list and a partial list with Load more. An empty page with a cursor is followed
+automatically within a small budget; a failed page keeps its rows and retries the same cursor;
+`invalid_cursor` restarts from page one without duplicating rows. No unit count, cover, genre or
+position number is shown. Playback is not integrated: the Listen control is disabled with a visible
+reason, and nothing autoplays or is marked completed. Back returns to the opening card's focus.
 
 The account owner independently bootstraps with `GET /api/v1/theatre/session`. The explicit Login
 route starts `/api/v1/theatre/auth/login` only after the existing cookie-cleanup barrier allows it;

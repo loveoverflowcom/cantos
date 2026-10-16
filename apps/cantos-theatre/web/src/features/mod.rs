@@ -9,6 +9,7 @@ pub(crate) mod library;
 pub(crate) mod player;
 mod player_timeline;
 pub(crate) mod public_home;
+pub(crate) mod public_work;
 pub(crate) mod queue;
 pub(crate) mod signup;
 pub(crate) mod work_detail;

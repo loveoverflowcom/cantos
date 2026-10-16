@@ -74,7 +74,8 @@ pub fn Theatre() -> impl IntoView {
                                 Route::Queue => view! { <Queue ctx=ctx/> }.into_any(),
                                 Route::Settings => view! { <Settings ctx=ctx/> }.into_any(),
                                 Route::Account => view! { <Account ctx=ctx/> }.into_any(),
-                                Route::Auth(_) | Route::Membership(_) | Route::NotFound => view! { <Recovery ctx=ctx title=Key::NotFound help=Key::NotFoundHelp/> }.into_any(),
+                                // Live public IDs never resolve against mock fixtures.
+                                Route::PublicWork(_) | Route::Auth(_) | Route::Membership(_) | Route::NotFound => view! { <Recovery ctx=ctx title=Key::NotFound help=Key::NotFoundHelp/> }.into_any(),
                             }}
                             <footer class="theatre-footer">{move || ctx.text(Key::Footer)}</footer>
                         </main>

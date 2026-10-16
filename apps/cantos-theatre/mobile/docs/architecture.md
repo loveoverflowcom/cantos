@@ -6,7 +6,8 @@ explicitly. Current checks belong to the [#122 isolation record](../../../../doc
 The production Android host `:androidProductionApp` composes `:shared` only; its release
 compile/runtime graphs and actual unsigned APK/AAB are inspected by `cargo xtask theatre-host
 android-release`. A demo APK establishes neither production exclusion nor native listening
-acceptance, and the production host claims no listening capability. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
+acceptance. The production host's debug build can browse the live public catalog (see the
+[README](../README.md#live-public-catalog)); it claims no playback, progress or download capability. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
 remains proposed.
 
 The historical architecture/evidence below began with the requested 407-line brief and
@@ -146,7 +147,7 @@ and `okio-fakefilesystem` retain their upstream names.
 :preview-sandbox --> :shared
 desktop/iOS demo --> :preview-sandbox (exports :shared to the Swift host)
 :androidApp demo --> :shared + :preview-sandbox
-:androidProductionApp --> :shared (+ production adapters when #14 adds them)
+:androidProductionApp --> :shared (live catalog HTTP adapter; player/progress adapters when #14 adds them)
 ```
 
 Shared main source and declared Gradle dependency guards are bounded static evidence, not
