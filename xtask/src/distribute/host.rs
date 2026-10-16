@@ -47,7 +47,9 @@ pub fn read_notes_file(path: &Path) -> std::io::Result<Vec<u8>> {
 
 fn read_notes_prefix(reader: impl Read) -> std::io::Result<Vec<u8>> {
     let mut bytes = Vec::with_capacity(NOTES_LIMIT + 1);
-    reader.take((NOTES_LIMIT + 1) as u64).read_to_end(&mut bytes)?;
+    reader
+        .take((NOTES_LIMIT + 1) as u64)
+        .read_to_end(&mut bytes)?;
     Ok(bytes)
 }
 
@@ -482,7 +484,10 @@ mod tests {
             vec![b'x'; NOTES_LIMIT + 1]
         );
         let mut cursor = std::io::Cursor::new(vec![b'x'; NOTES_LIMIT * 4]);
-        assert_eq!(read_notes_prefix(&mut cursor).unwrap().len(), NOTES_LIMIT + 1);
+        assert_eq!(
+            read_notes_prefix(&mut cursor).unwrap().len(),
+            NOTES_LIMIT + 1
+        );
         assert_eq!(cursor.position(), (NOTES_LIMIT + 1) as u64);
     }
 
@@ -528,7 +533,9 @@ mod tests {
         if let Some(root) = std::env::var_os(CHILD_ROOT) {
             let root = PathBuf::from(root);
             assert_eq!(
-                read_notes_file(&root.join("notes.fifo")).unwrap_err().kind(),
+                read_notes_file(&root.join("notes.fifo"))
+                    .unwrap_err()
+                    .kind(),
                 std::io::ErrorKind::InvalidInput
             );
             std::fs::write(root.join("rejected"), b"InvalidInput").unwrap();
