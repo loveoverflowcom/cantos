@@ -192,15 +192,15 @@ remains local-only under the current host restrictions; it is not an account-pro
 
 ## Theatre identity PR3 (operator preparation remains separate)
 
-The accepted [Theatre self-registration policy](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md)
-does not enable an issuer operation. The pinned1.10.5 source review finds no supported public
-enrollment entrypoint for the current adapter: `/ui/enrol` is authenticated device enrollment,
-and person creation requires administrative authorization. The public Web
+The accepted [Theatre self-registration policy and onboarding direction](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md)
+retain Kanidm. The pinned1.10.5 public UI has no integrated signup, but authenticated person
+creation and credential-update-intent APIs exist. The approved implementation wraps those
+operations in a Theatre-owned email-verification workflow; it never collects passwords or
+infers an anonymous signup URL from OIDC. The public Web
 [`GET /api/v1/theatre/auth/configuration`](../../packages/contracts/theatre-identity-v1.md#registration-policy-and-implemented-capability)
-therefore returns `registration.status=unavailable`, with `identity_unconfigured` before Web BFF
-configuration or `provider_unsupported` after it. No registration URL or password/provisioning
-bridge is inferred from OIDC. Actual self-registration remains blocked on an approved supported
-integration; no live issuer configuration/account/grant was inspected or changed by these tests.
+reports mounted login and registration capability independently. Missing registration setup
+remains unavailable; an enabled local adapter is not live issuer/mail acceptance. No live
+issuer configuration/account/grant was inspected or changed by implementation/tests.
 
 The opt-in development host accepts `CANTOS_THEATRE_OIDC_ISSUER` and
 `CANTOS_THEATRE_OIDC_SECRET` only as an explicit pair, independent of Studio. Issuer must end in
@@ -208,6 +208,129 @@ The opt-in development host accepts `CANTOS_THEATRE_OIDC_ISSUER` and
 Web origin plus `/api/v1/theatre/auth/callback`. No live registration, grant, secret, account,
 container, certificate or network change is performed by implementation/tests. The current xtask
 Kanidm reconciliation plan remains Studio-specific; no Theatre live provisioning is implied.
+
+### Theatre registration activation runbook — approval required before execution
+
+This is a review/runbook contract, not an executed bootstrap. The product owner's approval
+covers code and isolated tests only. Do not create a service principal, account, bearer,
+credential/key, group/ACP/client grant, sender or SMTP setting from these instructions without
+specific approval for the concrete environment, identities and authority.
+
+1. Identify the exact environment and pinned Theatre Web issuer/client, operator/security and
+   acceptance owner, allowed test mailbox/person scope, permitted mail volume/cost and rollback
+   owner. Inspect existing configuration read-only. Keep the Studio confidential client and
+   exact one/two-subject roster separate; a Theatre signup must not change either.
+2. Review the real Kanidm1.10.5 permission plan. The adapter needs person creation with a
+   preselected random UUID/name/mail and credential-update intent for that newly acknowledged
+   UUID. It does not require existing-person discovery/reset, arbitrary person modification,
+   deletion, group management or Studio/Admin grants. However, the built-in
+   `idm_people_on_boarding` role also permits resets of existing non-high-privilege people.
+   **Do not grant it merely because its name sounds narrow.** Validate the actual ACP/target
+   rules and protection of every pre-existing Theatre/Studio account. Do not assume a custom
+   target filter is supported. If the issuer cannot enforce the reviewed boundary, document
+   residual bearer-compromise blast radius and obtain a concrete decision before activation.
+3. Review the remaining deployment policies: external existing-email behavior; bounded ASCII
+   parsing/case-insensitive deduplication and operation-derived names; verification/setup TTLs,
+   recipient cooldown/global/network budgets; direct-peer or trusted-proxy behavior; PII/quota
+   receipt retention, backup/access protection and cleanup; stalled-operation recovery. Existing
+   mailbox equality never authorizes a reset or cross-client identity link. Constructor ranges
+   and fixture values are implementation bounds, not accepted production policy.
+4. Present the exact principal/grants, secret storage/rotation/revocation and mail sender/domain/
+   transport/recipient plan for specific user approval. Use secure secret delivery, not chat,
+   issue, command arguments or Git. No provider/email vendor or paid service is selected here.
+   Deliver the provider bearer only server-side; registration must remain off until the plan
+   and activation gates are satisfied.
+5. After approval, provision only the authorized resources and configure the explicit host
+   inputs. Validate migration0027 and narrow DB grants on a disposable environment first.
+   Runtime requires SELECT/INSERT/UPDATE on `theatre_registrations` and SELECT/INSERT on
+   `theatre_registration_mail_starts`; no DELETE/TRUNCATE, registry, Studio or provider authority
+   follows from those grants. Current triggers retain the rows; there is no age-based cleanup
+   implementation. A reviewed retention/cleanup policy may require an additional migration.
+   The migration itself provisions no role or provider identity.
+6. Exercise the approved test scope against real Kanidm: positive new-person acknowledgement,
+   conflict/403/timeout/malformed response, intent expiry and protection of existing/Studio
+   people. A lost create or intent acknowledgement is uncertain, not permission to retry or
+   search by email and reset. Inspect the exact durable operation/provider state before any
+   separately authorized recovery. Do not clear/delete/reset an old person to repair signup.
+7. Accept mail in separate stages: real SMTP response, inbox arrival, mailbox confirmation,
+   setup-link mail arrival, user-established credential, existing OIDC callback and API-confirmed
+   Theatre session. Include expiry/replay/cancel/resend/outage, reload/logout and direct Studio
+   denial. A successful SMTP DATA response is not inbox delivery or completed registration.
+   Record Web evidence separately from unrun native/device acceptance; keep #174/#191 open
+   until their own acceptance gates are met.
+
+#### Explicit host inputs
+
+[`config::from_lookup`](../cantos-api/src/platform/theatre_registration/config.rs) composes
+registration without discovery, a provider call, SMTP connection or bootstrap. By default all
+registration/SMTP inputs are absent and the module is off. An explicit `ENABLED=false` is also
+off **only when every other registration/SMTP input is absent**. Partial/orphan configuration,
+an unsupported declaration or a missing Theatre Web identity adapter fails startup. A disabled
+module reports `registration_unconfigured` with Web OIDC configured, or
+`identity_unconfigured` without it; its POST routes return 404.
+
+All suffixes in this table use the exact `CANTOS_THEATRE_REGISTRATION_` prefix. Every listed
+field is required when `ENABLED=true`; there are no policy-number, bearer or HMAC-key defaults.
+The accepted ranges below are constructor bounds, **not recommended production settings**.
+
+| Suffix | Required meaning / accepted bound |
+| --- | --- |
+| `ENABLED` | Exact `true` to request composition; absent or standalone `false` leaves it off. |
+| `POLICY_APPROVED` | Exact `true` operator declaration that the candidate email/naming/abuse/retention/recovery policies were reviewed for this environment. |
+| `ISSUER_ACCESS_APPROVED` | Exact `true` operator declaration after reviewing the concrete principal, grants and existing-account target protection. This is not proof of effective issuer permissions. |
+| `PEER_POLICY` | Exact `direct_peer`; no forwarded-header or trusted-proxy mode is implemented. |
+| `TOKEN` | Separately delivered server-only Kanidm service bearer; never a Theatre user credential, CLI argument or repository fixture. |
+| `NETWORK_KEY` | Separately delivered nonzero 32-byte HMAC key encoded as 64 lowercase hexadecimal characters; protect and review rotation because it partitions personal quota metadata. |
+| `VERIFICATION_SECONDS` | Explicit mailbox-proof TTL, 60–3600 seconds. |
+| `RESEND_SECONDS` | Per-registration cooldown, 30 seconds through the configured proof TTL. |
+| `WINDOW_SECONDS` | Durable accepted-verification-mail budget window, 30–86400 seconds. |
+| `MAX_GLOBAL_REQUESTS`, `MAX_NETWORK_REQUESTS` | Durable budget limits: global 1–10000; per peer 1 through the global value. Failed/uncertain initial mail still consumes an accepted start. |
+| `SETUP_SECONDS` | Explicit Kanidm credential-intent lifetime, 300–86400 seconds; the adapter refuses a value the pinned issuer would silently extend. |
+| `MAX_INFLIGHT` | Per-process simultaneous registration operations/mail work, 1–32. |
+| `ATTEMPT_WINDOW_SECONDS` | Process-local rolling admission window, 1–86400 seconds. |
+| `ATTEMPT_MAX_GLOBAL`, `ATTEMPT_MAX_NETWORK` | Process-local admission limits: global 1–10000; per peer 1 through the global value. These are separate from durable mail-start budgets. |
+
+The host must already have its separate `CANTOS_THEATRE_OIDC_ISSUER`/
+`CANTOS_THEATRE_OIDC_SECRET` Web BFF pair. Registration requires HTTPS and the exact existing
+`/oauth2/openid/cantos-theatre-web-bff` issuer path; it derives provider endpoints from that
+origin rather than accepting another admin URL. `CANTOS_WEB_ORIGIN` supplies the fixed Web
+origin and verification-link destination. The SMTP fields below are also required for enabled
+composition. Neither approval declaration creates authorization or proves issuer-side least
+privilege, SMTP delivery, inbox access or production readiness. Do not set them merely because
+isolated tests pass; retain the independently reviewed operational record and specific approval.
+
+All three registration POSTs require socket `ConnectInfo`; a missing peer fails closed with
+503. Only the actual peer address, with IPv4-mapped IPv6 normalized, selects the HMAC partition.
+`Forwarded`/`X-Forwarded-For` never select it. A reverse proxy is therefore the peer for this
+implementation; end-user ingress/proxy policy must be reviewed before deployment. Rolling
+attempt counters and concurrency slots are process-local, reset on restart and are not shared
+across hosts. PostgreSQL mail-start budgets persist and serialize across connections/processes
+sharing the issuer namespace. Neither layer establishes deployment-wide ingress protection.
+
+The vendor-neutral SMTP adapter uses explicit
+`CANTOS_THEATRE_REGISTRATION_SMTP_HOST`, `_PORT`, `_TLS` and `_FROM` inputs under the shared
+`CANTOS_THEATRE_REGISTRATION_SMTP_` prefix. Optional `_USERNAME` and `_PASSWORD` must be supplied
+as a pair. `_FROM` is a bare sender address, not a display/header string. TLS is `starttls`
+(required upgrade, never plaintext fallback) or `implicit`, with normal certificate validation.
+`loopback` is a development-only fixture transport restricted to literal loopback IPs and no
+authentication; it is not a remote SMTP option. Absence disables the adapter; partial/invalid
+configuration is refused. Constructing it neither connects nor sends a test mail. Secrets,
+recipient addresses and bearer links are redacted from adapter debug/errors.
+
+Registration stores only hashes for mailbox proofs and sends issuer setup links without
+persisting their raw token/body. It records effect phases before network calls and never
+automatically repeats provisioning after a potentially accepted operation. A dropped initial
+verification delivery can be requested again after the configured cooldown, rotating the old
+proof; a provisioning/setup/delivery uncertainty needs manual reconciliation. There is no
+background outbox, blanket reset, auto-cleanup or exactly-once-mail guarantee.
+
+Sources: [pinned onboarding documentation](https://github.com/kanidm/kanidm/blob/v1.10.5/book/src/accounts/authentication_and_credentials.md),
+[create and intent HTTP routes](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/v1.rs),
+[built-in access profiles](https://github.com/kanidm/kanidm/blob/v1.10.5/server/lib/src/migration_data/dl14/access.rs#L1335-L1482),
+[explicit UUID duplicate protection](https://github.com/kanidm/kanidm/blob/v1.10.5/server/lib/src/plugins/base.rs#L37-L133).
+Pinned source supports the adapter contract; deployed policy/authority still requires the real
+acceptance above. The [current evidence ledger](../../docs/evidence/theatre-web-auth-mac.md) owns
+actual local/live results.
 
 For an operator-reviewed Theatre deployment, runtime needs SELECT on `actors`,
 `theatre_identity_sessions`; SELECT/INSERT/UPDATE on `theatre_identity_flows`;

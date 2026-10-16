@@ -298,3 +298,165 @@ The existing Draft PR stays open; no merge, issue closure, new PR, live identity
 provider settings or history rewrite. Stash `cb8f104ec2285a36fecab85388623cd09c112950` and all
 11 auxiliary worktrees remain. No remaining approval denial or uncertain remote mutation is
 being treated as a successful identity operation.
+
+## Email registration bridge follow-up
+
+This follow-up supersedes the earlier statement that no onboarding bridge was implemented.
+Direction A in ADR0032 is approved for code and isolated tests: retain Kanidm, compose an
+email-verification onboarding module in the existing monolith, and keep live activation off.
+The earlier login/Studio roster and Library spacing evidence remains attributable to its
+recorded inputs; this section adds no mobile, live identity or inbox acceptance.
+
+### Implemented boundary
+
+- Anonymous Theatre routes start email verification, explicitly consume proof, or cancel an
+  unconsumed proof. They never issue a session, choose an existing person, collect a password,
+  add a group, admit Studio or grant Admin capability. Exact Origin, strict JSON/2KiB bodies,
+  direct socket peer and bounded attempts/concurrency guard the transport. Forwarded headers
+  cannot select a quota identity. Public start/cancel responses are generic 202 receipts.
+- Random purpose-bound proof hashes, exact issuer namespace, DB-clock expiry and atomic
+  claim/CAS phases fence creation, setup intent and setup-mail delivery before external I/O.
+  Unknown create/setup/send outcomes require operator reconciliation; public retry cannot
+  reset a discovered account or repeat a potentially accepted effect. Verification-mail
+  resend after cooldown rotates proof. No transaction contains issuer/SMTP I/O.
+- Additive migration0027 preserves prior migration bytes and records immutable mail-budget
+  receipts. PII/quota records currently have no age-based cleanup; expiry is not retention.
+  Process-local rolling attempt limits supplement durable global/peer mail budgets. Neither
+  process-local limits nor direct-peer HMAC imply reviewed multi-host/proxy protection.
+- The pinned Kanidm1.10.5 adapter sends one create for a preselected UUID/name/mail. Only a
+  positive create acknowledgement constructs the matching created-person witness used for
+  a single setup intent. It does not discover existing people or mutate group/client access.
+  The built-in onboarding role can reset existing non-high-privilege people: application
+  witnesses do not constrain a stolen bearer. Effective issuer protection remains unaccepted.
+- Vendor-neutral SMTP uses pinned lettre0.11.23, required STARTTLS or implicit TLS, normal
+  certificate validation, bounded deadlines and no automatic retry. Plaintext is restricted
+  to unauthenticated literal-loopback development fixtures. Final DATA250 means relay
+  acceptance, not inbox delivery. Setup email includes the exact generated nonsecret login;
+  Kanidm does not use mail as a login alias. Raw proofs/setup links/passwords are not stored
+  in the registration tables or returned by its public DTOs.
+- Web captures and scrubs a fragment proof before application navigation/session/config I/O,
+  retains it in RAM only and requires explicit confirmation. Leaving fences late results;
+  ambiguous verification is not automatically retried. Shared email field/auth buttons,
+  bilingual copy and existing spacing tokens are reused. Explicit auth-preview controls
+  remain isolated synthetic data, never a live transport fallback.
+- Composition requires every policy/transport input explicitly; absent configuration is off,
+  partial/orphan inputs fail startup. Approval declarations are operator assertions, not
+  effective permissions, mail readiness or production acceptance. The issuer and origin must
+  match the mounted Theatre Web identity. No live account, service principal, bearer/key,
+  standing grant, SMTP setting, provider security setting or credential format was changed.
+
+### Checkpoint evidence
+
+Mac Rust1.98.1; debug builds; Leptos0.7.8, Trunk0.21.14, headed Chrome155.0.8059.80 arm64.
+Logs are ignored under `artifacts/agent-runs/issue174-email-enrollment/`.
+
+| Layer | Status | Command / evidence | Scope |
+| --- | --- | --- | --- |
+| Core, adapters and mounted HTTP | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-api --lib theatre_registration --no-fail-fast`; `core-adapters.log`, `.provenance.txt` | 52 tests: domain9/application13/Kanidm8/HTTP8/SMTP5/mail-config5/host-config3/runtime1. Isolated ports/loopback only; 10 SQL tests ignored. |
+| Contract | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-contracts --lib theatre_`; `contracts-final.log` | 8 tests; independent request/capability fixtures and schema, no caller-selected role/person/password, exact receipt semantics. Empty struct enum variant rejects extra fields that Serde's unit variant ignored. |
+| Metadata router | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-api --test theatre_registration_routes`; `api-route-capability.log` | 3 actual router cases, lazy DB; absence/native-only/OIDC without registration and cross-surface denial. |
+| SQL targets compile | PASS | `cargo test --locked -p cantos-api --test catalog_postgres --test revisions_postgres --test private_artwork_storage_postgres --test theatre_identity_postgres --test studio_oidc_postgres --no-run`; `sql-target-compile.log` | Existing migration assertions updated to27; compilation is not SQL execution. New10 registration SQL tests compiled in the library test run. |
+| API debug build | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo xtask build cantos-api`; `api-build-final.log` | Real development host composition, no service startup. |
+| API lint | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo clippy --locked -p cantos-api --lib --bins -- -D warnings`; `api-clippy.log` | Affected API library and binaries only. |
+
+The first adapter test run could not bind sandbox loopback; the specifically authorized isolated
+command was rerun with loopback access. A separate SMTP fixture assertion initially failed
+because lettre encoded Vietnamese mail as MIME Base64; the oracle now decodes actual transfer
+encoding before asserting link/login content. Neither correction changes a live service.
+A Trunk build raced the existing task-owned watcher on `dist/.stage`; its failed asset-copy log
+is retained as `web-build-stage-race.log`, and the same final source built after writes settled.
+
+### Review and remaining acceptance
+
+Independent source review covered durable phase/binding rules, actual routes, configuration,
+provider/SMTP adapters and Web. It found and the implementation repaired paired browser
+history events cancelling a newly scrubbed proof, and later history-scrub failure being hidden
+by route cleanup. Error recovery scrubs then reloads, reinstating normal account lifecycle on
+a fresh owner. Browser testing also identified a conditional field signal-lifetime failure;
+its final disposition and renderer observations are recorded below.
+
+Live activation remains BLOCKED. It needs an agreed external existing-email policy (current
+adapter never looks up/reuses/resets a pre-existing identity), accepted naming/canonicalization,
+TTL/cooldown/quota and retention/recovery policies, effective least-privilege target protection,
+the exact authorized environment/issuer/client/service principal and SMTP plan, secure secret
+handoff and specific approval for each live account/credential/key/grant/security change.
+No mailbox, real login, Studio browser admission/refusal or account completion is claimed from
+these fixture results. VoiceOver speech, injected browser-history failure, deployed timing/
+proxy/rate behavior, real PostgreSQL semantics and native/iOS acceptance remain separate.
+
+### Final Web checkpoint and observations
+
+| Layer | Status | Evidence | Practical limit |
+| --- | --- | --- | --- |
+| Theatre host tests | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo test --locked -p cantos-theatre`; `web-tests.log`: 211 unit +3 doctests | Includes exact proof grammar, epoch/single-submit fences, renderer copy, paired-event guard, persistent scrub-failure safety and navigation-close notification regression. Host rendering alone did not establish DOM lifecycle correctness. |
+| Debug WASM build | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo xtask build cantos-theatre --web`; `web-build-final.log` | Final functional sources with temporary panic hook and console feature removed. No release build. |
+| Native Web library lint | PASS | `RUSTUP_TOOLCHAIN=1.98.1 cargo clippy --locked -p cantos-theatre --lib -- -D warnings`; `web-clippy.log` | Library only; does not supersede the previously recorded unchanged test-target type-complexity failure in player_timeline.rs. |
+| Chrome fixture interaction | PASS | Actual Mac pointer/keyboard via CUA, exact `?mode=auth-preview` | Synthetic results only; no API/issuer/SMTP account or session was created. |
+| Viewport/theme and keyboard | PASS | Full-page PNGs from verified390×844 light and320×844 dark device viewports; actual browser200% zoom and keyboard Tab | Both PNGs opened/inspected; input→Submit focus ring visible at200%. Not VoiceOver or native/mobile evidence. |
+| Real PostgreSQL / issuer / inbox / Studio identity | NOT_RUN | Deferred activation matrix above | Mock and browser-fixture passes do not accept these layers. |
+
+Chrome observations against the repaired interaction:
+
+- Empty email produces localized status/error; a synthetic invalid-email API response returns
+  the editable field. Pending Submit/Confirm controls disable duplicate submission. Generic
+  acceptance clears the email form and does not claim account creation or login.
+- A real same-tab synthetic `#register-verify?token=...` fragment is replaced by
+  `#register?from=home`; explicit confirmation stays visible through the paired history
+  events. Actual Back clears proof, including a repeated sanitized route, and Forward does
+  not restore the discarded proof. Reload returns to an empty request; Escape/Cancel leave
+  the flow. No real token was used.
+- Confirm→lost-response fixture displays uncertainty without a second Confirm control.
+  Confirm→unavailable explains expired/used proof. Setup-email fixture reports relay
+  acceptance and explicitly leaves inbox/account completion unconfirmed; returning to Login
+  does not create a session. Earlier signed-in/Logout fixture evidence remains separate.
+- The previously failing full chain was rerun: proof→Confirm→unavailable→NewRequest→email→
+  Submit→accepted→Cancel→Create. It now opens an empty working form. The short accepted→
+  Cancel→Create chain also passes, including after explicit reload of final assets without
+  the temporary diagnostic hook. Settings/theme navigation remains responsive.
+- The lifetime repair separates same-page reset from navigation leave. Leave clears private
+  state and advances its fence without notifying the form being disposed; it cannot schedule
+  a transient email-field remount inside the old route owner. Shared field props/callbacks
+  have stable panel ownership. The initial hoist-only candidate failed browser acceptance;
+  it was not treated as a pass. Final Chrome DevTools reports zero runtime errors and one
+  existing preload-integrity warning, not a silent ignored panic.
+- Real provider validation, duplicate external email behavior, SMTP/inbox delivery, password/
+  passkey setup, authenticated session persistence/logout and denied Studio identity remain
+  untested live. Browser history API failure has deterministic boundary/render tests and
+  independent source review, but no injected CUA runtime-failure acceptance.
+
+Ignored screenshot inventory `artifacts/ui-evidence/issue174-email-enrollment/inventory.json`
+records device-pixel ratio2 full-page exports (not viewport-height crops):
+
+| File | PNG pixels | SHA256 |
+| --- | --- | --- |
+| signup-390-light.png | 780×3492 | 6c7ba9821dc96ce92fcaca8c27dca19a900d6f736e39d253053917864f1b7f44 |
+| signup-320-dark.png | 640×3992 | 5cc3d7f0e8b0e7774603fc0f45f8884074e89f5636bbc48cc7d1e89e24e84b89 |
+
+The fixture controls occupy their own labelled region before the product form. At both widths,
+Vietnamese field/help/action text wraps without horizontal clipping or button collision; existing
+spacing tokens are retained. Full-page exports alone establish no interaction or motion result.
+
+Handoff logs are `preflight.log` and `repository.log` under the same ignored run directory.
+Required gates remain incomplete. The repository gate still finds the unchanged307-line CMP
+skill (limit300). This change also adds pinned SMTP dependencies to Cargo.lock, which is a
+Leptos qualification input: existing button/text-field/surface/badge/back-button/logo records
+are now stale, and current/new consumer sites (including the signup composition) fail admission.
+These are actual qualification failures, not inherited skill failures or proof of a visual
+regression. The new UI stays unaccepted for activation. The bounded task reuses production
+components and inspected geometry but does not renew the two-renderer qualification campaign;
+Gradle is unavailable and the user explicitly excluded mobile/iOS redo. Do not edit hashes or
+compatibility baselines to bypass this gate. Fresh qualified records remain required before
+production adoption. A new HTTP test initially constructed the PostgreSQL driver config inside
+the HTTP module; fixture construction was moved to its platform test-support owner and the
+mounted tests rerun. Two new module-order format differences were corrected locally.
+Global format/test-target lint findings and unavailable ffmpeg/ffprobe/Gradle prerequisites
+remain separate. No required gate was suppressed,
+no full workspace/release/mobile/iOS build or GitHub CI was requested, and fixture results do
+not authorize activation. SQL requires the existing disposable-cluster xtask gate after its
+trusted prerequisites are available; do not substitute an inherited database or fake binaries.
+
+The existing PR was observed Ready during metadata reconciliation and was restored to Draft
+as requested. It remains the same PR196/branch targeting develop. Preserve stash cb8f104 and
+all11 auxiliary worktrees/history; packaging performs no reset, rebase, force push, merge or
+issue closure. Final commit/remote identity is supplied by the PR handoff, rather than embedding
+a self-referential commit SHA in this evidence file.

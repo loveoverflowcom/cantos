@@ -2,12 +2,14 @@
 use super::{
     account::account_failure_key,
     auth_copy::{self, CopyKey},
+    signup::SignupPanel,
 };
 use crate::{
     application::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, AuthStep, ReturnDestination},
         registration::{ConfigurationFailure, RegistrationPhase, RegistrationState},
+        signup::{SignupPhase, SignupState},
     },
     messages::{self, Key, Locale},
 };
@@ -49,11 +51,15 @@ fn blocked_login_key(state: &AccountViewState) -> Key {
 fn registration_key(phase: RegistrationPhase) -> CopyKey {
     match phase {
         RegistrationPhase::Idle | RegistrationPhase::Checking => CopyKey::SignupChecking,
+        RegistrationPhase::Available => CopyKey::SignupEmailHelp,
         RegistrationPhase::Unavailable(RegistrationUnavailableReason::IdentityUnconfigured) => {
             CopyKey::SignupNotConfigured
         }
         RegistrationPhase::Unavailable(RegistrationUnavailableReason::ProviderUnsupported) => {
             CopyKey::SignupProviderUnsupported
+        }
+        RegistrationPhase::Unavailable(RegistrationUnavailableReason::RegistrationUnconfigured) => {
+            CopyKey::SignupRegistrationUnconfigured
         }
         RegistrationPhase::Failed(ConfigurationFailure::Unavailable) => {
             CopyKey::SignupServiceUnavailable
@@ -135,6 +141,7 @@ pub(crate) fn SessionRecovery(
 pub(crate) fn AuthPage(
     state: RwSignal<AccountViewState>,
     registration: RwSignal<RegistrationState>,
+    signup: RwSignal<SignupState>,
     locale: RwSignal<Locale>,
     route: AuthRoute,
     on_back: Callback<()>,
@@ -145,6 +152,11 @@ pub(crate) fn AuthPage(
     on_refresh: Callback<()>,
     on_logout: Callback<()>,
     on_registration_refresh: Callback<()>,
+    on_signup_submit: Callback<()>,
+    on_signup_verify: Callback<()>,
+    on_signup_new: Callback<()>,
+    on_signup_cancel: Callback<()>,
+    on_signup_login: Callback<()>,
 ) -> impl IntoView {
     // Success is unavailable until a provider registration receipt exists. In particular a
     // reconstructed completion URL is not a receipt and never opens Membership success actions.
@@ -198,6 +210,8 @@ pub(crate) fn AuthPage(
                         }.into_any()
                     } else {
                         view! {
+                            <Show when=move || registration.get().phase() == RegistrationPhase::Available || signup.get().phase() != SignupPhase::Editing
+                                fallback=move || view! {
                             <div class="theatre-auth-actions">
                                 <div id="theatre-registration-status" role="status" aria-live="polite" aria-atomic="true">
                                 {move || {
@@ -220,6 +234,10 @@ pub(crate) fn AuthPage(
                                     {label(locale, back_key(route))}
                                 </Button>
                             </div>
+                                }>
+                                <SignupPanel state=signup locale on_submit=on_signup_submit on_verify=on_signup_verify
+                                    on_new_request=on_signup_new on_cancel=on_signup_cancel on_login=on_signup_login/>
+                            </Show>
                             {(route.step == AuthStep::RegistrationComplete).then(|| view! {
                                 <p role="status">{label(locale, CopyKey::RegistrationUnconfirmed)}</p>
                             })}
@@ -279,9 +297,11 @@ mod tests {
             let state = RwSignal::new(initial);
             let locale = RwSignal::new(language);
             let registration = RwSignal::new(availability);
+            let signup = RwSignal::new(SignupState::default());
             let noop = Callback::new(|()| {});
-            view! { <AuthPage state registration locale route on_back=noop on_register=noop on_login=noop
-            on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop/> }
+            view! { <AuthPage state registration signup locale route on_back=noop on_register=noop on_login=noop
+            on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop
+            on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop/> }
             .to_html()
         })
     }

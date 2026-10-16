@@ -6,13 +6,14 @@ use crate::{
         auth_navigation::{AuthRoute, MembershipReturn},
         public_discovery::PublicDiscoveryState,
         registration::RegistrationState,
+        signup::SignupState,
     },
     features::{
         account::LiveAccount, auth::AuthPage, common::PersonGlyph, library::LiveLibrary,
         public_home::PublicHome,
     },
     messages::{self, Key, Locale},
-    platform::{self, auth_browser},
+    platform::{self, auth_browser, signup_browser},
 };
 use cantos_ui::{AccessibleName, BackButton, Button, ButtonVariant, Logo, LogoTone, Theme};
 use leptos::prelude::*;
@@ -61,6 +62,41 @@ fn refresh_registration(state: RwSignal<RegistrationState>) {
 
 #[component]
 pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
+    // Capture and scrub a proof before navigation construction, effects or any network request.
+    let captured = signup_browser::capture_link();
+    let history_blocked =
+        RwSignal::new(captured == Err(signup_browser::CaptureFailure::HistoryUnavailable));
+    let network_allowed = Signal::derive(move || !history_blocked.get());
+    let signup = RwSignal::new(SignupState::default());
+    let incoming_link_navigation = StoredValue::new(false);
+    signup.update(|current| match captured {
+        Ok(Some(token)) => current.capture(token),
+        Ok(None) => (),
+        Err(_) => current.capture_failed(),
+    });
+    signup_browser::bind_capture(
+        Callback::new(move |captured| {
+            history_blocked
+                .set(captured == Err(signup_browser::CaptureFailure::HistoryUnavailable));
+            incoming_link_navigation.set_value(true);
+            signup.update(|current| match captured {
+                Ok(Some(token)) => current.capture(token),
+                Ok(None) => (),
+                Err(_) => current.capture_failed(),
+            })
+        }),
+        Callback::new(move |()| {
+            // Escape cannot dismiss an unsafe URL. Real Back/Forward to a safe location can.
+            if history_blocked.get_untracked()
+                && auth_browser::hash().starts_with("#register-verify")
+            {
+                return;
+            }
+            history_blocked.set(false);
+            crate::live::signup::leave(signup, preview);
+        }),
+        Callback::new(move |()| crate::live::signup::cancel(signup, preview)),
+    );
     let state = RwSignal::new(AccountViewState::default());
     let discovery = RwSignal::new(PublicDiscoveryState::default());
     let registration = RwSignal::new(RegistrationState::default());
@@ -68,20 +104,45 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let theme = RwSignal::new(Theme::System);
     let main = NodeRef::<leptos::html::Main>::new();
     let nav = LiveNavigation::new(state, main, preview);
+    if !network_allowed.get_untracked() {
+        nav.route.set(Route::Auth(AuthRoute::register(
+            crate::application::auth_navigation::ReturnDestination::Home,
+        )));
+    }
+    let previous_route = StoredValue::new(nav.route.get_untracked());
+    Effect::new(move |_| {
+        let current = nav.route.get();
+        if previous_route.get_value() != current {
+            previous_route.set_value(current);
+            let proof_destination = Route::Auth(AuthRoute::register(
+                crate::application::auth_navigation::ReturnDestination::Home,
+            ));
+            // Keep a newly captured proof through its own sanitized route change. Every
+            // subsequent leave still clears it and invalidates late request completions.
+            let entering_captured_link =
+                incoming_link_navigation.get_value() && current == proof_destination;
+            incoming_link_navigation.set_value(false);
+            if !entering_captured_link {
+                crate::live::signup::leave(signup, preview);
+            }
+        }
+    });
     #[cfg(target_arch = "wasm32")]
-    if !preview {
+    if !preview && network_allowed.get_untracked() {
         crate::live::runtime::mount(state);
     }
     if preview {
         let _ = crate::features::auth_preview::guest(state);
         registration.update(|current| {
             if let Some(issued) = current.begin() {
-                current.finish(issued, Ok(cantos_contracts::theatre_identity::Configuration {
-                    login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
-                    registration: cantos_contracts::theatre_identity::Registration::Unavailable {
-                        reason: cantos_contracts::theatre_identity::RegistrationUnavailableReason::ProviderUnsupported,
-                    },
-                }));
+                current.finish(
+                    issued,
+                    Ok(cantos_contracts::theatre_identity::Configuration {
+                        login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
+                        registration:
+                            cantos_contracts::theatre_identity::Registration::EmailVerification {},
+                    }),
+                );
             }
         });
         discovery.update(|s| {
@@ -95,24 +156,63 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                 );
             }
         });
-    } else {
+    } else if network_allowed.get_untracked() {
         refresh_discovery(discovery);
         refresh_registration(registration);
     }
     Effect::new(move |_| platform::set_title(&messages::page_title(locale.get(), nav.route.get())));
     Effect::new(move |_| platform::set_document_language(locale.get().lang()));
-    let on_login = Callback::new(move |()| nav.open_auth(AuthRoute::login(nav.origin())));
-    let on_register = Callback::new(move |()| nav.open_auth(AuthRoute::register(nav.origin())));
+    let on_login = Callback::new(move |()| {
+        crate::live::signup::leave(signup, preview);
+        nav.open_auth(AuthRoute::login(nav.origin()));
+    });
+    let on_register = Callback::new(move |()| {
+        crate::live::signup::leave(signup, preview);
+        nav.open_auth(AuthRoute::register(nav.origin()));
+    });
     let on_refresh = Callback::new(move |()| {
         if preview {
             state.update(|s| {
                 let _ = s.begin_refresh();
             });
-        } else {
+        } else if network_allowed.get_untracked() {
             refresh_account(state);
         }
     });
-    let on_logout = Callback::new(move |()| nav.logout(state));
+    let on_logout = Callback::new(move |()| {
+        crate::live::signup::cancel(signup, preview);
+        nav.logout(state);
+    });
+    let on_signup_submit = Callback::new(move |()| {
+        if registration.get_untracked().phase()
+            != crate::application::registration::RegistrationPhase::Available
+        {
+            return;
+        }
+        if preview {
+            signup.update(|current| {
+                let _ = current.begin_submit();
+            });
+        } else if network_allowed.get_untracked() {
+            #[cfg(target_arch = "wasm32")]
+            crate::live::signup::submit(signup);
+        }
+    });
+    let on_signup_verify = Callback::new(move |()| {
+        if preview {
+            signup.update(|current| {
+                let _ = current.begin_verify();
+            });
+        } else if network_allowed.get_untracked() {
+            #[cfg(target_arch = "wasm32")]
+            crate::live::signup::verify(signup);
+        }
+    });
+    let on_signup_new = Callback::new(move |()| crate::live::signup::cancel(signup, preview));
+    let on_signup_login = Callback::new(move |()| {
+        crate::live::signup::leave(signup, preview);
+        nav.open_auth(AuthRoute::login(nav.origin()));
+    });
     let on_membership = Callback::new(move |()| {
         auth_browser::go(
             nav.route,
@@ -120,9 +220,16 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             false,
         )
     });
+    let on_clear_unsafe_link = Callback::new(move |()| {
+        // Reload only after successful scrub. A fresh mount restores every normal lifecycle
+        // listener once; failed scrub/reload keeps this owner blocked and exposes no signup IO.
+        let _ = signup_browser::discard_link_and_reload();
+    });
     view! {
         <super::LiveFrame theme>
-            {preview.then(|| view! { <crate::features::auth_preview::AuthPreviewControls state locale on_cancel=Callback::new(move |()| nav.cancel())/> })}
+            <crate::features::signup::SignupLinkSafety blocked=history_blocked locale on_retry=on_clear_unsafe_link>
+            {preview.then(|| view! { <crate::features::auth_preview::AuthPreviewControls state locale on_cancel=Callback::new(move |()| { crate::live::signup::cancel(signup, preview); nav.cancel(); })/> })}
+            {preview.then(|| view! { <crate::features::signup::SignupPreviewControls state=signup locale/> })}
             <div class="theatre-app theatre-live-app" data-auth=move || matches!(nav.route.get(), Route::Auth(_)).to_string() lang=move || locale.get().lang()>
                 <a class="theatre-skip" href="#theatre-main" on:click=move |e| { e.prevent_default(); platform::focus_main(main); }>{move || messages::text(Key::SkipContent, locale.get())}</a>
                 <aside class="theatre-rail">
@@ -144,7 +251,14 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <super::LiveContainer>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             {move || match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state registration locale route=auth on_back=Callback::new(move |()| nav.back()) on_register on_login=Callback::new(move |()| nav.login(state)) on_home=Callback::new(move |()| { nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); }) on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview { refresh_registration(registration); } })/> }.into_any(),
+                                Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth
+                                    on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
+                                    on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state); } })
+                                    on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
+                                    on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } })
+                                    on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_cancel=Callback::new(move |()| {
+                                        crate::live::signup::leave(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
+                                    })/> }.into_any(),
                                 Route::Account => view! { <LiveAccount state locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {
@@ -165,6 +279,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     </super::LiveContainer>
                 </div>
             </div>
+            </crate::features::signup::SignupLinkSafety>
         </super::LiveFrame>
     }
 }

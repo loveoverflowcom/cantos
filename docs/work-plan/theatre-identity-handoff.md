@@ -4,8 +4,8 @@ The [#191 activation slice](../evidence/theatre-auth-activation.md) adds nonsecr
 inputs and typed missing/invalid diagnostics on top of these owners. Its source regressions,
 preview prerequisites and unrun artifact/provider/device checks are recorded separately from
 the historical integrated results below. [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md)
-now accepts Theatre self-registration and provisioned-only Studio access; #174 retains the
-issuer-capability and return-contract work. See the
+now accepts Theatre self-registration and provisioned-only Studio access; #174 owns the approved
+email-verification/Kanidm onboarding implementation and independent live acceptance. See the
 [client evidence matrix](live-client-api-matrix.md#theatre-identity-activation) for the #179/#180
 handoff boundary; no earlier acceptance record is promoted to this new source.
 
@@ -19,26 +19,38 @@ The product owner settled the audience/access choice: Theatre users self-registe
 no public registration and uses only one or two securely provisioned administrator accounts.
 The accepted policy is [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md).
 The earlier #174/#191 selection between self-signup, invitation and defer no longer needs a
-product decision. Public enrollment capability, configuration and live acceptance still need
-evidence. The [Mac Web ledger](../evidence/theatre-web-auth-mac.md) owns this source's executed
+product decision. The owner subsequently approved code and isolated tests for retained Kanidm:
+mailbox proof first, create a new person, then deliver a link for credential setup at the issuer.
+Cantos accepts no password. This approval excludes real service accounts, credentials, grants
+and SMTP/mail setup. Configured capability and live acceptance still need evidence.
+The [Mac Web ledger](../evidence/theatre-web-auth-mac.md) owns this source's executed
 checks; historical results below are not promoted to the current diff.
 
 | Boundary | Next required work / acceptance |
 | --- | --- |
 | Theatre Web application | Reuse the existing BFF and server-confirmed sessions; exercise validation/errors, Back/cancel/retry/history/reload, account fences and logout in the Mac browser. Keep the prior Library spacing repair and shared tokens. |
-| Theatre registration | Consume the separate [login/registration capability contract](../../packages/contracts/theatre-identity-v1.md). Missing identity configuration and unsupported provider capability remain typed unavailable states; neither is a successful signup. |
-| Issuer enrollment | The pinned Kanidm source audit in ADR 0032 does not establish public account creation. Resolve an audited enrollment mechanism for the selected issuer with the owner; do not guess a URL, add a shadow password store, substitute invitation-only policy or switch providers. |
+| Theatre registration | Consume the separate [login/registration capability and email-onboarding contract](../../packages/contracts/theatre-identity-v1.md). Verify email before any person/intent effect; preserve durable single use, generic responses, cooldown/budget fences and explicit user confirmation before side effects. Missing configuration stays unavailable. |
+| Issuer enrollment | Implement the approved Kanidm create/credential-intent adapter around pinned1.10.5 authenticated APIs. Only an acknowledged new operation-owned person can receive a setup intent; conflict/uncertain outcomes never trigger existing-account lookup/reset or blind retry. No issuer switch or password store. |
+| Activation policy | Review external existing-email handling, parsing/deduplication/naming, bounded TTL/cooldown/budgets, retention/cleanup/recovery and effective issuer target protection. The onboarding group can reset existing people: its name and an application witness are not least-privilege evidence for a stolen bearer. Keep live disabled pending accepted policy and specific operator authorization. |
 | Studio admission | Enforce the [one/two-subject server configuration](../architecture/studio-oidc.md) at callback issuance and every private request. Prove that valid unlisted identities, removed subjects, Theatre/native credentials and client-claimed roles cannot enter Studio. No public registration CTA or API is introduced. |
 | Live operator action | Before any real account, credential/key or standing grant is created, obtain specific authorization for the environment, intended account identities and exact rights. Use secure enrollment/handoff; passwords and recovery secrets stay out of chat/Git. No such action is implied by local implementation. |
 | Provider/browser acceptance | Supply the real authorized API/issuer/client/test account, then observe actual login, current session, allowed private read, logout and rejected old session. Self-registration needs its own real enrollment/return evidence. Fixture success cannot satisfy either live gate. |
 | Native | Preserve the existing native source and evidence; Android/iOS signup, system-browser/secure-store/device acceptance remain separate and are not rerun or claimed by this Web-first slice. |
 
-Recommended order: finish the independent Web/configuration and Studio authorization layers,
-resolve the enrollment mechanism blocker, then perform specifically authorized provider/account
-operations and real Web enrollment/login acceptance. Keep the same Draft PR #196 while required
+Recommended order: finish pure registration/contract and deterministic adapter/Web checks, then
+disposable PostgreSQL concurrency/restart acceptance. Review the policy and effective-permission
+activation gates before specifically authorized provider/account/mail operations and real Web
+enrollment/login acceptance. Kanidm's lack of integrated public signup is not a lack of API
+onboarding primitives. Keep the same Draft PR #196 while required
 acceptance is missing; do not close #174/#191 from fixture/build results. Account merge, paid
 membership, provider/credential-format changes and dedicated Admin roles remain outside this
 policy decision.
+
+The [operator runbook](../../services/kanidm/README.md#theatre-registration-activation-runbook--approval-required-before-execution)
+records the review sequence, secret-delivery boundary and real-inbox/session acceptance. No
+live resource is provisioned by these docs. A positively accepted SMTP transaction is separate
+from actual delivery, credential completion and server-confirmed authentication; native device
+or secure-store acceptance is not inferred from Web doubles.
 
 Initial fresh develop was b09c180 (Publication merged); published PR98 exact
 `9794ed9ddcd376680a01b37938eabdde564290e1`, tree

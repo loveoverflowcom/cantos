@@ -19,6 +19,7 @@ pub(super) fn routes(enabled: bool) -> Router<AppState> {
         return routes;
     }
     routes
+        .merge(super::theatre_registration::routes())
         .route("/auth/login", get(login))
         .route("/auth/callback", get(callback))
         .route("/session", get(session).delete(logout_handler))
@@ -28,7 +29,7 @@ async fn configuration(State(state): State<AppState>) -> Json<dto::Configuration
     let (login, reason) = if state.store.theatre_identity().is_some() {
         (
             dto::LoginMethod::Oidc,
-            dto::RegistrationUnavailableReason::ProviderUnsupported,
+            dto::RegistrationUnavailableReason::RegistrationUnconfigured,
         )
     } else {
         (
@@ -38,7 +39,13 @@ async fn configuration(State(state): State<AppState>) -> Json<dto::Configuration
     };
     Json(dto::Configuration {
         login,
-        registration: dto::Registration::Unavailable { reason },
+        registration: if state.store.theatre_identity().is_some()
+            && state.store.theatre_registration().is_some()
+        {
+            dto::Registration::EmailVerification {}
+        } else {
+            dto::Registration::Unavailable { reason }
+        },
     })
 }
 

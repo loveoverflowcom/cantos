@@ -46,4 +46,6 @@ pub struct Store {
     pub(crate) studio_oidc: Option<Arc<crate::platform::studio_oidc::StudioOidc>>,
     pub(crate) theatre_identity: Option<Arc<crate::platform::theatre_identity::TheatreIdentity>>,
     pub(crate) theatre_native: Option<Arc<crate::platform::theatre_identity::NativeIdentity>>,
+    pub(crate) theatre_registration:
+        Option<Arc<crate::platform::theatre_registration::runtime::RegistrationRuntime>>,
 }

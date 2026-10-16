@@ -85,13 +85,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if env::var_os("CANTOS_ADMIN_OIDC_SECRET").is_some() {
         return Err("Admin secret requires explicit issuer".into());
     }
+    if let Some(registration) = cantos_api::platform::theatre_registration::config::from_lookup(
+        store.clone(),
+        &web_origin,
+        |name| env::var(name).ok(),
+    )
+    .map_err(|_| "invalid or incomplete Theatre registration configuration")?
+    {
+        store = store.with_theatre_registration(registration);
+    }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;
     eprintln!("Cantos Studio development host: http://{address}");
-    axum::serve(listener, router(state, &dist))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await?;
+    axum::serve(
+        listener,
+        router(state, &dist).into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await?;
     Ok(())
 }

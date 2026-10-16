@@ -8,3 +8,4 @@ pub mod operator;
 pub mod postgres;
 pub mod studio_oidc;
 pub mod theatre_identity;
+pub mod theatre_registration;

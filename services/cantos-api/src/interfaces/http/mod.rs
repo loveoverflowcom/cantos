@@ -31,6 +31,7 @@ mod theatre;
 mod theatre_auth;
 mod theatre_library;
 mod theatre_native_auth;
+mod theatre_registration;
 mod wire;
 
 #[cfg(test)]

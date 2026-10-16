@@ -8,13 +8,23 @@
   "properties": {
     "login": {"enum": ["unconfigured", "oidc"]},
     "registration": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["status", "reason"],
-      "properties": {
-        "status": {"const": "unavailable"},
-        "reason": {"enum": ["identity_unconfigured", "provider_unsupported"]}
-      }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": {"const": "unavailable"},
+            "reason": {"enum": ["identity_unconfigured", "provider_unsupported", "registration_unconfigured"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {"status": {"const": "email_verification"}}
+        }
+      ]
     }
   }
 }

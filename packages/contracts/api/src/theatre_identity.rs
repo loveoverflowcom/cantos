@@ -17,11 +17,11 @@ pub enum LoginMethod {
     Oidc,
 }
 
-/// Product policy permits self-registration; the current Kanidm adapter has no supported
-/// public registration operation. A login endpoint cannot establish that capability.
+/// Mounted signup workflow availability, never issuer completion or session authority.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Registration {
+    EmailVerification {},
     Unavailable {
         reason: RegistrationUnavailableReason,
     },
@@ -32,6 +32,7 @@ pub enum Registration {
 pub enum RegistrationUnavailableReason {
     IdentityUnconfigured,
     ProviderUnsupported,
+    RegistrationUnconfigured,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -115,6 +116,26 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn email_registration_capability_requires_explicit_wire_status() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../schemas/theatre-auth-configuration-v1.schema.json"
+        ))
+        .unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for (fixture,registration) in [
+            (include_str!("../../fixtures/theatre-identity/v1/configuration-email-verification.json"),Registration::EmailVerification {}),
+            (include_str!("../../fixtures/theatre-identity/v1/configuration-registration-unconfigured.json"),Registration::Unavailable { reason: RegistrationUnavailableReason::RegistrationUnconfigured }),
+        ] {
+            let value: serde_json::Value=serde_json::from_str(fixture).unwrap();
+            assert!(validator.is_valid(&value));
+            assert_eq!(serde_json::from_value::<Configuration>(value).unwrap(),Configuration { login:LoginMethod::Oidc,registration });
+        }
+        let value = serde_json::json!({"login":"oidc","registration":{"status":"email_verification","token":"not-public"}});
+        assert!(!validator.is_valid(&value));
+        assert!(serde_json::from_value::<Configuration>(value).is_err());
     }
 
     #[test]

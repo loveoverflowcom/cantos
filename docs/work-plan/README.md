@@ -673,13 +673,19 @@ inspection and separately authorized Web/native provider, callback, secure-store
 acceptance after the [nonsecret build-input slice](../evidence/theatre-auth-activation.md).
 The existing Web BFF/proxy and native controller remain the owners; do not rebuild their
 protocol or infer live login from source tests or Android preview. [#174](https://github.com/loveoverflowcom/cantos/issues/174)
-continues to own the issuer self-registration mechanism and Web/native contract after the
-product choice accepted in ADR 0032. The pinned Kanidm capability is currently unsupported for
-public signup; next resolve an audited enrollment mechanism with the owner while finishing the
-independent Web login and Studio admission work. Do not switch providers, invent an enrollment
-URL or create real accounts/credentials without separate explicit authorization. Preview-only
-verification leaves the native compiled and live acceptance gaps explicit and does not reorder
-publication or authorize provisioning.
+continues to own email-verified self-registration and its Web/native contract. After ADR0032's
+product choice, the owner approved code and isolated tests in the same Draft PR #196 for a
+Theatre module that verifies email before creating a new Kanidm person, then sends an issuer
+credential-setup link. Kanidm1.10.5 has those authenticated APIs although its public UI lacks
+integrated signup; keep the issuer and existing OIDC/session owner. First finish pure/contract,
+deterministic adapter/HTTP/Web and disposable-PostgreSQL evidence. Then review external
+existing-email policy, naming/canonicalization, TTL/quota/retention/recovery and effective
+issuer protection before requesting specific service-principal/grant/mail authorization.
+The built-in onboarding group can reset existing people; do not infer least privilege from its
+name or call an application-only new-person guard issuer protection. Missing configuration
+remains disabled, and SMTP acceptance alone is not inbox or account completion. Real accounts,
+credentials, standing grants, SMTP and security changes still need separate explicit authority.
+Native and live acceptance gaps stay explicit; this does not reorder publication.
 The [second independent review](../evidence/theatre-auth-activation.md#second-independent-review--16-october-2026)
 and authorized tool-update follow-up distinguish a passed Android host preview from pending
 configured-artifact and live acceptance. CLI 1.0.16500706 / Studio Rabbit 1 now render the

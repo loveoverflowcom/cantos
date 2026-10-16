@@ -96,7 +96,7 @@ async fn oidc_login_configuration_does_not_imply_provider_self_registration() {
         Configuration {
             login: LoginMethod::Oidc,
             registration: Registration::Unavailable {
-                reason: RegistrationUnavailableReason::ProviderUnsupported,
+                reason: RegistrationUnavailableReason::RegistrationUnconfigured,
             },
         }
     );

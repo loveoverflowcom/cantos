@@ -14,6 +14,7 @@ pub enum RegistrationPhase {
     #[default]
     Idle,
     Checking,
+    Available,
     Unavailable(RegistrationUnavailableReason),
     Failed(ConfigurationFailure),
 }
@@ -48,6 +49,10 @@ impl RegistrationState {
         }
         self.phase = match result {
             Ok(Configuration {
+                registration: Registration::EmailVerification {},
+                ..
+            }) => RegistrationPhase::Available,
+            Ok(Configuration {
                 registration: Registration::Unavailable { reason },
                 ..
             }) => RegistrationPhase::Unavailable(reason),
@@ -67,6 +72,7 @@ mod tests {
         for reason in [
             RegistrationUnavailableReason::IdentityUnconfigured,
             RegistrationUnavailableReason::ProviderUnsupported,
+            RegistrationUnavailableReason::RegistrationUnconfigured,
         ] {
             let mut state = RegistrationState::default();
             let issued = state.begin().unwrap();

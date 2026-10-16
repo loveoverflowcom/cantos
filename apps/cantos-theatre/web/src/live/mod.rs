@@ -5,6 +5,7 @@ pub mod discovery;
 pub mod identity_configuration;
 pub mod library;
 pub mod request;
+pub mod signup;
 pub use request::*;
 
 #[cfg(target_arch = "wasm32")]
