@@ -27,6 +27,7 @@ import com.cantos.theatre.domain.listening.ListeningSnapshot
 import com.cantos.theatre.domain.listening.ProgressRecord
 import com.cantos.theatre.domain.playback.PlaybackSnapshot
 import com.cantos.theatre.domain.publication.CatalogInventory
+import com.cantos.theatre.ports.LocalePreferenceStore
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -39,6 +40,7 @@ fun mockAppContainer(
     seed: ShellState = MockStorageSession.Demo.seed(),
     account: NativeAccountController? = null,
     progressConfig: MockStorageConfig = MockStorageConfig(),
+    localePreferenceStore: LocalePreferenceStore? = null,
     storage: (ListeningSnapshot) -> MockStorageDatabase = ::MockStorageDatabase,
 ): AppContainer {
     val inventory = mockInventory()
@@ -48,6 +50,7 @@ fun mockAppContainer(
     val container = AppContainer(
         scope, port, MockPersistentProgressPort(storage(start.listening), progressConfig), MockMediaEngine(), start, defaults,
         changeScenario = { status -> port.setScenario(status.toScenario()) }, account = account,
+        localePreferenceStore = localePreferenceStore,
     )
     if (seed.catalogMode != ShellCatalogMode.Ready) container.catalog.refresh()
     return container

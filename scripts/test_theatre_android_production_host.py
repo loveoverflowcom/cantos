@@ -63,10 +63,12 @@ class TheatreAndroidProductionHostTest(unittest.TestCase):
         self.assertNotIn("debugImplementation", build)
         self.assertIn('tasks.named("preBuild") { dependsOn(assertReleaseDependencyBoundary) }', build)
         activity = (HOST / "src/main/kotlin/com/cantos/theatre/app/TheatreActivity.kt").read_text()
-        self.assertIn("setContent { CantosListeningUnavailable(preferences) }", activity)
+        self.assertIn("PreferencesController(localePreferenceStore = AndroidLocalePreferenceStore(this))", activity)
+        self.assertIn("setContent { CantosListeningUnavailable(preferences, locale = locale) }", activity)
         # Comment-aware source/import policy belongs to check_theatre_architecture.
         self.assertEqual(sorted(set(re.findall(r"^import ([\w.]+)\.\w+$", activity, re.M))), [
             "android.content.res", "android.os", "androidx.activity", "androidx.activity.compose",
+            "com.cantos.theatre.adapters.preferences", "com.cantos.theatre.application.preferences",
             "com.cantos.theatre.features.launch.presentation", "com.cantos.ui",
         ])
 

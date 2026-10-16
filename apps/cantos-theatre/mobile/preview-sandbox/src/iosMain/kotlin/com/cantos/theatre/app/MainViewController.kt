@@ -1,5 +1,8 @@
 package com.cantos.theatre.app
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.cantos.theatre.adapters.preferences.IosLocalePreferenceStore
 import androidx.compose.ui.window.ComposeUIViewController
 import platform.UIKit.UIViewController
 import kotlinx.coroutines.CoroutineScope
@@ -15,14 +18,15 @@ import com.cantos.ui.UiPreferences
 /** SwiftUI's application owner shares one mock controller across mounted view controllers. */
 class IosDemoOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val container = mockAppContainer(scope).also {
+    private val container = mockAppContainer(scope, localePreferenceStore = IosLocalePreferenceStore()).also {
         val dark = UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyle.UIUserInterfaceStyleDark
         it.preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light)
     }
 
     fun viewController(): UIViewController = ComposeUIViewController {
         // The retained local container already exists; skip the optional branded frame.
-        CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
+        val preferences by container.preferences.state.collectAsState()
+        CantosLocalLaunch(localReady = true, preferences = UiPreferences(), locale = preferences.locale.toShellLocale()) {
             CantosDemoApp(appContainer = container)
         }
     }

@@ -26,6 +26,7 @@ import com.cantos.theatre.domain.publication.EpisodeKey
 import com.cantos.theatre.domain.publication.WorkKey
 import com.cantos.theatre.ports.CatalogPort
 import com.cantos.theatre.ports.MediaEngine
+import com.cantos.theatre.ports.LocalePreferenceStore
 import com.cantos.theatre.ports.ProgressPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -71,12 +72,13 @@ class AppContainer(
     private val changeScenario: ((CatalogStatus) -> Unit)? = null,
     /** Optional process-owned identity boundary. This container observes it and never closes it. */
     val account: NativeAccountController? = null,
+    localePreferenceStore: LocalePreferenceStore? = null,
 ) {
     private val ownerJob = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext.minusKey(Job) + ownerJob)
     val catalog = CatalogController(scope, catalogPort, start.inventory)
     val listening = ListeningController(scope, progressPort, start.listening)
-    val preferences = PreferencesController(start.preferences)
+    val preferences = PreferencesController(start.preferences, localePreferenceStore)
     val playback = PlaybackController(scope, mediaEngine, ::recordCommittedPlayback)
     private val mutableNavigation = MutableStateFlow(start.navigation)
     val navigation: StateFlow<NavigationState> = mutableNavigation.asStateFlow()

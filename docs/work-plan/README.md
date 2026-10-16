@@ -24,6 +24,15 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+For [#169](https://github.com/loveoverflowcom/cantos/issues/169), the
+[CMP comparison](../evidence/cmp-localization-spike.md) and
+[locale repair ledger](../evidence/issue169-cmp-locale-acceptance.md) add bounded candidate and
+application evidence. Next: review #167's renderer-neutral ADR and target-specific library
+compatibility before wide catalog conversion, then complete the explicitly deferred iOS,
+input/account, accessibility and formatting acceptance. The saved UI preference is separate
+from domain storage; no listener/playback dependency is reordered. GitHub owns execution and
+review status, and #169 remains open.
+
 The [15 October 25-commit assurance review](../evidence/develop-25-assurance-review.md) pins
 the reviewed develop window, bounded local-note repair, mocked launcher coverage and a
 strengthened but unexecuted listener-order Kani proposition. The sequential second session

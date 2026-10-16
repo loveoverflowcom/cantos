@@ -6,7 +6,7 @@ import com.cantos.theatre.presentation.model.ShellText
 
 /** Exact diagnostic wording supplied only by the sandbox composition. */
 val DemoShellCopyOverrides: Map<CopyKey, ShellText> = mapOf(
-    CopyKey.EpisodesCount to ShellText("{count} tập minh họa · Tiếng Việt", "{count} sample episodes · Vietnamese"),
+    CopyKey.EpisodesCount to ShellText("{count} tập minh họa · Tiếng Việt", "{count} sample episodes · Vietnamese", "{count} sample episode · Vietnamese"),
     CopyKey.TimerSimulationNote to ShellText("Chỉ chọn trạng thái minh họa; không chạy đếm ngược hoặc tự dừng audio.", "Select a demo state only; no countdown or automatic audio stop runs."),
     CopyKey.PlayEpisode to ShellText("Mô phỏng phát {title}", "Simulate playing {title}"),
     CopyKey.PauseEpisode to ShellText("Dừng mô phỏng {title}", "Stop simulation for {title}"),
@@ -22,7 +22,7 @@ val DemoShellCopyOverrides: Map<CopyKey, ShellText> = mapOf(
     CopyKey.ClearHistoryConfirmTitle to ShellText("Xóa lịch sử trong phiên này?", "Clear history for this session?"),
     CopyKey.MembershipPreview to ShellText("Membership · bản xem thử", "Membership · preview"),
     CopyKey.SearchHint to ShellText("Thử tìm Sơn Hà Ký", "Try Sơn Hà Ký"),
-    CopyKey.Results to ShellText("{count} tác phẩm minh họa", "{count} sample works"),
+    CopyKey.Results to ShellText("{count} tác phẩm minh họa", "{count} sample works", "{count} sample work"),
     CopyKey.Loading to ShellText("Đang tải bản minh họa…", "Loading the demo…"),
     CopyKey.LoadingNote to ShellText("Trạng thái tải được chọn thủ công; không có yêu cầu mạng.", "Loading is selected manually; no network request is running."),
     CopyKey.Error to ShellText("Chưa mở được danh sách minh họa", "The sample list could not open"),
@@ -41,7 +41,7 @@ val DemoShellCopyOverrides: Map<CopyKey, ShellText> = mapOf(
     CopyKey.Position to ShellText("Điểm nghe minh họa", "Demo position"),
     CopyKey.PlayerExplanation to ShellText("Điểm nghe chỉ đổi khi bạn thao tác. Không có bộ phát, audio, tải xuống hay đồng bộ thật.", "Position changes only when you interact. No player engine, audio, downloads or sync are connected."),
     CopyKey.NextExplanation to ShellText("Chọn tập để đổi nội dung minh họa. Không tự phát tập tiếp theo.", "Choose an episode to change the demo. Episodes do not advance automatically."),
-    CopyKey.PreferencesNote to ShellText("Tùy chọn chỉ tồn tại trong bộ nhớ. Tốc độ và hẹn giờ không điều khiển audio hoặc đếm ngược.", "Preferences live in memory. Speed and timer do not control audio or run a countdown."),
+    CopyKey.PreferencesNote to ShellText("Ngôn ngữ theo lựa chọn trong ứng dụng. Tốc độ và hẹn giờ chỉ đổi trạng thái minh họa; không điều khiển audio hoặc đếm ngược.", "Language follows your app preference. Speed and timer change demo state only; they do not control audio or run a countdown."),
     CopyKey.Speed to ShellText("Tốc độ minh họa", "Demo speed"),
     CopyKey.Timer to ShellText("Hẹn giờ minh họa", "Demo timer"),
 )

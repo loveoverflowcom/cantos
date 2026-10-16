@@ -22,8 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.resources.Res
-import com.cantos.theatre.resources.listening_unavailable_body
-import com.cantos.theatre.resources.listening_unavailable_title
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.theatre.resources.noto_sans_regular
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.Logo
@@ -40,7 +39,12 @@ import org.jetbrains.compose.resources.stringResource
  * and nothing here can construct an adapter. The host resolves appearance and text scale.
  */
 @Composable
-fun CantosListeningUnavailable(preferences: UiPreferences, modifier: Modifier = Modifier) {
+fun CantosListeningUnavailable(
+    preferences: UiPreferences,
+    modifier: Modifier = Modifier,
+    locale: ShellLocale = ShellLocale.Vietnamese,
+) {
+    val resources = launchResources(locale)
     CantosTheme(preferences, uiFontFamily = FontFamily(Font(Res.font.noto_sans_regular))) {
         Column(
             modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -56,14 +60,14 @@ fun CantosListeningUnavailable(preferences: UiPreferences, modifier: Modifier = 
                 tone = if (preferences.theme == Theme.Dark) LogoTone.Dark else LogoTone.Light,
             )
             Text(
-                stringResource(Res.string.listening_unavailable_title),
+                stringResource(resources.unavailableTitle),
                 Modifier.widthIn(max = 440.dp).semantics { heading(); testTag = "listening-unavailable-title" },
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
             )
             Text(
-                stringResource(Res.string.listening_unavailable_body),
+                stringResource(resources.unavailableBody),
                 Modifier.widthIn(max = 440.dp).semantics { testTag = "listening-unavailable-body" },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
