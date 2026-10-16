@@ -16,6 +16,11 @@ acceptance. Shared/sandbox Android debug source compilation passed; native host 
 iOS remain unrun. Existing Web BFF/proxy source is present;
 signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
 
+The [Mac Web follow-up](../evidence/theatre-web-auth-mac.md) adds mounted fixture callback,
+cancel/retry/logout, keyboard and viewport observations plus a bounded Guest-callback retry fix.
+It does not supersede real API/provider acceptance: no local identity API or test issuer/account
+was available. Signup policy/capability is still pending #174; PR #196 remains Draft.
+
 ## Studio capability baseline
 
 Baseline: `origin/develop@7396ede88466ef56dc9e7759956a4072d6672a5b`, inspected routes in

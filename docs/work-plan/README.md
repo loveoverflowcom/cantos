@@ -654,6 +654,13 @@ OS/secure-store/provider acceptance, audit protection/retention and recovery gat
 
 ## Theatre native launch handoff
 
+The [Mac Web auth and spacing slice](../evidence/theatre-web-auth-mac.md) repairs the returned
+Guest callback retry and the Library Account-entry gap, with browser fixture/visual evidence.
+Next accept existing-account Web login against an operator-prepared API/issuer/test account;
+resolve #174's signup policy and actual capability separately. Local fixtures do not accept
+real signup, session reload or provider logout. Keep the existing Draft PR #196 and native
+acceptance gaps; no provisioning is implied by this order.
+
 For [#191](https://github.com/loveoverflowcom/cantos/issues/191), finish configured-artifact
 inspection and separately authorized Web/native provider, callback, secure-store and lifecycle
 acceptance after the [nonsecret build-input slice](../evidence/theatre-auth-activation.md).
