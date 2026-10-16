@@ -8,7 +8,9 @@ missing or deferred. It is **not** acceptance of #172, adds no wire field, and t
 relies on is [ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md), accepted by the
 user on 2026-10-16 (no separate Product, Listening or Publication owner sign-off is recorded).
 
-Baseline: `develop@43db968`, re-read after the issue's `a079e72` survey. Sources:
+Original baseline: `develop@43db968`, re-read after the issue's `a079e72` survey.
+The PostgreSQL walk follow-up starts from `develop@64b5a60`; it exercises the accepted policy
+without changing the DTO, schema, routes, SQL or deployment composition. Sources:
 [Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-api/src/interfaces/http/theatre.rs),
 [application](../../services/cantos-api/src/contexts/media/listener_application.rs),
 [projection](../../services/cantos-api/src/contexts/media/listener_projection.rs),
@@ -74,10 +76,10 @@ provider, device or browser observation.
 ## C. Evidence ledger
 
 Evidence uses the [foundation vocabulary](../../.agents/skills/cantos-engineering/SKILL.md#6-never-collapse-evidence-into-the-word-verified).
-Rows citing a test with a killed mutant are new in this change and were run locally, including the
-mutant, including the Units keyset rows added by the G2 slice. Other rows cite existing tests that the `rust-tests` gate executes; the Kani harness is
-registered but Kani is not installed on this machine, so it was **not run** here. The last row
-needs real PostgreSQL and is CI-only.
+The mutant results below belong to the original state/G2 slices, not a new mutation campaign.
+The registered Kani harness was not re-executed by the PostgreSQL walk follow-up. Ordinary
+`rust-tests` skips the ignored PostgreSQL tests: only the disposable `postgres` gate executes
+them. Local SQL evidence and named delivery doubles are recorded separately below.
 
 | Claim | Failure mode | Oracle | Level | Source |
 | --- | --- | --- | --- | --- |
@@ -94,15 +96,48 @@ needs real PostgreSQL and is CI-only.
 | State samples are valid v1 and show version change | FE integrates against invented shapes | schema + shared Rust round trip | example-tested | `public_fixtures_match_strict_schema_and_shared_rust_types`, `unit_state_fixtures_pin_empty_continuation_and_version_change` |
 | Single Work: publish, search, replacement keeps the anchor, withdrawal removes it; private and other-owner stay invisible | Wrong eligibility | real PostgreSQL | integration-tested **in CI only** | `publication_http_postgres::{theatre_public_discovery_manifest_search_replacement_and_withdrawal, theatre_private_published_release_and_other_owner_remain_invisible}` |
 
-Not run here: `cargo xtask verify postgres` is `UNSUPPORTED` on this machine (no `initdb`/`pg_ctl`/`psql`),
-so the PostgreSQL block was not re-executed for this document.
+### PostgreSQL walk follow-up
+
+Review boundary: prove the existing Work/unit keysets and current-public projection through
+the real Router, application and app-role PostgreSQL reader when publication changes between
+page requests. This is regression coverage of accepted ADR 0035, not a new availability,
+duration, reorder or delivery policy. The original G1 environment lacked PostgreSQL tools;
+that historical `UNSUPPORTED` result is not the status of this follow-up.
+
+The fixture creates several Works/units in **one database**, uploads owned synthetic Opus
+signals through private intake and records rights/review/publication via Studio HTTP. It
+composes the existing `VerifiedDeliveryFake` only in tests. That double supplies publication
+delivery observations; it proves no publication-class object store, public media fetch or CDN.
+No credential, production resource, Firebase project or provider is used.
+
+The tests live in
+[`theatre_catalog_walk_http_postgres.rs`](../../services/cantos-api/tests/support/theatre_catalog_walk_http_postgres.rs),
+nested in the existing `catalog_http_postgres` target and run by `cargo xtask verify postgres`.
+Execution results and checked source identity belong to the follow-up PR, not the historical
+results above. Browser/device acceptance belongs to #158/#159 and remains separate.
+
+| Test | Exact observable assertions |
+| --- | --- |
+| `theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish` | Four units in one Work; after page one, withdraw an unseen unit, reorder Studio, publish a new unit and republish the seen unit with a fresh candidate. The seen unit keeps public position 0 despite Studio position 3; a newly indexed unit also has position 0 and the UUID tie-break is exercised by SQL. Every stable remaining unit is reached once, the publication changes, and route/Work/limit misuse does not consume the valid cursor. |
+| `theatre_works_walk_rechecks_visibility_and_binds_filter_cursors` | Multiple Works in one catalog; withdraw an unseen Work, republish the seen Work and first-publish a newer Work between pages. The original anchor remains fixed, the newer Work stays before the cursor, remaining stable Works are reached once, and retries/filter/limit/route bindings hold. |
+| `theatre_work_filters_follow_the_latest_eligible_representative` | Two releases of one Work pin different metadata/audio languages. Search/kind/language filter the newest eligible representative, rather than choosing an older matching release. Withdrawal makes the older eligible representative visible again. |
+| `theatre_units_walk_rechecks_rights_expiry_on_the_database_clock` | An unseen unit is visible before its rights expire; after bounded polling of the real database clock, continuation omits it and reaches the following unit. Its publication answers the exact anonymous `404 not_found` envelope. No SQL scalar/snapshot is rewritten to simulate expiry. |
+
+No catalog-pagination capability is registered in the [behavior catalog](../../specs/behavior/catalog.json).
+This follow-up changes no accepted rule or pure decision; it adds SQL observations for existing
+rules and leaves the pure ordering/cursor tests and draft delivery models unchanged. A model-only
+PASS would not establish these PostgreSQL claims.
+
+No production read/query or index changes are made. The existing read inventory and deferred
+scale/EXPLAIN/DBSP assessment remain in the [source-bound discovery evidence](../evidence/theatre-discovery.md#read-inventory-targets-and-dbsp-decision);
+these small correctness fixtures establish no latency, throughput or optimization result.
 
 ## D. Gaps and next owners
 
 | Id | Gap | Why it matters | Proposed next step | Owner |
 | --- | --- | --- | --- | --- |
-| G1 | No real-PostgreSQL walk over **several** Works/units with a mutation between pages (withdraw, publish, republish, rights expiry) or `first_position` fixity on republish | Dupes/skips under concurrent change are only modelled, never exercised on SQL | Add `theatre_units_walk_survives_mid_walk_withdraw_publish_and_republish` to `publication_http_postgres.rs`: a three-unit Work, `limit=1`, withdraw `u2` after page 1, republish `u1`; assert each listed `unit_id` appears at most once, `u3` still reached, `u1.position` unchanged, and `publication_id` replaced. Needs a multi-unit fixture and `cargo xtask verify postgres` (CI `postgres` job) | BE implementer of #172 follow-up |
-| G2 | **Closed in this change (pure core and service guard).** `after_unit` sits next to `after_work`; `ListenerService::units` returns `Corrupt` for a reader row not strictly after the cursor key. Not covered: SQL itself (still G1), and a Kani harness for Units (not added; Kani is not installed here) | A SQL comparison bug in `(first_position, unit_id)` now surfaces as `Corrupt` instead of a silent duplicate/skip, but only a real-PostgreSQL walk proves the query | Residual proof of the SQL ordering is G1 | BE |
+| G1 | Regression coverage added by the PostgreSQL follow-up above: several Works/units, publication changes between pages, rights expiry, retry/filter scope, immutable anchors and equal-position UUID ordering | SQL regressions can duplicate/skip stable rows even when the pure keyset model passes | Run the existing full `cargo xtask verify postgres` gate; the follow-up PR records actual local results. These bounded interleavings do not establish arbitrary simultaneous schedules or query performance | BE; Web/CMP recovery acceptance stays with #158/#159 |
+| G2 | **Closed by the earlier pure-core/service-guard slice.** `after_unit` sits next to `after_work`; `ListenerService::units` returns `Corrupt` for a reader row not strictly after the cursor key. No Units Kani harness was added | A faulty reader is rejected instead of silently producing a duplicate/skip | G1 now exercises the real SQL continuation and tie-break alongside the unchanged guard; formal proof of the complete SQL query is not claimed | BE |
 | G3 | Cursor vault is process-local | Behind more than one API process, `invalid_cursor` is spurious | [ADR 0035 §5](../decisions/0035-theatre-catalog-unit-availability.md#decision); decide a shared/stateless cursor before replication | Platform/Publication |
 | G4 | Schema allows `duration_ms: 0`; the domain never emits it | Readers cannot tell `0` is corrupt | Optional `minimum: 1` tightening, compatible; ADR 0035 §3 | Contract owner |
 | G5 | No Work-level unit count or total duration | Hidden-unit disclosure | Leave absent; FE derives only from walked pages | Product |

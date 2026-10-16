@@ -124,8 +124,7 @@ impl AudioHarness {
         }
     }
     async fn request(&self, bytes: &[u8]) -> Value {
-        let b = &self.brief;
-        json!({"operation_id":operation(),"id":operation(),"binding":{"work_id":b["work"]["id"],"unit_id":self.unit,"content_revision_id":b["content"]["id"],"content_revision_digest":b["content"]["revision_digest"],"brief_id":b["id"],"brief_version":b["version"],"brief_digest":b["digest"],"profile_id":b["guidance"]["delivery"]["profile_id"]},"expected_sha256":format!("{:x}",Sha256::digest(bytes)),"expected_byte_length":bytes.len(),"declarations":{"producer":"Synthetic external producer","method":"recorded test signal","provenance":"Owned synthetic sine fixture; no speech or human listening","rights_refs":["catalog-rights"],"quality_report":"NOT_RUN listening"},"upload_token":UPLOAD,"expires_at":now(&self.h).await+7_200_000})
+        submission_request(&self.h, &self.unit, &self.brief, bytes, UPLOAD).await
     }
     fn path(&self) -> String {
         format!("/content-units/{}/audio-submissions", self.unit)
@@ -140,6 +139,15 @@ impl AudioHarness {
         let text:String=self.h.admin.query_one("SELECT json_build_object('submissions',(SELECT count(*) FROM audio_submissions),'renditions',(SELECT count(*) FROM audio_renditions),'reviews',(SELECT count(*) FROM audio_reviews),'candidates',(SELECT count(*) FROM audio_release_candidates),'revocations',(SELECT count(*) FROM audio_submission_revocations))::text",&[]).await.unwrap().get(0);
         serde_json::from_str(&text).unwrap()
     }
+}
+async fn submission_request(
+    h: &Harness,
+    unit: &str,
+    b: &Value,
+    bytes: &[u8],
+    token: &str,
+) -> Value {
+    json!({"operation_id":operation(),"id":operation(),"binding":{"work_id":b["work"]["id"],"unit_id":unit,"content_revision_id":b["content"]["id"],"content_revision_digest":b["content"]["revision_digest"],"brief_id":b["id"],"brief_version":b["version"],"brief_digest":b["digest"],"profile_id":b["guidance"]["delivery"]["profile_id"]},"expected_sha256":format!("{:x}",Sha256::digest(bytes)),"expected_byte_length":bytes.len(),"declarations":{"producer":"Synthetic external producer","method":"recorded test signal","provenance":"Owned synthetic sine fixture; no speech or human listening","rights_refs":["catalog-rights"],"quality_report":"NOT_RUN listening"},"upload_token":token,"expires_at":now(h).await+7_200_000})
 }
 async fn now(h: &Harness) -> i64 {
     h.admin
