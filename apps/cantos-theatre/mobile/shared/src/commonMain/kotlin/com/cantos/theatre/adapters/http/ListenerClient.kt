@@ -15,6 +15,11 @@ import kotlinx.serialization.json.JsonPrimitive
 /** An origin, never a URL with credentials, a signed URL or a Studio route. */
 class ApiOrigin private constructor(private val value: String) {
     val probeUrl: String get() = "$value/api/v1/theatre"
+    /** False only for the explicit loopback `http://` development origins admitted below. */
+    val isHttps: Boolean get() = value.startsWith("https://")
+    override fun equals(other: Any?): Boolean = other is ApiOrigin && value == other.value
+    override fun hashCode(): Int = value.hashCode()
+    override fun toString(): String = value
     companion object {
         fun parse(value: String): ApiOrigin {
             val match = Regex("^(https?)://([a-zA-Z0-9.-]+|\\[::1\\])(?::([0-9]{1,5}))?$").matchEntire(value)

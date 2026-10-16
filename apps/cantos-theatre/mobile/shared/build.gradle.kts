@@ -89,6 +89,58 @@ val generatePlaybackVectors = tasks.register("generatePlaybackVectors") {
 }
 
 
+// Theatre Discovery v1: embed the shared strict schema and every original fixture byte-for-byte
+// for the hand-written DTO drift check. Test-only input; it generates no wire type or expectation.
+val discoveryContract = rootProject.file("../../../packages/contracts")
+val generatedDiscoveryDirectory = layout.buildDirectory.dir("generated/discoveryCorpus/commonTest/kotlin")
+val generateDiscoveryCorpus = tasks.register("generateDiscoveryCorpus") {
+    val fixtures = discoveryContract.resolve("fixtures/theatre/discovery/v1")
+    val schema = discoveryContract.resolve("schema/theatre/discovery/v1.schema.json")
+    inputs.files(fileTree(fixtures) { include("*.json") })
+    inputs.file(schema)
+    outputs.dir(generatedDiscoveryDirectory)
+    doLast {
+        fun utf8(file: File): String {
+            val bytes = file.readBytes()
+            val text = bytes.toString(Charsets.UTF_8)
+            check(text.toByteArray(Charsets.UTF_8).contentEquals(bytes)) { "Invalid UTF-8 discovery input: ${file.name}" }
+            return text
+        }
+        fun quoted(value: String): String = buildString {
+            append('"')
+            value.forEach { char ->
+                append(when (char) {
+                    '\\' -> "\\\\"
+                    '"' -> "\\\""
+                    '$' -> "\\$"
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> char.toString()
+                })
+            }
+            append('"')
+        }
+        val files = fixtures.listFiles()?.filter { it.isFile && it.extension == "json" }?.sortedBy { it.name }
+            ?: error("Discovery fixtures are missing")
+        check(files.isNotEmpty()) { "Discovery fixture corpus cannot be empty" }
+        val output = generatedDiscoveryDirectory.get().asFile.resolve(
+            "com/cantos/theatre/adapters/http/CanonicalDiscoveryCorpus.kt",
+        )
+        output.parentFile.mkdirs()
+        output.writeText(buildString {
+            appendLine("// Generated from packages/contracts (Theatre Discovery v1). Do not edit.")
+            appendLine("package com.cantos.theatre.adapters.http")
+            appendLine("internal object CanonicalDiscoveryCorpus {")
+            appendLine("    val schemaJson: String = ${quoted(utf8(schema))}")
+            appendLine("    val fixtureJsonByFile: Map<String, String> = mapOf(")
+            files.forEach { appendLine("        ${quoted(it.name)} to ${quoted(utf8(it))},") }
+            appendLine("    )")
+            appendLine("}")
+        }, Charsets.UTF_8)
+    }
+}
+
 // Hand-authored semantic expectations shared with Web; copied into tests, never shipping code.
 val generatedMembershipDirectory = layout.buildDirectory.dir("generated/membershipVectors/commonTest/kotlin")
 val generateMembershipVectors = tasks.register("generateMembershipVectors") {
@@ -273,6 +325,7 @@ kotlin {
             kotlin.srcDir(generateClientBoundaryVectors)
             kotlin.srcDir(generateProtobufVectors)
             kotlin.srcDir(generateArtworkVectors)
+            kotlin.srcDir(generateDiscoveryCorpus)
             dependencies {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
@@ -370,5 +423,17 @@ tasks.configureEach {
     if (name == "desktopTest" || name.startsWith("assemble") ||
         (name.startsWith("compile") && !name.contains("Test", ignoreCase = true))) {
         dependsOn(assertProductionSafeDependencies)
+    }
+}
+
+// Opt-in live catalog walk (PublicCatalogLiveOriginTest). Unset by default: the test is skipped
+// and verification stays hermetic. When set, never reuse an up-to-date result and show output.
+val liveCatalogOrigin = providers.environmentVariable("CANTOS_THEATRE_LIVE_ORIGIN").orElse("")
+tasks.matching { it.name == "desktopTest" }.configureEach {
+    val test = this as Test
+    test.inputs.property("cantosTheatreLiveOrigin", liveCatalogOrigin)
+    if (liveCatalogOrigin.get().isNotEmpty()) {
+        test.outputs.upToDateWhen { false }
+        test.testLogging.showStandardStreams = true
     }
 }

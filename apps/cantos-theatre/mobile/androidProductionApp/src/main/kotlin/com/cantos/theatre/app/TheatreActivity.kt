@@ -13,9 +13,10 @@ import com.cantos.ui.UiPreferences
 import com.cantos.ui.resolve
 
 /**
- * Production composition root: `:shared` plus production adapters only. No production catalog,
- * progress or media adapter exists yet (#14), so no [AppContainer] can be composed and this
- * host renders the explicit unavailable state. It has no mock, sample or demo fallback.
+ * Production composition root: `:shared` plus production adapters only, with no mock, sample or
+ * demo fallback. When [liveCatalogOrigin] admits a configured API origin (see LiveCatalogHost),
+ * it composes the live anonymous public catalog: browse only, since no production media engine
+ * or progress adapter exists (#14). Otherwise it renders the explicit unavailable state.
  */
 class TheatreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,6 +27,11 @@ class TheatreActivity : ComponentActivity() {
         val preferences = UiPreferences(theme = ThemeMode.System.resolve(systemIsDark = dark))
         val locale = PreferencesController(localePreferenceStore = AndroidLocalePreferenceStore(this))
             .state.value.locale.toShellLocale()
+        val origin = liveCatalogOrigin()
+        if (origin != null) {
+            setLiveCatalogContent(origin, preferences, locale)
+            return
+        }
         setContent { CantosListeningUnavailable(preferences, locale = locale) }
     }
 }

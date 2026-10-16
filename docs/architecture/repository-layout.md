@@ -29,10 +29,11 @@ signup and production identity/delivery acceptance remain separate. See the
 Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md): its
 production-safe `:shared` KMP module contains the UI/domain/application and ports, and the
 separate `:preview-sandbox` module contains mock adapters, fixtures and demo composition.
-A production Android host composes `:shared` only and renders an explicit unavailable state;
-its release graph and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host
-android-release`. Native audio and live listener resources remain absent; a common/JVM
-HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
+A production Android host composes `:shared` only. Its debug build browses the anonymous public
+catalog through a production HTTP adapter when an API origin is configured (`cargo xtask
+theatre-host android-debug`); release keeps an explicit unavailable state, and its release graph
+and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host android-release`.
+Native audio and the remaining listener resources stay absent; a common/JVM HTTP boundary exists. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
 and evidence retain their original scope; this matrix supersedes the Studio Mobile reservation

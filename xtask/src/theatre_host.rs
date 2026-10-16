@@ -1,6 +1,8 @@
 //! The production Theatre Android host. Unlike `theatre-demo`, it composes `:shared` only and
-//! has no mock, sample or diagnostic fallback. Its one command builds an unsigned, unshrunk
-//! release APK and AAB and inspects the actual bytes; it never signs, installs or distributes.
+//! has no mock, sample or diagnostic fallback. `android-release` builds an unsigned, unshrunk
+//! release APK and AAB and inspects the actual bytes; `android-debug` builds the debug APK pointed
+//! at one development API origin for the live public catalog. Neither signs, installs or
+//! distributes anything.
 
 use std::{path::Path, process::ExitCode};
 
@@ -24,6 +26,8 @@ const APK: &str =
 const AAB: &str =
     "androidProductionApp/build/outputs/bundle/release/androidProductionApp-release.aab";
 const REPORT: &str = "androidProductionApp/build/reports/release-boundary/artifact-inspection.txt";
+const DEBUG_APK: &str =
+    "androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk";
 /// The sandbox's own compiled Android classes and resources form the forbidden inventory.
 const SANDBOX_CLASSES: &str = "preview-sandbox/build/tmp/kotlin-classes/release";
 const SANDBOX_RESOURCES: &str = "preview-sandbox/src/commonMain/composeResources";
@@ -43,6 +47,14 @@ pub enum HostAction {
     /// Build the production Android host's unsigned release APK and AAB and inspect release
     /// classpaths, DEX classes, resources and manifest for sandbox, mock and test content.
     AndroidRelease,
+    /// Build the production host's debug APK, whose live public catalog reads one development
+    /// API origin. Nothing is installed; release builds keep accepting no network or origin.
+    AndroidDebug {
+        /// `http://127.0.0.1:<port>` or `http://localhost:<port>` (for `adb reverse`), or an
+        /// `https://` origin; no path, query, credentials or other cleartext host.
+        #[arg(long, value_name = "ORIGIN")]
+        api_origin: String,
+    },
 }
 
 pub fn tools() -> Vec<Tool> {
@@ -87,6 +99,47 @@ pub fn gradle_release_command(workspace: &Workspace) -> CommandSpec {
     ])
 }
 
+/// The debug host's origin: an exact loopback HTTP origin or an HTTPS origin, nothing else.
+/// The app enforces the same rule at runtime; refusing here avoids building a useless APK.
+pub fn validate_api_origin(origin: &str) -> Result<(), String> {
+    let (scheme, authority) = origin.split_once("://").ok_or_else(|| {
+        format!("--api-origin must be an origin like http://127.0.0.1:8080, got `{origin}`")
+    })?;
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (authority, None),
+    };
+    let host_ok = !host.is_empty()
+        && !host.starts_with(['.', '-'])
+        && !host.ends_with(['.', '-'])
+        && host
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-');
+    let port_ok = port.is_none_or(|port| port.parse::<u16>().is_ok_and(|port| port != 0));
+    let loopback = matches!(host, "127.0.0.1" | "localhost");
+    match scheme {
+        _ if !host_ok || !port_ok => Err(format!(
+            "--api-origin must contain only scheme, lower-case host and optional port, got `{origin}`"
+        )),
+        "https" => Ok(()),
+        "http" if loopback && port.is_some() => Ok(()),
+        "http" => Err(format!(
+            "--api-origin may use http only for 127.0.0.1 or localhost with a port (adb reverse), got `{origin}`"
+        )),
+        _ => Err(format!("--api-origin must use https or loopback http, got `{origin}`")),
+    }
+}
+
+/// Builds only the production host's debug APK with the given origin; never installs it.
+pub fn gradle_debug_command(workspace: &Workspace, origin: &str) -> CommandSpec {
+    theatre_demo::gradle_command(workspace).args([
+        "-Pcantos.android=true".to_owned(),
+        "-Pandroid.builder.sdkDownload=false".to_owned(),
+        format!("-Pcantos.apiOrigin={origin}"),
+        ":androidProductionApp:assembleDebug".to_owned(),
+    ])
+}
+
 pub fn inspection_command(workspace: &Workspace, sdk: &str) -> CommandSpec {
     let mobile = |path: &str| format!("{THEATRE_MOBILE_DIR}/{path}");
     let mut args = vec![
@@ -119,13 +172,9 @@ pub fn inspection_command(workspace: &Workspace, sdk: &str) -> CommandSpec {
     CommandSpec::new("python3", workspace.root()).args(args)
 }
 
-fn unsupported(reason: &str) -> ExitCode {
+fn unsupported(subject: &str, reason: &str) -> ExitCode {
     let mut report = Report::new("theatre-host");
-    report.record(
-        "Theatre production Android release",
-        Status::Unsupported,
-        reason,
-    );
+    report.record(subject, Status::Unsupported, reason);
     report.print();
     report.exit_code()
 }
@@ -140,7 +189,7 @@ pub fn execute(
         HostAction::AndroidRelease => {
             let sdk = theatre_demo::android_sdk_from_environment();
             if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
-                return Ok(unsupported(reason));
+                return Ok(unsupported("Theatre production Android release", reason));
             }
             // The prerequisite has accepted an absolute UTF-8 SDK path.
             let sdk = sdk.as_deref().and_then(Path::to_str).unwrap_or_default();
@@ -157,6 +206,31 @@ pub fn execute(
                 ),
             ];
             let report = pipeline::execute("theatre-host", &steps, tool_probe, runner);
+            report.print();
+            Ok(report.exit_code())
+        }
+        HostAction::AndroidDebug { api_origin } => {
+            if let Err(message) = validate_api_origin(&api_origin) {
+                eprintln!("xtask: error: {message}");
+                return Ok(ExitCode::from(2));
+            }
+            let sdk = theatre_demo::android_sdk_from_environment();
+            if let Err(reason) = prerequisite(&workspace.path(THEATRE_MOBILE_DIR), sdk.as_deref()) {
+                return Ok(unsupported("Theatre production Android debug", reason));
+            }
+            let steps = vec![Step::new(
+                "Theatre production Android debug build (live catalog origin)",
+                &tools(),
+                vec![gradle_debug_command(workspace, &api_origin)],
+            )];
+            let mut report = pipeline::execute("theatre-host", &steps, tool_probe, runner);
+            if report.succeeded() {
+                report.note(format!(
+                    "APK: {THEATRE_MOBILE_DIR}/{DEBUG_APK}; install it yourself with `adb install -r` \
+                     and, for a loopback origin, `adb reverse tcp:PORT tcp:PORT`. Catalog browse only: \
+                     playback, progress and identity are not composed"
+                ));
+            }
             report.print();
             Ok(report.exit_code())
         }
@@ -219,6 +293,55 @@ mod tests {
             || task.contains("Debug")
             || task.contains("install")
             || task.contains("sign")));
+    }
+
+    #[test]
+    fn debug_build_names_only_the_production_debug_apk_and_the_origin() {
+        let workspace = workspace();
+        let command = gradle_debug_command(&workspace, "http://127.0.0.1:8080");
+        assert_eq!(command.program, "gradle");
+        assert!(command.args.ends_with(&[
+            "-Pcantos.android=true".to_owned(),
+            "-Pandroid.builder.sdkDownload=false".to_owned(),
+            "-Pcantos.apiOrigin=http://127.0.0.1:8080".to_owned(),
+            ":androidProductionApp:assembleDebug".to_owned(),
+        ]));
+        let tasks: Vec<_> = command
+            .args
+            .iter()
+            .filter(|arg| arg.starts_with(':'))
+            .collect();
+        assert_eq!(tasks, [":androidProductionApp:assembleDebug"]);
+    }
+
+    #[test]
+    fn debug_origin_admits_loopback_http_or_https_only() {
+        for origin in [
+            "http://127.0.0.1:8080",
+            "http://localhost:8090",
+            "https://api.cantos.example",
+            "https://cantos.localhost:8443",
+        ] {
+            assert_eq!(validate_api_origin(origin), Ok(()), "{origin}");
+        }
+        for origin in [
+            "",
+            "127.0.0.1:8080",
+            "http://127.0.0.1",
+            "http://192.168.1.20:8080",
+            "http://10.0.2.2:8080",
+            "http://example.com:8080",
+            "http://127.0.0.1:8080/api",
+            "https://user@api.cantos.example",
+            "https://API.cantos.example",
+            "https://api.cantos.example:0",
+            "https://api.cantos.example:99999",
+            "https://api.cantos.example?x=1",
+            "ftp://127.0.0.1:21",
+            "https://.example",
+        ] {
+            assert!(validate_api_origin(origin).is_err(), "{origin}");
+        }
     }
 
     #[test]

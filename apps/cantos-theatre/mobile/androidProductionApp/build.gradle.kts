@@ -18,6 +18,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        // Public API origin for the live catalog, consumed today only by the debug manifest
+        // overlay (release declares neither the origin nor INTERNET). Explicit Gradle property
+        // overrides the environment (an empty property opts out). Manifest merger substitutes
+        // the attribute; no source is generated. Runtime admits https:// for any build and
+        // loopback http:// only for a debuggable build with the debug network config.
+        manifestPlaceholders["cantosApiOrigin"] = providers.gradleProperty("cantos.apiOrigin")
+            .orElse(providers.environmentVariable("CANTOS_API_ORIGIN"))
+            .orElse("").get()
     }
     buildTypes {
         release {
@@ -45,7 +53,8 @@ kotlin {
 dependencies {
     // Production-safe shared code only. The demo sandbox and its hosts are never reachable.
     implementation(project(":shared"))
-    // Android-only Activity host, no media, network or diagnostic dependency.
+    // Android-only Activity host and system Back; no media or diagnostic dependency. Catalog
+    // HTTP uses the platform HttpURLConnection transport already in :shared.
     implementation("androidx.activity:activity-compose:1.10.1")
 }
 

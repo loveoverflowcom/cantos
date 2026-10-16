@@ -553,17 +553,25 @@ mod tests {
     }
 
     #[test]
-    fn theatre_host_has_only_the_explicit_android_release_inspection() {
+    fn theatre_host_has_only_the_release_inspection_and_an_explicit_debug_origin_build() {
         assert!(matches!(
             parse("theatre-host android-release").unwrap(),
             Task::TheatreHost {
                 action: HostAction::AndroidRelease
             }
         ));
+        assert!(matches!(
+            parse("theatre-host android-debug --api-origin http://127.0.0.1:8080").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::AndroidDebug { api_origin }
+            } if api_origin == "http://127.0.0.1:8080"
+        ));
         for line in [
             "theatre-host",
             "theatre-host android-build",
             "theatre-host android-release --install",
+            "theatre-host android-debug",
+            "theatre-host android-debug --api-origin http://127.0.0.1:8080 --install",
             "theatre-host ios-release",
         ] {
             assert!(parse(line).is_err(), "{line}");

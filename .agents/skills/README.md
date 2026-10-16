@@ -65,7 +65,8 @@ owns command orchestration, not those assets. The #212 split adds no runtime; #2
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
 requested in a future roadmap. Theatre Web has anonymous live discovery/account reads and
 explicit UI mocks. Theatre Mobile has a production-safe shared core, isolated Gradle CMP demo
-and unavailable production Android host; native audio, downloads and durable sync remain absent.
+and a production Android host whose debug build browses the live public catalog (release stays
+unavailable); native audio, downloads and durable sync remain absent.
 Backend listener contracts exist; real client/provider acceptance stays separate.
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.

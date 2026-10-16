@@ -23,8 +23,10 @@ UI with neutral immutable `ShellState`/`ShellEvent` models. The sandbox owns syn
 mock adapters, `CantosDemoApp`, diagnostic session/projector wiring and previews. It depends on
 `:shared`; shared main sources never depend back on it and provide no implicit mock factory.
 Demo hosts select the sandbox explicitly. The production Android host `androidProductionApp`
-(`com.cantos.theatre`) composes `:shared` only; with no production listening adapter yet, it
-renders the explicit `CantosListeningUnavailable` state instead of any mock fallback.
+(`com.cantos.theatre`) composes `:shared` only. With an admitted API origin it composes the
+[live public catalog](#live-public-catalog) (browse only: no production player, progress or
+media adapter exists); otherwise it renders the explicit `CantosListeningUnavailable` state.
+It never falls back to a mock.
 `cargo xtask theatre-host android-release` builds its unsigned, unshrunk release APK/AAB and
 inspects the release classpaths, DEX classes, resources and manifest; a demo APK cannot accept
 that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
@@ -336,8 +338,8 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
 To hand the **demo** APK to testers through Firebase App Distribution use the explicit
 `cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
 It distributes this mock only: it establishes no production readiness. The production host's
-release is unsigned and has no listening adapter, so production APK/AAB distribution stays
-`UNSUPPORTED` (#14).
+release is unsigned and has no listening adapter (its catalog browse is debug-only today), so
+production APK/AAB distribution stays `UNSUPPORTED` (#14).
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
@@ -557,6 +559,61 @@ Production retains the [mobile architecture](../../../docs/architecture/mobile.m
 listener adapters, one native media owner, background controls, verified rights-aware downloads,
 durable progress, lifecycle, native text scaling and TalkBack/VoiceOver. This mock supplies no
 playback-quality or production-acceptance evidence.
+
+## Live public catalog
+
+Production-safe code in `:shared` reads the anonymous Theatre Discovery v1 catalog
+([contract](../../../packages/contracts/theatre-discovery-v1.md), [ADR 0035](../../../docs/decisions/0035-theatre-catalog-unit-availability.md)):
+work list → work detail → chapter/episode list, keyed only by the server's UUIDs.
+
+- `domain/catalog/PublicCatalog.kt`: validated `PublicWorkId`/`PublicUnitId`/`PublicationId`/
+  `CatalogCursor` and `PublicWork`/`PublicUnit`/page values. It is separate from the sandbox
+  `EpisodeKey(work, index)` model; an index or `position` is never identity (`position` is display
+  order only and is not shown as a number). Pages refuse a foreign `work_id`, a unit kind that does
+  not match the work (novel/story → chapter, podcast → episode), blank titles, non-positive
+  durations and duplicate ids.
+- `adapters/http/PublicCatalogHttp.kt`: hand-written strict wire DTOs (unknown/missing fields,
+  quoted numbers/booleans and unknown enum values fail), wire → domain mapping, the exact v1
+  status/code/retryable error table and `PublicCatalogHttpAdapter`. Requests are anonymous GETs with
+  `limit=20`, no cookie, credential or redirect, and a 4 MiB body bound. `jvmHttpMain/.../JvmCatalogTransport.kt`
+  (HttpURLConnection, shared by desktop and Android) refuses ambient cookies and disconnects on
+  cancellation. iOS has no catalog transport yet (honest unsupported; `iosMain` is unchanged).
+- `PublicCatalogWireDriftTest` is a **drift check, not code generation**: the build embeds the
+  strict schema and every original fixture (`generateDiscoveryCorpus`), and the test pins each DTO's
+  property names, required set, JSON types, nullability and enum values to the schema and
+  round-trips every fixture. Proposed contract code generation remains unimplemented.
+- `application/catalog/PublicCatalogReducer.kt` + `PublicCatalogController.kt`: a pure reducer and
+  one sequential `StateFlow` owner with token fencing. A failed page keeps its rows and retries the
+  same cursor; an empty intermediate page (or one adding no new id) is followed automatically up
+  to 5 times per action; `invalid_cursor` restarts from page one and merges by id (a repeat in the
+  same action stops with a retryable "list changed"); a changed `publication_id` replaces its row.
+- `features/catalog/presentation/PublicCatalogScreen.kt`: stateless Compose surface (vi/en copy in
+  `ShellCopy`), Load more, Retry, empty/not-found/unavailable states and an explicit "listening not
+  yet available" note. No row is playable.
+
+Production host origin policy: the debug source set of `androidProductionApp` adds INTERNET, the
+`CantosApiOrigin` meta-data and a network security config that permits cleartext only to
+`127.0.0.1`/`localhost`. Runtime admits `https://` for any build and loopback `http://` only for a
+debuggable build. Release declares neither INTERNET nor an origin and keeps `usesCleartextTraffic=false`,
+so it renders the unavailable state: the release inspection admits no network permission yet.
+
+```sh
+# Debug production host against a local API through adb reverse (API 24+ for loopback http).
+cargo xtask theatre-host android-debug --api-origin http://127.0.0.1:8080
+adb install -r apps/cantos-theatre/mobile/androidProductionApp/build/outputs/apk/debug/androidProductionApp-debug.apk
+adb reverse tcp:8080 tcp:8080
+# Opt-in live walk of a running API from the JVM (skipped unless the variable is set).
+CANTOS_THEATRE_LIVE_ORIGIN=http://127.0.0.1:8080 cargo xtask theatre-demo verify
+```
+
+`android-debug` refuses any origin other than `https://` or loopback `http://` with a port, and
+installs nothing. The [seeded catalog runbook](../../../docs/deployment/theatre-seeded-catalog.md)
+provides a local API with published synthetic Works.
+
+Evidence boundaries: reducer/domain/drift tests are JVM unit tests; `PublicCatalogHttpTransportTest`
+is mock-integration against a JDK loopback server; `PublicCatalogPresentationTest` is the JVM
+Compose renderer; `theatre-host android-release` is static packaging inspection. Android device,
+TalkBack and iOS runtime remain not run.
 
 ## Listener HTTP boundary
 

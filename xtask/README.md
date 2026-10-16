@@ -53,6 +53,7 @@ cargo xtask ui-preview leptos run --open             # loopback browser preview 
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 cargo xtask theatre-host android-release             # production host release APK/AAB + boundary inspection
+cargo xtask theatre-host android-debug --api-origin URL  # production host debug APK for the live catalog; installs nothing
 
 cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
@@ -946,8 +947,10 @@ Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/READ
 ### theatre-host
 
 The production Theatre Android host (`androidProductionApp`, `com.cantos.theatre`) composes
-`:shared` only. Until production listening adapters exist (#14) it renders an explicit
-unavailable state; it has no mock, sample or diagnostic fallback.
+`:shared` only, with no mock, sample or diagnostic fallback. Its debug build browses the live
+public catalog when built with an API origin (below); release declares no network permission or
+origin and renders an explicit unavailable state until listening adapters and a production
+origin exist (#14).
 
 ```sh
 cargo xtask theatre-host android-release
@@ -968,6 +971,13 @@ allowlisted permissions. Its APK/AAB class sets must match and named production 
 exist; an empty inventory or unreadable artifact exits 2, never `PASS`. A failed build
 stops before inspection, so stale outputs are never inspected. Reports are written under
 `apps/cantos-theatre/mobile/androidProductionApp/build/reports/release-boundary/`.
+
+`theatre-host android-debug --api-origin ORIGIN` builds only `:androidProductionApp:assembleDebug`
+with `-Pcantos.apiOrigin=ORIGIN`. It accepts `https://` or `http://127.0.0.1|localhost:<port>`
+(for `adb reverse`) and refuses anything else with exit 2 before Gradle. The debug manifest overlay
+adds INTERNET, the origin meta-data and a cleartext policy limited to those loopback hosts; release
+declares none of them. The APK composes the live public catalog only (no playback, progress or
+identity); installing it on a device is the developer's own `adb install`.
 
 Nothing is signed, installed, shrunk or distributed; this is release-isolation evidence, not a
 production release or listening acceptance. Preflight does not run it (it selects only the JVM

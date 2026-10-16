@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug only: also admit explicit loopback http origins (see the network security config). -->
+    <bool name="cantos_loopback_origin_allowed">true</bool>
+</resources>
