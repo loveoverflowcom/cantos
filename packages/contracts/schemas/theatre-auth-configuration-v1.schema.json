@@ -4,25 +4,62 @@
   "title": "Theatre Web authentication capability v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["login", "registration"],
+  "required": [
+    "login",
+    "registration"
+  ],
   "properties": {
-    "login": {"enum": ["unconfigured", "oidc"]},
+    "login": {
+      "enum": [
+        "unconfigured",
+        "oidc"
+      ]
+    },
     "registration": {
       "oneOf": [
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "reason"],
+          "required": [
+            "status",
+            "reason"
+          ],
           "properties": {
-            "status": {"const": "unavailable"},
-            "reason": {"enum": ["identity_unconfigured", "provider_unsupported", "registration_unconfigured"]}
+            "status": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "identity_unconfigured",
+                "provider_unsupported",
+                "registration_unconfigured"
+              ]
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
-          "properties": {"status": {"const": "email_verification"}}
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "email_verification"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "firebase_email_verification"
+            }
+          }
         }
       ]
     }

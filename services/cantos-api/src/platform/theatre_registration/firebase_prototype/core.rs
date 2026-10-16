@@ -67,6 +67,18 @@ pub(super) struct Binding {
 }
 
 impl Binding {
+    pub(super) fn registration(&self) -> &PendingRegistration {
+        &self.registration
+    }
+
+    pub(super) fn project(&self) -> &str {
+        &self.project.0
+    }
+
+    pub(super) fn uid(&self) -> &str {
+        &self.uid.0
+    }
+
     pub(super) fn candidate(
         registration: PendingRegistration,
         project: &str,

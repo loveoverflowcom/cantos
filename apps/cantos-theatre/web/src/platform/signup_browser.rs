@@ -87,6 +87,41 @@ pub(crate) enum CaptureFailure {
     HistoryUnavailable,
 }
 
+/// Used by the independent safety boundary as well as history listeners.
+pub(crate) fn location_contains_proof() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(window) = web_sys::window() {
+        return window
+            .location()
+            .hash()
+            .is_ok_and(|hash| hash.starts_with("#register-verify"))
+            || window
+                .location()
+                .search()
+                .is_ok_and(|query| firebase_query(&query));
+    }
+    false
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+fn firebase_query(query: &str) -> bool {
+    url::form_urlencoded::parse(query.trim_start_matches('?').as_bytes()).any(|(key, value)| {
+        matches!(
+            key.as_ref(),
+            "oobCode" | "continueUrl" | "firebaseEnrollment"
+        ) || (key == "mode"
+            && matches!(
+                value.as_ref(),
+                "verifyEmail"
+                    | "resetPassword"
+                    | "recoverEmail"
+                    | "verifyAndChangeEmail"
+                    | "signIn"
+                    | "revertSecondFactorAddition"
+            ))
+    })
+}
+
 pub(crate) fn capture_link() -> Result<Option<VerificationToken>, CaptureFailure> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -97,20 +132,39 @@ pub(crate) fn capture_link() -> Result<Option<VerificationToken>, CaptureFailure
             .location()
             .hash()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
-        if !hash.starts_with("#register-verify") {
+        let search = window
+            .location()
+            .search()
+            .map_err(|_| CaptureFailure::HistoryUnavailable)?;
+        let firebase = firebase_query(&search);
+        if !hash.starts_with("#register-verify") && !firebase {
             return Ok(None);
         }
-        let token = VerificationToken::from_fragment(&hash);
+        let path = window
+            .location()
+            .pathname()
+            .map_err(|_| CaptureFailure::HistoryUnavailable)?;
+        let token = if firebase {
+            let origin = window
+                .location()
+                .origin()
+                .map_err(|_| CaptureFailure::HistoryUnavailable)?;
+            if hash.is_empty() && path == "/" {
+                VerificationToken::from_firebase_query(&search, &origin)
+            } else {
+                None
+            }
+        } else {
+            VerificationToken::from_fragment(&hash)
+        };
+        let safe_path = if firebase { "/" } else { path.as_str() };
+        let safe_url = format!("{safe_path}#register?from=home");
         // This happens before navigation construction or any session/configuration/discovery IO.
         // Neither history state nor the replacement URL includes the proof or applicant email.
         window
             .history()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?
-            .replace_state_with_url(
-                &web_sys::wasm_bindgen::JsValue::NULL,
-                "",
-                Some("#register?from=home"),
-            )
+            .replace_state_with_url(&web_sys::wasm_bindgen::JsValue::NULL, "", Some(&safe_url))
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
         token.map(Some).ok_or(CaptureFailure::InvalidLink)
     }
@@ -123,14 +177,17 @@ pub(crate) fn discard_link_and_reload() -> Result<(), CaptureFailure> {
     #[cfg(target_arch = "wasm32")]
     {
         let window = web_sys::window().ok_or(CaptureFailure::HistoryUnavailable)?;
+        let safe_url = format!(
+            "{}#register?from=home",
+            window
+                .location()
+                .pathname()
+                .map_err(|_| CaptureFailure::HistoryUnavailable)?
+        );
         window
             .history()
             .map_err(|_| CaptureFailure::HistoryUnavailable)?
-            .replace_state_with_url(
-                &web_sys::wasm_bindgen::JsValue::NULL,
-                "",
-                Some("#register?from=home"),
-            )
+            .replace_state_with_url(&web_sys::wasm_bindgen::JsValue::NULL, "", Some(&safe_url))
             .map_err(|_| CaptureFailure::HistoryUnavailable)?;
         // A fresh safe mount reinstalls the ordinary account focus/revalidation lifecycle.
         // Keep the current safety gate closed until navigation actually replaces this owner.
@@ -156,7 +213,7 @@ pub(crate) fn bind_capture(
         use web_sys::wasm_bindgen::JsCast;
         let guard = StoredValue::new(ProofNavigationGuard::default());
         let read = move |kind, event_targeted_proof| {
-            let contains_proof = super::auth_browser::hash().starts_with("#register-verify");
+            let contains_proof = location_contains_proof();
             let mut process = false;
             guard.update_value(|current| {
                 process = current.should_process(kind, event_targeted_proof, contains_proof);
@@ -213,4 +270,61 @@ pub(crate) fn bind_capture(
     }
     #[cfg(not(target_arch = "wasm32"))]
     let _ = (on_capture, on_leave, on_restore);
+}
+
+/// The application has already validated this server-supplied one-shot capability.
+/// The document's no-referrer policy also applies to this top-level navigation.
+pub(crate) fn open_setup(url: &str) -> Result<(), ()> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .ok_or(())?
+            .location()
+            .assign(url)
+            .map_err(|_| ())
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = url;
+        Err(())
+    }
+}
+
+#[cfg(test)]
+mod query_tests {
+    #[test]
+    fn ordinary_app_modes_are_not_firebase_action_queries() {
+        for mode in ["auth-preview", "membership-preview", "mock"] {
+            assert!(!super::firebase_query(&format!("?mode={mode}")), "{mode}");
+            assert!(
+                super::firebase_query(&format!("?mode={mode}&oobCode=synthetic-secret")),
+                "{mode}"
+            );
+        }
+        for mode in [
+            "verifyEmail",
+            "resetPassword",
+            "recoverEmail",
+            "verifyAndChangeEmail",
+            "signIn",
+            "revertSecondFactorAddition",
+        ] {
+            assert!(super::firebase_query(&format!("?mode={mode}")), "{mode}");
+        }
+    }
+
+    use super::*;
+    #[test]
+    fn malformed_action_queries_are_scrubbed_even_when_they_cannot_be_confirmed() {
+        for query in [
+            "?mode=resetPassword",
+            "?oobCode=",
+            "?continueUrl=evil",
+            "?firebaseEnrollment=op",
+            "?%6dode=verifyEmail",
+        ] {
+            assert!(firebase_query(query));
+        }
+        assert!(!firebase_query("?theme=dark"));
+    }
 }

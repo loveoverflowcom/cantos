@@ -890,6 +890,7 @@ dependencies = [
  "gloo-net",
  "leptos",
  "serde_json",
+ "url",
  "uuid",
  "web-sys",
 ]

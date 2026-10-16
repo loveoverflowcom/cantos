@@ -157,6 +157,7 @@ pub(crate) fn AuthPage(
     on_signup_new: Callback<()>,
     on_signup_cancel: Callback<()>,
     on_signup_login: Callback<()>,
+    on_signup_setup: Callback<()>,
 ) -> impl IntoView {
     // Success is unavailable until a provider registration receipt exists. In particular a
     // reconstructed completion URL is not a receipt and never opens Membership success actions.
@@ -236,7 +237,7 @@ pub(crate) fn AuthPage(
                             </div>
                                 }>
                                 <SignupPanel state=signup locale on_submit=on_signup_submit on_verify=on_signup_verify
-                                    on_new_request=on_signup_new on_cancel=on_signup_cancel on_login=on_signup_login/>
+                                    on_new_request=on_signup_new on_cancel=on_signup_cancel on_login=on_signup_login on_setup=on_signup_setup/>
                             </Show>
                             {(route.step == AuthStep::RegistrationComplete).then(|| view! {
                                 <p role="status">{label(locale, CopyKey::RegistrationUnconfirmed)}</p>
@@ -301,7 +302,7 @@ mod tests {
             let noop = Callback::new(|()| {});
             view! { <AuthPage state registration signup locale route on_back=noop on_register=noop on_login=noop
             on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop
-            on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop/> }
+            on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop on_signup_setup=noop/> }
             .to_html()
         })
     }

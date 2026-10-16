@@ -44,14 +44,15 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0033 — Public cover](0033-release-pinned-public-cover.md) | Proposed; pure kernel only | No public cover wire/storage/delivery activation |
 | [0034 — Account policy](0034-theatre-signup-and-provisioned-studio.md) | Accepted product/onboarding direction | Theatre signup, provisioned-only Studio; live issuer activation separate |
 | [0035 — Unit availability](0035-theatre-catalog-unit-availability.md) | Accepted owner decision | Version-aware metadata policy; implementation/consumer acceptance remains separate |
-| [0036 — Firebase enrollment proof](0036-firebase-enrollment-proof.md) | Proposed; test-only prototype | Merged #208 accepts no runtime provider/setup-delivery choice or live gate |
+| [0036 — Firebase enrollment proof](0036-firebase-enrollment-proof.md) | Accepted bounded direction; default-disabled runtime | Dedicated enrollment UID and one-shot setup continuation; real provider/issuer/activation gates remain open |
 | [0037 — Private storage](0037-provider-independent-private-storage.md) | Proposed adoption; implemented bounded slice | Former duplicate storage 0022; real-provider/publication acceptance separate |
 | [0038 — Delivery evidence gates](0038-publication-streaming-evidence-gates.md) | Proposed | Former duplicate publication 0028; real delivery/native evidence required |
 
 ## ID allocation and historical references
 
-ADR **0036** belongs to the Firebase enrollment proposal from merged
-[PR #208](https://github.com/loveoverflowcom/cantos/pull/208); it remains proposed. It was
+ADR **0036** belongs to the Firebase enrollment decision, initially proposed in merged
+[PR #208](https://github.com/loveoverflowcom/cantos/pull/208), then accepted within its stated
+bounded scope; runtime implementation is distinct from live acceptance. It was
 already allocated when the duplicate 0022/0028 records were reassigned to 0037/0038.
 Check current develop and open PRs before allocating the next ID; gaps are valid.
 

@@ -3,7 +3,6 @@ use super::{failure, AppState};
 use crate::platform::theatre_registration::{
     application::VerificationOutcome,
     domain::{Email, RegistrationError},
-    runtime::RegistrationRuntime,
 };
 use axum::{
     extract::{ConnectInfo, DefaultBodyLimit, State},
@@ -20,7 +19,12 @@ pub(super) fn routes() -> Router<AppState> {
         .route("/auth/registration", post(start))
         .route("/auth/registration/verify", post(verify))
         .route("/auth/registration/cancel", post(cancel))
-        .layer(DefaultBodyLimit::max(2048))
+        .route(
+            "/auth/registration/firebase/confirm",
+            post(firebase_confirm),
+        )
+        .route("/auth/registration/firebase/cancel", post(firebase_cancel))
+        .layer(DefaultBodyLimit::max(8192))
 }
 
 fn accepted() -> Response {
@@ -33,8 +37,9 @@ fn accepted() -> Response {
         .into_response()
 }
 
-fn origin_allowed(headers: &HeaderMap, runtime: &RegistrationRuntime, web_origin: &str) -> bool {
-    runtime.web_origin() == web_origin
+fn same_origin(headers: &HeaderMap, configured: &str, web_origin: &str) -> bool {
+    configured == web_origin
+        && headers.get_all(header::ORIGIN).iter().count() == 1
         && headers
             .get(header::ORIGIN)
             .is_some_and(|value| value.as_bytes() == web_origin.as_bytes())
@@ -49,10 +54,13 @@ async fn start(
     headers: HeaderMap,
     body: Result<Json<dto::RegistrationRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
+    if state.store.theatre_firebase_enrollment().is_some() {
+        return firebase_start(state, peer, headers, body).await;
+    }
     let Some(runtime) = state.store.theatre_registration() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !origin_allowed(&headers, runtime, &state.web_origin) {
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
         return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
     }
     let Ok(Json(body)) = body else {
@@ -102,7 +110,7 @@ async fn verify(
     let Some(runtime) = state.store.theatre_registration() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !origin_allowed(&headers, runtime, &state.web_origin) {
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
         return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
     }
     let Ok(Json(body)) = body else {
@@ -138,7 +146,7 @@ async fn cancel(
     let Some(runtime) = state.store.theatre_registration() else {
         return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
     };
-    if !origin_allowed(&headers, runtime, &state.web_origin) {
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
         return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
     }
     let Ok(Json(body)) = body else {
@@ -163,5 +171,147 @@ async fn cancel(
     }
 }
 
+async fn firebase_start(
+    state: AppState,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::RegistrationRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    let Some(runtime) = state.store.theatre_firebase_enrollment() else {
+        return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
+    };
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
+        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
+    }
+    let Ok(Json(body)) = body else {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    };
+    if Email::parse(&body.email).is_err() {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    }
+    let Some(Extension(ConnectInfo(peer))) = peer else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let Ok(network) = runtime.network_key(peer.ip()) else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    if !runtime.admit(network) {
+        return accepted();
+    }
+    let Some(permit) = runtime.acquire() else {
+        return accepted();
+    };
+    match runtime.service().prepare(&body.email, network).await {
+        Ok(Some(work)) => {
+            let service = runtime.service().clone();
+            tokio::spawn(async move {
+                let _permit = permit;
+                let _ = service.dispatch(work).await;
+            });
+            accepted()
+        }
+        Ok(None) => accepted(),
+        Err(RegistrationError::InvalidEmail | RegistrationError::InvalidToken) => {
+            failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST)
+        }
+        Err(_) => failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
+
+async fn firebase_confirm(
+    State(state): State<AppState>,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    use crate::platform::theatre_registration::firebase_enrollment::application::ConfirmationOutcome;
+    let Some(runtime) = state.store.theatre_firebase_enrollment() else {
+        return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
+    };
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
+        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
+    }
+    let Ok(Json(body)) = body else {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    };
+    let Ok(operation) = uuid::Uuid::parse_str(&body.operation_id) else {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    };
+    if operation.is_nil() {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    }
+    let Some(Extension(ConnectInfo(peer))) = peer else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let Ok(network) = runtime.network_key(peer.ip()) else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    if !runtime.admit(network) {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    }
+    let Some(_permit) = runtime.acquire() else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let outcome = match runtime.service().confirm(operation, &body.oob_code).await {
+        Ok(ConfirmationOutcome::SetupReady(setup)) => dto::FirebaseConfirmation::SetupReady {
+            login: setup.login().to_owned(),
+            setup_url: setup.link().as_str().to_owned(),
+        },
+        Ok(ConfirmationOutcome::Unavailable) => dto::FirebaseConfirmation::Unavailable {},
+        Err(_) => return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
+    };
+    let mut response = Json(outcome).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response.headers_mut().insert(
+        header::REFERRER_POLICY,
+        axum::http::HeaderValue::from_static("no-referrer"),
+    );
+    response
+}
+
+async fn firebase_cancel(
+    State(state): State<AppState>,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    body: Result<Json<dto::FirebaseConfirmRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    let Some(runtime) = state.store.theatre_firebase_enrollment() else {
+        return failure(ErrorCode::NotFound, StatusCode::NOT_FOUND);
+    };
+    if !same_origin(&headers, runtime.web_origin(), &state.web_origin) {
+        return failure(ErrorCode::Forbidden, StatusCode::FORBIDDEN);
+    }
+    let Ok(Json(body)) = body else {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    };
+    let Ok(operation) = uuid::Uuid::parse_str(&body.operation_id) else {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    };
+    if operation.is_nil() {
+        return failure(ErrorCode::InvalidRequest, StatusCode::BAD_REQUEST);
+    }
+    let Some(Extension(ConnectInfo(peer))) = peer else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    let Ok(network) = runtime.network_key(peer.ip()) else {
+        return failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE);
+    };
+    if !runtime.admit(network) {
+        return accepted();
+    }
+    let Some(_permit) = runtime.acquire() else {
+        return accepted();
+    };
+    match runtime.service().cancel(operation, &body.oob_code).await {
+        Ok(()) => accepted(),
+        Err(_) => failure(ErrorCode::Unavailable, StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
+
+#[cfg(test)]
+mod firebase_tests;
 #[cfg(test)]
 mod tests;

@@ -92,7 +92,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .map_err(|_| "invalid or incomplete Theatre registration configuration")?
     {
-        store = store.with_theatre_registration(registration);
+        store = match registration {
+            cantos_api::platform::theatre_registration::config::RegistrationMode::Smtp(runtime) => {
+                store.with_theatre_registration(runtime)
+            }
+            cantos_api::platform::theatre_registration::config::RegistrationMode::Firebase(
+                runtime,
+            ) => store.with_theatre_firebase_enrollment(runtime),
+        };
     }
     let state = AppState { store, web_origin };
     let listener = tokio::net::TcpListener::bind(address).await?;

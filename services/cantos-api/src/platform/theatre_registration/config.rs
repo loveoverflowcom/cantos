@@ -12,7 +12,7 @@ use crate::platform::postgres::Store;
 use std::{collections::BTreeMap, sync::Arc};
 
 const PREFIX: &str = "CANTOS_THEATRE_REGISTRATION_";
-const FIELDS: &[&str] = &[
+pub(super) const FIELDS: &[&str] = &[
     "ENABLED",
     "POLICY_APPROVED",
     "ISSUER_ACCESS_APPROVED",
@@ -34,7 +34,34 @@ const FIELDS: &[&str] = &[
 /// Approval fields are operator declarations, never proof of effective issuer privilege or
 /// delivery. The repository has no credential/default policy bootstrap. Live acceptance and
 /// approval for the exact service principal, grants and SMTP settings remain separate.
+pub enum RegistrationMode {
+    Smtp(RegistrationRuntime),
+    Firebase(super::firebase_enrollment::runtime::FirebaseEnrollmentRuntime),
+}
+
+/// Select exactly one configured provider; orphan inputs never activate a fallback.
 pub fn from_lookup(
+    store: Store,
+    web_origin: &str,
+    mut lookup: impl FnMut(&str) -> Option<String>,
+) -> Result<Option<RegistrationMode>, RegistrationError> {
+    match lookup("CANTOS_THEATRE_REGISTRATION_PROVIDER").as_deref() {
+        None | Some("smtp") => {
+            if super::firebase_enrollment::config::has_inputs(&mut lookup) {
+                return Err(RegistrationError::Configuration);
+            }
+            smtp_from_lookup(store, web_origin, lookup)
+                .map(|runtime| runtime.map(RegistrationMode::Smtp))
+        }
+        Some("firebase") => {
+            super::firebase_enrollment::config::from_lookup(store, web_origin, lookup)
+                .map(|runtime| runtime.map(RegistrationMode::Firebase))
+        }
+        _ => Err(RegistrationError::Configuration),
+    }
+}
+
+fn smtp_from_lookup(
     store: Store,
     web_origin: &str,
     mut lookup: impl FnMut(&str) -> Option<String>,

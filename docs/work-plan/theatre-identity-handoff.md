@@ -26,11 +26,13 @@ before changing that boundary. Do not rebuild auth from the mock screen or treat
 2. Complete the #174 policy/effective-permission and recovery gates before live enrollment:
    verified-email binding, operation-owned identity, safe uncertain outcomes, cooldown/budgets,
    retention and secure credential-intent delivery. No existing-account reset/retry shortcut.
-3. Review #206's Firebase proof option and its interaction with accepted Kanidm onboarding.
-   PR #208 is merged as a test-only prototype; [ADR 0036](../decisions/0036-firebase-enrollment-proof.md)
-   remains proposed. Accept bootstrap/project/UID/action binding and any protected setup-delivery
-   amendment before durable integration or live mode; use the [operator review plan](../deployment/firebase-enrollment-proof.md).
-   Firebase proof must not silently become login, a new issuer/password store or replacement setup policy.
+3. Accept #206's real Firebase proof/Kanidm journey using the default-disabled runtime and
+   [operator runbook](../deployment/firebase-enrollment-proof.md). The owner accepted
+   [ADR 0036](../decisions/0036-firebase-enrollment-proof.md)'s dedicated UID, actual action
+   possession and one-shot setup continuation; production adapters and durable local fences
+   now exist. [Local evidence](../evidence/firebase-enrollment-runtime.md) does not establish
+   effective cloud privileges, action origins, inbox/setup/OIDC or activation. Firebase proof
+   must not become a session, a new issuer/password store or existing-account reset shortcut.
 4. In the specifically authorized environment, observe actual email/action/setup → Kanidm login
    → server-confirmed session → private read → logout/rejected old session. Web and Android/iOS
    system-browser/secure-store/device acceptance are separate observations.

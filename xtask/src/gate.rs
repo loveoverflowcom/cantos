@@ -9,7 +9,7 @@ use clap::ValueEnum;
 use crate::{
     behavior,
     build::{self, Profile},
-    cli::VerifySuite,
+    cli::{PostgresScope, VerifySuite},
     command::CommandSpec,
     config::{App, API_PACKAGE, DBSP_FEATURE, UI_PACKAGE, WASM_TARGET},
     kani::{self, Kernel},
@@ -98,6 +98,8 @@ pub enum Gate {
     Postgres {
         keep: bool,
     },
+    /// Narrow SQL acceptance only; never replaces the complete PostgreSQL gate.
+    TheatreFirebasePostgres,
     Kani(Kernel),
 }
 
@@ -140,7 +142,7 @@ impl Gate {
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
             Gate::Mutation => GateKind::Mutation,
-            Gate::Postgres { .. } => GateKind::Postgres,
+            Gate::Postgres { .. } | Gate::TheatreFirebasePostgres => GateKind::Postgres,
             Gate::Kani(_) => GateKind::Kani,
         }
     }
@@ -161,6 +163,7 @@ impl Gate {
             }
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
+            Gate::TheatreFirebasePostgres => "postgres (theatre-firebase)".into(),
             _ => kind,
         }
     }
@@ -207,6 +210,13 @@ impl Gate {
                 Tool::Psql,
                 Tool::Ffmpeg,
                 Tool::Ffprobe,
+            ],
+            Gate::TheatreFirebasePostgres => vec![
+                Tool::Cargo,
+                Tool::Python3,
+                Tool::Initdb,
+                Tool::PgCtl,
+                Tool::Psql,
             ],
         }
     }
@@ -348,6 +358,11 @@ impl Gate {
             Gate::Postgres { keep } => {
                 vec![python(&["scripts/test_postgres.py"]).arg_if(*keep, "--keep")]
             }
+            Gate::TheatreFirebasePostgres => vec![python(&[
+                "scripts/test_postgres.py",
+                "--suite",
+                "theatre-firebase",
+            ])],
         }
     }
 
@@ -420,7 +435,10 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
         ],
         VerifySuite::Mutation => vec![Gate::Mutation],
         VerifySuite::Dbsp => vec![Gate::Dbsp],
-        VerifySuite::Postgres { keep } => vec![Gate::Postgres { keep: *keep }],
+        VerifySuite::Postgres { keep, suite } => match suite {
+            None => vec![Gate::Postgres { keep: *keep }],
+            Some(PostgresScope::TheatreFirebase) => vec![Gate::TheatreFirebasePostgres],
+        },
     }
 }
 
@@ -611,6 +629,49 @@ mod tests {
     }
 
     #[test]
+    fn narrow_registration_sql_has_its_own_name_prerequisites_and_plan() {
+        use crate::{
+            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
+        };
+        let gate = Gate::TheatreFirebasePostgres;
+        assert_eq!(gate.name(), "postgres (theatre-firebase)");
+        assert_eq!(gate.kind(), GateKind::Postgres);
+        assert_eq!(
+            gate.tools(),
+            [
+                Tool::Cargo,
+                Tool::Python3,
+                Tool::Initdb,
+                Tool::PgCtl,
+                Tool::Psql
+            ]
+        );
+        assert_eq!(
+            lines(&gate),
+            ["python3 scripts/test_postgres.py --suite theatre-firebase"]
+        );
+        assert_eq!(
+            verify_suite(&VerifySuite::Postgres {
+                keep: false,
+                suite: Some(PostgresScope::TheatreFirebase),
+            }),
+            [gate.clone()]
+        );
+        assert!(!full().contains(&gate));
+        let mut runner = RecordingRunner::default();
+        let report = pipeline::execute(
+            "verify",
+            &[gate.step(&workspace())],
+            &FakeTools::without(&[Tool::Ffmpeg, Tool::Ffprobe]),
+            &mut runner,
+        );
+        assert_eq!(report.outcomes.len(), 1);
+        assert_eq!(report.outcomes[0].name, "postgres (theatre-firebase)");
+        assert_eq!(report.outcomes[0].status, Status::Pass);
+        assert_eq!(runner.commands.len(), 1);
+    }
+
+    #[test]
     fn package_scopes_are_explicit_and_sorted() {
         let scope = Scope::Packages(["xtask".into(), "cantos-api".into()].into());
         assert_eq!(
@@ -700,10 +761,11 @@ mod tests {
     #[test]
     fn every_referenced_script_and_test_target_exists() {
         let workspace = workspace();
-        for gate in full()
-            .into_iter()
-            .chain([Gate::ContractTests, Gate::Postgres { keep: true }])
-        {
+        for gate in full().into_iter().chain([
+            Gate::ContractTests,
+            Gate::Postgres { keep: true },
+            Gate::TheatreFirebasePostgres,
+        ]) {
             for command in gate.commands(&workspace) {
                 for arg in command
                     .args
@@ -742,7 +804,10 @@ mod tests {
         assert!(contracts.contains(&Gate::WavReference));
         assert!(contracts.contains(&Gate::AudioInspection));
         assert_eq!(
-            verify_suite(&VerifySuite::Postgres { keep: false }),
+            verify_suite(&VerifySuite::Postgres {
+                keep: false,
+                suite: None,
+            }),
             [Gate::Postgres { keep: false }]
         );
     }

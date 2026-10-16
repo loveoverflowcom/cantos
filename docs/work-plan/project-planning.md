@@ -17,7 +17,7 @@ is historical; do not restart it at completed #66.
 | Scoped private Audio Lifecycle and filesystem/S3 adapters | #7/#9/#10: real integrity, authorization, review and private-provider acceptance |
 | Publication core and immutable release pointers | #11/#170: accepted delivery policy, configured real storage/Range/expiry/withdrawal, retained-release safety |
 | Discovery and separate Library/Progress backend | #172: public-state/pagination gaps; #13/#14 real Web/native audio; #15/#16/#17 background/offline/sync |
-| Kanidm identity adapters and Theatre enrollment state | #174/#191: real signup/login activation; #206's merged test-only prototype informs proposed ADR 0036, not runtime/provider or setup-delivery acceptance |
+| Kanidm identity adapters and default-disabled Firebase enrollment | #174/#191/#206: accept real signup/login under [ADR 0036](../decisions/0036-firebase-enrollment-proof.md); reuse the implemented mailbox-proof/one-shot-setup flow, with privilege, action-ingress and live origin/session gates still separate |
 | Forge local artifact/register/validate/export foundation | #203: shared local/Functions producer execution with private Drive drafts, then explicit API admission |
 | Infrastructure assets and command surface | #212 separates edge/Hosting assets into `infra/` from `xtask` orchestration; no deployment acceptance or Forge move. #203 owns the future producer service-location and concrete Functions consumer |
 | Manual Hosting and demo distribution tooling | #199/#184: separately authorized live-origin or tester acceptance |
@@ -39,6 +39,9 @@ than adding another dependency/status table per session.
 - **Theatre:** real authorized releases, seek/expiry/withdrawal, native lifecycle and durable
   progress/offline behavior on the named clients. A mock player or empty discovery page is not
   listening acceptance.
+- **Identity:** authorized mailbox proof, safe setup delivery and genuine OIDC/API session
+  evidence under reviewed provider/issuer authority and origins; local fixtures and a registration
+  receipt never establish authenticated access. Keep unaccepted activation disabled.
 - **Forge:** local/cloud parity, authorized private draft I/O, recorded billable attempts and
   uncertain-outcome recovery, followed by explicit admission; generation never publishes.
 

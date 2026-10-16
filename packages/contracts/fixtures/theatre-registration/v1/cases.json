@@ -62,5 +62,46 @@
     "kind": "proof_request",
     "valid": false,
     "value": {}
+  },
+  {
+    "kind": "firebase_confirm_request",
+    "valid": true,
+    "value": {
+      "operation_id": "00000000-0000-4000-8000-000000000001",
+      "oob_code": "fixture-action"
+    }
+  },
+  {
+    "kind": "firebase_confirm_request",
+    "valid": false,
+    "value": {
+      "operation_id": "op",
+      "oob_code": "code",
+      "issuer": "https://attacker.invalid"
+    }
+  },
+  {
+    "kind": "firebase_confirm_request",
+    "valid": false,
+    "value": {
+      "operation_id": "op",
+      "oob_code": "code",
+      "email": "other@example.invalid"
+    }
+  },
+  {
+    "kind": "firebase_confirm_request",
+    "valid": false,
+    "value": {
+      "operation_id": "op"
+    }
+  },
+  {
+    "kind": "firebase_confirm_request",
+    "valid": false,
+    "value": {
+      "operation_id": "op",
+      "oob_code": null
+    }
   }
 ]

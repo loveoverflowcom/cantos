@@ -22,6 +22,7 @@ pub enum LoginMethod {
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Registration {
     EmailVerification {},
+    FirebaseEmailVerification {},
     Unavailable {
         reason: RegistrationUnavailableReason,
     },
@@ -127,6 +128,7 @@ mod tests {
         let validator = jsonschema::validator_for(&schema).unwrap();
         for (fixture,registration) in [
             (include_str!("../../fixtures/theatre-identity/v1/configuration-email-verification.json"),Registration::EmailVerification {}),
+            (include_str!("../../fixtures/theatre-identity/v1/configuration-firebase-email-verification.json"),Registration::FirebaseEmailVerification {}),
             (include_str!("../../fixtures/theatre-identity/v1/configuration-registration-unconfigured.json"),Registration::Unavailable { reason: RegistrationUnavailableReason::RegistrationUnconfigured }),
         ] {
             let value: serde_json::Value=serde_json::from_str(fixture).unwrap();

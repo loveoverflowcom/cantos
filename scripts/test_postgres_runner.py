@@ -1,4 +1,5 @@
 """Runner safety and fail-closed guards; process/HTTP doubles are not PG evidence."""
+import contextlib
 import io
 import json
 import os
@@ -14,6 +15,95 @@ import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_scoped_sql_selection_refuses_retention_and_unknown_suites_before_tools(self):
+        self.assertEqual(runner.parse_args([]).suite, "full")
+        self.assertTrue(runner.parse_args(["--keep"]).keep)
+        self.assertEqual(runner.parse_args(["--suite", "theatre-firebase"]).suite,
+                         "theatre-firebase")
+        for arguments in (["--suite", "theatre-firebase", "--keep"],
+                          ["--suite", "unregistered"]):
+            with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), \
+                    patch.object(runner.shutil, "which") as probe:
+                with patch.object(sys, "argv", ["test_postgres.py", *arguments]), \
+                        self.assertRaises(SystemExit):
+                    runner.main()
+                probe.assert_not_called()
+
+    def test_scoped_sql_owns_fresh_cluster_environment_filters_and_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory)
+            commands = []
+
+            def execute(command, env=None, output=None):
+                commands.append((command, dict(env or {}), output))
+                return "test result: ok. 3 passed; 0 failed; 0 ignored; 17 filtered out;\n"
+
+            inherited = {"PATH": "/installed", "DATABASE_URL": "postgresql://private.invalid/live",
+                         "PGHOST": "private.invalid", "CANTOS_TEST_CLUSTER_URL": "private"}
+            with patch.object(runner, "EVIDENCE", evidence), \
+                    patch.object(sys, "argv", ["test_postgres.py", "--suite", "theatre-firebase"]), \
+                    patch.dict(os.environ, inherited, clear=True), \
+                    patch.object(runner.shutil, "which", return_value="/installed/tool"), \
+                    patch.object(runner, "free_port", return_value=12345), \
+                    patch.object(runner, "run", side_effect=execute), \
+                    patch.object(runner.subprocess, "Popen") as host, \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                runner.main()
+            self.assertEqual([command[0] for command, _, _ in commands],
+                             ["initdb", "pg_ctl", "psql", "cargo", "cargo", "pg_ctl"])
+            cluster = Path(commands[0][0][2]).parent
+            self.assertEqual(cluster.parent, evidence / "theatre-firebase")
+            self.assertTrue(cluster.is_dir())
+            self.assertEqual(commands[-1][0],
+                             ["pg_ctl", "-D", str(cluster / "pgdata"), "-m", "fast", "-w", "stop"])
+            for _, environment, _ in commands:
+                self.assertNotIn("DATABASE_URL", environment)
+                self.assertNotIn("PGHOST", environment)
+                self.assertEqual(environment["CANTOS_TEST_CLUSTER_URL"],
+                                 "postgresql://cantos_test_admin@127.0.0.1:12345/postgres")
+            sql_commands = [command for command, _, _ in commands if command[0] == "cargo"]
+            self.assertEqual([command[7] for command in sql_commands], [
+                "platform::theatre_registration::firebase_enrollment::postgres::tests",
+                "platform::theatre_registration::postgres::tests"])
+            for command in sql_commands:
+                self.assertIn("--offline", command)
+                self.assertEqual(command[-4:], ["--", "--ignored", "--test-threads=1", "--nocapture"])
+            record = json.loads((evidence / "theatre-firebase" / "run.json").read_text())
+            self.assertEqual(record["suite"], "theatre-firebase")
+            self.assertEqual(record["full_suite"], "NOT_RUN")
+            self.assertFalse(record["retained"])
+            self.assertFalse((evidence / "run.json").exists())
+            self.assertIn("full PostgreSQL/media/HTTP/restart campaign NOT_RUN", output.getvalue())
+            host.assert_not_called()
+
+    def test_scoped_sql_failure_or_interrupt_still_stops_its_owned_cluster(self):
+        for failure in (RuntimeError("synthetic SQL failure"), KeyboardInterrupt()):
+            with self.subTest(failure=type(failure).__name__), tempfile.TemporaryDirectory() as directory:
+                commands = []
+
+                def execute(command, env=None, output=None):
+                    commands.append(command)
+                    if command[0] == "cargo":
+                        raise failure
+                    return ""
+
+                with patch.object(runner, "EVIDENCE", Path(directory)), \
+                        patch.object(sys, "argv", ["test_postgres.py", "--suite", "theatre-firebase"]), \
+                        patch.object(runner.shutil, "which", return_value="/installed/tool"), \
+                        patch.object(runner, "free_port", return_value=12345), \
+                        patch.object(runner, "run", side_effect=execute), \
+                        self.assertRaises(type(failure)):
+                    runner.main()
+                self.assertEqual(commands[-1][0], "pg_ctl")
+                self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
+                self.assertFalse((Path(directory) / "theatre-firebase" / "run.json").exists())
+
+    def test_registration_sql_selection_refuses_zero_selected_or_missing_summary(self):
+        for output in ("test result: ok. 0 passed; 0 failed; 0 ignored;\n", "compiled only\n"):
+            with self.subTest(output=output), patch.object(runner, "run", return_value=output), \
+                    self.assertRaisesRegex(RuntimeError, "selected no passing SQL tests"):
+                runner.registration_postgres_tests({}, Path("/synthetic/evidence"))
+
     def test_theatre_main_executes_its_retained_fixture_without_editorial_script_or_token(self):
         root = Path("/synthetic/cantos")
         database = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_theatre"

@@ -14,6 +14,23 @@ pub struct TokenRequest {
     pub token: String,
 }
 
+/// Firebase action proof is bound to one server operation; no caller identity/issuer is accepted.
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct FirebaseConfirmRequest {
+    pub operation_id: String,
+    pub oob_code: String,
+}
+
+/// Private one-shot delivery to the explicitly confirming browser. Never a login receipt.
+/// No Debug implementation: the setup capability must not enter logs.
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FirebaseConfirmation {
+    SetupReady { login: String, setup_url: String },
+    Unavailable {},
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AcceptedStatus {
@@ -106,9 +123,42 @@ mod tests {
                     serde_json::from_value::<RegistrationRequest>(value.clone()).is_ok()
                 }
                 "proof_request" => serde_json::from_value::<TokenRequest>(value.clone()).is_ok(),
+                "firebase_confirm_request" => {
+                    serde_json::from_value::<FirebaseConfirmRequest>(value.clone()).is_ok()
+                }
                 _ => panic!("unknown request fixture"),
             };
             assert_eq!(admitted, valid);
+        }
+    }
+
+    #[test]
+    fn firebase_setup_delivery_has_a_separate_strict_non_session_shape() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../schemas/theatre-registration-v1.schema.json"
+        ))
+        .unwrap();
+        let validator =
+            jsonschema::validator_for(&schema["$defs"]["firebase_confirmation"]).unwrap();
+        for (literal, valid) in [
+            (
+                r#"{"status":"setup_ready","login":"listener_fixture","setup_url":"https://idm.example.invalid/ui/reset?token=fixture"}"#,
+                true,
+            ),
+            (r#"{"status":"unavailable"}"#, true),
+            (r#"{"status":"setup_ready"}"#, false),
+            (
+                r#"{"status":"setup_ready","login":"fixture","setup_url":"fixture","session_id":"forged"}"#,
+                false,
+            ),
+            (r#"{"status":"unavailable","setup_url":"fixture"}"#, false),
+        ] {
+            let value: serde_json::Value = serde_json::from_str(literal).unwrap();
+            assert_eq!(validator.is_valid(&value), valid);
+            assert_eq!(
+                serde_json::from_value::<FirebaseConfirmation>(value).is_ok(),
+                valid
+            );
         }
     }
 

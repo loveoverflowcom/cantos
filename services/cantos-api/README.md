@@ -109,7 +109,7 @@ checksums. The old `durable_*`/`speech_clips` tables are legacy data, not curren
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
 versions 1–27 (27 migrations), including original private storage0015, Admin0022, coordinated
-private Artwork0023, additive Work-scoped delegation0026 and opt-in Theatre registration0027.
+private Artwork0023, additive Work-scoped delegation0026 and opt-in Theatre registration0027 and separately selected Firebase enrollment0028.
 Historical SQL bytes/checksums are unchanged.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
@@ -231,3 +231,14 @@ revocation_pending, SELECT/INSERT/UPDATE on native flows and EXECUTE on the narr
 function and existing listener actor admission helpers. No API startup provisions these grants.
 Use the existing disposable `cargo xtask verify postgres` gate; it includes the signed public-client
 HTTP/PG suite. Recorded command results belong to the [evidence ledger](../../docs/evidence/theatre-identity.md).
+
+## Firebase mailbox enrollment
+
+The existing registration owner can select a default-disabled Firebase proof provider while
+retaining Kanidm credentials/OIDC. Generic start, action-bound confirmation/cancellation and
+one-shot setup delivery issue no session or Studio/Admin authority. Migration0028 preserves
+binding/effect receipts and stores no action/provider/setup secrets. See
+[ADR0036](../../docs/decisions/0036-firebase-enrollment-proof.md) and the
+[operator runbook](../../docs/deployment/firebase-enrollment-proof.md) for all explicit inputs,
+privilege/origin gates and unknown-outcome recovery. Local registration-only SQL evidence uses
+`cargo xtask verify postgres --suite theatre-firebase`; full PostgreSQL acceptance remains separate.
