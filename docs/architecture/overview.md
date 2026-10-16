@@ -20,8 +20,8 @@ flowchart TD
 
 Solid edges describe existing component boundaries, not live end-to-end acceptance.
 Dashed edges describe #203's **planned** producer execution, Drive persistence and API handoff.
-Forge currently registers/checks/exports local artifacts; it does not yet call Gemini, serve
-HTTP or submit to the API.
+Forge currently registers/checks/exports local artifacts and has a library-only attempt/recovery
+core with a mock provider. It does not yet call Gemini, serve HTTP or submit to the API.
 
 Studio owns the buttons, configuration, status, preview and explicit acceptance. Its planned
 producer execution boundary is Forge via local/deployed Firebase Functions. CLI and Functions
@@ -49,7 +49,7 @@ scaffold or live deployment acceptance follows from the directory split.
 | Catalog | Work/unit metadata and separate ContentRevision; optional exact ScriptRef | No mandatory drama workflow |
 | Media / Publication | Verified private assets, scoped intake, reviews, immutable releases and active pointers | Private storage is not a public grant |
 | Listening | Public release reads and separate account-owned Library/Progress | No Studio permissions or production work |
-| Forge producer | Local artifact foundation; planned provider execution, attempts and private draft I/O | Outside API; no authoritative Catalog or publication |
+| Forge producer | Local artifact foundation and library-only attempt/recovery core; planned real provider execution and private draft I/O | Outside API; no authoritative Catalog or publication |
 
 Use domain → application → adapters: pure typed decisions, explicit use cases/authorization and
 thin HTTP/PostgreSQL/storage/provider effects. Apps share versioned contracts, not service code

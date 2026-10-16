@@ -57,7 +57,7 @@ services/
   cantos-api/              Rust + Axum + PostgreSQL modular monolith (package cantos-api)  IMPLEMENTED
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
-  kanidm/                  Opt-in Podman identity evaluation; no integration/code          CONFIG ONLY
+  kanidm/                  Operator-owned Podman identity configuration; no crate           CONFIG ONLY
 infra/                     Deployment/runtime assets; no application domain logic
   edge/                    Public edge and host DNS updater assets                         CONFIG ONLY
   firebase/
@@ -96,13 +96,16 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   for sandbox exclusion; it is a skeleton, not a listening feature, signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration, not live deployment or
-  integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) alongside
-  development tokens, with live provider/production activation gated.
-- **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
-  [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
+  integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) and separate
+  [Theatre OIDC](theatre-identity.md) adapters. [Local Theatre sign-in/logout](../evidence/theatre-live-auth-206.md)
+  has real issuer evidence; Firebase signup, Studio live acceptance and production activation
+  retain their own gates.
+- **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate governed by
+  accepted [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
   a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
-  `artifact list/show`, `validate`, `handoff export`). It has no provider, network client or API
-  handoff, and it is not a Studio or Theatre client.
+  `artifact list/show`, `validate`, `handoff export`), plus a library-only attempt/recovery core
+  and mock provider ([evidence](../evidence/forge-attempt-verification.md)). It has no real provider,
+  network client or API handoff, and it is not a Studio or Theatre client.
   The owner-selected [local/Functions direction](../decisions/0022-cantos-forge-producer-cli.md)
   lets Studio request operations while the same Rust producer core executes outside the API;
   private Drive holds remote drafts. Those execution/storage adapters, any future service-location

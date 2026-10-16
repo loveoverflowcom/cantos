@@ -9,8 +9,8 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 | --- | --- | --- | --- |
 | `cantos-api` | native Rust/Axum | implemented development HTTP host; production deployment planned | backend maintainers |
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
-| `kanidm` | rootless Podman OCI | opt-in evaluation configuration; OIDC and production identity unimplemented | identity operator |
-| `object-storage` | external | planned; current development intake uses private files | storage operator |
+| `kanidm` | rootless Podman OCI | operator configuration; API Studio/Theatre OIDC adapters implemented; local Theatre sign-in/logout accepted, production activation gated | identity operator |
+| `object-storage` | external | filesystem and generic S3-compatible adapters implemented; real-provider/deployment acceptance separate | storage operator |
 
 The API is the authoritative modular content backend, not a restriction to one possible service
 process. Application/domain/API contracts do not depend on the container runtime. `services/`

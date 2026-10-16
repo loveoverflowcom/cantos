@@ -1,8 +1,9 @@
 # ADR 0022: Cantos Forge is a producer outside the API runtime
 
 - Status: **accepted product direction**, clarified by the owner on 2026-10-16 in #82/#203.
-  Local artifact CLI foundation is implemented; provider/Functions/Drive execution and API
-  submission are not. Runtime packaging and live acceptance remain decision gates.
+  Local artifact CLI foundation and a library-only attempt/recovery core are implemented;
+  real provider/Functions/Drive execution and API submission are not. Runtime packaging and
+  live acceptance remain decision gates.
 - Date: 2026-10-13; owner clarification: 2026-10-16
 - Decision owner: Cantos project
 - Related issues: [#82 — Forge vision](https://github.com/loveoverflowcom/cantos/issues/82),
@@ -83,6 +84,13 @@ the attempt and recovery rules (item 6) as a pure core with a mock provider
 ([record](../evidence/forge-attempt-verification.md)); a real provider, a persistent attempt
 store, Studio-requested execution and hosting remain separate slices, and this ADR's decisions
 are unchanged.
+
+The current #203 implementation request additionally specifies a Studio Forge workspace tab,
+Drive `appDataFolder` as the primary remote draft store, and relocation to
+`services/cantos-forge-functions`. These details remain unimplemented. Its app-data namespace
+and import/export requirements are not established by the ordinary story-workspace wording
+above; reconcile them through an explicit amendment before implementing that storage/runtime
+slice. A closed issue does not establish its full requested runtime or acceptance.
 
 ## Validation and revisit conditions
 

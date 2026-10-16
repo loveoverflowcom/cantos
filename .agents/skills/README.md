@@ -69,6 +69,8 @@ and unavailable production Android host; native audio, downloads and durable syn
 Backend listener contracts exist; real client/provider acceptance stays separate.
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
+Forge adds local artifact commands and a library-only attempt/recovery core with a mock provider;
+real provider/Functions/Drive execution and API handoff remain absent.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
 representation for four Studio routes are implemented. Production native listening

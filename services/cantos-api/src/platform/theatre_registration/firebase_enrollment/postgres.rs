@@ -146,6 +146,19 @@ impl PostgresFirebaseEnrollmentRepository {
             "UPDATE theatre_firebase_enrollments SET phase=$5 WHERE namespace=$1 AND project=$2 AND id=$3::text::uuid AND phase=$4 AND (NOT $6 OR expires_at>clock_timestamp())",
             &[&self.namespace, &self.project, &id.to_string(), &previous, &next, &require_fresh],
         ).await.map_err(database)?;
+        // Receipt triggers and index/constraint work can wait after the UPDATE's
+        // predicate. Sample time again after that work before granting the next
+        // external effect or releasing setup, and reject the entire transition.
+        if changed == 1 && require_fresh {
+            let fresh: bool = tx.query_one(
+                "SELECT expires_at>clock_timestamp() FROM theatre_firebase_enrollments WHERE namespace=$1 AND project=$2 AND id=$3::text::uuid",
+                &[&self.namespace, &self.project, &id.to_string()],
+            ).await.map_err(database)?.get(0);
+            if !fresh {
+                tx.rollback().await.map_err(unavailable)?;
+                return Ok(false);
+            }
+        }
         tx.commit().await.map_err(unavailable)?;
         Ok(changed == 1)
     }
