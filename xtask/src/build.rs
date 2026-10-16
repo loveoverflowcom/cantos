@@ -4,6 +4,8 @@
 //! (`cargo build --release`, `trunk build --release`); it is not a production image, a signed
 //! bundle or a deployment, none of which exist yet.
 
+use std::path::Path;
+
 use clap::ValueEnum;
 
 use crate::{
@@ -138,6 +140,26 @@ pub fn trunk(workspace: &Workspace, app: App, subcommand: &str, profile: Profile
         .env("NO_COLOR", "true")
         .args([subcommand, "--locked"])
         .arg_if(profile == Profile::Release, "--release")
+}
+
+/// The locked release Trunk build of one Web app into a caller-owned, fresh `dist`: the app's
+/// own `Trunk.toml`, its explicit `index.html` entrypoint and the root public URL, so neither an
+/// inherited default nor an older output directory can decide which bytes were built. Used by
+/// every command that inspects or ships the release bundle (`web-performance`, `deploy`).
+pub fn release_bundle(workspace: &Workspace, app: App, dist: &Path) -> CommandSpec {
+    trunk(workspace, app, "build", Profile::Release).args([
+        "--config".to_owned(),
+        workspace
+            .path(app.web_dir())
+            .join("Trunk.toml")
+            .display()
+            .to_string(),
+        "--dist".to_owned(),
+        dist.display().to_string(),
+        "--public-url".to_owned(),
+        "/".to_owned(),
+        "index.html".to_owned(),
+    ])
 }
 
 pub fn api_binaries(workspace: &Workspace, profile: Profile, bin: Option<&str>) -> CommandSpec {
@@ -287,6 +309,36 @@ mod tests {
             lines(BuildTarget::CantosTheatre, Some(Surface::Web), Profile::Dev),
             ["(in apps/cantos-theatre/web) NO_COLOR=true trunk build --locked"]
         );
+    }
+
+    #[test]
+    fn the_release_bundle_build_pins_config_dist_public_url_and_entrypoint() {
+        let workspace = Workspace::discover().unwrap();
+        let dist = std::path::PathBuf::from("/tmp/run with space/dist");
+        for app in App::ALL {
+            let command = release_bundle(&workspace, app, &dist);
+            let ordinary = step(&workspace, Unit::Web(app), Profile::Release, false);
+            assert!(command.args.starts_with(&ordinary.commands[0].args));
+            assert_eq!(command.cwd, ordinary.commands[0].cwd);
+            assert_eq!(command.env, ordinary.commands[0].env);
+            let config = workspace
+                .path(app.web_dir())
+                .join("Trunk.toml")
+                .display()
+                .to_string();
+            assert_eq!(
+                command.args[command.args.len() - 7..],
+                [
+                    "--config",
+                    config.as_str(),
+                    "--dist",
+                    "/tmp/run with space/dist",
+                    "--public-url",
+                    "/",
+                    "index.html"
+                ]
+            );
+        }
     }
 
     #[test]

@@ -1,0 +1,11 @@
+HTTP/1.1 200 OK
+Content-Type: application/javascript; charset=utf-8
+Content-Length: 42923
+ETag: adef22916e8ba14098926a0eaa220710
+Last-Modified: Fri, 16 Oct 2026 04:57:01 GMT
+Vary: Accept-Encoding
+Cache-Control: no-cache
+Date: Fri, 16 Oct 2026 04:57:56 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

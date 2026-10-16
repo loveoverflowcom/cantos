@@ -1,7 +1,7 @@
 module locale_preference_tests {
   import locale_preference.* from "./locale_preference"
   action check(predicate: bool): bool = all {
-    assert(predicate), state' = state, before' = state, last' = Assertion
+    assert(predicate), state' = state, before' = state, last' = Assertion, outcome' = NoOutcome
   }
   run savedWinsTest = init.then(reopen(Saved(English), Vietnamese, Dark)).then(check(restoredSaved))
   run fallbackTest = init.then(reopen(Corrupt, English, Dark)).then(check(state.locale == English and state.theme == Dark))

@@ -52,6 +52,9 @@ impl SurfaceArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum Task {
+    /// Explicit static Web deployment of one app to Firebase Hosting (preview or live). A remote
+    /// write; never invoked by build, run, verify, preflight or ci.
+    Deploy(crate::deploy::DeployArgs),
     /// Explicit remote tester distribution (Firebase App Distribution, demo APK only). A remote
     /// write; never invoked by build, run, verify, preflight or ci.
     Distribute(crate::distribute::DistributeArgs),

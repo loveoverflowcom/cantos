@@ -7,6 +7,7 @@ module locale_preference {
   type Notice = Applied | StoreUnavailable
   type Event = NoEvent | Assertion | Reopen({ read: Read, seed: Locale, theme: Theme })
     | SetLocale({ locale: Locale, accepted: bool }) | SetTheme(Theme) | Reset(bool)
+  type Outcome = NoOutcome | Changed
   type State = { locale: Locale, theme: Theme, notice: Notice }
   pure def restore(read: Read, seed: Locale): Locale = match read {
     | Saved(locale) => locale
@@ -18,9 +19,10 @@ module locale_preference {
   var state: State
   var before: State
   var last: Event
-  action init = all { state' = initial, before' = initial, last' = NoEvent }
-  action record(next: State, event: Event): bool = all {
-    state' = next, before' = state, last' = event
+  var outcome: Outcome
+  action init = all { state' = initial, before' = initial, last' = NoEvent, outcome' = NoOutcome }
+  action record(successor: State, event: Event): bool = all {
+    state' = successor, before' = state, last' = event, outcome' = Changed
   }
   // Read results/host seed are input facts. No model action proves a native store persisted.
   action reopen(read: Read, seed: Locale, theme: Theme): bool =

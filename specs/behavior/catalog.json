@@ -584,6 +584,105 @@
       "reason": "Existing reconciliation kernel is implemented; cross-client offline/native acceptance and model scope require review."
     },
     {
+      "id": "cantos.tooling.hosting-deploy",
+      "lifecycle": "draft",
+      "owner": "xtask/src/deploy/flow.rs",
+      "sourceRefs": [
+        "docs/decisions/0012-xtask-command-surface.md#decision",
+        "docs/deployment/firebase-hosting.md",
+        "xtask/src/deploy/receipt.rs"
+      ],
+      "model": "specs/behavior/tooling/hosting_deploy.qnt",
+      "module": "hosting_deploy",
+      "scenarios": "specs/behavior/tooling/hosting_deploy_tests.qnt",
+      "scenarioModule": "hosting_deploy_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.tooling.hosting-deploy.property.write-only-prepared",
+          "declaration": "writeOnlyPrepared"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.property.at-most-once",
+          "declaration": "atMostOnce"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.property.confirmed-sticky",
+          "declaration": "confirmedSticky"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.tooling.hosting-deploy.run.missing-bundle",
+          "declaration": "missingBundleTest"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.run.lost-intent",
+          "declaration": "lostIntentTest"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.run.prepared-write",
+          "declaration": "preparedWriteTest"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.run.unknown-outcome",
+          "declaration": "unknownOutcomeTest"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.run.confirmed-smoke-failure",
+          "declaration": "confirmedSmokeFailureTest"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.run.rejected",
+          "declaration": "rejectedTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.tooling.hosting-deploy.witness.prepared-write",
+          "declaration": "preparedWrite"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.witness.unknown-outcome",
+          "declaration": "unknownOutcome"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.witness.confirmed-smoke-failure",
+          "declaration": "confirmedSmokeFailure"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "199",
+        "samples": 300,
+        "steps": 20,
+        "scenarioSamples": 1,
+        "witnessSamples": 1000,
+        "timeoutSeconds": 60
+      },
+      "controls": [
+        {
+          "id": "cantos.tooling.hosting-deploy.control.write-only-prepared",
+          "property": "cantos.tooling.hosting-deploy.property.write-only-prepared",
+          "from": "state.ready and state.intent and not(state.stopped) and state.attempts == 0,",
+          "to": "state.ready and not(state.stopped) and state.attempts == 0,"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.control.at-most-once",
+          "property": "cantos.tooling.hosting-deploy.property.at-most-once",
+          "from": "state.ready and state.intent and not(state.stopped) and state.attempts == 0,",
+          "to": "state.ready and state.intent and not(state.stopped),"
+        },
+        {
+          "id": "cantos.tooling.hosting-deploy.control.confirmed-sticky",
+          "property": "cantos.tooling.hosting-deploy.property.confirmed-sticky",
+          "from": "record({ ...state, smoke: if (success) Passed else Failed }, SmokeCheck)",
+          "to": "record({ ...state, remote: Unknown, smoke: if (success) Passed else Failed }, SmokeCheck)"
+        }
+      ],
+      "aliases": []
+    },
+    {
       "id": "cantos.presentation.locale-preference",
       "lifecycle": "draft",
       "owner": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/preferences/PreferencesController.kt",

@@ -145,6 +145,12 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   API, plus immutable Production Brief export and scoped development read grants; external
   audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
+- **Firebase Hosting is configuration, not code.** `services/firebase-hosting/` holds the tracked
+  Hosting policy and a mapping example for the explicit, manual
+  `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
+  Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it, and the
+  API-origin and authentication contract for a deployed origin is a separate unmet gate. The VPS
+  [edge](../../services/edge/README.md) remains the authenticated same-origin route.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
   nothing in this repository reimplements an identity provider.
@@ -211,6 +217,7 @@ cargo xtask build cantos-theatre --mobile      # UNSUPPORTED: production native 
 cargo xtask theatre-demo build                 # shared core + preview-sandbox JVM diagnostic host
 cargo xtask theatre-demo android-build         # mock debug APK; existing Android SDK required
 cargo xtask distribute firebase cantos-theatre --channel demo --groups g --dry-run  # opt-in demo-APK tester distribution; plan only with --dry-run
+cargo xtask deploy firebase cantos-theatre --web --project ID --channel review --dry-run  # opt-in static Web deploy to Firebase Hosting; plan only with --dry-run
 cargo xtask verify rust                # workspace fmt, clippy and tests
 cargo xtask verify web                 # WASM clippy and Trunk builds of both clients
 ```

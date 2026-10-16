@@ -60,6 +60,14 @@ provider. Catalog, script visibility, saved items, offline synchronization, wide
 scenarios and artwork admission are outside this pilot. Their existing code/contracts/tests
 remain authoritative at their current boundaries until an explicitly reviewed model migration.
 
+## Draft: `cantos.tooling.hosting-deploy` (#199)
+
+| Classification | Authority / fact | Model consequence |
+| --- | --- | --- |
+| Reviewed narrow request | [ADR 0012](../../docs/decisions/0012-xtask-command-surface.md#decision) and the [Hosting command contract](../../docs/deployment/firebase-hosting.md) require explicit one-app intent, a validated bundle, durable intent before one never-retried remote write and honest uncertain outcomes. | The lifecycle stays `draft`; this model does not accept production Hosting or any new origin/auth choice. |
+| Implemented, independently of this model | [Coordinator](../../xtask/src/deploy/flow.rs) and [receipt](../../xtask/src/deploy/receipt.rs) preserve release outcome separately from smoke and local persistence; native mocked coordinator tests remain the implementation oracle. | No Rust observer is registered; model PASS is not implementation conformance. |
+| Finite assumption | One run and one selected app/bundle; preparation and persistence are abstract booleans, and remote outcomes are nondeterministic facts. | Covers intent-before-effect, no repeat write and confirmed-effect retention after failed smoke/local receipt. It does not parse config/URLs, hash bytes, execute Firebase or prove permissions, transport, crash durability or actual deployment. |
+
 ## Draft: `cantos.presentation.locale-preference` (#169)
 
 | Classification | Authority / fact | Model consequence |
