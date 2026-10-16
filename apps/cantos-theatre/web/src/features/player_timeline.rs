@@ -377,8 +377,16 @@ mod tests {
                     control.preview(20_000);
                     control.commit();
                     assert_eq!(commands.borrow().len(), 1, "{name}");
-                    assert_eq!(control.current().displayed_position(), Some(20_000), "{name}");
-                    assert_eq!(ctx.player.position_ms.get_untracked(), Some(20_000), "{name}");
+                    assert_eq!(
+                        control.current().displayed_position(),
+                        Some(20_000),
+                        "{name}"
+                    );
+                    assert_eq!(
+                        ctx.player.position_ms.get_untracked(),
+                        Some(20_000),
+                        "{name}"
+                    );
                 });
             }
         }
