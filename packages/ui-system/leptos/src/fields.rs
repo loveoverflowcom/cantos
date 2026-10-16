@@ -130,6 +130,8 @@ pub enum TextFieldVariant {
     #[default]
     Regular,
     AuthTonal,
+    /// Web spacing/focus candidate; preview-only until shared admission is complete.
+    AuthTonalSpacious,
 }
 
 impl TextFieldVariant {
@@ -137,6 +139,7 @@ impl TextFieldVariant {
         match self {
             Self::Regular => "regular",
             Self::AuthTonal => "auth-tonal",
+            Self::AuthTonalSpacious => "auth-tonal-spacious",
         }
     }
 }

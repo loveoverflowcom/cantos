@@ -45,6 +45,7 @@ recipe_enum!(ComponentId {
     Dialog => "dialog",
     Select => "select",
     BackButton => "back-button",
+    AuthTonal => "auth-tonal",
 });
 
 recipe_enum!(ScenarioState {
@@ -60,6 +61,7 @@ recipe_enum!(ScenarioState {
     Error => "error",
     MissingValue => "missing-value",
     EmptyOptions => "empty-options",
+    ReadOnly => "readonly",
 });
 
 impl ComponentId {
@@ -70,6 +72,7 @@ impl ComponentId {
             Self::FilterChip => &[Unselected, Selected, Disabled, Loading],
             Self::Switch => &[Off, On, Disabled, Loading],
             Self::Dialog => &[Closed, Open],
+            Self::AuthTonal => &[Enabled, Error, Disabled, Loading, ReadOnly],
             Self::Select => &[
                 Enabled,
                 Disabled,
@@ -88,6 +91,7 @@ impl ComponentId {
             Self::Switch => ScenarioState::Off,
             Self::Dialog => ScenarioState::Closed,
             Self::Select => ScenarioState::Enabled,
+            Self::AuthTonal => ScenarioState::Enabled,
         }
     }
 
@@ -95,6 +99,7 @@ impl ComponentId {
     pub const fn catalog_id(self) -> &'static str {
         match self {
             Self::AuthPrimary => "button",
+            Self::AuthTonal => "text-field",
             _ => self.as_str(),
         }
     }

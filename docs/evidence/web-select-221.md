@@ -97,3 +97,22 @@ and update the same Draft PR. Do not close #221 while these criteria remain inco
 Residual risk: no actual browser, visual, accessibility, motion or product persistence acceptance;
 the custom presentation remains preview-only. #222 and #223 are pending separate sequential
 sessions and must retain independent regression/evidence records in the same PR.
+
+## Session 3 bounded browser continuation
+
+Chrome was accessible in the final sequential session; the earlier locked-Mac `NOT_RUN` is a
+historical result, not the latest observation. On the unchanged Select candidate, headed Chrome
+155.0.0.0 at 1585×741 CSS px/DPR 1 with local Noto loaded ran the standard VI/light recipe,
+`component=select&state=enabled&frame=320&mode=isolated&motion=system&text=100`.
+Opened pixels showed a padded tonal popup aligned under the trigger, selected check and a
+separate keyboard-active boundary. Click/End opened and browsed to Tối; Escape retained `system`
+and returned focus to the combobox. Enter/Home/Down/Enter acknowledged `light` once.
+Space/End/Tab acknowledged `dark` once and advanced focus to Language. Typing `e` then Enter
+acknowledged `en` once. Exported intent log contains exactly those three acknowledgements,
+in ignored `artifacts/agent-runs/20261016-ui223/browser-select-vi-light.txt`.
+
+This is bounded `interaction-tested`/`screenshot-inspected` evidence, not the complete issue
+matrix. Full edge/scroll/resize/zoom/touch/native-fallback/form-validity, screen-reader and
+reviewed design/two-renderer admission remain pending; the three product consumers are still
+unmigrated. See the [final session record](web-auth-tonal-223.md) for combined self-review and
+remaining acceptance. #221 remains open and the combined PR remains Draft.

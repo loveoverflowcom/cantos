@@ -334,16 +334,16 @@
 :where(.cantos-ui) .cui-surface[data-variant="profile"] { border-radius: var(--cantos-shape-profile-container); }
 :where(.cantos-ui) .cui-surface[data-variant="membership"] { border-radius: var(--cantos-shape-membership-container); }
 :where(.cantos-ui) .cui-surface[data-variant="account-group"] { border-radius: var(--cantos-shape-account-group); }
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control {
   min-block-size: var(--cantos-size-auth-field);
   border-radius: var(--cantos-shape-auth-field);
 }
 /* Invalid input retains the existing errorContainer cue. Read-only/disabled already use
    this quiet container tone and keep their native semantics and foreground unchanged. */
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:not([aria-invalid="true"]) {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control:not([aria-invalid="true"]) {
   background: var(--cantos-color-surface-container);
 }
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
   background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
 }
 @media (prefers-reduced-motion: reduce) {
@@ -641,6 +641,16 @@
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
 }
+/* Web-only candidate: keep a two-border focus perimeter, closer to the field, with
+   room for both the external label and help/error. No border/size changes on focus.
+   Existing AuthTonal and Regular consumers retain the compatibility geometry. */
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] {
+  gap: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible {
+  outline-width: calc(2 * var(--cantos-size-border));
+  outline-offset: calc(2 * var(--cantos-size-border));
+}
 :where(.cantos-ui) :is(.cui-field-help, .cui-field-error) {
   margin: 0;
   font-size: var(--cantos-type-metadata-size);
@@ -726,6 +736,7 @@
   :where(.cantos-ui) .cui-field-control { border: var(--cantos-size-border) solid FieldText; }
   :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible) { outline: var(--cantos-size-border) dashed FieldText; }
   :where(.cantos-ui) .cui-field-control:disabled { color: GrayText; }
+  :where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible { outline-color: Highlight; }
   :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]::before { background: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]:checked { background: Highlight; }

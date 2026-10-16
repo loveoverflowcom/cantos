@@ -565,10 +565,19 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in back_extension {
         assert!(back.states.contains(&state));
     }
+    let field_extension = ["auth-tonal-spacious", "autofill", "forced-colors"];
+    let field = components
+        .iter()
+        .find(|api| api.id == "text-field")
+        .unwrap();
+    for state in field_extension {
+        assert!(field.states.contains(&state));
+    }
     assert_eq!(
         components.iter().map(|api| api.states.len()).sum::<usize>()
             - select_extension.len()
-            - back_extension.len(),
+            - back_extension.len()
+            - field_extension.len(),
         198
     );
     assert_eq!(
@@ -691,6 +700,49 @@ fn back_recipe_uses_the_real_control_with_localized_names_and_an_explicit_baseli
         }
         assert!(html.contains(account), "{html}");
         assert!(html.contains(login), "{html}");
+        let mut ids = BTreeSet::new();
+        for attribute in html.split(" id=\"").skip(1) {
+            let id = attribute.split('"').next().unwrap();
+            assert!(ids.insert(id), "duplicate workbench ID {id}");
+        }
+    }
+}
+
+#[test]
+fn auth_tonal_recipe_covers_native_field_states_and_keeps_cta_a_local_button() {
+    for (locale, label, cta) in [
+        ("vi", "Email của bạn", "Tiếp tục — mẫu cục bộ"),
+        ("en", "Your email", "Continue — local sample"),
+    ] {
+        let query = format!("?v=1&component=auth-tonal&state=enabled&locale={locale}&mode=matrix");
+        let html = Owner::new()
+            .with(|| view! { <preview::workbench::Workbench initial_query=query/> }.to_html());
+        assert!(!html.contains("using the default recipe"));
+        assert!(html.contains(label));
+        assert!(html.contains(cta));
+        for state in ["enabled", "error", "disabled", "loading", "readonly"] {
+            let id = format!("scenario-auth-tonal-{state}-control");
+            let input = opening_tag(&html, &id);
+            assert!(input.contains("type=\"email\""), "{input}");
+            assert!(input.contains("autocomplete=\"email\""), "{input}");
+            assert!(input.contains("required"));
+            assert_eq!(
+                input.contains("disabled"),
+                matches!(state, "disabled" | "loading")
+            );
+            assert_eq!(input.contains("readonly"), state == "readonly");
+            assert!(input.contains(&format!("aria-invalid=\"{}\"", state == "error")));
+            assert!(input.contains(&format!("aria-busy=\"{}\"", state == "loading")));
+            let button = opening_tag(&html, &format!("{id}-cta"));
+            assert!(
+                button.contains("type=\"button\""),
+                "no submission effect: {button}"
+            );
+            assert_eq!(
+                button.contains("disabled"),
+                matches!(state, "disabled" | "loading")
+            );
+        }
         let mut ids = BTreeSet::new();
         for attribute in html.split(" id=\"").skip(1) {
             let id = attribute.split('"').next().unwrap();

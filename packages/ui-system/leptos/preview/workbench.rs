@@ -2,8 +2,8 @@
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
     AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant, ChoiceState,
-    Density, Dialog, DisabledReason, FilterChip, IconName, Select, SelectOption, Space, Stack,
-    Switch, TextField, Theme, UiRoot,
+    Density, Dialog, DisabledReason, FieldState, FilterChip, IconName, Select, SelectOption, Space,
+    Stack, Switch, TextField, TextFieldKind, TextFieldVariant, Theme, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -241,7 +241,11 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     Effect::new(move |_| {
         host.reset.get();
         selected.set(matches!(state, ScenarioState::Selected | ScenarioState::On));
-        text.set(fixture_label(host.recipe.get_untracked()).to_owned());
+        text.set(if component == ComponentId::AuthTonal {
+            "nguyen-thi-anh-nguyet+truyen-dai@example.test".to_owned()
+        } else {
+            fixture_label(host.recipe.get_untracked()).to_owned()
+        });
         language_value.set("vi-VN".to_owned());
         select_value.set(
             if state == ScenarioState::MissingValue {
@@ -288,6 +292,54 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let press = Callback::new(move |_| host.log(format!("{} press", log_id.get_value())));
     let label = Signal::derive(move || fixture_label(host.recipe.get()).to_owned());
     let content = match component {
+        ComponentId::AuthTonal => {
+            let field_state = Signal::derive(move || match state {
+                ScenarioState::Disabled => FieldState::Disabled(blocked_reason.get()),
+                ScenarioState::Loading => FieldState::Loading(blocked_reason.get()),
+                ScenarioState::ReadOnly => FieldState::ReadOnly,
+                _ => FieldState::Editable,
+            });
+            let email_label = Signal::derive(move || {
+                let recipe = host.recipe.get();
+                match (recipe.locale, recipe.fixture) {
+                    (Locale::Vi, Fixture::Standard) => "Email của bạn",
+                    (Locale::En, Fixture::Standard) => "Your email",
+                    (Locale::Vi, Fixture::LongVietnamese) => "Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe",
+                    (Locale::En, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt’s email to continue the story you are listening to",
+                }.to_owned()
+            });
+            let help = Signal::derive(move || Some(copy(host.recipe.get().locale,
+                "Mẫu cục bộ giữ giá trị; không gửi email hoặc tạo tài khoản.",
+                "Local sample preserves your value; no email or account is created.").to_owned()));
+            let error = Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale,
+                "Kiểm tra địa chỉ email. Nội dung đã nhập được giữ nguyên.",
+                "Check the email address. Your entered value is preserved.").to_owned()));
+            let baseline_id = format!("{control_id}-baseline");
+            let cta_id = format!("{control_id}-cta");
+            let baseline_cta_id = format!("{control_id}-baseline-cta");
+            let edit = Callback::new(move |value: String| {
+                text.set(value);
+                // Do not export entered text in diagnostics.
+                host.log(format!("{} input", log_id.get_value()));
+            });
+            let cta = Signal::derive(move || copy(host.recipe.get().locale, "Tiếp tục — mẫu cục bộ", "Continue — local sample").to_owned());
+            view! {
+                <p class="cui-gallery-note">"AuthTonalSpacious Web candidate — unqualified. Real input required for hover/focus/autofill/forced-colors. CTA logs an intent only."</p>
+                <Stack gap=Space::Lg class="cui-auth-field-rhythm" attr:data-preview-scenario="auth-tonal-spacious auth-field-focus auth-field-error auth-field-cta autofill forced-colors">
+                    <TextField id=control_id variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
+                        name="email" required=true autocomplete="email" label=email_label value=text
+                        state=field_state help=help error=error on_input=edit/>
+                    <Button id=cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>
+                </Stack>
+                <p class="cui-gallery-note">"Existing AuthTonal presentation and 16-unit field→CTA gap (compatibility baseline):"</p>
+                <Stack gap=Space::Md>
+                    <TextField id=baseline_id variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                        name="baseline-email" required=true autocomplete="off" label=email_label value=text
+                        state=field_state help=help error=error on_input=edit/>
+                    <Button id=baseline_cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>
+                </Stack>
+            }.into_any()
+        }
         ComponentId::BackButton => {
             let name = Signal::derive(move || {
                 let recipe = host.recipe.get();

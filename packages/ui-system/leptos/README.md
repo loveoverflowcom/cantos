@@ -336,6 +336,29 @@ screen-reader behavior. These APIs remain **implemented-unverified and unqualifi
 adoption** until both real Leptos/CMP previews satisfy the shared admission contract. They add
 no application route, auth/payment integration or backend authority.
 
+## Web AuthTonal spacing candidate — preview only
+
+`TextFieldVariant::AuthTonalSpacious` keeps the existing AuthTonal 56-unit minimum and
+20-unit corner while mapping label/control/message gap to `space.sm`. Its visible keyboard
+focus has width and offset `2 × size.border`, using `color.focus`; forced colors use `Highlight`.
+This reduces the outward focus footprint from seven to four units without changing layout,
+native email/autocomplete/required facts, controlled values or external error ownership.
+Regular and existing AuthTonal callers retain their geometry. No shared token changed.
+
+Recipe `component=auth-tonal` maps to catalog `text-field`; states are
+`enabled|error|disabled|loading|readonly`. VI/EN and standard/long fixtures render the actual
+candidate, help/error/reason, a local-only AuthPrimary CTA with `space.lg` gap and the existing
+AuthTonal/`space.md` baseline. The CTA records a host intent, never submits a form. The gallery
+adds the same candidate in its fluid field section for actual narrow-viewport reflow; workbench
+frame widths remain fixed diagnostic frames and may scroll when wider than their host.
+
+Example: `?v=1&component=auth-tonal&state=error&fixture=long-vietnamese&theme=dark&density=comfortable&locale=en&text=100&frame=320&motion=reduced&mode=matrix&playback=live`.
+Hover/focus/autofill/forced colors need real browser input or explicitly recorded emulation.
+The three added catalog diagnostics do not qualify either renderer. CMP metadata lists the
+Web diagnostic names only; it implements no new CMP geometry. Both-renderer/design admission
+and actual signup-form observations remain pending. Do not migrate product imports or change
+the app's form gap until that gate is met. See [#223 evidence](../../../docs/evidence/web-auth-tonal-223.md).
+
 ## Consumer map
 
 The CMP foundation sequence adds companion development specimens in

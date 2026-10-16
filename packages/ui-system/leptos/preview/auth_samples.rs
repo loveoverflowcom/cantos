@@ -95,8 +95,10 @@ pub fn AuthFieldSamples(
                 </Select>
                 <Button id="auth-field-toggle-error" variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>"Bật/tắt lỗi mẫu"</Button>
-                <div data-preview-scenario="auth-tonal auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly">
-                    <TextField id="auth-email" variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                <p>"AuthTonalSpacious · Web candidate, chưa qualified. Dùng Tab để so focus với AuthTonal hiện hành bên dưới."</p>
+                <Stack gap=Space::Lg>
+                <div data-preview-scenario="auth-tonal auth-tonal-spacious auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
+                    <TextField id="auth-email" variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
                         label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
                         value=text state=state error=error autocomplete="email"
                         help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."
@@ -105,6 +107,19 @@ pub fn AuthFieldSamples(
                             edits.update(|count| *count += 1);
                         })/>
                 </div>
+                <Button id="auth-field-cta" variant=ButtonVariant::AuthPrimary
+                    state=Signal::derive(move || match state.get() {
+                        FieldState::Disabled(reason) => ButtonState::Disabled(reason),
+                        FieldState::Loading(reason) => ButtonState::Loading(reason),
+                        _ => ButtonState::Enabled,
+                    }) on_press=Callback::new(|_| {})>"Tiếp tục — mẫu cục bộ, không gửi email"</Button>
+                </Stack>
+                <p>"AuthTonal hiện hành · compatibility baseline:"</p>
+                <TextField id="auth-email-baseline" variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                    label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
+                    value=text state=state error=error autocomplete="off"
+                    help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."
+                    on_input=Callback::new(move |value| text.set(value))/>
                 <p id="auth-field-output" class="cui-gallery-output">{move || format!("Số lần nhận input: {} · Giá trị: {}", edits.get(), text.get())}</p>
                 <TextField id="auth-regular-field" label="Trường thường không đổi geometry" value="Sơn Hà Ký"
                     on_input=Callback::new(|_: String| {})/>

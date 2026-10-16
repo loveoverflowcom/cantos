@@ -159,12 +159,15 @@
         "ime-action",
         "blank-error",
         "auth-tonal",
+        "auth-tonal-spacious",
+        "autofill",
+        "forced-colors",
         "long-vietnamese",
         "large-text"
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+        "reason": "Existing native field baseline retained. AuthTonalSpacious is a Web preview-only candidate; runtime, accessibility and inspected-reference admission remain incomplete."
       },
       "cmp": {
         "status": "implemented-unverified",
