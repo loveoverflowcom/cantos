@@ -801,6 +801,7 @@
       "owner": "services/cantos-api/src/platform/theatre_registration/application.rs",
       "sourceRefs": [
         "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
+        "docs/decisions/0036-firebase-enrollment-proof.md#decision",
         "packages/contracts/theatre-identity-v1.md",
         "services/cantos-api/migrations/0027_theatre_registration.sql"
       ],
@@ -863,6 +864,18 @@
         {
           "id": "cantos.identity.theatre-registration.run.uncertain-mail",
           "declaration": "uncertainMailTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.provider-status-without-proof",
+          "declaration": "providerStatusWithoutProofTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.provider-status-after-claim",
+          "declaration": "providerStatusAfterClaimTest"
+        },
+        {
+          "id": "cantos.identity.theatre-registration.run.provider-status-after-completion",
+          "declaration": "providerStatusAfterCompletionTest"
         }
       ],
       "witnesses": [

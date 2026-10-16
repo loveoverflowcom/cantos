@@ -34,6 +34,16 @@ See the
 
 ### Email onboarding owner and effect boundaries
 
+[#206](https://github.com/loveoverflowcom/cantos/issues/206)'s
+[Firebase proof proposal](../decisions/0036-firebase-enrollment-proof.md) adds only an
+isolated test-build prototype under this registration owner. It checks action purpose before
+consuming the same code and compares the returned UID/email against supplied pending facts;
+fixtures do not establish project/bootstrap/resend binding. It mounts no provider mode and
+changes neither the accepted setup-mail rule nor the existing session boundary. Review the
+delivery/binding decisions before runtime integration; the
+[evidence ledger](../evidence/firebase-enrollment-proof.md) and
+[operator review plan](../deployment/firebase-enrollment-proof.md) retain separate gates.
+
 `platform::theatre_registration` owns this workflow in the existing API. Its pure values and
 phase rules depend on neither HTTP, SQL, Kanidm nor SMTP. Application ports have PostgreSQL,
 Kanidm and vendor-neutral SMTP adapters plus isolated doubles; the Web layer consumes the
