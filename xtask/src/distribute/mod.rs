@@ -70,7 +70,8 @@ Configuration (nonsecret):
   --app-id / CANTOS_FIREBASE_DEMO_APP_ID   the Firebase Android app ID; the flag wins
   CANTOS_FIREBASE_DEMO_CERT_SHA256         optional expected debug-certificate fingerprint
 The Firebase CLI authenticates by its own login or Application Default Credentials; xtask
-never reads, prints or stores a credential. See apps/cantos-theatre/mobile/docs/firebase-distribution.md.";
+never reads, prints or stores a credential. Infrastructure inputs are indexed in
+infra/firebase/app-distribution/README.md; see apps/cantos-theatre/mobile/docs/firebase-distribution.md.";
 
 #[derive(Debug, Args)]
 #[command(after_long_help = FIREBASE_HELP)]

@@ -2,7 +2,7 @@
   "hosting": [
     {
       "target": "theatre",
-      "public": "../../apps/cantos-theatre/web/dist",
+      "public": "../../../apps/cantos-theatre/web/dist",
       "ignore": ["**/.*", "**/node_modules/**"],
       "headers": [
         {
@@ -13,7 +13,7 @@
     },
     {
       "target": "studio",
-      "public": "../../apps/cantos-studio/web/dist",
+      "public": "../../../apps/cantos-studio/web/dist",
       "ignore": ["**/.*", "**/node_modules/**"],
       "headers": [
         {

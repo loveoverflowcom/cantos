@@ -25,9 +25,17 @@ __pycache__/
 *.opus
 
 # Service examples are public; actual local config, TLS and identity data are private.
+/infra/firebase/hosting/.firebaserc
+# Legacy private mapping remains ignored; migrate manually, never duplicate authorities.
 /services/firebase-hosting/.firebaserc
 /services/*/env.local
 /services/kanidm/server.toml
 /services/*/data/
 *.pem
 *.key
+
+# Firebase/operator outputs are private regardless of configuration directory.
+firebase-debug*.log
+.firebaserc
+/infra/**/env.local
+/infra/**/data/

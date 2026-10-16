@@ -24,13 +24,20 @@ Forge currently registers/checks/exports local artifacts; it does not yet call G
 HTTP or submit to the API.
 
 Studio owns the buttons, configuration, status, preview and explicit acceptance. Its planned
-second backend is Forge via local/deployed Firebase Functions. CLI and Functions must invoke
-the same Rust use cases through thin adapters; the exact Functions runtime packaging still
+producer execution boundary is Forge via local/deployed Firebase Functions. CLI and Functions
+must invoke the same Rust use cases through thin adapters; the exact Functions runtime packaging still
 needs a feasibility decision. No separate Forge GUI or TypeScript copy of production logic.
 
 Cantos API never spawns Forge, stores Gemini credentials or requires Forge for catalog/playback.
 Theatre never triggers synthesis. Static Firebase Hosting serves the Web bundles and is a
 separate deployment boundary from Functions and the VPS API.
+
+Application code, deployment assets and developer orchestration have separate owners:
+`services/cantos-api` remains the authoritative modular backend, current Forge code stays at
+`apps/cantos-forge`, [`infra/`](../../infra/README.md) holds edge and static Hosting assets, and
+`xtask/` owns commands. #212 is only that mechanical infrastructure boundary. #203 owns a future
+Forge service-location move and the concrete Functions consumer/runtime decision; no Functions
+scaffold or live deployment acceptance follows from the directory split.
 
 ## Layers and contexts
 

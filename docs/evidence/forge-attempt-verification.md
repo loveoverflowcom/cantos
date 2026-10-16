@@ -1,5 +1,9 @@
 # Forge generation attempts: verification record (#203, first slice)
 
+This is the source-bound first-slice record. The later
+[race/readback and pinned-gate follow-up](forge-attempt-reconciliation.md) preserves these
+historical results and records the subsequent fixes and current tool evidence separately.
+
 This records what was and was not verified for the first slice of
 [#203](https://github.com/loveoverflowcom/cantos/issues/203): the pure rules, Quint capability,
 Kani kernel and mock-provider tests for **when a billable provider call may start**. It adds no

@@ -231,6 +231,7 @@ class ConformanceContracts(unittest.TestCase):
         report = {"schemaVersion": 1, "scope": "model-only", "status": "PASS", "capability": cap["id"], "sourceRevision": "revision",
                   "inputs": inputs, "tools": versions, "budget": cap["simulation"], "selection": {key: cap[key] for key in ("properties", "runs", "witnesses")},
                   "controlSelection": [{"id": "control", "property": "property"}],
+                  "observationVariables": sorted(["state", "before", "last", "outcome"]),
                   "stages": {key: "PASS" for key in ("typecheck", "scenarios", "simulation", "witnesses", "negativeControls", "freshness")},
                   "installationReceipt": {"file": "installation.json", "sha256": versions["installationReceiptSha256"]}, "traces": {}}
         (bundle / "control-1.qnt").write_text('mutated')
@@ -252,6 +253,8 @@ class ConformanceContracts(unittest.TestCase):
                  lambda cap, report: report.update(tools={}),
                  lambda cap, report: report.update(budget={}),
                  lambda cap, report: report.update(selection={}),
+                 lambda cap, report: report.pop("observationVariables"),
+                 lambda cap, report: report.update(observationVariables=["state", "before", "last", "verdict", "ack"]),
                  lambda cap, report: cap.update(observationSchema="wrong"),
                  lambda cap, report: report["stages"].update(witnesses="NOT_RUN"),
                  lambda cap, report: report["traces"].update(test=[]),

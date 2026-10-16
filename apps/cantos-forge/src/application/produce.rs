@@ -172,7 +172,7 @@ impl<A: AttemptStore, S: Store, P: Provider> Producer<'_, A, S, P> {
         match self.attempts.append(key, index, &event) {
             Ok(()) => {}
             // Another invocation reserved first: it owns the call, this one only reports.
-            Err(AttemptStoreError::Conflict) => return self.recorded(key),
+            Err(AttemptStoreError::Conflict) => return self.recorded(key, request.fingerprint()),
             Err(error) => return Err(ProduceError::NotReserved(error)),
         }
         let operation = match base {
@@ -212,8 +212,10 @@ impl<A: AttemptStore, S: Store, P: Provider> Producer<'_, A, S, P> {
 
     /// Writes the attempt's one outcome. A lost response is healed by reading the history back:
     /// only the reservation's owner records a provider outcome, so finding exactly this event
-    /// at this position proves the write happened. (A reservation cannot be healed this way:
-    /// two identical requests produce identical reservation events.)
+    /// at this position in an intact history with the same prefix proves the write happened.
+    /// A later valid regeneration is allowed; a matching event in an unrelated or corrupt
+    /// history proves nothing. (A reservation cannot be healed this way: two identical
+    /// requests produce identical reservation events.)
     fn record(
         &self,
         key: &OperationKey,
@@ -224,10 +226,15 @@ impl<A: AttemptStore, S: Store, P: Provider> Producer<'_, A, S, P> {
         let event = settle(operation, attempt, settlement).map_err(ProduceError::Settle)?;
         let index = operation.next_index();
         if let Err(error) = self.attempts.append(key, index, &event) {
-            let written = self
-                .attempts
-                .events(key)
-                .is_ok_and(|events| events.get(index) == Some(&event));
+            let written = self.attempts.events(key).is_ok_and(|events| {
+                events.get(index) == Some(&event)
+                    && Operation::replay(&events).is_ok()
+                    && events
+                        .get(..index)
+                        .and_then(|prefix| Operation::replay(prefix).ok())
+                        .as_ref()
+                        == Some(operation)
+            });
             if !written {
                 return Err(ProduceError::OutcomeNotRecorded { attempt, error });
             }
@@ -238,8 +245,18 @@ impl<A: AttemptStore, S: Store, P: Provider> Producer<'_, A, S, P> {
             .map_err(ProduceError::Corrupt)
     }
 
-    fn recorded(&self, key: &OperationKey) -> Result<Produced, ProduceError> {
+    fn recorded(
+        &self,
+        key: &OperationKey,
+        fingerprint: RequestFingerprint,
+    ) -> Result<Produced, ProduceError> {
         let operation = self.load(key)?.ok_or(ProduceError::UnknownOperation)?;
+        // The competing reservation may pin a different request under the same key.
+        if operation.fingerprint() != fingerprint {
+            return Err(ProduceError::Conflict {
+                recorded: operation.fingerprint(),
+            });
+        }
         Ok(Produced::Recorded(operation.status()))
     }
 }

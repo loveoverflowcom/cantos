@@ -1,7 +1,7 @@
 //! The Hosting configuration, as pure functions over file text.
 //!
 //! Two inputs are kept apart on purpose:
-//! - the **tracked policy** (`services/firebase-hosting/firebase.json`): headers and the shape of
+//! - the **tracked policy** (`infra/firebase/hosting/firebase.json`): headers and the shape of
 //!   each target, reviewed in Git, free of any real project or site ID;
 //! - the **operator mapping** (`.firebaserc` beside it, ignored by Git): which Hosting site each
 //!   deploy target means in a given project. Site IDs are globally allocated names that only the
@@ -29,7 +29,7 @@ use super::request::{hosting_target, ProjectId};
 use crate::config::App;
 
 /// Repository-relative directory of the tracked policy and the operator's mapping.
-pub const CONFIG_DIR: &str = "services/firebase-hosting";
+pub const CONFIG_DIR: &str = "infra/firebase/hosting";
 pub const FIREBASE_JSON: &str = "firebase.json";
 pub const FIREBASERC: &str = ".firebaserc";
 /// The Hosting `public` directory inside a run, relative to the effective config beside it.
@@ -546,7 +546,7 @@ fn validate_headers(target: &str, entry: &Map<String, Value>) -> Result<(), Poli
 // ACCEPTANCE(NOT_RUN): long-lived caching of hashed assets is deliberately not granted. Reaching
 // it needs (a) a verified rule that a URL's bytes change whenever its name must, per asset class,
 // and (b) real response headers from Hosting. Owner: a follow-up to issue #199. The VPS edge
-// (`services/edge/Caddyfile`, `cantos_spa`) keeps its own existing policy.
+// (`infra/edge/Caddyfile`, `cantos_spa`) keeps its own existing policy.
 pub fn check_cache_value(value: &str) -> Result<(), ()> {
     let lower = value.to_ascii_lowercase();
     let directives: Vec<&str> = lower.split(',').map(str::trim).collect();
@@ -596,11 +596,20 @@ mod tests {
     #[test]
     fn the_tracked_policy_is_accepted_and_names_each_apps_trunk_output() {
         let policy = Policy::parse(&tracked()).unwrap();
+        let workspace = crate::workspace::Workspace::discover().unwrap();
         for app in App::ALL {
-            assert_eq!(
-                policy.diagnostic_public(hosting_target(app)),
-                Some(format!("../../{}/dist", app.web_dir()).as_str())
-            );
+            let public = policy.diagnostic_public(hosting_target(app)).unwrap();
+            assert_eq!(public, format!("../../../{}/dist", app.web_dir()));
+            // dist need not exist: resolve its existing parent to prove the moved config's
+            // diagnostic/emulator path still names the owning app, not infra/apps.
+            let owner = workspace
+                .path(CONFIG_DIR)
+                .join(public)
+                .parent()
+                .unwrap()
+                .canonicalize()
+                .unwrap();
+            assert_eq!(owner, workspace.path(app.web_dir()).canonicalize().unwrap());
         }
     }
 

@@ -37,7 +37,7 @@ static files.
 | **Deploy target** | `theatre`, `studio` | local alias fixed by the repository (`cantos-theatre` → `theatre`, `cantos-studio` → `studio`) |
 | Android Firebase App ID | `1:123:android:abc` | App Distribution only; unrelated to Hosting |
 
-The mapping *target → site* is yours: it lives in `services/firebase-hosting/.firebaserc`, ignored by
+The mapping *target → site* is yours: it lives in `infra/firebase/hosting/.firebaserc`, ignored by
 Git. The repository never contains a real project or site ID.
 
 ## One-time setup
@@ -75,17 +75,17 @@ firebase hosting:sites:create STUDIO_SITE_ID --project "$PROJECT_ID"
 Then tell the repository which site each target means. Either copy the example and edit it:
 
 ```bash
-cp services/firebase-hosting/firebaserc.example services/firebase-hosting/.firebaserc
+cp infra/firebase/hosting/firebaserc.example infra/firebase/hosting/.firebaserc
 # edit the three REPLACE_WITH_* values
 ```
 
 or let the CLI write it (run from the directory that holds `firebase.json`):
 
 ```bash
-cd services/firebase-hosting
+cd infra/firebase/hosting
 firebase target:apply hosting theatre THEATRE_SITE_ID --project "$PROJECT_ID"
 firebase target:apply hosting studio STUDIO_SITE_ID --project "$PROJECT_ID"
-cd ../..
+cd ../../..
 ```
 
 xtask requires each target to map to **exactly one** site in the project you pass, and the two
@@ -98,7 +98,7 @@ Notes:
 - The Firebase CLI also needs the project's **default** Hosting site to exist before it deploys, even
   though the configuration names other sites, and `firebase.projects.get` on the project.
 - `firebase init hosting --project "$PROJECT_ID"` is optional bootstrap only when no reviewed
-  configuration exists; here the tracked [`firebase.json`](../../services/firebase-hosting/firebase.json)
+  configuration exists; here the tracked [`firebase.json`](../../infra/firebase/hosting/firebase.json)
   already is that configuration, so do not run it in this directory: it can overwrite files and
   replace the multisite configuration. Decline GitHub integration if you ever see it.
 - Preview channels and live releases are public the moment they succeed. Nothing in this setup makes
@@ -175,7 +175,7 @@ old `dist`), and it is scanned again immediately before the upload.
 
 ## Hosting behavior
 
-The tracked policy, [`services/firebase-hosting/firebase.json`](../../services/firebase-hosting/firebase.json),
+The tracked policy, [`infra/firebase/hosting/firebase.json`](../../infra/firebase/hosting/firebase.json),
 is short on purpose, and xtask refuses to deploy a version of it that weakens any of these:
 
 - **Two independent targets**, `theatre` and `studio`, each its own site. Static Hosting only: no
@@ -192,7 +192,7 @@ is short on purpose, and xtask refuses to deploy a version of it that weakens an
   release bundles each `*.css` name equals the SeaHash of its bytes, but the `*.js` and `*_bg.wasm`
   names of one app carry the *same* hash although their bytes differ (the name identifies the build
   input). The cost is a conditional request per file per load; granting immutability for a class of
-  assets needs its own evidence and is a follow-up. (The VPS edge, `services/edge`, keeps its own,
+  assets needs its own evidence and is a follow-up. (The VPS edge, `infra/edge`, keeps its own,
   separate policy.)
 - **MIME types** are Hosting's. Observed on the local emulator: `.wasm` →
   `application/wasm`, `.js` → `application/javascript`, `.css` → `text/css`, `.json`, `.svg`,
@@ -235,11 +235,11 @@ without touching your project. Use a `demo-` project ID so nothing can reach a r
 
 ```bash
 cargo xtask build cantos-theatre --web --release
-cat > services/firebase-hosting/.firebaserc <<'EOF'
+cat > infra/firebase/hosting/.firebaserc <<'EOF'
 { "targets": { "demo-cantos": { "hosting": { "theatre": ["demo-theatre"], "studio": ["demo-studio"] } } } }
 EOF
 firebase emulators:start --only hosting --project demo-cantos \
-  --config "$PWD/services/firebase-hosting/firebase.json"
+  --config "$PWD/infra/firebase/hosting/firebase.json"
 # Theatre is served at http://127.0.0.1:5000 (Studio at :5005 once built); probe it with curl as above.
 ```
 
@@ -272,7 +272,7 @@ Before claiming an integrated deployment, review these and record the choice in 
 Do not invent an environment variable and assume the WASM reads it: an API-origin setting needs an
 actual client reader, validation, tests and coverage of catalog, library, artwork, auth navigation,
 callbacks and every protected request. Never expose the development-only API to satisfy this gate.
-Until it passes, the VPS route in [`services/edge`](../../services/edge/README.md) remains the
+Until it passes, the VPS route in [`infra/edge`](../../infra/edge/README.md) remains the
 authenticated alternative and is untouched by this feature.
 
 ## Recovery and reconciliation
@@ -316,7 +316,7 @@ firebase deploy --only hosting:theatre \
 
 | Message | Meaning and next step |
 | --- | --- |
-| `no services/firebase-hosting/.firebaserc` | create the mapping ([setup](#one-time-setup)) |
+| `no infra/firebase/hosting/.firebaserc` | create the mapping ([setup](#one-time-setup)) |
 | `has no targets entry for this project` | the mapping is for another project ID; xtask never borrows it |
 | `both deploy targets map to site …` | Theatre and Studio need two distinct sites |
 | `firebase-tools X is outside the documented line` | install 15.34.0 or a later 15.x yourself |

@@ -3,7 +3,8 @@
 Real `curl --dump-header -` output (the form `deploy firebase`'s smoke reads) captured on
 2026-10-16 from the **local Hosting emulator** (`firebase emulators:start --only hosting`,
 firebase-tools 15.33.0) serving the release Cantos Theatre Web bundle under the tracked policy
-`services/firebase-hosting/firebase.json`:
+`services/firebase-hosting/firebase.json` (the path used for this historical capture; current
+policy is [`infra/firebase/hosting/firebase.json`](../../../infra/firebase/hosting/firebase.json)):
 
 | File | Request |
 | --- | --- |
@@ -16,3 +17,13 @@ They are emulator output, **not** production Hosting: the emulator shares the Ho
 semantics (headers, rewrites, MIME database) but not the CDN, TLS, HTTP/2 or propagation delay.
 Real-Hosting acceptance of the smoke stays `NOT_RUN`; see
 `docs/evidence/issue199-firebase-hosting.md`.
+
+## Local-only configuration-path probe
+
+`check-paths.cjs` exercises the actual pinned firebase-tools 15.34.0 configuration modules without
+starting the emulator, authenticating or invoking a provider. With that package already installed,
+run `node xtask/fixtures/hosting-emulator/check-paths.cjs /ABS/node_modules/firebase-tools`.
+It tests explicit configuration selection from the repository root, the moved configuration
+directory and a temporary path containing spaces; checks diagnostic app paths, rejects deploy
+traversal, and accepts only the run-relative staged `dist`. Temporary fixtures are removed.
+This is local module evidence, not a Hosting deployment or the historical emulator capture.

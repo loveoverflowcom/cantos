@@ -2,10 +2,10 @@
 
 Operator configuration for publishing **one static Leptos Web app at a time** to Firebase Hosting
 with the explicit, manual `cargo xtask deploy firebase`. It is not a `cargo xtask services` process
-and is not in [the manifest](../manifest.toml); nothing starts or deploys it automatically, and no
+and is not in [the manifest](../../../services/manifest.toml); nothing starts or deploys it automatically, and no
 GitHub Actions workflow is involved. Setup, the routine, verification and recovery are in the
-[Firebase Hosting runbook](../../docs/deployment/firebase-hosting.md); the command contract is in the
-[xtask README](../../xtask/README.md#deploy-firebase).
+[Firebase Hosting runbook](../../../docs/deployment/firebase-hosting.md); the command contract is in the
+[xtask README](../../../xtask/README.md#deploy-firebase).
 
 | File | Tracked? | Owns |
 | --- | --- | --- |

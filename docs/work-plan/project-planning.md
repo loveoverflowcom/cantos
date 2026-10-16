@@ -19,6 +19,7 @@ is historical; do not restart it at completed #66.
 | Discovery and separate Library/Progress backend | #172: public-state/pagination gaps; #13/#14 real Web/native audio; #15/#16/#17 background/offline/sync |
 | Kanidm identity adapters and Theatre enrollment state | #174/#191: real signup/login activation; #206's merged test-only prototype informs proposed ADR 0036, not runtime/provider or setup-delivery acceptance |
 | Forge local artifact/register/validate/export foundation | #203: shared local/Functions producer execution with private Drive drafts, then explicit API admission |
+| Infrastructure assets and command surface | #212 separates edge/Hosting assets into `infra/` from `xtask` orchestration; no deployment acceptance or Forge move. #203 owns the future producer service-location and concrete Functions consumer |
 | Manual Hosting and demo distribution tooling | #199/#184: separately authorized live-origin or tester acceptance |
 
 Public-cover (#157/#171), P1 metadata/transcripts (#177/#178), optional membership (#175/#176),

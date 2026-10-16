@@ -234,13 +234,15 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
         }
     } else if let Some(script) = path.strip_prefix("scripts/") {
         classify_script(script, impact);
-    } else if within(path, "services/firebase-hosting") {
+    } else if within(path, "infra/firebase/hosting") {
         // The tracked Hosting policy is parsed by xtask's own tests (policy validation and the
         // deploy coordinator), so its tests are the impact. No gate reaches Firebase.
         if !is_doc {
             impact.packages.insert("xtask".to_owned());
             impact.notes.insert("the Hosting policy is validated by xtask's tests; `deploy firebase` is never run by a gate".into());
         }
+    } else if within(path, "infra/edge") {
+        impact.notes.insert("edge configuration is statically checked by repository; no Podman, DNS or Caddy process is started".into());
     } else if within(path, "services/kanidm")
         || within(path, "services/postgresql")
         || path == "services/manifest.toml"
@@ -601,7 +603,7 @@ mod tests {
 
     #[test]
     fn the_hosting_policy_selects_the_xtask_tests_that_parse_it_and_never_every_gate() {
-        let selection = pick(&["services/firebase-hosting/firebase.json"]);
+        let selection = pick(&["infra/firebase/hosting/firebase.json"]);
         assert_eq!(selection.broadened, None);
         assert!(
             selection.affected.contains("xtask"),
@@ -619,7 +621,7 @@ mod tests {
         );
         // The documentation beside it is covered by the repository gate alone.
         assert_eq!(
-            names(&pick(&["services/firebase-hosting/README.md"])),
+            names(&pick(&["infra/firebase/hosting/README.md"])),
             ["repository", "rust-format"]
         );
     }
@@ -632,6 +634,16 @@ mod tests {
         ]);
         assert_eq!(names(&selection), ["repository", "rust-format"]);
         assert_eq!(selection.notes.len(), 1);
+    }
+
+    #[test]
+    fn edge_assets_select_static_checks_without_starting_the_service_or_cloud_products() {
+        for path in ["infra/edge/Caddyfile", "infra/edge/duck.sh.example"] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None);
+            assert_eq!(names(&selection), ["repository", "rust-format"]);
+            assert_eq!(selection.notes.len(), 1);
+        }
     }
 
     #[test]

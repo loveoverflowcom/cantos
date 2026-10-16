@@ -37,7 +37,7 @@ pub struct ConfigFiles {
     pub firebaserc: Option<String>,
 }
 
-/// Read the configuration beside `services/firebase-hosting`. Reading changes nothing.
+/// Read the configuration beside `infra/firebase/hosting`. Reading changes nothing.
 pub fn read_config_files(workspace: &Workspace) -> Result<ConfigFiles, String> {
     let directory = workspace.path(CONFIG_DIR);
     let policy = read_text(&directory.join(FIREBASE_JSON))

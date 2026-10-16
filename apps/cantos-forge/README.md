@@ -135,18 +135,21 @@ regenerate(operation, acknowledgement?) → a new attempt, only after a settled 
 | Invariant | Barrier | Evidence |
 | --- | --- | --- |
 | a provider call needs a durable reservation, and one attempt makes at most one call | `Reserved` token, reserve-then-call order in `produce.rs` | example-, property- and mock-integration-tested (fault schedules over refused, lost and raced writes); the Quint model's `callsNeverExceedReservations` |
-| a retry returns the record; a changed request conflicts; neither reserves or calls | `submit` | example-tested; model properties `replayAndRefusalChangeNothing`, `requestIsImmutable` |
+| a retry returns the record; a changed request conflicts, including the loser of a different-request reservation race; neither reserves or calls | `submit`, fingerprint recheck after a raced append | example-tested and mock-integration-tested; model properties `replayAndRefusalChangeNothing`, `requestIsImmutable` |
+| a lost outcome response is confirmed only from an intact history with the original prefix and exact settlement | `record` validates full readback and replayed prefix; valid later attempts may remain | fault-injected corrupt/foreign/changed prefix, corrupt suffix, missing/unreadable history and valid later regeneration |
 | an uncertain outcome (timeout, lost response, unwritable result, vanished owner) is never replayed | `Ledger::reserve` refuses `Open` and undecided `Uncertain` | model, example-, property-tested and bounded-model-checked (`forge-attempt-ledger`) |
 | a decision about an earlier attempt grants nothing later | `Acknowledgement` names one attempt | the same four |
 | spend and attempts stay inside the operator's policy and never wrap | `Ledger::open`/`reserve` use checked arithmetic | bounded-model-checked over full-width integers (dev-run, see below) |
 
 The expected behavior is owned by the Quint capability `cantos.production.forge-attempt`
-([model](../../specs/behavior/production/forge_attempt.qnt)); each of its twelve named runs has
+([model](../../specs/behavior/production/forge_attempt.qnt)); each of its thirteen named runs has
 one native mirror test in `src/application/produce_tests.rs`, kept equal by
 `tests/behavior_binding.rs`. The Kani kernel is registered as `forge-attempt-ledger`. Both are
 opt-in gates that need pinned tools; their statuses are in the
 [evidence record](../../docs/evidence/forge-attempt-verification.md). None of this is a claim
 about a real provider, a durable store, a clock or what a provider charged.
+The [reconciliation follow-up](../../docs/evidence/forge-attempt-reconciliation.md) records
+the reservation-race/readback regressions and the pinned gate's variable-binding repair.
 
 ## The workspace on disk
 

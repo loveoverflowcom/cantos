@@ -42,6 +42,11 @@ impl Workspace {
         self.root.join(relative)
     }
 
+    #[cfg(test)]
+    pub(crate) fn fixture(root: &Path) -> Result<Self> {
+        Self::from_xtask_dir(&root.join("xtask"))
+    }
+
     /// Repository-relative display form of `path`, or the path itself when outside the root.
     pub fn relative(&self, path: &Path) -> String {
         match path.strip_prefix(&self.root) {

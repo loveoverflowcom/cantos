@@ -54,4 +54,6 @@ Do not copy an early “no preview/no listener API” limitation forward as curr
 
 Static Firebase Hosting is independent from the VPS API. Its [runbook](../deployment/firebase-hosting.md)
 keeps deployed-origin/session/playback acceptance separate from bundle deployment. Planned Forge
-Functions are a second Studio backend under #203, not a Hosting or listener capability.
+Functions are a producer execution boundary under #203, not a second authoritative metadata
+backend, Hosting or listener capability. The #212 `infra/` asset split does not implement that
+consumer or establish deployment acceptance.

@@ -161,6 +161,8 @@ def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavio
             report.get("controlSelection") == [{"id": row["id"], "property": row["property"]} for row in cap["controls"]], "stale scenario/control selection")
     require(set(report.get("stages", {})) == {"typecheck", "scenarios", "simulation", "witnesses", "negativeControls", "freshness"} and
             set(report["stages"].values()) == {"PASS"}, "partial model stage evidence")
+    require(report.get("observationVariables") == sorted(["state", "before", "last", "outcome"]),
+            "model variables do not match the registered observation schema")
     require(all(behavior.digest(behavior.local_path(bundle / "inputs", path)) == sha for path, sha in inputs.items()), "stale retained model inputs")
     receipt = report.get("installationReceipt", {})
     require(receipt.get("file") == "installation.json" and receipt.get("sha256") == versions["installationReceiptSha256"] and
@@ -174,7 +176,7 @@ def collect_cases(root, cap, bundle, report, inputs, versions, revision, behavio
         require(isinstance(evidence, dict), "invalid trace evidence")
         path = behavior.local_path(bundle, evidence.get("file"))
         require(behavior.digest(path) == evidence.get("sha256"), "stale raw ITF hash")
-        behavior.validate_itf(path, source, status)
+        behavior.validate_itf(path, source, status, expected_variables=report.get("observationVariables"))
         checkpoints = decode_trace(behavior.read_json(path))
         cases.append({"id": identity, "checkpoints": checkpoints, "sensitivity": sensitivity,
                       "source": str(source), "file": path.name, "sha256": evidence["sha256"], "seed": evidence.get("seed", cap["simulation"]["seed"])})

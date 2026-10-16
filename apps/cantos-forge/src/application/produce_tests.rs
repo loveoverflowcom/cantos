@@ -6,13 +6,13 @@
 //! lists equal. A test checks the same observable facts the run asserts (attempts, provider
 //! calls, spend, the recorded state) through production code; it does not replay the model.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use proptest::prelude::*;
 
 use super::{
     memory::{Fault, MemoryAttempts, MemoryStore},
-    ports::{AttemptStoreError, Provider, ProviderResult, Reserved, Store},
+    ports::{AttemptStore, AttemptStoreError, Provider, ProviderResult, Reserved, Store},
     produce::{ProduceError, Produced, Producer, Terms, MAX_PROVIDER_AUDIO_BYTES},
 };
 use crate::{
@@ -187,6 +187,263 @@ fn an_identical_request_that_loses_the_reservation_race_never_calls() {
     assert_eq!((status.attempts, status.spent), (1, 1));
     assert!(lab.calls().is_empty());
     assert_eq!(lab.events().len(), 1);
+}
+
+/// A competing writer wins between the first read and the conditional reservation append.
+/// The readback may also be unavailable or corrupt; none grants the losing invocation a call.
+struct ReservationRace {
+    winner: Result<Vec<Event>, AttemptStoreError>,
+    lost: Cell<bool>,
+    appends: Cell<usize>,
+}
+
+impl ReservationRace {
+    fn new(winner: Result<Vec<Event>, AttemptStoreError>) -> Self {
+        Self {
+            winner,
+            lost: Cell::new(false),
+            appends: Cell::new(0),
+        }
+    }
+}
+
+impl AttemptStore for ReservationRace {
+    fn events(&self, _: &OperationKey) -> Result<Vec<Event>, AttemptStoreError> {
+        if self.lost.get() {
+            self.winner.clone()
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    fn append(&self, _: &OperationKey, index: usize, _: &Event) -> Result<(), AttemptStoreError> {
+        assert_eq!(index, 0);
+        self.appends.set(self.appends.get() + 1);
+        self.lost.set(true);
+        Err(AttemptStoreError::Conflict)
+    }
+}
+
+fn opened(request: &GenerationRequest) -> Event {
+    Event::Opened {
+        key: key(),
+        fingerprint: request.fingerprint(),
+        cost: Cost::new(1).unwrap(),
+    }
+}
+
+/// Quint run: cantos.production.forge-attempt.run.conflicting-request-while-open
+#[test]
+fn a_different_request_that_wins_the_reservation_race_conflicts_without_dispatch() {
+    let winner = vec![opened(&changed_request())];
+    let attempts = ReservationRace::new(Ok(winner.clone()));
+    let blobs = MemoryStore::default();
+    let provider = MockProvider::default();
+    let producer = Producer {
+        attempts: &attempts,
+        blobs: &blobs,
+        provider: &provider,
+    };
+    assert_eq!(
+        producer.generate(&key(), &request(), terms(1)),
+        Err(ProduceError::Conflict {
+            recorded: changed_request().fingerprint(),
+        })
+    );
+    assert_eq!(attempts.events(&key()), Ok(winner));
+    assert_eq!(attempts.appends.get(), 1);
+    assert!(provider.calls().is_empty());
+    assert!(blobs.blobs.borrow().is_empty());
+}
+
+#[test]
+fn an_untrustworthy_reservation_race_readback_never_dispatches_or_retries_the_append() {
+    let unavailable = AttemptStoreError::Unavailable {
+        operation: "events",
+        detail: "injected race readback failure".to_owned(),
+    };
+    let foreign = OperationKey::parse("another-operation").unwrap();
+    let cases = [
+        (Err(unavailable.clone()), ProduceError::Store(unavailable)),
+        (Ok(vec![]), ProduceError::UnknownOperation),
+        (
+            Ok(vec![Event::Settled {
+                attempt: n(1),
+                settlement: Settlement::Rejected(Rejection::Refused),
+            }]),
+            ProduceError::Corrupt(ReplayError::NotOpened),
+        ),
+        (
+            Ok(vec![Event::Opened {
+                key: foreign.clone(),
+                fingerprint: request().fingerprint(),
+                cost: Cost::new(1).unwrap(),
+            }]),
+            ProduceError::ForeignHistory { found: foreign },
+        ),
+    ];
+    for (winner, expected) in cases {
+        let attempts = ReservationRace::new(winner.clone());
+        let blobs = MemoryStore::default();
+        let provider = MockProvider::default();
+        let producer = Producer {
+            attempts: &attempts,
+            blobs: &blobs,
+            provider: &provider,
+        };
+        assert_eq!(
+            producer.generate(&key(), &request(), terms(1)),
+            Err(expected)
+        );
+        assert_eq!(attempts.events(&key()), winner);
+        assert_eq!(attempts.appends.get(), 1);
+        assert!(provider.calls().is_empty());
+        assert!(blobs.blobs.borrow().is_empty());
+    }
+}
+
+/// A settlement was written but its append response was lost. The next read is injected
+/// separately, including histories that violate the store contract, to check fail-closed proof.
+struct OutcomeReadback {
+    inner: MemoryAttempts,
+    readback: fn(Vec<Event>) -> Result<Vec<Event>, AttemptStoreError>,
+    settled: Cell<bool>,
+}
+
+impl AttemptStore for OutcomeReadback {
+    fn events(&self, key: &OperationKey) -> Result<Vec<Event>, AttemptStoreError> {
+        let events = self.inner.events(key)?;
+        if self.settled.get() {
+            (self.readback)(events)
+        } else {
+            Ok(events)
+        }
+    }
+
+    fn append(
+        &self,
+        key: &OperationKey,
+        index: usize,
+        event: &Event,
+    ) -> Result<(), AttemptStoreError> {
+        self.inner.append(key, index, event)?;
+        if index == 1 {
+            self.settled.set(true);
+            Err(AttemptStoreError::Unavailable {
+                operation: "append",
+                detail: "lost outcome response".to_owned(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[test]
+fn a_matching_outcome_inside_untrusted_readback_does_not_prove_the_write() {
+    type Readback = fn(Vec<Event>) -> Result<Vec<Event>, AttemptStoreError>;
+    let cases: [(&str, Readback); 7] = [
+        ("foreign key", |mut events| {
+            if let Event::Opened { key, .. } = &mut events[0] {
+                *key = OperationKey::parse("foreign-operation").unwrap();
+            }
+            Ok(events)
+        }),
+        ("changed request", |mut events| {
+            if let Event::Opened { fingerprint, .. } = &mut events[0] {
+                *fingerprint = changed_request().fingerprint();
+            }
+            Ok(events)
+        }),
+        ("changed cost", |mut events| {
+            if let Event::Opened { cost, .. } = &mut events[0] {
+                *cost = Cost::new(2).unwrap();
+            }
+            Ok(events)
+        }),
+        ("corrupt prefix", |mut events| {
+            events[0] = events[1].clone();
+            Ok(events)
+        }),
+        ("corrupt suffix", |mut events| {
+            events.push(events[1].clone());
+            Ok(events)
+        }),
+        ("missing history", |_| Ok(vec![])),
+        ("unreadable history", |_| {
+            Err(AttemptStoreError::Unavailable {
+                operation: "events",
+                detail: "lost readback response".to_owned(),
+            })
+        }),
+    ];
+    for (name, readback) in cases {
+        let attempts = OutcomeReadback {
+            inner: MemoryAttempts::default(),
+            readback,
+            settled: Cell::new(false),
+        };
+        let blobs = MemoryStore::default();
+        let provider = MockProvider::default();
+        let producer = Producer {
+            attempts: &attempts,
+            blobs: &blobs,
+            provider: &provider,
+        };
+        assert_eq!(
+            producer.generate(&key(), &request(), terms(1)),
+            Err(ProduceError::OutcomeNotRecorded {
+                attempt: n(1),
+                error: AttemptStoreError::Unavailable {
+                    operation: "append",
+                    detail: "lost outcome response".to_owned(),
+                },
+            }),
+            "{name} must not heal a lost outcome response",
+        );
+        assert_eq!(provider.calls(), [n(1)], "{name}");
+        assert_eq!(*attempts.inner.appends.borrow(), 2, "{name}");
+        assert_eq!(attempts.inner.log(&key()).len(), 2, "{name}");
+    }
+}
+
+#[test]
+fn a_lost_outcome_is_confirmed_even_when_a_valid_later_attempt_is_already_reserved() {
+    let attempts = OutcomeReadback {
+        inner: MemoryAttempts::default(),
+        readback: |mut events| {
+            events.push(Event::Regenerated {
+                attempt: n(2),
+                cost: Cost::new(1).unwrap(),
+                acknowledged: None,
+            });
+            Ok(events)
+        },
+        settled: Cell::new(false),
+    };
+    let blobs = MemoryStore::default();
+    let provider = MockProvider::default();
+    let producer = Producer {
+        attempts: &attempts,
+        blobs: &blobs,
+        provider: &provider,
+    };
+    let own_status = executed(producer.generate(&key(), &request(), terms(1)));
+    assert_eq!((own_status.attempts, own_status.spent), (1, 1));
+    let audio = succeeded(&own_status);
+    let later = Operation::replay(&attempts.events(&key()).unwrap()).unwrap();
+    assert_eq!(later.latest().state(), AttemptState::Open);
+    assert_eq!((later.status().attempts, later.status().spent), (2, 2));
+    assert_eq!(
+        later.attempts().next().unwrap().state(),
+        AttemptState::Succeeded(audio)
+    );
+    assert_eq!(provider.calls(), [n(1)]);
+    assert_eq!(
+        blobs.blob(audio.digest).unwrap(),
+        MockProvider::audio_for(&request())
+    );
+    assert_eq!(*attempts.inner.appends.borrow(), 2);
 }
 
 /// Quint run: cantos.production.forge-attempt.run.conflicting-request
@@ -407,13 +664,16 @@ fn the_attempt_limit_is_refused_before_any_call() {
 /// A provider that reads the durable history at the moment of the call.
 struct Probe<'a> {
     attempts: &'a MemoryAttempts,
-    seen: RefCell<Option<Vec<Event>>>,
+    seen: RefCell<Vec<(AttemptNumber, Vec<Event>)>>,
 }
 
 impl Provider for Probe<'_> {
     fn synthesize(&self, reserved: &Reserved, request: &GenerationRequest) -> ProviderResult {
-        assert_eq!(reserved.attempt(), n(1));
-        *self.seen.borrow_mut() = Some(self.attempts.log(&key()));
+        let events = self.attempts.log(&key());
+        let operation = Operation::replay(&events).unwrap();
+        assert_eq!(operation.latest().number(), reserved.attempt());
+        assert_eq!(operation.latest().state(), AttemptState::Open);
+        self.seen.borrow_mut().push((reserved.attempt(), events));
         ProviderResult::Audio(MockProvider::audio_for(request))
     }
 }
@@ -431,10 +691,28 @@ fn the_reservation_is_durable_before_the_provider_is_called() {
         blobs: &blobs,
         provider: &probe,
     };
-    producer.generate(&key(), &request(), terms(1)).unwrap();
-    let seen = probe.seen.borrow().clone().unwrap();
-    assert_eq!(seen.len(), 1);
-    assert!(matches!(seen[0], Event::Opened { .. }));
+    let first = executed(producer.generate(&key(), &request(), terms(1)));
+    executed(producer.regenerate(&key(), &request(), None, terms(1)));
+    let seen = probe.seen.borrow();
+    assert_eq!(seen.len(), 2);
+    assert_eq!((seen[0].0, seen[0].1.len()), (n(1), 1));
+    assert_eq!(seen[0].1, [opened(&request())]);
+    assert_eq!((seen[1].0, seen[1].1.len()), (n(2), 3));
+    assert_eq!(
+        seen[1].1,
+        [
+            opened(&request()),
+            Event::Settled {
+                attempt: n(1),
+                settlement: Settlement::Succeeded(succeeded(&first)),
+            },
+            Event::Regenerated {
+                attempt: n(2),
+                cost: Cost::new(1).unwrap(),
+                acknowledged: None,
+            },
+        ]
+    );
 }
 
 #[test]
@@ -503,6 +781,89 @@ fn the_history_of_another_operation_is_refused() {
         Err(ProduceError::ForeignHistory { found: other })
     );
     assert!(lab.calls().is_empty());
+}
+
+#[test]
+fn corrupt_and_foreign_histories_block_every_use_case_without_mutating_or_dispatching() {
+    let first = opened(&request());
+    let settled = Event::Settled {
+        attempt: n(1),
+        settlement: Settlement::Rejected(Rejection::Refused),
+    };
+    let regenerated = Event::Regenerated {
+        attempt: n(2),
+        cost: Cost::new(1).unwrap(),
+        acknowledged: None,
+    };
+    let other = OperationKey::parse("foreign-operation").unwrap();
+    let cases = [
+        (
+            vec![settled.clone()],
+            ProduceError::Corrupt(ReplayError::NotOpened),
+        ),
+        (
+            vec![first.clone(), first.clone()],
+            ProduceError::Corrupt(ReplayError::OpenedAgain { index: 1 }),
+        ),
+        (
+            vec![first.clone(), regenerated.clone()],
+            ProduceError::Corrupt(ReplayError::Reservation {
+                index: 1,
+                refusal: ReserveRefusal::InFlight { attempt: n(1) },
+            }),
+        ),
+        (
+            vec![first, settled.clone(), settled.clone()],
+            ProduceError::Corrupt(ReplayError::Settlement {
+                index: 2,
+                refusal: SettleRefusal::NotOpen(NotOpen {
+                    attempt: n(1),
+                    phase: Phase::Rejected,
+                }),
+            }),
+        ),
+        (
+            vec![
+                Event::Opened {
+                    key: key(),
+                    fingerprint: request().fingerprint(),
+                    cost: Cost::new(u64::MAX).unwrap(),
+                },
+                settled,
+                regenerated,
+            ],
+            ProduceError::Corrupt(ReplayError::Reservation {
+                index: 2,
+                refusal: ReserveRefusal::BudgetExhausted {
+                    spent: u64::MAX,
+                    cost: 1,
+                    budget: u64::MAX,
+                },
+            }),
+        ),
+        (
+            vec![Event::Opened {
+                key: other.clone(),
+                fingerprint: request().fingerprint(),
+                cost: Cost::new(1).unwrap(),
+            }],
+            ProduceError::ForeignHistory { found: other },
+        ),
+    ];
+    for (history, expected) in cases {
+        let lab = Lab::new();
+        lab.attempts
+            .logs
+            .borrow_mut()
+            .insert(key(), history.clone());
+        assert_eq!(lab.generate(1), Err(expected.clone()));
+        assert_eq!(lab.regenerate(None, 1), Err(expected.clone()));
+        assert_eq!(lab.producer().recover(&key()), Err(expected));
+        assert_eq!(lab.events(), history);
+        assert_eq!(*lab.attempts.appends.borrow(), 0);
+        assert!(lab.calls().is_empty());
+        assert!(lab.blobs.blobs.borrow().is_empty());
+    }
 }
 
 #[test]

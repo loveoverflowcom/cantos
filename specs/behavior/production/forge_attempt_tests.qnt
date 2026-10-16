@@ -14,6 +14,10 @@ module forge_attempt_tests {
     .then(check(duplicateReplayed and state.phase == Open and state.calls == 0 and state.attempts == 1))
   run conflictingRequestTest = init.then(reserveFirst(1, 1)).then(dispatch).then(settle(Succeeded)).then(conflict(2))
     .then(check(conflictRefused and state.request == 1 and state.attempts == 1 and state.calls == 1))
+  // The loser of a different-request reservation race observes this already-open operation.
+  // This is the required sequential observation, not a model of a concurrent storage adapter.
+  run conflictingRequestWhileOpenTest = init.then(reserveFirst(1, 1)).then(conflict(2))
+    .then(check(conflictRefused and state.request == 1 and state.phase == Open and state.calls == 0 and state.attempts == 1))
   run crashBeforeDispatchTest = init.then(reserveFirst(1, 1)).then(recover)
     .then(check(abandonedBeforeDispatch and state.calls == 0))
     .then(replay(1)).then(check(duplicateReplayed and state.calls == 0 and state.attempts == 1))

@@ -11,12 +11,17 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
 | `kanidm` | rootless Podman OCI | opt-in evaluation configuration; OIDC and production identity unimplemented | identity operator |
 | `object-storage` | external | planned; current development intake uses private files | storage operator |
-| `firebase-hosting` | external (Firebase Hosting) | tracked Hosting policy and a site-mapping example for the explicit `cargo xtask deploy firebase`; not an xtask service, no live deployment accepted, serves static files only | web operator |
-| `edge` | Podman + host DNS updater | operator configuration for `cantoss.duckdns.org` (Theatre, `studio.` and `api.` hosts); not an xtask service, routes to no API yet | infrastructure operator |
 
-The API is the one modular backend. Application/domain/API contracts do not depend on the
-container runtime. `services/` holds code, infrastructure configuration and operational guides;
-only `cantos-api` is a Cargo package. No TTS worker exists under the current architecture.
+The API is the authoritative modular content backend, not a restriction to one possible service
+process. Application/domain/API contracts do not depend on the container runtime. `services/`
+holds service implementations and their canonical local definitions/guides; only `cantos-api`
+is currently a Cargo package here. #203 owns the planned Forge relocation/runtime in
+`services/cantos-forge-functions`; the existing local crate remains in `apps/cantos-forge` today.
+The API never synthesizes audio or calls Gemini.
+
+Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the public
+edge and static Firebase Hosting are not registered xtask services. Their directory move does
+not change live resources, start lifecycle commands or establish deployment acceptance.
 
 ## Runtime policy
 
@@ -40,7 +45,7 @@ must preserve volumes; no lifecycle command performs migrations, pruning or data
 
 ## Local guides
 
-See [PostgreSQL](postgresql/README.md), [Kanidm](kanidm/README.md) and the [public edge](edge/README.md) for private prerequisites,
+See [PostgreSQL](postgresql/README.md), [Kanidm](kanidm/README.md) and the [public edge](../infra/edge/README.md) for private prerequisites,
 explicit commands, storage and recovery. Configured examples grant no production acceptance.
 
 ## Implemented command boundary

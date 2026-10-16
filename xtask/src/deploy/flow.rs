@@ -932,7 +932,7 @@ mod tests {
     use serde_json::Value;
     use std::{cell::RefCell, collections::VecDeque, path::Path, rc::Rc, time::Duration};
 
-    const POLICY: &str = include_str!("../../../services/firebase-hosting/firebase.json");
+    const POLICY: &str = include_str!("../../../infra/firebase/hosting/firebase.json");
     const RC: &str = r#"{"targets":{"cantos-example":{"hosting":{"theatre":["example-theatre"],"studio":["example-studio"]}}}}"#;
     const SITES: &str =
         include_str!("../../fixtures/firebase-tools-15.34.0/hosting-sites-list.json");
@@ -1619,7 +1619,7 @@ mod tests {
             ),
             (
                 "unreadable",
-                Err("services/firebase-hosting/.firebaserc: PermissionDenied".into()),
+                Err("infra/firebase/hosting/.firebaserc: PermissionDenied".into()),
                 "PermissionDenied",
             ),
             (
