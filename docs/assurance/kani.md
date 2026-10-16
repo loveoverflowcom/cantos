@@ -431,3 +431,40 @@ The same propositions are mirrored by ordinary deterministic tests that did run 
 `cover_outcome_matches_an_independent_precedence_table` (bounded exhaustive) and the existing
 `normalized_ranges_never_escape_exact_object` property. Those are `property-tested` /
 `example-tested`, not `bounded-model-checked`.
+
+## Forge attempt ledger kernel (#203)
+
+The registered `forge-attempt-ledger` kernel is the first one outside the API library. Its fixed
+registration names the package `cantos-forge`, the harness
+`domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry`, the source
+`apps/cantos-forge/src/domain/attempt.rs`, unwind 2, nine covers and no reviewed unreachable
+check. The model is otherwise the fixed one above (Kani 0.68.0, CBMC 6.11.0, nightly-2026-08-21,
+x86_64-unknown-linux-gnu, CaDiCaL, `--lib --no-default-features --exact`); the registered proof
+is **`NOT_RUN`**: no pinned bundle exists on the authoring host.
+
+| Proposition | Domain and bound | Production reach |
+| --- | --- | --- |
+| The factories refuse exactly zero (`Policy::new`, `Cost::new`); the first reservation is refused only when its cost exceeds the budget; then every four-step sequence of settlements and reservations keeps spend and attempts inside the policy, never wraps, reserves only after a settled (or exactly acknowledged uncertain) attempt, refuses for exactly the stated reason in the stated precedence, and records an outcome once | independent full symbolic `u32` attempt limit, `u64` budget and costs; symbolic outcomes, acknowledgements and choices; no assumptions or stubs; four unrolled steps, no loops; a zero cost is mapped to one only after the exact refusal is asserted | `Policy`, `Cost`, `Ledger::{open,reserve,settle}`, the kernel that `submit`, `regenerate`, `settle` and `Operation::replay` all call |
+
+Nine covers: first reservation refused by the budget; reserved after an uncertain attempt with
+its exact decision; reserved exactly up to the budget; refused while open; refused as undecided;
+refused on a stale decision; refused at the attempt limit; refused by the budget within `u64`;
+refused where the reserved sum exceeds `u64`. The oracle is written with widened arithmetic in the
+harness, not copied from the implementation. It proves nothing about the request fingerprint, the
+use cases, a store, a provider, a clock or the billable call itself; it is for a 64-bit target.
+
+### Development signal on 2026-10-16 (not the registered model)
+
+On this authoring host only Kani 0.67.0 / CBMC 6.8.0 / nightly-2025-11-21 exist. To get a
+signal without installing anything, a scratch crate included the production
+`apps/cantos-forge/src/domain/mod.rs` by path (unchanged sources) and ran
+`cargo kani --harness domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry --exact --unwind 2 --solver cadical`:
+**0 of 296 checks failed, 9 of 9 covers satisfied, no unreachable or failing check**, about 22
+seconds. `attempt.rs` SHA-256 `9068b79f21011caafb781051b5de5a12c47286f1930e02e76e84bf0383716cab`;
+`Cargo.lock` unchanged. Sensitivity: six deliberate defects injected into a copy (attempt limit
+off by one, budget bound too strict, wrapping spend, stale decision accepted, open attempt
+reservable, outcome settled twice) each made the same harness FAIL. A different Kani version, a
+scratch host crate and the absence of the registered primitive's source/configuration binding
+make this **not** evidence for the registered model. Record the registered result here only after
+`cargo xtask verify kani --harness forge-attempt-ledger` runs on the pinned bundle and its
+retained output is inspected. See the [verification record](../evidence/forge-attempt-verification.md).

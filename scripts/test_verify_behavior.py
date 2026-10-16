@@ -45,6 +45,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
             "cantos.identity.theatre-registration": (11, 5, 4),
+            "cantos.production.forge-attempt": (12, 7, 9),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:

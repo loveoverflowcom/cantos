@@ -20,7 +20,9 @@ never imports Narrative Forge internals applies to Forge too.
 | Host-assisted local workflow: `workspace init`, `artifact add/list/show`, `validate`, `handoff export` | implemented (filesystem workspace, local bundle) |
 | `capabilities [--json]` | implemented: reports exactly the commands this build has |
 | Instruction bundles, `plan`/`run`/`resume`, AI-review and human-review evidence commands | proposed (rest of #82's foundation) |
-| Provider/tool adapters, budget and attempt recovery | proposed (#82 PR 2); no provider is configured or called |
+| Generation attempt core: reserve-before-call, one call per attempt, replay/conflict, uncertain outcomes, explicit regeneration, spend and attempt limits | implemented as a library only ([#203](https://github.com/loveoverflowcom/cantos/issues/203) first slice); no CLI command, no persistent attempt store, no real provider; see [Generation attempts](#generation-attempts) |
+| Deterministic mock speech provider | implemented (`adapters::mock_provider`); not audio, never provider-live evidence |
+| Real provider adapter (Gemini), encoding to a Cantos profile, persistent attempt store, Studio calls, Firebase Functions hosting | proposed (#203 later slices); nothing is deployed, called or billed |
 | Authorized handoff to the Cantos API (`submit`) | proposed (#82 PR 3); no HTTP client exists |
 | Studio-controlled local/Firebase Functions execution and private Drive drafts | owner-selected direction in #203; runtime adapter, provider execution and Drive I/O are not implemented |
 | MCP or other general daemon/server mode | deferred; #203's bounded Functions adapter is the concrete next runtime consumer |
@@ -85,14 +87,17 @@ src/
     ogg_opus.rs      strict Ogg Opus framing, CRC, granules and facts from exact bytes
     checks.rs        deterministic checks (Ogg Opus profile, UTF-8 text) and their measurements
     handoff.rs       export eligibility: every refusal reason, never an approval
-  application/       use cases over ports: register, validate, view, export; in-memory fakes in tests
-  adapters/          filesystem workspace, local bundle writer, OS random identities
+    generation.rs    GenerationRequest (pinned inputs) and its fingerprint
+    attempt.rs       Ledger kernel, Operation, submit/regenerate/settle decisions, replay, Kani harness
+  application/       use cases over ports: register, validate, view, export, produce; in-memory fakes in tests
+  adapters/          filesystem workspace, local bundle writer, OS random identities, mock provider
   wire.rs            JSON shapes of records, manifests and results; refuses unknown fields
   interfaces/        clap arguments, command execution, typed replies and the exit status
 tests/
   architecture.rs    domain, application and wire import no I/O, framework or outer layer (lexical)
   audio_profile_contract.rs  Forge's profiles against packages/contracts/studio-audio-intake-v1.md
   cli.rs             the built binary end to end on a real directory
+  behavior_binding.rs  every Quint run of cantos.production.forge-attempt has one native mirror test
   support/ogg_fixture.rs     a small Ogg Opus writer with its own bitwise CRC, shared with unit tests
 ```
 
@@ -101,6 +106,47 @@ Dependencies point inward: `interfaces` and `adapters` use `application`, `appli
 workspace dependencies (`clap`, `getrandom`, `serde`, `serde_json`, `sha2`; `proptest` and
 `tempfile` for tests). It never depends on `services/` or another app; `cargo test -p xtask`
 checks every workspace dependency edge points inward.
+
+## Generation attempts
+
+The first slice of [#203](https://github.com/loveoverflowcom/cantos/issues/203) adds the rules
+and the verification for **when a billable provider call may start**, before any real provider,
+persistent store, Studio control or Firebase hosting exists. It is a library capability: the CLI
+gains no command and `capabilities` still reports provider generation as unsupported.
+
+```text
+GenerationRequest ──fingerprint──► submit(lookup, fingerprint, cost, policy)
+                                      │ Reserve(event)  → append to AttemptStore → ONLY THEN one Provider call
+                                      │ Replay(status)  → same key, same request: the recorded state, no call
+                                      │ Conflict        → same key, different request: nothing reserved or called
+                                      └ Refused         → budget or limits: nothing reserved or called
+Provider result ──► settle: Succeeded | Rejected | Uncertain   (written once; a refused write never re-calls)
+regenerate(operation, acknowledgement?) → a new attempt, only after a settled one, or an uncertain one
+                                          whose operator decision names exactly that attempt
+```
+
+| Part | Role |
+| --- | --- |
+| `domain/generation.rs` | `GenerationRequest` pins the input revision, instruction digest, model, voice, profile and workflow version; its fingerprint (golden-tested against an independent implementation of the layout) is what makes a retry recognizable |
+| `domain/attempt.rs` | `Ledger` (attempt count, reserved spend, phase) is the integer kernel; `Operation`, `Event`, `submit`, `regenerate`, `settle` and `replay` are pure decisions over it. Replay re-checks structure, not today's limits |
+| `application/produce.rs` | `Producer::{generate, regenerate, recover}` over the `AttemptStore` and `Provider` ports; the provider is called only with a `Reserved` token that exists only after the reservation append succeeded |
+| `adapters/mock_provider.rs` | deterministic, scriptable, no network, no spend |
+
+| Invariant | Barrier | Evidence |
+| --- | --- | --- |
+| a provider call needs a durable reservation, and one attempt makes at most one call | `Reserved` token, reserve-then-call order in `produce.rs` | example-, property- and mock-integration-tested (fault schedules over refused, lost and raced writes); the Quint model's `callsNeverExceedReservations` |
+| a retry returns the record; a changed request conflicts; neither reserves or calls | `submit` | example-tested; model properties `replayAndRefusalChangeNothing`, `requestIsImmutable` |
+| an uncertain outcome (timeout, lost response, unwritable result, vanished owner) is never replayed | `Ledger::reserve` refuses `Open` and undecided `Uncertain` | model, example-, property-tested and bounded-model-checked (`forge-attempt-ledger`) |
+| a decision about an earlier attempt grants nothing later | `Acknowledgement` names one attempt | the same four |
+| spend and attempts stay inside the operator's policy and never wrap | `Ledger::open`/`reserve` use checked arithmetic | bounded-model-checked over full-width integers (dev-run, see below) |
+
+The expected behavior is owned by the Quint capability `cantos.production.forge-attempt`
+([model](../../specs/behavior/production/forge_attempt.qnt)); each of its twelve named runs has
+one native mirror test in `src/application/produce_tests.rs`, kept equal by
+`tests/behavior_binding.rs`. The Kani kernel is registered as `forge-attempt-ledger`. Both are
+opt-in gates that need pinned tools; their statuses are in the
+[evidence record](../../docs/evidence/forge-attempt-verification.md). None of this is a claim
+about a real provider, a durable store, a clock or what a provider charged.
 
 ## The workspace on disk
 

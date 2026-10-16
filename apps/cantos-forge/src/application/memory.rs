@@ -1,11 +1,17 @@
 //! In-memory fakes of the ports, for deterministic use-case and CLI tests.
 
-use std::{cell::RefCell, collections::BTreeMap, path::Path};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, VecDeque},
+    path::Path,
+};
 
 use crate::domain::{
     artifact::ArtifactRevision,
+    attempt::Event,
     digest::Sha256Digest,
     identity::{ArtifactId, EvidenceId},
+    label::OperationKey,
 };
 
 use super::ports::*;
@@ -18,6 +24,8 @@ pub struct MemoryStore {
     pub blobs: RefCell<BTreeMap<Sha256Digest, Vec<u8>>>,
     /// Make the next `append_revision` fail as if another writer got there first.
     pub lose_next_revision_race: RefCell<bool>,
+    /// Make the next `put_blob` fail as if the disk refused the bytes.
+    pub fail_next_blob: RefCell<bool>,
 }
 
 impl Store for MemoryStore {
@@ -30,6 +38,12 @@ impl Store for MemoryStore {
     }
 
     fn put_blob(&self, digest: Sha256Digest, bytes: &[u8]) -> Result<(), StoreError> {
+        if self.fail_next_blob.replace(false) {
+            return Err(StoreError::Unavailable {
+                operation: "put_blob",
+                detail: "injected fault".to_owned(),
+            });
+        }
         if Sha256Digest::of(bytes) != digest {
             return Err(StoreError::Corrupt(Corruption::BlobDigestMismatch {
                 digest,
@@ -194,5 +208,93 @@ impl Runtime for MemoryRuntime {
             audio,
             manifest_digest: Sha256Digest::of(b"in-memory manifest"),
         })
+    }
+}
+
+/// What happens to one `append` call, chosen by the test before the call is made.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fault {
+    /// The write is refused: nothing is stored and the caller sees `Unavailable`.
+    Refuse,
+    /// The write succeeds but the caller sees `Unavailable`: a lost response.
+    LoseResponse,
+    /// Another writer stores an identical event first; the caller sees `Conflict`.
+    LoseRace,
+}
+
+/// An attempt history held in memory that follows the port's rules (write-once, in order) and
+/// can fail on demand, so crash points between the reservation and the outcome are testable.
+#[derive(Default)]
+pub struct MemoryAttempts {
+    pub logs: RefCell<BTreeMap<OperationKey, Vec<Event>>>,
+    /// One entry per upcoming `append`, consumed in order; `None` is a normal write. An empty
+    /// queue means every further append is normal.
+    pub faults: RefCell<VecDeque<Option<Fault>>>,
+    /// Make `events` fail as if the store were unreachable.
+    pub unreadable: RefCell<bool>,
+    /// How many `append` calls were made, faulted or not.
+    pub appends: RefCell<usize>,
+}
+
+impl MemoryAttempts {
+    /// Schedules faults for the next appends, in order (`None` = no fault for that append).
+    pub fn plan(&self, faults: impl IntoIterator<Item = Option<Fault>>) {
+        self.faults.borrow_mut().extend(faults);
+    }
+
+    pub fn log(&self, key: &OperationKey) -> Vec<Event> {
+        self.logs.borrow().get(key).cloned().unwrap_or_default()
+    }
+
+    fn store(
+        &self,
+        key: &OperationKey,
+        index: usize,
+        event: &Event,
+    ) -> Result<(), AttemptStoreError> {
+        let mut logs = self.logs.borrow_mut();
+        let log = logs.entry(key.clone()).or_default();
+        if log.len() != index {
+            return Err(AttemptStoreError::Conflict);
+        }
+        log.push(event.clone());
+        Ok(())
+    }
+}
+
+impl AttemptStore for MemoryAttempts {
+    fn events(&self, key: &OperationKey) -> Result<Vec<Event>, AttemptStoreError> {
+        if *self.unreadable.borrow() {
+            return Err(AttemptStoreError::Unavailable {
+                operation: "events",
+                detail: "injected fault".to_owned(),
+            });
+        }
+        Ok(self.log(key))
+    }
+
+    fn append(
+        &self,
+        key: &OperationKey,
+        index: usize,
+        event: &Event,
+    ) -> Result<(), AttemptStoreError> {
+        *self.appends.borrow_mut() += 1;
+        let unavailable = || AttemptStoreError::Unavailable {
+            operation: "append",
+            detail: "injected fault".to_owned(),
+        };
+        match self.faults.borrow_mut().pop_front().flatten() {
+            None => self.store(key, index, event),
+            Some(Fault::Refuse) => Err(unavailable()),
+            Some(Fault::LoseResponse) => {
+                self.store(key, index, event)?;
+                Err(unavailable())
+            }
+            Some(Fault::LoseRace) => {
+                self.store(key, index, event)?;
+                Err(AttemptStoreError::Conflict)
+            }
+        }
     }
 }

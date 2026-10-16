@@ -938,6 +938,193 @@
         }
       ],
       "aliases": []
+    },
+    {
+      "id": "cantos.production.forge-attempt",
+      "lifecycle": "draft",
+      "owner": "apps/cantos-forge/src/domain/attempt.rs",
+      "sourceRefs": [
+        "docs/decisions/0022-cantos-forge-producer-cli.md#decision",
+        "docs/decisions/0018-external-audio-production.md",
+        "apps/cantos-forge/README.md"
+      ],
+      "model": "specs/behavior/production/forge_attempt.qnt",
+      "module": "forge_attempt",
+      "scenarios": "specs/behavior/production/forge_attempt_tests.qnt",
+      "scenarioModule": "forge_attempt_tests",
+      "inventory": "specs/behavior/inventory.md",
+      "properties": [
+        {
+          "id": "cantos.production.forge-attempt.property.calls-never-exceed-reservations",
+          "declaration": "callsNeverExceedReservations"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.spend-is-bounded",
+          "declaration": "spendIsBounded"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.no-retry-while-open",
+          "declaration": "noRetryWhileOpen"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.uncertainty-needs-acknowledgement",
+          "declaration": "uncertaintyNeedsAcknowledgement"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.replay-and-refusal-change-nothing",
+          "declaration": "replayAndRefusalChangeNothing"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.request-is-immutable",
+          "declaration": "requestIsImmutable"
+        },
+        {
+          "id": "cantos.production.forge-attempt.property.results-are-kept",
+          "declaration": "resultsAreKept"
+        }
+      ],
+      "runs": [
+        {
+          "id": "cantos.production.forge-attempt.run.single-attempt-succeeds",
+          "declaration": "singleAttemptSucceedsTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.retry-after-lost-response-replays",
+          "declaration": "retryAfterLostResponseReplaysTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.duplicate-while-open",
+          "declaration": "duplicateWhileOpenTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.conflicting-request",
+          "declaration": "conflictingRequestTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.crash-before-dispatch",
+          "declaration": "crashBeforeDispatchTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.crash-after-dispatch",
+          "declaration": "crashAfterDispatchTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.unknown-provider-outcome",
+          "declaration": "unknownProviderOutcomeTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.stale-decision",
+          "declaration": "staleDecisionTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.regeneration-while-open",
+          "declaration": "regenerationWhileOpenTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.explicit-regeneration-keeps-result",
+          "declaration": "explicitRegenerationKeepsResultTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.budget-refusal",
+          "declaration": "budgetRefusalTest"
+        },
+        {
+          "id": "cantos.production.forge-attempt.run.attempt-limit-refusal",
+          "declaration": "attemptLimitRefusalTest"
+        }
+      ],
+      "witnesses": [
+        {
+          "id": "cantos.production.forge-attempt.witness.succeeded-once",
+          "declaration": "succeededOnce"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.duplicate-replayed",
+          "declaration": "duplicateReplayed"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.conflict-refused",
+          "declaration": "conflictRefused"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.unknown-outcome",
+          "declaration": "unknownOutcome"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.abandoned-before-dispatch",
+          "declaration": "abandonedBeforeDispatch"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.reserved-after-decision",
+          "declaration": "reservedAfterDecision"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.stale-decision-refused",
+          "declaration": "staleDecisionRefused"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.attempt-limit-refused",
+          "declaration": "attemptLimitRefused"
+        },
+        {
+          "id": "cantos.production.forge-attempt.witness.budget-refused",
+          "declaration": "budgetRefused"
+        }
+      ],
+      "simulation": {
+        "backend": "typescript",
+        "seed": "203",
+        "samples": 300,
+        "steps": 20,
+        "scenarioSamples": 1,
+        "witnessSamples": 2000,
+        "timeoutSeconds": 120
+      },
+      "controls": [
+        {
+          "id": "cantos.production.forge-attempt.control.calls-never-exceed-reservations",
+          "property": "cantos.production.forge-attempt.property.calls-never-exceed-reservations",
+          "from": "state.phase == Open, not(state.dispatched),",
+          "to": "state.phase == Open,"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.spend-is-bounded",
+          "property": "cantos.production.forge-attempt.property.spend-is-bounded",
+          "from": "decided(presented), state.attempts < maxAttempts, state.spent + cost <= budget,",
+          "to": "decided(presented), state.attempts < maxAttempts,"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.no-retry-while-open",
+          "property": "cantos.production.forge-attempt.property.no-retry-while-open",
+          "from": "state.phase != Open and (state.phase != Uncertain or presented == state.attempts)",
+          "to": "(state.phase != Uncertain or presented == state.attempts)"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.uncertainty-needs-acknowledgement",
+          "property": "cantos.production.forge-attempt.property.uncertainty-needs-acknowledgement",
+          "from": "(state.phase != Uncertain or presented == state.attempts)",
+          "to": "(state.phase != Uncertain or presented != 0)"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.replay-and-refusal-change-nothing",
+          "property": "cantos.production.forge-attempt.property.replay-and-refusal-change-nothing",
+          "from": "record(state, Submit, Replayed, 0)",
+          "to": "record({ ...state, attempts: state.attempts + 1 }, Submit, Replayed, 0)"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.request-is-immutable",
+          "property": "cantos.production.forge-attempt.property.request-is-immutable",
+          "from": "record(state, Submit, Conflicted, 0)",
+          "to": "record({ ...state, request: request }, Submit, Conflicted, 0)"
+        },
+        {
+          "id": "cantos.production.forge-attempt.control.results-are-kept",
+          "property": "cantos.production.forge-attempt.property.results-are-kept",
+          "from": "phase: Open, attempts: state.attempts + 1,",
+          "to": "phase: Open, successes: 0, attempts: state.attempts + 1,"
+        }
+      ],
+      "aliases": []
     }
   ]
 }

@@ -90,6 +90,23 @@ label!(
     ReviewerName,
     max_chars = 128
 );
+label!(
+    /// The caller's idempotency key for one production operation. A declared name, never a secret
+    /// and never an authenticated identity.
+    OperationKey,
+    max_chars = 128
+);
+label!(
+    /// The provider voice a generation request pins: configuration the producer chose, not a
+    /// verified property of the voice.
+    VoiceLabel,
+    max_chars = 128
+);
+label!(
+    /// The version of the tool or workflow that executes a generation request.
+    WorkflowVersion,
+    max_chars = 128
+);
 
 #[cfg(test)]
 mod tests {

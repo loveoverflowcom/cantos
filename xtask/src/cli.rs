@@ -270,9 +270,14 @@ mod tests {
         assert!(
             matches!(parse("verify kani --harness byte-range --harness playback-grant --harness public-cover").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness == [Kernel::ByteRange, Kernel::PlaybackGrant, Kernel::PublicCover])
         );
+        assert!(
+            matches!(parse("verify kani --harness forge-attempt-ledger").unwrap(), Task::Verify { suite: VerifySuite::Kani { harness } } if harness == [Kernel::ForgeAttemptLedger])
+        );
         for line in [
             "verify kani --harness theatre",
             "verify kani --harness wav",
+            "verify kani --harness forge",
+            "verify kani --package cantos-forge",
             "verify kani --no-default-checks",
         ] {
             assert!(parse(line).is_err(), "{line}");

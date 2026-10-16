@@ -78,6 +78,12 @@ reviewed implementation. The Ogg/Opus inspector and prospective shared Script IR
 should be consolidated only through a justified shared pure boundary, never imports from
 service internals. Provider-generated claims remain producer-declared.
 
+The first slice of [#203](https://github.com/loveoverflowcom/cantos/issues/203) implements only
+the attempt and recovery rules (item 6) as a pure core with a mock provider
+([record](../evidence/forge-attempt-verification.md)); a real provider, a persistent attempt
+store, Studio-requested execution and hosting remain separate slices, and this ADR's decisions
+are unchanged.
+
 ## Validation and revisit conditions
 
 Historical local CLI/domain/filesystem/command evidence stays in the
