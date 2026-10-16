@@ -59,3 +59,10 @@ Private storage target/version/hash/range policies retain their
 provider. Catalog, script visibility, saved items, offline synchronization, wider API/UI/CMP
 scenarios and artwork admission are outside this pilot. Their existing code/contracts/tests
 remain authoritative at their current boundaries until an explicitly reviewed model migration.
+
+## Draft: `cantos.presentation.locale-preference` (#169)
+
+| Classification | Authority / fact | Model consequence |
+| --- | --- | --- |
+| Bounded implementation contract | [Preference controller](../../apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/application/preferences/PreferencesController.kt), its [native tests](../../apps/cantos-theatre/mobile/shared/src/commonTest/kotlin/com/cantos/theatre/application/preferences/PreferencesControllerTest.kt) and [repair ledger](../../docs/evidence/issue169-cmp-locale-acceptance.md) specify saved canonical locale over host seed/default, atomic refusal, retry and theme isolation. | `draft`; the model documents this slice and selects no library/catalog/formatting policy under #167. |
+| Finite assumption | Two canonical UI locales, two themes and abstract typed native read/write results; reopening receives a supplied read result, not a proof that disk survived process death. | Named runs, reachability and controls cover the reducer/controller expectation only. No Kotlin observer is registered; native implementation/renderer tests, asynchronous storage, Android/iOS/runtime and accessibility acceptance stay separate. |

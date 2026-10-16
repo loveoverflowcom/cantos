@@ -200,3 +200,11 @@ full parameter/CLDR migration, candidate native compatibility, async disk-error 
 arbitrary process-death recovery, real pending-account/IME continuity, pseudo-locale,
 mixed-language screen-reader proof or native audio claim is supplied. Passed layers are
 independent implementation evidence and do not accept deferred native/product gates.
+
+## Executable expectation boundary
+
+The [draft locale-preference model](../../specs/behavior/presentation/locale_preference.qnt) and
+[registered scenarios](../../specs/behavior/catalog.json) describe restoration precedence, atomic
+refusal/retry, accepted locale/reset and theme isolation. They are model-only expectations of the
+bounded controller contract, not an accepted localization architecture or a Kotlin conformance
+adapter. Reopen uses an explicit abstract read result and proves no native disk durability.
