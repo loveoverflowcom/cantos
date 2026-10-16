@@ -117,7 +117,7 @@ ASCII subjects/actor IDs; Unicode/NFD/control and byte limits have named example
 A symbolic wrapper would not prove SQL concurrency; no
 speculative runner/dependency is added. Provider-live/OIDC/browser/native/production: NOT_RUN,
 outside PR1. See [contract](../architecture/identity-registry.md) and
-[successor handoff](../work-plan/identity-authentication-handoff.md). Remote CI is not checked/waited for.
+[successor handoff](../archive/handoffs/identity-authentication-handoff.md). Remote CI is not checked/waited for.
 
 
 ## Independent integrated review

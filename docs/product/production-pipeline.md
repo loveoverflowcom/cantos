@@ -1,82 +1,78 @@
 # External Audio Production Handoff
 
-> Direction adopted 2026-10-12; the [handoff v1 design](../../packages/contracts/external-audio-handoff-v1.md)
-> implements private intake/review through [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md); public release remains proposed, while [Production Brief v1](../../packages/contracts/production-brief-v1.md)
-implements the bounded instructions/read-permission subset. Cantos is the content and asset authority; it is not an
-> audio generator, mixer, model router, or provider worker.
+[ADR 0018](../decisions/0018-external-audio-production.md) keeps synthesis/mixing/encoding
+outside Cantos API. [Forge ADR 0022](../decisions/0022-cantos-forge-producer-cli.md) records the
+owner's planned local/Functions producer controlled by Studio. Manual/other external producers
+remain valid. The API is the content/admission/review/publication authority.
 
 ## End-to-end flow
 
-```text
-Cantos Studio
-  Work → Chapter/Episode → Text/Script (optional) → Versioned brief + rights
-                      ↓ GET production instructions and skill references
-External AI plugin / human producer
-  Choose tools → TTS/recording → voice edits + music/effects → mix → encode → QC
-                      ↓ POST upload intent → object-store PUT → POST finalize
-Cantos API + Studio
-  Verify private asset + checksum + metadata → editorial/QC review → approve
-                      ↓ atomic release
-Cantos Theatre
-  Discover → stream/download → listen/resume
-```
+1. Studio creates a Work/chapter/episode, optional text/Script IR, rights and an immutable brief.
+2. An authorized producer reads exact instructions and produces or records audio externally.
+   The planned Forge route lets Studio request generation and listen to private Drive drafts.
+3. The owner prepares an exact AudioSubmission and a separate scoped upload permission.
+4. The producer sends one bounded binary PUT; the API inspects stored bytes and performs
+   admission/finalization, persisting an immutable receipt.
+5. Studio reviews the exact private artifact, rights/provenance and named QC/listening evidence.
+6. An eligible immutable release is published through reviewed delivery policy; Theatre consumes
+   published media without ever starting production.
 
-The producer, not Cantos, handles provider credentials, rendering hardware, timeout retries,
-call ambiguity, inference budgets, local caches, mixing and audio encoding.
+[Production Brief v1](../../packages/contracts/production-brief-v1.md),
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) and
+[Publication v1](../../packages/contracts/publication-v1.md) own the implemented contracts.
+The [general handoff proposal](../../packages/contracts/external-audio-handoff-v1.md) is broader
+and remains a proposal; its object-store PUT plus separate finalize design is not a current API.
 
-## Production instructions
+## Instructions and external production
 
-A read-only, versioned brief should contain: work/content identity; work type; required
-language and target audience; text/script revision or source pointer; scene/speaker/pronunciation
-and music/ambience guidance **if relevant**; declared permissions and allowed uses;
-audio profile/version; accessibility/text availability; QC checklist; and export/upload rules.
-Briefs can link to repository `.agents/skills` or export self-contained instructions.
-The digest/version must be pinned and included in the producer submission receipt.
+Pin content/brief revision and digest, relevant guidance/rights, explicit audio profile and
+producer provenance. Scene, speaker, pronunciation and ambience data apply only when needed;
+plain narration and human-recorded podcasts require no forced drama/casting workflow.
 
-A novel's chapter can request plain voice narration and no mix. A podcast episode can be a
-human recording. Nothing requires a Script IR transformation where one is not needed.
+The producer owns provider credentials, hardware, attempts/costs, ambiguous outcomes,
+pronunciation, cue timing, conditioning, mixing and encoding. The API records submitted claims
+as provenance, not proof that it executed a provider or verified commercial rights.
 
-## External upload
+For #203, CLI and Firebase Functions share Forge Rust use cases; Studio owns controls/status/
+preview/acceptance. Private personal Drive is the chosen remote **draft** workspace for
+applicable raw/score/audio artifacts and indexes, with local filesystem for offline work.
+Do not add another draft bucket/Catalog. Drive synchronization, technical checks, human
+listening, API admission and publication are different facts. Functions/Drive/provider
+execution and automatic API submission are not implemented by today's local Forge foundation.
 
-Implement only after publishing a versioned schema and authenticated routes:
+## Private admission, review and publication
 
-1. **Prepare** an upload intent for one content unit, brief version, rendition type and operation
-   ID. Authorize a producer without leaking the Studio cookie or provider credentials.
-2. **Transfer** bytes to a private object-store key with an expiring, constrained upload grant.
-   Do not proxy unbounded audio bytes through Axum or save to a public bucket.
-3. **Finalize** by submitting the intent ID, object identity, expected SHA-256, size, actual
-   format/profile/duration, externally declared tools/usage and QC evidence. The server verifies
-   actual object facts and marks the immutable rendition as pending review, not published.
-4. **Review** provenance, rights, playback/QC and stale-brief policy, with separate editorial
-   approval bound to the exact object checksum.
-5. **Publish** a complete immutable release manifest atomically after readiness checks; use CDN
-   only for approved artifacts.
+- Prepare binds one operation, unit, exact content/brief/profile and expected byte identity.
+  A producer upload bearer is distinct from the Studio session and has bounded scope/lifetime.
+- The current capped PUT admits/finalizes through the API; partial bytes, wrong hash/size/profile,
+  stale binding, revoked/expired permissions and conflicting replays fail closed.
+- Private storage has filesystem/S3 adapters and immutable recorded targets. Verify actual bytes;
+  a SQL transaction cannot roll back an external object write. Preserve receipts and reconcile
+  uncertain outcomes rather than creating a second operation blindly.
+- Review distinguishes producer declarations, server-inspected technical facts and named human
+  listening/rights approval tied to the exact revision and bytes.
+- Publication core owns readiness, immutable releases and atomic active pointers. Real delivery,
+  provider isolation, retention and client playback remain separate acceptance gates.
 
-Duplicates and out-of-order transfers must be idempotent; an expired grant may be renewed
-without assigning an asset to another work/episode. Unsuccessful or orphaned uploads need a
-bounded private cleanup/reconciliation policy. Avoid a database transaction that assumes it
-is atomic with an object-store upload.
+The WAV PCM inspector is a limited structural/measurement tool, not a mixer, encoder or
+loudness/true-peak/listening approval. [#51](https://github.com/loveoverflowcom/cantos/issues/51)
+owns profile/acceptance decisions; the broader preset proposal #64 was closed as not planned.
+The implemented four-profile intake does not choose an AAC fallback.
 
-## Audio quality
+## Implementation and remaining acceptance
 
-External tools do compression, loudness normalization, music mixing and conversion. Cantos
-defines the profile and QC evidence shape, may inspect received bytes under limits, and enforces
-review/publication gates. The pure WAV inspector is a useful primitive; it is **not** a mixer,
-codec encoder, or a loudness/true-peak approval. Proposed low-bandwidth Opus and AAC settings
-remain a separate decision tracked by [#64](https://github.com/loveoverflowcom/cantos/issues/64)
-and [#51](https://github.com/loveoverflowcom/cantos/issues/51).
+Catalog/Content/Brief, bounded Audio Lifecycle, private storage/artwork, named review/candidates,
+Publication core and Discovery/Library backend slices exist. Studio has bounded real consumers.
+Ordinary unconfigured public delivery remains unavailable; the origin-delivery core is gated
+pending its decision and real acceptance (#170). Live identity/provider/storage, stronger
+rights/listening policy and Web/native end-to-end acceptance remain with #9/#10/#11/#179/#180.
 
-## Migration from the former worker design
+See [current priorities](../work-plan/current-priorities.md) rather than treating old per-session
+NOT_RUN results as today's status. No provider, deployment or runtime gate was exercised by
+this documentation update.
 
-Earlier `synthesis`, `cantos-worker`, `production-jobs`, provider probes, TTS receipts and
-DBSP job-summary adapters belonged to server-side generation. They have been retired from the
-active backend, not repurposed into a hidden provider executor. Historical migrations 0007–0009
-are retained to preserve migration checksums and existing databases; they do not authorize
-writing new generation jobs. Prior experiments/ADRs are retained as historical evidence.
+## Historical compatibility
 
-## Not yet implemented
-
-Production identity/credential delivery, object-store prepare/finalize, stronger rights/QC policy and public release publication. Bounded development upload capabilities, actual-byte private admission and named review/candidates are implemented; they use one capped PUT with finalization and private filesystem storage. Catalog/Content and
-versioned Brief export with development read grants are implemented independently.
-Existing Studio `production` endpoints manage older planning metadata; they **do not**
-provide an external audio upload API.
+Former synthesis workers, provider probes, TTS receipts and the DBSP job-summary adapter were
+retired from the API. Historical migrations 0007–0009 and their evidence remain intact.
+Forge's external producer direction does not revive backend generation tables or workers.

@@ -1,7 +1,12 @@
 # Publication core → Discovery/Playback → Library/Progress
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/publication-discovery-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 Publication is the first independently reviewed slice in this sequence. Its
-[Studio contract](../../packages/contracts/publication-v1.md) and [evidence](../evidence/publication-core.md)
+[Studio contract](../../../packages/contracts/publication-v1.md) and [evidence](../../evidence/publication-core.md)
 are implemented, while PostgreSQL and real public delivery acceptance remain outstanding.
 No listener, library or progress endpoint is introduced by this slice.
 

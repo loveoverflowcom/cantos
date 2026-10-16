@@ -157,7 +157,7 @@ Known Theatre handlers, query/body rejection, fallback and timeout use the Theat
 SQL, paths, audit data and exceptions never appear in it.
 
 [Strict JSON Schema](schema/theatre/discovery/v1.schema.json),
-[shared Rust DTOs](api/src/theatre.rs) and [original fixtures](fixtures/theatre/discovery/v1/)
+[shared Rust DTOs](api/src/theatre.rs) and [original fixtures](fixtures/theatre/discovery/v1)
 are versioned together and verified by schema/DTO round trips. This follows the repository's
 current hand-authored schema/shared-Rust method. Proposed OpenAPI/code generation and Kotlin
 wire generation are **not implemented**; client adoption must establish drift-checked generation
@@ -199,4 +199,4 @@ with named eligibility and publication-object doubles over arbitrary transport b
 mock-integration evidence, not playable-media admission, a public storage adapter or live
 delivery. No wire field, provider or runtime switch is introduced, and the normal composition
 remains unavailable. Cache security beyond no-store remains an
-[evidence-gated decision](../../docs/decisions/0028-publication-streaming-evidence-gates.md).
+[evidence-gated decision](../../docs/decisions/0038-publication-streaming-evidence-gates.md).

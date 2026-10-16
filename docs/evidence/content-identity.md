@@ -82,5 +82,5 @@ Production Brief, producer credentials, accepted audio and publication are absen
 content UI/interaction/accessibility is unclaimed. Catalog link fields remain compatibility
 metadata and may diverge from managed content; downstream code must use ContentRevision.
 No source/script permission grant, content backfill or rights clearance is implicit.
-Intake PR69/migration0010 remain independent. [Session 2 handoff](../work-plan/content-identity-production-brief-handoff.md)
+Intake PR69/migration0010 remain independent. [Session 2 handoff](../archive/handoffs/content-identity-production-brief-handoff.md)
 specifies immutable pinning, registry reconciliation and next acceptance.

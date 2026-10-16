@@ -17,7 +17,8 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 | --- | --- | --- |
 | Cantos Studio | Manage work/series, chapter/episode, script (optional), audio, briefs, submissions, approvals and publication | Leptos Web only |
 | Cantos API | Authorized catalog, immutable content/brief revisions, signed external-audio intake, metadata, checks and release authority | Rust + Axum + PostgreSQL |
-| External AI agents / plugins | Fetch instructions, perform TTS/recording/editing/mixing/encoding, run production-side QC, upload deliverables | Outside Cantos; independently operated |
+| Cantos Forge | Local artifact/register/validate/export foundation; planned shared local/Functions producer controlled by Studio, with private Drive drafts | Rust producer outside the API runtime; Functions/Drive/provider execution not implemented |
+| External AI agents / plugins | Fetch instructions, perform TTS/recording/editing/mixing/encoding, run production-side QC, upload deliverables | Outside Cantos API; independently operated |
 | Cantos Theatre | Discover and listen to immutable published releases; resume, native background listening and offline use | Leptos Web and Compose Multiplatform mobile |
 
 **Status, as of this pivot:** The existing code implements Script IR, revision persistence,
@@ -88,7 +89,7 @@ sessions; live-provider/production and separate Theatre/Admin identity remain ga
 See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](docs/evidence/studio-oidc.md).
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
-- `apps/cantos-forge`: proposed producer-side CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local workflow (workspace, artifact registration, deterministic checks, local handoff bundle). It runs outside the API, does not generate audio and does not submit anything.
+- `apps/cantos-forge`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow. The owner-selected Studio-controlled local/Functions and private Drive draft execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
 - `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
@@ -97,7 +98,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/firebase-hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); live deployment acceptance pending, the API is not served.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
-- `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.
+- `docs/`: [documentation map](docs/README.md), current owners and explicit ADR lifecycle; [active queue](docs/work-plan/README.md), source-bound evidence and historical archive have separate roles.
 - `xtask`: canonical repository verification and local development commands.
 
 The [Quint behavior foundation](specs/behavior/README.md) adds an opt-in executable private

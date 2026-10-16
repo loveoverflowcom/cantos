@@ -1,102 +1,57 @@
 # Live client capability boundary
 
-## Theatre identity activation
+Reviewed 2026-10-16 against develop `25b1c701`. This matrix connects implemented contracts to
+consumers and outstanding acceptance; it is not proof that the deployed environment is ready.
+[#179](https://github.com/loveoverflowcom/cantos/issues/179) owns real acceptance and
+[#180](https://github.com/loveoverflowcom/cantos/issues/180) cross-client parity.
 
-For [#191](https://github.com/loveoverflowcom/cantos/issues/191), the
-[activation record](../evidence/theatre-auth-activation.md) and
-[owning handoff](theatre-identity-handoff.md) provide the auth evidence input for
-[#179](https://github.com/loveoverflowcom/cantos/issues/179) /
-[#180](https://github.com/loveoverflowcom/cantos/issues/180). Native build-input wiring is
-source-tested only; configured artifacts, provider login, OS browser/secure-store/lifecycle
-and browser navigation acceptance remain unrun. The authorized tool-update follow-up now has
-an Android Studio Rabbit 1 discovery preview: `PASS`, PNG inspected and exported text-tree
-assertions passed after fixing the sandbox's debug-only tooling dependency. The earlier
-`UNSUPPORTED` CLI/IDE result remains historical; this host preview is not live auth or device
-acceptance. Shared/sandbox Android debug source compilation passed; native host packaging and
-iOS remain unrun. Existing Web BFF/proxy source is present;
-signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
+## Studio and producer capabilities
 
-The [Mac Web follow-up](../evidence/theatre-web-auth-mac.md) adds mounted fixture callback,
-cancel/retry/logout, keyboard and viewport observations plus a bounded Guest-callback retry fix.
-It does not supersede real API/provider acceptance: no local identity API or test issuer/account
-was available. Signup policy/capability is still pending #174; PR #196 remains Draft.
+| Capability / contract | Consumer and authorization | Implementation / remaining acceptance |
+| --- | --- | --- |
+| [Studio identity](../architecture/studio-oidc.md) | Studio-only session; opt-in OIDC with one/two provisioned administrator subjects; development token mode separate | Code exists; live issuer/session journey remains separate. No public Studio signup |
+| [Catalog](../../packages/contracts/catalog-v1.md), [Content](../../packages/contracts/content-v1.md) | Studio current cookie/role; Origin on writes; exact revision/operation | API and bounded real Studio consumer exist; #66 completed. Remaining responsive/accessibility/live QA is under #131/#179/#180 |
+| [Brief](../../packages/contracts/production-brief-v1.md) | Owner prepares exact snapshot; separate producer read bearer with cookies omitted | Implemented instructions, stale scope and revocable reads; not upload authority |
+| [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) | Owner prepares/reviews; exact producer upload bearer for status and bounded binary PUT | Actual bytes inspected and admitted/finalized with immutable receipt; no separate S3 finalize route inferred |
+| [Private content reads](../../packages/contracts/private-content-reads-v1.md) | Current owner and exact original target; GET/HEAD/Range and refreshed access | Private preview code exists; real chosen-provider isolation remains separate, never listener authority |
+| [Work artwork](../../packages/contracts/artwork-v1.md) | Active owner; exact PNG/JPEG intent/asset; revision-CAS select/replace/clear | API and Studio UI exist; #156 completed. Public Work cover remains absent |
+| [Catalog delegation](../../packages/contracts/delegation-v1.md) | Owner lists/issues/revokes; separate `cantos_dlg_` bearer for closed Work actions | API and Studio owner panel exist. Catalog grants authorize neither Brief nor audio/review/publication |
+| [Publication](../../packages/contracts/publication-v1.md) | Current owner distribution clearance, exact review/approval/readiness | Immutable release/active-pointer core exists; configured real delivery and retained-release acceptance remain gated |
 
-## Studio capability baseline
+## Theatre capabilities
 
-Baseline: `origin/develop@7396ede88466ef56dc9e7759956a4072d6672a5b`, inspected routes in
-`services/cantos-api/src/interfaces/http/studio/` and raw DTOs in
-`packages/contracts/api/src/`. This is an implementation boundary, not publication or user
-acceptance. Follow the [audio handoff](audio-lifecycle-frontend-handoff.md).
+| Capability / contract | Web / CMP consumer | Boundary and next owner |
+| --- | --- | --- |
+| [Discovery](../../packages/contracts/theatre-discovery-v1.md) | Anonymous Web Home calls actual Work reads; explicit `?mode=mock` is a separate preview | Work/search/units/manifest APIs exist. #172 owns state/pagination gaps; #158/#159 adopt actual contract |
+| [Theatre identity](../../packages/contracts/theatre-identity-v1.md) | Separate Web BFF and native resource credentials; no Studio-cookie reuse | Backend/Web/native adapters and enrollment state exist. #174/#191 own real login/signup; [current handoff](theatre-identity-handoff.md) |
+| [Library/Progress](../../packages/contracts/listener-library-v1.md) | Separate authenticated listener; Web account/readonly Library boundary; CMP common transport seam | Backend exists; full Web/native sync/offline acceptance remains #12/#17/#35 |
+| Public audio bytes | Theatre player only from publication-bound authorization, never private Studio preview | Origin-mode core/route exist behind [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md)'s composition/decision gate; #170 real delivery, #13 Web and #14 native listening |
+| Public Work cover / P1 metadata | Web W01–W03 and CMP M01–M06 | #157 → #171 and #177/#178; no public fields inferred from private artwork or bundled mock images |
+| Background/offline/native media | Platform adapters plus durable local state | #15/#16/#17; no native audio or durable production sync from preview reducers or unsigned host builds |
 
-| Capability / actual method and path (under `/api/v1`) | Consumer / authorization | Wire and media | Boundary |
-| --- | --- | --- | --- |
-| POST `studio/session` | Studio Web development token exchanged for HttpOnly cookie | SessionRequest/Response JSON | Implemented development identity; no Kanidm |
-| GET `studio/session` | Studio Web actual owner cookie | SessionResponse JSON, private no-store | Confirms cookie access and the exchanged actor; inactive/expired/revoked/duplicate sessions denied |
-| GET/POST `studio/works`; GET/PATCH/DELETE `studio/works/{id}`; GET history | Studio Web current cookie and permission; Origin on writes | Catalog DTOs, JSON, private no-store | Actual metadata; visibility never publishes |
-| GET/POST `studio/works/{id}/content-units`; POST reorder; GET/PATCH/DELETE `studio/content-units/{id}` | Studio Web cookie and role | Catalog DTOs, expected revisions and operation IDs | Stable chapter/episode identity; bounded opaque cursors |
-| GET content head/history/exact revision; POST content revisions under `studio/content-units/{id}` | Studio Web cookie and role | Content DTOs; text/recording/source/Script IR | Immutable ContentRevision; metadata links are independent |
-| POST production-briefs; GET production-briefs/{version} under Studio unit | Studio Web owner cookie | Brief DTOs, JSON | Exact copied Content/guidance/profile and freshness |
-| POST brief producer-grants; DELETE unit producer-grants/{id} | Studio Web owner cookie | Grant DTOs | Scoped read credential; never upload authority |
-| GET/POST `studio/works/{id}/delegations`; DELETE `…/delegations/{grant_id}` | Studio Web Work owner cookie, session fence and Origin | Delegation v1 DTOs, JSON; DELETE `204` | Show-once `cantos_dlg_` secret on `201` only; `200` replay `token: null`; the browser never sends the bearer |
-| GET `studio/producer/content-units/{id}/production-briefs/{version}` | External producer read bearer; browser credentials omit | ProductionBriefDocument JSON | Separate from owner sessions/upload bearer |
-| POST audio-submissions; GET exact submission; DELETE upload-permission under Studio unit | Studio Web owner cookie | AudioLifecycle DTOs JSON | Private, scoped, expiring, revocable admission |
-| GET `studio/producer/audio-submissions/{id}`; PUT same path + `/bytes` | Exact producer upload bearer; browser credentials omit | JSON status; bounded octet-stream PUT → JSON | Actual-byte inspection; explicit Opus mono20/24/32/40 profiles |
-| POST submission reviews; POST/GET release-candidates | Studio Web owner cookie | Exact digest/checksum and named review DTOs | Private candidates always block public delivery |
-| Legacy scripts/revisions/imports/adaptation/production; script audio-intents | Studio Web existing cookie adapters | Existing contracts | Retained; not listener interfaces |
-| `/theatre/*`, `/admin/*` | No implemented listener/admin identity | JSON404 not_found | Reserved; no invented endpoints or DTOs |
-| Publication/manifest/media GET/range/offline/progress | Theatre Web/CMP | No available contract or delivery URL | Deferred; cannot connect playback to private Studio audio |
+Theatre Web already defaults to anonymous live discovery. An API outage remains an explicit
+error/unavailable state, not an automatic mock fallback. The production CMP host states
+unavailable until its real listening adapters are present. A successful empty Work page or
+mounted mock player is not audio acceptance.
 
-## Reviewable client slice
+## Local and deployed acceptance
 
-Connect Studio Web to the actual Catalog/Content/Brief/private-audio owner APIs, preserving
-typed DTOs, exact replay snapshots, failed-save/error states and cancellation/late-response
-fences. Producer upload uses its own bearer with cookies omitted. Do not persist credentials
-or introduce backend synthesis, mixing, transcoding, publication or CI.
+Use the current [Studio runbook](../../apps/cantos-studio/web/README.md),
+[Theatre runbook](../../apps/cantos-theatre/web/README.md#build-run-and-checks) and
+[xtask contract](../../xtask/README.md) for prerequisites and command semantics. Theatre
+`run --web` starts/checks API + frontend; `app --web` reuses an existing API and reports
+frontend-only readiness. Launch never provisions identity/storage or creates playable releases.
 
-Theatre Web/CMP gain explicit configuration, transport/error/cancellation seams and tested
-unsupported capabilities. The mock remains a separately named preview mode. No listener
-endpoint means **no live Theatre integration**; transport checks are not playback evidence.
+For a synthetic disposable environment, observe Catalog → Content/Brief → bounded upload →
+private preview/review → readiness, with exact retries, stale/expired/revoked/wrong-owner and
+lost-response cases. Preserve explicit producer-vs-owner credentials. Public playback requires
+its separately accepted configured release-delivery path before Web/native observations.
 
-## Acceptance still owned by the user and future backend slices
+[Historical client evidence](../evidence/live-client-integration.md),
+[browser follow-up](../evidence/live-client-browser-acceptance.md) and
+[finding recheck](../evidence/live-client-finding-fixes.md) retain their original scope/outcomes.
+Do not copy an early “no preview/no listener API” limitation forward as current implementation.
 
-User end-to-end acceptance, production identity/credential delivery, object storage,
-publication/visibility, delivery range/seek, native background playback and listening quality
-remain separate. Contract tests, mocked adapters and real disposable PostgreSQL are agent
-checks. Kani may check only named bounded pure Rust invariants, never Kotlin/network/full apps.
-
-## User end-to-end walkthrough
-
-The bounded implementation/evidence is in the [record](../evidence/live-client-integration.md).
-On an unlocked Mac with connected browser control, use installed toolchains and the existing
-local command surface. Do not substitute a production or inherited database URL.
-
-1. Run `cargo xtask verify postgres --keep`, then
-   `CANTOS_TEST_CONTEXT=audio cargo xtask run cantos-studio --web --test-cluster`.
-   This selects the runner's fresh retained AudioLifecycle fixture with narrow app-role grants
-   and private storage. Use only its synthetic development sign-in token described by the runner.
-2. At `http://127.0.0.1:8081`, sign in, choose **Content & audio**, list works and create an
-   original synthetic story/podcast plus chapter/episode. Test Vietnamese text, keyboard/focus,
-   narrow/wide widths, light/dark and large text. Use synthetic declared rights already present
-   in that fixture (`catalog-rights`); declarations establish no production clearance.
-3. Read content head to distinguish absent404from a stored revision. Append text/recording,
-   read exact/history content; create a brief with an explicit20/24/32/40profile and real
-   permitted-use/attribution/QA declarations. Change content afterward and observe stale scope.
-4. Select an externally encoded synthetic Ogg Opus file≤32MiB. Prepare and upload the exact
-   bytes; inspect Network to confirm producer PUT has Authorization bearer and no Cookie, while
-   owner requests retain the Studio cookie. No audio preview is available on this backend.
-5. Refresh status; compare producer declarations to verified server media facts. Record named
-   QC/rights/editorial decisions only with actual evidence. Change the selected rendition or
-   decision/evidence and verify consent is invalidated. Create/read a private candidate and
-   confirm `public_delivery_not_implemented` remains a blocker.
-6. Test failed/stale/concurrent edits without losing drafts. Interrupt a write, retry its exact
-   operation, and reconcile prepared/uploaded receipts after a lost response; mismatches remain
-   unknown. Verify navigation/cancellation/newer-response and same/different-actor boundaries.
-7. Start Theatre Web separately with `cargo xtask app cantos-theatre --web` while the API runs.
-   Default mode checks the real reserved group and stays unsupported. `?mode=mock` is the
-   explicitly isolated preview. Native CMP hosts remain mock; no private Studio asset is playable.
-8. Stop the xtask-owned processes with Ctrl-C and stop the exact retained cluster using the
-   runner's printed command. Record user acceptance separately; do not merge this draft PR.
-
-Next backend prerequisites remain secure listener identity and immutable publication/delivery
-before catalog/manifest/playback/progress/download interfaces. iOS concrete transport and native
-runtime acceptance then follow that reviewed contract. No backend endpoint is fabricated here.
+Static Firebase Hosting is independent from the VPS API. Its [runbook](../deployment/firebase-hosting.md)
+keeps deployed-origin/session/playback acceptance separate from bundle deployment. Planned Forge
+Functions are a second Studio backend under #203, not a Hosting or listener capability.

@@ -1,5 +1,10 @@
 # New-session Ultra handoff: private Work cover
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/catalog-media-mvp-ultra-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 Planning completed on 2026-10-13 UTC. Implementation is **not started**. This document is the
 handoff for the user-requested new, separate GPT6.1Sol Ultra implementation session, not an
 instruction to continue implementation in the planning session.
@@ -11,9 +16,9 @@ instruction to continue implementation in the planning session.
 - Planning branch: plan/issue104-catalog-media-mvp.
 - Worktree: /workspace/scratch/429f9ca90843/cantos-catalog-media-plan-20261013.
 - Main checkout remains untouched at 389c5cb; other worktrees/evidence/caches are preserved.
-- [Exact implementation plan](012-private-work-artwork.md): coverage, every field, SQL, routes,
+- [Exact implementation plan](../superseded-plans/012-private-work-artwork.md): coverage, every field, SQL, routes,
   transaction/replay policy, Proto field numbers, limits, L1–L5, commits and acceptance.
-- [Checked primary-source semantics](catalog-media-standards-reference.md): RSS 2.0.11,
+- [Checked primary-source semantics](../superseded-plans/catalog-media-standards-reference.md): RSS 2.0.11,
   Podcast namespace 1.0/Phase8 image and deprecations, private/public separations, decoder source.
 - [Issue104](https://github.com/loveoverflowcom/cantos/issues/104) was read in full with zero
   comments. Its original research-only scope is superseded only by the user's explicit request

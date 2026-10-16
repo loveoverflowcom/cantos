@@ -5,7 +5,7 @@
 This records a **documentation-only** decision-pending slice of
 [#113](https://github.com/loveoverflowcom/cantos/issues/113), not Work-delegation implementation.
 [The RFC](../architecture/work-scoped-delegation-rfc.md) owns the comparison/responsibility
-sketch; [the handoff](../work-plan/work-scoped-delegation-handoff.md) owns recommended next gates.
+sketch; [the handoff](../archive/handoffs/work-scoped-delegation-handoff.md) owns recommended next gates.
 
 - Source: verified `origin/develop` `b6066acc659b6d4cd030badb9c1abdad08b6dcf2`.
 - Environment: isolated Linux cloud worktree, Python 3.12.14, `cryptography` 50.0.0;

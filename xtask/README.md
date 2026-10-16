@@ -57,7 +57,7 @@ cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
-cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover]...
+cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
@@ -454,22 +454,38 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly ten registered API-library propositions:
-`catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`, `publication-commit`,
-`listener-access`, `listener-reconcile`, `byte-range`, `playback-grant` and `public-cover`.
+`cargo xtask verify kani` selects exactly eleven registered propositions. Ten are API-library
+kernels: `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`,
+`publication-commit`, `listener-access`, `listener-reconcile`, `byte-range`, `playback-grant`
+and `public-cover`. One is in the `cantos-forge` package: `forge-attempt-ledger`
+(`apps/cantos-forge/src/domain/attempt.rs`). Every kernel names exactly one workspace package
+(the closed allowlist is `cantos-api` and `cantos-forge`) and passes it to the primitive as
+`--package`; the primitive refuses any other name, and an absent value means `cantos-api`.
 Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6) and reviewed unreachable checks.
-The last three were registered for #170/#171 without an actual Kani run (pinned x86_64 Linux
+fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6 for the API
+kernels in the order above, 9 for `forge-attempt-ledger`) and reviewed unreachable checks (none
+for the Forge kernel).
+The last three API kernels were registered for #170/#171 without an actual Kani run (pinned x86_64 Linux
 model unavailable on the authoring host); see the [proof ledger](../docs/assurance/kani.md#public-media-kernels-registered-not-yet-run).
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
 limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 
+The registered Forge kernel's proof is `NOT_RUN`: the registration/selection tests and the
+primitive's synthetic tests are not a Kani execution of its harness. It becomes evidence only when
+`cargo xtask verify kani --harness forge-attempt-ledger` runs on a host with the pinned Kani
+0.68.0 bundle and its retained output is inspected. It adds no new tool, dependency or CI job:
+the same pinned bundle, primitive and opt-in gate serve both packages.
+
 This is separate from normal builds, `verify rust`, full preflight and every CI job. Explicit
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
-Kernel source/owner inputs select their propositions; shared Cargo/toolchain/verification or
-uncertain changes select all seven. Unrelated documents, Web/CMP and service configuration select
-none and print a no-affected-kernel note. `--skip kani` reports selected proofs as `NOT_RUN`;
+Kernel source/owner inputs select their propositions. Selection is package-local: API
+manifest/build/contract inputs select only the ten API kernels, and a changed
+`apps/cantos-forge/src/domain/**`, `apps/cantos-forge/src/lib.rs` or `apps/cantos-forge/Cargo.toml`
+selects only `forge-attempt-ledger`. The primitive and its tests, shared Cargo/toolchain/
+verification and uncertain changes select all eleven. Unrelated documents, Web/CMP, other Forge
+modules and service configuration select none and print a no-affected-kernel note.
+`--skip kani` reports selected proofs as `NOT_RUN`;
 `--dry-run` prints plans without probing or executing the verifier. Service infrastructure is
 never started.
 
@@ -483,13 +499,18 @@ It invokes only the absolute installed driver in cargo-plugin mode, never an ins
 setup, download or global toolchain change. Missing/incompatible tools are `UNSUPPORTED` before
 proof commands. Doctor's `PASS`/runnable rows establish capability only, never proof execution.
 
-The [single-harness primitive](../scripts/verify_kani.py) uses fixed API-library/no-default-feature,
-`--exact`, unwind 2, regular output and default safety/unwinding checks. Child-only bundle/PATH/
+The [single-harness primitive](../scripts/verify_kani.py) uses a fixed package-library/
+no-default-feature (`-p` the kernel's registered package), `--exact`, unwind 2, regular output and
+default safety/unwinding checks. Child-only bundle/PATH/
 toolchain selection is isolated from normal builds. Ambient compiler/flag/wrapper overrides and
 implicit Kani manifest/Cargo configuration are rejected rather than weakening the model; no
 additional Python 3.11/TOML parser is required. Rust uses the already locked TOML parser.
 It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
-configuration candidates to each proof command. The primitive refuses stale approval before
+configuration candidates to each proof command. The required manifests are the workspace
+manifest and the owning package's manifest only (`services/cantos-api/Cargo.toml` or
+`apps/cantos-forge/Cargo.toml`); Rust computes one snapshot per package and the primitive
+re-derives the identical set from the same package name, so an approval for one package is
+never accepted for the other. The primitive refuses stale approval before
 proof execution and rechecks the complete candidate set on every outcome.
 An empty `CARGO_HOME` uses `HOME/.cargo`, matching Cargo. Both layers require a nonempty
 `CARGO_HOME` or `HOME`; unresolved platform-home fallback is refused before probing so its
@@ -507,10 +528,14 @@ unsatisfied covers, timeout (900 seconds), output above 4 MiB, changed inputs or
 before reaping the leader.
 
 Fresh raw output and metadata are retained under ignored `artifacts/agent-runs/kani-*/` with Git
-revision and sanitized dirty/diff hashes, source/configuration identities and before/after lock
-and model digests. Model binding covers all API source, contracts API source/schema inputs,
-their manifests/build scripts, root Cargo/.cargo settings and the primitive/registry, including
-created/deleted files. Relevant ancestor/Cargo-home configuration is also bound. These endpoint
+revision and sanitized dirty/diff hashes, source/configuration identities, the package and
+before/after lock and model digests. Model binding for an API kernel covers all API source,
+contracts API source/schema inputs, their manifests/build scripts, root Cargo/.cargo settings and
+the primitive/registry, including created/deleted files. For the Forge kernel it covers all
+`apps/cantos-forge/src` files, the Forge manifest, root Cargo/.cargo settings and the
+primitive/registry, and no API or contracts source (the Forge manifest depends only on external
+crates), also including created/deleted files. Relevant ancestor/Cargo-home configuration is
+also bound. These endpoint
 checks require frozen inputs: concurrent mutate-and-restore writes are not filesystem isolation.
 An observed endpoint change cannot retain `PASS`. This is bounded local arithmetic/admission
 evidence, not SQL, authorization, publication, actual audio, native listening or complete-feature

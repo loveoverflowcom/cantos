@@ -157,5 +157,5 @@ frontier. Reconsider only after the authorized PG baseline earns an actual exper
 - [ ] Keyboard/narrow-screen/large-text/accessibility and stale/duplicate result acceptance
 - [ ] Account-scoped retained access, durable saves/history/progress/conflicts and offline policy
 
-[Next Library/Progress handoff](../work-plan/discovery-library-handoff.md). No PR3 work was started
+[Next Library/Progress handoff](../archive/handoffs/discovery-library-handoff.md). No PR3 work was started
 by this session, and none of these checkboxes authorizes public activation or merging.

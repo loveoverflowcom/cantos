@@ -1,8 +1,13 @@
 # Production Brief boundary
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/production-brief-implementation.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 One immutable, versioned instruction snapshot for an exact Catalog ContentRevision, readable
 by its Studio owner and by a separately scoped, expiring, revocable external producer grant.
-Authority: [ADR 0018](../decisions/0018-external-audio-production.md) and the
+Authority: [ADR 0018](../../decisions/0018-external-audio-production.md) and the
 [Content handoff](content-identity-production-brief-handoff.md).
 
 ## Invariants and evidence targets

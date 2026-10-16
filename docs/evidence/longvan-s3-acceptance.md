@@ -1,7 +1,7 @@
 # Long Vân S3 private target: profile, live-acceptance harness and evidence
 
 Status record for using Long Vân as a **configuration target** of the existing provider-independent
-private storage ([ADR 0022](../decisions/0022-provider-independent-private-storage.md),
+private storage ([ADR 0037](../decisions/0037-provider-independent-private-storage.md),
 [object storage](../architecture/object-storage.md)). It separates what the repository implements,
 what was observed without credentials, and what is still `NOT_RUN`. The original profile
 record below used no credential. The [operational follow-up](#offline-harness-hardening-and-live-blocker)
@@ -193,7 +193,7 @@ date. It is not a CORS, player, throughput, durability or SLA result.
    whose `conditional_create_enforced` is not `PASS`.
 3. **Bucket versioning**: needed before `presigned_reads = true` is meaningful.
 4. **Production isolation**: a private bucket for intake only. Publication/CDN delivery needs its
-   own reviewed storage ([ADR 0022 §8](../decisions/0022-provider-independent-private-storage.md)).
+   own reviewed storage ([ADR 0037 §8](../decisions/0037-provider-independent-private-storage.md)).
 
 ## Deferred acceptance
 

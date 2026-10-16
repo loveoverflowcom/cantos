@@ -60,9 +60,10 @@ Studio; inspect [the API service guide](../../services/cantos-api/README.md) and
 `services/kanidm` and shared `packages/`; read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
-requested in a future roadmap. Theatre Web is a session-only UI mock; Theatre Mobile has an
-isolated memory-only Gradle CMP mock with Android/iOS hosts and common/desktop tests, without
-native audio, listener API, downloads or durable sync;
+requested in a future roadmap. Theatre Web has anonymous live discovery/account reads and
+explicit UI mocks. Theatre Mobile has a production-safe shared core, isolated Gradle CMP demo
+and unavailable production Android host; native audio, downloads and durable sync remain absent.
+Backend listener contracts exist; real client/provider acceptance stays separate.
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),

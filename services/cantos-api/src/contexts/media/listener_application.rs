@@ -1,7 +1,9 @@
 //! Listener use cases: no Studio token, session cookie, editorial access or production work.
 use super::{
     domain::{
-        listening::{after_work, DiscoveryQuery, ListenerDomainError, ListenerPublication},
+        listening::{
+            after_unit, after_work, DiscoveryQuery, ListenerDomainError, ListenerPublication,
+        },
         playback_grant::grant_expiry,
     },
     listener_cursor::{CursorVault, Keyset},
@@ -249,18 +251,34 @@ impl ListenerService {
             .read
             .read(ReadRequest::Units {
                 work: work.clone(),
-                after,
+                after: after.clone(),
                 limit: query.limit(),
             })
             .await?;
         if snapshot.items.is_empty() && snapshot.next_key.is_none() && cursor.is_none() {
             return Err(ListenerError::NotFound);
         }
-        let mut items: Vec<_> = snapshot
-            .items
-            .into_iter()
-            .map(|r| unit_summary(&r.publication, r.position))
-            .collect();
+        let mut items = Vec::new();
+        for r in snapshot.items {
+            let summary = unit_summary(&r.publication, r.position);
+            if let Some(Keyset::Units {
+                position,
+                id: after_id,
+                ..
+            }) = &after
+            {
+                let current = uuid::Uuid::parse_str(&summary.unit_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                let old = uuid::Uuid::parse_str(after_id)
+                    .map_err(|_| ListenerError::Corrupt)?
+                    .as_u128();
+                if !after_unit(r.position, current, *position, old) {
+                    return Err(ListenerError::Corrupt);
+                }
+            }
+            items.push(summary);
+        }
         items.truncate(query.limit());
         let next_cursor = snapshot
             .next_key
@@ -715,6 +733,56 @@ pub(super) mod tests {
         assert_eq!(requests.len(), 3);
         assert!(requests[1].is_some());
         assert_eq!(requests[1], requests[2]);
+    }
+
+    /// Replays a fixed continuation key and answers with one row at `position`, ignoring the key
+    /// as a faulty SQL ordering would.
+    struct MisorderedUnitRead(u32);
+    impl ListenerRead for MisorderedUnitRead {
+        fn read(&self, request: ReadRequest) -> ReadFuture {
+            let ReadRequest::Units { after, .. } = request else {
+                panic!("unit guard must not read another discovery route");
+            };
+            let position = self.0;
+            Box::pin(async move {
+                let mut row = item();
+                row.position = position;
+                Ok(ReadSnapshot {
+                    now: 5000,
+                    items: vec![row],
+                    next_key: after.is_none().then(|| Keyset::Units {
+                        work: item().publication.work().id().as_str().to_owned(),
+                        position: 7,
+                        id: item().publication.unit().id().as_str().to_owned(),
+                    }),
+                })
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn reader_row_not_strictly_after_the_unit_cursor_is_corrupt() {
+        let work = item().publication.work().id().as_str().to_owned();
+        // The cursor key is (7, this row's own unit id): only a strictly later position passes.
+        for (position, expected) in [
+            (6, Err(ListenerError::Corrupt)),
+            (7, Err(ListenerError::Corrupt)),
+            (8, Ok(())),
+        ] {
+            let s = ListenerService::from_parts(
+                Arc::new(MisorderedUnitRead(position)),
+                Arc::new(UnavailablePlayback),
+            );
+            let cursor = s.units(&work, 1, None).await.unwrap().next_cursor.unwrap();
+            let page = s.units(&work, 1, Some(&cursor)).await.map(|_| ());
+            assert_eq!(page, expected, "row position {position}");
+        }
+        // The first page carries no key to violate, so it is never rejected by the guard.
+        let s = ListenerService::from_parts(
+            Arc::new(MisorderedUnitRead(0)),
+            Arc::new(UnavailablePlayback),
+        );
+        assert_eq!(s.units(&work, 1, None).await.unwrap().items.len(), 1);
     }
 
     #[tokio::test]

@@ -1,12 +1,17 @@
 # Catalog / Media standards reference for the artwork MVP
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/catalog-media-standards-reference.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 Status: proposed implementation reference, not feature evidence. Checked on
 2026-10-13 UTC for [issue #104](https://github.com/loveoverflowcom/cantos/issues/104).
 The current user separately requested a small API/DB MVP plan and a subsequent implementation
 session; the issue's research-only boundary does not itself authorize implementation.
 
 The active production compiler is now pinned separately in
-[`rust-toolchain.toml`](../../rust-toolchain.toml); the dated source inspection below
+[`rust-toolchain.toml`](../../../rust-toolchain.toml); the dated source inspection below
 retains its original Rust baseline. Keep image 0.25.8 and existing decoder semantics locked.
 
 ## Use of the sources
@@ -56,4 +61,4 @@ on them, so they were not used as standards authority or copied into a Cantos sc
    extension, not a claim that Catalog, Theatre, identity or audio already use Protobuf.
 
 See the [implementation plan](012-private-work-artwork.md) and
-[separate-session handoff](catalog-media-mvp-ultra-handoff.md).
+[separate-session handoff](../handoffs/catalog-media-mvp-ultra-handoff.md).

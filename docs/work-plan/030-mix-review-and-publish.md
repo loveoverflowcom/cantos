@@ -21,7 +21,7 @@ clearance/approval, complete blockers, immutable releases, atomic active pointer
 [Core evidence](../evidence/publication-core.md) distinguishes actual passing unit/property/Kani/
 Router evidence from its initial failed PostgreSQL startup and unrun migration/concurrency acceptance.
 Default delivery is unavailable; real public activation remains blocked. The
-[successor handoff](publication-discovery-handoff.md) records the separate storage,
+[successor handoff](../archive/handoffs/publication-discovery-handoff.md) records the separate storage,
 public delivery/retention, legal/listening policy and Theatre acceptance boundaries.
 
 Media owns private storage/preview and the Publication core's approved immutable manifests and
@@ -42,7 +42,8 @@ broken uploads and rejected replacements leave the previous release playable.
 1. Define a versioned audio profile (accepted codecs, container, channels, max duration/size,
    streaming/seek behavior, allowed low-bandwidth variants) and a shared external-producer QC
    checklist. See [#51](https://github.com/loveoverflowcom/cantos/issues/51) and
-   [#64](https://github.com/loveoverflowcom/cantos/issues/64).
+   the implemented four-profile intake contract. #64's broader preset proposal is closed as
+   not planned; it is not an outstanding delivery dependency.
 2. Accept private rendered files from external tools and verify object existence, actual
    checksum, size and media metadata. Do not implement an Axum TTS/mix/encoder worker.
 3. Record independently identified evidence: producer-declared QC, server-inspected technical

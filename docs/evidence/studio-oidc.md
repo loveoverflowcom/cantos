@@ -25,7 +25,7 @@ operator boundaries; Gateway/admin/bootstrap is not copied. Migration **0020_stu
 Before final publication, PR95 Library head `dc45b46f732c19948f01947039ec4b09fa8a7741`, tree
 `b53ccafff81d1d98f4df368cbbaf41f9b5338dca`, was fetched/read solely for PR3 documentation.
 Its actual bearer-only `ListenerAuthenticator`/sealed principal/default-deny router seam and
-official handoff are pinned in the [successor handoff](../work-plan/identity-authentication-handoff.md).
+official handoff are pinned in the [successor handoff](../archive/handoffs/identity-authentication-handoff.md).
 It was not merged into this Studio branch; no Library test/runtime acceptance is claimed here.
 
 ## L1–L5 and security evidence

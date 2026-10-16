@@ -3,19 +3,25 @@
 > **Current product boundary (ADR 0018):** Cantos Studio is Web-only CMS for
 > novel/story/podcast, chapters/episodes, versioned instructions and external audio assets.
 > **AI plugins/human producers produce, mix and encode audio outside Cantos**, then use a
-> secure private handoff API. No backend TTS/provider/worker. Theatre only plays releases.
+> secure private handoff API. No TTS/provider/worker in Cantos API. Theatre only plays releases.
+> [Forge ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md) records the owner-selected
+> local/Functions producer and private Drive drafts: Studio controls operations, Forge executes
+> outside the API. Only its local artifact CLI foundation is implemented today.
 > See [current decision](docs/decisions/0018-external-audio-production.md) and
 > [proposed, not-yet-implemented handoff](packages/contracts/external-audio-handoff-v1.md).
 
 ## Scope and source of truth
 
-Read [README.md](README.md), the relevant product/architecture docs and [docs/work-plan/README.md](docs/work-plan/README.md) before implementing a feature. This is a documentation and template bootstrap; inspect actual code before treating a proposed module, schema, command or API as implemented.
+Read [README.md](README.md), the [documentation map](docs/README.md), relevant owning docs and
+[current queue](docs/work-plan/README.md) before implementing. Use the map's lifecycle rules:
+archived handoffs and source-bound evidence are not active plans; proposed ADRs are not accepted
+policy. Inspect actual code before treating a module, schema, command or API as implemented.
 
 The current user's instructions take priority. Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
 
 ## Repository layout
 
-`apps/cantos-theatre/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/web` is Cantos Studio (creators, Web only), `apps/cantos-forge` is the producer-side Cantos Forge CLI (proposed in [ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md); a host-assisted local workflow of register, validate and export a local bundle, no provider call and no API handoff; runs outside the API and never makes the API generate), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, `packages/` holds shared contracts and design tokens, and `xtask/` is the `cargo xtask` developer command surface. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. Naming is strict: `cantos-theatre`/`theatre` is the technical name (path, package, API group, DTOs), while listeners only ever see **Cantos** (never "Cantos Theatre") and creators see **Cantos Studio**. The API has three route groups with separate routers, DTOs, authentication and data access: `/api/v1/studio/*` (implemented; the pre-split `/api/v1/*` paths are a deprecated alias), `/api/v1/theatre/*` (anonymous public discovery/playback core; delivery acceptance pending) and `/api/v1/admin/*` (opt-in dedicated capability/revocation and audit; live issuer/group acceptance pending). Never serve a Theatre or Admin feature from a Studio handler, reuse a Studio session for them, or add fake data to a reserved group ([decision 0015](docs/decisions/0015-api-surface-boundaries.md)). [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
+`apps/cantos-theatre/{web,mobile}` is Cantos Theatre (listeners), `apps/cantos-studio/web` is Cantos Studio (creators, Web only), `apps/cantos-forge` is the producer-side Cantos Forge library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md); today register/validate/export local artifacts, with no provider call or API handoff; the accepted local/Functions/Drive direction remains unimplemented), `services/cantos-api` is the one Rust/Axum/PostgreSQL backend, `services/kanidm` is identity-provider configuration only, `packages/` holds shared contracts and design tokens, and `xtask/` is the `cargo xtask` developer command surface. Apps depend on `packages/` and call the API over HTTP; they never import each other or service code, and `packages/` imports neither. Do not mix Theatre and Studio UI or permissions. Naming is strict: `cantos-theatre`/`theatre` is the technical name (path, package, API group, DTOs), while listeners only ever see **Cantos** (never "Cantos Theatre") and creators see **Cantos Studio**. The API has three route groups with separate routers, DTOs, authentication and data access: `/api/v1/studio/*` (implemented; the pre-split `/api/v1/*` paths are a deprecated alias), `/api/v1/theatre/*` (anonymous public discovery/playback core; delivery acceptance pending) and `/api/v1/admin/*` (opt-in dedicated capability/revocation and audit; live issuer/group acceptance pending). Never serve a Theatre or Admin feature from a Studio handler, reuse a Studio session for them, or add fake data to a reserved group ([decision 0015](docs/decisions/0015-api-surface-boundaries.md)). [Repository layout](docs/architecture/repository-layout.md) records what is implemented, a skeleton or only reserved; do not present a skeleton as a feature.
 
 ### Platform scope
 

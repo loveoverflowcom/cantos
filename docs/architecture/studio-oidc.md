@@ -254,7 +254,9 @@ is an intentional authorization dependency.
 
 Theatre Web/CMP must not consume `StudioOidc`, its cookies, handlers, development token or private
 session table as Listener authority. Reuse only ActorId/exact keys and audited verification ideas.
-A trusted Listener adapter may map verified issuer/sub through PR92, then construct its own sealed
-witness. Library/Progress's proposed seam is recorded in the
-[handoff](../work-plan/identity-authentication-handoff.md); inspect its published code before use.
-Native system-browser PKCE and OS-secure credentials remain PR3 work. Admin stays reserved.
+A separate [Theatre adapter](theatre-identity.md) maps verified issuer/sub to its own sealed
+witness; [Library/Progress](../../packages/contracts/listener-library-v1.md) and the opt-in
+[Admin slice](admin-authorization.md) are implemented boundaries, not reserved groups. Native
+system-browser/secure-store adapters exist; real configured artifact/provider/device acceptance
+remains separate. The [original sequencing handoff](../archive/handoffs/identity-authentication-handoff.md)
+is historical.

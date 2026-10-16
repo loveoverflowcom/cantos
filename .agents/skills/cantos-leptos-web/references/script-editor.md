@@ -6,9 +6,9 @@
 > correction, validator-driven messages, status kept outside editable text and large scripts.
 > Use for any change to editing, saving, validation display or AI-suggestion review in Studio.
 
-Product requirements: [010 scope and acceptance](../../../../docs/work-plan/010-import-and-edit-script.md#acceptance-criteria),
+Product requirements: [Script/editor scope and acceptance](../../../../docs/assurance/script-editor-acceptance.md#acceptance-criteria),
 [UI system § Studio](../../../../docs/design/ui-system.md#studio-text-first-production) and
-[business rules § Content and revisions](../../../../docs/product/business-rules.md#content-and-revisions).
+[business rules § Content and revisions](../../../../docs/product/business-rules.md#work-chapter-and-episode-identity).
 What a save creates, how IDs are assigned and which validation errors exist belong to
 [`cantos-script-ir`](../../cantos-script-ir/SKILL.md) — especially
 [`revision-lifecycle.md`](../../cantos-script-ir/references/revision-lifecycle.md) and
@@ -110,7 +110,7 @@ field is focused. Text containers must not clip stacked diacritics ([`styling.md
 
 ## 4. Draft, save and version states
 
-Saving is explicit; 010 requires explicit save and version behavior, and silent background
+Saving is explicit; the editor requires explicit save and version behavior, and silent background
 autosave of server revisions is a product decision, not an implementation detail.
 
 ```rust
@@ -147,7 +147,7 @@ reducer or component test:
 - A failed or conflicting save never changes rows. Never reload the server copy over the draft.
 - A conflict is never resolved by last write wins. The creator compares (per dialogue ID: changed
   here, changed there, changed in both) and chooses; the resolution is an ordinary save whose
-  base is the current head. Automatic merging is out of scope for 010; a line-level three-way
+  base is the current head. Automatic merging is out of scope for the editor; a line-level three-way
   merge keyed by dialogue ID is the later shape, as a pure function with laws
   `merge(b, b, t) == t`, `merge(b, m, b) == m`, and lines edited on both sides always surfacing.
 - The status region is outside the editable text, uses `role="status"`, and announces a
@@ -164,7 +164,7 @@ value or as markup inside the text. After an edit, the row shows that its clip p
 authority on what must regenerate. Regeneration scope is shown before it starts
 ([UI system § Studio](../../../../docs/design/ui-system.md#studio-text-first-production)).
 
-AI-inferred speakers, emotions and cues are suggestions until accepted ([business rule 9](../../../../docs/product/business-rules.md#casting-and-performance)).
+AI-inferred speakers, emotions and cues are suggestions until accepted ([casting/performance guidance](../../../../docs/product/business-rules.md#casting-and-performance)).
 Render each suggestion as a distinct, labeled proposal with accept and reject actions; accepting
 is an ordinary undoable editor operation. Never merge a suggestion into the text silently.
 

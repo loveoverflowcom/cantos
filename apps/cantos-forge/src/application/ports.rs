@@ -4,11 +4,14 @@ use std::path::Path;
 
 use crate::domain::{
     artifact::{ArtifactRevision, ReplayError},
+    attempt::{AttemptNumber, Event, Rejection, UncertainReason},
     checks::{CheckResult, Detail},
     digest::Sha256Digest,
     evaluation::Evidence,
+    generation::GenerationRequest,
     handoff::ExportPlan,
     identity::{ArtifactId, EvidenceId},
+    label::OperationKey,
 };
 
 /// Evidence plus the measurements behind it. The record is append-only.
@@ -149,3 +152,67 @@ pub trait Runtime {
 
 /// The largest input file Forge reads into memory: twice the audio body limit.
 pub const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AttemptStoreError {
+    /// The position already holds an event: another writer got there first, or this very write
+    /// happened and only its response was lost. A store cannot tell which, and neither can the
+    /// caller from the error alone.
+    Conflict,
+    Unavailable {
+        operation: &'static str,
+        detail: String,
+    },
+}
+
+/// The durable, append-only history of generation operations, one ordered list per key.
+///
+/// It is the only authority on whether a billable call may start: the reservation event is
+/// written here **before** the call, and a write that loses a race fails with
+/// [`AttemptStoreError::Conflict`] instead of overwriting. Nothing here is a Catalog: it holds
+/// producer-side attempt facts, never content, grants or publication state.
+pub trait AttemptStore {
+    /// The events of `key` in order, or an empty list when the key has no history.
+    fn events(&self, key: &OperationKey) -> Result<Vec<Event>, AttemptStoreError>;
+    /// Writes `event` as number `index` of the history, once. `index` must be the number of
+    /// events already stored; any other position, or a taken one, is a `Conflict`.
+    fn append(
+        &self,
+        key: &OperationKey,
+        index: usize,
+        event: &Event,
+    ) -> Result<(), AttemptStoreError>;
+}
+
+/// Proof that this invocation won the reservation of one attempt and may make that attempt's
+/// one provider call. Only the use cases can create it, and only after the reservation event
+/// was appended, so an adapter cannot be asked to call a provider without one.
+#[derive(Debug)]
+pub struct Reserved {
+    attempt: AttemptNumber,
+}
+
+impl Reserved {
+    pub(in crate::application) fn new(attempt: AttemptNumber) -> Self {
+        Self { attempt }
+    }
+
+    pub fn attempt(&self) -> AttemptNumber {
+        self.attempt
+    }
+}
+
+/// What a provider adapter reports. `Unknown` is for every case where the call may have been
+/// made or billed and no definite answer arrived; an adapter never guesses `Rejected`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProviderResult {
+    /// The raw bytes the provider returned: not a Cantos rendition.
+    Audio(Vec<u8>),
+    Rejected(Rejection),
+    Unknown(UncertainReason),
+}
+
+/// One bounded speech provider. `synthesize` makes at most one billable call and never retries.
+pub trait Provider {
+    fn synthesize(&self, reserved: &Reserved, request: &GenerationRequest) -> ProviderResult;
+}

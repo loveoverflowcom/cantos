@@ -169,3 +169,41 @@ Residual risk: retained Firebase email records may block a new post-expiry UID; 
 and lost one-shot handoffs require authorized reconciliation. There is no automatic cleanup,
 adoption, reset, secret recovery or retry. Local passes accept only their named layers and never
 complete #206 or permit activation.
+
+## Concurrent develop reconciliation
+
+While this work ran, develop advanced to `738bceb2de3ec79308a3268caa3b73a98ffa969d`
+(PR207 Units continuation, PR210 Forge attempt library/tooling and PR211 documentation
+consolidation). The clean main develop checkout was fast-forwarded. The feature branch then
+merged that exact base without rewriting its two existing commits. Conflicts were limited to
+the work queue/planning and xtask command documentation; the new concise queue/archive lifecycle
+was preserved, and active identity/ADR/read-map pointers were reconciled with this decision.
+
+The Firebase registration/action/bootstrap tree, migration0028, handlers, Theatre Web,
+registration/identity contracts and scoped PostgreSQL gate have no delta from the reviewed
+implementation. Their bounded local evidence above remains attributable to identical inputs.
+The original whole-API/xtask/Python counts above describe the pre-merge source, not fresh runs
+of the new Units/Forge tree. Fresh combined-tree checks are:
+
+| Check | Actual result | Retained output |
+| --- | --- | --- |
+| `cargo test --offline --locked -p cantos-api --lib` | PASS625,94 ignored | `api-lib-tests-reconciled.log` |
+| `cargo test --offline --locked -p xtask` | PASS406,2 ignored | `xtask-tests-reconciled.log` |
+| `cargo clippy --offline --locked -p cantos-api --all-targets -- -D warnings` | PASS | `api-clippy-reconciled.log` |
+| `python3 -m unittest discover -s scripts -p 'test_*.py'` |526 tests, OK with5 optional skips | `python-tests-reconciled-local.log` |
+| `cargo fmt --all -- --check` | PASS | `rust-format-reconciled.log` |
+| Original `cargo xtask preflight --changed-only` | UNSUPPORTED; other gates NOT_RUN | `preflight-reconciled-original.log`; now also selects behavior, whose locked Quint tool is absent |
+| Available-gate handoff preflight | FAIL repository; later gates NOT_RUN | `preflight-reconciled-final.log`; skips only behavior/audio-inspection/postgres/cmp-ui-preview/theatre-cmp-demo because their tools are absent |
+
+The first post-merge Python attempt failed with44 errors and1 failure: new upstream Kani
+process fixtures could not call `os.killpg` on their owned groups in the sandbox. An ordinary
+approved local rerun passed526 tests with5 skips; no source change, tool installation or real
+Kani proof was involved. Both results are retained. Clean develop `738bceb` independently
+reports the same20 repository qualification/adoption failures; this remains a real FAIL.
+
+Independent merge-delta review found no actionable interaction: the Units guard concerns read
+continuations; Forge remains outside the API and uses a mock provider; its Kani package
+allowlist and scoped Firebase CLI/gate coexist. Reviewer read the resolved documentation and
+unchanged Firebase source; this review is not a full re-review or live acceptance of upstream
+features. Final merge-commit identity is recorded in the PR. Keep Draft/default-off; no merge
+into develop is justified by these partial aggregate results.

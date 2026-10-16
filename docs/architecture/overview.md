@@ -1,84 +1,100 @@
 # Cantos Architecture Overview
 
-> Current architecture from [ADR 0018](../decisions/0018-external-audio-production.md).
-> Prior TTS/worker/DBSP job-summary descriptions are historical only.
+Current boundaries: [ADR 0018](../decisions/0018-external-audio-production.md) and
+[Forge ADR 0022](../decisions/0022-cantos-forge-producer-cli.md).
+Backend TTS/provider workers and their DBSP job-summary adapter are historical.
 
 ## System boundaries
 
-```text
-                         ┌──────────────────────────┐
-                         │ Cantos Studio — Web CMS  │
-                         └────────────┬─────────────┘
-                                      │
-             read brief / upload       ▼        public releases
- External AI / human producer ──► Cantos API ──────────► Cantos Theatre
- (TTS/record/mix/encode)          │                      (Web/CMP)
-                                  ▼
-                       PostgreSQL + object storage
+```mermaid
+flowchart TD
+  Studio["Studio Web"] --> API["Cantos API on VPS"]
+  Studio -.-> Forge["Forge producer"]
+  CLI["Local Forge CLI"] --> Forge
+  Forge -.-> Drive["Private Drive drafts"]
+  Forge -.-> API
+  API --> PG["PostgreSQL"]
+  API --> Objects["Verified media storage"]
+  Theatre["Theatre Web and CMP"] --> API
 ```
 
-Cantos **does not** execute a speech model, call a provider, synthesize dialogue or mix audio.
-Plugin/agent production occurs outside the server, which accepts private verified media and
-manages releases. All apps speak versioned API contracts; no model credentials enter clients.
+Solid edges describe existing component boundaries, not live end-to-end acceptance.
+Dashed edges describe #203's **planned** producer execution, Drive persistence and API handoff.
+Forge currently registers/checks/exports local artifacts; it does not yet call Gemini, serve
+HTTP or submit to the API.
+
+Studio owns the buttons, configuration, status, preview and explicit acceptance. Its planned
+second backend is Forge via local/deployed Firebase Functions. CLI and Functions must invoke
+the same Rust use cases through thin adapters; the exact Functions runtime packaging still
+needs a feasibility decision. No separate Forge GUI or TypeScript copy of production logic.
+
+Cantos API never spawns Forge, stores Gemini credentials or requires Forge for catalog/playback.
+Theatre never triggers synthesis. Static Firebase Hosting serves the Web bundles and is a
+separate deployment boundary from Functions and the VPS API.
 
 ## Layers and contexts
 
-| Layer/context | Responsibility | Must not do |
+| Owner | Responsibility | Boundary |
 | --- | --- | --- |
-| Script IR shared kernel | Versioned structured text, IDs, validation and diff | HTTP, SQL, model calls |
-| Editorial | Access, immutable accepted revisions, reviews, provenance | Run synthesis |
-| Ingestion | Safely preserve imported source and extraction receipts | Create speech |
-| Adaptation | Frozen context and externally authored proposal acceptance | LLM inference |
-| Production | Versioned planning-only voice/performance/rights/budget metadata | Dispatch providers |
-| Media | Pure byte inspection and private development intake | TTS, mixing, encoding |
-| Catalog (implemented) | Work/unit metadata and separate immutable ContentRevision, optional exact ScriptRef | Force Script IR on a recording or duplicate original sources |
-| Future publication | Rights/QC approval, immutable release manifest | Trust unverified uploads |
-| Theatre | Listener-visible releases and playback progress | Production work |
+| Script IR | Structured text, stable IDs, validation/diff | No HTTP, SQL, provider or UI dependency |
+| Editorial / Ingestion / Adaptation | Immutable source/script revisions, rights and externally authored proposals | No model inference |
+| Production planning | Versioned guidance, cast/performance/rights/budget declarations | No provider dispatch |
+| Catalog | Work/unit metadata and separate ContentRevision; optional exact ScriptRef | No mandatory drama workflow |
+| Media / Publication | Verified private assets, scoped intake, reviews, immutable releases and active pointers | Private storage is not a public grant |
+| Listening | Public release reads and separate account-owned Library/Progress | No Studio permissions or production work |
+| Forge producer | Local artifact foundation; planned provider execution, attempts and private draft I/O | Outside API; no authoritative Catalog or publication |
 
-Use domain → application → adapters: pure decisions return typed outcomes; application owns
-authorization and transactions; HTTP and PostgreSQL adapters only execute effects. See
-[API bounded contexts](api-contexts.md) and [repository layout](repository-layout.md).
+Use domain → application → adapters: pure typed decisions, explicit use cases/authorization and
+thin HTTP/PostgreSQL/storage/provider effects. Apps share versioned contracts, not service code
+or each other's application internals. See [API contexts](api-contexts.md) and [layout](repository-layout.md).
 
 ## Data and delivery
 
-PostgreSQL is authoritative for work metadata, revisions, rights, upload intents, accepted
-artifacts, QC decisions, release pointers and listening progress. Use S3-compatible **private**
-staging and immutable checked objects, then a public/CDN delivery path for approved releases.
-Never assume a Postgres transaction and object-store PUT are atomic. Use checked finalize plus
-bounded reconciliation/cleanup. Prevent replay conflicts via exact operation IDs/digests.
+PostgreSQL owns authoritative metadata, content/brief/review revisions, permissions, receipts
+and release/listening state. [Private storage](object-storage.md) implements filesystem/S3
+adapters and immutable original-target reads. Object I/O and SQL are not one atomic transaction;
+admission verifies actual bytes and reauthorizes before durable metadata acceptance.
 
-The narrow [development intake](../decisions/0020-studio-private-audio-intake.md) uses private
-immutable filesystem objects outside PostgreSQL until production storage is implemented.
-Metadata acceptance follows actual object verification and reauthorization; private orphans may
-remain after rollback. The [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) adds exact scoped upload and private review; no S3/CDN/publication is implied.
+[Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) uses an owner-prepared
+submission and a separate producer bearer for one capped binary PUT that admits/finalizes.
+Do not infer direct S3 presigned writes or a separate finalize endpoint from the broader
+[handoff proposal](../../packages/contracts/external-audio-handoff-v1.md).
 
-Historical migrations 0007–0009 for TTS jobs and speech clips stay intact for checksum/
-upgrade compatibility. They are not part of the new write model. Do not drop legacy tables
-without a separate data retention decision and upgrade test.
+For #203, private personal Drive holds producer drafts/indexes/attempt state and audio previews;
+offline local-only work uses filesystem. Keep the existing [story layout](../production/story-workspace.md)
+and immutable revisions/checksums. Google/Firebase adapters and credentials stay outside domain
+and Script IR. Drive is not a second Catalog, public media host or proven transactional
+coordination mechanism; paid-attempt concurrency and unknown outcomes are explicit gates.
 
-A generic optional DBSP engine may serve future metadata projections, but the removed
-TTS-job summary view is no longer a backend feature and there is no current DBSP-backed
-business use case.
+Publication/Discovery/Library cores exist. [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md)
+proposes origin-controlled delivery with an implemented gated core; [ADR 0038](../decisions/0038-publication-streaming-evidence-gates.md)
+keeps real isolation/Range/expiry/withdrawal and Web/native acceptance separate. Unconfigured
+ordinary composition remains unavailable. Changing private write targets moves no old objects.
+
+Historical migrations 0007–0009 stay intact for checksum/upgrade compatibility. No retention
+or table drop is authorized by documentation cleanup. The generic optional DBSP library remains;
+its retired synthesis-job summary is not an active backend use case.
 
 ## Authentication and security
 
-Current development auth uses same-origin Studio session cookies. External producers will
-require their **own** scoped, expiring, revocable credentials and short-lived object-store upload
-grants. Never share a user browser cookie or a provider API key with a producer plugin.
-Bind every request to actor, work, content unit, frozen brief and rights scope.
+Studio, Theatre and Admin have distinct credential/actor/session boundaries. Studio has
+provisioned-only administrators; Theatre self-registration is accepted policy with unfinished
+issuer/onboarding acceptance. [Theatre identity](theatre-identity.md) owns the current state;
+#206's Firebase proof option is not activated by this document.
 
-## Media interoperability
+Producer Brief reads, Audio Lifecycle uploads and Catalog delegation have separate scopes.
+Never reuse a Studio cookie as a producer credential or assume a Catalog grant authorizes audio.
+The planned Forge endpoint must authenticate every generation/status/preview/draft request
+server-side, even when its HTTPS URL is publicly reachable. Private Drive OAuth and Gemini
+secrets stay in trusted adapters, never Leptos/WASM, logs, manifests or Git.
 
-Audio format profiles are versioned. The development intake adopts four explicit Ogg/Opus mono
-20/24/32/40 kbps nominal envelopes with no default under [ADR 0020](../decisions/0020-studio-private-audio-intake.md).
-This narrow admission does not settle playback/listening interoperability; AAC remains outside
-that intake rather than an implemented fallback. The server may inspect bytes and record measured
-facts, but audio mastering/encoding and listening reviews are external/editorial work.
-Theatre playback only reads accepted published files.
+## Media and verification
 
-## Verification
+The private intake has four explicit Ogg/Opus mono 20/24/32/40 kbps envelopes with no implicit
+profile choice ([ADR 0020](../decisions/0020-studio-private-audio-intake.md)). Raw audio/image
+bytes are not Protobuf metadata. AAC and cross-platform playback are separate profile decisions;
+format admission does not prove listening quality or publication rights.
 
-Use `cargo xtask` for repository, Rust/contracts, PostgreSQL and Web tests. Work/unit metadata and [Content Identity](../../packages/contracts/content-v1.md) are implemented
-as authenticated Studio APIs. Brief and private Audio Lifecycle are implemented; public release/delivery remains proposed.
-Read [external handoff contract](../../packages/contracts/external-audio-handoff-v1.md) before
-adding a route and write adversarial/replay/owner-isolation tests as part of its implementation.
+Use the [implementation status](../product/brief.md#implementation-status), versioned contracts
+and source-bound [evidence](../evidence/README.md). `cargo xtask` owns local checks; provider,
+deployment, browser/native and end-to-end acceptance require their own named observations.
