@@ -56,6 +56,7 @@ cargo xtask theatre-host android-release             # production host release A
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
+cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
@@ -332,6 +333,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `theatre-cmp-demo` | installed Gradle `:shared:desktopTest :preview-sandbox:desktopTest` in the isolated Theatre mock | compatible gradle, java, both KMP modules |
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
+| `postgres (theatre-firebase)` | `scripts/test_postgres.py --suite theatre-firebase` (new disposable cluster; Firebase enrollment and SMTP registration SQL only) | cargo, python3, initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -360,6 +362,18 @@ Missing tools produce `UNSUPPORTED`; skipped or unreachable inspection remains `
 xtask never installs these tools. The Rust and PostgreSQL CI jobs provision the distribution's
 trusted `ffmpeg` package, which supplies both executables. The PostgreSQL suite also needs them
 for its actual-byte private-intake/storage/replay tests.
+
+`cargo xtask verify postgres --suite theatre-firebase` selects a separately named narrow gate.
+It runs the Firebase enrollment repository tests and existing SMTP registration tests through
+the same migration path, each with a nonzero passing test requirement, in a newly initialized
+native PostgreSQL cluster. The runner strips inherited database/libpq/Cantos configuration and
+stops only its owned cluster on success, failure or interruption. It neither starts containers
+nor accepts an external database URL. Its logs and scope record are under
+`target/revision-evidence/theatre-firebase/`; it does not overwrite retained full-suite fixtures.
+`--keep` is refused for this scope. Media, other database contexts, HTTP hosts and the complete
+restart campaign remain unrun by this command. A `PASS` for `postgres (theatre-firebase)` never
+satisfies the full `postgres` gate: default verification, preflight and CI still select the full
+gate and retain their ffmpeg/ffprobe prerequisites.
 
 ### Outcome vocabulary
 

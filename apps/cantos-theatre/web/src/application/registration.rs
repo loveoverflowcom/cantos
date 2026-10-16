@@ -49,7 +49,8 @@ impl RegistrationState {
         }
         self.phase = match result {
             Ok(Configuration {
-                registration: Registration::EmailVerification {},
+                registration:
+                    Registration::EmailVerification {} | Registration::FirebaseEmailVerification {},
                 ..
             }) => RegistrationPhase::Available,
             Ok(Configuration {
@@ -66,6 +67,25 @@ impl RegistrationState {
 mod tests {
     use super::*;
     use cantos_contracts::theatre_identity::LoginMethod;
+
+    #[test]
+    fn only_explicit_mounted_email_capabilities_enable_the_form() {
+        for registration in [
+            Registration::EmailVerification {},
+            Registration::FirebaseEmailVerification {},
+        ] {
+            let mut state = RegistrationState::default();
+            let issued = state.begin().unwrap();
+            assert!(state.finish(
+                issued,
+                Ok(Configuration {
+                    login: LoginMethod::Oidc,
+                    registration
+                })
+            ));
+            assert_eq!(state.phase(), RegistrationPhase::Available);
+        }
+    }
 
     #[test]
     fn server_unavailability_never_supplies_registration_or_session_success() {

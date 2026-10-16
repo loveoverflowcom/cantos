@@ -195,3 +195,11 @@ The opt-in [Admin authorization and audit](docs/architecture/admin-authorization
 adds independent capability inspection and local Admin-access revocation with atomic append-only
 audit. The exact issuer/group/introspection contract and live Kanidm acceptance remain gated;
 this grants no Studio/Theatre resource right, Admin UI or production activation.
+
+Firebase enrollment for Theatre is implemented as an explicitly selected, default-disabled
+mode in the existing API: mailbox proof precedes Kanidm account setup; OIDC still owns login.
+See [ADR0036](docs/decisions/0036-firebase-enrollment-proof.md), the
+[operator acceptance runbook](docs/deployment/firebase-enrollment-proof.md) and the
+[runtime evidence](docs/evidence/firebase-enrollment-runtime.md). Scoped local SQL checks use
+`cargo xtask verify postgres --suite theatre-firebase`; they do not replace the full gate or
+accept real email, credentials, origins or component qualification.

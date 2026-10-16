@@ -40,6 +40,10 @@ async fn configuration(State(state): State<AppState>) -> Json<dto::Configuration
     Json(dto::Configuration {
         login,
         registration: if state.store.theatre_identity().is_some()
+            && state.store.theatre_firebase_enrollment().is_some()
+        {
+            dto::Registration::FirebaseEmailVerification {}
+        } else if state.store.theatre_identity().is_some()
             && state.store.theatre_registration().is_some()
         {
             dto::Registration::EmailVerification {}

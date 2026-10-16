@@ -91,6 +91,7 @@ impl Store {
             theatre_identity: None,
             theatre_native: None,
             theatre_registration: None,
+            theatre_firebase_enrollment: None,
         })
     }
 

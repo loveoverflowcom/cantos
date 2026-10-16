@@ -35,14 +35,24 @@ See the
 ### Email onboarding owner and effect boundaries
 
 [#206](https://github.com/loveoverflowcom/cantos/issues/206)'s
-[Firebase proof proposal](../decisions/0036-firebase-enrollment-proof.md) adds only an
-isolated test-build prototype under this registration owner. It checks action purpose before
-consuming the same code and compares the returned UID/email against supplied pending facts;
-fixtures do not establish project/bootstrap/resend binding. It mounts no provider mode and
-changes neither the accepted setup-mail rule nor the existing session boundary. Review the
-delivery/binding decisions before runtime integration; the
-[evidence ledger](../evidence/firebase-enrollment-proof.md) and
-[operator review plan](../deployment/firebase-enrollment-proof.md) retain separate gates.
+[ADR0036](../decisions/0036-firebase-enrollment-proof.md) accepts Firebase mailbox proof with
+retained Kanidm credentials/OIDC and one-shot setup delivery to the confirming browser.
+The selected default-disabled mode extends the existing registration owner with bounded
+Firebase bootstrap/action adapters, additive migration0028, thin HTTP contracts and Web
+confirmation. The SMTP mode below preserves its existing setup-mail sequence; Firebase never
+implements its generic Mailer or becomes an automatic fallback. The
+[runtime evidence](../evidence/firebase-enrollment-runtime.md) separates local tests and
+emulator/SQL/browser results from still-unaccepted live activation. Review the
+[operator runbook](../deployment/firebase-enrollment-proof.md) before any activation.
+
+Firebase enrollments permanently bind project/operation/UID/email/deadline; cancelled/expired
+operations never reopen. Resend uses the same live UID and absolute deadline, without claiming
+old-code invalidation. Each mutating effect has a durable phase, including a fresh actual-mail
+fence after token exchange. Same-action inspection/consumption precedes every Kanidm effect.
+The initiating browser has no proof/status/setup endpoint. Explicit cancellation also requires
+actual action possession and consumes it without provisioning. A one-shot setup response is
+never a session, and losing it does not permit replay. Existing Firebase-email conflicts and
+unknown effects require reconciliation, with no adoption/reset/automatic deletion.
 
 `platform::theatre_registration` owns this workflow in the existing API. Its pure values and
 phase rules depend on neither HTTP, SQL, Kanidm nor SMTP. Application ports have PostgreSQL,

@@ -40,6 +40,58 @@
           "type": "string"
         }
       }
+    },
+    "firebase_confirm_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_id",
+        "oob_code"
+      ],
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "oob_code": {
+          "type": "string"
+        }
+      }
+    },
+    "firebase_confirmation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "login",
+            "setup_url"
+          ],
+          "properties": {
+            "status": {
+              "const": "setup_ready"
+            },
+            "login": {
+              "type": "string"
+            },
+            "setup_url": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            }
+          }
+        }
+      ]
     }
   }
 }

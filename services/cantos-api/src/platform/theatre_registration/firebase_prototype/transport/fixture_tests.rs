@@ -219,6 +219,29 @@ async fn same_purpose_checked_code_is_consumed_once_with_exact_official_rest_sha
 }
 
 #[tokio::test]
+async fn actual_inspection_cannot_be_consumed_by_another_equivalent_client() {
+    let fixture = Fixture::start(vec![Step::json(INSPECTION)]).await;
+    let original = fixture.transport();
+    let other = fixture.transport();
+    let local_binding = binding(1);
+    let expected = ExpectedActionBinding::new(
+        local_binding.registration().clone(),
+        FirebaseProjectId::parse(local_binding.project()).unwrap(),
+        DedicatedUid::parse(local_binding.uid()).unwrap(),
+    );
+    let inspected = original
+        .0
+        .inspect(expected, ActionCode::parse(CODE).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        other.0.consume(inspected).await,
+        Err(ConsumptionError::BeforeConsume(ActionError::WrongClient))
+    );
+    assert_eq!(fixture.finish().await.len(), 1);
+}
+
+#[tokio::test]
 async fn wrong_purpose_email_and_verified_bool_only_never_reach_consume() {
     for (reply, refusal) in [
         (
@@ -227,6 +250,10 @@ async fn wrong_purpose_email_and_verified_bool_only_never_reach_consume() {
         ),
         (
             r#"{"email":"victim@example.test","requestType":"VERIFY_EMAIL"}"#,
+            Refusal::InvalidBinding(BindingField::Email),
+        ),
+        (
+            r#"{"email":"Victim@example.test","requestType":"VERIFY_EMAIL","newEmail":"other@example.test"}"#,
             Refusal::InvalidBinding(BindingField::Email),
         ),
         (
@@ -347,6 +374,12 @@ async fn consume_malformed_lost_provider_and_binding_failures_are_uncertain_with
                 r#"{"localId":"dedicated-new-uid","email":"Victim@example.test","emailVerified":false}"#,
             ),
             Refusal::Unverified,
+        ),
+        (
+            Step::json(
+                r#"{"localId":"dedicated-new-uid","email":"Victim@example.test","newEmail":"other@example.test"}"#,
+            ),
+            Refusal::InvalidBinding(BindingField::Email),
         ),
     ];
     for (reply, refusal) in cases {
@@ -484,6 +517,29 @@ async fn timeouts_preserve_the_consuming_stage_and_never_replay() {
 }
 
 #[tokio::test]
+async fn dropping_future_during_inspection_keeps_the_local_fence_without_consuming() {
+    let (held, reached, release) = Step::json(INSPECTION).held();
+    let fixture = Fixture::start(vec![held]).await;
+    let transport = fixture.transport();
+    let (local, binding, clock) = local();
+    let (task_local, task_binding, task_clock) = (local.clone(), binding.clone(), clock.clone());
+    let task =
+        tokio::spawn(
+            async move { confirm(&transport, &task_local, &task_binding, &task_clock).await },
+        );
+    reached.await.unwrap();
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert_eq!(local.0.lock().unwrap().phase(), Phase::Inspecting);
+    assert_eq!(
+        confirm(&fixture.transport(), &local, &binding, &clock).await,
+        Err(ConfirmationError::BeforeConsume(Refusal::InFlight))
+    );
+    release.send(()).unwrap();
+    assert_eq!(fixture.finish().await.len(), 1);
+}
+
+#[tokio::test]
 async fn dropping_future_after_consumption_begins_keeps_the_local_reservation_fenced() {
     let (held, reached, release) = Step::json(CONSUMPTION).held();
     let fixture = Fixture::start(vec![Step::json(INSPECTION), held]).await;
@@ -507,23 +563,20 @@ async fn dropping_future_after_consumption_begins_keeps_the_local_reservation_fe
 }
 
 #[test]
-fn fixed_candidate_endpoint_and_literal_loopback_seam_redact_secrets() {
-    let transport = CandidateTransport::candidate("synthetic-private-api-key").unwrap();
-    assert_eq!(transport.base.as_str(), CANDIDATE_ENDPOINT);
-    assert!(!format!("{transport:?}").contains("synthetic-private-api-key"));
+fn literal_loopback_seam_and_action_code_refuse_unsafe_inputs() {
     assert_eq!(
         format!("{:?}", ActionCode::parse(CODE).unwrap()),
         "ActionCode([REDACTED])"
     );
     assert_eq!(
         CandidateTransport::fixture("192.0.2.1:1234".parse().unwrap(), Duration::from_secs(1))
-            .unwrap_err(),
-        Refusal::Protocol
+            .err(),
+        Some(Refusal::Protocol)
     );
     for invalid in ["", "contains whitespace", "line\nbreak"] {
         assert_eq!(
             ActionCode::parse(invalid).unwrap_err(),
-            Refusal::InvalidCode
+            ActionError::InvalidCode
         );
     }
 }

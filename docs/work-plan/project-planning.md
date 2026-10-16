@@ -71,12 +71,12 @@ states only proposed routes, not a feature implementation.
 
 ## Exit criteria and evidence
 
-The independent [#206 Firebase enrollment proposal](../decisions/0036-firebase-enrollment-proof.md)
-follows #174's existing registration owner. Review bootstrap/exclusive action binding and
-the protected setup-delivery amendment first; a test-only prototype may inform that decision.
-Then implement durable claims and contracts, disposable SQL and Web integration, followed by
-separately authorized Firebase/Kanidm/origin acceptance under #174/#191/#199. Neither a model
-nor fixture HTTP accepts the provider or closes those parent gates.
+The [#206 Firebase direction](../decisions/0036-firebase-enrollment-proof.md) is accepted
+for code/tests: mailbox action possession precedes new Kanidm provisioning and one-shot setup
+delivery. The [runtime ledger](../evidence/firebase-enrollment-runtime.md) follows #174's
+existing owner. Independent SQL/emulator/browser results do not accept project/IAM/issuer
+permissions, real mail, safe action ingress or #174/#191/#199's live origin/session gates.
+Keep the mode disabled until those gates and the outstanding component qualifications pass.
 
 - **Catalog:** create a plain novel chapter and an unscripted podcast episode without casting.
   The [backend API](../../packages/contracts/catalog-v1.md) is implemented; #66 also requires

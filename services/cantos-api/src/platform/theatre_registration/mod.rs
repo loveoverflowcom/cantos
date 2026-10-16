@@ -3,6 +3,9 @@
 pub mod application;
 pub mod config;
 pub mod domain;
+pub mod firebase_action;
+pub mod firebase_bootstrap;
+pub mod firebase_enrollment;
 pub mod kanidm;
 pub mod mail;
 pub mod mail_config;

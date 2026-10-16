@@ -686,16 +686,17 @@ OS/secure-store/provider acceptance, audit protection/retention and recovery gat
 
 ## Theatre native launch handoff
 
-For [#206](https://github.com/loveoverflowcom/cantos/issues/206), review the
-[Firebase proof/setup-delivery proposal](../decisions/0036-firebase-enrollment-proof.md)
-before adding runtime provider mode, persistence or client controls. The
-[isolated prototype](../evidence/firebase-enrollment-proof.md) can test supplied action/binding
-facts independently; it cannot accept bootstrap, project association, latest-resend semantics
-or protected delivery. Next: resolve those contracts and the setup-mail amendment, then durable
-claims/quotas/retention and real SQL, Web/origin and separately authorized provider acceptance.
-Reuse #174's merged registration owner and preserve #191/#199's login/origin gates. This
-does not reorder publication, select Firebase as login issuer or authorize live configuration.
-GitHub owns execution and review status.
+For [#206](https://github.com/loveoverflowcom/cantos/issues/206), the owner selected
+[Firebase proof and one-shot setup delivery](../decisions/0036-firebase-enrollment-proof.md)
+while retaining Kanidm OIDC. The [runtime slice](../evidence/firebase-enrollment-runtime.md)
+adds default-disabled adapters, durable fences and Web continuation to #174's existing owner.
+Next accept exact project/key association, bootstrap/issuer effective target protection,
+recipient/policy/retention, action ingress and the real proof→setup→OIDC→API session journey.
+Keep SQL, emulator, browser and live evidence separate; a retained Firebase-email conflict or
+lost handoff requires reconciliation, not reset/adoption or a new automatic intent. Preserve
+#191/#199 login/origin gates and existing UI qualification obligations. This does not reorder
+publication or authorize live credentials, grants, mail or deployment. GitHub owns execution
+and review status.
 
 The [Mac Web auth and spacing slice](../evidence/theatre-web-auth-mac.md) repairs the returned
 Guest callback retry and the Library Account-entry gap, with browser fixture/visual evidence.

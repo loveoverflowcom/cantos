@@ -87,9 +87,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         }),
         Callback::new(move |()| {
             // Escape cannot dismiss an unsafe URL. Real Back/Forward to a safe location can.
-            if history_blocked.get_untracked()
-                && auth_browser::hash().starts_with("#register-verify")
-            {
+            if history_blocked.get_untracked() && signup_browser::location_contains_proof() {
                 return;
             }
             history_blocked.set(false);
@@ -208,6 +206,15 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             crate::live::signup::verify(signup);
         }
     });
+    let on_signup_setup = Callback::new(move |()| {
+        if preview {
+            signup.update(|current| {
+                let _ = current.take_setup_url();
+            });
+        } else if network_allowed.get_untracked() {
+            crate::live::signup::open_setup(signup);
+        }
+    });
     let on_signup_new = Callback::new(move |()| crate::live::signup::cancel(signup, preview));
     let on_signup_login = Callback::new(move |()| {
         crate::live::signup::leave(signup, preview);
@@ -256,8 +263,8 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                                     on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state); } })
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
                                     on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview && network_allowed.get_untracked() { refresh_registration(registration); } })
-                                    on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_cancel=Callback::new(move |()| {
-                                        crate::live::signup::leave(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
+                                    on_signup_submit on_signup_verify on_signup_new on_signup_login on_signup_setup on_signup_cancel=Callback::new(move |()| {
+                                        crate::live::signup::cancel_explicit(signup, preview); nav.open_auth(AuthRoute::login(auth.origin));
                                     })/> }.into_any(),
                                 Route::Account => view! { <LiveAccount state locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),

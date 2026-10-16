@@ -4,7 +4,7 @@ use tokio_postgres::{Config, NoTls};
 
 use super::StoreError;
 
-const MIGRATIONS: [(i32, &str); 27] = [
+const MIGRATIONS: [(i32, &str); 28] = [
     (
         1,
         include_str!("../../../migrations/0001_script_revisions.sql"),
@@ -100,6 +100,10 @@ const MIGRATIONS: [(i32, &str); 27] = [
     (
         27,
         include_str!("../../../migrations/0027_theatre_registration.sql"),
+    ),
+    (
+        28,
+        include_str!("../../../migrations/0028_firebase_enrollment.sql"),
     ),
 ];
 

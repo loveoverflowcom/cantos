@@ -1,7 +1,7 @@
 //! The command-line contract. Keep it small: every command maps to an implemented capability,
 //! and anything without infrastructure is refused as UNSUPPORTED rather than simulated.
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::{
     build::{BuildTarget, Surface},
@@ -202,7 +202,16 @@ pub enum VerifySuite {
         /// Retain the cluster for `run cantos-api --test-cluster`; the stop command is printed.
         #[arg(long)]
         keep: bool,
+        /// Explicit narrow acceptance; omission runs the complete PostgreSQL gate.
+        #[arg(long, value_enum, conflicts_with = "keep")]
+        suite: Option<PostgresScope>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum PostgresScope {
+    /// Firebase enrollment SQL and existing SMTP registration migration compatibility only.
+    TheatreFirebase,
 }
 
 #[cfg(test)]
@@ -218,6 +227,35 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn postgres_keeps_full_default_and_requires_an_explicit_supported_narrow_suite() {
+        assert!(matches!(
+            parse("verify postgres").unwrap(),
+            Task::Verify {
+                suite: VerifySuite::Postgres {
+                    keep: false,
+                    suite: None,
+                }
+            }
+        ));
+        assert!(matches!(
+            parse("verify postgres --suite theatre-firebase").unwrap(),
+            Task::Verify {
+                suite: VerifySuite::Postgres {
+                    keep: false,
+                    suite: Some(PostgresScope::TheatreFirebase),
+                }
+            }
+        ));
+        for line in [
+            "verify postgres --suite theatre-firebase --keep",
+            "verify postgres --suite audio",
+            "verify postgres --suite all",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
     }
 
     #[test]
@@ -374,7 +412,10 @@ mod tests {
             ("verify dbsp", VerifySuite::Dbsp),
             (
                 "verify postgres --keep",
-                VerifySuite::Postgres { keep: true },
+                VerifySuite::Postgres {
+                    keep: true,
+                    suite: None,
+                },
             ),
         ] {
             assert!(

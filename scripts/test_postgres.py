@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Run revision, import, adaptation and production tests in a new disposable cluster.
+"""Run full integration or named registration SQL tests in a new disposable cluster.
 
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
 test cluster for local Studio and Theatre inspection; its explicit stop command is printed.
+--suite theatre-firebase runs only Firebase and SMTP registration SQL acceptance.
 """
 import argparse
 import hashlib
@@ -131,6 +132,31 @@ def isolated_environment():
     # must also belong to this run rather than exposing an inherited static directory.
     return {key: value for key, value in os.environ.items()
             if not key.startswith(("PG", "CANTOS_")) and key != "DATABASE_URL"}
+
+
+def registration_postgres_tests(env, evidence):
+    """Both registration owners share the actual migration path, never media fixtures."""
+    for name, selector in (
+            ("theatre-firebase-postgres-tests",
+             "platform::theatre_registration::firebase_enrollment::postgres::tests"),
+            ("theatre-registration-postgres-tests",
+             "platform::theatre_registration::postgres::tests")):
+        output = run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline",
+                      selector, "--", "--ignored", "--test-threads=1", "--nocapture"],
+                     env=env, output=evidence / f"{name}.log")
+        summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
+        if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
+            raise RuntimeError(f"FAIL: {name} selected no passing SQL tests")
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--keep", action="store_true")
+    parser.add_argument("--suite", choices=("full", "theatre-firebase"), default="full")
+    args = parser.parse_args(argv)
+    if args.keep and args.suite != "full":
+        parser.error("--keep requires the full PostgreSQL suite")
+    return args
 
 
 def prepare_theatre_fixture(env, port, audio):
@@ -726,14 +752,13 @@ def start_host(env, port, log, fixture, readiness=None):
 def main():
     if not __debug__:
         raise RuntimeError("PostgreSQL assertions are required; run Python without -O")
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--keep", action="store_true")
-    args = parser.parse_args()
+    args = parse_args()
     for tool in ("initdb", "pg_ctl", "psql", "cargo"):
         if not shutil.which(tool):
             raise RuntimeError(f"unavailable: {tool}")
-    EVIDENCE.mkdir(parents=True, exist_ok=True)
-    cluster = EVIDENCE / f"cluster-{time.time_ns()}"
+    evidence = EVIDENCE if args.suite == "full" else EVIDENCE / "theatre-firebase"
+    evidence.mkdir(parents=True, exist_ok=True)
+    cluster = evidence / f"cluster-{time.time_ns()}"
     cluster.mkdir()
     data = cluster / "pgdata"
     port = free_port()
@@ -756,10 +781,20 @@ def main():
         run(["pg_ctl", "-D", str(data), "-l", str(cluster / "postgres.log"), "-o", server_options, "-w", "start"], env=env)
         started = True
         run(["psql", "-X", url, "-v", "ON_ERROR_STOP=1", "-c", "CREATE ROLE cantos_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; SELECT version();"], env=env)
+        if args.suite == "theatre-firebase":
+            registration_postgres_tests(env, evidence)
+            (evidence / "run.json").write_text(json.dumps({
+                "suite": args.suite, "cluster": str(cluster), "port": port,
+                "retained": False, "full_suite": "NOT_RUN",
+                "checks": ["theatre-firebase-postgres-tests", "theatre-registration-postgres-tests"],
+            }, indent=2) + "\n")
+            print("PASS: PostgreSQL theatre-firebase SQL and SMTP registration compatibility; "
+                  "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
+            return
         run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-identity-postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline", "platform::theatre_registration::postgres::tests", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-registration-postgres-tests.log")
+        registration_postgres_tests(env, EVIDENCE)
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
