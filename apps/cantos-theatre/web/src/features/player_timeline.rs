@@ -311,7 +311,8 @@ mod tests {
 
     #[test]
     fn generation_changing_controls_cancel_the_real_draft_before_or_after_reconciliation() {
-        let cases: [(&str, fn(TheatreContext)); 8] = [
+        type Case = (&'static str, fn(TheatreContext));
+        let cases: [Case; 8] = [
             ("play", |ctx| ctx.playback(Event::PlayRequested)),
             ("pause", |ctx| ctx.playback(Event::PauseRequested)),
             ("skip", |ctx| {
