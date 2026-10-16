@@ -83,7 +83,7 @@ val assertReleaseDependencyBoundary = tasks.register("assertReleaseDependencyBou
                     is org.gradle.api.artifacts.component.ModuleComponentIdentifier ->
                         if (id.module.startsWith("okio-fakefilesystem") || id.module.startsWith("ktor-client-mock") ||
                             id.module.startsWith("kotlin-test") || id.module.startsWith("ui-test") ||
-                            id.module == "ui-tooling" || id.module.startsWith("ui-tooling-data") ||
+                            id.module.startsWith("ui-tooling") ||
                             id.module.startsWith("kotlinx-coroutines-test") || id.module.startsWith("mockito-") ||
                             id.group == "io.mockk" || id.group == "io.kotest" ||
                             id.group == "junit" || id.group.startsWith("org.junit")) {

@@ -185,6 +185,7 @@ class PolicyTest(unittest.TestCase):
         cases = {
             "res/drawable/x.png": sandbox,
             "base/assets/composeResources/com.cantos.theatre.preview.resources/files/a.json": "b" * 64,
+            "assets/composeResources/org.example.resources/files/a.json": "d" * 64,
             "assets/demo_fixture.json": "c" * 64,
         }
         for name, digest in cases.items():
