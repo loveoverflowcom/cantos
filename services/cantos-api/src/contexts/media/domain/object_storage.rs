@@ -649,3 +649,77 @@ mod tests {
         }
     }
 }
+
+#[cfg(kani)]
+mod kani_proofs {
+    use super::{ByteRange, RangeError, RangeSpec};
+    /// Every parser-admissible closed/open/suffix specification and full u64 object length,
+    /// no assumptions/stubs. Proves exact single-range normalization stays inside the exact
+    /// immutable object; not header parsing, multi-range handling, storage reads or HTTP.
+    #[kani::proof]
+    #[kani::unwind(2)]
+    fn byte_range_normalization_stays_inside_the_exact_object() {
+        let total: u64 = kani::any();
+        let a: u64 = kani::any();
+        let b: u64 = kani::any();
+        // `ByteRange::parse` rejects first > last, so closed specifications are ordered.
+        let spec = match kani::any::<u8>() % 3 {
+            0 => RangeSpec::Closed {
+                first: a.min(b),
+                last: a.max(b),
+            },
+            1 => RangeSpec::Open { first: a },
+            _ => RangeSpec::Suffix { length: a },
+        };
+        let result = ByteRange(spec).normalize(total);
+        let expected = if total == 0 {
+            Err(RangeError::Unsatisfiable)
+        } else {
+            let object_last = total - 1;
+            match spec {
+                RangeSpec::Closed { first, last } if first < total => {
+                    Ok((first, last.min(object_last)))
+                }
+                RangeSpec::Open { first } if first < total => Ok((first, object_last)),
+                RangeSpec::Suffix { length } if length > 0 => {
+                    Ok((total - length.min(total), object_last))
+                }
+                _ => Err(RangeError::Unsatisfiable),
+            }
+        };
+        assert_eq!(result.map(|range| (range.first(), range.last())), expected);
+        if let Ok(range) = result {
+            assert!(range.first() <= range.last() && range.last() < total);
+            assert_eq!(range.total_byte_length(), total);
+            assert_eq!(
+                u128::from(range.byte_length()),
+                u128::from(range.last()) - u128::from(range.first()) + 1
+            );
+        }
+        kani::cover!(
+            matches!(spec, RangeSpec::Suffix { length } if length > total) && result.is_ok(),
+            "suffix longer than the object selects all of it"
+        );
+        kani::cover!(
+            matches!(spec, RangeSpec::Closed { last, .. } if last >= total) && result.is_ok(),
+            "closed range clamped to the last byte"
+        );
+        kani::cover!(
+            matches!(spec, RangeSpec::Open { first } if first == total)
+                && result == Err(RangeError::Unsatisfiable),
+            "first byte at the length is unsatisfiable"
+        );
+        kani::cover!(
+            matches!(spec, RangeSpec::Suffix { length: 0 }) && total > 0,
+            "empty suffix is unsatisfiable"
+        );
+        kani::cover!(
+            total == 0 && result == Err(RangeError::Unsatisfiable),
+            "empty object has no satisfiable range"
+        );
+        kani::cover!(
+            total == u64::MAX && result.is_ok_and(|range| range.last() == u64::MAX - 1),
+            "largest representable object reaches its last byte"
+        );
+    }
+}

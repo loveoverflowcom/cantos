@@ -1,6 +1,14 @@
 //! Playback is a real delivery consumer, separate from immutable catalog identity.
-use super::listener_application::ListenerError;
-use std::{future::Future, pin::Pin};
+use super::{
+    domain::{
+        object_storage::NormalizedByteRange,
+        playback_grant::{seal, GrantKey, GrantSubject},
+    },
+    listener_application::ListenerError,
+    storage::port::{StorageFuture, StorageRead},
+};
+use cantos_contracts::routes::THEATRE_BASE;
+use std::{fmt, future::Future, pin::Pin, sync::Arc};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlaybackPermit {
     pub(super) publication_id: String,
@@ -32,6 +40,16 @@ impl PlaybackPermit {
     }
     pub fn valid_until_ms(&self) -> i64 {
         self.valid_until
+    }
+    pub(super) fn subject(&self) -> GrantSubject<'_> {
+        GrantSubject {
+            publication_id: &self.publication_id,
+            rendition_id: &self.rendition_id,
+            manifest_digest: &self.manifest_digest,
+            sha256: &self.sha256,
+            object_id: &self.object_id,
+            byte_length: self.byte_length,
+        }
     }
 }
 /// Only trusted delivery adapters create grants after verifying the intended public object's
@@ -87,9 +105,12 @@ pub type PlaybackDeliveryFuture =
     Pin<Box<dyn Future<Output = Result<MediaGrant, ListenerError>> + Send + 'static>>;
 /// The adapter must enforce current revocation/withdrawal on every media fetch, content-type
 /// audio/ogg, cache isolation and signed Range semantics. A signer alone is insufficient.
-/// TODO(issue120, #10/#11): compose a publication-class adapter only after the delivery-mode
-/// ADR and live byte-integrity/Range/expiry/withdrawal/cache-isolation gates are accepted.
-/// Never adapt PrivateStorage or a Studio preview grant into listener authority.
+/// `OriginPlayback` is the only non-test implementation; it satisfies these obligations only
+/// together with the Theatre media route, which rechecks eligibility before and after reads.
+/// TODO(issue170, #10/#11): compose it in a real host only after ADR 0032 is accepted and a
+/// promoted publication-class `PublicationObjects` adapter has live byte/Range/expiry/
+/// withdrawal acceptance. Never adapt PrivateStorage or a Studio preview grant into listener
+/// authority.
 pub trait PlaybackDelivery: Send + Sync {
     fn grant(&self, permit: PlaybackPermit) -> PlaybackDeliveryFuture;
 }
@@ -97,6 +118,119 @@ pub(super) struct UnavailablePlayback;
 impl PlaybackDelivery for UnavailablePlayback {
     fn grant(&self, _permit: PlaybackPermit) -> PlaybackDeliveryFuture {
         Box::pin(async { Err(ListenerError::RenditionUnavailable) })
+    }
+}
+
+/// HTTPS origin of this API host as listeners reach it; grant URLs are built on it only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PublicMediaOrigin(String);
+impl PublicMediaOrigin {
+    /// Exactly `https://host[:port]`: no path, query, fragment, credentials or trailing slash.
+    pub fn parse(raw: &str) -> Result<Self, ListenerError> {
+        let parsed = url::Url::parse(raw).map_err(|_| ListenerError::Unavailable)?;
+        let origin = parsed.origin().ascii_serialization();
+        if parsed.scheme() != "https"
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || origin != raw
+        {
+            return Err(ListenerError::Unavailable);
+        }
+        Ok(Self(origin))
+    }
+    fn media_url(&self, token: &str) -> String {
+        format!("{}{THEATRE_BASE}/media/{token}", self.0)
+    }
+}
+
+/// The exact promoted publication object named by a sealed permit. Only the listener
+/// application constructs it, from the permit it has just re-resolved and authenticated.
+#[derive(Clone, PartialEq, Eq)]
+pub struct PublicationObjectRef {
+    object_id: String,
+    sha256: String,
+    byte_length: u64,
+}
+impl PublicationObjectRef {
+    pub(super) fn for_permit(permit: &PlaybackPermit) -> Self {
+        Self {
+            object_id: permit.object_id.clone(),
+            sha256: permit.sha256.clone(),
+            byte_length: permit.byte_length,
+        }
+    }
+    pub fn object_id(&self) -> &str {
+        &self.object_id
+    }
+    pub fn sha256(&self) -> &str {
+        &self.sha256
+    }
+    pub fn byte_length(&self) -> u64 {
+        self.byte_length
+    }
+}
+impl fmt::Debug for PublicationObjectRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PublicationObjectRef")
+            .field("object_id", &"[redacted]")
+            .field("byte_length", &self.byte_length)
+            .finish()
+    }
+}
+
+/// Publication-class byte reads for origin delivery: a real external storage boundary, distinct
+/// from PrivateStorage. An adapter reads only an object already promoted and fully verified
+/// for this exact SHA/length (PublicationDelivery's observation), pinned by object version, and
+/// returns exactly the requested range or a typed failure. It performs no authorization; the
+/// listener application rechecks current eligibility after every open.
+/// TODO(issue170, #10/#11): the S3-compatible publication-bucket adapter arrives with
+/// promotion. Until then only named test doubles implement this port.
+pub trait PublicationObjects: Send + Sync {
+    fn open(
+        &self,
+        object: PublicationObjectRef,
+        range: Option<NormalizedByteRange>,
+    ) -> StorageFuture<StorageRead>;
+}
+
+/// Proposed ADR 0032 mode A. One trusted value enables grant issuance and the media route
+/// together, so no grant can name the route without its key and publication reader.
+#[derive(Clone)]
+pub struct OriginPlayback {
+    origin: PublicMediaOrigin,
+    key: Arc<GrantKey>,
+    objects: Arc<dyn PublicationObjects>,
+}
+impl OriginPlayback {
+    pub fn new(
+        origin: PublicMediaOrigin,
+        key: GrantKey,
+        objects: Arc<dyn PublicationObjects>,
+    ) -> Self {
+        Self {
+            origin,
+            key: Arc::new(key),
+            objects,
+        }
+    }
+    pub(super) fn key(&self) -> &GrantKey {
+        &self.key
+    }
+    pub(super) fn objects(&self) -> &dyn PublicationObjects {
+        self.objects.as_ref()
+    }
+}
+impl PlaybackDelivery for OriginPlayback {
+    /// Pure sealing: no I/O happens between the application's two eligibility reads.
+    fn grant(&self, permit: PlaybackPermit) -> PlaybackDeliveryFuture {
+        let expires = permit.valid_until;
+        let grant = seal(&self.key, &permit.subject(), expires)
+            .map_err(|_| ListenerError::RenditionUnavailable)
+            .and_then(|token| {
+                MediaGrant::verified_for(&permit, self.origin.media_url(&token), expires, true)
+            });
+        Box::pin(async move { grant })
     }
 }
 
@@ -127,6 +261,77 @@ mod tests {
         assert!(!debug.contains("synthetic.invalid"));
         assert!(!debug.contains("never-log-sentinel"));
         assert!(debug.contains("[redacted]"));
+    }
+
+    struct NoObjects;
+    impl PublicationObjects for NoObjects {
+        fn open(
+            &self,
+            _object: PublicationObjectRef,
+            _range: Option<NormalizedByteRange>,
+        ) -> StorageFuture<StorageRead> {
+            panic!("sealing a grant performs no object I/O")
+        }
+    }
+
+    #[test]
+    fn public_media_origin_admits_only_a_bare_https_origin() {
+        for raw in [
+            "https://listen.example.test",
+            "https://listen.example.test:8443",
+        ] {
+            assert_eq!(PublicMediaOrigin::parse(raw).unwrap().0, raw);
+        }
+        for raw in [
+            "http://listen.example.test",
+            "https://listen.example.test/",
+            "https://listen.example.test/api",
+            "https://listen.example.test?q=1",
+            "https://listen.example.test#f",
+            "https://user:secret@listen.example.test",
+            "https://LISTEN.example.test",
+            "https://listen.example.test:443",
+            "listen.example.test",
+        ] {
+            assert_eq!(
+                PublicMediaOrigin::parse(raw),
+                Err(ListenerError::Unavailable),
+                "{raw}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn origin_grant_names_the_media_route_and_authenticates_the_sealed_permit() {
+        use super::super::domain::playback_grant::GrantClaims;
+        let origin = OriginPlayback::new(
+            PublicMediaOrigin::parse("https://listen.example.test").unwrap(),
+            GrantKey::new(&[3; 32]).unwrap(),
+            Arc::new(NoObjects),
+        );
+        let permit = permit();
+        let grant = origin.grant(permit.clone()).await.unwrap();
+        assert_eq!(grant.permit, permit);
+        assert_eq!(grant.expires, permit.valid_until_ms());
+        assert!(grant.range);
+        let token = grant
+            .url
+            .strip_prefix("https://listen.example.test/api/v1/theatre/media/")
+            .unwrap();
+        let claims = GrantClaims::parse(token).unwrap();
+        assert_eq!(claims.publication_id(), permit.publication_id());
+        assert_eq!(claims.expires_at_ms(), permit.valid_until_ms());
+        assert!(claims.authenticates(origin.key(), &permit.subject()));
+        assert!(!grant.url.contains(permit.publication_object_id()));
+        let object = format!("{:?}", PublicationObjectRef::for_permit(&permit));
+        assert!(!object.contains(permit.publication_object_id()));
+        // A permit that cannot be sealed yields no grant, never an unauthenticated URL.
+        let mut unsealable = permit;
+        unsealable.publication_id = "not-a-publication".into();
+        assert_eq!(
+            origin.grant(unsealable).await.unwrap_err(),
+            ListenerError::RenditionUnavailable
+        );
     }
 
     #[test]
