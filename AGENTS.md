@@ -95,6 +95,11 @@ Optional Studio identity operator tools are `cargo xtask kanidm reconcile --dry-
 and `cargo xtask kanidm verify` (explicit read-only discovery/JWKS, never login acceptance).
 They never bootstrap accounts, grants, secrets, Podman or TLS; live steps require operator authority.
 
+Synthetic Theatre catalog data for local Web/CMP integration is the explicit
+`cargo xtask seed theatre [--reset]` ([runbook](docs/deployment/theatre-seeded-catalog.md)). It
+writes only a new database in the disposable cluster retained by `verify postgres --keep`, refuses
+any other target and is never a gate; seeded data is not publication, playback or rights evidence.
+
 Tester distribution of the Theatre Android **demo** APK is the explicit, opt-in
 `cargo xtask distribute firebase cantos-theatre --channel demo ...` ([contract](xtask/README.md#distribute-firebase)).
 It is a remote write that may notify testers: `--dry-run` shows the plan, and an agent runs the real

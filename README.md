@@ -153,7 +153,9 @@ For local Theatre Web with an operator-supplied, migrated app-role `DATABASE_URL
 exported, run `cargo xtask run cantos-theatre --web`. It starts the API on 8080 with the
 Theatre origin 8082, then Trunk on 8082, and checks anonymous discovery directly and through
 the proxy. `--test-cluster` instead uses only the disposable fixture retained by
-`cargo xtask verify postgres --keep`; launch never provisions infrastructure. To reuse an
+`cargo xtask verify postgres --keep`; launch never provisions infrastructure. For synthetic
+published Works in that cluster, run `cargo xtask seed theatre` first
+([runbook](docs/deployment/theatre-seeded-catalog.md)). To reuse an
 API you already own, use `cargo xtask app cantos-theatre --web`. That command reports
 frontend-only readiness and warns if live discovery is unavailable; explicit
 `?mode=mock`, `?mode=membership-preview` and `?mode=auth-preview` still work offline.
