@@ -113,7 +113,6 @@ Studio Mobile is excluded by the platform matrix. Car/wearable integrations, Rus
 that drifts into them instead of silently implementing it.
 
 ## Non-negotiables on mobile
-
 For Kotlin/domain/controller changes, **MUST** load
 [Kotlin rules](references/kotlin-conventions.md) (TYPE-01–05, FP-01–04, KT ownership/lifetimes),
 [architecture](references/cmp-architecture.md) (ARC boundaries, SOLID) and
@@ -150,14 +149,15 @@ Kotlin rules below apply its taxonomy, containment and cancellation policy.
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
 - **CMP localization before Composables.** Before adding a label, accessible name, state or
   dialog, search shared `presentation/model/ShellCopy.kt`, `AuthCopy.kt`, `MembershipCopy.kt`
-  and `composeResources/values{,-en}/strings.xml`; sandbox-only diagnostics use injected
+  and `composeResources/values/strings.xml`; sandbox-only diagnostics use injected
   `DemoShellCopyOverrides` in `:preview-sandbox`. Reuse keys within the actual owner; update both
   languages and focused parity tests, not a new `*Copy` enum or hard-coded `Text("...")`. Launch
-  and unavailable presentations use `stringResource`, separately from `ShellLocale` mapped from
-  `PreferenceLocale`: alignment is an **open gap**, not native runtime evidence. Compare Compose
+  and unavailable presentations use explicit `stringResource` IDs selected from the same
+  app-owned locale projection; native preference adapters/evidence are in the
+  [#169 ledger](../../../docs/evidence/issue169-cmp-locale-acceptance.md). Compare Compose
   Resources, moko-resources and Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
-  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167). Locale
-  persistence/precedence remain proposed, not permission to add a storage port. Keep mock preview
+  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167). Broader catalog/formatting and device-negotiation policy remain open; the bounded saved
+  preference rule does not select a localization library or domain-cache store. Keep mock preview
   state injectable; a demo build never accepts #122's production APK/AAB exclusion. Do not
   translate creator content or clear playback on locale changes.
 - **Honest evidence.** Cheapest deterministic test in `commonTest` first; OS behavior needs a

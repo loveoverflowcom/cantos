@@ -130,6 +130,7 @@ fun CantosPresentation(
     // Hosts may inject Full to observe motion; reduced motion is the default.
     motionPreference: MotionPreference = MotionPreference.Reduced,
     density: Density = Density.Comfortable,
+    localeSaveUnavailable: Boolean = false,
 ) {
     val copy = ShellCopy(state.locale, LocalShellCopyOverrides.current)
     val notice = LocalShellNotice.current
@@ -184,6 +185,11 @@ fun CantosPresentation(
                         verticalArrangement = Arrangement.spacedBy(tokenDp("space.section")),
                     ) {
                         if (!framed) notice?.invoke(state, copy)
+                        if (localeSaveUnavailable) Text(
+                            copy.text(CopyKey.LocaleSaveFailure),
+                            Modifier.testTag("locale-save-failure").semantics { liveRegion = LiveRegionMode.Polite },
+                            color = MaterialTheme.colorScheme.error,
+                        )
                         when (val route = state.route) {
                             ShellRoute.Discovery -> DiscoveryScreen(state, catalog, copy, dispatch)
                             ShellRoute.Search -> SearchScreen(state, catalog, copy, dispatch)

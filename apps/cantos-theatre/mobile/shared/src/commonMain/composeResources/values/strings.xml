@@ -4,4 +4,9 @@
     <string name="splash_status">Đang mở Cantos</string>
     <string name="listening_unavailable_title">Cantos chưa sẵn sàng</string>
     <string name="listening_unavailable_body">Phiên bản này chưa phát được truyện hay podcast.</string>
+    <string name="splash_tagline_en">Close your eyes.\nOpen a world.</string>
+    <string name="splash_category_en">Stories · Podcasts · Audio drama</string>
+    <string name="splash_status_en">Opening Cantos</string>
+    <string name="listening_unavailable_title_en">Cantos isn’t ready yet</string>
+    <string name="listening_unavailable_body_en">This version can’t play stories or podcasts yet.</string>
 </resources>

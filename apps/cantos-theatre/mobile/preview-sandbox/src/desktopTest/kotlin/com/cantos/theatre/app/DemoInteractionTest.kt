@@ -43,6 +43,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.adapters.mock.MockCatalogPort
 import com.cantos.theatre.adapters.mock.MockMediaEngine
+import com.cantos.theatre.adapters.mock.MockLocalePreferenceStore
 import com.cantos.theatre.adapters.mock.mockInventory
 import com.cantos.theatre.adapters.mock.sandbox.database.MockPersistentProgressPort
 import com.cantos.theatre.adapters.mock.sandbox.database.MockStorageDatabase
@@ -67,6 +68,32 @@ import kotlin.test.assertTrue
 /** Drives the real demo composition on the JVM renderer; no native engine or OS input claim. */
 @OptIn(ExperimentalTestApi::class)
 class DemoInteractionTest {
+    @Test
+    fun rejected_language_save_shows_localized_feedback_and_can_be_retried() {
+        val store = MockLocalePreferenceStore().apply { writesAvailable = false }
+        runDesktopComposeUiTest(width = 390, height = 844) {
+            setContent {
+                val scope = rememberCoroutineScope()
+                val app = remember { mockAppContainer(scope, localePreferenceStore = store) }
+                DisposableEffect(app) { onDispose { app.close() } }
+                DemoTestRoot(appContainer = app)
+            }
+            onNodeWithTag("account").performClick()
+            onNodeWithTag("settings").performScrollTo().performClick()
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("locale-English").performClick()
+            onNodeWithTag("locale-save-failure").performScrollTo().assertTextEquals(
+                "Không lưu được ngôn ngữ. Lựa chọn trước đó vẫn được giữ. Hãy thử lại.",
+            )
+            onNodeWithTag("setting-Language").assert(hasText("Tiếng Việt"))
+            runOnIdle { store.writesAvailable = true }
+            onNodeWithTag("setting-Language").performScrollTo().performClick()
+            onNodeWithTag("locale-English").performClick()
+            onNodeWithTag("locale-save-failure").assertDoesNotExist()
+            onNodeWithTag("setting-Language").assert(hasText("English"))
+        }
+    }
+
     @Test
     fun continue_transport_bookmark_queue_and_close_preserve_one_demo_session() {
         runDesktopComposeUiTest(width = 390, height = 844) {

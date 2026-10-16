@@ -1,6 +1,7 @@
 package com.cantos.theatre.demo
 
 import com.cantos.theatre.app.mockAppContainer
+import com.cantos.theatre.adapters.preferences.AndroidLocalePreferenceStore
 import android.app.Application
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -25,7 +26,7 @@ class CantosDemoApplication : Application() {
     val container: AppContainer by lazy {
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         // The optional identity owner is observed, not owned, by the container: closing one never closes the other.
-        mockAppContainer(scope, account = nativeIdentity).also {
+        mockAppContainer(scope, account = nativeIdentity, localePreferenceStore = AndroidLocalePreferenceStore(this)).also {
             it.preferences.setTheme(if (dark) PreferenceTheme.Dark else PreferenceTheme.Light)
         }
     }

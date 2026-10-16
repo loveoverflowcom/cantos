@@ -6,6 +6,10 @@
     objects = {
 
 /* Begin PBXBuildFile section */
+        A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */ = {
+            isa = PBXBuildFile;
+            fileRef = A1000000000000000000001A;
+        };
         A10000000000000000000015 /* LaunchScreen.storyboard in Resources */ = {
             isa = PBXBuildFile;
             fileRef = A10000000000000000000016;
@@ -25,6 +29,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        A1000000000000000000001A /* PrivacyInfo.xcprivacy */ = {
+            isa = PBXFileReference;
+            lastKnownFileType = text.xml;
+            path = PrivacyInfo.xcprivacy;
+            sourceTree = "<group>";
+        };
         A10000000000000000000016 /* LaunchScreen.storyboard */ = {
             isa = PBXFileReference;
             lastKnownFileType = file.storyboard;
@@ -78,7 +88,7 @@
         };
         A10000000000000000000006 /* CantosDemo */ = {
             isa = PBXGroup;
-            children = (A10000000000000000000002 /* CantosDemoApp.swift */, A10000000000000000000014 /* TheatreIdentity.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */);
+            children = (A10000000000000000000002 /* CantosDemoApp.swift */, A10000000000000000000014 /* TheatreIdentity.swift */, A10000000000000000000016 /* LaunchScreen.storyboard */, A10000000000000000000018 /* Assets.xcassets */, A1000000000000000000001A /* PrivacyInfo.xcprivacy */);
             path = CantosDemo;
             sourceTree = "<group>";
         };
@@ -134,7 +144,7 @@
         A1000000000000000000000B /* Resources */ = {
             isa = PBXResourcesBuildPhase;
             buildActionMask = 2147483647;
-            files = (A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */);
+            files = (A10000000000000000000015 /* LaunchScreen.storyboard in Resources */, A10000000000000000000017 /* Assets.xcassets in Resources */, A10000000000000000000019 /* PrivacyInfo.xcprivacy in Resources */);
             runOnlyForDeploymentPostprocessing = 0;
         };
 /* End PBXResourcesBuildPhase section */

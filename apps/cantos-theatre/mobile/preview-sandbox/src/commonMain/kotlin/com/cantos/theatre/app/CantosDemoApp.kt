@@ -23,8 +23,8 @@ import com.cantos.theatre.domain.membership.MembershipEvent
 import com.cantos.theatre.application.listening.ListeningFailure
 import com.cantos.theatre.application.listening.ListeningState
 import com.cantos.theatre.application.preferences.PreferencesState
-import com.cantos.theatre.application.preferences.PreferenceLocale
 import com.cantos.theatre.application.preferences.PreferenceTheme
+import com.cantos.theatre.application.preferences.PreferencesUpdate
 import com.cantos.theatre.presentation.model.ShellBookmark
 import com.cantos.theatre.presentation.model.ShellCatalogMode
 import com.cantos.theatre.presentation.model.ShellEvent
@@ -91,6 +91,7 @@ fun CantosDemoApp(
     val listening by container.listening.state.collectAsState()
     val playback by container.playback.state.collectAsState()
     val preferences by container.preferences.state.collectAsState()
+    val localeUpdate by container.preferences.localeUpdate.collectAsState()
     val projection = projectDemoState(
         navigation, catalog, listening, playback, preferences, ui.query, ui.libraryTab, ui.timer, session.seed,
     )
@@ -150,6 +151,7 @@ fun CantosDemoApp(
                 },
                 density = density,
                 motionPreference = motionPreference,
+                localeSaveUnavailable = localeUpdate == PreferencesUpdate.LocaleStoreUnavailable,
             )
         }
     }
@@ -220,7 +222,7 @@ fun projectDemoState(
             CatalogStatus.Unavailable -> ShellCatalogMode.Error
         },
         theme = if (preferences.theme == PreferenceTheme.Dark) ShellTheme.Dark else ShellTheme.Light,
-        locale = if (preferences.locale == PreferenceLocale.English) ShellLocale.English else ShellLocale.Vietnamese,
+        locale = preferences.locale.toShellLocale(),
         playbackStatus = when (playback.status) {
             PlaybackStatus.Idle -> PlaybackUiStatus.Idle
             PlaybackStatus.Loading -> PlaybackUiStatus.Loading

@@ -1,0 +1,5 @@
+<resources>
+<string name="common_cancel">Cancel</string>
+<string name="theatre_player_bookmark_add">Add bookmark for %1$s</string>
+<string name="theatre_error_unavailable">This content cannot be played.</string>
+</resources>

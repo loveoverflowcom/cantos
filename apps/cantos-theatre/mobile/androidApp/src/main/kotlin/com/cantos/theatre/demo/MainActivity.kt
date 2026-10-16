@@ -9,6 +9,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.cantos.theatre.app.toShellLocale
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.cantos.theatre.app.CantosDemoApp
 import com.cantos.theatre.adapters.identity.parseAndroidCallback
@@ -30,7 +33,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Both local constructors have completed. Remote identity/catalog work belongs
             // to the destination and cannot turn this back into an opening presentation.
-            CantosLocalLaunch(localReady = true, preferences = UiPreferences()) {
+            val preferences by container.preferences.state.collectAsState()
+            CantosLocalLaunch(localReady = true, preferences = UiPreferences(), locale = preferences.locale.toShellLocale()) {
                 CantosDemoApp(
                     appContainer = container,
                     onThemeChanged = ::updateSystemBars,

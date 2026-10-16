@@ -1,12 +1,37 @@
 package com.cantos.theatre.demo
 
 import com.cantos.theatre.presentation.model.*
+import com.cantos.theatre.app.DemoShellCopyOverrides
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DemoCopyTest {
+    @Test
+    fun demo_episode_quantities_retain_sample_wording_for_one_and_other() {
+        val english = ShellCopy(ShellLocale.English, DemoShellCopyOverrides)
+        val vietnamese = ShellCopy(ShellLocale.Vietnamese, DemoShellCopyOverrides)
+        listOf(
+            0 to "0 sample episodes · Vietnamese",
+            1 to "1 sample episode · Vietnamese",
+            2 to "2 sample episodes · Vietnamese",
+        ).forEach { (quantity, episodes) ->
+            assertEquals(episodes, english.text(CopyKey.EpisodesCount, "count" to quantity.toString()))
+            assertEquals("$quantity tập minh họa · Tiếng Việt", vietnamese.text(CopyKey.EpisodesCount, "count" to quantity.toString()))
+        }
+    }
+
+    @Test
+    fun demo_work_quantities_retain_sample_wording_for_one_and_other() {
+        val english = ShellCopy(ShellLocale.English, DemoShellCopyOverrides)
+        val vietnamese = ShellCopy(ShellLocale.Vietnamese, DemoShellCopyOverrides)
+        listOf(0 to "0 sample works", 1 to "1 sample work", 2 to "2 sample works").forEach { (quantity, works) ->
+            assertEquals(works, english.text(CopyKey.Results, "count" to quantity.toString()))
+            assertEquals("$quantity tác phẩm minh họa", vietnamese.text(CopyKey.Results, "count" to quantity.toString()))
+        }
+    }
+
     @Test
     fun every_copy_key_has_nonblank_vietnamese_and_english_resources() {
         CopyKey.entries.forEach { key ->
@@ -26,6 +51,16 @@ class DemoCopyTest {
                 placeholderCounts(key.en),
                 "${key.name} has different Vietnamese and English placeholders",
             )
+            key.enOne?.let { singular ->
+                assertEquals(placeholderCounts(key.en), placeholderCounts(singular), "${key.name} one form changes parameters")
+            }
+        }
+        DemoShellCopyOverrides.forEach { (key, resource) ->
+            assertEquals(placeholderCounts(key.vi), placeholderCounts(resource.vi), "${key.name} Vietnamese override changes parameters")
+            assertEquals(placeholderCounts(key.en), placeholderCounts(resource.en), "${key.name} English override changes parameters")
+            resource.enOne?.let { singular ->
+                assertEquals(placeholderCounts(key.en), placeholderCounts(singular), "${key.name} override one form changes parameters")
+            }
         }
     }
 
