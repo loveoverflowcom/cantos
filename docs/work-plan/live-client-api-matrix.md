@@ -9,7 +9,8 @@ For [#191](https://github.com/loveoverflowcom/cantos/issues/191), the
 [#180](https://github.com/loveoverflowcom/cantos/issues/180). Native build-input wiring is
 source-tested only; configured artifacts, provider login, OS browser/secure-store/lifecycle
 and browser navigation acceptance remain unrun. The attempted Android CMP preview is
-`UNSUPPORTED` without the official CLI/ready IDE. Existing Web BFF/proxy source is present;
+`UNSUPPORTED`: the second review found no official CLI and installed Studio 2024.3, below
+Quail 2+ and the project's AGP compatibility range. No PNG/semantics exists. Existing Web BFF/proxy source is present;
 signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
 
 ## Studio capability baseline

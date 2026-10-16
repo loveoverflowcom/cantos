@@ -105,12 +105,83 @@ The inherited hygiene failures are confirmed against the unchanged baseline file
 as unrelated cleanup. They are actual FAIL results. The remaining unrun scopes are acceptance
 gaps, not passing results; this slice does not claim `CORE_VERIFIED` without Kotlin execution.
 
-## Next acceptance and second review
+## Second independent review — 16 October 2026
 
-The independent second session should review this same Draft PR, especially Kotlin/Swift export
-compatibility, manifest literal handling, Xcode source-plist merge/substitution and the typed diagnostic
-boundary. It inherits the preview-only verification limit. First supply the official Android CLI
-and ready IDE, then rerun the exact preview command and inspect its image/semantics. Do not install
+The second session reviewed the complete three-dot contribution from
+`f3619bff1d69246f22be2906570a3933ea922f53` to
+`a346af04abd03b604e1cc74630f387282472aa9c`, plus the affected host/controller consumers.
+Remote `develop` and the existing PR branch still matched those SHAs when inspected.
+Issues #191/#174 and PR #196 had no new comments or accepted signup decision. The review did
+not reuse the first session's conclusion as its oracle.
+
+Assessment: **no-actionable-findings** for source correctness in the declared scope;
+**insufficient-evidence** for compiler/artifact/live acceptance. Kotlin/Gradle/Android and
+Swift/plist/export received separate read-only passes. No functional code defect was confirmed,
+so no auth behavior, validation grammar or security configuration was changed. One misleading
+resolver comment was narrowed: missing keys take precedence, then the API origin and issuer
+are validated. For example, an invalid API value plus an empty issuer yields `Missing(Issuer)`;
+this is the existing first-prerequisite diagnostic, not an aggregate report of every error.
+The README now states that order explicitly. Comment/documentation changes require no new
+behavior test; the original four Kotlin cases remain unexecuted under the user's limit.
+
+| Changed claim reviewed | Disposition / evidence | Acceptance still absent |
+| --- | --- | --- |
+| Private validated configuration and enum-only refusal diagnostics | Source-reviewed; no constructor/copy/decoder bypass; common grammar matches BASE | Executed Kotlin/compiler evidence |
+| Android properties → environment → empty defaults and metadata | Source-reviewed; explicit empty property wins; only `Available` constructs owner | Merged/packaged metadata, OS callback and secure store |
+| iOS Debug/Release custom plist, nullable Swift/Kotlin bridge, cleanup | Source-reviewed; shared framework export present; unavailable composition performs no controller/barrier creation | Built plist expansion, native compilation and Keychain/browser lifecycle |
+| Existing Web authority and guest/signup boundary | Source-reviewed; no Web/backend edits; #174 remains independent | API/provider-confirmed session/read/logout acceptance |
+| Python regression claims | Source wiring assertions only; no compiler or artifact promotion | Runtime negative cases retain their separate gates |
+
+### Android preview investigation
+
+The supported Theatre command above was retried in this session with label
+`issue191-ultra2-guest-discovery-light-vi` and `--timeout-seconds 30`; xtask reported
+`UNSUPPORTED capture` (exit 1). No preview PNG or semantics was produced or inspected.
+Discovery went beyond PATH: Studio/SDK, user-local/cache/Downloads/Application Support,
+Homebrew and task-local temporary tools were checked. The installed IDE at
+`/Applications/Android Studio.app` reports version `2024.3`, build
+`243.24978.46.2431.13363775`; the app tool returned its splash window, with no synced Theatre
+project observed. The process-list read (`ps`) was denied by the sandbox and was not retried;
+it did not prevent file-based version discovery or the capture attempt.
+
+Two concrete packages are needed: **official Android CLI for macOS arm64** and
+**Android Studio Quail 2 | 2026.1.2 or newer**. Google's
+[render command](https://developer.android.com/tools/agents/android-cli/commands/studio_render-compose-preview)
+requires Quail 2+. The
+[IDE/AGP compatibility table](https://developer.android.com/studio/releases#android_gradle_plugin_and_android_studio_compatibility)
+also excludes the installed Meerkat-era IDE from this project's pinned AGP `8.11.1`; direct
+preview in that old IDE is not a supported fallback. Gradle `8.14.3`, SDK Platform 35,
+Build Tools `35.0.0` and a full Microsoft JDK `21.0.7` are already present. No installation,
+upgrade, Gradle sync, app/full/release/iOS build or toolchain download was performed. Minimal
+compilation was unnecessary because the capture prerequisites already failed.
+
+The preview blocker is **environment / UNSUPPORTED**, not a denied installation request.
+Install/update needs separate user permission and may require the user to accept vendor terms.
+After that, open the fixed Theatre Gradle root, sync with `-Pcantos.android=true`, perform only
+the compilation needed for the preview, and rerun the exact capture. Open its PNG and assert
+observed semantics. This remains host-preview evidence, never live-login/device acceptance.
+
+### Second-session verification and preservation
+
+Raw output and source hashes live in ignored `artifacts/agent-runs/issue191-ultra2/`.
+The focused Python/plist/whitespace results and final preflight summary are recorded in the
+updated PR body and local run record. Lightweight byte comparison confirmed the 307-line
+CMP skill and all four Rust files named by the first session's rust-format failure are
+identical to BASE. They remain inherited failures, without unrelated cleanup or a repeated
+Rust verification campaign. Kotlin/native/configured-artifact/live checks remain `NOT_RUN`.
+No `CORE_VERIFIED` or production-ready claim is made.
+
+Stash `cb8f104ec2285a36fecab85388623cd09c112950`, all 11 auxiliary worktree registrations,
+the Documents safety worktree and earlier evidence are preserved. That safety worktree was
+not opened or queried. The same Draft PR #196 is updated without force push; no second PR,
+provider/account/grant operation, remote CI inspection, merge or issue closure is authorized
+or performed by this review.
+
+## Next acceptance
+
+The independent source review is complete; compiler/artifact and runtime acceptance are still
+deferred. First supply the official Android CLI and Quail 2+ IDE, then rerun the exact preview
+command and inspect its image/semantics. Do not install
 tools, run full builds or activate providers merely to remove a gap in this record.
 
 When separately authorized later, artifact acceptance must compare selected nonsecret inputs

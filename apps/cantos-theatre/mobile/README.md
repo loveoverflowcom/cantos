@@ -100,6 +100,10 @@ normalize origins or accept a Studio/Web issuer. Inspect Android Application's
 | `Invalid(ApiOrigin/Issuer)` | A supplied value fails the existing strict configuration grammar; correct that key |
 | `Available` | Client configuration is syntactically valid; API/provider/session acceptance remains separate |
 
+Missing keys take diagnostic precedence: if either key is absent/empty, `Missing` identifies
+those keys before validating the other value. Once both are supplied, invalid API origin is
+reported before invalid issuer. Every unavailable outcome keeps identity disabled.
+
 Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
 preserves non-string manifest literals for invalid-value refusal instead of treating them as
 missing. iOS creates no account controller or logout-barrier directory for unavailable config.

@@ -662,6 +662,9 @@ protocol or infer live login from source tests or Android preview. Signup's capa
 self-signup/invitation/defer decision remain with [#174](https://github.com/loveoverflowcom/cantos/issues/174),
 independent of existing-account login. Preview-only verification leaves the native compiled
 and live acceptance gaps explicit and does not reorder publication or authorize provisioning.
+The [second independent review](../evidence/theatre-auth-activation.md#second-independent-review--16-october-2026)
+confirmed two preview prerequisites to supply first: official Android CLI for macOS arm64 and
+Android Studio Quail 2+; the installed 2024.3 IDE also predates support for the pinned AGP 8.11.1.
 
 The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
 synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP

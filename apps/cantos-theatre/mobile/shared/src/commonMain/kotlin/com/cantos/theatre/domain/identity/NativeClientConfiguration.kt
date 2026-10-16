@@ -12,7 +12,7 @@ sealed interface NativeIdentityAvailability {
 
 class NativeClientConfiguration private constructor(val apiOrigin: String, val identity: NativeConfiguration) {
     companion object {
-        /** Empty defaults opt out. Supplied invalid values cannot silently become guest absence. */
+        /** Missing keys take precedence; with both supplied, validate before any activation. */
         fun resolve(apiOrigin: String?, issuer: String?): NativeIdentityAvailability {
             if (apiOrigin.isNullOrEmpty()) {
                 val fields = if (issuer.isNullOrEmpty()) NativeConfigurationFields.Both else NativeConfigurationFields.ApiOrigin
