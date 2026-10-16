@@ -148,7 +148,9 @@ class SeedRecordTest(unittest.TestCase):
             broken = [[], dict(seed_result(), format=2), dict(seed_result(), database="cantos_test_audio"),
                       dict(seed_result(), database="production"), dict(seed_result(), works=[]),
                       dict(seed_result(), works=[{"fate": "leaked", "units": [{}]}]),
-                      dict(seed_result(), works=[{"fate": "public", "units": []}])]
+                      dict(seed_result(), works=[{"fate": "public", "units": []}]),
+                      dict(seed_result(), rights_valid_until_ms=None),
+                      dict(seed_result(), rights_valid_until_ms=True)]
             for result in broken:
                 with self.subTest(result=result), self.assertRaises(seed_theatre.Refusal):
                     seed_theatre.validated_result(result, w.config)
@@ -228,6 +230,20 @@ class SeedFlowTest(unittest.TestCase):
             self.assertEqual(fake.sql(), ["SHOW data_directory"])
             self.assertIn("only the record was removed", out.getvalue())
             self.assertFalse(w.seed_record.exists())
+
+    def test_unreadable_records_are_refusals_that_change_nothing(self):
+        with Workspace() as w:
+            w.seed_record.write_text("{not json")
+            fake = FakeProcesses(w)
+            with patch.object(subprocess, "run", fake), self.assertRaisesRegex(seed_theatre.Refusal, "unreadable"):
+                seed_theatre.seed(w.config, {})
+            self.assertEqual([command[0] for command, _ in fake.calls], ["psql"])
+            self.assertEqual(w.seed_record.read_text(), "{not json")
+            w.run_record.write_text("[")
+            with patch.object(subprocess, "run") as run, patch.object(sys, "stderr", io.StringIO()) as err:
+                self.assertEqual(seed_theatre.main([]), 1)
+            run.assert_not_called()
+            self.assertIn("run.json is unreadable", err.getvalue())
 
     def test_main_refuses_without_a_retained_cluster_record(self):
         with Workspace() as w:

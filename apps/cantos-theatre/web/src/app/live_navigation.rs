@@ -116,7 +116,16 @@ impl LiveNavigation {
                         .filter(|(opened, _)| *opened == from)
                     {
                         Some((_, snapshot)) => browser::restore_return(snapshot),
-                        None => platform::focus_main(main),
+                        // A deep-linked detail has no opening card: start Home at its top.
+                        None => {
+                            #[cfg(target_arch = "wasm32")]
+                            if let Some(window) = web_sys::window() {
+                                window.scroll_to_with_x_and_y(0.0, 0.0);
+                            }
+                            leptos::leptos_dom::helpers::request_animation_frame(move || {
+                                platform::focus_main(main)
+                            });
+                        }
                     }
                     navigation.work_return.set_value(None);
                 } else {

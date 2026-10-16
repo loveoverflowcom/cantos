@@ -60,6 +60,8 @@ data class PageWalk<T> internal constructor(
     internal val replaceOnFirstPage: Boolean = false,
     internal val autoFollows: Int = 0,
     internal val restarts: Int = 0,
+    /** Where the current walk inserts ids it has not shown yet, so server order is kept. */
+    internal val mergeAt: Int = 0,
 ) {
     val isEmptyResult: Boolean get() = received && phase == WalkPhase.Complete && items.isEmpty()
     val canLoadMore: Boolean get() = phase == WalkPhase.More
@@ -299,8 +301,15 @@ private fun <T> PageWalk<T>.request(token: Long, cursor: CatalogCursor?, replace
 private fun <T, K> PageWalk<T>.resolve(outcome: WalkOutcome<T>, key: (T) -> K): WalkStep<T> = when (outcome) {
     is WalkOutcome.Page -> {
         val base = if (requested == null && replaceOnFirstPage) emptyList() else items
-        val (merged, added) = mergeById(base, outcome.items, key)
-        val accepted = copy(items = merged, received = true, next = outcome.next, awaiting = null, replaceOnFirstPage = false)
+        // Page one of a walk (fresh or restarted) merges from the top; a continuation resumes
+        // after the last row the previous page of this walk placed.
+        val start = if (requested == null) 0 else mergeAt
+        val merge = mergeById(base, outcome.items, key, start)
+        val accepted = copy(
+            items = merge.items, received = true, next = outcome.next, awaiting = null,
+            replaceOnFirstPage = false, mergeAt = merge.mergeAt,
+        )
+        val added = merge.added
         when {
             outcome.next == null -> WalkStep(accepted.copy(phase = WalkPhase.Complete, autoFollows = 0), Follow.None)
             added == 0 && autoFollows < MaxAutoFollows ->
@@ -323,21 +332,28 @@ private fun <T, K> PageWalk<T>.resolve(outcome: WalkOutcome<T>, key: (T) -> K): 
     is WalkOutcome.Failure -> WalkStep(copy(phase = WalkPhase.Failed(outcome.failure), awaiting = null), Follow.None)
 }
 
-/** Replace known ids in place, append new ids in page order; returns the count of new ids. */
-private fun <T, K> mergeById(base: List<T>, page: List<T>, key: (T) -> K): Pair<List<T>, Int> {
+private class Merge<T>(val items: List<T>, val added: Int, val mergeAt: Int)
+
+/**
+ * Replace known ids in place and insert new ids where the server placed them: after the last
+ * row this walk has already placed, starting at [start]. A restarted page one therefore puts a
+ * newly visible id before the known rows that follow it; a plain continuation appends.
+ */
+private fun <T, K> mergeById(base: List<T>, page: List<T>, key: (T) -> K, start: Int): Merge<T> {
     val result = base.toMutableList()
-    val positions = HashMap<K, Int>(base.size + page.size)
-    base.forEachIndexed { index, item -> positions[key(item)] = index }
+    var at = start.coerceIn(0, result.size)
     var added = 0
     for (item in page) {
-        val at = positions[key(item)]
-        if (at != null) {
-            result[at] = item
+        val id = key(item)
+        val known = result.indexOfFirst { key(it) == id }
+        if (known >= 0) {
+            result[known] = item
+            at = maxOf(at, known + 1)
         } else {
-            positions[key(item)] = result.size
-            result += item
+            result.add(at, item)
+            at += 1
             added++
         }
     }
-    return result.toList() to added
+    return Merge(result.toList(), added, at)
 }

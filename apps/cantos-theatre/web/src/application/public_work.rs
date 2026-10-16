@@ -157,6 +157,9 @@ pub struct UnitList {
     merge_at: usize,
     status: PageStatus,
     notice: Option<ListNotice>,
+    /// The current walk restarted after `invalid_cursor`. Unlike the listener-facing `notice`,
+    /// it survives later listener intents until the walk's terminal page derives `unavailable`.
+    restarted_walk: bool,
     first_new: Option<String>,
     /// Rows a completed restarted walk no longer listed (ADR 0035 §2a). No reason is known.
     unavailable: BTreeSet<String>,
@@ -217,7 +220,7 @@ impl UnitList {
         self.walk_started = true;
         self.cursor = page.next_cursor;
         self.status = PageStatus::Idle;
-        if self.cursor.is_none() && self.notice == Some(ListNotice::Restarted) {
+        if self.cursor.is_none() && self.restarted_walk {
             let seen = &self.walk_seen;
             self.unavailable = self
                 .rows
@@ -225,6 +228,7 @@ impl UnitList {
                 .filter(|row| !seen.contains(&row.unit_id))
                 .map(|row| row.unit_id.clone())
                 .collect();
+            self.restarted_walk = false;
         }
     }
 
@@ -234,6 +238,7 @@ impl UnitList {
         self.cursor = None;
         self.merge_at = 0;
         self.notice = Some(ListNotice::Restarted);
+        self.restarted_walk = true;
     }
 }
 
@@ -780,6 +785,44 @@ mod tests {
         let list = units(&state);
         assert!(list.is_unavailable(&unit(3, 2).unit_id));
         assert!(!list.is_unavailable(&unit(1, 0).unit_id));
+    }
+
+    #[test]
+    fn a_multi_page_restarted_walk_marks_unlisted_rows_after_load_more_or_retry() {
+        for retry_first_page in [false, true] {
+            let (mut state, first) = ready();
+            state.finish_page(
+                &first,
+                Ok(page(vec![unit(1, 0), unit(2, 1)], Some("lc1_p2"))),
+            );
+            let second = state.load_more().unwrap();
+            let Step::Continue(mut restart) =
+                state.finish_page(&second, Err(CatalogReadError::InvalidCursor))
+            else {
+                panic!("restart")
+            };
+            if retry_first_page {
+                state.finish_page(&restart, Err(CatalogReadError::Unavailable));
+                let Some(Request::Page(again)) = state.retry() else {
+                    panic!("a failed restart page retries")
+                };
+                assert_eq!(again.cursor(), None);
+                restart = again;
+            }
+            // Unit 2 was withdrawn; the restarted walk needs a second listener-requested page.
+            state.finish_page(&restart, Ok(page(vec![unit(1, 0)], Some("lc1_fresh"))));
+            let more = state.load_more().unwrap();
+            assert_eq!(more.cursor(), Some("lc1_fresh"));
+            state.finish_page(&more, Ok(page(vec![unit(3, 2)], None)));
+            let list = units(&state);
+            assert!(list.is_complete(), "retry={retry_first_page}");
+            assert!(
+                list.is_unavailable(&unit(2, 1).unit_id),
+                "retry={retry_first_page}"
+            );
+            assert!(!list.is_unavailable(&unit(1, 0).unit_id));
+            assert!(!list.is_unavailable(&unit(3, 2).unit_id));
+        }
     }
 
     #[test]

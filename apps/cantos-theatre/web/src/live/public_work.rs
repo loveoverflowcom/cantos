@@ -51,8 +51,9 @@ fn classify_error(status: u16, content_type: Option<&str>, body: &[u8]) -> Catal
         (
             503,
             Some((ListenerErrorCode::Unavailable | ListenerErrorCode::RenditionUnavailable, true)),
-        )
-        | (500, Some((ListenerErrorCode::Unavailable, false))) => CatalogReadError::Unavailable,
+        ) => CatalogReadError::Unavailable,
+        // Stored corruption is not retryable: never blame the connection or invite a retry loop.
+        (500, Some((ListenerErrorCode::Unavailable, false))) => CatalogReadError::Protocol,
         (_, Some(_)) => CatalogReadError::Protocol,
         (_, None) => CatalogReadError::Unavailable,
     }
@@ -260,7 +261,7 @@ mod tests {
             (
                 500,
                 r#"{"code":"unavailable","retryable":false}"#,
-                CatalogReadError::Unavailable,
+                CatalogReadError::Protocol,
             ),
             (400, INVALID_REQUEST, CatalogReadError::Protocol),
             (400, INVALID_CURSOR, CatalogReadError::Protocol),

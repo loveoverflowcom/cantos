@@ -44,6 +44,16 @@ output), serving Web and API from one origin.
 | IOS | No Xcode or device on this Linux machine | NOT_RUN |
 | REAL_MEDIA | Public playback delivery is not composed by the host; playback authorization answers `rendition_unavailable` | NOT_RUN (by design, #170) |
 
+## Review fixes after these observations
+
+The PR #226 review found and fixed, with failing-first regressions: a multi-page walk after an
+`invalid_cursor` restart did not derive Web `unavailable` rows; the CMP reducer appended ids it
+had not shown to the end after a restart instead of server order; Web showed stored corruption
+(`500`, `retryable:false`) as a connection problem; a deep-linked Web detail did not reset
+Home's scroll on Back; a blocked unsafe link left the detail loading; CMP admitted an `[::1]`
+debug origin that its network security config rejects. These changes are covered by unit,
+JVM and WASM build checks; the browser walk and the live JVM walk above were not repeated.
+
 ## Not established
 
 Production publication or delivery, playback, progress/sync, offline, identity, retained

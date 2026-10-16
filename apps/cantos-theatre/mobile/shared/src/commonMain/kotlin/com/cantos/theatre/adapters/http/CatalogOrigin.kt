@@ -11,8 +11,10 @@ sealed interface CatalogOriginSelection {
 
 /**
  * Release builds admit only `https://` origins. [allowLoopbackHttp] is true only for a debug
- * build, where [ApiOrigin] already limits `http://` to localhost, 127.0.0.1 and [::1]
- * (for example `adb reverse tcp:8080 tcp:8080`). The value is used exactly as configured.
+ * build, where `http://` is further limited to `127.0.0.1` and `localhost` (for example
+ * `adb reverse tcp:8080 tcp:8080`): exactly the hosts the debug network security config and
+ * `cargo xtask theatre-host android-debug` permit. [ApiOrigin] also parses `[::1]`, but Android
+ * would block that cleartext, so it is refused here. The value is used exactly as configured.
  */
 fun selectCatalogOrigin(raw: String?, allowLoopbackHttp: Boolean): CatalogOriginSelection {
     if (raw.isNullOrEmpty()) return CatalogOriginSelection.NotConfigured
@@ -21,6 +23,12 @@ fun selectCatalogOrigin(raw: String?, allowLoopbackHttp: Boolean): CatalogOrigin
     } catch (_: IllegalArgumentException) {
         return CatalogOriginSelection.Rejected
     }
-    if (!origin.isHttps && !allowLoopbackHttp) return CatalogOriginSelection.Rejected
+    if (!origin.isHttps) {
+        val host = raw.removePrefix("http://").substringBefore(':').lowercase()
+        if (!allowLoopbackHttp || host !in CleartextLoopbackHosts) return CatalogOriginSelection.Rejected
+    }
     return CatalogOriginSelection.Configured(origin)
 }
+
+/** Must equal the debug network security config's cleartext domains. */
+internal val CleartextLoopbackHosts = setOf("127.0.0.1", "localhost")

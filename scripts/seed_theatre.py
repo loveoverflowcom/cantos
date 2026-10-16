@@ -86,6 +86,9 @@ def validated_result(result, config):
     if not isinstance(result, dict):
         raise Refusal("seed test produced an unexpected record")
     database = result.get("database")
+    valid_until = result.get("rights_valid_until_ms")
+    if not isinstance(valid_until, int) or isinstance(valid_until, bool):
+        raise Refusal("seed test recorded no rights window")
     if result.get("format") != 1 or not isinstance(database, str) \
             or not SEED_DATABASE.fullmatch(database) or database in protected_databases(config):
         raise Refusal("seed test produced an unexpected record")
@@ -147,7 +150,12 @@ def summary(record):
 
 
 def load(path):
-    return json.loads(path.read_text()) if path.is_file() else None
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        raise Refusal(f"{path.name} is unreadable; remove it and run the command again") from error
 
 
 def seed(config, env):
@@ -196,8 +204,8 @@ def main(argv=None):
     parser.add_argument("--reset", action="store_true",
                         help="drop only the recorded seed database and its record")
     args = parser.parse_args(argv)
-    config = load(RUN_RECORD)
     try:
+        config = load(RUN_RECORD)
         if config is None:
             raise Refusal(f"no retained cluster record; {KEEP_HINT}")
         env = isolated_environment(os.environ)

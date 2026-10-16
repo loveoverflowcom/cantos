@@ -135,7 +135,10 @@ class PublicCatalogHttpAdapterTest {
         assertEquals(CatalogOriginSelection.Rejected, selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = false))
         assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("http://127.0.0.1:8080")),
             selectCatalogOrigin("http://127.0.0.1:8080", allowLoopbackHttp = true))
-        for (raw in listOf("http://192.168.1.20:8080", "http://api.cantos.example", "https://api.cantos.example/",
+        assertEquals(CatalogOriginSelection.Configured(ApiOrigin.parse("http://localhost:8090")),
+            selectCatalogOrigin("http://localhost:8090", allowLoopbackHttp = true))
+        // ApiOrigin parses [::1], but the debug network security config permits no cleartext there.
+        for (raw in listOf("http://[::1]:8080", "http://192.168.1.20:8080", "http://api.cantos.example", "https://api.cantos.example/",
             "https://user@api.cantos.example", "https://api.cantos.example/api/v1/studio", " https://api.cantos.example",
             "ftp://127.0.0.1", "https://api.cantos.example:0", "https://api.cantos.example:70000")) {
             assertEquals(CatalogOriginSelection.Rejected, selectCatalogOrigin(raw, allowLoopbackHttp = true), raw)

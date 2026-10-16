@@ -211,17 +211,18 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
             let mut issued = None;
             work_detail.update(|s| issued = s.open(id));
             match issued {
-                // Preview mode has no catalog network; it shows the honest unavailable state.
-                Some(ticket) if preview => work_detail.update(|s| {
+                Some(ticket) if !preview && network_allowed.get_untracked() => {
+                    run_work_request(work_detail, WorkRequest::Work(ticket), false)
+                }
+                // Preview mode has no catalog network, and an unsafe link blocks it until cleared:
+                // both settle as the honest unavailable state, which Retry leaves once allowed.
+                Some(ticket) => work_detail.update(|s| {
                     let _ = s.finish_work(
                         &ticket,
                         Err(crate::application::public_work::CatalogReadError::Unavailable),
                     );
                 }),
-                Some(ticket) if network_allowed.get_untracked() => {
-                    run_work_request(work_detail, WorkRequest::Work(ticket), false)
-                }
-                _ => (),
+                None => (),
             }
         }
         _ => {

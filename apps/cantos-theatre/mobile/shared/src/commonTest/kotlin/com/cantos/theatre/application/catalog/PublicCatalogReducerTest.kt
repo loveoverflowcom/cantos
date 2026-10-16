@@ -98,6 +98,24 @@ class PublicCatalogReducerTest {
     }
 
     @Test
+    fun a_restarted_walk_keeps_server_order_for_ids_it_had_not_shown() {
+        send(PublicCatalogIntent.Start)
+        send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1), work(2)), cursor(1)))))
+        send(PublicCatalogIntent.LoadMoreWorks)
+        send(WorksResolved(2, PublicCatalogRead.Ready(worksPage(listOf(work(3)), cursor(2)))))
+        send(PublicCatalogIntent.LoadMoreWorks)
+        send(WorksResolved(3, PublicCatalogRead.InvalidCursor))
+        // Work 9 was first published during the walk, so the server now lists it first.
+        send(WorksResolved(4, PublicCatalogRead.Ready(worksPage(listOf(work(9), work(1), work(2)), cursor(5)))))
+        assertEquals(listOf(work(9), work(1), work(2), work(3)), state.works.items)
+        send(PublicCatalogIntent.LoadMoreWorks)
+        // A continuation inserts after the last row it placed: 8 sits between 2 and 3.
+        send(WorksResolved(5, PublicCatalogRead.Ready(worksPage(listOf(work(8), work(3)), null))))
+        assertEquals(listOf(work(9), work(1), work(2), work(8), work(3)), state.works.items)
+        assertEquals(WalkPhase.Complete, state.works.phase)
+    }
+
+    @Test
     fun repeated_invalid_cursor_in_one_action_stops_and_retry_restarts() {
         send(PublicCatalogIntent.Start)
         send(WorksResolved(1, PublicCatalogRead.Ready(worksPage(listOf(work(1)), cursor(1)))))
