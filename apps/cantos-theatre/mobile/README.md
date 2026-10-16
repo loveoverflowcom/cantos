@@ -12,7 +12,9 @@ This is an isolated, memory-only **Cantos** listener demo: shared Kotlin screens
 host, an iOS SwiftUI host and a JVM diagnostic window. It does not complete native listening
 in [050](../../../docs/work-plan/050-cmp-native-listening.md). A fake engine acknowledges mock
 commands; the default mock has no API, authentication, native media engine, audio, downloads,
-sync, billing, provider or durable persistence. The separate opt-in native identity boundary
+sync, billing, provider or durable domain persistence. Native hosts persist the nonsecret UI
+language in platform key/value preferences; ordinary previews remain session-only unless injected.
+The separate opt-in native identity boundary
 below never feeds authenticated data into mock state. Studio is web-only.
 
 The KMP build separates production-safe `:shared` from `:preview-sandbox`. The shared module
@@ -184,6 +186,24 @@ No shared wrapper is newly qualified. Shared Logo Kit/component admission (#127)
 production release artifact isolation (#122) are separate acceptance work; the identity guest-shell
 composition (#130) is the [guest-first account slice](#guest-first-account-and-auth) below.
 This launcher change does not complete production mobile or those issues.
+
+## Application UI language
+
+`PreferencesController` owns the selected UI language: valid saved canonical tag (`vi-VN` or
+`en`) wins over an explicitly injected host/preview seed, whose default is Vietnamese. Device
+language negotiation and broad catalog/library adoption remain open under #167. Android/iOS
+demo hosts inject SharedPreferences/UserDefaults; the production Android unavailable host also
+reads the same app-owned preference boundary within its own application sandbox. Theme remains
+memory-only. Native API acceptance schedules persistence; it is not a forced disk-flush guarantee.
+Pre-acceptance save refusal preserves the choice, displays localized feedback and permits retry.
+
+Shell/auth/Membership retain their typed catalogs. Five existing launch/unavailable messages
+select explicit generated XML IDs by that same locale, because pinned Compose 1.9.0 has no public
+subtree resource-locale override. No process locale changes or locale-keyed remounts are used.
+This narrow adapter is not a catalog migration or library selection. The
+[comparison](../../../docs/evidence/cmp-localization-spike.md) and
+[acceptance ledger](../../../docs/evidence/issue169-cmp-locale-acceptance.md) separate JVM,
+Android and deferred iOS/product evidence; issue #169 remains open.
 
 ## Guest-first account and auth
 
@@ -565,8 +585,9 @@ acceptance. See the [client handoff](../../../docs/work-plan/live-client-api-mat
 
 The [UI repair evidence](../../../docs/evidence/theatre-cmp-ui-repair.md) covers adaptive header/
 episode rows, exact reference paintings and OFL Noto font resources, the tonal mini-player,
-ordered icon transport and preference dialogs. Theme/language/speed/timer still live in the one
-app-owned mock state; catalog scenarios and reset are under the separate Demo tools dialog.
+ordered icon transport and preference dialogs. Independent app owners project theme/language
+and playback speed/timer; native hosts additionally persist UI language as described above.
+Catalog scenarios and reset are under the separate Demo tools dialog.
 The simulated timer performs no countdown. The sandbox's
 [asset provenance](preview-sandbox/src/commonMain/composeResources/files/provenance.json)
 records sample-art hashes and the remaining production artwork-rights review. Native runtime,

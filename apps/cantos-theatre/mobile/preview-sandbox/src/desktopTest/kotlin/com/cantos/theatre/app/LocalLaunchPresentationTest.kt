@@ -26,6 +26,7 @@ import com.cantos.theatre.presentation.model.ShellRoute
 import com.cantos.theatre.presentation.model.ShellState
 import com.cantos.theatre.presentation.model.ShellWorkId
 import com.cantos.theatre.features.launch.presentation.CantosLocalLaunch
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import java.io.File
@@ -108,7 +109,8 @@ class LocalLaunchPresentationTest {
                         runDesktopComposeUiTest(width = width, height = height) {
                             setContent {
                                 Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture-root")) {
-                                    CantosLocalLaunch(false, UiPreferences(theme = theme, reducedMotion = true, textScale = textScale)) {}
+                                    CantosLocalLaunch(false, UiPreferences(theme = theme, reducedMotion = true, textScale = textScale),
+                                        locale = if (language == "en") ShellLocale.English else ShellLocale.Vietnamese) {}
                                 }
                             }
                             val rootBounds = onNodeWithTag("capture-root").fetchSemanticsNode().boundsInRoot

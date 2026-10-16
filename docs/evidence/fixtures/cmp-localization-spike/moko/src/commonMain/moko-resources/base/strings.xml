@@ -1,0 +1,5 @@
+<resources>
+<string name="common_cancel">Hủy</string>
+<string name="theatre_player_bookmark_add">Thêm dấu trang cho %1$s</string>
+<string name="theatre_error_unavailable">Không thể phát nội dung này.</string>
+</resources>

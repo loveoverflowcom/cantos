@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi-VN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cantos Studio</title>
+  
+<script type="module">
+import init, * as bindings from '/cantos-studio-11df3230f3449e82.js';
+const wasm = await init({ module_or_path: '/cantos-studio-11df3230f3449e82_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+  <link rel="stylesheet" href="/tokens-3708958437b0fef6.css" integrity="sha384-kcQubNPpqEBsf6Tve5PZadXJczRAT06mhVNe8h/uUT0kMdizsaAV0Ad6ecj95SMK"/>
+  <link rel="stylesheet" href="/foundation-951b963d9814b6c.css" integrity="sha384-CdOoByNKh7fvRQA6w17/Lkh4B0/B8JkVNBF7IwYTjLcSLWSdPWj1tujY/F2E7oFR"/>
+  <link rel="stylesheet" href="/studio-f0ae1e3c7686ba1.css" integrity="sha384-6M/fTwoOgOkTKgdTkV1CyS+L+tS5Wd/wS19S9wRzwXgW+E4ZEV7/0nYReqTEHZ7E"/>
+  <link rel="stylesheet" href="/artwork-1bff59dd25ac9b52.css" integrity="sha384-Du1qEeWNPQ54qSCLONNiZcGeedi4kLecrWlYsMBJqkpPBez2m4B166ZUQbT0dTUv"/>
+<link rel="modulepreload" href="/cantos-studio-11df3230f3449e82.js" crossorigin="anonymous" integrity="sha384-6/fvn7MXPOFkg4SG+7Km842ibHfFtezdzrir8WsMwPIhcQEFtrQVoUHwUgyMdid6"><link rel="preload" href="/cantos-studio-11df3230f3449e82_bg.wasm" crossorigin="anonymous" integrity="sha384-FubEmLzWz8GkZt54KB08scxZFlJXaUvuHoxsgYWn2kxwIdfvf9LWRGb1+T7NbkhA" as="fetch" type="application/wasm"></head>
+<body></body>
+</html>

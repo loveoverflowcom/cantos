@@ -18,6 +18,7 @@ import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.cantos.theatre.features.launch.presentation.CantosListeningUnavailable
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.Theme
 import com.cantos.ui.UiPreferences
 import java.io.File
@@ -43,7 +44,7 @@ class ListeningUnavailablePresentationTest {
             Triple("en", "Cantos isn’t ready yet", "This version can’t play stories or podcasts yet."),
         )) inLocale(language) {
             runDesktopComposeUiTest(width = 390, height = 844) {
-                setContent { CantosListeningUnavailable(UiPreferences()) }
+                setContent { CantosListeningUnavailable(UiPreferences(), locale = if (language == "en") ShellLocale.English else ShellLocale.Vietnamese) }
                 onNodeWithTag("listening-unavailable-title").assertTextEquals(title)
                     .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
                 onNodeWithTag("listening-unavailable-body").assertTextEquals(body)
@@ -67,7 +68,8 @@ class ListeningUnavailablePresentationTest {
                     runDesktopComposeUiTest(width = width, height = height) {
                         setContent {
                             Box(Modifier.requiredSize(width.dp, height.dp).testTag("capture-root")) {
-                                CantosListeningUnavailable(UiPreferences(theme = theme, textScale = textScale))
+                                CantosListeningUnavailable(UiPreferences(theme = theme, textScale = textScale),
+                                    locale = if (language == "en") ShellLocale.English else ShellLocale.Vietnamese)
                             }
                         }
                         val root = onNodeWithTag("capture-root").fetchSemanticsNode().boundsInRoot

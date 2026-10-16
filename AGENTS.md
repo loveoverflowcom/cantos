@@ -93,6 +93,15 @@ command only on the user's explicit request naming the Firebase app and recipien
 verify, preflight and ci never invoke it; an uncertain remote outcome is reconciled in the Firebase
 console, never replayed blindly.
 
+Static Web deployment of one app (Theatre or Studio) to Firebase Hosting is the explicit, opt-in
+`cargo xtask deploy firebase <cantos-theatre|cantos-studio> --web --project ID --channel live|NAME ...`
+([contract](xtask/README.md#deploy-firebase), [runbook](docs/deployment/firebase-hosting.md)). It is a
+remote write that publishes a PUBLIC preview URL or replaces a live site: `--dry-run` shows the plan,
+and an agent runs the real command only on the user's explicit request naming the Firebase project,
+the channel and the app. Build, run, verify, preflight and ci never invoke it, and it serves static
+files only: sign-in, the API origin and playback on the deployed origin are a separate, unmet gate.
+An uncertain remote outcome is reconciled in the Firebase console, never replayed blindly.
+
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
 The table maps affected scope to checks at the applicable milestone, not a sequence to run

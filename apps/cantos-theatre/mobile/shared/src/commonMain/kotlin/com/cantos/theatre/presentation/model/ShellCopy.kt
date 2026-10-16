@@ -1,9 +1,9 @@
 package com.cantos.theatre.presentation.model
 
 /** Localized shell text. Content titles retain their source language. */
-data class ShellText(val vi: String, val en: String)
+data class ShellText(val vi: String, val en: String, val enOne: String? = null)
 
-enum class CopyKey(val vi: String, val en: String) {
+enum class CopyKey(val vi: String, val en: String, val enOne: String? = null) {
     Brand("Cantos", "Cantos"),
     Discover("Khám phá", "Discover"),
     Search("Tìm kiếm", "Search"),
@@ -20,9 +20,9 @@ enum class CopyKey(val vi: String, val en: String) {
     ExploreHeading("Những miền thanh âm", "More worlds of sound"),
     Continue("Nghe tiếp", "Continue listening"),
     Details("Khám phá tác phẩm {title}", "Explore {title}"),
-    EpisodesCount("{count} tập · Tiếng Việt", "{count} episodes · Vietnamese"),
+    EpisodesCount("{count} tập · Tiếng Việt", "{count} episodes · Vietnamese", "{count} episode · Vietnamese"),
     EpisodeLabel("Tập {index} · {title}", "Episode {index} · {title}"),
-    Duration("{minutes} phút", "{minutes} minutes"),
+    Duration("{minutes} phút", "{minutes} minutes", "{minutes} minute"),
     Done("Xong", "Done"),
     TimerSimulationNote("Chọn thời lượng hẹn giờ hoặc thời điểm hết tập.", "Choose a timer duration or the end of the episode."),
     StartEpisode("Mở tập đầu", "Open first episode"),
@@ -62,7 +62,7 @@ enum class CopyKey(val vi: String, val en: String) {
     SearchLabel("Tên tác phẩm, tập hoặc thể loại", "Work, episode or genre"),
     SearchHint("Tìm một câu chuyện để nghe", "Find a story to listen to"),
     SearchClear("Xóa tìm kiếm", "Clear search"),
-    Results("{count} tác phẩm", "{count} works"),
+    Results("{count} tác phẩm", "{count} works", "{count} work"),
     Loading("Đang tải danh sách…", "Loading stories…"),
     LoadingNote("Danh sách sẽ xuất hiện khi tải xong.", "Stories will appear when loading finishes."),
     Empty("Chưa tìm thấy câu chuyện", "No stories found"),
@@ -116,6 +116,7 @@ enum class CopyKey(val vi: String, val en: String) {
     // Language choices use endonyms so either locale can find its own name.
     Vietnamese("Tiếng Việt", "Tiếng Việt"),
     English("English", "English"),
+    LocaleSaveFailure("Không lưu được ngôn ngữ. Lựa chọn trước đó vẫn được giữ. Hãy thử lại.", "Couldn’t save the language. Your previous choice is unchanged. Try again."),
     Speed("Tốc độ phát", "Playback speed"),
     Timer("Hẹn giờ dừng", "Sleep timer"),
     TimerOff("Tắt", "Off"),
@@ -132,7 +133,20 @@ class ShellCopy(
 
     fun text(key: CopyKey, vararg parameters: Pair<String, String>): String {
         val resource = overridesSnapshot[key]
-        val template = if (locale == ShellLocale.Vietnamese) resource?.vi ?: key.vi else resource?.en ?: key.en
+        val quantityName = when (key) {
+            CopyKey.EpisodesCount, CopyKey.Results -> "count"
+            CopyKey.Duration -> "minutes"
+            else -> null
+        }
+        // Current callers supply nonnegative integer quantities. CLDR English uses one for
+        // integer 1 (not visible fractions such as 1.0); Vietnamese has only other.
+        val englishOne = quantityName != null && parameters.firstOrNull { it.first == quantityName }?.second == "1"
+        val template = when {
+            locale == ShellLocale.Vietnamese -> resource?.vi ?: key.vi
+            englishOne && resource != null -> resource.enOne ?: resource.en
+            englishOne -> key.enOne ?: key.en
+            else -> resource?.en ?: key.en
+        }
         // Match the original resource once so a supplied title containing braces stays literal.
         return parameterPattern.replace(template) { match ->
             parameters.firstOrNull { (name, _) -> name == match.groupValues[1] }?.second ?: match.value

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
@@ -22,10 +23,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.cantos.ui.ThemeMode
+import com.cantos.ui.preview.workbench.PreviewLocale
 import com.cantos.ui.preview.workbench.ConstraintFrame
 import com.cantos.ui.preview.workbench.PreviewSettings
 import com.cantos.theatre.presentation.model.ShellEvent
 import com.cantos.theatre.presentation.model.ShellRoute
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.ShellTheme
 import java.io.File
 import java.security.MessageDigest
 import org.jetbrains.skia.EncodedImageFormat
@@ -69,7 +73,7 @@ class TheatreWorkbenchCaptureTest {
     }
 
     @Test
-    fun changing_theme_preserves_the_live_search_selection_and_owner() {
+    fun changing_locale_and_theme_preserves_search_caret_focus_and_application_owners() {
         lateinit var controller: TheatreWorkbenchController
         runDesktopComposeUiTest(width = 1200, height = 1000) {
             setContent {
@@ -83,11 +87,26 @@ class TheatreWorkbenchCaptureTest {
                 controller.callback()(ShellEvent.Search("Sơn Hà"))
             }
             waitForIdle()
-            onNodeWithTag("search-input").performTextInputSelection(TextRange(1, 3))
+            onNodeWithTag("search-input").performClick().performTextInputSelection(TextRange(1, 3))
+            onNodeWithTag("search-input").assertIsFocused()
             val original = controller.mount.value
-            runOnIdle { controller.updateSettings(controller.selectedRecipe.settings.copy(themeMode = ThemeMode.Dark)) }
+            val app = original.session.container
+            val playback = app.playback.state.value
+            val listening = app.listening.state.value
+            val navigation = app.navigation.value
+            val account = app.accountState.value
+            val membership = original.session.ui.value.membership
+            runOnIdle { controller.updateSettings(controller.selectedRecipe.settings.copy(themeMode = ThemeMode.Dark, locale = PreviewLocale.En)) }
             waitForIdle()
             kotlin.test.assertSame(original, controller.mount.value)
+            assertEquals(ShellLocale.English, controller.snapshot().state.locale)
+            assertEquals(ShellTheme.Dark, controller.snapshot().state.theme)
+            assertEquals(playback, app.playback.state.value)
+            assertEquals(listening, app.listening.state.value)
+            assertEquals(navigation, app.navigation.value)
+            assertEquals(account, app.accountState.value)
+            assertEquals(membership, original.session.ui.value.membership)
+            onNodeWithTag("search-input").assertIsFocused()
             assertEquals(TextRange(1, 3), onNodeWithTag("search-input").fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange])
             assertEquals("Sơn Hà", controller.snapshot().state.query)
         }

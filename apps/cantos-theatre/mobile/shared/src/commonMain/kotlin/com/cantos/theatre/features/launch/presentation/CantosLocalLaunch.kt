@@ -37,9 +37,7 @@ import com.cantos.theatre.resources.cantos_brand_symbol_light
 import com.cantos.theatre.resources.cantos_brand_wordmark_dark
 import com.cantos.theatre.resources.cantos_brand_wordmark_light
 import com.cantos.theatre.resources.noto_sans_regular
-import com.cantos.theatre.resources.splash_category
-import com.cantos.theatre.resources.splash_status
-import com.cantos.theatre.resources.splash_tagline
+import com.cantos.theatre.presentation.model.ShellLocale
 import com.cantos.ui.CantosTheme
 import com.cantos.ui.LocalUiPreferences
 import com.cantos.ui.MotionIntent
@@ -64,19 +62,20 @@ fun CantosLocalLaunch(
     localReady: Boolean,
     preferences: UiPreferences,
     modifier: Modifier = Modifier,
+    locale: ShellLocale = ShellLocale.Vietnamese,
     content: @Composable () -> Unit,
 ) {
     if (localReady) {
         content()
     } else {
         CantosTheme(preferences, uiFontFamily = FontFamily(Font(Res.font.noto_sans_regular))) {
-            CantosSplashPresentation(modifier)
+            CantosSplashPresentation(modifier, locale)
         }
     }
 }
 
 @Composable
-private fun CantosSplashPresentation(modifier: Modifier) {
+private fun CantosSplashPresentation(modifier: Modifier, locale: ShellLocale) {
     val preferences = LocalUiPreferences.current
     val dark = preferences.theme == Theme.Dark
     // Opacity is an effect and never overshoots; travel, scale and rotation are spatial. Each has its own spec.
@@ -92,9 +91,10 @@ private fun CantosSplashPresentation(modifier: Modifier) {
     }
     val effectsProgress = effects.value
     val spatialProgress = spatial.value
-    val status = stringResource(Res.string.splash_status)
-    val tagline = stringResource(Res.string.splash_tagline)
-    val category = stringResource(Res.string.splash_category)
+    val resources = launchResources(locale)
+    val status = stringResource(resources.status)
+    val tagline = stringResource(resources.tagline)
+    val category = stringResource(resources.category)
     val symbol = painterResource(if (dark) Res.drawable.cantos_brand_symbol_dark else Res.drawable.cantos_brand_symbol_light)
     val wordmark = painterResource(if (dark) Res.drawable.cantos_brand_wordmark_dark else Res.drawable.cantos_brand_wordmark_light)
     BoxWithConstraints(

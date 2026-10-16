@@ -1,0 +1,10 @@
+{
+  "status": "success",
+  "result": {
+    "theatre": {
+      "target": "theatre",
+      "site": "example-theatre",
+      "previewUrl": "https://example-theatre--review-hosting-a1b2c3d4.web.app"
+    }
+  }
+}

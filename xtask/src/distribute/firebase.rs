@@ -18,17 +18,16 @@ use std::{fmt, path::Path, time::Duration};
 use serde_json::Value;
 
 use super::request::{AppId, DEMO_PACKAGE};
+pub use crate::firebase_cli::{
+    parse_version, strip_ansi, version_command, version_supported, MINIMUM_VERSION,
+    SUPPORTED_MAJOR, TESTED_VERSION, VERSION_TIMEOUT,
+};
 use crate::{
     capture::{CaptureError, Captured, Partial},
     command::CommandSpec,
+    firebase_cli::{self, link_on_host as allowed_link},
 };
 
-/// The documented compatible release line, and the exact release the fixtures were taken from.
-pub const SUPPORTED_MAJOR: u64 = 15;
-pub const MINIMUM_VERSION: (u64, u64, u64) = (15, 34, 0);
-pub const TESTED_VERSION: &str = "15.34.0";
-
-pub const VERSION_TIMEOUT: Duration = Duration::from_secs(30);
 pub const LOOKUP_TIMEOUT: Duration = Duration::from_secs(90);
 /// Upload, notes and distribution share one bound; expiry leaves the remote outcome unknown.
 pub const DISTRIBUTE_TIMEOUT: Duration = Duration::from_secs(20 * 60);
@@ -37,25 +36,12 @@ const CONSOLE_HOST: &str = "console.firebase.google.com";
 const TESTING_HOST: &str = "appdistribution.firebase.google.com";
 
 fn firebase(cwd: &Path) -> CommandSpec {
-    CommandSpec::new("firebase", cwd)
+    firebase_cli::command(cwd)
 }
 
-pub fn version_command(cwd: &Path) -> CommandSpec {
-    firebase(cwd).args(["--version"])
-}
-
-pub fn parse_version(stdout: &str) -> Option<(u64, u64, u64)> {
-    let line = stdout
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty())?;
-    let mut parts = line.split('.').map(|part| part.parse::<u64>().ok());
-    let version = (parts.next()??, parts.next()??, parts.next()??);
-    parts.next().is_none().then_some(version)
-}
-
-pub fn version_supported(version: (u64, u64, u64)) -> bool {
-    version.0 == SUPPORTED_MAJOR && version >= MINIMUM_VERSION
+/// Only the durable console and tester links survive redaction of App Distribution output.
+fn keep_distribution_link(uri: &str) -> bool {
+    allowed_link(uri, CONSOLE_HOST).is_some() || allowed_link(uri, TESTING_HOST).is_some()
 }
 
 /// Read-only registration lookup. Its stdout is a Google Services config including an API key:
@@ -389,33 +375,6 @@ impl RemoteOutcome {
     }
 }
 
-/// Remove terminal escape sequences, which colour the CLI's markers.
-pub fn strip_ansi(text: &str) -> String {
-    let mut clean = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\u{1b}' {
-            if chars.peek() == Some(&'[') {
-                chars.next();
-                for next in chars.by_ref() {
-                    if next.is_ascii_alphabetic() {
-                        break;
-                    }
-                }
-            }
-            continue;
-        }
-        clean.push(c);
-    }
-    clean
-}
-
-fn allowed_link(uri: &str, host: &str) -> Option<String> {
-    let rest = uri.strip_prefix("https://")?;
-    let authority = rest.split(['/', '?', '#']).next()?;
-    (authority == host).then(|| uri.to_owned())
-}
-
 /// Recognise the release lines of the pinned CLI contract in already-clean text.
 fn parse_release(text: &str) -> Option<Release> {
     const UPLOADS: [(&str, UploadResult); 4] = [
@@ -479,20 +438,7 @@ fn split_version(rest: &str) -> Option<(String, String)> {
 
 /// The most informative single error line, redacted. Prefers the CLI's `Error:` line.
 fn error_line(primary: &str, secondary: &str, secrets: &[&str]) -> String {
-    let clean = strip_ansi(&format!("{primary}\n{secondary}"));
-    let line = clean
-        .lines()
-        .map(str::trim)
-        .find(|line| line.starts_with("Error:"))
-        .or_else(|| {
-            clean
-                .lines()
-                .map(str::trim)
-                .rev()
-                .find(|line| !line.is_empty())
-        })
-        .unwrap_or("no diagnostic output");
-    redact(&line.chars().take(240).collect::<String>(), secrets)
+    firebase_cli::error_line(primary, secondary, secrets, &keep_distribution_link)
 }
 
 pub fn interpret_distribution(
@@ -570,80 +516,7 @@ fn interpret_exit(captured: &Captured, secrets: &[&str]) -> RemoteOutcome {
 /// credentials. Only the durable console/tester links survive. `secrets` are exact values the
 /// caller knows to be sensitive.
 pub fn redact(text: &str, secrets: &[&str]) -> String {
-    strip_ansi(text)
-        .lines()
-        .map(|line| {
-            line.split(' ')
-                .map(|token| redact_token(token, secrets))
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn redact_token(token: &str, secrets: &[&str]) -> String {
-    let trim = |c: char| {
-        matches!(
-            c,
-            '(' | ')' | '[' | ']' | '<' | '>' | '"' | '\'' | ',' | ';' | '.'
-        )
-    };
-    let core = token.trim_matches(trim);
-    if core.is_empty() {
-        return token.to_owned();
-    }
-    let replacement = if secrets
-        .iter()
-        .any(|secret| !secret.is_empty() && core.contains(secret))
-    {
-        Some("[redacted]")
-    } else if core.starts_with("http://") || core.starts_with("https://") {
-        let allowed = allowed_link(core, CONSOLE_HOST).is_some()
-            || allowed_link(core, TESTING_HOST).is_some();
-        (!allowed).then_some("[url redacted]")
-    } else if looks_like_email(core) {
-        Some("[email redacted]")
-    } else if looks_like_secret(core) {
-        Some("[secret redacted]")
-    } else {
-        None
-    };
-    match replacement {
-        Some(text) => token.replacen(core, text, 1),
-        None => token.to_owned(),
-    }
-}
-
-fn looks_like_email(core: &str) -> bool {
-    match core.split_once('@') {
-        Some((local, domain)) => {
-            !local.is_empty()
-                && domain.contains('.')
-                && !domain.contains('@')
-                && !core.contains('/')
-        }
-        None => false,
-    }
-}
-
-fn looks_like_secret(core: &str) -> bool {
-    let lower = core.to_ascii_lowercase();
-    core.starts_with("ya29.")
-        || core.starts_with("AIza")
-        || core.starts_with("1//")
-        || core.starts_with("-----BEGIN")
-        || (core.starts_with("eyJ") && core.len() > 20)
-        || [
-            "token=",
-            "key=",
-            "secret=",
-            "password=",
-            "signature=",
-            "x-goog-",
-        ]
-        .iter()
-        .any(|marker| lower.contains(marker))
+    firebase_cli::redact(text, secrets, &keep_distribution_link)
 }
 
 #[cfg(test)]
@@ -676,31 +549,6 @@ mod tests {
             stdout: stdout.into(),
             stderr: stderr.into(),
         })
-    }
-
-    #[test]
-    fn the_cli_version_gate_accepts_only_the_documented_line() {
-        assert_eq!(parse_version("15.34.0\n"), Some((15, 34, 0)));
-        assert_eq!(
-            parse_version("\n 15.40.2 \nupdate available"),
-            Some((15, 40, 2))
-        );
-        for bad in [
-            "",
-            "15.34",
-            "15.34.0.1",
-            "v15.34.0",
-            "15.34.0-beta.1",
-            "abc",
-            "15.x.0",
-        ] {
-            assert_eq!(parse_version(bad), None, "{bad}");
-        }
-        assert!(version_supported((15, 34, 0)));
-        assert!(version_supported((15, 99, 1)));
-        for old_or_new in [(15, 33, 9), (14, 99, 0), (16, 0, 0), (0, 0, 0)] {
-            assert!(!version_supported(old_or_new), "{old_or_new:?}");
-        }
     }
 
     #[test]

@@ -1,0 +1,12 @@
+{
+  "status": "success",
+  "result": {
+    "theatre": {
+      "target": "theatre",
+      "site": "example-theatre",
+      "url": "https://example-theatre--review-hosting-a1b2c3d4.web.app",
+      "version": "0123456789abcdef",
+      "expireTime": "2026-10-23T04:00:00.000000000Z"
+    }
+  }
+}

@@ -25,6 +25,7 @@ __pycache__/
 *.opus
 
 # Service examples are public; actual local config, TLS and identity data are private.
+/services/firebase-hosting/.firebaserc
 /services/*/env.local
 /services/kanidm/server.toml
 /services/*/data/

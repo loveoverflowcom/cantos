@@ -1,0 +1,10 @@
+{
+  "targets": {
+    "REPLACE_WITH_YOUR_PROJECT_ID": {
+      "hosting": {
+        "theatre": ["REPLACE_WITH_THEATRE_SITE_ID"],
+        "studio": ["REPLACE_WITH_STUDIO_SITE_ID"]
+      }
+    }
+  }
+}

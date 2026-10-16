@@ -62,6 +62,23 @@ class TheatreIosIdentityConfigurationTest(unittest.TestCase):
         self.assertIn("is NativeIdentityAvailability.Available -> resolved.configuration.let", owner)
         self.assertIn("is NativeIdentityAvailability.Missing, is NativeIdentityAvailability.Invalid -> null", owner)
 
+    def test_demo_composition_preserves_availability_guest_and_native_saved_locale(self):
+        owner = (MOBILE / "preview-sandbox/src/iosMain/kotlin/com/cantos/theatre/app/IosNativeOwner.kt").read_text()
+        self.assertIn("val availability get() = identity.availability", owner)
+        self.assertIn("if (identity.controller == null) IosDemoOwner() else null", owner)
+        self.assertIn("guest?.let { return it.viewController() }", owner)
+        self.assertEqual(owner.count("mockAppContainer("), 1)
+        self.assertIn("private val container = identity.controller?.let", owner)
+        self.assertIn("account = account, localePreferenceStore = IosLocalePreferenceStore()", owner)
+        self.assertIn("appContainer.preferences.state.collectAsState()", owner)
+        self.assertIn("locale = preferences.locale.toShellLocale()", owner)
+        self.assertIn("CantosDemoApp(appContainer = appContainer)", owner)
+        self.assertNotIn("CantosDemoApp(account =", owner)
+        self.assertIn("container?.close()", owner)
+        self.assertIn("guest?.close()", owner)
+        self.assertLess(owner.index("container?.close()"), owner.index("identity.close()"))
+        self.assertLess(owner.index("scope.cancel()"), owner.index("identity.close()"))
+
 
 if __name__ == "__main__":
     unittest.main()
