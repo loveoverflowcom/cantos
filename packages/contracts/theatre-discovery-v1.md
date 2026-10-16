@@ -127,6 +127,16 @@ New endpoints are additive. Earlier Theatre mock playback vectors remain separat
 explicit Unix milliseconds (`*_at_ms`), not float seconds; these new fields choose the existing
 backend time representation instead of the earlier illustrative RFC3339 listener proposal.
 
+## Proposed P1 metadata is not part of this contract
+
+[#177](https://github.com/loveoverflowcom/cantos/issues/177)'s genres, public credits and podcast
+seasons remain subject to [#157](https://github.com/loveoverflowcom/cantos/issues/157)'s applicable
+decision gate. The [source/rights/consumer matrix](../../docs/work-plan/public-metadata-decision-handoff.md)
+and [proposed ADR 0030](../../docs/decisions/0030-release-safe-public-metadata.md) are review
+inputs, not new wire fields or accepted semantics. Existing strict v1 readers reject unknown
+properties, so even optional response fields require deliberate compatibility/version review.
+Current q/kind/language filters, cursor behavior and public projections remain unchanged.
+
 ## Shared transport prototype boundary
 
 The [#120 transport draft](../../docs/evidence/playback-range-transport.md) reuses HTTP mechanics
