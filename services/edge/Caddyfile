@@ -43,12 +43,18 @@
 (cantos_spa) {
 	root * {args[0]}
 	encode zstd gzip
-	@hashed path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
-	header @hashed Cache-Control "public, max-age=31536000, immutable"
-	@revalidate not path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
-	header @revalidate Cache-Control "no-cache"
-	try_files {path} /index.html
-	file_server
+	@hashed {
+		path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
+		file {path}
+	}
+	# Classify the final served path, not a missing hash-shaped request that falls
+	# back to index.html. A route keeps Caddy from sorting header before try_files.
+	route {
+		try_files {path} /index.html
+		header Cache-Control "no-cache"
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
 }
 
 cantoss.duckdns.org {

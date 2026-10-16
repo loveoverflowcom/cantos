@@ -300,6 +300,22 @@ strict order/local expiry only, not all eligibility, cursor randomness, PG, gran
 See [the exact source/artifact ledger](../evidence/theatre-discovery-results.json) and
 [scope/gaps](../evidence/theatre-discovery.md). Earlier three/four-kernel results stay historical.
 
+### 15 October review: exact ordering proposition added, execution pending
+
+The [25-commit review](../evidence/develop-25-assurance-review.md) found that strict
+irreflexivity/asymmetry alone also accept an ordering with both directions reversed.
+The current harness additionally compares `after_work` against the independent complete
+sort key `(Reverse(timestamp), numeric_id)` and binds older/tie/equal cover goals to the
+actual production result. It retains full-width `i64`/`u128` inputs, unwind 2, no assumptions
+or stubs and five cover goals. Native extreme-value cases are added separately.
+
+This changes the harness source. The historical 27-check PASS above does **not** prove this
+new proposition or apply to the changed source. Fresh Rust tests, formatting and
+`cargo xtask verify kani --harness listener-access` are **NOT_RUN / BLOCKED** on this host:
+`cargo`, `rustc`, `rustup` and Kani are absent; no tool was installed. Do not call the strengthened
+source `bounded-model-checked` until the exact configured verifier executes its assertions,
+unwinding obligations and all five covers. Production ordering itself is unchanged.
+
 ## Private Work artwork numeric admission
 
 The registered `image-bounds` harness executes the actual production

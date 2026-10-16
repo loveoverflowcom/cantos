@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 use super::{
     apk::{output_directory, OutputError, APK_LIMIT},
     receipt::Receipt,
-    request::Policy,
+    request::{Policy, NOTES_LIMIT},
 };
 use crate::{
     config::THEATRE_MOBILE_DIR,
@@ -24,6 +24,32 @@ use crate::{
 
 /// Where every run keeps its private files. Ignored by Git (`/artifacts/`).
 pub const RUNS_DIR: &str = "artifacts/distributions";
+
+/// Read only a regular notes file, with one extra byte to detect an oversized input.
+/// A Unix FIFO must not block on open before its descriptor can be rejected.
+pub fn read_notes_file(path: &Path) -> std::io::Result<Vec<u8>> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "release notes must be a regular file",
+        ));
+    }
+    read_notes_prefix(file)
+}
+
+fn read_notes_prefix(reader: impl Read) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::with_capacity(NOTES_LIMIT + 1);
+    reader.take((NOTES_LIMIT + 1) as u64).read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunDir {
@@ -445,6 +471,116 @@ mod tests {
         assert_eq!(
             sha256_hex(b"abc"),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn notes_reads_stop_after_the_oversize_sentinel_even_without_eof() {
+        let mut reader = std::io::repeat(b'x');
+        assert_eq!(
+            read_notes_prefix(&mut reader).unwrap(),
+            vec![b'x'; NOTES_LIMIT + 1]
+        );
+        let mut cursor = std::io::Cursor::new(vec![b'x'; NOTES_LIMIT * 4]);
+        assert_eq!(read_notes_prefix(&mut cursor).unwrap().len(), NOTES_LIMIT + 1);
+        assert_eq!(cursor.position(), (NOTES_LIMIT + 1) as u64);
+    }
+
+    #[test]
+    fn notes_file_reads_preserve_the_limit_and_reject_non_regular_inputs() {
+        let root = temp("notes");
+        let path = root.join("notes.txt");
+        for size in [NOTES_LIMIT, NOTES_LIMIT + 1, NOTES_LIMIT * 4] {
+            std::fs::write(&path, vec![b'x'; size]).unwrap();
+            assert_eq!(
+                read_notes_file(&path).unwrap(),
+                vec![b'x'; size.min(NOTES_LIMIT + 1)]
+            );
+        }
+        assert!(read_notes_file(&root).is_err());
+        #[cfg(unix)]
+        {
+            let link = root.join("notes-link.txt");
+            std::os::unix::fs::symlink(&path, &link).unwrap();
+            assert_eq!(read_notes_file(&link).unwrap(), vec![b'x'; NOTES_LIMIT + 1]);
+            assert_eq!(
+                read_notes_file(Path::new("/dev/zero")).unwrap_err().kind(),
+                std::io::ErrorKind::InvalidInput
+            );
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn notes_fifo_is_rejected_without_waiting_for_a_writer() {
+        use std::{
+            ffi::CString,
+            os::unix::ffi::OsStrExt,
+            process::Child,
+            thread,
+            time::{Duration, Instant},
+        };
+
+        const CHILD_ROOT: &str = "CANTOS_DISTRIBUTE_NOTES_FIFO_TEST_ROOT";
+        const TEST_NAME: &str =
+            "distribute::host::tests::notes_fifo_is_rejected_without_waiting_for_a_writer";
+        if let Some(root) = std::env::var_os(CHILD_ROOT) {
+            let root = PathBuf::from(root);
+            assert_eq!(
+                read_notes_file(&root.join("notes.fifo")).unwrap_err().kind(),
+                std::io::ErrorKind::InvalidInput
+            );
+            std::fs::write(root.join("rejected"), b"InvalidInput").unwrap();
+            return;
+        }
+
+        struct FifoReader {
+            root: PathBuf,
+            child: Option<Child>,
+        }
+        impl Drop for FifoReader {
+            fn drop(&mut self) {
+                if let Some(child) = &mut self.child {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                let _ = std::fs::remove_dir_all(&self.root);
+            }
+        }
+
+        let mut reader = FifoReader {
+            root: temp("notes-fifo"),
+            child: None,
+        };
+        let path = reader.root.join("notes.fifo");
+        let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        reader.child = Some(
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", TEST_NAME, "--nocapture"])
+                .env(CHILD_ROOT, &reader.root)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = reader.child.as_mut().unwrap().try_wait().unwrap() {
+                break status;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "notes FIFO reader waited for a writer"
+            );
+            thread::sleep(Duration::from_millis(10));
+        };
+        reader.child = None;
+        assert!(status.success(), "notes FIFO reader failed: {status}");
+        assert_eq!(
+            std::fs::read(reader.root.join("rejected")).unwrap(),
+            b"InvalidInput"
         );
     }
 

@@ -901,6 +901,35 @@ mod tests {
     }
 
     #[test]
+    fn file_notes_accept_the_exact_byte_limit_and_reject_the_extra_byte() {
+        let raw = Raw {
+            release_notes_file: Some("notes.txt".into()),
+            ..raw()
+        };
+        let accepted = resolve(&raw, &Configuration::default(), |_| {
+            Ok(vec![b'x'; NOTES_LIMIT])
+        })
+        .unwrap();
+        assert_eq!(
+            accepted.notes,
+            NotesChoice::File {
+                path: "notes.txt".into(),
+                text: "x".repeat(NOTES_LIMIT),
+            }
+        );
+        let rejected = resolve(&raw, &Configuration::default(), |_| {
+            Ok(vec![b'x'; NOTES_LIMIT + 1])
+        });
+        assert_eq!(
+            usage_text(rejected),
+            format!(
+                "--release-notes-file is {} bytes; the limit is {NOTES_LIMIT}",
+                NOTES_LIMIT + 1
+            )
+        );
+    }
+
+    #[test]
     fn a_configured_certificate_expectation_is_normalized_or_refused() {
         let colon = "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99";
         let request = resolve_with(

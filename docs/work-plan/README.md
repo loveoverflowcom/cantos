@@ -24,6 +24,16 @@ remain historical; fresh rebased gates are recorded separately. Issue 106 remain
 
 ## Ordered implementation
 
+The [15 October 25-commit assurance review](../evidence/develop-25-assurance-review.md) pins
+the reviewed develop window, bounded local-note repair, mocked launcher coverage and a
+strengthened but unexecuted listener-order Kani proposition. The sequential second session
+repairs Studio artwork recovery/validation/Blob-lifetime and edge SPA cache classification,
+and adds Theatre control regressions in the same PR. Next: execute the changed native/Web
+tests and exact Kani harness on the pinned toolchain, then the named browser/Caddy acceptance
+matrix; source and Python configuration checks do not establish those results. This does not
+accept draft Quint models, alter product policy or replace
+the backend and runtime acceptance sequence below; GitHub owns PR execution status.
+
 For the Theatre local-development handoff, prioritize
 [#183](https://github.com/loveoverflowcom/cantos/issues/183)'s bounded launch/readiness repair
 before the real-capability acceptance matrix/runbook in

@@ -14,6 +14,64 @@ import serve_studio
 
 
 class PostgresRunnerTests(unittest.TestCase):
+    def test_theatre_main_executes_its_retained_fixture_without_editorial_script_or_token(self):
+        root = Path("/synthetic/cantos")
+        database = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_theatre"
+        config = {"retained": True, "theatre_app_url": database}
+        inherited = {"CANTOS_TEST_CONTEXT": "theatre", "DATABASE_URL": "production",
+                     "CANTOS_WEB_ORIGIN": "http://127.0.0.1:8082"}
+        output = io.StringIO()
+        with patch.object(serve_studio, "ROOT", root), \
+                patch.object(Path, "read_text", return_value=json.dumps(config)) as read, \
+                patch.dict(os.environ, inherited, clear=True), \
+                patch.object(os, "chdir") as chdir, \
+                patch.object(os, "execve") as execute, \
+                patch.object(sys, "stdout", output):
+            serve_studio.main()
+        read.assert_called_once_with()
+        chdir.assert_called_once_with(root)
+        binary = str(root / "target/debug/cantos-server")
+        execute.assert_called_once_with(binary, [binary], {
+            **inherited, "DATABASE_URL": database, "CANTOS_ENV": "development",
+            "CANTOS_BIND_ADDRESS": "127.0.0.1:8080"})
+        self.assertEqual(output.getvalue(),
+                         "Theatre test fixture: empty public catalog; identity and playback remain separate.\n")
+        self.assertNotIn("script", output.getvalue())
+        self.assertNotIn("alice", output.getvalue())
+
+    def test_editorial_main_preserves_the_existing_script_and_synthetic_token_instructions(self):
+        root = Path("/synthetic/cantos")
+        database = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial"
+        config = {"app_url": database, "script": "synthetic-script"}
+        output = io.StringIO()
+        with patch.object(serve_studio, "ROOT", root), \
+                patch.object(Path, "read_text", return_value=json.dumps(config)), \
+                patch.dict(os.environ, {}, clear=True), \
+                patch.object(os, "chdir") as chdir, \
+                patch.object(os, "execve") as execute, \
+                patch.object(sys, "stdout", output):
+            serve_studio.main()
+        chdir.assert_called_once_with(root)
+        binary = str(root / "target/debug/cantos-server")
+        execute.assert_called_once_with(binary, [binary], {
+            "DATABASE_URL": database, "CANTOS_ENV": "development",
+            "CANTOS_BIND_ADDRESS": "127.0.0.1:8080"})
+        self.assertEqual(output.getvalue(), "Test script ID: synthetic-script\n"
+                         "Sign in with the synthetic alice test token (64 lowercase a characters).\n")
+
+    def test_theatre_main_rejects_unretained_or_foreign_database_before_chdir_or_exec(self):
+        for config in ({"retained": False, "theatre_app_url": "unused"},
+                       {"retained": True, "theatre_app_url": "postgresql://cantos_app@example.com/cantos_test_wrong"}):
+            with self.subTest(config=config), \
+                    patch.object(Path, "read_text", return_value=json.dumps(config)), \
+                    patch.dict(os.environ, {"CANTOS_TEST_CONTEXT": "theatre"}, clear=True), \
+                    patch.object(os, "chdir") as chdir, \
+                    patch.object(os, "execve") as execute, \
+                    self.assertRaises(ValueError):
+                serve_studio.main()
+            chdir.assert_not_called()
+            execute.assert_not_called()
+
     def test_theatre_context_uses_only_its_retained_app_role_url_and_needs_no_private_audio_root(self):
         config = {"app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial",
                   "catalog_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_catalog",

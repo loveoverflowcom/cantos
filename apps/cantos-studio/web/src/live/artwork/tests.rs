@@ -373,3 +373,385 @@ fn invalid_replacement_retains_prior_bytes_but_cannot_upload_them_as_the_new_pic
     projection.problem = None;
     assert!(projection.file_ready());
 }
+
+fn local_image() -> LocalImage {
+    LocalImage {
+        name: "prior.png".into(),
+        bytes: Arc::new(vec![0]),
+        sha256: intent().request.expected_sha256,
+        mime: ImageMime::Png,
+        width: 1,
+        height: 1,
+        url: "blob:local-fixture".into(),
+    }
+}
+
+fn artwork_reply(revision: u64) -> Reply {
+    Reply::Artwork(WorkArtworkResponse {
+        work_id: intent().work_id,
+        work_revision: revision,
+        artwork: None,
+        changed_at_ms: None,
+    })
+}
+
+#[test]
+fn exact_expiry_settles_unknown_upload_without_admitting_or_losing_local_bytes() {
+    let i = intent();
+    let local = local_image();
+    let command = Command::UploadImage {
+        work: i.work_id.clone(),
+        intent: i.clone(),
+        bytes: local.bytes.clone(),
+    };
+    let initial = RequestState::default().context("alice", "work").unwrap();
+    let (pending, ticket) = initial.begin(command).unwrap();
+    let unknown = pending.finish(ticket, Err(ClientError::Transport));
+    let (reading, ticket, read) = unknown.begin_reconcile().unwrap();
+    assert_eq!(
+        read.path(),
+        Command::ImageIntent {
+            work: i.work_id.clone(),
+            intent: i.id.clone(),
+        }
+        .path()
+    );
+    let expired = Reply::ImageIntent(ImageIntentResponse {
+        intent: i.clone(),
+        asset: None,
+        state: ImageIntentState::Expired,
+    });
+    let settled = reading.finish(ticket, Ok(expired.clone()));
+    assert_eq!(settled.phase(), Phase::Ready);
+    assert_eq!(settled.result(), Some(&expired));
+    assert!(settled.pending().is_none());
+    assert!(!settled.can_reconcile());
+    assert!(!settled.can_retry());
+    let model = Projection {
+        local: Some(local.clone()),
+        stage: Stage::Unknown,
+        intent: Some(i.clone()),
+        ..Projection::default()
+    };
+    let resolved = model.apply(settled.result().unwrap());
+    assert_eq!(resolved.stage, Stage::Expired);
+    assert_eq!(resolved.local, Some(local));
+    assert_eq!(resolved.intent, Some(i.clone()));
+    assert_eq!(resolved.asset, None);
+    assert!(resolved.file_ready());
+    assert!(resolved.can_prepare());
+    assert!(!resolved.can_upload());
+    let (refreshing_state, refresh_ticket) = settled
+        .begin(Command::Artwork {
+            work: i.work_id.clone(),
+        })
+        .unwrap();
+    let mut refreshing = resolved;
+    refreshing.start_request(Stage::Loading, None);
+    let refreshed_state = refreshing_state.finish(refresh_ticket, Ok(artwork_reply(8)));
+    assert_eq!(refreshed_state.phase(), Phase::Ready);
+    let refreshed = refreshing.apply(refreshed_state.result().unwrap());
+    assert_eq!(refreshed.intent_state, Some(ImageIntentState::Expired));
+    assert!(refreshed.can_prepare());
+    assert!(!refreshed.can_upload());
+    let mut new_intent = i;
+    new_intent.id = "00000000-0000-4000-8000-000000000098".into();
+    new_intent.operation_id = "00000000-0000-4000-8000-000000000099".into();
+    new_intent.request.id = new_intent.id.clone();
+    new_intent.request.operation_id = new_intent.operation_id.clone();
+    let (preparing, ticket) = refreshed_state
+        .begin(Command::PrepareImage {
+            work: new_intent.work_id.clone(),
+            request: new_intent.request.clone(),
+        })
+        .unwrap();
+    let prepared = preparing.finish(ticket, Ok(Reply::ImagePrepared(new_intent.clone())));
+    assert_eq!(prepared.phase(), Phase::Ready);
+    let prepared = refreshed.apply(prepared.result().unwrap());
+    assert_eq!(prepared.intent, Some(new_intent));
+    assert_eq!(prepared.intent_state, Some(ImageIntentState::Pending));
+    assert!(!prepared.can_prepare());
+    assert!(prepared.can_upload());
+}
+
+#[test]
+fn unknown_upload_rejects_pending_foreign_and_inconsistent_terminal_receipts() {
+    let i = intent();
+    let command = Command::UploadImage {
+        work: i.work_id.clone(),
+        intent: i.clone(),
+        bytes: Arc::new(vec![0]),
+    };
+    let initial = RequestState::default().context("alice", "work").unwrap();
+    let (pending, ticket) = initial.begin(command).unwrap();
+    let unknown = pending.finish(ticket, Err(ClientError::Transport));
+    let (reading, ticket, _) = unknown.begin_reconcile().unwrap();
+    let expired = ImageIntentResponse {
+        intent: i,
+        asset: None,
+        state: ImageIntentState::Expired,
+    };
+    let mut cases = Vec::new();
+    let mut pending = expired.clone();
+    pending.state = ImageIntentState::Pending;
+    cases.push(pending);
+    let mut missing_asset = expired.clone();
+    missing_asset.state = ImageIntentState::Admitted;
+    cases.push(missing_asset);
+    let mut expired_asset = expired.clone();
+    expired_asset.asset = Some(asset());
+    cases.push(expired_asset);
+    let mut foreign = expired.clone();
+    foreign.intent.owner_id = "bob".into();
+    cases.push(foreign);
+    let mut foreign = expired.clone();
+    foreign.intent.work_id = "other-work".into();
+    cases.push(foreign);
+    let mut foreign = expired.clone();
+    foreign.intent.id = "other-intent".into();
+    cases.push(foreign);
+    let mut changed = expired.clone();
+    changed.intent.request.expected_sha256 = "cd".repeat(32);
+    cases.push(changed);
+    let mut changed = expired.clone();
+    changed.intent.request.expected_byte_length = 2;
+    cases.push(changed);
+    let mut changed = expired.clone();
+    changed.intent.request.content_type = ImageMime::Jpeg;
+    cases.push(changed);
+    let mut changed = expired.clone();
+    changed.intent.request.declarations.provenance = "Changed".into();
+    cases.push(changed);
+    let mut changed = expired.clone();
+    changed.intent.operation_id = "other-operation".into();
+    cases.push(changed);
+    let mut changed = expired.clone();
+    changed.intent.digest = "changed-digest".into();
+    cases.push(changed);
+    let mut changed = expired;
+    changed.intent.expires_at_ms += 1;
+    cases.push(changed);
+    for status in cases {
+        let unresolved = reading.finish(ticket, Ok(Reply::ImageIntent(status)));
+        assert_eq!(unresolved.phase(), Phase::Ambiguous);
+        assert_eq!(unresolved.error(), Some(&ClientError::ReceiptNotEstablished));
+        assert!(unresolved.can_reconcile());
+        assert!(unresolved
+            .begin(Command::Artwork {
+                work: intent().work_id
+            })
+            .is_none());
+    }
+}
+
+#[test]
+fn admitted_receipt_still_settles_upload_when_observed_after_intent_expiry() {
+    // No client clock classifies expiry: a server-admitted receipt remains authoritative.
+    let i = intent();
+    let initial = RequestState::default().context("alice", "work").unwrap();
+    let (pending, ticket) = initial
+        .begin(Command::UploadImage {
+            work: i.work_id.clone(),
+            intent: i.clone(),
+            bytes: Arc::new(vec![0]),
+        })
+        .unwrap();
+    let unknown = pending.finish(ticket, Err(ClientError::Transport));
+    let (reading, ticket, _) = unknown.begin_reconcile().unwrap();
+    let receipt = Reply::ImageIntent(ImageIntentResponse {
+        intent: i,
+        asset: Some(asset()),
+        state: ImageIntentState::Admitted,
+    });
+    let settled = reading.finish(ticket, Ok(receipt.clone()));
+    assert_eq!(settled.phase(), Phase::Ready);
+    let model = Projection::default().apply(settled.result().unwrap());
+    assert_eq!(model.stage, Stage::Admitted);
+    assert_eq!(model.asset, Some(asset()));
+    assert_eq!(settled.result(), Some(&receipt));
+}
+
+#[test]
+fn invalid_file_guard_survives_request_start_replies_and_unrelated_form_errors() {
+    for problem in [Problem::File, Problem::Dimensions, Problem::Decode] {
+        for prepared in [false, true] {
+            let local = local_image();
+            let mut model = Projection {
+                local: Some(local.clone()),
+                intent: prepared.then(intent),
+                problem: Some(problem),
+                ..Projection::default()
+            };
+            model.start_request(Stage::Loading, None);
+            assert_eq!(model.problem, Some(problem));
+            for reply in [
+                artwork_reply(7),
+                Reply::ImagePrepared(intent()),
+                Reply::ImageAdmitted(asset()),
+                Reply::ImageIntent(ImageIntentResponse {
+                    intent: intent(),
+                    asset: None,
+                    state: ImageIntentState::Expired,
+                }),
+            ] {
+                let mut next = model.apply(&reply);
+                next.report_form_problem(Problem::Alt);
+                assert_eq!(next.problem, Some(problem));
+                assert!(!next.file_ready());
+                assert!(!next.can_prepare());
+                assert!(!next.can_upload());
+                assert_eq!(next.local, Some(local.clone()));
+            }
+        }
+    }
+}
+
+#[test]
+fn request_start_clears_only_correctable_non_file_errors() {
+    for problem in [
+        None,
+        Some(Problem::Alt),
+        Some(Problem::Rights),
+        Some(Problem::Provenance),
+    ] {
+        let mut model = Projection {
+            problem,
+            ..Projection::default()
+        };
+        model.start_request(Stage::Preparing, Some("operation".into()));
+        assert_eq!(model.problem, None);
+        assert_eq!(model.stage, Stage::Preparing);
+        assert_eq!(model.operation.as_deref(), Some("operation"));
+        model.report_form_problem(Problem::Rights);
+        assert_eq!(model.problem, Some(Problem::Rights));
+    }
+}
+
+#[test]
+fn transient_stage_cannot_substitute_for_the_server_intent_fact() {
+    for stage in [
+        Stage::Prepared,
+        Stage::Loading,
+        Stage::Replacement,
+        Stage::Expired,
+    ] {
+        for state in [
+            None,
+            Some(ImageIntentState::Pending),
+            Some(ImageIntentState::Admitted),
+            Some(ImageIntentState::Expired),
+        ] {
+            let model = Projection {
+                stage,
+                local: Some(local_image()),
+                intent: Some(intent()),
+                intent_state: state,
+                ..Projection::default()
+            };
+            assert_eq!(model.can_prepare(), state == Some(ImageIntentState::Expired));
+            assert_eq!(model.can_upload(), state == Some(ImageIntentState::Pending));
+        }
+    }
+}
+
+#[test]
+fn valid_replacement_or_explicit_discard_clears_file_guard_and_old_intent() {
+    for problem in [Problem::File, Problem::Dimensions, Problem::Decode] {
+        let old = local_image();
+        let original = Projection {
+            local: Some(old.clone()),
+            intent: Some(intent()),
+            intent_state: Some(ImageIntentState::Admitted),
+            asset: Some(asset()),
+            problem: Some(problem),
+            ..Projection::default()
+        };
+        let mut changed = original.clone();
+        let replacement = LocalImage {
+            name: "valid-new.png".into(),
+            ..old.clone()
+        };
+        assert_eq!(
+            changed.replace_local(replacement.clone()),
+            Some(old.clone())
+        );
+        assert_eq!(changed.local, Some(replacement));
+        assert_eq!(changed.problem, None);
+        assert_eq!(changed.intent, None);
+        assert_eq!(changed.intent_state, None);
+        assert_eq!(changed.asset, None);
+        assert_eq!(changed.stage, Stage::Replacement);
+        assert!(changed.file_ready());
+        let mut discarded = original;
+        assert_eq!(discarded.discard_local(), Some(old));
+        assert_eq!(discarded.discard_local(), None);
+        assert_eq!(discarded.problem, None);
+        assert_eq!(discarded.intent, None);
+        assert_eq!(discarded.intent_state, None);
+        assert_eq!(discarded.asset, None);
+        assert_eq!(discarded.local, None);
+        assert_eq!(discarded.stage, Stage::Empty);
+        assert!(!discarded.file_ready());
+    }
+}
+
+#[test]
+fn server_replies_preserve_preview_handle_until_lifecycle_retires_it_once() {
+    let selected = WorkArtworkSelection {
+        image_asset_id: asset().id,
+        image_asset_digest: asset().digest,
+        alt_text: "Ảnh bìa hiện tại".into(),
+    };
+    let mut model = Projection {
+        current: Some(WorkArtworkResponse {
+            work_id: intent().work_id,
+            work_revision: 1,
+            artwork: Some(selected.clone()),
+            changed_at_ms: None,
+        }),
+        current_url: Some("blob:old-private".into()),
+        current_media: Some(asset().verified_media),
+        ..Projection::default()
+    };
+    let mut retired = Vec::new();
+    for n in 1..=5 {
+        let mut reply = artwork_reply(n);
+        if let Reply::Artwork(current) = &mut reply {
+            current.artwork = match n {
+                1 | 2 => Some(selected.clone()), // Refresh, including an unchanged response.
+                3 => Some(WorkArtworkSelection {
+                    image_asset_id: "00000000-0000-4000-8000-000000000099".into(),
+                    ..selected.clone()
+                }), // Confirmed replacement.
+                _ => None, // Clear and repeated cleared refresh.
+            };
+        }
+        model = model.apply(&reply);
+        let expected = if n == 1 {
+            "blob:old-private".into()
+        } else {
+            format!("blob:private-{}", n - 1)
+        };
+        assert_eq!(model.current_url.as_ref(), Some(&expected));
+        retired.push(model.take_current_preview().unwrap());
+        assert_eq!(model.current_url, None);
+        assert_eq!(model.current_media, None);
+        assert_eq!(model.take_current_preview(), None);
+        model.current_url = Some(format!("blob:private-{n}"));
+        model.current_media = Some(asset().verified_media);
+    }
+    // Disposal also receives the last handle even if a reply precedes the preview effect.
+    model = model.apply(&artwork_reply(6));
+    retired.push(model.take_current_preview().unwrap());
+    assert_eq!(
+        retired,
+        vec![
+            "blob:old-private",
+            "blob:private-1",
+            "blob:private-2",
+            "blob:private-3",
+            "blob:private-4",
+            "blob:private-5",
+        ]
+    );
+}

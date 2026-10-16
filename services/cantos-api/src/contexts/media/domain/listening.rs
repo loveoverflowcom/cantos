@@ -473,6 +473,19 @@ mod tests {
             .matches(&discoverable));
     }
     #[test]
+    fn work_keyset_direction_matches_descending_time_and_ascending_identity_at_extremes() {
+        for (time, id, anchor_time, anchor_id, expected) in [
+            (i64::MIN, 0, i64::MAX, u128::MAX, true),
+            (i64::MAX, u128::MAX, i64::MIN, 0, false),
+            (0, u128::MAX, 0, 0, true),
+            (0, 0, 0, u128::MAX, false),
+            (i64::MAX, u128::MAX, i64::MAX, u128::MAX, false),
+        ] {
+            assert_eq!(after_work(time, id, anchor_time, anchor_id), expected);
+        }
+    }
+
+    #[test]
     fn immutable_anchor_prevents_replacement_duplicates_and_deletion_skips() {
         let initial = [(30, 1), (30, 2), (20, 3), (10, 4)];
         let first = &initial[..2];
@@ -513,6 +526,12 @@ mod kani_proofs {
         let u: i64 = kani::any();
         let i: u128 = kani::any();
         let j: u128 = kani::any();
+        // Compare the complete contractual sort key, not just properties that an
+        // accidentally reversed ordering would also satisfy. Reverse avoids negation overflow.
+        assert_eq!(
+            after_work(t, i, u, j),
+            (std::cmp::Reverse(t), i) > (std::cmp::Reverse(u), j)
+        );
         assert!(!after_work(t, i, t, i));
         if (t, i) != (u, j) {
             assert_ne!(after_work(t, i, u, j), after_work(u, j, t, i));
@@ -523,9 +542,12 @@ mod kani_proofs {
             access_window_valid(t, end, now),
             t >= 0 && now >= t && end > now
         );
-        kani::cover!(t < u, "older page item");
-        kani::cover!(t == u && i > j, "tie breaker");
-        kani::cover!(t == u && i == j, "same identity excluded");
+        kani::cover!(t < u && after_work(t, i, u, j), "older page item");
+        kani::cover!(t == u && i > j && after_work(t, i, u, j), "tie breaker");
+        kani::cover!(
+            t == u && i == j && !after_work(t, i, u, j),
+            "same identity excluded"
+        );
         kani::cover!(t >= 0 && now == t && now < end, "inclusive start");
         kani::cover!(now == end, "exclusive expiry");
     }

@@ -187,6 +187,7 @@ pub struct Projection {
     pub current_media: Option<ImageVariantMetadata>,
     pub local: Option<LocalImage>,
     pub intent: Option<ImageIntentDocument>,
+    pub intent_state: Option<ImageIntentState>,
     pub asset: Option<ImageAssetDocument>,
     pub problem: Option<Problem>,
     pub transferred: Option<u64>,
@@ -195,19 +196,75 @@ pub struct Projection {
     pub operation: Option<String>,
 }
 impl Projection {
+    fn file_problem(&self) -> Option<Problem> {
+        self.problem
+            .filter(|p| matches!(p, Problem::File | Problem::Dimensions | Problem::Decode))
+    }
+
     pub fn file_ready(&self) -> bool {
-        self.local.is_some()
-            && !matches!(
-                self.problem,
-                Some(Problem::File | Problem::Dimensions | Problem::Decode)
-            )
+        self.local.is_some() && self.file_problem().is_none()
+    }
+
+    pub fn can_prepare(&self) -> bool {
+        self.file_ready()
+            && (self.intent.is_none() || self.intent_state == Some(ImageIntentState::Expired))
+    }
+
+    pub fn can_upload(&self) -> bool {
+        self.file_ready()
+            && self.intent.is_some()
+            && self.asset.is_none()
+            && self.intent_state == Some(ImageIntentState::Pending)
+    }
+
+    /// Request progress cannot validate a rejected replacement file.
+    pub fn start_request(&mut self, stage: Stage, operation: Option<String>) {
+        self.operation = operation;
+        self.stage = stage;
+        self.problem = self.file_problem();
+        self.transferred = None;
+    }
+
+    /// Keep a rejected selection guarded until a valid pick or explicit local discard.
+    pub fn report_form_problem(&mut self, problem: Problem) {
+        self.problem = self.file_problem().or(Some(problem));
+    }
+
+    pub fn replace_local(&mut self, file: LocalImage) -> Option<LocalImage> {
+        let previous = self.local.replace(file);
+        self.intent = None;
+        self.intent_state = None;
+        self.asset = None;
+        self.problem = None;
+        self.stage = Stage::Replacement;
+        previous
+    }
+
+    pub fn discard_local(&mut self) -> Option<LocalImage> {
+        let previous = self.local.take();
+        self.intent = None;
+        self.intent_state = None;
+        self.asset = None;
+        self.problem = None;
+        self.stage = if self.current.as_ref().is_some_and(|r| r.artwork.is_some()) {
+            Stage::Current
+        } else {
+            Stage::Empty
+        };
+        previous
+    }
+
+    /// Transfer retirement to the preview shell before forgetting its private Blob handle.
+    pub fn take_current_preview(&mut self) -> Option<String> {
+        self.current_media = None;
+        self.current_url.take()
     }
 
     /// Only a confirmed server response replaces the current cover; local edits never do.
     pub fn apply(&self, reply: &super::Reply) -> Self {
         use super::Reply;
         let mut next = self.clone();
-        next.problem = None;
+        next.problem = self.file_problem();
         next.transferred = None;
         match reply {
             Reply::Artwork(r) => {
@@ -215,7 +272,8 @@ impl Projection {
                 if next.compared_revision.is_some() {
                     next.reported_revision = Some(r.work_revision);
                 }
-                next.current_url = None;
+                // The preview lifecycle must receive/revoke the old URL, even when this
+                // reply changes or clears the selection before that effect runs.
                 next.current_media = None;
                 next.stage = if next.local.is_some() {
                     Stage::Replacement
@@ -227,15 +285,18 @@ impl Projection {
             }
             Reply::ImagePrepared(r) => {
                 next.intent = Some(r.clone());
+                next.intent_state = Some(ImageIntentState::Pending);
                 next.asset = None;
                 next.stage = Stage::Prepared;
             }
             Reply::ImageAdmitted(r) => {
                 next.asset = Some(r.clone());
+                next.intent_state = Some(ImageIntentState::Admitted);
                 next.stage = Stage::Admitted;
             }
             Reply::ImageIntent(r) => {
                 next.intent = Some(r.intent.clone());
+                next.intent_state = Some(r.state);
                 next.asset = r.asset.clone();
                 next.stage = match r.state {
                     ImageIntentState::Pending => Stage::Prepared,

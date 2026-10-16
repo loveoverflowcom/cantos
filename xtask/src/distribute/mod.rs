@@ -144,7 +144,7 @@ fn run_request(
     tools: &dyn ToolProbe,
     runner: &mut dyn Runner,
 ) -> Result<ExitCode> {
-    let request = match request::resolve(raw, configuration, |path| std::fs::read(path)) {
+    let request = match request::resolve(raw, configuration, host::read_notes_file) {
         Ok(request) => request,
         Err(refusal) => return Ok(crate::refuse(refusal)),
     };
@@ -324,6 +324,40 @@ mod tests {
         .unwrap();
         assert_eq!(code, ExitCode::from(2));
         assert!(runner.commands.is_empty());
+    }
+
+    #[test]
+    fn oversized_or_non_regular_notes_stop_live_and_dry_requests_before_tools() {
+        let workspace = Workspace::discover().unwrap();
+        let root = std::env::temp_dir().join(format!(
+            "xtask-distribute-notes-request-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let oversized = root.join("notes.txt");
+        std::fs::write(&oversized, vec![b'x'; request::NOTES_LIMIT * 4]).unwrap();
+        for path in [&oversized, &root] {
+            for dry_run in [true, false] {
+                let mut runner = RecordingRunner::default();
+                let raw = Raw {
+                    app_id: Some("1:123:android:abc".into()),
+                    release_notes_file: Some(path.clone()),
+                    dry_run,
+                    ..raw()
+                };
+                let code = run_request(
+                    &workspace,
+                    &raw,
+                    &Configuration::default(),
+                    &NoProbe,
+                    &mut runner,
+                )
+                .unwrap();
+                assert_eq!(code, ExitCode::from(2));
+                assert!(runner.commands.is_empty());
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

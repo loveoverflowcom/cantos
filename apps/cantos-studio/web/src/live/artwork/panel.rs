@@ -87,13 +87,10 @@ pub fn ArtworkPanel(
                                     ..
                                 }
                             ) {
-                                if let Some(local) = model.with_untracked(|m| m.local.clone()) {
-                                    platform::revoke(&local.url);
-                                }
                                 let _ = model.try_update(|m| {
-                                    m.local = None;
-                                    m.intent = None;
-                                    m.asset = None;
+                                    if let Some(local) = m.discard_local() {
+                                        platform::revoke(&local.url);
+                                    }
                                     m.stage = Stage::Saved;
                                 });
                                 let _ = draft.try_set(Draft::default());
@@ -131,6 +128,8 @@ pub fn ArtworkPanel(
                                             .iter()
                                             .any(|issue| issue.rule == "intent_expired") =>
                                     {
+                                        m.intent_state =
+                                            m.intent.as_ref().map(|_| ImageIntentState::Expired);
                                         Stage::Expired
                                     }
                                     _ => Stage::Failed,
@@ -202,12 +201,7 @@ pub fn ArtworkPanel(
                 Some(Command::SetArtwork { request, .. }) => Some(request.operation_id.clone()),
                 _ => None,
             });
-            model.update(|m| {
-                m.operation = operation;
-                m.stage = stage;
-                m.problem = None;
-                m.transferred = None;
-            });
+            model.update(|m| m.start_request(stage, operation));
         } else if phase == Phase::Ambiguous {
             model.update(|m| m.stage = Stage::Unknown);
         }
@@ -240,9 +234,8 @@ pub fn ArtworkPanel(
                 c.abort();
             }
         });
-        if let Some(url) = model.with_untracked(|m| m.current_url.clone()) {
+        if let Some(url) = model.write().take_current_preview() {
             platform::revoke(&url);
-            model.update(|m| m.current_url = None);
         }
         let Some((current, selection)) = current.and_then(|c| c.artwork.clone().map(|s| (c, s)))
         else {
@@ -300,7 +293,6 @@ pub fn ArtworkPanel(
         validating.set(true);
         model.update(|m| {
             m.stage = Stage::Validating;
-            m.problem = None;
         });
         spawn_local(async move {
             let result = platform::read(file).await;
@@ -317,14 +309,9 @@ pub fn ArtworkPanel(
             match result {
                 Ok(file) => {
                     let _ = model.try_update(|m| {
-                        if let Some(old) = m.local.take() {
+                        if let Some(old) = m.replace_local(file) {
                             platform::revoke(&old.url);
                         }
-                        m.local = Some(file);
-                        m.intent = None;
-                        m.asset = None;
-                        m.problem = None;
-                        m.stage = Stage::Replacement;
                     });
                 }
                 Err(problem) => {
@@ -365,12 +352,12 @@ pub fn ArtworkPanel(
             Ok(match intent {
                 Intent::Refresh => Some(Command::Artwork { work }),
                 Intent::Prepare => {
+                    if !m.can_prepare() {
+                        return Ok(None);
+                    }
                     let Some(file) = m.local else {
                         return Ok(None);
                     };
-                    if m.intent.is_some() && m.stage != Stage::Expired {
-                        return Ok(None);
-                    }
                     let request = file.prepare(
                         &d,
                         uuid().map_err(|_| Problem::File)?,
@@ -379,12 +366,12 @@ pub fn ArtworkPanel(
                     Some(Command::PrepareImage { work, request })
                 }
                 Intent::Upload => {
+                    if !m.can_upload() {
+                        return Ok(None);
+                    }
                     let (Some(file), Some(receipt)) = (m.local, m.intent) else {
                         return Ok(None);
                     };
-                    if m.asset.is_some() || m.stage == Stage::Expired {
-                        return Ok(None);
-                    }
                     if file.sha256 != receipt.request.expected_sha256
                         || file.mime != receipt.request.content_type
                         || file.bytes.len() as u64 != receipt.request.expected_byte_length
@@ -436,19 +423,10 @@ pub fn ArtworkPanel(
                     })
                 }
                 Intent::DiscardLocal => {
-                    if let Some(file) = m.local {
-                        platform::revoke(&file.url);
-                    }
                     model.update(|m| {
-                        m.local = None;
-                        m.intent = None;
-                        m.asset = None;
-                        m.problem = None;
-                        m.stage = if m.current.as_ref().is_some_and(|r| r.artwork.is_some()) {
-                            Stage::Current
-                        } else {
-                            Stage::Empty
-                        };
+                        if let Some(file) = m.discard_local() {
+                            platform::revoke(&file.url);
+                        }
                     });
                     draft.set(Draft::default());
                     platform::reset_file();
@@ -461,7 +439,7 @@ pub fn ArtworkPanel(
             Ok(Some(command)) => dispatch.send(command),
             Ok(None) => {}
             Err(problem) => {
-                model.update(|m| m.problem = Some(problem));
+                model.update(|m| m.report_form_problem(problem));
             }
         }
     });
