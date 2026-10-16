@@ -43,6 +43,9 @@ recipe_enum!(ComponentId {
     FilterChip => "filter-chip",
     Switch => "switch",
     Dialog => "dialog",
+    Select => "select",
+    BackButton => "back-button",
+    AuthTonal => "auth-tonal",
 });
 
 recipe_enum!(ScenarioState {
@@ -55,25 +58,40 @@ recipe_enum!(ScenarioState {
     On => "on",
     Closed => "closed",
     Open => "open",
+    Error => "error",
+    MissingValue => "missing-value",
+    EmptyOptions => "empty-options",
+    ReadOnly => "readonly",
 });
 
 impl ComponentId {
     pub const fn states(self) -> &'static [ScenarioState] {
         use ScenarioState::*;
         match self {
-            Self::Button | Self::AuthPrimary => &[Enabled, Disabled, Loading],
+            Self::Button | Self::AuthPrimary | Self::BackButton => &[Enabled, Disabled, Loading],
             Self::FilterChip => &[Unselected, Selected, Disabled, Loading],
             Self::Switch => &[Off, On, Disabled, Loading],
             Self::Dialog => &[Closed, Open],
+            Self::AuthTonal => &[Enabled, Error, Disabled, Loading, ReadOnly],
+            Self::Select => &[
+                Enabled,
+                Disabled,
+                Loading,
+                Error,
+                MissingValue,
+                EmptyOptions,
+            ],
         }
     }
 
     pub const fn default_state(self) -> ScenarioState {
         match self {
-            Self::Button | Self::AuthPrimary => ScenarioState::Enabled,
+            Self::Button | Self::AuthPrimary | Self::BackButton => ScenarioState::Enabled,
             Self::FilterChip => ScenarioState::Unselected,
             Self::Switch => ScenarioState::Off,
             Self::Dialog => ScenarioState::Closed,
+            Self::Select => ScenarioState::Enabled,
+            Self::AuthTonal => ScenarioState::Enabled,
         }
     }
 
@@ -81,6 +99,7 @@ impl ComponentId {
     pub const fn catalog_id(self) -> &'static str {
         match self {
             Self::AuthPrimary => "button",
+            Self::AuthTonal => "text-field",
             _ => self.as_str(),
         }
     }

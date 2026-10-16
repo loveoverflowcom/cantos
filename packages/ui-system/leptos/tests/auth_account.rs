@@ -1,7 +1,7 @@
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason,
-    EmptyAccessibleName, FieldState, Surface, SurfaceTone, SurfaceVariant, TextField,
-    TextFieldKind, TextFieldVariant,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
+    DisabledReason, EmptyAccessibleName, FieldState, Surface, SurfaceTone, SurfaceVariant,
+    TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -99,6 +99,66 @@ fn back_is_a_named_native_action_not_a_link_submit_or_implicit_navigation() {
 }
 
 #[test]
+fn unified_back_keeps_one_named_target_and_the_host_owned_blocked_state() {
+    for icon_only in [false, true] {
+        for state in [
+            ButtonState::Enabled,
+            ButtonState::Disabled(DisabledReason::new("Chờ ngữ cảnh từ host").unwrap()),
+            ButtonState::Loading(DisabledReason::new("Host đang chờ").unwrap()),
+        ] {
+            let html = view! {
+                <BackButton id="unified-back" variant=BackButtonVariant::Unified
+                    name=AccessibleName::new("Về Tài khoản <giữ ý định>").unwrap()
+                    icon_only=icon_only state=state.clone() described_by="return-context"
+                    on_back=Callback::new(|_| {})/>
+            }
+            .to_html();
+            let button = opening_tag(&html, "button", "unified-back");
+            assert_eq!(html.matches("<button ").count(), 1, "{html}");
+            assert!(button.contains("cui-back-button-unified"), "{button}");
+            assert!(button.contains("type=\"button\""), "{button}");
+            assert_eq!(button.contains("disabled"), !state.can_press(), "{button}");
+            assert_eq!(
+                button.contains("aria-busy=\"true\""),
+                state.is_busy(),
+                "{button}"
+            );
+            let descriptions = if state.can_press() {
+                "return-context"
+            } else {
+                "return-context unified-back-reason"
+            };
+            assert!(
+                button.contains(&format!("aria-describedby=\"{descriptions}\"")),
+                "{button}"
+            );
+            assert_eq!(
+                html.matches("Về Tài khoản &lt;giữ ý định&gt;").count(),
+                1,
+                "{html}"
+            );
+            assert_eq!(html.contains("class=\"cui-sr-only\""), icon_only, "{html}");
+            assert!(
+                html.contains("aria-hidden=\"true\""),
+                "decorative icon: {html}"
+            );
+            assert!(!html.contains("href="));
+            assert!(!html.contains("tabindex="));
+            assert!(!button.contains("aria-label="));
+        }
+    }
+    let html = view! {
+        <BackButton id="existing-back" name=AccessibleName::new("Về Đăng nhập").unwrap()
+            on_back=Callback::new(|_| {})/>
+    }
+    .to_html();
+    assert!(
+        !html.contains("cui-back-button-unified"),
+        "candidate must remain opt-in: {html}"
+    );
+}
+
+#[test]
 fn auth_tonal_field_retains_raw_value_native_type_and_all_visible_descriptions() {
     let raw = "nguyễn-thị-ánh-nguyệt+<draft>@example.test";
     let html = view! {
@@ -123,6 +183,58 @@ fn auth_tonal_field_retains_raw_value_native_type_and_all_visible_descriptions()
     ));
     assert!(html.contains("Kiểm tra email, không xóa bản nháp"));
     assert!(html.contains("Đang chờ, giá trị vẫn còn"));
+}
+
+#[test]
+fn spacious_auth_field_preserves_native_editing_and_error_semantics_in_each_state() {
+    for state in [
+        FieldState::Editable,
+        FieldState::ReadOnly,
+        FieldState::Disabled(DisabledReason::new("Chưa sẵn sàng / Unavailable").unwrap()),
+        FieldState::Loading(DisabledReason::new("Đang chờ / Waiting").unwrap()),
+    ] {
+        for error in [
+            None,
+            Some("Kiểm tra địa chỉ email / Check the email".to_owned()),
+        ] {
+            let disabled = state.is_disabled();
+            let readonly = state.is_read_only();
+            let busy = state.is_loading();
+            let invalid = error.is_some();
+            let html = view! {
+                <TextField id="spacious-email" variant=TextFieldVariant::AuthTonalSpacious
+                    kind=TextFieldKind::Email label="Email của bạn / Your email" name="email"
+                    required=true autocomplete="email" value="anh-nguyet+draft@example.test"
+                    state=state.clone() error=error help="Giá trị được giữ / Value is preserved"
+                    on_input=Callback::new(|_: String| {})/>
+            }
+            .to_html();
+            let input = opening_tag(&html, "input", "spacious-email");
+            for attribute in [
+                "type=\"email\"",
+                "name=\"email\"",
+                "autocomplete=\"email\"",
+                "required",
+                "value=\"anh-nguyet+draft@example.test\"",
+            ] {
+                assert!(input.contains(attribute), "{input}");
+            }
+            assert!(html.contains("for=\"spacious-email\""));
+            assert_eq!(input.contains("disabled"), disabled, "{input}");
+            assert_eq!(input.contains("readonly"), readonly, "{input}");
+            assert!(input.contains(&format!("aria-busy=\"{busy}\"")), "{input}");
+            assert!(
+                input.contains(&format!("aria-invalid=\"{invalid}\"")),
+                "{input}"
+            );
+            assert_eq!(
+                input.contains("aria-errormessage=\"spacious-email-error\""),
+                invalid
+            );
+            assert!(!input.contains("tabindex="));
+            assert!(!input.contains("role="));
+        }
+    }
 }
 
 #[test]

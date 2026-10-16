@@ -15,7 +15,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
 | `FilterChip` | Controlled `selected`, native `aria-pressed`, `on_change(bool)`; blocked/loading reason |
 | `TextField`, `TextArea`, `NumberField` | Required stable ID, visible label, controlled raw string and `on_input(String)`; editable/readonly/disabled/loading |
-| `Select` | Native option children, controlled string, `on_input(String)` dispatched on native change; enabled/disabled/loading |
+| `Select` | Native option children by default; opt-in `options: Signal<Vec<SelectOption>>` Web menu candidate in preview; controlled string, enabled/disabled/loading |
 | `Checkbox`, `Radio`, `Switch` | Native checked inputs, controlled bool, `on_change(bool)`; Radio requires group name/value; Switch exposes switch semantics |
 | `RangeField` | Native range and keyboard steps; raw string callback, native min/max/step; optional localized `value_text` |
 | `FieldLabel`, `FieldHelp`, `FieldError` | Composable label/description primitives for caller-owned native controls |
@@ -78,6 +78,39 @@ async regions mounted and own deduplication/throttling. Loading keeps visible co
 static indicator; no continuous animation or delay is needed. Keep the announcement outside any
 caller-owned busy content region so assistive technology can announce it. Tone is supplementary
 to text/icons.
+
+## Web Select menu candidate — preview only
+
+For the `select` recipe, pass `options` instead of native option children. `SelectOption`
+carries an opaque stable unique value, localized label, optional content language and disabled
+fact. `placeholder` describes a missing value; it never selects or dispatches the first option.
+Existing callers with native option children retain their current implementation. Do not pass
+both option children and `options`: the latter selects the menu presentation.
+
+The menu uses a native non-submit button with select-only combobox semantics, a nonmodal
+Popover listbox and `aria-activedescendant`. Arrow keys/Home/End and localized typeahead browse;
+Enter/Space/Tab or leaving focus acknowledges the active enabled option. Escape or toggling
+the trigger discards browsing. Pointer selection acknowledges once. The caller must update
+`value` to accept a change. A changed option list/value/availability cancels an open browse.
+No async/domain decision, preference storage or OS-theme lookup enters the component.
+
+The browser adapter constrains the top-layer popup to the visual viewport, matches the trigger
+width, aligns its leading edge (including RTL), flips above when necessary, and repositions on
+scroll/resize/trigger reflow. Inset and offset use the computed token padding. Listener/observer
+cleanup belongs to the mounted owner. Selected, active, disabled and error are separate facts;
+the selected check remains visible in forced colors. There is no menu animation or delayed intent.
+
+Unsupported Popover engines, SSR and an unsuccessful enhancement retain the native select;
+its OS popup is **not** claimed to match M3. The native control retains form name/required/value,
+and native invalid submission focuses the enhanced trigger when present. Keyboard/focus,
+touch, form validity, viewport positioning and assistive technology still require browser
+acceptance; native string rendering does not prove them.
+
+This is an unqualified Web presentation of the existing `select` API. The shared baseline and
+qualification gate remain intact; CMP layout is unchanged. **Account/Settings/topbar migration
+is deferred** until preview admission under the
+[existing policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
+See [#221 evidence and continuation](../../../docs/evidence/web-select-221.md).
 
 ## Styling and gallery
 
@@ -164,6 +197,8 @@ The full API/token catalog stays available; exact recipe support is intentionall
 | `filter-chip` | `filter-chip` / `FilterChip` | `unselected`, `selected`, `disabled`, `loading` |
 | `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
 | `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
+| `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `empty-options` |
+| `back-button` | `back-button` / opt-in `BackButtonVariant::Unified`, Account/Sign in/icon-only plus unchanged IconTonal baseline | `enabled`, `disabled`, `loading` |
 
 The canonical query is versioned. For example, append this query to the local preview URL:
 
@@ -275,6 +310,17 @@ filled label capsules visible in both themes. The host alone resolves contextual
 destinations, cancellation and draft/scroll retention. This primitive does not call browser history, choose a fallback route, authenticate,
 log out or implement native system Back.
 
+`BackButtonVariant::Unified` is a Web-only, preview-only candidate for
+[#222](https://github.com/loveoverflowcom/cantos/issues/222). The native button owns one
+continuous hover/pressed layer, token inline/block padding and the 48-unit minimum target;
+its decorative arrow has no separately painted circle. The outer pressed shape uses
+`shape.authPressed`; keyboard focus retains the shared focus roles. Long labels wrap, and RTL
+mirrors the arrow while keeping logical start alignment. Reduced motion removes the shape
+transition. This uses existing tokens without changing their canonical values or CMP layout.
+`IconTonal` remains the default so existing product callers retain their presentation until
+required admission. The recipe workbench includes VI/EN, Account/Sign in, long text and
+icon-only specimens with host intent logs; actual hover/focus/press requires native input.
+
 The actual [auth specimens](preview/auth_samples.rs) live in the existing actions, fields,
 navigation and layout gallery families. They expose host-driven enabled/loading/disabled and
 field error/read-only states, long Vietnamese labels, retained values and intent counters.
@@ -289,6 +335,29 @@ String rendering does not execute browser events or establish focus, clipping, m
 screen-reader behavior. These APIs remain **implemented-unverified and unqualified for app
 adoption** until both real Leptos/CMP previews satisfy the shared admission contract. They add
 no application route, auth/payment integration or backend authority.
+
+## Web AuthTonal spacing candidate — preview only
+
+`TextFieldVariant::AuthTonalSpacious` keeps the existing AuthTonal 56-unit minimum and
+20-unit corner while mapping label/control/message gap to `space.sm`. Its visible keyboard
+focus has width and offset `2 × size.border`, using `color.focus`; forced colors use `Highlight`.
+This reduces the outward focus footprint from seven to four units without changing layout,
+native email/autocomplete/required facts, controlled values or external error ownership.
+Regular and existing AuthTonal callers retain their geometry. No shared token changed.
+
+Recipe `component=auth-tonal` maps to catalog `text-field`; states are
+`enabled|error|disabled|loading|readonly`. VI/EN and standard/long fixtures render the actual
+candidate, help/error/reason, a local-only AuthPrimary CTA with `space.lg` gap and the existing
+AuthTonal/`space.md` baseline. The CTA records a host intent, never submits a form. The gallery
+adds the same candidate in its fluid field section for actual narrow-viewport reflow; workbench
+frame widths remain fixed diagnostic frames and may scroll when wider than their host.
+
+Example: `?v=1&component=auth-tonal&state=error&fixture=long-vietnamese&theme=dark&density=comfortable&locale=en&text=100&frame=320&motion=reduced&mode=matrix&playback=live`.
+Hover/focus/autofill/forced colors need real browser input or explicitly recorded emulation.
+The three added catalog diagnostics do not qualify either renderer. CMP metadata lists the
+Web diagnostic names only; it implements no new CMP geometry. Both-renderer/design admission
+and actual signup-form observations remain pending. Do not migrate product imports or change
+the app's form gap until that gate is met. See [#223 evidence](../../../docs/evidence/web-auth-tonal-223.md).
 
 ## Consumer map
 

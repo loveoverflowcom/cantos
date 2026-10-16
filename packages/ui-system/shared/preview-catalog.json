@@ -159,12 +159,15 @@
         "ime-action",
         "blank-error",
         "auth-tonal",
+        "auth-tonal-spacious",
+        "autofill",
+        "forced-colors",
         "long-vietnamese",
         "large-text"
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+        "reason": "Existing native field baseline retained. AuthTonalSpacious is a Web preview-only candidate; runtime, accessibility and inspected-reference admission remain incomplete."
       },
       "cmp": {
         "status": "implemented-unverified",
@@ -233,11 +236,15 @@
         "missing-value",
         "reordered-options",
         "unsupported-option",
-        "interrupted"
+        "interrupted",
+        "web-menu",
+        "web-menu-expanded",
+        "long-vietnamese",
+        "large-text"
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+        "reason": "Native baseline retained. The opt-in Web menu is preview-only; browser, accessibility, visual and consumer admission remain pending."
       },
       "cmp": {
         "status": "implemented-unverified",
@@ -634,6 +641,9 @@
         "disabled",
         "loading",
         "focus",
+        "hover",
+        "unified-web",
+        "forced-colors",
         "pressed",
         "icon-only",
         "named",
@@ -644,7 +654,7 @@
       ],
       "leptos": {
         "status": "implemented-unverified",
-        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
+        "reason": "Existing BackButton plus opt-in Unified Web presentation in the recipe workbench; runtime and inspected-reference admission pending. No new application adoption."
       },
       "cmp": {
         "status": "implemented-unverified",

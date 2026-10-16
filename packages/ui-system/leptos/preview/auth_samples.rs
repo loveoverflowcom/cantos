@@ -1,8 +1,8 @@
 //! Auth/account design-v2 specimens only. No identity, navigation or payment effects.
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, FieldState,
-    IconName, Select, Space, Stack, Status, Surface, SurfaceTone, SurfaceVariant, TextField,
-    TextFieldKind, TextFieldVariant,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
+    DisabledReason, FieldState, IconName, Select, Space, Stack, Status, Surface, SurfaceTone,
+    SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -95,8 +95,10 @@ pub fn AuthFieldSamples(
                 </Select>
                 <Button id="auth-field-toggle-error" variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| invalid.update(|value| *value = !*value))>"Bật/tắt lỗi mẫu"</Button>
-                <div data-preview-scenario="auth-tonal auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly">
-                    <TextField id="auth-email" variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                <p>"AuthTonalSpacious · Web candidate, chưa qualified. Dùng Tab để so focus với AuthTonal hiện hành bên dưới."</p>
+                <Stack gap=Space::Lg>
+                <div data-preview-scenario="auth-tonal auth-tonal-spacious auth-error auth-field-focus auth-field-disabled auth-field-loading auth-field-readonly autofill forced-colors">
+                    <TextField id="auth-email" variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
                         label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
                         value=text state=state error=error autocomplete="email"
                         help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."
@@ -105,6 +107,19 @@ pub fn AuthFieldSamples(
                             edits.update(|count| *count += 1);
                         })/>
                 </div>
+                <Button id="auth-field-cta" variant=ButtonVariant::AuthPrimary
+                    state=Signal::derive(move || match state.get() {
+                        FieldState::Disabled(reason) => ButtonState::Disabled(reason),
+                        FieldState::Loading(reason) => ButtonState::Loading(reason),
+                        _ => ButtonState::Enabled,
+                    }) on_press=Callback::new(|_| {})>"Tiếp tục — mẫu cục bộ, không gửi email"</Button>
+                </Stack>
+                <p>"AuthTonal hiện hành · compatibility baseline:"</p>
+                <TextField id="auth-email-baseline" variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                    label="Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe"
+                    value=text state=state error=error autocomplete="off"
+                    help="Nhãn, giá trị và lỗi được giữ khi đổi trạng thái. Không có yêu cầu mạng."
+                    on_input=Callback::new(move |value| text.set(value))/>
                 <p id="auth-field-output" class="cui-gallery-output">{move || format!("Số lần nhận input: {} · Giá trị: {}", edits.get(), text.get())}</p>
                 <TextField id="auth-regular-field" label="Trường thường không đổi geometry" value="Sơn Hà Ký"
                     on_input=Callback::new(|_: String| {})/>
@@ -166,7 +181,7 @@ pub fn BackButtonSamples(
         _ => ButtonState::Enabled,
     });
     let on_back = Callback::new(move |_| returns.update(|count| *count += 1));
-    // A neutral canvas keeps the icon circle distinct and exposes accidental label fills.
+    // Compare the unified candidate with the unchanged compatibility presentation.
     view! {
         <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup>
             <Stack gap=Space::Sm>
@@ -177,12 +192,14 @@ pub fn BackButtonSamples(
                     <option value="loading">"Đang chờ"</option>
                     <option value="disabled">"Bị khóa"</option>
                 </Select>
-                <div data-preview-scenario="back-visible-label back-focus back-pressed back-loading back-disabled">
-                    <BackButton id="auth-back-visible" name=name state=state on_back=on_back/>
+                <div data-preview-scenario="back-visible-label back-hover back-focus back-pressed back-loading back-disabled back-unified-web">
+                    <BackButton id="auth-back-visible" variant=BackButtonVariant::Unified name=name state=state on_back=on_back/>
                 </div>
                 <div data-preview-scenario="back-icon-only">
-                    <BackButton id="auth-back-icon" name=name icon_only=true state=state on_back=on_back/>
+                    <BackButton id="auth-back-icon" variant=BackButtonVariant::Unified name=name icon_only=true state=state on_back=on_back/>
                 </div>
+                <p>"Unified Web candidate · chưa qualified. Mẫu IconTonal hiện hành để đối chiếu:"</p>
+                <BackButton id="auth-back-baseline" name=name state=state on_back=on_back/>
                 <Button id="auth-back-change-context" variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| name.set(AccessibleName::new("Về Tài khoản, giữ nguyên ý định đăng ký Membership").expect("nonblank alternate name")))>
                     "Đổi nơi quay về trong mẫu"

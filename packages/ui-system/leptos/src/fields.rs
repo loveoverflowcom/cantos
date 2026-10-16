@@ -130,6 +130,8 @@ pub enum TextFieldVariant {
     #[default]
     Regular,
     AuthTonal,
+    /// Web spacing/focus candidate; preview-only until shared admission is complete.
+    AuthTonalSpacious,
 }
 
 impl TextFieldVariant {
@@ -137,6 +139,7 @@ impl TextFieldVariant {
         match self {
             Self::Regular => "regular",
             Self::AuthTonal => "auth-tonal",
+            Self::AuthTonalSpacious => "auth-tonal-spacious",
         }
     }
 }
@@ -144,11 +147,11 @@ impl TextFieldVariant {
 /// Label primitive for an app-composed native control with the same stable ID.
 #[component]
 pub fn FieldLabel(
-    #[prop(into)] for_id: String,
+    #[prop(into)] for_id: Signal<String>,
     children: Children,
     #[prop(into, default = String::new().into())] class: Signal<String>,
 ) -> impl IntoView {
-    view! { <label for=for_id class=move || format!("cui-field-label {}", class.get())>{children()}</label> }
+    view! { <label for=move || for_id.get() class=move || format!("cui-field-label {}", class.get())>{children()}</label> }
 }
 
 #[component]
@@ -170,7 +173,7 @@ pub fn FieldError(
     view! { <p id=id class=move || format!("cui-field-error {}", class.get())>{children()}</p> }
 }
 
-fn has_text(text: &Option<String>) -> bool {
+pub(super) fn has_text(text: &Option<String>) -> bool {
     text.as_ref().is_some_and(|text| !text.trim().is_empty())
 }
 
@@ -202,7 +205,7 @@ fn described_by(
     }
 }
 
-fn descriptions(
+pub(super) fn descriptions(
     id: String,
     external: Signal<Option<String>>,
     help: Signal<Option<String>>,
@@ -220,7 +223,7 @@ fn descriptions(
     })
 }
 
-fn error_reference(id: String, error: Signal<Option<String>>) -> Signal<Option<String>> {
+pub(super) fn error_reference(id: String, error: Signal<Option<String>>) -> Signal<Option<String>> {
     Signal::derive(move || has_text(&error.get()).then(|| format!("{id}-error")))
 }
 
@@ -247,7 +250,7 @@ fn textarea_initial_text(value: String) -> String {
 }
 
 #[component]
-fn FieldMessages(
+pub(super) fn FieldMessages(
     id: String,
     help: Signal<Option<String>>,
     error: Signal<Option<String>>,
@@ -436,7 +439,11 @@ pub fn Select(
     #[prop(into)] label: Signal<String>,
     #[prop(into)] value: Signal<String>,
     #[prop(into)] on_input: Callback<String>,
-    children: Children,
+    #[prop(optional)] children: Option<Children>,
+    /// Opt-in Web menu. Omit to retain the existing native option-child contract.
+    #[prop(optional, into)]
+    options: Option<Signal<Vec<crate::SelectOption>>>,
+    #[prop(into, default = String::new().into())] placeholder: Signal<String>,
     #[prop(into, default = ChoiceState::Enabled.into())] state: Signal<ChoiceState>,
     #[prop(into, default = None.into())] help: Signal<Option<String>>,
     #[prop(into, default = None.into())] error: Signal<Option<String>>,
@@ -445,6 +452,13 @@ pub fn Select(
     #[prop(into, optional)] name: Option<String>,
     #[prop(optional)] required: bool,
 ) -> impl IntoView {
+    if let Some(options) = options {
+        return view! {
+            <crate::select_menu::MenuSelect id label value on_input options placeholder
+                state help error described_by class name required/>
+        }
+        .into_any();
+    }
     let reason = Signal::derive(move || state.get().reason().cloned());
     let descriptions = descriptions(id.clone(), described_by, help, error, reason);
     let error_reference = error_reference(id.clone(), error);
@@ -471,12 +485,12 @@ pub fn Select(
                         if state.get_untracked().accepts_input() {
                             on_input.run(event_target_value(&event));
                         }
-                    }>{children()}</select>
+                    }>{children.map(|render| render())}</select>
                 <Icon name=IconName::ExpandMore/>
             </div>
             <FieldMessages id=id help=help error=error reason=reason/>
         </div>
-    }
+    }.into_any()
 }
 
 #[component]

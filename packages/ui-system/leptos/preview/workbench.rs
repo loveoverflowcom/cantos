@@ -1,8 +1,9 @@
 //! Preview-only composition root. Recipes select production controls; no services are built.
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
-    Button, ButtonState, ButtonVariant, ChoiceState, Density, Dialog, DisabledReason, FilterChip,
-    IconName, Select, Space, Stack, Switch, TextField, Theme, UiRoot,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant, ChoiceState,
+    Density, Dialog, DisabledReason, FieldState, FilterChip, IconName, Select, SelectOption, Space,
+    Stack, Switch, TextField, TextFieldKind, TextFieldVariant, Theme, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -227,11 +228,33 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let selected = RwSignal::new(matches!(state, ScenarioState::Selected | ScenarioState::On));
     let opened = RwSignal::new(false);
     let text = RwSignal::new(String::new());
+    let language_value = RwSignal::new("vi-VN".to_owned());
+    let select_value = RwSignal::new(
+        if state == ScenarioState::MissingValue {
+            "missing"
+        } else {
+            "system"
+        }
+        .to_owned(),
+    );
     // Same mounted component across modes/themes. Only an explicit recipe/reset restores data.
     Effect::new(move |_| {
         host.reset.get();
         selected.set(matches!(state, ScenarioState::Selected | ScenarioState::On));
-        text.set(fixture_label(host.recipe.get_untracked()).to_owned());
+        text.set(if component == ComponentId::AuthTonal {
+            "nguyen-thi-anh-nguyet+truyen-dai@example.test".to_owned()
+        } else {
+            fixture_label(host.recipe.get_untracked()).to_owned()
+        });
+        language_value.set("vi-VN".to_owned());
+        select_value.set(
+            if state == ScenarioState::MissingValue {
+                "missing"
+            } else {
+                "system"
+            }
+            .to_owned(),
+        );
     });
     let active = Memo::new(move |_| {
         let recipe = host.recipe.get();
@@ -269,6 +292,77 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let press = Callback::new(move |_| host.log(format!("{} press", log_id.get_value())));
     let label = Signal::derive(move || fixture_label(host.recipe.get()).to_owned());
     let content = match component {
+        ComponentId::AuthTonal => {
+            let field_state = Signal::derive(move || match state {
+                ScenarioState::Disabled => FieldState::Disabled(blocked_reason.get()),
+                ScenarioState::Loading => FieldState::Loading(blocked_reason.get()),
+                ScenarioState::ReadOnly => FieldState::ReadOnly,
+                _ => FieldState::Editable,
+            });
+            let email_label = Signal::derive(move || {
+                let recipe = host.recipe.get();
+                match (recipe.locale, recipe.fixture) {
+                    (Locale::Vi, Fixture::Standard) => "Email của bạn",
+                    (Locale::En, Fixture::Standard) => "Your email",
+                    (Locale::Vi, Fixture::LongVietnamese) => "Email của Nguyễn Thị Ánh Nguyệt để tiếp tục câu chuyện đang nghe",
+                    (Locale::En, Fixture::LongVietnamese) => "Nguyễn Thị Ánh Nguyệt’s email to continue the story you are listening to",
+                }.to_owned()
+            });
+            let help = Signal::derive(move || Some(copy(host.recipe.get().locale,
+                "Mẫu cục bộ giữ giá trị; không gửi email hoặc tạo tài khoản.",
+                "Local sample preserves your value; no email or account is created.").to_owned()));
+            let error = Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale,
+                "Kiểm tra địa chỉ email. Nội dung đã nhập được giữ nguyên.",
+                "Check the email address. Your entered value is preserved.").to_owned()));
+            let baseline_id = format!("{control_id}-baseline");
+            let cta_id = format!("{control_id}-cta");
+            let baseline_cta_id = format!("{control_id}-baseline-cta");
+            let edit = Callback::new(move |value: String| {
+                text.set(value);
+                // Do not export entered text in diagnostics.
+                host.log(format!("{} input", log_id.get_value()));
+            });
+            let cta = Signal::derive(move || copy(host.recipe.get().locale, "Tiếp tục — mẫu cục bộ", "Continue — local sample").to_owned());
+            view! {
+                <p class="cui-gallery-note">"AuthTonalSpacious Web candidate — unqualified. Real input required for hover/focus/autofill/forced-colors. CTA logs an intent only."</p>
+                <Stack gap=Space::Lg class="cui-auth-field-rhythm" attr:data-preview-scenario="auth-tonal-spacious auth-field-focus auth-field-error auth-field-cta autofill forced-colors">
+                    <TextField id=control_id variant=TextFieldVariant::AuthTonalSpacious kind=TextFieldKind::Email
+                        name="email" required=true autocomplete="email" label=email_label value=text
+                        state=field_state help=help error=error on_input=edit/>
+                    <Button id=cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>
+                </Stack>
+                <p class="cui-gallery-note">"Existing AuthTonal presentation and 16-unit field→CTA gap (compatibility baseline):"</p>
+                <Stack gap=Space::Md>
+                    <TextField id=baseline_id variant=TextFieldVariant::AuthTonal kind=TextFieldKind::Email
+                        name="baseline-email" required=true autocomplete="off" label=email_label value=text
+                        state=field_state help=help error=error on_input=edit/>
+                    <Button id=baseline_cta_id variant=ButtonVariant::AuthPrimary state=button_state on_press=press>{move || cta.get()}</Button>
+                </Stack>
+            }.into_any()
+        }
+        ComponentId::BackButton => {
+            let name = Signal::derive(move || {
+                let recipe = host.recipe.get();
+                AccessibleName::new(match (recipe.locale, recipe.fixture) {
+                    (Locale::Vi, Fixture::Standard) => "Về Tài khoản",
+                    (Locale::En, Fixture::Standard) => "Back to Account",
+                    (Locale::Vi, Fixture::LongVietnamese) => "Về Tài khoản của Nguyễn Thị Ánh Nguyệt, giữ nguyên ý định đăng ký Membership",
+                    (Locale::En, Fixture::LongVietnamese) => "Back to Nguyễn Thị Ánh Nguyệt’s account, keeping the Membership registration context",
+                }).expect("nonblank localized preview name")
+            });
+            let login_name = Signal::derive(move || AccessibleName::new(copy(host.recipe.get().locale, "Về Đăng nhập", "Back to Sign in")).expect("nonblank localized preview name"));
+            let login_id = format!("{control_id}-login");
+            let icon_id = format!("{control_id}-icon");
+            let baseline_id = format!("{control_id}-baseline");
+            view! {
+                <BackButton id=control_id variant=BackButtonVariant::Unified name=name state=button_state on_back=press/>
+                <BackButton id=login_id variant=BackButtonVariant::Unified name=login_name state=button_state on_back=press/>
+                <BackButton id=icon_id variant=BackButtonVariant::Unified name=name icon_only=true state=button_state on_back=press/>
+                <p class="cui-gallery-note">"Unified Web candidate — unqualified. Hover, pressed and keyboard focus require real input. Every sample records a host intent only; no route/history effect."</p>
+                <p class="cui-gallery-note">"Existing IconTonal presentation (compatibility baseline):"</p>
+                <BackButton id=baseline_id name=name state=button_state on_back=press/>
+            }.into_any()
+        }
         ComponentId::Button | ComponentId::AuthPrimary => view! {
             <Button id=control_id variant=if component == ComponentId::AuthPrimary { ButtonVariant::AuthPrimary } else { ButtonVariant::Primary }
                 icon=IconName::ArrowForward state=button_state on_press=press>{move || label.get()}</Button>
@@ -277,6 +371,36 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             <FilterChip id=control_id selected=selected state=button_state on_change=change>{move || label.get()}</FilterChip>
         }.into_any(),
         ComponentId::Switch => view! { <Switch id=control_id label=label checked=selected state=choice_state on_change=change/> }.into_any(),
+        ComponentId::Select => {
+            let language_id = format!("{control_id}-language");
+            let options = Signal::derive(move || {
+                if state == ScenarioState::EmptyOptions { return Vec::new(); }
+                let recipe = host.recipe.get();
+                vec![
+                    SelectOption::new("system", if recipe.fixture == Fixture::LongVietnamese {
+                        fixture_label(recipe)
+                    } else { copy(recipe.locale, "Theo hệ thống", "System default") }),
+                    SelectOption::new("light", copy(recipe.locale, "Sáng", "Light")),
+                    SelectOption { disabled: true, ..SelectOption::new("unavailable", copy(recipe.locale, "Không khả dụng", "Unavailable")) },
+                    SelectOption::new("dark", copy(recipe.locale, "Tối", "Dark")),
+                ]
+            });
+            view! {
+                <Select id=control_id label=Signal::derive(move || copy(host.recipe.get().locale, "Giao diện", "Theme").to_owned())
+                    value=select_value options=options state=choice_state
+                    placeholder=Signal::derive(move || copy(host.recipe.get().locale, "Chọn giao diện", "Choose a theme").to_owned())
+                    help=Signal::derive(move || Some(copy(host.recipe.get().locale, "Dùng bàn phím hoặc chạm để chọn. Escape giữ lựa chọn cũ.", "Use the keyboard or touch to choose. Escape keeps the previous value.").to_owned()))
+                    error=Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale, "Lựa chọn không hợp lệ; chọn lại giao diện.", "Invalid choice; choose a theme again.").to_owned()))
+                    on_input=Callback::new(move |value: String| { select_value.set(value.clone()); host.log(format!("{} input={value}", log_id.get_value())); })/>
+                <p class="cui-gallery-note">{move || format!("Controlled value: {}", select_value.get())}</p>
+                <Select id=language_id label=Signal::derive(move || copy(host.recipe.get().locale, "Ngôn ngữ", "Language").to_owned())
+                    value=language_value state=choice_state
+                    options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
+                        SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", "English") }]
+                    on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} locale={value}", log_id.get_value())); })/>
+                <p class="cui-gallery-note">"Web menu candidate — unqualified. Native fallback on unsupported engines. Expanded/hover/focus require real input; this recipe does not force visual states."</p>
+            }.into_any()
+        }
         ComponentId::Dialog => {
             let dialog_id = format!("{id}-modal");
             let draft_id = format!("{id}-draft");

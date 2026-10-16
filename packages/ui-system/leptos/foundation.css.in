@@ -302,6 +302,27 @@
   border-radius: var(--cantos-shape-auth-pressed);
 }
 :where(.cantos-ui) .cui-back-button-icon-only { gap: 0; }
+/* #222 candidate: the native button owns the one state layer and the full target.
+   Keep the existing IconTonal presentation until this Web variant is admitted. */
+:where(.cantos-ui) .cui-back-button-unified {
+  min-inline-size: var(--cantos-size-back-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  /* Cap the corner at the Web control role so a wrapped label never becomes an oval. */
+  border-radius: var(--cantos-web-shape-control);
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-button-icon {
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  background: transparent;
+  border-radius: 0;
+  transition: none;
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-control-label { text-align: start; }
+:where(.cantos-ui) .cui-back-button-unified:active:not(:disabled) {
+  border-radius: var(--cantos-shape-auth-pressed);
+}
+:where(.cantos-ui) .cui-back-button-unified:dir(rtl) .cui-icon { transform: scaleX(-1); }
 :where(.cantos-ui) .cui-surface[data-tone="primary-container"] {
   --cantos-web-supporting-text-color: var(--cantos-color-on-primary-container);
   background: var(--cantos-color-primary-container);
@@ -313,21 +334,22 @@
 :where(.cantos-ui) .cui-surface[data-variant="profile"] { border-radius: var(--cantos-shape-profile-container); }
 :where(.cantos-ui) .cui-surface[data-variant="membership"] { border-radius: var(--cantos-shape-membership-container); }
 :where(.cantos-ui) .cui-surface[data-variant="account-group"] { border-radius: var(--cantos-shape-account-group); }
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control {
   min-block-size: var(--cantos-size-auth-field);
   border-radius: var(--cantos-shape-auth-field);
 }
 /* Invalid input retains the existing errorContainer cue. Read-only/disabled already use
    this quiet container tone and keep their native semantics and foreground unchanged. */
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:not([aria-invalid="true"]) {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control:not([aria-invalid="true"]) {
   background: var(--cantos-color-surface-container);
 }
-:where(.cantos-ui) .cui-field[data-variant="auth-tonal"] .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
+:where(.cantos-ui) .cui-field:is([data-variant="auth-tonal"], [data-variant="auth-tonal-spacious"]) .cui-field-control:hover:not(:disabled):not([readonly]):not([aria-invalid="true"]) {
   background: color-mix(in srgb, var(--cantos-color-on-surface) calc(var(--cantos-state-hover-opacity) * 100%), var(--cantos-color-surface-container));
 }
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) { transition: none; }
   :where(.cantos-ui) .cui-back-button .cui-button-icon { transition: none; }
+  :where(.cantos-ui) .cui-back-button-unified { transition: none; }
 }
 @media (forced-colors: active) {
   :where(.cantos-ui) .cui-button[data-variant="auth-outlined"] { border: var(--cantos-size-auth-outline) solid ButtonText; }
@@ -507,6 +529,96 @@
   pointer-events: none;
   color: var(--cantos-color-on-surface-variant);
 }
+/* Web-only Select presentation: the Popover top layer avoids clipping ancestors;
+   the DOM adapter anchors it to the trigger and constrains it to the visual viewport. */
+:where(.cantos-ui) .cui-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-sm);
+  text-align: start;
+  cursor: pointer;
+}
+:where(.cantos-ui) .cui-select-trigger > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) :is(.cui-select-trigger, .cui-select-native-indicator, .cui-select > select)[hidden] {
+  display: none;
+}
+:where(.cantos-ui) .cui-select-native-indicator {
+  position: absolute;
+  inset-inline-end: var(--cantos-space-control-inline);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-select-menu {
+  display: none;
+  box-sizing: border-box;
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: var(--cantos-space-sm);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
+  border-radius: var(--cantos-web-shape-overlay);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+  font: inherit;
+}
+:where(.cantos-ui) .cui-select-menu:popover-open { display: block; }
+:where(.cantos-ui) .cui-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-sm);
+  box-sizing: border-box;
+  min-block-size: var(--cantos-size-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border: var(--cantos-size-border) solid transparent;
+  border-radius: var(--cantos-web-shape-control);
+  cursor: pointer;
+}
+:where(.cantos-ui) .cui-select-option-label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-select-option-check {
+  display: flex;
+  visibility: hidden;
+  flex: none;
+}
+:where(.cantos-ui) .cui-select-option[aria-selected="true"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-select-option[aria-selected="true"] .cui-select-option-check {
+  visibility: visible;
+}
+:where(.cantos-ui) .cui-select-option[aria-disabled="false"]:hover {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-select-option[data-active="true"] {
+  outline: var(--cantos-size-border) solid var(--cantos-color-focus);
+  outline-offset: calc(-1 * var(--cantos-size-border));
+}
+:where(.cantos-ui) .cui-select-option[aria-disabled="true"] {
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-select-option[aria-selected="true"] {
+    border-color: Highlight;
+  }
+  :where(.cantos-ui) .cui-select-option[data-active="true"] {
+    outline-color: Highlight;
+  }
+  :where(.cantos-ui) .cui-select-option[aria-disabled="true"] { color: GrayText; }
+}
 :where(.cantos-ui) .cui-textarea {
   resize: vertical;
   white-space: pre-wrap;
@@ -528,6 +640,16 @@
 :where(.cantos-ui) :is(.cui-field-control, .cui-choice-control, .cui-range-control):focus-visible {
   outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus);
   outline-offset: var(--cantos-size-focus-offset);
+}
+/* Web-only candidate: keep a two-border focus perimeter, closer to the field, with
+   room for both the external label and help/error. No border/size changes on focus.
+   Existing AuthTonal and Regular consumers retain the compatibility geometry. */
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] {
+  gap: var(--cantos-space-sm);
+}
+:where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible {
+  outline-width: calc(2 * var(--cantos-size-border));
+  outline-offset: calc(2 * var(--cantos-size-border));
 }
 :where(.cantos-ui) :is(.cui-field-help, .cui-field-error) {
   margin: 0;
@@ -614,6 +736,7 @@
   :where(.cantos-ui) .cui-field-control { border: var(--cantos-size-border) solid FieldText; }
   :where(.cantos-ui) .cui-field-control[aria-invalid="true"]:not(:focus-visible) { outline: var(--cantos-size-border) dashed FieldText; }
   :where(.cantos-ui) .cui-field-control:disabled { color: GrayText; }
+  :where(.cantos-ui) .cui-field[data-variant="auth-tonal-spacious"] .cui-field-control:focus-visible { outline-color: Highlight; }
   :where(.cantos-ui) .cui-choice-control[role="switch"] { border-color: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]::before { background: ButtonText; }
   :where(.cantos-ui) .cui-choice-control[role="switch"]:checked { background: Highlight; }
