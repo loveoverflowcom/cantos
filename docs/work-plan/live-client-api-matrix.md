@@ -8,9 +8,12 @@ For [#191](https://github.com/loveoverflowcom/cantos/issues/191), the
 [#179](https://github.com/loveoverflowcom/cantos/issues/179) /
 [#180](https://github.com/loveoverflowcom/cantos/issues/180). Native build-input wiring is
 source-tested only; configured artifacts, provider login, OS browser/secure-store/lifecycle
-and browser navigation acceptance remain unrun. The attempted Android CMP preview is
-`UNSUPPORTED`: the second review found no official CLI and installed Studio 2024.3, below
-Quail 2+ and the project's AGP compatibility range. No PNG/semantics exists. Existing Web BFF/proxy source is present;
+and browser navigation acceptance remain unrun. The authorized tool-update follow-up now has
+an Android Studio Rabbit 1 discovery preview: `PASS`, PNG inspected and exported text-tree
+assertions passed after fixing the sandbox's debug-only tooling dependency. The earlier
+`UNSUPPORTED` CLI/IDE result remains historical; this host preview is not live auth or device
+acceptance. Shared/sandbox Android debug source compilation passed; native host packaging and
+iOS remain unrun. Existing Web BFF/proxy source is present;
 signup authority remains with [#174](https://github.com/loveoverflowcom/cantos/issues/174).
 
 ## Studio capability baseline

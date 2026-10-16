@@ -177,12 +177,92 @@ not opened or queried. The same Draft PR #196 is updated without force push; no 
 provider/account/grant operation, remote CI inspection, merge or issue closure is authorized
 or performed by this review.
 
+## Authorized Android preview follow-up — 16 October 2026
+
+The user subsequently authorized updating Android Studio/the official CLI, cleaning unused
+reproducible caches, and specifically accepted the SDK License Agreement dated 28 April 2026.
+They separately authorized permanent removal of the inventoried `Medium_Phone` AVD including
+userdata/snapshots. These permissions supersede the earlier installation restriction only for
+this bounded environment work. No iOS/full/release build or GitHub CI inspection was added.
+
+### Tool update and cleanup
+
+| Item | Before → after / evidence |
+| --- | --- |
+| Android Studio | Meerkat 2024.3.1 Patch 2, build `243.24978.46.2431.13363775` → Rabbit 1 2026.2.1, build `262.9437.185.2621.16467767`; observed in UI and product metadata |
+| Official Android CLI | Absent → `1.0.16500706` at `/Users/manhblue/.local/bin/android`; no shell-profile change |
+| Studio download | Official arm64 DMG from Google's download page, SHA-256 `16d4a0f8a52413b51869fc18d5bdcdf9cecd38615cd7bb7cf14d51b99d2fef54`; checksum/image verification and Google LLC code signature/notarization passed |
+| JVM for Gradle | Studio's bundled JBR 25 is incompatible with Gradle 8.14.3; the IDE's “Use JVM 21” action provisioned JBR 21.0.11 for the preview import; Microsoft JDK 21.0.7 remains installed |
+| Preserved state | Existing settings/recent projects, plugins, LocalHistory, SDK Platform 35, Build Tools 35.0.0, other toolchains and repository data retained; optional telemetry declined; Google sign-in skipped |
+| Cache cleanup | Six reproducible old-Studio index/cache directories removed after normal IDE exit: `974,991,360` allocated bytes; LocalHistory/testHistory/settings excluded |
+| Exact approved AVD | `Medium_Phone.avd` and its matching `.ini` removed: `5,501,730,816` allocated bytes; exact paths checked, no open handles before/after atomic quarantine, original path absent before deletion |
+| Unused system image | API 36 Google Play arm64 image removed after confirming no AVD references/open handles: `2,405,351,424` allocated bytes; no other AVD or image selected |
+
+Total inventoried cleanup removed **8,882,073,600 allocated bytes (8.272 GiB)**. This is the sum
+of the removed paths' disk allocation before deletion, not a claim about net free-space change
+after new IDE/runtime/dependency caches. Trash was not emptied or otherwise touched. The
+task-owned DMG and old application rollback bundle were removed after the new signed IDE opened.
+Earlier `adb devices` listener denial was not retried or used to change security settings;
+the later no-writer guard used exact-path `lsof`, not adb. No account, provider, TLS or grant
+operation occurred.
+
+### Observed preview failure and bounded fix
+
+With the updated tools, the first render reached the IDE during import and failed to find its
+module. After Android-only sync completed, the same `TheatreDiscoveryLightPreview` failed with
+`Missing ComposeViewAdapter unable to render`. This was a real module-classpath defect:
+`:preview-sandbox` had preview annotations, while runtime tooling existed only in `:androidApp`.
+The correction adds the same pinned `androidx.compose.ui:ui-tooling:1.9.0` to sandbox
+`debugImplementation` inside the existing Android opt-in. It matches the separate shared
+Android preview host; it changes no common/desktop/iOS or release dependency declaration,
+auth logic, UI design, contract or version pin. Independent diff review found no actionable
+scope/dependency issue. No source-mirroring test was added: the actual failed then passed
+render is the focused regression oracle.
+
+The IDE imported the fixed Theatre Gradle root with task-local `cantos.android=true`,
+`cantos.ios=false`, `cantos.native=false` properties. “Build & Refresh” selected only
+`:preview-sandbox:compileDebugSources`, including shared/sandbox `compileDebugKotlinAndroid`;
+its output reported **BUILD SUCCESSFUL in 12s**. No app APK, release or iOS compilation was
+requested. Model sync also generated Compose resource accessors; task names containing release
+source sets are not a release build. Original global Gradle user-home/default JVM settings were
+restored after the project closed. No task-home Gradle daemon remained running.
+
+```sh
+cargo xtask compose-preview cantos-theatre \
+  --file apps/cantos-theatre/mobile/preview-sandbox/src/androidMain/kotlin/com/cantos/theatre/app/TheatrePreviews.kt \
+  --composable TheatreDiscoveryLightPreview \
+  --label issue191-rabbit1-compiled-discovery-light-vi \
+  --android-cli /Users/manhblue/.local/bin/android --timeout-seconds 60
+```
+
+Result: **PASS capture**. Retained bundle:
+`artifacts/ui-evidence/compose-preview/cantos-theatre/20261016T024005Z-0f9cb0f47373/`.
+Renderer: Android Studio layout renderer; annotation: 390 × 844 dp, Vietnamese, default light
+fixture and 1× font scale; output: 1024 × 2216 pixels. PNG SHA-256:
+`b9ef23cb72aa65638fe9bac7861fac1751554d506e50941b4764b0774512a0e7`.
+
+The PNG was opened with `view_image`: Cantos branding/account icon, explicit mock/no-real-audio
+notice, lavender resume card, Vietnamese headings/diacritics, separate mini-player and bottom
+navigation are visible. The work description meets the scroll viewport boundary; this is not a
+full scrolled-content observation. Eleven exact localized text assertions and observed
+root/account-button/miniplayer/navigation structure checks passed against the exported text
+tree; hashes were rechecked. Separate inspection/assertion output is in
+`artifacts/agent-runs/issue191-preview-tools/preview-inspection.json`. Generated `capture.json`
+inspection fields remain unchanged. Evidence is `compiled`, `screenshot-inspected` and
+`semantics-tested` for this named static renderer only. The tree does not expose a complete
+accessibility action/name/state matrix; interaction, focus, motion, screen reader, device, iOS and live-login acceptance remain unrun.
+
+Raw failed/passed capture bundles and IDE/Gradle logs are retained under the above paths and
+`artifacts/agent-runs/issue191-preview-tools/`. Compilation establishes the Android shared and
+sandbox source boundary only; the four Kotlin tests, Android host/selected manifest values,
+built iOS plist and real login remain `NOT_RUN`. The final preflight summary is in the same
+run record/PR; the inherited 307-line skill failure remains outside this fix.
+
 ## Next acceptance
 
-The independent source review is complete; compiler/artifact and runtime acceptance are still
-deferred. First supply the official Android CLI and Quail 2+ IDE, then rerun the exact preview
-command and inspect its image/semantics. Do not install
-tools, run full builds or activate providers merely to remove a gap in this record.
+The independent source review and bounded Android preview are complete. Android host packaging,
+Kotlin test execution, iOS compiler/artifact and runtime acceptance are still deferred. Do not
+run full builds or activate providers merely to remove a gap in this record.
 
 When separately authorized later, artifact acceptance must compare selected nonsecret inputs
 with the actual merged/packaged Android metadata and built iOS Info.plist. Provider/device

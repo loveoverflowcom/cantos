@@ -663,8 +663,10 @@ self-signup/invitation/defer decision remain with [#174](https://github.com/love
 independent of existing-account login. Preview-only verification leaves the native compiled
 and live acceptance gaps explicit and does not reorder publication or authorize provisioning.
 The [second independent review](../evidence/theatre-auth-activation.md#second-independent-review--16-october-2026)
-confirmed two preview prerequisites to supply first: official Android CLI for macOS arm64 and
-Android Studio Quail 2+; the installed 2024.3 IDE also predates support for the pinned AGP 8.11.1.
+and authorized tool-update follow-up distinguish a passed Android host preview from pending
+configured-artifact and live acceptance. CLI 1.0.16500706 / Studio Rabbit 1 now render the
+existing guest discovery wrapper after the sandbox's debug-only tooling correction; source
+compilation and inspected static pixels/text do not accept OS callbacks or live identity.
 
 The bounded [issue133 launch slice](../evidence/theatre-cmp-launch.md) retains the existing
 synchronous host lifetimes and adds platform launch resources plus an optional app-owned CMP

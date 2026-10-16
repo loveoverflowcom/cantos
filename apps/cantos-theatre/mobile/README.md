@@ -104,6 +104,11 @@ Missing keys take diagnostic precedence: if either key is absent/empty, `Missing
 those keys before validating the other value. Once both are supplied, invalid API origin is
 reported before invalid issuer. Every unavailable outcome keeps identity disabled.
 
+The Android sandbox owns its debug-only `ui-tooling:1.9.0` runtime as well as preview annotations.
+Android Studio renders the sandbox module directly, so tooling declared only in `androidApp`
+does not supply its `ComposeViewAdapter`. This dependency is conditional on the Android opt-in;
+it adds nothing to desktop/iOS-only or Android release configurations.
+
 Missing/invalid diagnostics contain enum fields only, never the supplied strings. Android
 preserves non-string manifest literals for invalid-value refusal instead of treating them as
 missing. iOS creates no account controller or logout-barrier directory for unavailable config.
