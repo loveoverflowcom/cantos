@@ -83,7 +83,7 @@ recovers admin, creates grants/credentials, persists a secret or changes TLS/net
 
 ```sh
 cargo xtask kanidm reconcile --issuer https://idm.example/oauth2/openid/cantos-studio-web-bff \
-  --web-origin https://studio.example --group cantos_creators --dry-run
+  --web-origin https://studio.example --group REVIEWED_STUDIO_ADMIN_GROUP --dry-run
 cargo xtask kanidm verify --issuer https://idm.example/oauth2/openid/cantos-studio-web-bff \
   --web-origin https://studio.example --dry-run
 ```
@@ -97,14 +97,17 @@ logout and production remain NOT_RUN. It uses normal TLS validation and refuses 
 endpoints, redirects, remote HTTP and credentials embedded in URLs.
 
 Before any live activation the operator must separately authorize and prepare the confidential
-client, exactly one reviewed Studio callback, an appropriate creator group/openid scope mapping,
+client, exactly one reviewed Studio callback, a dedicated preprovisioned Studio-admin group/openid
+scope mapping,
 S256 enforcement, ES256 signing, trusted TLS and server-side secret delivery. Never reuse this
 client for Theatre or Admin, disable PKCE, enable legacy signing, bypass certificate warnings or
 silently enroll users. See [official Kanidm OAuth2 policy](https://kanidm.github.io/kanidm/stable/integrations/oauth2.html).
 
 Opt-in local server configuration is `CANTOS_STUDIO_OIDC_ISSUER`, operator-delivered
-`CANTOS_STUDIO_OIDC_SECRET` and exact `CANTOS_WEB_ORIGIN`. Secrets never belong in Git, command
-arguments, browser storage or logs. The host still requires development/loopback/local PostgreSQL;
+`CANTOS_STUDIO_OIDC_SECRET`, exact `CANTOS_WEB_ORIGIN` and required nonsecret
+`CANTOS_STUDIO_ADMIN_SUBJECTS` (a JSON array of one or two exact, distinct Studio OIDC subjects).
+Secrets never belong in Git, command arguments, browser storage or logs. The host still requires
+development/loopback/local PostgreSQL;
 there is no production activation flag. Studio reads the bounded current-mount
 `/api/v1/studio/auth/configuration`, confirms the actual cookie with GET `/api/v1/studio/session`,
 and shows the provider sign-in control in OIDC mode. That control performs same-origin DELETE
@@ -145,7 +148,59 @@ issuer/audience/nonce/alg/signature; key rotation/outage; account disable and to
 local logout versus provider SSO; HTTPS browser cookie scope/namespace/CSRF; production secret/TLS
 and revocation recovery policy. Mocked results must never be relabeled Kanidm-live evidence.
 
+## Studio administrator provisioning contract
+
+[ADR 0032](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) fixes Studio to
+one or two administrator accounts provisioned by an authorized operator, with no public Studio
+registration. The accounts administer Studio content within existing resource permissions;
+they receive no implicit `/api/v1/admin` capability, provider administration or cross-owner access.
+Theatre self-registration grants none of those permissions.
+
+Provisioning is a separate, explicitly authorized operation. Before it can run, record the
+target environment/issuer, one or two intended account identities, the reviewed Studio group
+and requested access scope. Never request a password in chat. Do not reuse credentials from
+conversation history, hardcode a password/token or expose provider administration in a public
+signup handler. Use the provider's existing approved secure enrollment/recovery channel and
+server secret-delivery channel; their live availability must be verified by the operator.
+
+The bootstrap sequence is an operator contract, not an executed setup script:
+
+1. Verify the existing issuer/client and inspect current account/group configuration read-only.
+2. Obtain specific approval before creating accounts, credentials, group membership, client
+   grants or permanent access. The uppercase group in the dry-run example is a placeholder;
+   replace it with the actual reviewed group rather than creating a guessed group.
+3. Securely provision the approved one or two accounts and restrict the dedicated Studio
+   client's `openid` mapping to their reviewed group. Keep the existing confidential client,
+   exact redirect, S256, signing and TLS requirements. Do not grant Theatre's signup group
+   access to the Studio client.
+4. Read the accounts' exact subjects for the pinned **Studio** issuer through an authorized
+   provider channel. Configure `CANTOS_STUDIO_ADMIN_SUBJECTS` as a JSON array containing only
+   those subjects, then restart the development host with the existing separately delivered
+   Studio client secret. This roster is not a password, actor ID, email match or role claim.
+5. Accept activation only after real login for each listed account, denial for an unlisted
+   Theatre account, per-request refusal after roster removal, provider disable, logout and
+   the existing cookie/CSRF/recovery checks. Restore only explicitly approved configuration.
+
+The API validates roster count, distinctness and identity syntax at startup. It checks exact
+issuer/subject admission before session issuance and on each authenticated request. Missing
+roster denies login; malformed/partial host configuration fails startup. Reconfiguring the
+roster does not delete old identity/session evidence or durably revoke removed credentials;
+explicit existing revocation controls own that operation. The first admitted callback may
+create the internal actor binding atomically, but cannot provision a provider account or grant.
+No live step above has run as part of the implementation. The development-token fixture path
+remains local-only under the current host restrictions; it is not an account-provisioning path.
+
 ## Theatre identity PR3 (operator preparation remains separate)
+
+The accepted [Theatre self-registration policy](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md)
+does not enable an issuer operation. The pinned1.10.5 source review finds no supported public
+enrollment entrypoint for the current adapter: `/ui/enrol` is authenticated device enrollment,
+and person creation requires administrative authorization. The public Web
+[`GET /api/v1/theatre/auth/configuration`](../../packages/contracts/theatre-identity-v1.md#registration-policy-and-implemented-capability)
+therefore returns `registration.status=unavailable`, with `identity_unconfigured` before Web BFF
+configuration or `provider_unsupported` after it. No registration URL or password/provisioning
+bridge is inferred from OIDC. Actual self-registration remains blocked on an approved supported
+integration; no live issuer configuration/account/grant was inspected or changed by these tests.
 
 The opt-in development host accepts `CANTOS_THEATRE_OIDC_ISSUER` and
 `CANTOS_THEATRE_OIDC_SECRET` only as an explicit pair, independent of Studio. Issuer must end in

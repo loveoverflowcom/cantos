@@ -1,0 +1,7 @@
+{
+  "login": "unconfigured",
+  "registration": {
+    "status": "unavailable",
+    "reason": "identity_unconfigured"
+  }
+}

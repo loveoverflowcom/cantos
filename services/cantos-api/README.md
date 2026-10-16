@@ -58,7 +58,11 @@ The [actor registry](../../docs/architecture/identity-registry.md) is implemente
 `platform/identity`: typed exact keys, atomic registration and explicit operator linking.
 The registry itself authenticates no provider. The separate opt-in
 [Studio OIDC BFF](../../docs/architecture/studio-oidc.md) provides credential verification, durable
-callbacks and hashed Studio sessions on the current route group.
+callbacks and hashed Studio sessions on the current route group. Studio OIDC requires
+`CANTOS_STUDIO_ADMIN_SUBJECTS`, an operator-owned JSON array of one or two exact issuer-scoped
+subjects; callback and each authenticated request refuse all other identities. This admission
+policy grants no separate Admin capability or Work permission, exposes no public Studio signup
+and provisions no account or credentials. See the [operator contract](../kanidm/README.md#studio-administrator-provisioning-contract).
 [OIDC evidence](../../docs/evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
 records the latest signed mocks/real PostgreSQL and observed Studio browser checks separately
 from deferred Kanidm, unobserved runtime/accessibility and production acceptance.

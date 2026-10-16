@@ -5,6 +5,7 @@ use crate::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthRoute, MembershipReturn},
         public_discovery::PublicDiscoveryState,
+        registration::RegistrationState,
     },
     features::{
         account::LiveAccount, auth::AuthPage, common::PersonGlyph, library::LiveLibrary,
@@ -40,10 +41,29 @@ fn refresh_discovery(state: RwSignal<PublicDiscoveryState>) {
     let _ = state;
 }
 
+fn refresh_registration(state: RwSignal<RegistrationState>) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let mut issued = None;
+        state.update(|current| issued = current.begin());
+        if let Some(issued) = issued {
+            leptos::task::spawn_local(async move {
+                let result = crate::live::identity_configuration::load().await;
+                let _ = state.try_update(|current| {
+                    current.finish(issued, result);
+                });
+            });
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = state;
+}
+
 #[component]
 pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     let state = RwSignal::new(AccountViewState::default());
     let discovery = RwSignal::new(PublicDiscoveryState::default());
+    let registration = RwSignal::new(RegistrationState::default());
     let locale = RwSignal::new(Locale::Vietnamese);
     let theme = RwSignal::new(Theme::System);
     let main = NodeRef::<leptos::html::Main>::new();
@@ -54,6 +74,16 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
     }
     if preview {
         let _ = crate::features::auth_preview::guest(state);
+        registration.update(|current| {
+            if let Some(issued) = current.begin() {
+                current.finish(issued, Ok(cantos_contracts::theatre_identity::Configuration {
+                    login: cantos_contracts::theatre_identity::LoginMethod::Oidc,
+                    registration: cantos_contracts::theatre_identity::Registration::Unavailable {
+                        reason: cantos_contracts::theatre_identity::RegistrationUnavailableReason::ProviderUnsupported,
+                    },
+                }));
+            }
+        });
         discovery.update(|s| {
             if let Some(issued) = s.begin_refresh() {
                 s.finish(
@@ -67,6 +97,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
         });
     } else {
         refresh_discovery(discovery);
+        refresh_registration(registration);
     }
     Effect::new(move |_| platform::set_title(&messages::page_title(locale.get(), nav.route.get())));
     Effect::new(move |_| platform::set_document_language(locale.get().lang()));
@@ -113,7 +144,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <super::LiveContainer>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             {move || match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state locale route=auth on_back=Callback::new(move |()| nav.back()) on_register on_login=Callback::new(move |()| nav.login(state)) on_home=Callback::new(move |()| { nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); }) on_membership on_refresh on_logout/> }.into_any(),
+                                Route::Auth(auth) => view! { <AuthPage state registration locale route=auth on_back=Callback::new(move |()| nav.back()) on_register on_login=Callback::new(move |()| nav.login(state)) on_home=Callback::new(move |()| { nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); }) on_membership on_refresh on_logout on_registration_refresh=Callback::new(move |()| { if !preview { refresh_registration(registration); } })/> }.into_any(),
                                 Route::Account => view! { <LiveAccount state locale theme on_login on_register on_logout on_refresh on_membership/> }.into_any(),
                                 Route::Settings => view! { <LivePreferences locale theme/> }.into_any(),
                                 Route::Library | Route::History => view! {

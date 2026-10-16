@@ -42,10 +42,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|_| "OIDC requires an operator-supplied client secret")?;
         let config = OidcConfig::new(&issuer, &web_origin, secret)
             .map_err(|_| "invalid Studio OIDC config")?;
-        let oidc = StudioOidc::new(config).map_err(|_| "OIDC client unavailable")?;
+        let subjects = env::var("CANTOS_STUDIO_ADMIN_SUBJECTS")
+            .map_err(|_| "Studio requires its operator-provisioned administrator subjects")?;
+        let subjects = serde_json::from_str::<Vec<String>>(&subjects)
+            .map_err(|_| "Studio administrator subjects must be a JSON array")?;
+        let oidc = StudioOidc::new(config)
+            .map_err(|_| "OIDC client unavailable")?
+            .with_admin_subjects(subjects)
+            .map_err(|_| "Studio requires one or two distinct valid administrator subjects")?;
         store = store.with_studio_oidc(oidc);
-    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some() {
-        return Err("OIDC secret requires explicit issuer".into());
+    } else if env::var_os("CANTOS_STUDIO_OIDC_SECRET").is_some()
+        || env::var_os("CANTOS_STUDIO_ADMIN_SUBJECTS").is_some()
+    {
+        return Err("Studio secret/administrator subjects require explicit issuer".into());
     }
     if let Ok(issuer) = env::var("CANTOS_THEATRE_OIDC_ISSUER") {
         let secret = env::var("CANTOS_THEATRE_OIDC_SECRET")

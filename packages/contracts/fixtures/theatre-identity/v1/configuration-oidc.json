@@ -1,0 +1,7 @@
+{
+  "login": "oidc",
+  "registration": {
+    "status": "unavailable",
+    "reason": "provider_unsupported"
+  }
+}

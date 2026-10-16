@@ -1,6 +1,39 @@
 //! Theatre Identity v1. Display/session fencing facts, never authentication evidence.
 use serde::{Deserialize, Serialize};
 use std::fmt;
+
+/// Current Theatre Web mount capabilities. This is public display information, not authority.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Configuration {
+    pub login: LoginMethod,
+    pub registration: Registration,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LoginMethod {
+    Unconfigured,
+    Oidc,
+}
+
+/// Product policy permits self-registration; the current Kanidm adapter has no supported
+/// public registration operation. A login endpoint cannot establish that capability.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Registration {
+    Unavailable {
+        reason: RegistrationUnavailableReason,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RegistrationUnavailableReason {
+    IdentityUnconfigured,
+    ProviderUnsupported,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Session {
@@ -52,6 +85,56 @@ pub struct NativeSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn configuration_fixtures_distinguish_unconfigured_and_unsupported_registration() {
+        let schema = serde_json::from_str(include_str!(
+            "../../schemas/theatre-auth-configuration-v1.schema.json"
+        ))
+        .unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for (fixture, login, reason) in [
+            (
+                include_str!("../../fixtures/theatre-identity/v1/configuration-unconfigured.json"),
+                LoginMethod::Unconfigured,
+                RegistrationUnavailableReason::IdentityUnconfigured,
+            ),
+            (
+                include_str!("../../fixtures/theatre-identity/v1/configuration-oidc.json"),
+                LoginMethod::Oidc,
+                RegistrationUnavailableReason::ProviderUnsupported,
+            ),
+        ] {
+            let value: serde_json::Value = serde_json::from_str(fixture).unwrap();
+            assert!(validator.is_valid(&value));
+            assert_eq!(
+                serde_json::from_value::<Configuration>(value).unwrap(),
+                Configuration {
+                    login,
+                    registration: Registration::Unavailable { reason },
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn configuration_never_accepts_inferred_registration_or_credential_fields() {
+        let schema = serde_json::from_str(include_str!(
+            "../../schemas/theatre-auth-configuration-v1.schema.json"
+        ))
+        .unwrap();
+        let validator = jsonschema::validator_for(&schema).unwrap();
+        for value in [
+            serde_json::json!({"login":"oidc","registration":{"status":"supported","url":"https://idm.example/signup"}}),
+            serde_json::json!({"login":"oidc","registration":{"status":"unavailable","reason":"provider_unsupported","url":"https://idm.example/signup"}}),
+            serde_json::json!({"login":"oidc","registration":{"status":"unavailable","reason":"unknown"}}),
+            serde_json::json!({"login":"oidc","registration":{"status":"unavailable","reason":"provider_unsupported"},"client_secret":"not-public"}),
+        ] {
+            assert!(!validator.is_valid(&value));
+            assert!(serde_json::from_value::<Configuration>(value).is_err());
+        }
+    }
+
     #[test]
     fn session_fixture_has_only_noncredential_fencing_facts() {
         let fixture = include_str!("../../fixtures/theatre-identity/v1/session.json");

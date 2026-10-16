@@ -1,5 +1,8 @@
 # Theatre Web auth and spacing — Mac acceptance, 16 October 2026
 
+The [same-day account-policy follow-up](#account-policy-and-server-admission-follow-up) below
+supersedes this earlier run's open signup-policy decision. Earlier observations remain historical.
+
 Part of [#191](https://github.com/loveoverflowcom/cantos/issues/191), delivered on the existing
 Draft [PR #196](https://github.com/loveoverflowcom/cantos/pull/196), branch
 `fix/theatre-auth-activation`. Starting HEAD and remote were
@@ -174,3 +177,124 @@ new accounts/grants/TLS as an acceptance shortcut. Acceptance owner: unassigned.
 No denied action or uncertain remote mutation occurred in this Web slice. Keep PR Draft;
 no merge, issue closure or GitHub CI inspection. Stash `cb8f104`, 11 auxiliary worktrees and
 earlier evidence remain untouched. Baseline hygiene/format failures are not repaired here.
+
+## Account policy and server admission follow-up
+
+**Review boundary:** implement the selected audience/admission policy and truthful Theatre Web
+capability handling on the same Draft PR #196, starting from clean local/remote
+`0d481097524b21a6fd9b47c3dd155fe4c1908b3c`. Remote `develop` was read-only verified at
+`159f57ce66948fa5e42f47a3aec98bbc4857209b` only for branch comparison; the existing branch was
+preserved without rebase/reset.
+
+### Accepted decision and actual implementation
+
+[ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md) accepts listener
+self-registration and only one or two securely provisioned Studio administrators. The earlier
+self-signup/invitation/defer choice is settled. Pinned Kanidm **1.10.5** source has no accepted
+public signup operation: `/ui/enrol` handles an existing authenticated account's credential
+enrollment, while person creation needs authenticated management authority. The source audit
+and exact links are in the ADR and [contract](../../packages/contracts/theatre-identity-v1.md).
+No live issuer settings were inspected or changed; this limitation is not live-provider evidence.
+
+Implemented invariant / owner:
+
+- **Studio admission:** private pure roster accepts exactly one or two distinct exact subjects
+  under the Studio issuer. The development host requires `CANTOS_STUDIO_ADMIN_SUBJECTS` with
+  the existing issuer/secret. Callback refuses unlisted signed identities before registry and
+  session issuance; private requests recheck the stored issuer/subject. Applying a roster change
+  requires host restart. Existing ownership/action permissions and separate Admin capability
+  checks remain. New tests cover Theatre client/issuer refusal, forged groups/email, count and
+  duplicate boundaries, and default deny. No account or credential is hardcoded.
+- **Theatre capability:** public read-only `GET /api/v1/theatre/auth/configuration` has strict
+  schema/DTO/fixtures and no account, database or provider effect. It distinguishes
+  `identity_unconfigured` from `provider_unsupported`; its enum has no supported/signup-success
+  variant. Native-only configuration does not imply a Web login capability.
+- **Web:** a separate pure state owns capability loading, exact failure, duplicate retry and
+  stale response refusal. A bounded same-origin JSON adapter supplies server facts. Registration
+  shows the typed unavailable reason or explicit retry; it never collects credentials or creates
+  a receipt. The existing Button variants, bilingual copy owner and spacing tokens are reused.
+  A persistent polite live region announces capability result changes. Account/session and
+  registration facts do not authorize each other or merge guest data.
+
+No schema migration, credential-format change, provider switch, live provisioning, membership,
+audio, shared tokens/components or mobile implementation changed. This is a partial delivery of
+#174/#191: actual public registration remains blocked by issuer capability.
+
+### Verification and independent evidence
+
+All commands ran locally on Rust 1.98.1. Logs are ignored under
+`artifacts/agent-runs/issue191-signup-mac/` and `artifacts/agent-runs/studio-admin-admission/`.
+The four contract and three router test results are retained in this task's tool outputs only;
+no local log file is claimed for those two focused invocations.
+
+| Layer / exact scope | Result / evidence |
+| --- | --- |
+| L1/L2 admission and purpose boundaries | Source reviewed independently against ADR 0032; exact issuer+subject policy is separate from verification, SQL issuance and resource rights |
+| L3 Studio pure/signed mock HTTP | **PASS**, 12 tests: `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-api --lib platform::studio_oidc::tests --locked`; real local synthetic HTTP issuer, no live accounts. First sandbox run had 4 loopback bind failures; the same authorized escalated command passed unchanged |
+| L3 configuration contract | **PASS**, 4 tests: `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-contracts --locked --lib theatre_identity::tests`; literal fixtures, schema and strict unknown/credential rejection |
+| L3 Theatre application/presentation | **PASS**, 195 unit tests + 3 doctests: `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test -p cantos-theatre --locked`; includes retry/stale/protocol partitions and locale × registration-state semantics |
+| L4 actual Theatre router, lazy database/issuer | **PASS**, 3 tests: `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-api --locked --test theatre_registration_routes`; no database/provider connection, cookies or signup/password handler |
+| Web compilation | **PASS**, `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask build cantos-theatre --web`, debug CSR/WASM; repeated once after the review fix |
+| PostgreSQL test compilation | **PASS**, `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-api --test studio_oidc_postgres --no-run --locked`; adds zero-issuance, consumed retry and roster-removal HTTP/SQL regressions; execution is **NOT_RUN** |
+| Required PostgreSQL execution | **UNSUPPORTED**, `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask verify postgres`: missing trusted `ffmpeg`/`ffprobe` on PATH; prerequisite check stopped before any cluster was created |
+| Affected native lint | **FAIL**, `RUSTUP_TOOLCHAIN=1.98.1 cargo clippy -p cantos-api -p cantos-contracts -p cantos-theatre --all-targets --locked -- -D warnings`: inherited unchanged `player_timeline.rs:314` type-complexity finding |
+| Standard changed-only preflight | **UNSUPPORTED** before execution: missing `ffmpeg`/`ffprobe` and Gradle on PATH; printed `audio-inspection`, `postgres`, `theatre-cmp-demo` UNSUPPORTED and all other rows NOT_RUN. No mobile build ran |
+| Available preflight attempt | **FAIL**, `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask preflight --changed-only --skip audio-inspection --skip theatre-cmp-demo --skip postgres`: repository fails on unchanged 307-line CMP skill; subsequent gates NOT_RUN, three explicit skips NOT_RUN |
+
+Changed Rust files passed scoped rustfmt; whitespace passed. The previous four-file global
+format failure and 307-line CMP skill are unchanged. Repository hygiene is attempted separately
+when unavailable preflight prerequisites prevent it; its actual result remains in the run log.
+No full workspace/release build or GitHub CI inspection was performed.
+
+An independent read-only review covered the new code/docs, private routing, legacy paths,
+developer-token gate, identity construction/issuance and Web async state. Its one P2 finding
+(the async registration result lacked persistent live announcement semantics) was fixed and
+re-read; no actionable source finding remained. Tests and Web build passed after that fix.
+This does not certify screen-reader speech or live provider behavior.
+
+### Mac browser observations
+
+Continued the existing task-owned Trunk host on `127.0.0.1:8082`, previously launched through
+`cargo xtask app cantos-theatre --web`; current debug build passed above. Headed Mac Chrome
+155.0.8059.80, Vietnamese, actual native pointer/keyboard, explicit fixtures separately labeled.
+
+| Scenario | Observed result |
+| --- | --- |
+| Live Register without API | Create Account disabled, service-check error and Check again visible; retry returns the error with no fake account or fallback |
+| Exact auth-preview Register | Provider-unsupported reason shown; no password/input form or success; contextual Back returns Login |
+| Browser Back/Forward + Escape | Back restored the prior live Register document; Forward restored fixture Login, Escape restored its Account origin; no authenticated state appeared |
+| Synthetic A + normal Logout | Signed-in presentation appears only after explicit fixture selection; Logout hides private state and waits for cleanup |
+| Failed cleanup / retry / acknowledgement | Login remains unavailable after failure; retry returns to pending; acknowledgement permits Guest and reload stays Guest |
+| Text/focus/layout | Wide light/dark inspected; 390×844 light error and 320×844 dark unsupported reason wrap; scrolling reaches Back/Home; actual Chrome 200% zoom shows readable controls and a visible keyboard focus ring on Back |
+
+Both ignored original PNGs were opened: `artifacts/ui-evidence/issue191-signup-mac/` with
+`images.json` dimensions/SHA-256 inventory. The 390px image predates the nonvisual live-region
+wrapper; final 320px image and subsequent 200% focus inspection include it. Responsive emulation
+uses DPR2, not a native mobile device. No visual comparator metric is claimed. Observations are
+interaction-tested, accessibility-checked for those keyboard paths, screenshot-inspected and
+cross-viewport/theme-inspected. They are not live identity/API/Studio browser or screen-reader
+acceptance. Performance, cache, motion and OS IME were not measured; no relevant animation changed.
+
+### Deferred acceptance, blockers and outward actions
+
+1. **Signup BLOCKED:** owner must approve an audited enrollment-capable issuer integration and
+   its real verification/return semantics. Self-registration policy is accepted; no request to
+   choose invitation/defer is outstanding. No speculative signup URL or privileged provisioning
+   bridge was added.
+2. **Live login and Studio provisioning BLOCKED:** require the exact environment, issuer/client,
+   existing authorized test identity, and explicit approval of any new account/credential/key or
+   standing grant. The secure provisioning runbook is in `services/kanidm/README.md`; do not send
+   passwords in chat. No such live operation has been attempted.
+3. **SQL acceptance NOT_RUN:** make trusted media prerequisites available, then run
+   `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask verify postgres`. Required evidence:
+   unlisted callback creates zero actor/binding/session/receipt/cookie; retry never re-exchanges;
+   roster removal denies existing sessions on current/legacy private routes while history remains.
+4. **Runtime acceptance NOT_RUN:** operator-prepared API and issuer, then Web guest → existing
+   account provider → callback → confirmed session/Library → reload/logout/refusal, and separate
+   denied Theatre/Studio identity checks. Real registration needs its enrollment adapter first.
+   Native/iOS and VoiceOver remain separate. Acceptance owner is unassigned.
+
+The existing Draft PR stays open; no merge, issue closure, new PR, live identity/credential/grant,
+provider settings or history rewrite. Stash `cb8f104ec2285a36fecab85388623cd09c112950` and all
+11 auxiliary worktrees remain. No remaining approval denial or uncertain remote mutation is
+being treated as a successful identity operation.

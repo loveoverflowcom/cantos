@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantos.local/contracts/theatre-auth-configuration-v1.schema.json",
+  "title": "Theatre Web authentication capability v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["login", "registration"],
+  "properties": {
+    "login": {"enum": ["unconfigured", "oidc"]},
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": {"const": "unavailable"},
+        "reason": {"enum": ["identity_unconfigured", "provider_unsupported"]}
+      }
+    }
+  }
+}

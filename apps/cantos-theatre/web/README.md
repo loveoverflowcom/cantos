@@ -353,11 +353,15 @@ navigation. Contextual Back/cancel invalidates old presentation requests and res
 entry's focus/scroll within the mounted session. Deep links without accepted context fall back to
 Home.
 
-Registration currently has an explicit unavailable state. The repository's pinned Kanidm
-configuration, Theatre router and identity handoff provide no verified self-registration entry or
-callback capability. Cantos therefore collects no password, invents no registration API and
-shows no successful registration from a route alone. Provider-supported signup and its security
-steps remain separately gated; Membership form/receipt/plans remain owned by #128.
+[ADR 0032](../../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) accepts
+listener self-registration and provisioned-only Studio administrators. Web independently reads
+`GET /api/v1/theatre/auth/configuration` on mount. Registration distinguishes loading,
+`identity_unconfigured`, `provider_unsupported`, transport failure and invalid response; failed
+checks expose a bounded, duplicate-fenced retry. The strict contract currently has no supported
+registration variant: pinned Kanidm 1.10.5 has no verified public enrollment operation. This is
+an issuer capability blocker, not an undecided product policy. Cantos collects no password and
+shows no account success from a route or capability read. Auth preview explicitly fixtures
+`provider_unsupported` without network access. Membership form/receipt/plans remain with #128.
 The account view uses Vietnamese/English resources and distinguishes pending, guest, authenticated,
 unavailable/protocol failure and unacknowledged logout. An expired session hides private data
 immediately and requires acknowledged session revocation before another login. Cleanup is stale-only;

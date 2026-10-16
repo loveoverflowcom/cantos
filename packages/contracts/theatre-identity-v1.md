@@ -7,6 +7,7 @@ See the [architecture](../../docs/architecture/theatre-identity.md) for the trus
 
 | Route | Admission / response |
 | --- | --- |
+| GET `/api/v1/theatre/auth/configuration` | Public read-only capability, always mounted; no account/session/provider I/O or credential fields |
 | GET `/api/v1/theatre/auth/login` | Same-origin navigation; redirects to exact Theatre Web issuer, `openid`, code + S256 |
 | GET `/api/v1/theatre/auth/callback` | Exact browser/state/nonce/redirect; consumed before one exchange; opaque cookie only |
 | GET `/api/v1/theatre/session` | Theatre cookie; `{actor_id, session_id}` as nonsecret display/fencing facts |
@@ -25,6 +26,56 @@ never a Web cookie. Cookie/bearer mixtures are refused. Web `/session` accepts o
 Absent Theatre configuration retains default-deny account admission and existing guest routes.
 No automatic guest import/merge. Login/logout never emits history, moves playback or imports
 mock state. Client intent IDs/bodies are stable; A's pending intents cannot be submitted asB.
+
+## Registration policy and implemented capability
+
+[ADR0032](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) accepts
+public self-registration for Theatre and separately provisioned Studio administrators. Theatre
+registration never creates Studio authority or changes a Studio admission list. Product approval
+does not establish provider support or authorize live account/provider configuration changes.
+
+The current Web capability DTO is `theatre_identity::Configuration`, with the strict
+[configuration schema](schemas/theatre-auth-configuration-v1.schema.json) and literal
+[unconfigured](fixtures/theatre-identity/v1/configuration-unconfigured.json) /
+[OIDC](fixtures/theatre-identity/v1/configuration-oidc.json) fixtures:
+
+```json
+{"login":"oidc","registration":{"status":"unavailable","reason":"provider_unsupported"}}
+```
+
+`login` is `unconfigured` without a Theatre Web BFF adapter, including native-only configuration;
+that mount returns registration reason `identity_unconfigured`. With the current Theatre Web
+adapter, login is `oidc` and registration remains `provider_unsupported`. This describes the
+mounted implementation, never live issuer reachability or a successful authentication. Both
+responses are public, `no-store` and `no-referrer`; neither reads cookies, returns provider/client
+secrets, sets a session cookie or allocates a flow. Only GET/HEAD is accepted. Other surfaces and
+the deprecated Studio alias do not inherit this route.
+
+The pinned Kanidm1.10.5 adapter has no accepted public self-registration operation. Its
+[UI router](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/views/mod.rs)
+does not expose signup; its
+[`/ui/enrol`](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/views/enrol.rs)
+requires an authenticated user and creates a credential-update intent for that existing account.
+The [person-creation API](https://github.com/kanidm/kanidm/blob/v1.10.5/server/core/src/https/v1.rs)
+is an authenticated administrative operation, not an anonymous registration contract. This source
+inspection establishes no supported entrypoint for the current adapter; no deployed issuer was
+probed and no provider account/grant/security setting was changed.
+
+There is consequently no `/auth/register`, `/auth/signup`, password-create handler, arbitrary
+registration URL setting or supported-capability variant. OIDC discovery/login, a credential
+enrollment page and a client-supplied URL cannot enable registration. Web must show the precise
+unavailable reason and allow metadata retry/Back/continued guest discovery without submitting
+credentials. Transport/malformed/unknown metadata is a separate client failure, not a supported
+registration state. No provider outcomes such as email-verification-pending or registration
+success are claimed or synthesized.
+
+Actual registration remains blocked on an approved, capability-backed issuer enrollment
+integration: exact provider/version/configuration, accepted route/method and return correlation,
+verification/abuse/recovery policy and isolated Theatre-only authority. Any provider replacement,
+privileged provisioning bridge or live security change needs its own explicit decision/action
+authorization. A future implementation must verify callback/session using the existing OIDC
+authority before showing account success; it must preserve cancellation/replay/account fences
+and must not merge guest data implicitly. Local fixtures do not satisfy that live acceptance.
 
 Native client is fixed `cantos-theatre-native`, scope `openid`, callback
 `com.cantos.theatre:/oauth2/callback`. System-browser adapters parse exact URI, reject fragments,

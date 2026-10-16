@@ -1,4 +1,5 @@
 //! Studio BFF only. No Listener/Admin identity, no production activation, no credential DTO.
+mod administrators;
 mod config;
 use crate::platform::oidc::core;
 mod postgres;
@@ -51,6 +52,7 @@ impl BrowserInventory {
 pub struct StudioOidc {
     config: OidcConfig,
     provider: Provider,
+    administrators: Option<administrators::StudioAdministrators>,
 }
 
 /// Browser receives only random opaque values; no provider bearer or verified proof is returned.
@@ -70,10 +72,28 @@ pub struct LogoutComplete {
 
 impl StudioOidc {
     pub fn new(config: OidcConfig) -> Result<Self, AuthError> {
+        if config.client_id != CLIENT_ID {
+            return Err(AuthError::Configuration);
+        }
         Ok(Self {
             provider: Provider::new(config.clone())?,
             config,
+            administrators: None,
         })
+    }
+
+    /// Admit only one or two operator-provisioned exact subjects at this Studio issuer.
+    /// Without this roster the client supports metadata inspection only, never login.
+    pub fn with_admin_subjects(mut self, subjects: Vec<String>) -> Result<Self, AuthError> {
+        self.administrators = Some(administrators::StudioAdministrators::new(
+            &self.config.issuer,
+            subjects,
+        )?);
+        Ok(self)
+    }
+
+    fn administrators(&self) -> Result<&administrators::StudioAdministrators, AuthError> {
+        self.administrators.as_ref().ok_or(AuthError::Configuration)
     }
     pub fn web_origin(&self) -> &str {
         &self.config.web_origin
@@ -89,6 +109,7 @@ impl StudioOidc {
         store: &Store,
         previous: Option<&str>,
     ) -> Result<LoginStart, AuthError> {
+        self.administrators()?;
         let previous = match previous {
             Some(previous)
                 if valid_secret(previous)
@@ -131,6 +152,7 @@ impl StudioOidc {
         browser: &str,
         code: &str,
     ) -> Result<LoginComplete, AuthError> {
+        let administrators = self.administrators()?;
         if !valid_secret(state)
             || !valid_secret(browser)
             || code.is_empty()
@@ -144,6 +166,9 @@ impl StudioOidc {
             .provider
             .exchange(code, &flow.verifier, &flow.nonce, now)
             .await?;
+        // Authentication never enrolls a listener or an arbitrary provider account in Studio.
+        // Refuse before registry/session issuance; browser claims cannot edit this roster.
+        administrators.authorize(exchange.proof.key())?;
         // Recheck time after network/lock waits. SQL also rechecks against its own commit clock.
         let time = now()?;
         let expires = session_expiry(time, exchange.proof.expires(), exchange.access_expiry)?;
@@ -171,10 +196,17 @@ impl StudioOidc {
     }
 
     pub(crate) async fn authenticate(&self, store: &Store, token: &str) -> Result<(), AuthError> {
+        let administrators = self.administrators()?;
         if !valid_secret(token) {
             return Err(AuthError::InvalidToken);
         }
         let credential = store.oidc_credential(&self.config, token).await?;
+        let identity = crate::platform::identity::domain::ExternalIdentityKey::new(
+            &self.config.issuer,
+            &credential.subject,
+        )
+        .map_err(|_| AuthError::Subject)?;
+        administrators.authorize(&identity)?;
         self.provider
             .introspect(&credential.access_token, &credential.subject, now)
             .await?;

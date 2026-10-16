@@ -3,12 +3,42 @@
 The [#191 activation slice](../evidence/theatre-auth-activation.md) adds nonsecret native build
 inputs and typed missing/invalid diagnostics on top of these owners. Its source regressions,
 preview prerequisites and unrun artifact/provider/device checks are recorded separately from
-the historical integrated results below. Signup remains gated by #174. See the
+the historical integrated results below. [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md)
+now accepts Theatre self-registration and provisioned-only Studio access; #174 retains the
+issuer-capability and return-contract work. See the
 [client evidence matrix](live-client-api-matrix.md#theatre-identity-activation) for the #179/#180
 handoff boundary; no earlier acceptance record is promoted to this new source.
 
-Current resumed status is in the [14 October appendix](#resumed-native-identity-handoff--14-october-2026); earlier sections
-retain the results and blockers of their original snapshots.
+The [current Web-first handoff](#accepted-enrollment-policy-and-web-first-handoff) records the
+accepted policy and next boundaries. The [14 October appendix](#resumed-native-identity-handoff--14-october-2026)
+and earlier sections retain results and blockers of their original native/identity snapshots.
+
+## Accepted enrollment policy and Web-first handoff
+
+The product owner settled the audience/access choice: Theatre users self-register; Studio has
+no public registration and uses only one or two securely provisioned administrator accounts.
+The accepted policy is [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md).
+The earlier #174/#191 selection between self-signup, invitation and defer no longer needs a
+product decision. Public enrollment capability, configuration and live acceptance still need
+evidence. The [Mac Web ledger](../evidence/theatre-web-auth-mac.md) owns this source's executed
+checks; historical results below are not promoted to the current diff.
+
+| Boundary | Next required work / acceptance |
+| --- | --- |
+| Theatre Web application | Reuse the existing BFF and server-confirmed sessions; exercise validation/errors, Back/cancel/retry/history/reload, account fences and logout in the Mac browser. Keep the prior Library spacing repair and shared tokens. |
+| Theatre registration | Consume the separate [login/registration capability contract](../../packages/contracts/theatre-identity-v1.md). Missing identity configuration and unsupported provider capability remain typed unavailable states; neither is a successful signup. |
+| Issuer enrollment | The pinned Kanidm source audit in ADR 0032 does not establish public account creation. Resolve an audited enrollment mechanism for the selected issuer with the owner; do not guess a URL, add a shadow password store, substitute invitation-only policy or switch providers. |
+| Studio admission | Enforce the [one/two-subject server configuration](../architecture/studio-oidc.md) at callback issuance and every private request. Prove that valid unlisted identities, removed subjects, Theatre/native credentials and client-claimed roles cannot enter Studio. No public registration CTA or API is introduced. |
+| Live operator action | Before any real account, credential/key or standing grant is created, obtain specific authorization for the environment, intended account identities and exact rights. Use secure enrollment/handoff; passwords and recovery secrets stay out of chat/Git. No such action is implied by local implementation. |
+| Provider/browser acceptance | Supply the real authorized API/issuer/client/test account, then observe actual login, current session, allowed private read, logout and rejected old session. Self-registration needs its own real enrollment/return evidence. Fixture success cannot satisfy either live gate. |
+| Native | Preserve the existing native source and evidence; Android/iOS signup, system-browser/secure-store/device acceptance remain separate and are not rerun or claimed by this Web-first slice. |
+
+Recommended order: finish the independent Web/configuration and Studio authorization layers,
+resolve the enrollment mechanism blocker, then perform specifically authorized provider/account
+operations and real Web enrollment/login acceptance. Keep the same Draft PR #196 while required
+acceptance is missing; do not close #174/#191 from fixture/build results. Account merge, paid
+membership, provider/credential-format changes and dedicated Admin roles remain outside this
+policy decision.
 
 Initial fresh develop was b09c180 (Publication merged); published PR98 exact
 `9794ed9ddcd376680a01b37938eabdde564290e1`, tree

@@ -8,6 +8,27 @@ Library domain, progress store, guest merge, native audio player or gateway. The
 contextual auth/account over the existing identity owner; its runtime evidence remains distinct
 from live-provider and native acceptance.
 
+## Accepted enrollment policy and current capability
+
+[ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md) accepts listener
+self-registration and limits Studio to one or two securely provisioned administrator accounts.
+The former self-signup/invitation/defer product choice is resolved. Theatre identity, account
+creation and Studio application admission remain separate facts; a Theatre account never gains
+Studio authority through signup or an existing registry binding.
+
+The [Theatre configuration contract](../../packages/contracts/theatre-identity-v1.md) reports
+login readiness separately from registration capability. The pinned Kanidm adapter has no
+verified public self-registration path, so registration remains explicitly unavailable with
+`identity_unconfigured` or `provider_unsupported`; this is a capability blocker, not a decision
+to defer listener self-registration. The source audit and live-operation boundary are recorded
+in ADR 0032. Do not infer an enrollment route from OIDC discovery or credential enrollment.
+
+The current delivery order is Web Leptos login/session/logout and honest capability/error
+presentation, then an enrollment mechanism accepted for the selected issuer and its real Web
+return journey. No provider replacement, account creation or security-setting change is implied.
+Native signup wiring and device acceptance remain separate follow-ups. See the
+[handoff](../work-plan/theatre-identity-handoff.md#accepted-enrollment-policy-and-web-first-handoff).
+
 ## Decisions and critique of the original proposal
 
 The October13 proposal described an old develop snapshot. Current develop has merged Publication,
@@ -92,7 +113,8 @@ storage. `/auth/login?intent=…` accepts that bounded intent; the backend binds
 state with a separate state-named HttpOnly/SameSite=Lax companion cookie under
 `/api/v1/theatre/auth`, using the Secure namespace on HTTPS. This does not replace or extend the
 private browser binder, state/PKCE/nonce validation or flow expiry. Provider tokens remain off the
-browser boundary, and no password form or verified self-registration capability is introduced.
+browser boundary. The accepted self-registration policy and the current unavailable capability
+are separate, as described above; no password form or fabricated completion is introduced.
 
 Successful callbacks emit a fixed `/#auth-return?intent=…`; bound provider cancellation emits
 `/#auth-cancelled?intent=…`. Provider error text and caller redirect URLs are not reflected. A

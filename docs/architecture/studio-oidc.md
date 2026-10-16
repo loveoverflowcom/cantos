@@ -7,6 +7,48 @@ PostgreSQL. This slice changes none of those restrictions. No Kanidm instance/cl
 was provisioned. [Surface boundaries](../decisions/0015-api-surface-boundaries.md) and the
 [identity registry](identity-registry.md) remain authoritative.
 
+## Closed Studio enrollment
+
+The [accepted account-enrollment decision](../decisions/0032-theatre-signup-and-provisioned-studio.md)
+allows public self-registration for Theatre and limits Studio to one or two securely
+preprovisioned administrator accounts. Studio has no public signup route or enrollment form.
+These are Studio operator accounts; admission does not grant the separate `/api/v1/admin`
+capabilities or override existing Work ownership, editor, rights or publication checks.
+
+The development host requires `CANTOS_STUDIO_ADMIN_SUBJECTS` whenever Studio OIDC is enabled.
+Its value is a JSON array of exactly one or two distinct, valid, **exact OIDC subjects**, scoped
+to `CANTOS_STUDIO_OIDC_ISSUER`. They are not email addresses, display names, passwords, access
+tokens, Theatre actor IDs or group claims. No trimming, case folding or identity linking occurs.
+An absent, malformed, empty, duplicate or oversized roster prevents that host from starting;
+supplying a roster without the explicit Studio issuer also fails. Library construction without
+the roster remains suitable for read-only metadata checks but cannot start or complete login.
+
+After normal signature, exact issuer/audience, nonce, expiry and access-token checks, callback
+requires membership in this server-owned roster **before** actor/binding/session issuance.
+Unlisted identities receive the existing unauthenticated refusal and no Studio cookie. Their
+flow remains consumed, so a rejected callback never retries the provider exchange. Each private
+request also checks the current process's roster against the stored exact subject before
+provider introspection. Applying a changed operator roster requires restarting the host; on the
+reconfigured host a removed subject's existing sessions are refused. No identity/history is
+deleted, and adding a subject back does not revoke its previous unexpired sessions. For durable
+revocation use the existing explicit session/actor/provider revocation controls as appropriate.
+
+Roster entries authorize admission only after credential verification. The existing internal
+actor binding may be created atomically on the first authorized login; this creates no provider
+account, credentials, provider grant or application role. Theatre-issued credentials/sessions,
+Theatre signup and arbitrary provider groups cannot add roster entries. The isolated development
+token mode remains a local fixture/operator tool under the existing development-only host gate;
+it is neither public registration nor a production account-bootstrap mechanism.
+
+Real provisioning requires a separate approval naming the environment, account identity and
+intended Studio access. An operator must securely provision the accounts on the existing issuer,
+restrict the dedicated Studio client to those accounts through a reviewed provider group, read
+their exact subject identifiers through an authorized channel, then deliver the confidential
+client secret through the existing server secret channel. Do not create or request passwords in
+chat or source control. No account creation, live group grant, client configuration or credential
+change is executed by this slice. The [operator contract](../../services/kanidm/README.md#studio-administrator-provisioning-contract)
+keeps these activation steps separate from code and synthetic tests.
+
 ## Architecture and explicit choices (L1)
 
 One modular backend owns this BFF; no Gateway, admin directory or new service. The concrete
