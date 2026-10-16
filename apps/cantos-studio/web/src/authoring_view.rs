@@ -18,7 +18,7 @@ use leptos::prelude::*;
 struct AuthoringContext {
     document: Memo<Option<Document>>,
     apply: Callback<Document, bool>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     issues: Signal<Vec<FieldIssue>>,
     activity: RwSignal<bool>,
@@ -226,7 +226,7 @@ fn collection(document: &Document, target: &Target) -> Vec<String> {
 pub fn StructuredEditor(
     draft: Signal<String>,
     on_change: Callback<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     namespace: &'static str,
     baseline: Signal<String>,
@@ -659,7 +659,7 @@ fn ChoiceField(
 
 fn choices(
     values: &'static [&'static str],
-    english: RwSignal<bool>,
+    english: Signal<bool>,
 ) -> Signal<Vec<(String, String)>> {
     Signal::derive(move || {
         values

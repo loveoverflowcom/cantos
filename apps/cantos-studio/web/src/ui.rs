@@ -110,10 +110,7 @@ fn pane_selection(panel: RwSignal<WorkspacePane>, pane: WorkspacePane) -> Callba
 
 /// This changes visibility only. All four app panels stay mounted with their draft state.
 #[component]
-pub fn WorkspaceNavigation(
-    panel: RwSignal<WorkspacePane>,
-    english: RwSignal<bool>,
-) -> impl IntoView {
+pub fn WorkspaceNavigation(panel: RwSignal<WorkspacePane>, english: Signal<bool>) -> impl IntoView {
     view! {
         <nav class="workspace-nav" aria-label=move || text(Key::Workspace, english.get())>
             <div class="workspace-nav-compact">
@@ -206,7 +203,7 @@ pub(crate) fn action_state(blocked: bool, busy: bool, reason: DisabledReason) ->
 #[component]
 pub fn ActionButton(
     #[prop(into)] id: String,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     children: Children,
     on_press: Callback<MouseEvent>,
     #[prop(optional)] focus_on_press: bool,
@@ -237,7 +234,7 @@ pub fn ActionButton(
 #[component]
 pub fn FormSubmit(
     #[prop(into)] id: String,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
@@ -274,7 +271,7 @@ pub enum DiscardTarget {
 #[component]
 pub fn DiscardDraftDialog(
     open: RwSignal<bool>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     on_confirm: Callback<(), bool>,
     on_error: Callback<DialogError>,
@@ -328,7 +325,7 @@ pub fn ContextSelect(
     options: Signal<Vec<(String, String)>>,
     unknown_label: Signal<String>,
     on_change: Callback<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     #[prop(into, default = None.into())] error: Signal<Option<String>>,
 ) -> impl IntoView {
@@ -366,7 +363,7 @@ pub fn ContextSelect(
 #[component]
 pub fn DelegationRevokeDialog(
     open: RwSignal<bool>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     details: Signal<String>,
     on_confirm: Callback<MouseEvent>,
@@ -428,7 +425,7 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let panel = RwSignal::new(WorkspacePane::Proposal);
-            let english = RwSignal::new(false);
+            let english = Signal::stored(false);
             let html = view! { <WorkspaceNavigation panel=panel english=english/> }.to_html();
             assert_eq!(html.matches("aria-pressed=\"true\"").count(), 1);
             assert_eq!(
@@ -454,7 +451,7 @@ mod tests {
             let events = RwSignal::new(Vec::<String>::new());
             let render = |readonly| view! { <ContextSelect id="casting-voice" label=Signal::derive(|| "Giọng người dẫn chuyện".to_owned())
                 value=value.into() options=options.into() unknown_label=Signal::derive(|| "Chưa có trong catalog".to_owned())
-                on_change=Callback::new(move |raw| events.update(|events| events.push(raw))) english=RwSignal::new(false) readonly=Signal::derive(move || readonly) error=Signal::derive(|| Some("Giá trị 0 được giữ · chưa có trong profile".to_owned()))/> }.to_html();
+                on_change=Callback::new(move |raw| events.update(|events| events.push(raw))) english=Signal::stored(false) readonly=Signal::derive(move || readonly) error=Signal::derive(|| Some("Giá trị 0 được giữ · chưa có trong profile".to_owned()))/> }.to_html();
             let missing = render(false);
             assert!(missing.contains("value=\"0\" selected"));
             assert!(missing.contains("Chưa có trong catalog · 0"));
@@ -479,7 +476,7 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let events = RwSignal::new(0usize);
-            let html = view! { <ActionButton id="revision-test-save" english=RwSignal::new(false) blocked=true reason=BlockReason::SaveReview
+            let html = view! { <ActionButton id="revision-test-save" english=Signal::stored(false) blocked=true reason=BlockReason::SaveReview
                 on_press=Callback::new(move |_| events.update(|count| *count += 1))>"Lưu bản sửa đổi bất biến mới"</ActionButton> }.to_html();
             assert!(html.contains("type=\"button\""));
             assert!(html.contains(" disabled"));
@@ -522,7 +519,7 @@ mod tests {
             let owner = Owner::new();
             owner.with(|| {
                 let calls = RwSignal::new(0usize);
-                let html = view! { <DiscardDraftDialog open=RwSignal::new(true) english=RwSignal::new(english) blocked=Signal::derive(|| false)
+                let html = view! { <DiscardDraftDialog open=RwSignal::new(true) english=Signal::stored(english) blocked=Signal::derive(|| false)
                     on_confirm=Callback::new(move |()| { calls.update(|n| *n += 1); true }) on_error=Callback::new(|_| {})/> }.to_html();
                 assert!(html.contains("<dialog"));
                 assert!(!html.split("<dialog").nth(1).unwrap().split('>').next().unwrap().contains(" open"));
@@ -539,7 +536,7 @@ mod tests {
         for blocked in [false, true] {
             let owner = Owner::new();
             owner.with(|| {
-                let html = view! { <FormSubmit id="session-submit" english=RwSignal::new(false) blocked=Signal::derive(move || blocked)>"Đăng nhập"</FormSubmit> }.to_html();
+                let html = view! { <FormSubmit id="session-submit" english=Signal::stored(false) blocked=Signal::derive(move || blocked)>"Đăng nhập"</FormSubmit> }.to_html();
                 assert!(html.contains("type=\"submit\""));
                 assert_eq!(html.contains(" disabled"), blocked);
                 assert_eq!(html.contains("aria-describedby=\"session-submit-reason\""), blocked);

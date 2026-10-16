@@ -11,7 +11,7 @@ use leptos::{ev::Event, prelude::*};
 pub fn ArtworkForm(
     model: Signal<Projection>,
     draft: RwSignal<Draft>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     owner: Signal<bool>,
     blocked: Signal<bool>,
     on_intent: Callback<Intent>,

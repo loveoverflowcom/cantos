@@ -172,7 +172,7 @@ impl RightsForm {
 }
 
 #[component]
-fn Findings(findings: Vec<ProductionFinding>, english: RwSignal<bool>) -> impl IntoView {
+fn Findings(findings: Vec<ProductionFinding>, english: Signal<bool>) -> impl IntoView {
     view! { <div class="production-findings"><h4>{move || text(Key::Findings, english.get())}</h4>
         {if findings.is_empty() { view! { <p>{move || text(Key::NoFindings, english.get())}</p> }.into_any() }
         else { view! { <ul>{findings.into_iter().map(|finding| view! { <li><strong>{move || messages::production::finding(finding.code, english.get())}</strong><small><code>{finding.path}</code></small></li> }).collect_view()}</ul> }.into_any() }}
@@ -180,7 +180,7 @@ fn Findings(findings: Vec<ProductionFinding>, english: RwSignal<bool>) -> impl I
 }
 
 #[component]
-fn Estimate(estimate: ProductionEstimate, english: RwSignal<bool>) -> impl IntoView {
+fn Estimate(estimate: ProductionEstimate, english: Signal<bool>) -> impl IntoView {
     let value = match estimate {
         ProductionEstimate::Unavailable { .. } => None,
         ProductionEstimate::Known {
@@ -200,7 +200,7 @@ fn Estimate(estimate: ProductionEstimate, english: RwSignal<bool>) -> impl IntoV
 #[component]
 pub fn ProductionInputs(
     editor: RwSignal<Editor>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     script_activity: RwSignal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
@@ -381,7 +381,7 @@ fn FormField(
     label: Key,
     value: Signal<String>,
     change: Callback<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     #[prop(default = "text")] kind: &'static str,
     #[prop(optional, into)] min: MaybeProp<String>,
@@ -434,7 +434,7 @@ fn FormSelect(
     value: Signal<String>,
     options: Signal<Vec<(String, String)>>,
     change: Callback<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     #[prop(optional, into)] unsupported: MaybeProp<bool>,
     #[prop(default = Key::UnsupportedControl)] note: Key,
@@ -495,7 +495,7 @@ fn set_binding(binding: &mut BindingForm, field: BindingField, value: String) {
 #[component]
 fn CastingFields(
     state: RwSignal<Production>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     script: Signal<String>,
 ) -> impl IntoView {
@@ -507,7 +507,7 @@ fn CastingFields(
 #[component]
 fn CastingCharacter(
     state: RwSignal<Production>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     script: Signal<String>,
     character_id: String,
@@ -706,7 +706,7 @@ enum BudgetField {
 #[component]
 fn BudgetFields(
     state: RwSignal<Production>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
 ) -> impl IntoView {
     let value = move |field| {
@@ -781,7 +781,7 @@ fn RightsFields(
     state: RwSignal<Production>,
     rights: RwSignal<RightsForm>,
     rights_dirty: RwSignal<bool>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     readonly: Signal<bool>,
     script: Signal<String>,
 ) -> impl IntoView {
@@ -906,7 +906,7 @@ fn RightsFields(
 }
 
 #[component]
-fn SnapshotDetails(snapshot: ProductionSnapshotResponse, english: RwSignal<bool>) -> impl IntoView {
+fn SnapshotDetails(snapshot: ProductionSnapshotResponse, english: Signal<bool>) -> impl IntoView {
     let document = snapshot.document;
     view! { <article class="production-snapshot"><dl class="source-identity">
         <dt>{move || text(Key::SnapshotId,english.get())}</dt><dd><code>{snapshot.id}</code></dd>

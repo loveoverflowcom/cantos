@@ -112,7 +112,10 @@ representation. The [pilot build and rollback](#protobuf-pilot-build-and-rollbac
 the activation boundary and commands. The browser does not decide backend permissions or Script IR validity.
 `packages/contracts/api/` is shared with Axum; no server crate enters the WASM dependency graph.
 
-Vietnamese/English resources cover every async/error state. Semantic labels, polite status,
+Vietnamese/English resources cover every async/error state. The root owns a typed `Locale`
+(`vi-VN` first render) and mirrors it onto `<html lang>`; namespaces not yet migrated read a
+read-only `english` adapter until the [localization decision](../../../docs/evidence/leptos-localization-spike.md)
+is recorded. The switch writes only that locale signal, never draft or session state. Semantic labels, polite status,
 visible focus and keyboard-operable controls use native HTML. Guarded aria-disabled actions
 remain focusable with a reason. No animation or audio is implemented. Page-return handling
 reapplies controlled values if Safari restores WASM state but clears autocomplete-off fields.

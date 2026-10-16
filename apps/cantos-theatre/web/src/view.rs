@@ -35,6 +35,7 @@ pub fn Theatre() -> impl IntoView {
         };
         platform::set_title(&title);
     });
+    Effect::new(move |_| platform::set_document_language(ctx.locale.get().lang()));
 
     view! {
         <UiRoot theme=ctx.theme density=Density::Comfortable class="theatre-shell">
@@ -118,8 +119,8 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
                 </Select>
                 <Select id="theatre-locale" label=Signal::derive(move || ctx.text(Key::Locale).to_owned())
                     value=Signal::derive(move || ctx.locale.get().lang().to_owned())
-                    on_input=Callback::new(move |value: String| { match value.as_str() { "vi-VN" => ctx.locale.set(Locale::Vietnamese), "en" => ctx.locale.set(Locale::English), _ => {} } })>
-                    <option value="vi-VN">"Tiếng Việt"</option><option value="en">"English"</option>
+                    on_input=Callback::new(move |value: String| { if let Some(selected) = Locale::from_lang(&value) { ctx.locale.set(selected); } })>
+                    {Locale::ALL.into_iter().map(|option| view! { <option value=option.lang() lang=option.lang()>{option.autonym()}</option> }).collect_view()}
                 </Select>
                 <Select id="theatre-speed" label=Signal::derive(move || ctx.text(Key::Speed).to_owned())
                     value=Signal::derive(move || ctx.player.view.get().map(|player| player.speed).unwrap_or(100).to_string())

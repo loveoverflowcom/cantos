@@ -20,7 +20,7 @@ fn forget_urls(model: &Projection) {
 pub fn ArtworkPanel(
     actor: Signal<String>,
     work: Signal<Option<CatalogWork>>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     session_pending: Signal<bool>,
     session_epoch: Signal<u64>,
     workspace_busy: Signal<bool>,

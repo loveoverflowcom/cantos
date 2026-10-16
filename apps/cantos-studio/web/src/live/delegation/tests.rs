@@ -662,7 +662,7 @@ fn reveal_shows_the_secret_once_read_only_with_copy_and_warning() {
         let calls = RwSignal::new(0usize);
         let copy_state = RwSignal::new(CopyState::Manual);
         let html = render(|| {
-            view! { <TokenReveal reveal=reveal.clone() english=RwSignal::new(en) copy_state=copy_state.into()
+            view! { <TokenReveal reveal=reveal.clone() english=Signal::stored(en) copy_state=copy_state.into()
                 on_copy=Callback::new(move |()| calls.update(|n| *n += 1)) on_dismiss=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -707,7 +707,7 @@ fn grant_rows_state_text_and_named_revocation() {
     for en in [false, true] {
         let row = |grant: DelegationGrantResponse, here: bool, now: i64| {
             render(move || {
-                view! { <GrantItem grant=grant revoked_here=here now_ms=now english=RwSignal::new(en)
+                view! { <GrantItem grant=grant revoked_here=here now_ms=now english=Signal::stored(en)
                     blocked=Signal::derive(|| false) on_revoke=Callback::new(|_| {})/> }
                 .into_any()
             })
@@ -749,7 +749,7 @@ fn issue_form_projects_server_refusals_onto_their_fields() {
     for en in [false, true] {
         let html = render(|| {
             let problems = RwSignal::new(problems_found.clone());
-            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=problems english=RwSignal::new(en)
+            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=problems english=Signal::stored(en)
                 blocked=Signal::derive(|| false) archived=Signal::derive(|| false) on_submit=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -788,7 +788,7 @@ fn issue_form_projects_server_refusals_onto_their_fields() {
             "{submit}"
         );
         let archived = render(|| {
-            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=RwSignal::new(en)
+            view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=Signal::stored(en)
                 blocked=Signal::derive(|| false) archived=Signal::derive(|| true) on_submit=Callback::new(|()| {})/> }
             .into_any()
         });
@@ -807,7 +807,7 @@ fn issue_form_freezes_pending_fields_and_requires_saving_the_visible_secret() {
             for visible in [false, true] {
                 let html = render(|| {
                     view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![])
-                        english=RwSignal::new(en) blocked=Signal::derive(move || pending)
+                        english=Signal::stored(en) blocked=Signal::derive(move || pending)
                         archived=Signal::derive(|| false) secret_visible=Signal::derive(move || visible)
                         on_submit=Callback::new(|()| {})/> }
                     .into_any()
@@ -840,7 +840,7 @@ fn replay_notice_explains_the_lost_secret_and_offers_revocation() {
     let grant = page().items.remove(0);
     for en in [false, true] {
         let html = render(|| {
-            view! { <UnrecoverableNotice grant=grant.clone() english=RwSignal::new(en) blocked=Signal::derive(|| false)
+            view! { <UnrecoverableNotice grant=grant.clone() english=Signal::stored(en) blocked=Signal::derive(|| false)
                 on_revoke=Callback::new(|_| {})/> }
             .into_any()
         });
@@ -901,7 +901,7 @@ fn lost_focus_returns_to_the_field_retry_or_status_that_explains_the_outcome() {
     );
     // Every target exists in the rendered form or panel markup.
     let html = render(|| {
-        view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=RwSignal::new(false)
+        view! { <IssueForm draft=RwSignal::new(IssueDraft::default()) problems=RwSignal::new(vec![]) english=Signal::stored(false)
             blocked=Signal::derive(|| false) archived=Signal::derive(|| false) on_submit=Callback::new(|()| {})/> }
         .into_any()
     });

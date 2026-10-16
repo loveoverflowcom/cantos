@@ -53,7 +53,7 @@ fn selected_format(value: &str) -> ImportFormat {
 #[component]
 pub fn ManuscriptImport(
     actor: Signal<String>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     session_pending: Signal<bool>,
     dirty: RwSignal<bool>,
     activity: RwSignal<bool>,
@@ -239,7 +239,7 @@ pub fn ManuscriptImport(
 #[component]
 fn SourcePreview(
     record: ImportResponse,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     session_pending: Signal<bool>,
 ) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
@@ -304,7 +304,7 @@ fn SourcePreview(
 #[component]
 pub(crate) fn ExtractionPreview(
     extraction: Extraction,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     #[prop(into, default = "import".to_owned())] namespace: String,
 ) -> impl IntoView {
     let total = extraction.blocks.len();

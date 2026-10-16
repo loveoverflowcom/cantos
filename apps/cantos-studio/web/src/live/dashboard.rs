@@ -85,7 +85,7 @@ fn audio_state(state: AudioSubmissionState, en: bool) -> &'static str {
 pub fn Dashboard(
     facts: RwSignal<Facts>,
     query: RwSignal<DashboardQuery>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     blocked: Signal<bool>,
     session_pending: Signal<bool>,
     on_new_work: Callback<()>,
@@ -198,7 +198,7 @@ mod tests {
         let owner = Owner::new();
         owner.with(|| {
             let facts = RwSignal::new(Facts::default());
-            let english = RwSignal::new(false);
+            let english = Signal::stored(false);
             let noop = Callback::new(|()| {});
             for read in [CatalogRead::NotRead, CatalogRead::Loading, CatalogRead::Failed(ClientError::Transport), CatalogRead::Ready] {
                 let empty = read == CatalogRead::Ready;
@@ -242,7 +242,7 @@ mod tests {
             let query = RwSignal::new(DashboardQuery { context: Some(("alice".into(), 1)), read: CatalogRead::Ready });
             let dispatches = RwSignal::new(0);
             let intent = Callback::new(move |()| dispatches.update(|count| *count += 1));
-            let html = view! { <Dashboard facts=facts query=query english=RwSignal::new(false)
+            let html = view! { <Dashboard facts=facts query=query english=Signal::stored(false)
                 blocked=Signal::derive(|| true) session_pending=Signal::derive(|| false)
                 on_new_work=intent on_import=intent on_editor=intent on_continue=intent on_audio=intent on_refresh=intent on_next=intent
                 on_pick=Callback::new(move |_: String| dispatches.update(|count| *count += 1))/> }.to_html();

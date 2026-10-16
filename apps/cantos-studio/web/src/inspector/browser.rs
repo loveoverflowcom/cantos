@@ -124,7 +124,7 @@ fn review(
 #[component]
 pub fn RevisionInspector(
     state: RwSignal<Editor>,
-    english: RwSignal<bool>,
+    english: Signal<bool>,
     #[prop(optional)] activity: Option<RwSignal<bool>>,
     #[prop(optional)] draft_activity: Option<RwSignal<bool>>,
 ) -> impl IntoView {
@@ -290,7 +290,7 @@ pub fn RevisionInspector(
 }
 
 #[component]
-fn RevisionDetails(revision: RevisionResponse, english: RwSignal<bool>) -> impl IntoView {
+fn RevisionDetails(revision: RevisionResponse, english: Signal<bool>) -> impl IntoView {
     let revision = StoredValue::new(revision);
     view! {
         <details class="revision-export">
@@ -304,7 +304,7 @@ fn RevisionDetails(revision: RevisionResponse, english: RwSignal<bool>) -> impl 
 }
 
 #[component]
-fn ReviewDetails(review: ReviewResponse, english: RwSignal<bool>) -> impl IntoView {
+fn ReviewDetails(review: ReviewResponse, english: Signal<bool>) -> impl IntoView {
     let review = StoredValue::new(review);
     view! {
         <p class="review-record">{move || text(Key::Reviewed, english.get())}" "{review.with_value(|review| review.revision)}" · "{review.with_value(|review| review.reviewed_by.clone())}" · "{review.with_value(|review| review.reviewed_at.clone())}</p>
@@ -318,7 +318,7 @@ fn ReviewDetails(review: ReviewResponse, english: RwSignal<bool>) -> impl IntoVi
 }
 
 #[component]
-fn SourceDetails(source: SourceResponse, english: RwSignal<bool>) -> impl IntoView {
+fn SourceDetails(source: SourceResponse, english: Signal<bool>) -> impl IntoView {
     let source = StoredValue::new(source);
     let copy = move || messages::import_copy(english.get());
     view! {
@@ -336,7 +336,7 @@ fn SourceDetails(source: SourceResponse, english: RwSignal<bool>) -> impl IntoVi
 }
 
 #[component]
-fn ImportedSourceDetails(source: ImportResponse, english: RwSignal<bool>) -> impl IntoView {
+fn ImportedSourceDetails(source: ImportResponse, english: Signal<bool>) -> impl IntoView {
     let api = expect_context::<StudioContext>().api;
     let download = api.original_import_path(&source.id).ok();
     let namespace = format!("inspector-{}", source.id);
