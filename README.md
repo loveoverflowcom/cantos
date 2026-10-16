@@ -39,8 +39,10 @@ and the isolated [UI mock](docs/evidence/theatre-web-mock.md) is selected explic
 code in `:shared` and explicit demo adapters/composition in the separate `:preview-sandbox`
 KMP module, plus a tested common/JVM listener transport seam;
 native audio and live client integration remain deferred; public media delivery is fail-closed. The bounded [native launch slice](docs/evidence/theatre-cmp-launch.md) adds Android/iOS launch resources and an optional app-owned CMP presentation; current synchronous owners skip the optional frame. Native and identity acceptance remain separately scoped.
-No production Android host exists yet, so its release dependency graph and APK/AAB exclusion
-remain **BLOCKED / NOT_RUN**; the demo APK establishes no production isolation.
+A production Android host composes `:shared` only and, until production listening adapters
+exist, states that listening is unavailable. `cargo xtask theatre-host android-release` inspects
+its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
+APK establishes no production isolation.
 See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
 
 [Private object storage](docs/architecture/object-storage.md) implements filesystem and generic

@@ -3,9 +3,10 @@
 The current source has production-safe `:shared` and a separate `:preview-sandbox` KMP module.
 The sandbox depends on shared UI/domain/application/ports; demo hosts select sandbox composition
 explicitly. Current checks belong to the [#122 isolation record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
-There is no production Android host, so release compile/runtime graph and actual APK/AAB
-exclusion are **BLOCKED / NOT_RUN**. A demo APK establishes neither production exclusion nor
-native listening acceptance. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
+The production Android host `:androidProductionApp` composes `:shared` only; its release
+compile/runtime graphs and actual unsigned APK/AAB are inspected by `cargo xtask theatre-host
+android-release`. A demo APK establishes neither production exclusion nor native listening
+acceptance, and the production host claims no listening capability. [ADR 0026](../../../../docs/decisions/0026-theatre-mobile-local-storage-sandbox.md)
 remains proposed.
 
 The historical architecture/evidence below began with the requested 407-line brief and
@@ -145,7 +146,7 @@ and `okio-fakefilesystem` retain their upstream names.
 :preview-sandbox --> :shared
 desktop/iOS demo --> :preview-sandbox (exports :shared to the Swift host)
 :androidApp demo --> :shared + :preview-sandbox
-future production host --> :shared + production adapters only
+:androidProductionApp --> :shared (+ production adapters when #14 adds them)
 ```
 
 Shared main source and declared Gradle dependency guards are bounded static evidence, not
@@ -155,9 +156,9 @@ compile/runtime graphs and shared Android release compile/runtime graphs when An
 main compilation, assemble and `desktopTest` depend on it. Its report is
 `shared/build/reports/production-boundary/resolved-dependencies.txt`. Execution and scope are
 recorded in [#122 evidence](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
-A future production host must prove
-both release graphs and its actual APK/AAB exclude sandbox code, resources and test dependencies;
-debug flags and R8 removal alone cannot establish that boundary.
+The production host proves both release graphs and its actual unshrunk APK/AAB exclude sandbox
+code, resources and test dependencies; debug flags and R8 removal alone cannot establish that
+boundary.
 
 ## Playback and reset invariants
 

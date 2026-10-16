@@ -2,7 +2,8 @@
 
 - Status: proposed; the `ProgressPort` contract suite and separate `:preview-sandbox` KMP module
   are implemented. This record has not been accepted by a maintainer. No storage library,
-  directory abstraction or durable adapter is adopted; production release exclusion is unverified.
+  directory abstraction or durable adapter is adopted. The production Android host's unsigned
+  release graph/APK/AAB exclusion is inspected; signed/shrunk production releases do not exist.
 - Date: 2026-10-14
 - Decision owner: Cantos maintainers
 - Related: [mobile architecture](../architecture/mobile.md#implementation-decisions-to-record),
@@ -31,7 +32,7 @@ compiled in `:shared`. Merely changing their Kotlin package or hiding them behin
 could not exclude them from a future production dependency graph. The current extraction keeps
 the real UI and application owners in `:shared` and moves diagnostic composition and adapters
 into `:preview-sandbox`; its [evidence record](../evidence/issue122-cmp-sandbox-isolation.md)
-separates source/build checks from the absent production host and release artifacts.
+separates source/build checks from the production host's release graph and artifact inspection.
 
 Known facts, from the code and owning documents:
 
@@ -106,13 +107,14 @@ The proposal's technical observations, checked against these facts:
    to the sandbox; shared composition requires explicit inputs and supplies no implicit mock
    fallback. This is a build boundary, independent of debug flags or R8 removal.
 
-   A future production Android host must depend on `:shared` plus production adapters only.
-   Its `releaseCompileClasspath` and `releaseRuntimeClasspath` must exclude `:preview-sandbox`,
-   `okio-fakefilesystem`, `ktor-client-mock` and test dependencies. Inspect its actual APK/AAB
-   DEX/classes, resources and manifest for mock entrypoints, fixtures and diagnostic controls.
-   There is currently no production Android host: those graph and artifact checks are
-   **BLOCKED / NOT_RUN**. The demo application's APK cannot establish production exclusion,
-   so this source extraction does not complete #122.
+   The production Android host `:androidProductionApp` depends on `:shared` plus production
+   adapters only. Its `releaseCompileClasspath` and `releaseRuntimeClasspath` must exclude
+   `:preview-sandbox`, the demo host, `okio-fakefilesystem`, `ktor-client-mock` and test
+   dependencies; a Gradle task enforces that before every host build. `cargo xtask theatre-host
+   android-release` inspects its unsigned, unshrunk APK/AAB DEX classes, resources and manifest
+   against the sandbox's compiled class inventory and resource bytes. Until #14 supplies
+   production listening adapters, the host renders an explicit unavailable state, never a mock
+   fallback. The demo application's APK never establishes production exclusion.
 
    Cantos-owned implementations and fixtures use `Mock`, including `MockStorageDatabase`,
    `MockPersistentProgressPort`, `MockStorageSession` and `MockStorageSessionApp`. Third-party
@@ -154,8 +156,8 @@ per-connection stores, one store shared across stores, a store ignoring cancella
 floating-point `Long` encoding. Each failed at least one case, and both real bindings passed.
 Android and iOS execution of that suite was `NOT_RUN`. Current extraction checks and renderer
 results are recorded separately in [#122 evidence](../evidence/issue122-cmp-sandbox-isolation.md);
-historical results do not certify the new Gradle graph. Production release graph/APK/AAB
-inspection remains **BLOCKED / NOT_RUN** until a real production host exists.
+historical results do not certify the new Gradle graph. The production host's release
+graph/APK/AAB inspection and its sensitivity checks are recorded in the same evidence record.
 
 Revisit when #16 starts download staging, when #17 schedules durable progress after the listener
 progress contract and #34, when an installed Kotlin/Native 2.2.20 makes iOS linking possible, or

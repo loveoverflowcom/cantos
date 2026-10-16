@@ -53,12 +53,16 @@ cancellation and reset-epoch controls remain mock-only. Preserve assertions and 
 when moving a test; a successful task with no selected tests proves no regression claim.
 
 For build isolation, inspect the source/Gradle guard and its negative fixtures first, then
-resolve/compile the actual module graph. A future production Android host must exclude
-`:preview-sandbox`, `okio-fakefilesystem`, `ktor-client-mock` and test dependencies from both
-`releaseCompileClasspath` and `releaseRuntimeClasspath`. Independently inspect the real APK/AAB
-DEX/classes, resources and manifest for mock entrypoints/fixtures and diagnostic controls.
-The current `androidApp` is a demo host (`com.cantos.theatre.demo`), so production graph/artifact
-evidence is **BLOCKED / NOT_RUN**, not a result inferred from its APK or R8 removal. Source guards
+resolve/compile the actual module graph. The production Android host `androidProductionApp`
+must exclude `:preview-sandbox`, the demo host, `okio-fakefilesystem`, `ktor-client-mock` and
+test dependencies from both `releaseCompileClasspath` and `releaseRuntimeClasspath`; its
+`assertReleaseDependencyBoundary` task enforces that before every build. Then run `cargo xtask
+theatre-host android-release`, which inspects the real unshrunk APK/AAB DEX class definitions,
+resources and manifest against the sandbox's compiled class inventory. A finding-free result
+must still name its required production classes; an empty inventory is an error. `androidApp`
+is a demo host (`com.cantos.theatre.demo`): never infer production evidence from its APK or from
+R8 removal. When the boundary changes, repeat the recorded sensitivity check (a process-local
+init script adding the sandbox edge must fail the Gradle task and, if bypassed, the inspector). Source guards
 are bounded lexical checks; they establish neither resolved Gradle contents nor packaged exclusion.
 Current results belong in the [#122 record](../../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 

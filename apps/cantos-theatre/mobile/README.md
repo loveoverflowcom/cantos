@@ -20,8 +20,11 @@ owns domain/application logic, ports, non-mock adapters and the actual `CantosPr
 UI with neutral immutable `ShellState`/`ShellEvent` models. The sandbox owns synthetic data,
 mock adapters, `CantosDemoApp`, diagnostic session/projector wiring and previews. It depends on
 `:shared`; shared main sources never depend back on it and provide no implicit mock factory.
-Demo hosts select the sandbox explicitly. There is no production Android host: production
-release classpath and APK/AAB exclusion is **BLOCKED / NOT_RUN**, and a demo APK cannot accept
+Demo hosts select the sandbox explicitly. The production Android host `androidProductionApp`
+(`com.cantos.theatre`) composes `:shared` only; with no production listening adapter yet, it
+renders the explicit `CantosListeningUnavailable` state instead of any mock fallback.
+`cargo xtask theatre-host android-release` builds its unsigned, unshrunk release APK/AAB and
+inspects the release classpaths, DEX classes, resources and manifest; a demo APK cannot accept
 that requirement. The [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
 records current checks separately from the historical results cited below.
 
@@ -125,7 +128,7 @@ The first diagnostic frame initializes the existing preferences owner from syste
 subsequent mounts retain the same owner. Official logo curves are converted into local vector
 resources from the issue's supplied kit, with [provenance and evidence](../../../docs/evidence/theatre-cmp-launch.md).
 No shared wrapper is newly qualified. Shared Logo Kit/component admission (#127) and
-production release artifact isolation (#122) remain separate acceptance work; the identity guest-shell
+production release artifact isolation (#122) are separate acceptance work; the identity guest-shell
 composition (#130) is the [guest-first account slice](#guest-first-account-and-auth) below.
 This launcher change does not complete production mobile or those issues.
 
@@ -249,6 +252,8 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo run
 
 # Existing platform 35 + build-tools 35.0.0 in ANDROID_HOME / ANDROID_SDK_ROOT.
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo android-build
+# Production host (shared only): unsigned release APK/AAB plus artifact inspection.
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-host android-release
 
 # Full Xcode and already installed Kotlin/Native 2.2.20 distribution.
 RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
@@ -257,16 +262,26 @@ RUSTUP_TOOLCHAIN=1.98.1 cargo xtask theatre-demo ios-build \
 
 To hand the **demo** APK to testers through Firebase App Distribution use the explicit
 `cargo xtask distribute firebase` workflow; see [Firebase distribution](docs/firebase-distribution.md).
-It distributes this mock only: it establishes no production readiness, and the production APK/AAB
-distribution stays `UNSUPPORTED` until a real production Android host exists (#122).
+It distributes this mock only: it establishes no production readiness. The production host's
+release is unsigned and has no listening adapter, so production APK/AAB distribution stays
+`UNSUPPORTED` (#14).
 
 Build and verification invoke `:shared:assertProductionSafeDependencies` through main compile,
 assemble and `desktopTest` dependencies. It checks resolved shared desktop compile/runtime
 classpaths and, when Android is enabled, shared Android release compile/runtime classpaths for
 sandbox projects and test-only dependencies. Its ignored report is
 `shared/build/reports/production-boundary/resolved-dependencies.txt`. This is a library graph
-guard; it does not inspect a production app's release graph or APK/AAB. Actual execution
-results are recorded in the [isolation evidence](../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
+guard; it does not inspect an app's release graph or APK/AAB.
+
+The production host's `preBuild` runs `:androidProductionApp:assertReleaseDependencyBoundary`:
+its resolved release compile/runtime classpaths may contain no local project except `:shared`
+and no test, mock or Compose tooling module. `theatre-host android-release` then compiles the
+sandbox's Android release classes only as a forbidden inventory and runs
+`scripts/inspect_android_release.py`. It checks DEX class definitions, resource bytes/paths,
+Compose resource packages and the `aapt2`-decoded manifests of the actual unsigned, unshrunk
+APK and AAB. Reports are ignored files under `androidProductionApp/build/reports/release-boundary/`.
+The release is never signed, installed or distributed by xtask. Actual execution results are
+recorded in the [isolation evidence](../../../docs/evidence/issue122-cmp-sandbox-isolation.md).
 
 Android output: `androidApp/build/outputs/apk/debug/androidApp-debug.apk`. Open this Gradle root
 in Android Studio with `-Pcantos.android=true` for sync, then select `androidApp` to run on an
@@ -447,9 +462,9 @@ live adapter and leave the current mount intact.
 
 The workbench imports only the self-contained shared preview settings directory in `desktopMain`;
 `commonMain` does not reverse-import shared preview orchestration. This is the bounded #144
-consumer seam. The sandbox now has a separate KMP build boundary;
-[#122](https://github.com/loveoverflowcom/cantos/issues/122) still requires proof of actual
-production release graph and APK/AAB source/dependency exclusion when a production host exists.
+consumer seam. The sandbox has a separate KMP build boundary, and
+[#122](https://github.com/loveoverflowcom/cantos/issues/122)'s production release graph and
+APK/AAB exclusion are checked on the production host by `cargo xtask theatre-host android-release`.
 No desktop preview, source-set check or mock APK build substitutes for that artifact proof.
 
 ## Design and acceptance

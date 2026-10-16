@@ -26,8 +26,7 @@ and redefines none of them:
 
 Product truth lives in [`docs/architecture/mobile.md`](../../../docs/architecture/mobile.md)
 (the owner for mobile behavior), [`apps/cantos-theatre/mobile/README.md`](../../../apps/cantos-theatre/mobile/README.md),
-[work item 050](../../../docs/work-plan/050-cmp-native-listening.md), the
-[UI system](../../../docs/design/ui-system.md) and
+[work item 050](../../../docs/work-plan/050-cmp-native-listening.md), the [UI system](../../../docs/design/ui-system.md) and
 [business rules 25–29](../../../docs/product/business-rules.md#listening-and-mobile). Link them;
 when this skill and a document disagree, the document wins and the conflict is reported.
 For registered stateful scenarios, compose [cantos-behavior](../cantos-behavior/SKILL.md):
@@ -47,9 +46,10 @@ and never infer client/device acceptance from model simulation.
   The sole mobile product is Theatre; Studio is Web-only under the
   [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope).
   Shared libraries may serve Theatre Mobile and Studio Web.
-- There is no production Android host. [#122's isolation record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)
-  distinguishes source/build guards from the **BLOCKED / NOT_RUN** production release classpath
-  and APK/AAB inspection. A demo APK, debug flag or R8 removal cannot accept production exclusion.
+- Production host `androidProductionApp` composes `:shared` only and shows `CantosListeningUnavailable`
+  until #14's adapters exist, never a mock; rerun `cargo xtask theatre-host android-release`
+  ([testing](references/cmp-testing.md), [#122 record](../../../docs/evidence/issue122-cmp-sandbox-isolation.md)).
+  A demo APK, debug flag or R8 removal cannot accept production exclusion.
   Use `Mock` for Cantos-owned adapters/fixtures; retain third-party names such as Okio
   `FakeFileSystem`. Add no directory, SQLite, file-system or HTTP mock dependency without a consumer.
 - Motion today: the pure `MotionPolicy.kt` (intent × property × preference, token-fed) in the
@@ -70,11 +70,9 @@ and never infer client/device acceptance from model simulation.
   written with [`templates/adr.md`](../../../templates/adr.md), and a pinned version checked
   against official documentation **for every target** — Android support does not imply
   `commonMain` or iOS support.
-- Platform audio, background and storage rules change between OS releases. Treat every platform
-  API detail here as a question to verify against current docs and a real device, not as API
-  reference.
-- Never report a build, test, device run, screen-reader walkthrough or audio observation that did
-  not happen. Linux hosts cannot produce iOS runtime evidence.
+- Platform audio, background and storage rules change between OS releases: verify every platform
+  API detail here against current docs and a real device. Never report a build, test, device run,
+  screen-reader walkthrough or audio observation that did not happen; Linux cannot produce iOS evidence.
 
 ## Scope and mode
 
@@ -83,9 +81,8 @@ has a user-requested JVM desktop component preview, shared-token mapping and an 
 library host with thin `@Preview` wrappers around the actual shared components and fixtures.
 `cargo xtask ui-preview cmp android-build` compiles that library; `cargo xtask compose-preview
 ui-system-cmp` captures an existing wrapper through Android Studio. The [PR43 Android host record](../../../docs/evidence/cmp-pr43-android-preview.md) records an actual
-Android build and four inspected captures with asserted static semantics. These
-consumers produce no mobile APK, implement no product mobile app and do not verify Android/iOS device
-behavior. Qualification is only what `qualifications` in the
+Android build and four inspected captures with asserted static semantics. These consumers produce
+no mobile APK or product app and verify no Android/iOS device behavior. Qualification is only what `qualifications` in the
 [preview catalog](../../../packages/ui-system/shared/preview-catalog.json) records and the
 repository gate keeps fresh; every other API is unqualified, and a change to the CMP package
 invalidates those records until they are re-run and re-reviewed. The gallery also holds a
@@ -98,8 +95,8 @@ The [gallery recipe contract](../../../packages/ui-system/cmp/README.md#scenario
 and [Theatre desktop workbench](../../../apps/cantos-theatre/mobile/README.md#scenario-workbench)
 own selection, reset, intent replay and synthetic snapshots. The Theatre workbench stays in
 `preview-sandbox/src/desktopMain`; its move preserves the existing replay and ownership semantics.
-[#122](https://github.com/loveoverflowcom/cantos/issues/122) still requires proof that a real
-production host's release graph and APK/AAB exclude sandbox sources and dependencies.
+[#122](https://github.com/loveoverflowcom/cantos/issues/122)'s production host release graph and
+APK/AAB exclusion are re-proved by `theatre-host android-release`, not by any demo build.
 
 | The task | Use |
 |---|---|
@@ -151,21 +148,18 @@ Kotlin rules below apply its taxonomy, containment and cancellation policy.
 - **Material 3 Expressive.** Through generated tokens and one `CantosTheme`; expressive APIs only
   where the pinned CMP Material 3 artifact provides them on every target; dynamic color never
   replaces the lavender identity. → [cmp-design-system.md](references/cmp-design-system.md)
-- **CMP localization before Composables.** Before adding a label, accessible name, state
-  or dialog, search shared `presentation/model/ShellCopy.kt`, `AuthCopy.kt`,
-  `MembershipCopy.kt` and `composeResources/values{,-en}/strings.xml`; sandbox-only
-  diagnostics use injected `DemoShellCopyOverrides` in `:preview-sandbox`.
-  Reuse keys within the actual owner; update both languages and focused parity tests,
-  not a new `*Copy` enum or hard-coded `Text("...")`. The optional launch presentation uses
-  `stringResource`, separately from `ShellLocale` mapped from `PreferenceLocale`:
-  alignment is an **open gap**, not native runtime evidence. Compare Compose Resources,
-  moko-resources and
-  Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
-  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167).
-  Locale persistence/precedence remain proposed, not permission to add a storage port.
-  Keep mock preview state injectable; #122's production APK/AAB exclusion remains
-  **BLOCKED / NOT_RUN**, not accepted by a demo build.
-  Do not translate creator content or clear playback on locale changes.
+- **CMP localization before Composables.** Before adding a label, accessible name, state or
+  dialog, search shared `presentation/model/ShellCopy.kt`, `AuthCopy.kt`, `MembershipCopy.kt`
+  and `composeResources/values{,-en}/strings.xml`; sandbox-only diagnostics use injected
+  `DemoShellCopyOverrides` in `:preview-sandbox`. Reuse keys within the actual owner; update both
+  languages and focused parity tests, not a new `*Copy` enum or hard-coded `Text("...")`. Launch
+  and unavailable presentations use `stringResource`, separately from `ShellLocale` mapped from
+  `PreferenceLocale`: alignment is an **open gap**, not native runtime evidence. Compare Compose
+  Resources, moko-resources and Lyricist in [#169](https://github.com/loveoverflowcom/cantos/issues/169)
+  before adoption under [#167](https://github.com/loveoverflowcom/cantos/issues/167). Locale
+  persistence/precedence remain proposed, not permission to add a storage port. Keep mock preview
+  state injectable; a demo build never accepts #122's production APK/AAB exclusion. Do not
+  translate creator content or clear playback on locale changes.
 - **Honest evidence.** Cheapest deterministic test in `commonTest` first; OS behavior needs a
   named device, emulator or simulator; a missing environment is *blocked*, never *passed*.
   → [cmp-testing.md](references/cmp-testing.md)
@@ -230,12 +224,11 @@ steps. Skipping a step is a decision you state, as the foundation requires.
 
 ## Native gates: what only a device can prove
 
-Keep OS launcher icons, native splash/LaunchScreen and CMP brand components separate. Reuse
-the checksum-pinned official Logo Kit through the existing generator; inspect source artwork
-before changing native wrappers. Resource/asset-catalog checks and APK inspection establish
-packaging only. Launcher acceptance needs opened Home/drawer-or-App-Library/Settings captures
-with OS, mask, density, theme, source hash and installed build identity. See the shared
-[native icon review](../cantos-ui-design/references/visual-review.md#native-launcher-icons).
+Keep OS launcher icons, native splash/LaunchScreen and CMP brand components separate. Reuse the
+checksum-pinned official Logo Kit through the existing generator; inspect source artwork before
+changing native wrappers. Resource/asset-catalog checks and APK inspection establish packaging
+only; launcher acceptance needs opened Home/drawer-or-App-Library/Settings captures with OS, mask,
+density, theme, source hash and installed build identity ([native icon review](../cantos-ui-design/references/visual-review.md#native-launcher-icons)).
 
 | Claim | Cheapest deterministic evidence | Native evidence still required | Blocked when |
 |---|---|---|---|

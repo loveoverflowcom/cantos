@@ -289,9 +289,10 @@ affected renderer/state/lifecycle gaps before expanding #143's proposal batches.
 memory-session semantics; replay does not implement durable storage, native audio or OS process
 death. The [#122 module extraction](../evidence/issue122-cmp-sandbox-isolation.md) keeps these
 diagnostics in `:preview-sandbox`, which consumes the neutral UI and owners in `:shared`.
-Before native product rollout, prioritize a real production Android host, then inspect its
-release compile/runtime graphs and APK/AAB classes, resources and manifest for sandbox exclusion.
-The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
+The production Android host now composes `:shared` only; `cargo xtask theatre-host
+android-release` inspects its release compile/runtime graphs and APK/AAB classes, resources and
+manifest for sandbox exclusion. Rerun it when #14 adds production adapters, permissions, signing
+or R8. The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
 #144's replay/lifecycle semantics and #130's guest/account boundary while composing production
 adapters; add storage libraries only with #16/#17's consumers and reviewed account policy.
 This orchestration slice qualifies no shared API and does not reorder the backend queue;
@@ -415,9 +416,9 @@ API sequence above. GitHub owns status.
   separate KMP build boundary, per-layer storage test doubles and adoption gates. The
   adapter-agnostic `ProgressPort` contract and its mock bindings stay together in sandbox tests;
   core-only tests stay in `:shared` to avoid a reverse test dependency. Okio/SQLDelight-style
-  dependencies wait for their #16/#17 consumers. Next, the real production Android host and its
-  release graph/APK/AAB inspection must establish exclusion before claiming #122 acceptance;
-  those checks remain blocked by the absent host.
+  dependencies wait for their #16/#17 consumers. The production Android host and its
+  release graph/APK/AAB inspection establish #122's exclusion for the unsigned, unshrunk
+  release; the host deliberately renders an unavailable state until #14's adapters exist.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 
@@ -594,8 +595,9 @@ extends the production-safe shared boundary to `app` and `adapters`, with main-s
 declared Gradle dependency/source-routing and resource guards. Its scope and actual negative
 checks are recorded in [#122 evidence](../evidence/issue122-cmp-sandbox-isolation.md).
 The guard is lexical: it does not establish compiler/Gradle resolution, runtime behavior or
-production DEX/resource exclusion. Retain it while adding production adapters, then inspect
-the real release graphs and artifacts when a production Android host exists. This tooling
+production DEX/resource exclusion. Retain it while adding production adapters; the production
+host's real release graphs and artifacts are inspected by `cargo xtask theatre-host
+android-release`, whose inspector is unit-tested and sensitivity-checked. This tooling
 change does not reorder the product queue; GitHub owns implementation and acceptance status.
 
 ## Editor workspace hygiene
