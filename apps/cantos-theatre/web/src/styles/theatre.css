@@ -403,6 +403,17 @@ body { margin: 0; }
 .theatre-public-hero h1 { font-size: var(--cantos-type-auth-heading-size); }
 .theatre-public-work-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cantos-space-lg); }
 .theatre-public-work, .theatre-public-state { padding: var(--cantos-space-lg); }
+.theatre-public-work { position: relative; }
+/* The title link is the card's one named target; its hit area covers the card. */
+.theatre-public-work-link { text-decoration: none; }
+.theatre-public-work-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.theatre-public-work-link:hover { text-decoration: underline; }
+.theatre-public-work:has(.theatre-public-work-link:focus-visible) { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
+.theatre-public-work-detail { display: grid; gap: var(--cantos-space-md); }
+.theatre-public-work-intro { align-items: start; }
+.theatre-public-unit-list { margin: 0; }
+.theatre-public-unit[data-unavailable="true"] { color: var(--cantos-color-on-surface-variant); }
+.theatre-public-units { display: grid; gap: var(--cantos-space-sm); }
 .theatre-membership-information { max-inline-size: 40rem; margin-inline: auto; }
 @media (prefers-color-scheme: dark) {
   :where(.cantos-ui[data-theme="system"]) .theatre-logo-light { display: none; }

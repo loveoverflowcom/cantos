@@ -76,7 +76,7 @@ pub fn bind_navigation(route: RwSignal<Route>, main: NodeRef<leptos::html::Main>
     let read_route = move || {
         web_sys::window()
             .and_then(|window| window.location().hash().ok())
-            .map(|hash| Route::from_hash(&hash))
+            .map(|hash| Route::from_mock_hash(&hash))
             .unwrap_or(Route::Discover)
     };
     route.set(read_route());
@@ -139,6 +139,21 @@ pub fn focus_button(button: NodeRef<leptos::html::Button>) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_button(_button: NodeRef<leptos::html::Button>) {}
+
+/// Focus an element rendered by the current frame, after Leptos has applied the change.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn focus_by_id(id: String) {
+    leptos::leptos_dom::helpers::request_animation_frame(move || {
+        use leptos::wasm_bindgen::JsCast;
+        if let Some(element) = leptos::web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.get_element_by_id(&id))
+            .and_then(|element| element.dyn_into::<leptos::web_sys::HtmlElement>().ok())
+        {
+            let _ = element.focus();
+        }
+    });
+}
 
 /// Mirrors the interface locale onto `<html lang>` so the whole document, including browser UI
 /// and content outside the app root, is announced in the chosen language.

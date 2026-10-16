@@ -5,6 +5,7 @@ use crate::{
         account_view::{AccountViewState, SessionPhase},
         auth_navigation::{AuthIntentState, AuthRequestFence, AuthRoute, ReturnDestination},
     },
+    core::public_ids::PublicWorkId,
     platform::{self, auth_browser as browser},
 };
 use leptos::prelude::*;
@@ -30,6 +31,8 @@ pub(crate) struct LiveNavigation {
     intents: RwSignal<AuthIntentState>,
     pending: RwSignal<Option<PendingAuthRequest>>,
     returned: StoredValue<Option<(Route, browser::ReturnSnapshot)>>,
+    /// Home position and card that opened a public Work, restored when that detail returns.
+    work_return: StoredValue<Option<(PublicWorkId, browser::ReturnSnapshot)>>,
 }
 
 impl LiveNavigation {
@@ -75,6 +78,7 @@ impl LiveNavigation {
             } else {
                 None
             }),
+            work_return: StoredValue::new(None),
         };
         if callback {
             browser::go(navigation.route, initial, true);
@@ -105,6 +109,16 @@ impl LiveNavigation {
                         platform::focus_main(main);
                     }
                     navigation.returned.set_value(None);
+                } else if let (Route::PublicWork(from), Route::Discover) = (old, current) {
+                    match navigation
+                        .work_return
+                        .get_value()
+                        .filter(|(opened, _)| *opened == from)
+                    {
+                        Some((_, snapshot)) => browser::restore_return(snapshot),
+                        None => platform::focus_main(main),
+                    }
+                    navigation.work_return.set_value(None);
                 } else {
                     #[cfg(target_arch = "wasm32")]
                     if let Some(window) = web_sys::window() {
@@ -205,6 +219,19 @@ impl LiveNavigation {
         self.cancel();
         browser::go(self.route, Route::Auth(auth), false);
     }
+    /// Open a public Work from Home, remembering the activating card for the return trip.
+    pub fn open_work(self, work: PublicWorkId, return_focus: String) {
+        let mut snapshot = browser::capture_return();
+        snapshot.focus_id = return_focus;
+        self.work_return.set_value(Some((work, snapshot)));
+        self.cancel();
+        browser::go(self.route, Route::PublicWork(work), false);
+    }
+    /// Contextual Back from a public Work: real history when this shell pushed it, else Home.
+    pub fn close_work(self) {
+        self.cancel();
+        browser::back(self.route, Route::Discover);
+    }
     pub fn cancel(self) {
         self.intents.update(|s| {
             let _ = s.invalidate();
@@ -299,6 +326,7 @@ mod tests {
                 intents: RwSignal::new(intents),
                 pending: RwSignal::new(Some(PendingAuthRequest::ConfirmingReturn(fence))),
                 returned: StoredValue::new(None),
+                work_return: StoredValue::new(None),
             },
             fence,
         )
