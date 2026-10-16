@@ -5,8 +5,8 @@ Review input for [#172](https://github.com/loveoverflowcom/cantos/issues/172), c
 [#159](https://github.com/loveoverflowcom/cantos/issues/159) (CMP M01–M06). It maps each client
 state to the field or endpoint that exists today, names who owns the truth, and lists what is
 missing or deferred. It is **not** acceptance of #172, adds no wire field, and the policy it
-relies on is [proposed ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md), not
-accepted.
+relies on is [ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md), accepted by the
+user on 2026-10-16 (no separate Product, Listening or Publication owner sign-off is recorded).
 
 Baseline: `develop@43db968`, re-read after the issue's `a079e72` survey. Sources:
 [Theatre DTOs](../../packages/contracts/api/src/theatre.rs), [routes](../../services/cantos-api/src/interfaces/http/theatre.rs),

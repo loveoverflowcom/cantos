@@ -1,9 +1,11 @@
-# ADR 0035: Theatre catalog unit availability, unknown duration and walk recovery (proposal for #172)
+# ADR 0035: Theatre catalog unit availability, unknown duration and walk recovery (#172)
 
-- Status: **proposed** — no wire, schema, migration or route change; the owners below have not accepted it
+- Status: **accepted** — by the user who requested PR #204, in that PR's session on 2026-10-16, choosing
+  option A as recommended; no wire, schema, migration or route change. No separate Product, Listening or
+  Publication owner sign-off is recorded; Decision 3's schema tightening and retained-release access stay open
 - Date: 2026-10-16
-- Decision owner: unassigned — Product, Listening and Publication owners via
-  [#172](https://github.com/loveoverflowcom/cantos/issues/172)
+- Decision owner: the requesting user, who accepted it; Product, Listening and Publication owners remain
+  the audience for any revisit via [#172](https://github.com/loveoverflowcom/cantos/issues/172)
 - Related issue or PR: consumers [#158](https://github.com/loveoverflowcom/cantos/issues/158)
   (Web W01–W03) and [#159](https://github.com/loveoverflowcom/cantos/issues/159) (CMP M01–M06);
   [#12](https://github.com/loveoverflowcom/cantos/issues/12)/[#35](https://github.com/loveoverflowcom/cantos/issues/35)
@@ -38,7 +40,7 @@ The question is whether the anonymous catalog must grow a field for them.
 
 ## Decision
 
-**Recommendation for #172, not an accepted contract:**
+**Accepted for #172 (option A below); it adds no wire field:**
 
 1. **Keep "omit published-only" for the anonymous unit list.** The list means "units listenable
    now", not "every unit the Work ever had". No `availability`, `reason` or count is added.
@@ -68,7 +70,7 @@ The question is whether the anonymous catalog must grow a field for them.
 
 | Option | Benefits | Costs and limitations | Reason selected or rejected |
 | --- | --- | --- | --- |
-| **A. Omit published-only** (recommended) | No wire change; no existence or reason disclosure; matches the accepted anonymous `not_found` rule and Library's separate owned-unit status; backward compatible | Anonymous clients cannot render a greyed "withdrawn" row; "unavailable" needs client evidence | Selected: the cheapest option that keeps the accepted privacy rule |
+| **A. Omit published-only** (selected) | No wire change; no existence or reason disclosure; matches the accepted anonymous `not_found` rule and Library's separate owned-unit status; backward compatible | Anonymous clients cannot render a greyed "withdrawn" row; "unavailable" needs client evidence | Selected: the cheapest option that keeps the accepted privacy rule |
 | **B. Project availability and reason in `UnitSummary`** | One list can show every state; simple FE | Needs a retained-history store (none exists), discloses unpublished or withdrawn units and why to anonymous callers, contradicts the no-410/no-disclosure rule, breaks strict v1 readers, and widens the rights/leak surface | Rejected for the anonymous catalog. Reconsider only for an account-scoped surface if retained-release access is approved |
 | **C. Separate state lookup (batch unit-state endpoint)** | List stays minimal; state is queried on demand | Anonymous callers could probe ids and learn existence/state unless authenticated; duplicates Library's resume status; a new endpoint with no accepted consumer | Rejected for now; Library already covers the owned-unit case. Revisit with an authenticated consumer |
 | **D. Make `duration_ms` optional to express "unknown"** | Models an unknown value directly | Server has no unknown case, so every reader gains a branch that never runs; changing `u64` to `Option` silently breaks consumers of v1 | Rejected: it represents a state the server cannot produce |
@@ -78,7 +80,7 @@ The question is whether the anonymous catalog must grow a field for them.
 - Product and user impact: public lists show only listenable units. Row-level "unavailable" copy
   appears only where the client holds the evidence in Decision 2; anonymous visitors see a unit
   vanish, not a reason.
-- Compatibility and migrations: none. The PR that proposes this adds fixtures and regressions for
+- Compatibility and migrations: none. PR #204, which records it, adds fixtures and regressions for
   existing shapes only. Choosing B or C later is an additive-but-deliberate v1 review: the
   contract test `public_list_summaries_reject_private_and_row_state_fields` is the tripwire and
   is updated by that decision.
