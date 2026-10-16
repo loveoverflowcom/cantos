@@ -311,7 +311,8 @@ mod tests {
 
     #[test]
     fn generation_changing_controls_cancel_the_real_draft_before_or_after_reconciliation() {
-        let cases: [(&str, fn(TheatreContext)); 8] = [
+        type Case = (&'static str, fn(TheatreContext));
+        let cases: [Case; 8] = [
             ("play", |ctx| ctx.playback(Event::PlayRequested)),
             ("pause", |ctx| ctx.playback(Event::PauseRequested)),
             ("skip", |ctx| {
@@ -377,8 +378,16 @@ mod tests {
                     control.preview(20_000);
                     control.commit();
                     assert_eq!(commands.borrow().len(), 1, "{name}");
-                    assert_eq!(control.current().displayed_position(), Some(20_000), "{name}");
-                    assert_eq!(ctx.player.position_ms.get_untracked(), Some(20_000), "{name}");
+                    assert_eq!(
+                        control.current().displayed_position(),
+                        Some(20_000),
+                        "{name}"
+                    );
+                    assert_eq!(
+                        ctx.player.position_ms.get_untracked(),
+                        Some(20_000),
+                        "{name}"
+                    );
                 });
             }
         }

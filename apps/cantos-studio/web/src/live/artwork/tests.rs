@@ -534,7 +534,10 @@ fn unknown_upload_rejects_pending_foreign_and_inconsistent_terminal_receipts() {
     for status in cases {
         let unresolved = reading.finish(ticket, Ok(Reply::ImageIntent(status)));
         assert_eq!(unresolved.phase(), Phase::Ambiguous);
-        assert_eq!(unresolved.error(), Some(&ClientError::ReceiptNotEstablished));
+        assert_eq!(
+            unresolved.error(),
+            Some(&ClientError::ReceiptNotEstablished)
+        );
         assert!(unresolved.can_reconcile());
         assert!(unresolved
             .begin(Command::Artwork {
@@ -648,7 +651,10 @@ fn transient_stage_cannot_substitute_for_the_server_intent_fact() {
                 intent_state: state,
                 ..Projection::default()
             };
-            assert_eq!(model.can_prepare(), state == Some(ImageIntentState::Expired));
+            assert_eq!(
+                model.can_prepare(),
+                state == Some(ImageIntentState::Expired)
+            );
             assert_eq!(model.can_upload(), state == Some(ImageIntentState::Pending));
         }
     }
@@ -723,7 +729,7 @@ fn server_replies_preserve_preview_handle_until_lifecycle_retires_it_once() {
                     image_asset_id: "00000000-0000-4000-8000-000000000099".into(),
                     ..selected.clone()
                 }), // Confirmed replacement.
-                _ => None, // Clear and repeated cleared refresh.
+                _ => None,                       // Clear and repeated cleared refresh.
             };
         }
         model = model.apply(&reply);
