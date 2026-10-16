@@ -26,6 +26,37 @@ pub const TOOLCHAIN: &str = "nightly-2026-08-21-x86_64-unknown-linux-gnu";
 pub const TARGET: &str = "x86_64-unknown-linux-gnu";
 const MAX_CONFIGURATION_BYTES: u64 = 1024 * 1024;
 
+/// The closed set of workspace packages that may own a proof kernel. The Python primitive
+/// re-checks the same allowlist; no layer accepts a package name supplied by a caller.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Package {
+    Api,
+    Forge,
+}
+
+impl Package {
+    pub const ALL: [Self; 2] = [Self::Api, Self::Forge];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Api => "cantos-api",
+            Self::Forge => "cantos-forge",
+        }
+    }
+
+    /// Workspace-relative manifest that must exist and carry no implicit Kani configuration.
+    pub fn manifest(self) -> &'static str {
+        match self {
+            Self::Api => "services/cantos-api/Cargo.toml",
+            Self::Forge => "apps/cantos-forge/Cargo.toml",
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|package| package.name() == name)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Kernel {
     CatalogRevision,
@@ -38,10 +69,11 @@ pub enum Kernel {
     ByteRange,
     PlaybackGrant,
     PublicCover,
+    ForgeAttemptLedger,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::CatalogRevision,
         Self::ImageBounds,
         Self::WavPayload,
@@ -52,6 +84,7 @@ impl Kernel {
         Self::ByteRange,
         Self::PlaybackGrant,
         Self::PublicCover,
+        Self::ForgeAttemptLedger,
     ];
 
     pub fn name(self) -> &'static str {
@@ -66,7 +99,31 @@ impl Kernel {
             Self::ByteRange => "byte-range",
             Self::PlaybackGrant => "playback-grant",
             Self::PublicCover => "public-cover",
+            Self::ForgeAttemptLedger => "forge-attempt-ledger",
         }
+    }
+
+    /// The workspace package the harness is compiled in; every kernel names one explicitly.
+    pub fn package(self) -> Package {
+        match self {
+            Self::CatalogRevision
+            | Self::ImageBounds
+            | Self::WavPayload
+            | Self::SubmissionWindow
+            | Self::PublicationCommit
+            | Self::ListenerAccess
+            | Self::ListenerReconcile
+            | Self::ByteRange
+            | Self::PlaybackGrant
+            | Self::PublicCover => Package::Api,
+            Self::ForgeAttemptLedger => Package::Forge,
+        }
+    }
+
+    fn in_package(package: Package) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .into_iter()
+            .filter(move |kernel| kernel.package() == package)
     }
 
     pub fn harness(self) -> &'static str {
@@ -81,6 +138,7 @@ impl Kernel {
             Self::ByteRange => "contexts::media::domain::object_storage::kani_proofs::byte_range_normalization_stays_inside_the_exact_object",
             Self::PlaybackGrant => "contexts::media::domain::playback_grant::kani_proofs::playback_grant_expiry_and_fetch_fail_closed",
             Self::PublicCover => "contexts::media::domain::public_cover::kani_proofs::public_cover_requires_pinned_bound_image_and_current_disclosure",
+            Self::ForgeAttemptLedger => "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry",
         }
     }
 
@@ -104,6 +162,7 @@ impl Kernel {
                 "services/cantos-api/src/contexts/media/domain/playback_grant.rs"
             }
             Self::PublicCover => "services/cantos-api/src/contexts/media/domain/public_cover.rs",
+            Self::ForgeAttemptLedger => "apps/cantos-forge/src/domain/attempt.rs",
         }
     }
 
@@ -119,6 +178,7 @@ impl Kernel {
             Self::ByteRange => 6,
             Self::PlaybackGrant => 6,
             Self::PublicCover => 6,
+            Self::ForgeAttemptLedger => 9,
         }
     }
 
@@ -139,6 +199,7 @@ impl Kernel {
             Self::ByteRange => Vec::new(),
             Self::PlaybackGrant => Vec::new(),
             Self::PublicCover => Vec::new(),
+            Self::ForgeAttemptLedger => Vec::new(),
         }
     }
 
@@ -148,6 +209,8 @@ impl Kernel {
             self.harness(),
             "--source",
             self.source(),
+            "--package",
+            self.package().name(),
             "--unwind",
             "2",
             "--cover-count",
@@ -197,11 +260,17 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
     }
     let mut selected = BTreeSet::new();
     for path in paths {
+        // The primitive and its tests are shared by every package.
         if matches!(
             path.as_str(),
-            "scripts/verify_kani.py"
-                | "scripts/test_verify_kani.py"
-                | "services/cantos-api/Cargo.toml"
+            "scripts/verify_kani.py" | "scripts/test_verify_kani.py"
+        ) {
+            selected.extend(Kernel::ALL);
+        }
+        // API build inputs reach only API kernels; Forge sources reach only the Forge kernel.
+        if matches!(
+            path.as_str(),
+            "services/cantos-api/Cargo.toml"
                 | "services/cantos-api/build.rs"
                 | "packages/contracts/api/build.rs"
                 | "services/cantos-api/src/lib.rs"
@@ -210,7 +279,13 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
         ) || path.starts_with("packages/contracts/api/src/")
             || path.starts_with("packages/contracts/schema/")
         {
-            selected.extend(Kernel::ALL);
+            selected.extend(Kernel::in_package(Package::Api));
+        }
+        if path == Package::Forge.manifest()
+            || path == "apps/cantos-forge/src/lib.rs"
+            || path.starts_with("apps/cantos-forge/src/domain/")
+        {
+            selected.extend(Kernel::in_package(Package::Forge));
         }
         if path == "services/cantos-api/src/contexts/listening/mod.rs"
             || path.starts_with("services/cantos-api/src/contexts/listening/domain/")
@@ -253,11 +328,14 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
     selected.into_iter().collect()
 }
 
-fn configuration_candidates(root: &Path, cargo_home: Option<&Path>) -> BTreeSet<PathBuf> {
-    let mut inputs = BTreeSet::from([
-        root.join("Cargo.toml"),
-        root.join("services/cantos-api/Cargo.toml"),
-    ]);
+/// The workspace manifest and the owning package's manifest are required; the Python primitive
+/// re-derives this exact set from the same package name.
+fn configuration_candidates(
+    root: &Path,
+    cargo_home: Option<&Path>,
+    package: Package,
+) -> BTreeSet<PathBuf> {
+    let mut inputs = BTreeSet::from([root.join("Cargo.toml"), root.join(package.manifest())]);
     for parent in root.ancestors() {
         for name in ["config", "config.toml"] {
             inputs.insert(parent.join(".cargo").join(name));
@@ -384,7 +462,33 @@ fn configuration_home(
     std::path::absolute(root.join(directory)).context("could not resolve proof Cargo home")
 }
 
-/// Bind approved bytes and the entire candidate-file set before prerequisite probing.
+/// The package a registered proof command was built for; anything else is refused.
+fn command_package(command: &CommandSpec) -> Result<Package> {
+    let mut named = command
+        .args
+        .windows(2)
+        .filter(|args| args[0] == "--package")
+        .map(|args| args[1].as_str());
+    match (named.next(), named.next()) {
+        (Some(name), None) => Package::from_name(name)
+            .with_context(|| format!("proof command names an unregistered package {name:?}")),
+        _ => bail!("proof command must name exactly one registered package"),
+    }
+}
+
+fn approved_snapshot(root: &Path, cargo_home: &Path, package: Package) -> Result<String> {
+    let mut approved = BTreeMap::new();
+    for path in configuration_candidates(root, Some(cargo_home), package) {
+        let name = path
+            .to_str()
+            .context("proof configuration path is not UTF-8")?;
+        approved.insert(name.to_owned(), approve_configuration(&path)?);
+    }
+    Ok(serde_json::to_string(&approved)?)
+}
+
+/// Bind approved bytes and the entire candidate-file set, per package, before prerequisite
+/// probing. Commands of one package share one snapshot; packages never share a snapshot.
 pub fn prepare_configuration(workspace: &Workspace, steps: &mut [Step]) -> Result<()> {
     let root = workspace.root().canonicalize()?;
     let cargo_home = configuration_home(
@@ -392,20 +496,22 @@ pub fn prepare_configuration(workspace: &Workspace, steps: &mut [Step]) -> Resul
         std::env::var_os("CARGO_HOME").as_deref(),
         std::env::var_os("HOME").as_deref(),
     )?;
-    let mut approved = BTreeMap::new();
-    for path in configuration_candidates(&root, Some(&cargo_home)) {
-        let name = path
-            .to_str()
-            .context("proof configuration path is not UTF-8")?;
-        approved.insert(name.to_owned(), approve_configuration(&path)?);
+    let active = |step: &Step| !step.skipped && step.name.starts_with("kani (");
+    let packages = steps
+        .iter()
+        .filter(|step| active(step))
+        .flat_map(|step| &step.commands)
+        .map(command_package)
+        .collect::<Result<BTreeSet<_>>>()?;
+    let mut snapshots = BTreeMap::new();
+    for package in packages {
+        snapshots.insert(package, approved_snapshot(&root, &cargo_home, package)?);
     }
-    let snapshot = serde_json::to_string(&approved)?;
     for step in steps {
-        if !step.skipped && step.name.starts_with("kani (") {
+        if active(step) {
             for command in &mut step.commands {
-                command
-                    .args
-                    .extend(["--approved-config".into(), snapshot.clone()]);
+                let snapshot = snapshots[&command_package(command)?].clone();
+                command.args.extend(["--approved-config".into(), snapshot]);
             }
         }
     }
@@ -513,7 +619,7 @@ mod tests {
     fn candidate_set_includes_absent_ancestor_and_cargo_home_configs() {
         let root = Path::new("/example/checkout");
         let home = Path::new("/separate/cargo-home");
-        let candidates = configuration_candidates(root, Some(home));
+        let candidates = configuration_candidates(root, Some(home), Package::Api);
         for parent in root.ancestors() {
             for name in ["config", "config.toml"] {
                 assert!(candidates.contains(&parent.join(".cargo").join(name)));
@@ -615,14 +721,29 @@ mod tests {
         }
     }
 
+    /// Independent of `Kernel::package`: the ten kernels registered before the Forge package.
+    const API_KERNELS: [Kernel; 10] = [
+        Kernel::CatalogRevision,
+        Kernel::ImageBounds,
+        Kernel::WavPayload,
+        Kernel::SubmissionWindow,
+        Kernel::PublicationCommit,
+        Kernel::ListenerAccess,
+        Kernel::ListenerReconcile,
+        Kernel::ByteRange,
+        Kernel::PlaybackGrant,
+        Kernel::PublicCover,
+    ];
+
+    fn pick(paths: &[&str], uncertain: bool) -> Vec<Kernel> {
+        affected(
+            Some(&paths.iter().map(|path| (*path).into()).collect::<Vec<_>>()),
+            uncertain,
+        )
+    }
+
     #[test]
     fn changed_kernels_select_only_registered_affected_propositions() {
-        let pick = |paths: &[&str], uncertain| {
-            affected(
-                Some(&paths.iter().map(|path| (*path).into()).collect::<Vec<_>>()),
-                uncertain,
-            )
-        };
         for kernel in Kernel::ALL {
             assert_eq!(pick(&[kernel.source()], false), [kernel]);
         }
@@ -649,15 +770,22 @@ mod tests {
                 Kernel::PublicCover
             ]
         );
+        // The shared primitive and its tests reach every package; API build inputs reach
+        // only the API kernels (the Forge kernel has its own selection test below).
+        for path in [SCRIPT, "scripts/test_verify_kani.py"] {
+            assert_eq!(pick(&[path], false), Kernel::ALL);
+        }
         for path in [
-            SCRIPT,
-            "scripts/test_verify_kani.py",
             "services/cantos-api/Cargo.toml",
             "services/cantos-api/build.rs",
             "packages/contracts/api/build.rs",
+            "packages/contracts/api/Cargo.toml",
             "packages/contracts/api/src/lib.rs",
+            "packages/contracts/schema/script-ir.schema.json",
+            "services/cantos-api/src/lib.rs",
+            "services/cantos-api/src/contexts/mod.rs",
         ] {
-            assert_eq!(pick(&[path], false), Kernel::ALL);
+            assert_eq!(pick(&[path], false), API_KERNELS, "{path}");
         }
         assert_eq!(
             pick(
@@ -673,6 +801,273 @@ mod tests {
         assert_eq!(pick(&["Cargo.lock"], true), Kernel::ALL);
         assert_eq!(pick(&[], false), Kernel::ALL);
         assert_eq!(affected(None, false), Kernel::ALL);
+    }
+
+    #[test]
+    fn package_registry_is_closed_and_names_the_real_manifests() {
+        let workspace = Workspace::discover().unwrap();
+        assert_eq!(
+            Package::ALL.map(Package::name),
+            ["cantos-api", "cantos-forge"]
+        );
+        for package in Package::ALL {
+            assert_eq!(Package::from_name(package.name()), Some(package));
+            let manifest = std::fs::read_to_string(workspace.path(package.manifest())).unwrap();
+            let manifest: toml::Value = toml::from_str(&manifest).unwrap();
+            assert_eq!(manifest["package"]["name"].as_str(), Some(package.name()));
+        }
+        for name in [
+            "",
+            "cantos-api ",
+            "CANTOS-FORGE",
+            "cantos-contracts",
+            "../cantos-forge",
+            "cantos-api,cantos-forge",
+        ] {
+            assert_eq!(Package::from_name(name), None, "{name:?}");
+        }
+        assert_eq!(Package::Api.manifest(), "services/cantos-api/Cargo.toml");
+        assert_eq!(Package::Forge.manifest(), "apps/cantos-forge/Cargo.toml");
+    }
+
+    #[test]
+    fn every_kernel_lives_in_the_package_it_names() {
+        for kernel in Kernel::ALL {
+            let package_source = Path::new(kernel.package().manifest())
+                .parent()
+                .unwrap()
+                .join("src");
+            assert!(
+                Path::new(kernel.source()).starts_with(&package_source),
+                "{} is not under {}",
+                kernel.name(),
+                package_source.display()
+            );
+        }
+        for kernel in API_KERNELS {
+            assert_eq!(kernel.package(), Package::Api);
+        }
+        assert_eq!(Kernel::ForgeAttemptLedger.package(), Package::Forge);
+        assert_eq!(
+            Kernel::in_package(Package::Forge).collect::<Vec<_>>(),
+            [Kernel::ForgeAttemptLedger]
+        );
+        assert_eq!(
+            Kernel::in_package(Package::Api).collect::<Vec<_>>(),
+            API_KERNELS
+        );
+    }
+
+    #[test]
+    fn forge_attempt_ledger_registration_is_exact() {
+        let kernel = Kernel::ForgeAttemptLedger;
+        assert_eq!(kernel.name(), "forge-attempt-ledger");
+        assert_eq!(
+            kernel.harness(),
+            "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry"
+        );
+        assert_eq!(kernel.source(), "apps/cantos-forge/src/domain/attempt.rs");
+        assert_eq!(kernel.covers(), 9);
+        assert!(kernel.unreachable().is_empty());
+        assert_eq!(Kernel::ALL.len(), 11);
+        assert_eq!(Kernel::ALL.last(), Some(&kernel));
+    }
+
+    #[test]
+    fn every_command_names_its_package_and_the_forge_one_names_cantos_forge() {
+        let workspace = Workspace::discover().unwrap();
+        for kernel in Kernel::ALL {
+            let command = kernel.command(&workspace);
+            let packages: Vec<_> = command
+                .args
+                .windows(2)
+                .filter(|args| args[0] == "--package")
+                .map(|args| args[1].as_str())
+                .collect();
+            assert_eq!(packages, [kernel.package().name()], "{}", kernel.name());
+            assert_eq!(
+                command_package(&command).unwrap(),
+                kernel.package(),
+                "{}",
+                kernel.name()
+            );
+        }
+        let forge = Kernel::ForgeAttemptLedger.command(&workspace);
+        assert!(forge
+            .args
+            .windows(2)
+            .any(|args| args == ["--package", "cantos-forge"]));
+        assert!(!forge.args.iter().any(|arg| arg == "cantos-api"));
+        assert!(forge
+            .args
+            .windows(2)
+            .any(|args| args == ["--cover-count", "9"]));
+        assert!(!forge.args.contains(&"--allow-unreachable".to_owned()));
+        let api = Kernel::CatalogRevision.command(&workspace);
+        assert!(api
+            .args
+            .windows(2)
+            .any(|args| args == ["--package", "cantos-api"]));
+    }
+
+    #[test]
+    fn a_proof_command_without_exactly_one_registered_package_is_refused() {
+        let command = |args: &[&str]| {
+            CommandSpec::new("python3", "/example/checkout").args(args.iter().copied())
+        };
+        assert_eq!(
+            command_package(&command(&["--package", "cantos-forge"])).unwrap(),
+            Package::Forge
+        );
+        for args in [
+            &[][..],
+            &["--package"][..],
+            &["--package", "cantos-contracts"][..],
+            &["--package", "cantos-api", "--package", "cantos-forge"][..],
+            &["--package", "cantos-api", "--package", "cantos-api"][..],
+        ] {
+            assert!(command_package(&command(args)).is_err(), "{args:?}");
+        }
+    }
+
+    #[test]
+    fn configuration_candidates_require_the_workspace_and_only_the_owning_manifest() {
+        let root = Path::new("/example/checkout");
+        let home = Path::new("/separate/cargo-home");
+        let api = configuration_candidates(root, Some(home), Package::Api);
+        let forge = configuration_candidates(root, Some(home), Package::Forge);
+        assert!(api.contains(&root.join("services/cantos-api/Cargo.toml")));
+        assert!(!api.contains(&root.join("apps/cantos-forge/Cargo.toml")));
+        assert!(forge.contains(&root.join("apps/cantos-forge/Cargo.toml")));
+        assert!(!forge.contains(&root.join("services/cantos-api/Cargo.toml")));
+        for candidates in [&api, &forge] {
+            assert!(candidates.contains(&root.join("Cargo.toml")));
+            assert!(candidates.contains(&home.join("config.toml")));
+            assert!(candidates.contains(&root.join(".cargo/config")));
+        }
+        // Only the owning manifest differs; the ancestor and Cargo-home set is shared.
+        let shared = |set: &BTreeSet<PathBuf>, manifest: &str| {
+            set.iter()
+                .filter(|path| **path != root.join(manifest))
+                .cloned()
+                .collect::<BTreeSet<_>>()
+        };
+        assert_eq!(
+            shared(&api, "services/cantos-api/Cargo.toml"),
+            shared(&forge, "apps/cantos-forge/Cargo.toml")
+        );
+    }
+
+    #[test]
+    fn prepared_snapshots_are_per_package_and_shared_within_one_package() {
+        let workspace = Workspace::discover().unwrap();
+        let mut steps = crate::gate::steps(
+            &[
+                crate::gate::Gate::Kani(Kernel::CatalogRevision),
+                crate::gate::Gate::Kani(Kernel::ForgeAttemptLedger),
+                crate::gate::Gate::Kani(Kernel::WavPayload),
+            ],
+            &workspace,
+        );
+        prepare_configuration(&workspace, &mut steps).unwrap();
+        let snapshot = |step: &Step| {
+            step.commands[0]
+                .args
+                .windows(2)
+                .find(|args| args[0] == "--approved-config")
+                .map(|args| args[1].clone())
+                .unwrap()
+        };
+        assert_eq!(snapshot(&steps[0]), snapshot(&steps[2]));
+        assert_ne!(snapshot(&steps[0]), snapshot(&steps[1]));
+        let approved = |step: &Step| -> BTreeMap<String, Option<String>> {
+            serde_json::from_str(&snapshot(step)).unwrap()
+        };
+        let digest = |relative: &str| {
+            Some(format!(
+                "{:x}",
+                Sha256::digest(std::fs::read(workspace.path(relative)).unwrap())
+            ))
+        };
+        let key = |relative: &str| workspace.path(relative).to_str().unwrap().to_owned();
+        let (api, forge) = (approved(&steps[0]), approved(&steps[1]));
+        assert_eq!(api[&key("Cargo.toml")], digest("Cargo.toml"));
+        assert_eq!(forge[&key("Cargo.toml")], digest("Cargo.toml"));
+        assert_eq!(
+            api[&key("services/cantos-api/Cargo.toml")],
+            digest("services/cantos-api/Cargo.toml")
+        );
+        assert!(!api.contains_key(&key("apps/cantos-forge/Cargo.toml")));
+        assert_eq!(
+            forge[&key("apps/cantos-forge/Cargo.toml")],
+            digest("apps/cantos-forge/Cargo.toml")
+        );
+        assert!(!forge.contains_key(&key("services/cantos-api/Cargo.toml")));
+    }
+
+    #[test]
+    fn forge_selection_is_package_local_in_both_directions() {
+        let forge = [Kernel::ForgeAttemptLedger];
+        for path in [
+            "apps/cantos-forge/src/domain/attempt.rs",
+            "apps/cantos-forge/src/domain/mod.rs",
+            "apps/cantos-forge/src/domain/digest.rs",
+            "apps/cantos-forge/Cargo.toml",
+            "apps/cantos-forge/src/lib.rs",
+        ] {
+            assert_eq!(pick(&[path], false), forge, "{path}");
+        }
+        // Forge code that no registered proof reaches, and unrelated trees, select nothing.
+        for path in [
+            "apps/cantos-forge/src/application/mod.rs",
+            "apps/cantos-forge/src/main.rs",
+            "apps/cantos-forge/tests/cli.rs",
+            "apps/cantos-forge/README.md",
+            "apps/cantos-forge/src/domainx/attempt.rs",
+        ] {
+            assert_eq!(pick(&[path], false), [], "{path}");
+        }
+        // The shared primitive reaches both packages; uncertainty still selects everything.
+        for path in [SCRIPT, "scripts/test_verify_kani.py"] {
+            assert!(pick(&[path], false).contains(&Kernel::ForgeAttemptLedger));
+        }
+        assert_eq!(pick(&["Cargo.lock"], true), Kernel::ALL);
+        assert_eq!(
+            pick(&["apps/cantos-forge/src/domain/attempt.rs"], true),
+            Kernel::ALL
+        );
+        // No API path selects the Forge kernel, and no Forge path selects an API kernel.
+        let api_paths = [
+            "services/cantos-api/Cargo.toml",
+            "services/cantos-api/build.rs",
+            "services/cantos-api/src/lib.rs",
+            "services/cantos-api/src/contexts/mod.rs",
+            "services/cantos-api/src/contexts/media/mod.rs",
+            "services/cantos-api/src/contexts/media/domain/mod.rs",
+            "services/cantos-api/src/contexts/catalog/domain/error.rs",
+            "services/cantos-api/src/contexts/listening/domain/mod.rs",
+            "packages/contracts/api/Cargo.toml",
+            "packages/contracts/api/src/lib.rs",
+            "packages/contracts/schema/script-ir.schema.json",
+        ];
+        for path in api_paths {
+            assert!(
+                !pick(&[path], false).contains(&Kernel::ForgeAttemptLedger),
+                "{path}"
+            );
+        }
+        for kernel in API_KERNELS {
+            assert!(!pick(&[kernel.source()], false).contains(&Kernel::ForgeAttemptLedger));
+        }
+        assert_eq!(pick(&api_paths, false).last(), Some(&Kernel::PublicCover));
+        let mixed = pick(
+            &[
+                "apps/cantos-forge/src/domain/attempt.rs",
+                Kernel::ImageBounds.source(),
+            ],
+            false,
+        );
+        assert_eq!(mixed, [Kernel::ImageBounds, Kernel::ForgeAttemptLedger]);
     }
 
     #[test]

@@ -26,6 +26,24 @@ TIMEOUT_SECONDS = 900
 MAX_LOG_BYTES = 4 * 1024 * 1024
 MAX_CONFIGURATION_BYTES = 1024 * 1024
 MAX_GROUP_STATUS_BYTES = 64 * 1024
+DEFAULT_PACKAGE = "cantos-api"
+# Closed allowlist of workspace packages that may own a proof kernel (mirrors xtask's
+# `Package`): manifest, hashed source directories and hashed files, all workspace-relative.
+# The API row is the long-standing model and must not change; a new package is a new row.
+PACKAGES = {
+    "cantos-api": (
+        "services/cantos-api/Cargo.toml",
+        ("services/cantos-api/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"),
+        ("Cargo.toml", "services/cantos-api/Cargo.toml", "services/cantos-api/build.rs",
+         "packages/contracts/api/Cargo.toml", "packages/contracts/api/build.rs",
+         "scripts/verify_kani.py", "xtask/src/kani.rs"),
+    ),
+    "cantos-forge": (
+        "apps/cantos-forge/Cargo.toml",
+        ("apps/cantos-forge/src", ".cargo"),
+        ("Cargo.toml", "apps/cantos-forge/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
+    ),
+}
 FORBIDDEN_ENVIRONMENT = frozenset((
     "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER",
     "RUSTC_WORKSPACE_WRAPPER", "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTFLAGS",
@@ -35,6 +53,20 @@ FORBIDDEN_ENVIRONMENT = frozenset((
 
 class KaniError(Exception):
     pass
+
+
+def package_registration(package):
+    """Fail closed on any name outside the allowlist; never echo the rejected value."""
+    if not isinstance(package, str) or package not in PACKAGES:
+        raise KaniError("unregistered Kani package")
+    return PACKAGES[package]
+
+
+def package_of(args):
+    """A missing package is the API, so every earlier invocation keeps its exact model."""
+    package = getattr(args, "package", DEFAULT_PACKAGE)
+    package_registration(package)
+    return package
 
 
 def child_environment(bundle, env):
@@ -273,15 +305,14 @@ def git_identity(root):
     return identity
 
 
-def source_tree_identity(root):
-    """Fixed API/contracts build inputs, including newly added and removed files."""
+def source_tree_identity(root, package=DEFAULT_PACKAGE):
+    """Fixed per-package build inputs, including newly added and removed files."""
+    _, directories, names = package_registration(package)
     paths = set()
-    for directory in ("services/cantos-api/src", "packages/contracts/api/src", "packages/contracts/schema", ".cargo"):
+    for directory in directories:
         parent = root / directory
         if parent.exists(): paths.update(path for path in parent.rglob("*") if path.is_file())
-    for name in ("Cargo.toml", "services/cantos-api/Cargo.toml", "services/cantos-api/build.rs",
-                 "packages/contracts/api/Cargo.toml", "packages/contracts/api/build.rs",
-                 "scripts/verify_kani.py", "xtask/src/kani.rs"):
+    for name in names:
         path = root / name
         if path.is_file(): paths.add(path)
     return {str(path.relative_to(root)): sha256(path) for path in sorted(paths)}
@@ -299,10 +330,11 @@ def configuration_sha256(path):
     return hashlib.sha256(approved).hexdigest()
 
 
-def configuration_identity(root, env):
+def configuration_identity(root, env, package=DEFAULT_PACKAGE):
     """Same fixed candidates as Rust, including absence at every Cargo config path."""
+    manifest = package_registration(package)[0]
     root = root.resolve()
-    candidates = {root / "Cargo.toml", root / "services/cantos-api/Cargo.toml"}
+    candidates = {root / "Cargo.toml", root / manifest}
     for parent in (root, *root.parents):
         candidates.update(parent / ".cargo" / name for name in ("config", "config.toml"))
     # Cargo ignores an empty CARGO_HOME; both approval layers must bind its fallback.
@@ -324,6 +356,7 @@ def configuration_identity(root, env):
 
 
 def approved_configuration(args, root):
+    manifest = package_registration(package_of(args))[0]
     try:
         approved = json.loads(args.approved_config)
         if (not isinstance(approved, dict) or not approved
@@ -332,41 +365,42 @@ def approved_configuration(args, root):
                            or not re.fullmatch(r"[0-9a-f]{64}", digest)))
                        for path, digest in approved.items())
                 or any(approved.get(str(root / name)) is None
-                       for name in ("Cargo.toml", "services/cantos-api/Cargo.toml"))):
+                       for name in ("Cargo.toml", manifest))):
             raise ValueError()
     except (AttributeError, TypeError, ValueError):
         raise KaniError("Rust-approved configuration identity is required") from None
     return approved
 
 
-def check_configuration(root, approved):
-    if configuration_identity(root, os.environ) != approved:
+def check_configuration(root, approved, package=DEFAULT_PACKAGE):
+    if configuration_identity(root, os.environ, package) != approved:
         raise KaniError("Rust-approved proof configuration changed before or during verification")
 
 
 def verify(args, root=ROOT):
     root = root.resolve()
+    package = package_of(args)
     approved = approved_configuration(args, root)
-    check_configuration(root, approved)
+    check_configuration(root, approved, package)
     home = Path(os.environ.get("KANI_HOME", str(Path.home() / ".kani")))
     bundle = (home / ("kani-" + args.kani_version)).resolve()
     tools = probe(bundle, args)
-    check_configuration(root, approved)
+    check_configuration(root, approved, package)
     source = (root / args.source).resolve()
     if not source.is_file() or not source.is_relative_to(root.resolve()):
         raise KaniError("registered source must be inside the repository")
     lock = root / "Cargo.lock"
     lock_before = sha256(lock)
     inputs = {str(source): sha256(source)}
-    model_inputs = source_tree_identity(root)
+    model_inputs = source_tree_identity(root, package)
     git_before = git_identity(root)
     artifact = root / "artifacts/agent-runs" / ("kani-" + uuid.uuid4().hex)
     artifact.mkdir(parents=True, mode=0o700)
     command = [str(bundle / "bin/kani-driver"), "kani", "--manifest-path", str(root / "Cargo.toml"),
-               "-p", "cantos-api", "--lib", "--no-default-features", "--exact", "--harness", args.harness,
+               "-p", package, "--lib", "--no-default-features", "--exact", "--harness", args.harness,
                "--unwind", str(args.unwind), "--solver", "cadical", "--output-format", "regular",
                "--target-dir", str(root / "target/assurance-kani")]
-    metadata = {"tools": tools, "command": command, "source_inputs": inputs,
+    metadata = {"tools": tools, "command": command, "package": package, "source_inputs": inputs,
                 "lock_before": lock_before, "harness": args.harness, "unwind": args.unwind,
                 "expected_covers": args.cover_count, "status": "FAIL", "raw_log": "raw.log"}
     metadata["git"] = git_before
@@ -377,7 +411,7 @@ def verify(args, root=ROOT):
     started = time.monotonic()
     error = None
     try:
-        check_configuration(root, approved)
+        check_configuration(root, approved, package)
         output = bounded_run(command, root, child_environment(bundle, os.environ), TIMEOUT_SECONDS, artifact / "raw.log", MAX_LOG_BYTES)
         if output.returncode != 0: raise KaniError("verifier process failed with exit " + str(output.returncode))
         metadata.update(validate_output(output.stdout, args.harness, args.cover_count, args.allow_unreachable))
@@ -389,8 +423,8 @@ def verify(args, root=ROOT):
         metadata["elapsed_seconds"] = time.monotonic() - started
         try:
             metadata["lock_after"] = sha256(lock)
-            metadata["configuration_after_sha256"] = identity_digest(configuration_identity(root, os.environ))
-            metadata["model_inputs_after_sha256"] = identity_digest(source_tree_identity(root))
+            metadata["configuration_after_sha256"] = identity_digest(configuration_identity(root, os.environ, package))
+            metadata["model_inputs_after_sha256"] = identity_digest(source_tree_identity(root, package))
             if (metadata["lock_after"] != lock_before
                     or metadata["model_inputs_after_sha256"] != metadata["model_inputs_sha256"]
                     or metadata["configuration_after_sha256"] != metadata["approved_configuration_sha256"]
@@ -414,6 +448,7 @@ def parser():
     for name in ("kani-version", "cbmc-version", "rustc-version", "toolchain", "target"):
         result.add_argument("--" + name, required=True)
     result.add_argument("--probe", action="store_true")
+    result.add_argument("--package", default=DEFAULT_PACKAGE)
     result.add_argument("--harness")
     result.add_argument("--source")
     result.add_argument("--unwind", type=int)
@@ -426,6 +461,7 @@ def parser():
 def main():
     args = parser().parse_args()
     try:
+        package_of(args)
         if args.probe:
             bundle = Path(os.environ.get("KANI_HOME", str(Path.home() / ".kani"))) / ("kani-" + args.kani_version)
             print(probe(bundle, args)["version"])
