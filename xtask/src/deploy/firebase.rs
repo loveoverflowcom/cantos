@@ -502,7 +502,7 @@ fn preview_release(result: &Value, expected: &Expected<'_>) -> Option<Released> 
         return None;
     }
     let url = entry.get("url").and_then(Value::as_str)?;
-    if !preview_url_of(url, expected.site) {
+    if !preview_url_of(url, expected.site, expected.channel) {
         return None;
     }
     let version = match entry.get("version").and_then(Value::as_str) {
@@ -566,22 +566,25 @@ fn timestamp_like(text: &str) -> bool {
             .all(|b| b.is_ascii_digit() || matches!(b, b'-' | b':' | b'.' | b'T' | b'Z' | b'+'))
 }
 
-/// `https://<site>--<channel>-<hash>.<hosting domain>`: the preview host always begins with the
-/// site ID and a double hyphen.
-fn preview_url_of(url: &str, site: &SiteId) -> bool {
+/// Bind the reported origin to the requested site AND channel. The documented URL shape is
+/// `https://<site>--<channel>-<random hash>.<hosting domain>`; unfamiliar shapes stay unknown.
+/// https://firebase.google.com/docs/hosting/manage-hosting-resources
+fn preview_url_of(url: &str, site: &SiteId, channel: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://") else {
         return false;
     };
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    // A result is an origin, not an arbitrary path or a URL carrying query/fragment data.
+    let authority = rest.strip_suffix('/').unwrap_or(rest);
+    let prefix = format!("{}--{channel}-", site.as_str());
     HOSTING_DOMAINS.iter().any(|domain| {
         authority
             .strip_suffix(&format!(".{domain}"))
-            .is_some_and(|label| {
-                label.starts_with(&format!("{}--", site.as_str()))
-                    && label.len() > site.as_str().len() + 2
-                    && label
+            .and_then(|label| label.strip_prefix(&prefix))
+            .is_some_and(|hash| {
+                !hash.is_empty()
+                    && hash
                         .bytes()
-                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
             })
     })
 }
@@ -929,6 +932,12 @@ mod tests {
             "https://example-theatre--.web.app",
             "https://example-theatre--X-1.web.app",
             "https://evil.example/example-theatre--x-1.web.app",
+            "https://example-theatre--another-channel-a1b2c3d4.web.app",
+            "https://example-theatre--review-hosting-extra-a1b2c3d4.web.app",
+            "https://example-theatre--review-hosting-.web.app",
+            "https://example-theatre--review-hosting-a1b2c3d4.web.app/private",
+            "https://example-theatre--review-hosting-a1b2c3d4.web.app?token=example",
+            "https://example-theatre--review-hosting-a1b2c3d4.web.app#other",
         ] {
             let body = PREVIEW.replace(
                 "https://example-theatre--review-hosting-a1b2c3d4.web.app",

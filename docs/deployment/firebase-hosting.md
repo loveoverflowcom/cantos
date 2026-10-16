@@ -356,3 +356,16 @@ at its place in the source with `ACCEPTANCE(NOT_RUN)`.
 - [Channels, releases, versions and rollback](https://firebase.google.com/docs/hosting/manage-hosting-resources)
 - [`hosting:channel:deploy` in firebase-tools v15.34.0](https://github.com/firebase/firebase-tools/blob/v15.34.0/src/commands/hosting-channel-deploy.ts)
 - [MDN: cookie behavior](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies)
+
+### Reviewed policy guardrails
+
+The policy accepts only the existing hidden-file and node_modules ignore patterns (or an empty
+list); arbitrary exclusions could make uploaded bytes disagree with the validated manifest. The
+bundle validator rejects those private paths. Alternate Expires, CDN-Cache-Control and
+Surrogate-Control headers are refused so they cannot override conservative revalidation. Preview
+result URLs must identify the selected site and exact channel; unfamiliar origins remain an
+unknown outcome and are never a successful release receipt.
+
+The [draft executable workflow](../../specs/behavior/tooling/hosting_deploy.qnt), selected through
+the [catalog](../../specs/behavior/catalog.json), covers abstract intent/no-retry/outcome retention.
+It is model-only, not a Firebase response, file-integrity or deployment acceptance claim.

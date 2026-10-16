@@ -188,7 +188,13 @@ pub fn parse_headers(dump: &str) -> Option<Response> {
                 let value = value.trim().to_owned();
                 match name.trim().to_ascii_lowercase().as_str() {
                     "content-type" => response.content_type = Some(value),
-                    "cache-control" => response.cache_control = Some(value),
+                    "cache-control" => match &mut response.cache_control {
+                        Some(previous) => {
+                            previous.push_str(", ");
+                            previous.push_str(&value);
+                        }
+                        None => response.cache_control = Some(value),
+                    },
                     _ => {}
                 }
             }
@@ -216,7 +222,16 @@ fn media_type(content_type: &str) -> String {
 
 fn revalidates(cache_control: &str) -> bool {
     let lower = cache_control.to_ascii_lowercase();
-    lower.contains("no-cache") || lower.contains("no-store") || lower.contains("max-age=0")
+    let directives: Vec<&str> = lower.split(',').map(str::trim).collect();
+    // Substrings are not directives: max-age=0123 is not zero and x-no-cache is not no-cache.
+    // A shared-cache lifetime can override max-age=0, but not an unqualified no-cache/no-store.
+    !directives.contains(&"immutable")
+        && (directives.contains(&"no-cache")
+            || directives.contains(&"no-store")
+            || (directives.contains(&"max-age=0")
+                && !directives
+                    .iter()
+                    .any(|d| d.starts_with("s-maxage=") && *d != "s-maxage=0")))
 }
 
 /// Judge one probe. `Err` is a request that did not complete (reason redacted by the caller).
@@ -574,6 +589,36 @@ mod tests {
             ..observed(200, Some("application/wasm"), Some("no-cache"), "x")
         };
         assert_eq!(judge(&probe, Ok(unreadable)).verdict, "fail");
+    }
+
+    #[test]
+    fn cache_directives_are_exact_and_shared_cache_lifetimes_are_not_hidden() {
+        for header in [
+            "max-age=0123",
+            "x-no-cache",
+            "x-no-store",
+            "max-age=0, s-maxage=3600",
+            "no-cache, immutable",
+        ] {
+            assert!(!revalidates(header), "{header}");
+        }
+        for header in [
+            "no-cache",
+            "No-Store",
+            "public, max-age=0",
+            "max-age=0, s-maxage=0",
+        ] {
+            assert!(revalidates(header), "{header}");
+        }
+        let response = parse_headers(
+            "HTTP/2 200\r\nCache-Control: max-age=0\r\nCache-Control: s-maxage=3600\r\n\r\n",
+        )
+        .unwrap();
+        assert_eq!(
+            response.cache_control.as_deref(),
+            Some("max-age=0, s-maxage=3600")
+        );
+        assert!(!revalidates(response.cache_control.as_deref().unwrap()));
     }
 
     #[test]

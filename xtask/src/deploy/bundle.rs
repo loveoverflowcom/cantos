@@ -252,7 +252,9 @@ fn check_file(app: App, file: &FileFacts, findings: &mut Vec<Finding>) {
         findings.push(Finding::HiddenFile(path.to_owned()));
         return;
     }
-    if PRIVATE_NAMES.contains(&name.to_ascii_lowercase().as_str()) {
+    if PRIVATE_NAMES.contains(&name.to_ascii_lowercase().as_str())
+        || path.split('/').any(|segment| segment == "node_modules")
+    {
         findings.push(Finding::PrivateName(path.to_owned()));
         return;
     }
@@ -517,11 +519,19 @@ pub fn references(html: &str) -> Vec<Reference> {
 
 fn push(found: &mut Vec<Reference>, target: String, integrity: Option<String>) {
     if let Some(existing) = found.iter_mut().find(|r| r.target == target) {
+        if integrity.is_none() {
+            return;
+        }
         if existing.integrity.is_none() {
             existing.integrity = integrity;
+            return;
         }
-    } else {
-        found.push(Reference { target, integrity });
+    }
+    let reference = Reference { target, integrity };
+    // Several tags can load the same URL with different integrity attributes. Each pin must
+    // agree with its bytes, even if a preceding tag already supplied a valid pin for this URL.
+    if !found.contains(&reference) {
+        found.push(reference);
     }
 }
 
@@ -841,6 +851,27 @@ mod tests {
     }
 
     #[test]
+    fn a_valid_first_integrity_pin_cannot_hide_a_later_invalid_pin_for_the_same_url() {
+        for invalid_first in [false, true] {
+            let mut scan = good_theatre();
+            let original = String::from_utf8(scan.index_html.clone().unwrap()).unwrap();
+            let bad =
+                "<script src=\"/cantos-theatre-aaaa.js\" integrity=\"sha384-invalid\"></script>";
+            let html = if invalid_first {
+                format!("{bad}{original}")
+            } else {
+                format!("{original}{bad}")
+            };
+            replace(&mut scan, "index.html", html.as_bytes());
+            assert_eq!(
+                findings(App::Theatre, &scan),
+                [Finding::IntegrityMismatch("cantos-theatre-aaaa.js".into())],
+                "invalid_first={invalid_first}"
+            );
+        }
+    }
+
+    #[test]
     fn html_cannot_masquerade_as_an_asset_or_wasm() {
         for (name, body) in [
             ("a.js", &b"<!DOCTYPE html><html>"[..]),
@@ -878,6 +909,14 @@ mod tests {
                 Finding::PrivateName("firebase.json".into()),
             ),
             ("receipt.json", Finding::PrivateName("receipt.json".into())),
+            (
+                "node_modules/lib/app.js",
+                Finding::PrivateName("node_modules/lib/app.js".into()),
+            ),
+            (
+                "assets/node_modules/app.js",
+                Finding::PrivateName("assets/node_modules/app.js".into()),
+            ),
             (
                 "sub/package.json",
                 Finding::PrivateName("sub/package.json".into()),

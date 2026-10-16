@@ -396,10 +396,15 @@ fn validate_entry(target: &str, entry: &Map<String, Value>) -> Result<(), Policy
         _ => return Err(bad("public")),
     }
     if let Some(ignore) = entry.get("ignore") {
-        let all_strings = ignore
-            .as_array()
-            .is_some_and(|items| items.iter().all(Value::is_string));
-        if !all_strings {
+        // These exclusions cannot remove an admitted bundle file: hidden/private and
+        // node_modules paths are refused by the byte validator. Arbitrary globs could omit
+        // validated JS/WASM or index.html while the receipt still claimed that exact manifest.
+        let safe = ignore.as_array().is_some_and(|items| {
+            items
+                .iter()
+                .all(|item| matches!(item.as_str(), Some("**/.*" | "**/node_modules/**")))
+        });
+        if !safe {
             return Err(bad("ignore"));
         }
     }
@@ -501,6 +506,14 @@ fn validate_headers(target: &str, entry: &Map<String, Value>) -> Result<(), Poli
                 .get("value")
                 .and_then(Value::as_str)
                 .ok_or_else(bad)?;
+            // Do not let a second cache policy override the reviewed Cache-Control contract.
+            // Other headers (MIME/security) remain available; these need a separate review.
+            if ["expires", "cdn-cache-control", "surrogate-control"]
+                .iter()
+                .any(|cache_key| key.eq_ignore_ascii_case(cache_key))
+            {
+                return Err(bad());
+            }
             if key.eq_ignore_ascii_case("cache-control") {
                 check_cache_value(value).map_err(|()| PolicyError::LongLivedCache {
                     target: target.to_owned(),
@@ -768,6 +781,47 @@ mod tests {
             Policy::parse(narrow),
             Err(PolicyError::NoRevalidation { .. })
         ));
+    }
+
+    #[test]
+    fn ignore_globs_cannot_remove_a_validated_public_asset() {
+        for glob in ["**", "index.html", "**/*.wasm", "assets/**", "!index.html"] {
+            let extra = format!(r#","ignore":["{glob}"]"#);
+            assert_eq!(
+                Policy::parse(&policy_text(&extra)),
+                Err(PolicyError::BadField {
+                    target: "theatre".into(),
+                    field: "ignore"
+                }),
+                "{glob}"
+            );
+        }
+        assert!(Policy::parse(&policy_text(r#","ignore":[]"#)).is_ok());
+        assert!(Policy::parse(&tracked()).is_ok());
+    }
+
+    #[test]
+    fn alternate_cache_headers_cannot_override_revalidation() {
+        for key in [
+            "Expires",
+            "CDN-Cache-Control",
+            "Surrogate-Control",
+            "cDn-CaChE-cOnTrOl",
+        ] {
+            let mut document: Value = serde_json::from_str(&policy_text("")).unwrap();
+            document["hosting"][0]["headers"][0]["headers"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"key": key, "value": "public, max-age=3600"}));
+            assert_eq!(
+                Policy::parse(&document.to_string()),
+                Err(PolicyError::BadField {
+                    target: "theatre".into(),
+                    field: "headers"
+                }),
+                "{key}"
+            );
+        }
     }
 
     #[test]
