@@ -67,6 +67,11 @@ the browser renders and drives it, the owner decides what is true.
 - **One API group per client.** The Studio client calls only `/api/v1/studio/*` (base from
   `cantos_contracts::routes::STUDIO_BASE`); the Theatre client calls only `/api/v1/theatre/*`.
   Neither calls the legacy unprefixed `/api/v1/*` paths or the other group.
+- **Forge has a separate client boundary.** Accepted [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md)
+  selects a Studio workspace backed by a separate producer. Follow the
+  [worker acceptance boundary](../../../docs/deployment/forge-worker.md); never import its
+  service crate, reuse the Studio cookie cross-origin or infer cloud access from a local mock.
+  This product direction does not mean the Forge tab or invocation grants are implemented.
 - **Product requirements are owned by docs.** [`apps/cantos-studio/web/README.md`](../../../apps/cantos-studio/web/README.md),
   [`apps/cantos-theatre/web/README.md`](../../../apps/cantos-theatre/web/README.md),
   [repository layout](../../../docs/architecture/repository-layout.md),

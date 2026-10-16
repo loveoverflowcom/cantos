@@ -12,10 +12,11 @@ validation, build/capture, provider invocation and attributable receipts.
 | [`firebase/app-distribution/`](firebase/app-distribution/README.md) | Existing Android distribution inputs; no invented Firebase configuration section | `cargo xtask distribute firebase cantos-theatre --channel demo --app-id ID --groups GROUPS` |
 
 Functions deployment configuration belongs under `infra/firebase/functions` **when a concrete
-consumer exists**. [#203](https://github.com/loveoverflowcom/cantos/issues/203) owns moving the
-current [`apps/cantos-forge`](../apps/cantos-forge/README.md) implementation into
-`services/cantos-forge-functions`, the thin supported-runtime wrapper and the packaging feasibility
-gate. There is no Functions configuration, deployment command or source scaffold here today.
+consumer exists**. [#203](https://github.com/loveoverflowcom/cantos/issues/203) locates the
+producer implementation at [`services/cantos-forge-functions`](../services/cantos-forge-functions/README.md),
+with the existing `cantos-forge` crate/CLI identity. The thin supported-runtime wrapper and
+packaging feasibility gate remain distinct from deployment. There is no Functions deployment
+configuration or deployment command here today.
 Do not infer native Rust Functions support or deploy readiness from this target directory.
 
 ## Boundaries and path resolution

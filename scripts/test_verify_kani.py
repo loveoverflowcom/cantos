@@ -39,7 +39,7 @@ PROCESS_BOUNDARY_SUPPORTED = os.name == "posix" and hasattr(os, "WNOWAIT")
 FORGE_HARNESS = (
     "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry"
 )
-FORGE_SOURCE = Path("apps/cantos-forge/src/domain/attempt.rs")
+FORGE_SOURCE = Path("services/cantos-forge-functions/src/domain/attempt.rs")
 
 
 def check_block(number, identifier, status, description="fixture property"):
@@ -1422,7 +1422,7 @@ class PackageAllowlistTest(unittest.TestCase):
             verifier.package_registration("cantos-api")[0], "services/cantos-api/Cargo.toml"
         )
         self.assertEqual(
-            verifier.package_registration("cantos-forge")[0], "apps/cantos-forge/Cargo.toml"
+            verifier.package_registration("cantos-forge")[0], "services/cantos-forge-functions/Cargo.toml"
         )
         self.assertEqual(verifier.DEFAULT_PACKAGE, "cantos-api")
 
@@ -1500,18 +1500,18 @@ class PackageModelInputsTest(unittest.TestCase):
     FORGE_INPUTS = (
         ".cargo/config.toml",
         "Cargo.toml",
-        "apps/cantos-forge/Cargo.toml",
-        "apps/cantos-forge/src/application/mod.rs",
-        "apps/cantos-forge/src/domain/attempt.rs",
-        "apps/cantos-forge/src/lib.rs",
+        "services/cantos-forge-functions/Cargo.toml",
+        "services/cantos-forge-functions/src/application/mod.rs",
+        "services/cantos-forge-functions/src/domain/attempt.rs",
+        "services/cantos-forge-functions/src/lib.rs",
         "scripts/verify_kani.py",
         "xtask/src/kani.rs",
     )
     UNBOUND = (
         "Cargo.lock",
         "README.md",
-        "apps/cantos-forge/README.md",
-        "apps/cantos-forge/tests/cli.rs",
+        "services/cantos-forge-functions/README.md",
+        "services/cantos-forge-functions/tests/cli.rs",
         "apps/cantos-theatre/web/src/lib.rs",
         "scripts/test_verify_kani.py",
         "services/cantos-api/tests/http.rs",
@@ -1548,7 +1548,9 @@ class PackageModelInputsTest(unittest.TestCase):
     def test_the_forge_set_is_exactly_forge_sources_manifests_and_shared_tooling(self):
         identity = self.digests("cantos-forge")
         self.assertEqual(sorted(identity), sorted(self.FORGE_INPUTS))
-        self.assertTrue(all(not path.startswith(("services/", "packages/")) for path in identity))
+        self.assertTrue(
+            all(not path.startswith(("services/cantos-api/", "packages/")) for path in identity)
+        )
 
     def test_forge_identity_needs_no_api_or_contract_file_to_exist(self):
         for relative in self.API_INPUTS:
@@ -1563,9 +1565,9 @@ class PackageModelInputsTest(unittest.TestCase):
         self.assertNotEqual(self.digests("cantos-api"), api)
         self.assertEqual(self.digests("cantos-forge"), forge)
         api = self.digests("cantos-api")
-        self.write("apps/cantos-forge/src/domain/attempt.rs", "changed\n")
-        self.write("apps/cantos-forge/src/domain/new.rs", "new\n")
-        (self.root / "apps/cantos-forge/src/application/mod.rs").unlink()
+        self.write("services/cantos-forge-functions/src/domain/attempt.rs", "changed\n")
+        self.write("services/cantos-forge-functions/src/domain/new.rs", "new\n")
+        (self.root / "services/cantos-forge-functions/src/application/mod.rs").unlink()
         self.assertNotEqual(self.digests("cantos-forge"), forge)
         self.assertEqual(self.digests("cantos-api"), api)
 
@@ -1590,7 +1592,7 @@ class PackageConfigurationTest(unittest.TestCase):
     """Required manifests are the workspace manifest plus the owning package's manifest."""
 
     API_MANIFEST = "services/cantos-api/Cargo.toml"
-    FORGE_MANIFEST = "apps/cantos-forge/Cargo.toml"
+    FORGE_MANIFEST = "services/cantos-forge-functions/Cargo.toml"
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -1682,10 +1684,10 @@ class ForgePackageAdapterTest(unittest.TestCase):
     FORGE_INPUTS = (
         ".cargo/config.toml",
         "Cargo.toml",
-        "apps/cantos-forge/Cargo.toml",
-        "apps/cantos-forge/src/application/mod.rs",
-        "apps/cantos-forge/src/domain/attempt.rs",
-        "apps/cantos-forge/src/lib.rs",
+        "services/cantos-forge-functions/Cargo.toml",
+        "services/cantos-forge-functions/src/application/mod.rs",
+        "services/cantos-forge-functions/src/domain/attempt.rs",
+        "services/cantos-forge-functions/src/lib.rs",
         "scripts/verify_kani.py",
         "xtask/src/kani.rs",
     )
@@ -1785,7 +1787,7 @@ class ForgePackageAdapterTest(unittest.TestCase):
         self.assertEqual(self.lock.read_bytes(), self.original_lock)
 
     def test_the_forge_proof_requires_no_api_manifest_or_source(self):
-        shutil.rmtree(self.checkout / "services")
+        shutil.rmtree(self.checkout / "services/cantos-api")
         self.approve()
         self.assertEqual(self.verify()["status"], "PASS")
         self.assertEqual(len(self.proof_calls()), 1)
@@ -1797,12 +1799,12 @@ class ForgePackageAdapterTest(unittest.TestCase):
         self.assertEqual(self.verify()["status"], "PASS")
 
     def test_a_missing_forge_manifest_is_refused_before_any_probe(self):
-        (self.checkout / "apps/cantos-forge/Cargo.toml").unlink()
+        (self.checkout / "services/cantos-forge-functions/Cargo.toml").unlink()
         self.approve()
         self.assert_refused_before_execution("(?i)approved")
 
     def test_a_forge_manifest_change_after_approval_is_refused_before_any_probe(self):
-        (self.checkout / "apps/cantos-forge/Cargo.toml").write_text(
+        (self.checkout / "services/cantos-forge-functions/Cargo.toml").write_text(
             "[package]\nname = 'cantos-forge'\n[package.metadata.kani]\nflags = {}\n",
             encoding="utf-8",
         )
@@ -1832,8 +1834,8 @@ class ForgePackageAdapterTest(unittest.TestCase):
         return metadata
 
     def test_forge_source_mutation_creation_and_deletion_are_rejected_after_success(self):
-        changed = self.checkout / "apps/cantos-forge/src/application/mod.rs"
-        created = self.checkout / "apps/cantos-forge/src/domain/new_input.rs"
+        changed = self.checkout / "services/cantos-forge-functions/src/application/mod.rs"
+        created = self.checkout / "services/cantos-forge-functions/src/domain/new_input.rs"
         for effect in (
             f"pathlib.Path({str(changed)!r}).write_text('changed Forge source\\n')",
             f"pathlib.Path({str(created)!r}).write_text('new Forge source\\n')",

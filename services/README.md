@@ -8,15 +8,17 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 | Service | Runtime | Current state | Owner |
 | --- | --- | --- | --- |
 | `cantos-api` | native Rust/Axum | implemented development HTTP host; production deployment planned | backend maintainers |
+| `cantos-forge-functions` | Rust producer library/CLI/finite worker, Node process adapter | existing CLI retained, local attempt persistence; HTTP unavailable, no registered local service or live Functions acceptance | producer maintainers |
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
 | `kanidm` | rootless Podman OCI | operator configuration; API Studio/Theatre OIDC adapters implemented; local Theatre sign-in/logout accepted, production activation gated | identity operator |
 | `object-storage` | external | filesystem and generic S3-compatible adapters implemented; real-provider/deployment acceptance separate | storage operator |
 
 The API is the authoritative modular content backend, not a restriction to one possible service
 process. Application/domain/API contracts do not depend on the container runtime. `services/`
-holds service implementations and their canonical local definitions/guides; only `cantos-api`
-is currently a Cargo package here. #203 owns the planned Forge relocation/runtime in
-`services/cantos-forge-functions`; the existing local crate remains in `apps/cantos-forge` today.
+holds service implementations and their canonical local definitions/guides. `cantos-api` and
+`cantos-forge-functions` are Cargo members; the latter preserves the `cantos-forge` package and
+CLI identity. Source placement does not register Forge in the local process inventory or
+establish Functions packaging, deployment or provider acceptance.
 The API never synthesizes audio or calls Gemini.
 
 Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the public

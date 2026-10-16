@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    config::{App, API_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
+    config::{App, API_PACKAGE, FORGE_PACKAGE, UI_CMP_DIR, UI_PACKAGE},
     gate::{self, Gate, Scope},
 };
 
@@ -224,6 +224,11 @@ fn classify(path: &str, graph: &PackageGraph, impact: &mut Impact) {
                 impact.gates.insert(Gate::CmpUiPreview);
                 impact.gates.insert(Gate::TheatreCmpDemo);
             }
+        }
+    } else if within(path, "services/cantos-forge-functions") {
+        if !is_doc {
+            impact.packages.insert(FORGE_PACKAGE.to_owned());
+            impact.gates.insert(Gate::ForgeFunctions);
         }
     } else if let Some(package) = graph.owner(path) {
         if path != format!("{}/README.md", package.dir) {
@@ -534,6 +539,38 @@ mod tests {
                 "web-build (cantos-theatre)",
             ]
         );
+    }
+
+    #[test]
+    fn forge_service_inputs_select_rust_and_offline_wrapper_without_api_or_database() {
+        for path in [
+            "services/cantos-forge-functions/src/domain/attempt.rs",
+            "services/cantos-forge-functions/firebase/src/boundary.mjs",
+            "services/cantos-forge-functions/firebase/test/boundary.test.mjs",
+            "services/cantos-forge-functions/firebase/package.json",
+        ] {
+            let selection = pick(&[path]);
+            assert_eq!(selection.broadened, None, "{path}");
+            assert_eq!(
+                names(&selection),
+                [
+                    "repository",
+                    "rust-format",
+                    "rust-lint (cantos-forge)",
+                    "rust-tests (cantos-forge)",
+                    "forge-functions",
+                ],
+                "{path}"
+            );
+            assert_eq!(selection.affected, [FORGE_PACKAGE.to_owned()].into());
+        }
+        assert_eq!(
+            names(&pick(&[
+                "services/cantos-forge-functions/firebase/README.md"
+            ])),
+            ["repository", "rust-format"]
+        );
+        assert!(pick(&["apps/cantos-forge/src/main.rs"]).broadened.is_some());
     }
 
     #[test]

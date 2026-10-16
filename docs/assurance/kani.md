@@ -437,7 +437,7 @@ The same propositions are mirrored by ordinary deterministic tests that did run 
 The registered `forge-attempt-ledger` kernel is the first one outside the API library. Its fixed
 registration names the package `cantos-forge`, the harness
 `domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry`, the source
-`apps/cantos-forge/src/domain/attempt.rs`, unwind 2, nine covers and no reviewed unreachable
+`services/cantos-forge-functions/src/domain/attempt.rs`, unwind 2, nine covers and no reviewed unreachable
 check. The model is otherwise the fixed one above (Kani 0.68.0, CBMC 6.11.0, nightly-2026-08-21,
 x86_64-unknown-linux-gnu, CaDiCaL, `--lib --no-default-features --exact`); the registered proof
 is **`NOT_RUN`**: no pinned bundle exists on the authoring host.

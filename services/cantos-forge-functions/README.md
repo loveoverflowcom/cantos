@@ -5,7 +5,9 @@ Producer-side library/CLI for Cantos content production, governed by
 [Forge vision issue](https://github.com/loveoverflowcom/cantos/issues/82). Forge runs in the
 producer's environment, **outside the Cantos API runtime**: it manages local artifact
 revisions, evaluation evidence and local handoff bundles for AI hosts and human producers.
-The API and Theatre never execute generation. Studio owns the planned controls for externally
+Source lives in `services/cantos-forge-functions`; the existing `cantos-forge` package, CLI
+binary and local data formats are preserved. The API and Theatre never execute generation.
+Studio owns the planned controls for externally
 executed Forge operations; Forge never publishes.
 
 Cantos Forge is unrelated to the external *Narrative Forge* project. The rule that Cantos code
@@ -20,11 +22,13 @@ never imports Narrative Forge internals applies to Forge too.
 | Host-assisted local workflow: `workspace init`, `artifact add/list/show`, `validate`, `handoff export` | implemented (filesystem workspace, local bundle) |
 | `capabilities [--json]` | implemented: reports exactly the commands this build has |
 | Instruction bundles, `plan`/`run`/`resume`, AI-review and human-review evidence commands | proposed (rest of #82's foundation) |
-| Generation attempt core: reserve-before-call, one call per attempt, replay/conflict, uncertain outcomes, explicit regeneration, spend and attempt limits | implemented as a library only ([#203](https://github.com/loveoverflowcom/cantos/issues/203) first slice); no CLI command, no persistent attempt store, no real provider; see [Generation attempts](#generation-attempts) |
+| Generation attempt core: reserve-before-call, one call per attempt, replay/conflict, uncertain outcomes, explicit regeneration, spend and attempt limits | implemented as a library only ([#203](https://github.com/loveoverflowcom/cantos/issues/203)); no generation CLI command or real provider; see [Generation attempts](#generation-attempts) |
+| Local filesystem attempt store | implemented library adapter, bounded write-once histories with required file/directory sync; no Drive/distributed fencing claim |
+| `cantos-forge-worker` and Node 22 process adapter | finite local capabilities/text-inspection protocol; HTTP unavailable until trusted invocation authority exists; no Firebase trigger or deployed bundle |
 | Deterministic mock speech provider | implemented (`adapters::mock_provider`); not audio, never provider-live evidence |
-| Real provider adapter (Gemini), encoding to a Cantos profile, persistent attempt store, Studio calls, Firebase Functions hosting | proposed (#203 later slices); nothing is deployed, called or billed |
+| Real provider adapter (Gemini), encoding to a Cantos profile, cross-runtime paid-dispatch fencing, Studio calls, Firebase Functions hosting | unimplemented (#203 later boundaries); nothing is deployed, called or billed |
 | Authorized handoff to the Cantos API (`submit`) | proposed (#82 PR 3); no HTTP client exists |
-| Studio-controlled local/Firebase Functions execution and private Drive drafts | owner-selected direction in #203; runtime adapter, provider execution and Drive I/O are not implemented |
+| Studio-controlled local/Firebase Functions execution and private Drive app-data drafts | owner-selected direction in #203; local worker/process foundation only, production execution and Drive I/O unimplemented |
 | MCP or other general daemon/server mode | deferred; #203's bounded Functions adapter is the concrete next runtime consumer |
 
 This build of Forge **does not make audio**. In the host-assisted workflow the AI host or a person produces
@@ -34,8 +38,36 @@ files; `capabilities` reports the API handoff and provider-managed workflows as 
 
 The [2026-10-16 direction](../../docs/decisions/0022-cantos-forge-producer-cli.md) keeps one Rust
 producer core for CLI and Functions, Studio-owned configuration/status/preview/acceptance, and
-private personal Drive for remote drafts (filesystem for offline local work). It adds no current
-command, Drive access, Gemini integration, cloud deployment or automatic API submission.
+private personal Drive `appDataFolder` for remote drafts (filesystem for offline local work).
+The [worker acceptance boundary](../../docs/deployment/forge-worker.md) records local source,
+supported-runtime candidate and unfinished authority/coordinator/storage/provider/Studio/handoff
+gates. No Drive access, Gemini integration, cloud deployment or automatic API submission exists.
+
+## Worker and local attempt adapter
+
+`cargo xtask build cantos-forge` builds both native binaries. `cargo xtask verify forge`
+runs producer lint/tests and offline Node wrapper/process tests; it generates no audio and
+reads no credentials. Native artifacts target the current host, not automatically Linux.
+
+The worker's `cantos-forge.worker/v1` stdin/stdout protocol permits only `capabilities` and
+`check_text`, reusing the existing deterministic Rust text checker. Input is bounded to
+32,768 bytes, text to 16,384 bytes and replies to 8,192 bytes. No request may name a process,
+filesystem root, environment, provider, arbitrary URL or generation action. The Node adapter
+uses a fixed prebuilt package path, no shell, a five-second deadline and bounded output; it
+waits for child closure. Its HTTP composition fails closed before processing private input.
+See `firebase/` tests for actual local Node→Rust evidence and named lifecycle fault doubles;
+neither demonstrates Firebase emulator/deployment or an authorized Studio endpoint.
+
+`adapters::fs_attempts::FsAttemptStore` implements the existing `AttemptStore` port for an
+operator-controlled absolute local directory. It has a distinct `forge-attempts.json` marker,
+checksummed versioned immutable events and no public generation command. Use the existing
+`Producer` only with deliberate operator configuration; do not substitute Function `/tmp`
+for durable state. Histories survive reopen, reject corruption/conflicts and retain open or
+uncertain attempts without automatic dispatch/recovery. File/directory sync failures return
+uncertainty. This adds no cross-runtime lock, Drive store or exactly-once provider guarantee.
+Normal capacity refusal preserves old histories; a crash during concurrent directory creation
+at the limit can leave an over-capacity store requiring operator reconciliation. Retained crash
+temporaries and exhausted bounds are never deleted or bypassed automatically.
 
 ## The host-assisted workflow
 
@@ -92,7 +124,9 @@ src/
   application/       use cases over ports: register, validate, view, export, produce; in-memory fakes in tests
   adapters/          filesystem workspace, local bundle writer, OS random identities, mock provider
   wire.rs            JSON shapes of records, manifests and results; refuses unknown fields
-  interfaces/        clap arguments, command execution, typed replies and the exit status
+  interfaces/        clap arguments, command execution, typed replies and finite worker protocol
+  worker_main.rs     one bounded stdio request/reply; no credential/provider/workspace access
+firebase/            thin Node process/HTTP boundary; no registered deploy trigger or dependencies
 tests/
   architecture.rs    domain, application and wire import no I/O, framework or outer layer (lexical)
   audio_profile_contract.rs  Forge's profiles against packages/contracts/studio-audio-intake-v1.md
@@ -109,9 +143,10 @@ checks every workspace dependency edge points inward.
 
 ## Generation attempts
 
-The first slice of [#203](https://github.com/loveoverflowcom/cantos/issues/203) adds the rules
+The first slice of [#203](https://github.com/loveoverflowcom/cantos/issues/203) added the rules
 and the verification for **when a billable provider call may start**, before any real provider,
-persistent store, Studio control or Firebase hosting exists. It is a library capability: the CLI
+persistent store, Studio control or Firebase hosting existed. The local store now implements
+the same port; Studio control and hosting remain unavailable. It is a library capability: the CLI
 gains no command and `capabilities` still reports provider generation as unsupported.
 
 ```text
@@ -131,6 +166,7 @@ regenerate(operation, acknowledgement?) → a new attempt, only after a settled 
 | `domain/attempt.rs` | `Ledger` (attempt count, reserved spend, phase) is the integer kernel; `Operation`, `Event`, `submit`, `regenerate`, `settle` and `replay` are pure decisions over it. Replay re-checks structure, not today's limits |
 | `application/produce.rs` | `Producer::{generate, regenerate, recover}` over the `AttemptStore` and `Provider` ports; the provider is called only with a `Reserved` token that exists only after the reservation append succeeded |
 | `adapters/mock_provider.rs` | deterministic, scriptable, no network, no spend |
+| `adapters/fs_attempts.rs` | local durable compare-and-append, checksummed records, bounded full replay and restart readback; not Drive/cloud coordination |
 
 | Invariant | Barrier | Evidence |
 | --- | --- | --- |
@@ -147,7 +183,8 @@ one native mirror test in `src/application/produce_tests.rs`, kept equal by
 `tests/behavior_binding.rs`. The Kani kernel is registered as `forge-attempt-ledger`. Both are
 opt-in gates that need pinned tools; their statuses are in the
 [evidence record](../../docs/evidence/forge-attempt-verification.md). None of this is a claim
-about a real provider, a durable store, a clock or what a provider charged.
+about a real provider, a distributed store, a clock or what a provider charged. The local store
+has separate filesystem/restart/race tests; the model is unchanged and has no Forge observer.
 The [reconciliation follow-up](../../docs/evidence/forge-attempt-reconciliation.md) records
 the reservation-race/readback regressions and the pinned gate's variable-binding repair.
 

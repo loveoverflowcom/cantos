@@ -37,6 +37,7 @@ and preview fixtures never authorize a Studio mobile client or mock screen.
 | lavender/purple palette, rounded and pill controls, compact adaptive layouts, restraint | [brief § Design direction](../../../docs/product/brief.md#design-direction) |
 | evidence a UI pull request carries | [CONTRIBUTING § UI changes](../../../CONTRIBUTING.md#ui-changes), [AGENTS.md § Verification](../../../AGENTS.md#verification) |
 | meaning of playback, job, QC, approval and download states | the domain owners in [Compose with](#compose-with) |
+| Studio Forge workspace, independent generation/storage/review/handoff states | [Forge ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md), [acceptance boundary](../../../docs/deployment/forge-worker.md); planned UI, not local worker acceptance |
 
 Link these; never restate a competing copy of a target, token family or state list. When this
 skill and a document disagree on product behavior, the document wins; report the conflict.

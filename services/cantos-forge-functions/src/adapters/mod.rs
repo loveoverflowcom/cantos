@@ -8,6 +8,7 @@
 
 pub mod bundle;
 pub mod fs;
+pub mod fs_attempts;
 pub mod ids;
 pub mod mock_provider;
 

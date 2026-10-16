@@ -162,7 +162,7 @@ mod tests {
         );
         for manifest in [
             "services/cantos-api/Cargo.toml",
-            "apps/cantos-forge/Cargo.toml",
+            "services/cantos-forge-functions/Cargo.toml",
             "apps/cantos-studio/web/Cargo.toml",
             "apps/cantos-theatre/web/Cargo.toml",
             "packages/contracts/api/Cargo.toml",
