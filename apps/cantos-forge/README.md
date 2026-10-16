@@ -1,11 +1,12 @@
 # Cantos Forge
 
-Producer-side CLI for Cantos content production, proposed in
+Producer-side library/CLI for Cantos content production, governed by
 [ADR 0022](../../docs/decisions/0022-cantos-forge-producer-cli.md) from the
 [Forge vision issue](https://github.com/loveoverflowcom/cantos/issues/82). Forge runs in the
 producer's environment, **outside the Cantos API runtime**: it manages local artifact
 revisions, evaluation evidence and local handoff bundles for AI hosts and human producers.
-The API, Studio and Theatre never execute generation; Forge never publishes.
+The API and Theatre never execute generation. Studio owns the planned controls for externally
+executed Forge operations; Forge never publishes.
 
 Cantos Forge is unrelated to the external *Narrative Forge* project. The rule that Cantos code
 never imports Narrative Forge internals applies to Forge too.
@@ -21,12 +22,18 @@ never imports Narrative Forge internals applies to Forge too.
 | Instruction bundles, `plan`/`run`/`resume`, AI-review and human-review evidence commands | proposed (rest of #82's foundation) |
 | Provider/tool adapters, budget and attempt recovery | proposed (#82 PR 2); no provider is configured or called |
 | Authorized handoff to the Cantos API (`submit`) | proposed (#82 PR 3); no HTTP client exists |
-| MCP or any daemon/server mode | not planned until a host needs it |
+| Studio-controlled local/Firebase Functions execution and private Drive drafts | owner-selected direction in #203; runtime adapter, provider execution and Drive I/O are not implemented |
+| MCP or other general daemon/server mode | deferred; #203's bounded Functions adapter is the concrete next runtime consumer |
 
-Forge **does not make audio**. In the host-assisted workflow the AI host or a person produces
+This build of Forge **does not make audio**. In the host-assisted workflow the AI host or a person produces
 text and audio with its own tools, then registers the exact bytes. Nothing here creates a
 server identity, a Production Brief, a submission, an admission or a release. A bundle is local
 files; `capabilities` reports the API handoff and provider-managed workflows as `unsupported`.
+
+The [2026-10-16 direction](../../docs/decisions/0022-cantos-forge-producer-cli.md) keeps one Rust
+producer core for CLI and Functions, Studio-owned configuration/status/preview/acceptance, and
+private personal Drive for remote drafts (filesystem for offline local work). It adds no current
+command, Drive access, Gemini integration, cloud deployment or automatic API submission.
 
 ## The host-assisted workflow
 

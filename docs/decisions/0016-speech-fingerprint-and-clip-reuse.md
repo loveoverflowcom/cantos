@@ -1,9 +1,10 @@
 # ADR 0016: Position-free speech fingerprint, verified clip reuse and regeneration planning
 
-> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](../decisions/0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior.
+> **Historical / superseded for active backend (2026-10-12).** [ADR 0018](0018-external-audio-production.md) removes server-side TTS generation/worker, provider dispatch and synthesis-job status. This document remains for audit and prior experiments only; do not implement it as current Cantos API behavior.
 
 
-- Status: proposed
+- Status: historical; superseded for active backend by [ADR 0018](0018-external-audio-production.md).
+- Original status: proposed
 - Date: 2026-10-12
 - Decision owner: Cantos maintainers
 - Related issue or PR: [#7](https://github.com/loveoverflowcom/cantos/issues/7) (reuse criterion),

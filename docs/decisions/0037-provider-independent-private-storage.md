@@ -1,4 +1,4 @@
-# ADR 0022 — Provider-independent private asset storage
+# ADR 0037 — Provider-independent private asset storage
 
 - Status: proposed for maintainer acceptance; the bounded implementation is described below,
   with production/provider acceptance separate.
@@ -12,6 +12,9 @@
   [#11](https://github.com/loveoverflowcom/cantos/issues/11),
   [#12](https://github.com/loveoverflowcom/cantos/issues/12).
 - Refines ADR 0020's storage limitation; does not supersede its admission/retry/isolation rules.
+
+Renumbered from the duplicate storage ADR 0022 on 2026-10-16; decision status and
+implementation evidence are unchanged. ADR 0022 now uniquely identifies Cantos Forge.
 
 ## Context
 

@@ -1,7 +1,12 @@
 # Identity registry → Studio OIDC → Theatre identity
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/identity-authentication-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 PR1 delivers internal mapping and explicit operator actions, governed by the
-[registry contract](../architecture/identity-registry.md). It does not authenticate a provider.
+[registry contract](../../architecture/identity-registry.md). It does not authenticate a provider.
 
 ## PR2: Studio OIDC
 
@@ -46,7 +51,7 @@ operator DB privilege, authenticate no provider, issue no session and grant no r
 Use operator-supplied local configuration; tests always create disposable databases through
 `cargo xtask verify postgres`. No new repository orchestration entrypoint is added.
 
-See [PR1 evidence](../evidence/identity-registry.md) for local results and deferred acceptance.
+See [PR1 evidence](../../evidence/identity-registry.md) for local results and deferred acceptance.
 
 
 ## Integrated registry consumption
@@ -56,7 +61,7 @@ and existing actors/ownership. The integrated migration order is1–14,16–19; 
 separate prerequisite for its own PR. Keep all prior checksums. Credential consumers must use
 fresh verified evidence and maintain separate Studio, Theatre Web/native and Admin authority.
 The registry lock/disable regression and current full local acceptance are recorded in
-[registry evidence](../evidence/identity-registry.md#independent-integrated-review). This changes
+[registry evidence](../../evidence/identity-registry.md#independent-integrated-review). This changes
 no production/provider/device activation gate or permission to register clients/credentials.
 
 ## Historical PR2 implementation → PR3 / Library handoff
@@ -65,10 +70,10 @@ This section preserves the original PR2 dependency snapshot. Current integration
 merged registry and develop Publication/Discovery/Library originals with unchanged checksums;
 Studio adds migration0025 after0020 for independently reviewed issuance and browser cancellation.
 
-PR2 implements [Studio OIDC](../architecture/studio-oidc.md), with exact client
+PR2 implements [Studio OIDC](../../architecture/studio-oidc.md), with exact client
 `cantos-studio-web-bff`, current-only login/callback routes, private verifier witness, durable
 consume-before-exchange and hashed PostgreSQL sessions. It does not enable a production host.
-[Evidence](../evidence/studio-oidc.md) and [operator policy](../../services/kanidm/README.md) distinguish
+[Evidence](../../evidence/studio-oidc.md) and [operator policy](../../../services/kanidm/README.md) distinguish
 mocked HTTP/actual crypto and PostgreSQL from NOT_RUN live Kanidm/browser/TLS gates. New migration
 is **0020_studio_oidc.sql**; Library/Progress retains0019. Discovery PR93 @
 `b07ab14e5ec52ebc711ea272dfa2bcb61c09fdfd` owns0017 and is not inherited by this branch.
@@ -121,7 +126,7 @@ with additive0025. All17 full local preflight gates report PASS, including actua
 PostgreSQL/HTTP, signed ES256 mocks, both WASM builds and9/9 mutation kills. Actual Studio browser
 checks report11 PASS/0 FAIL, with explicit inconclusive text scaling and deferred accessibility,
 provider and unobserved race gates. See the current
-[integrated evidence](../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
+[integrated evidence](../../evidence/studio-oidc.md#independent-integrated-acceptance-13-october-2026)
 for exact source/tree, raw log hashes, fail-before regressions and production limitations.
 
 PR3 must merge this actual branch/develop code and preserve both shared HTTP contract negotiation
@@ -134,7 +139,7 @@ credential, grant or network configuration was created by this integration.
 
 ## PR3 Theatre implementation → Admin
 
-[Theatre identity handoff](theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
+[Theatre identity handoff](../../work-plan/theatre-identity-handoff.md) owns PR3's separate BFF/session adapter,
 Web/CMP integration and exact implemented/deferred matrix. This source integration inherits the
 reviewed Studio/develop branch above, with Publication/Discovery/Library originals and Library's
 actual sealed authority seam. The PR3 migration union is1–14,16–21,24,25 (22 entries);0020/0021 and
@@ -157,7 +162,7 @@ completion of the four-PR campaign nor production activation.
 
 ## PR4 current local source integration
 
-[Admin authorization](../architecture/admin-authorization.md) adds its dedicated exact
+[Admin authorization](../../architecture/admin-authorization.md) adds its dedicated exact
 `cantos-admin-api` access-token purpose, confidential introspection/current-group evidence,
 existing registry actor, local policy and required append-only audit. Its revocation endpoint
 changes only Admin access. Shared ES256 signature/Basic encoding plumbing supplies no role,

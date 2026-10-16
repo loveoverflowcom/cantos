@@ -95,6 +95,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   a filesystem workspace and a host-assisted local workflow (`workspace init`, `artifact add`,
   `artifact list/show`, `validate`, `handoff export`). It has no provider, network client or API
   handoff, and it is not a Studio or Theatre client.
+  The owner-selected [local/Functions direction](../decisions/0022-cantos-forge-producer-cli.md)
+  lets Studio request operations while the same Rust producer core executes outside the API;
+  private Drive holds remote drafts. Those execution/storage adapters remain planned under #203.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 

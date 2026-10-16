@@ -1,12 +1,17 @@
 # Studio Catalog API and remaining Web acceptance — #66
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/011-studio-catalog-api.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 ## Outcome and review boundary
 
 Deliver the complete authenticated Studio catalog HTTP API on the same
 `feat/studio-catalog-api` branch and draft PR as the internal foundation. The internal
 Catalog domain, transactional application commands/queries and additive migration are
-implemented in session 1. Session 2 implements [JSON routes and shared contracts](../../packages/contracts/catalog-v1.md),
-with [separate HTTP evidence](../evidence/studio-catalog-api.md). GitHub [#66](https://github.com/loveoverflowcom/cantos/issues/66)
+implemented in session 1. Session 2 implements [JSON routes and shared contracts](../../../packages/contracts/catalog-v1.md),
+with [separate HTTP evidence](../../evidence/studio-catalog-api.md). GitHub [#66](https://github.com/loveoverflowcom/cantos/issues/66)
 owns execution and acceptance status; its Studio Web criteria remain outside this backend PR.
 
 ## Why and decisions from inspected code
@@ -101,12 +106,12 @@ implementation environment until the disposable PostgreSQL gate can execute.
 
 ## Risks and evidence
 
-See [foundation evidence](../evidence/studio-catalog-foundation.md). The single catalog clock
+See [foundation evidence](../../evidence/studio-catalog-foundation.md). The single catalog clock
 prioritizes simple stable pages/current permissions at initial scale; all tenants contend and
 unrelated mutations invalidate pages. No production throughput/latency acceptance is claimed.
 Reassess the clock granularity and per-page membership lookups only against a measured workload.
 The API now has a bounded Catalog UI consumer in draft PR73; its
-[real-browser follow-up](../evidence/live-client-browser-acceptance.md) is partial/FAIL, with
+[real-browser follow-up](../../evidence/live-client-browser-acceptance.md) is partial/FAIL, with
 default-kind, existing-profile session and chip-contrast findings still open. Correct/recheck
 those within #66 before broad responsive/keyboard acceptance. There is no public delivery behavior.
 Membership changes may advance archived Work revisions without changing content, allowing

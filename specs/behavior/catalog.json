@@ -237,7 +237,7 @@
       "sourceRefs": [
         "packages/contracts/theatre-discovery-v1.md#origin-mode-media-proposed-adr-0032",
         "docs/decisions/0032-theatre-origin-playback-delivery.md#decision",
-        "docs/decisions/0028-publication-streaming-evidence-gates.md#decision",
+        "docs/decisions/0038-publication-streaming-evidence-gates.md#decision",
         "services/cantos-api/src/contexts/media/listener_media.rs",
         "services/cantos-api/src/contexts/media/listener_application.rs",
         "services/cantos-api/src/contexts/media/domain/listening.rs"

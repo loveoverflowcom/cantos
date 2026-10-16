@@ -1,7 +1,7 @@
 # Private artwork v1 independent wire corpus
 
 Authority: [artwork_v1.proto](../../../protobuf/artwork_v1.proto), package
-`cantos.studio.artwork.v1`, and the [reviewed artwork plan](../../../../../docs/work-plan/012-private-work-artwork.md#7-json-and-protobuf-contract-scopepresence).
+`cantos.studio.artwork.v1`, and the [reviewed artwork plan](../../../../../docs/archive/superseded-plans/012-private-work-artwork.md#7-json-and-protobuf-contract-scopepresence).
 These are synthetic wire/DTO fixtures, not admitted images, rights evidence, stored receipt
 integrity or public artwork. Existing pilot generated types and all 13 pilot goldens remain unchanged.
 

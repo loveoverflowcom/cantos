@@ -1,0 +1,41 @@
+# Current priorities
+
+Reviewed 2026-10-16 against develop `25b1c701` (including merged PR #208), actual source and current GitHub issues.
+This is recommended sequencing, not a live status mirror. Re-read linked issues before work;
+open PRs and remaining acceptance can change independently.
+
+## Reuse the implemented foundation
+
+Catalog Work/ContentUnit CRUD, immutable Content, Brief read grants, scoped private Audio
+Lifecycle, owner artwork and the bounded Studio consumers exist. [#66](https://github.com/loveoverflowcom/cantos/issues/66)
+is closed for Catalog + Studio consumer; remaining QA belongs to #131/#172/#179/#180.
+Publication, Discovery, Library/Progress, identity adapters and Firebase Hosting tooling also
+have implemented slices. Their presence does not establish provider, playback or deployment acceptance.
+See [product status](../product/brief.md#implementation-status) and the [contract index](../../packages/contracts/README.md).
+
+## Recommended next boundaries
+
+| Order | Issue owner | One next outcome | Dependency / review input |
+| --- | --- | --- | --- |
+| 1 | [#179](https://github.com/loveoverflowcom/cantos/issues/179), [#180](https://github.com/loveoverflowcom/cantos/issues/180) | Establish the real API/PG/storage/issuer acceptance matrix for the existing Studio → release → Theatre path | [Client matrix](live-client-api-matrix.md); run/readiness code from #183 already exists, integration acceptance remains separate |
+| 2 | [#10](https://github.com/loveoverflowcom/cantos/issues/10), [#9](https://github.com/loveoverflowcom/cantos/issues/9), [#11](https://github.com/loveoverflowcom/cantos/issues/11) | Verify private-provider isolation and exact rights/review/publication bindings; preserve old releases on failure | [030](030-mix-review-and-publish.md); [Long Vân blocker](../evidence/longvan-s3-acceptance.md#offline-harness-hardening-and-live-blocker) is evidence to reconcile, not a successful provider gate |
+| 3 | [#170](https://github.com/loveoverflowcom/cantos/issues/170), [#120](https://github.com/loveoverflowcom/cantos/issues/120) | Review the origin delivery proposal, then accept configured real Range/expiry/withdrawal behavior | [ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md), [ADR 0038](../decisions/0038-publication-streaming-evidence-gates.md); implemented core stays composition-gated |
+| 4 | [#172](https://github.com/loveoverflowcom/cantos/issues/172) | Close the remaining public Work/unit state and pagination gaps | [State matrix](theatre-catalog-state-handoff.md), accepted [ADR 0035](../decisions/0035-theatre-catalog-unit-availability.md); PR #207 is open, not merged acceptance |
+| 5 | [#13](https://github.com/loveoverflowcom/cantos/issues/13), [#14](https://github.com/loveoverflowcom/cantos/issues/14), [#158](https://github.com/loveoverflowcom/cantos/issues/158), [#159](https://github.com/loveoverflowcom/cantos/issues/159) | Connect one real discovery → episode → playback slice per client with typed unavailable/error states | #170/#172; [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md); follow with #15/#16/#17/#35 background/offline/sync |
+
+Order expresses capability dependencies. The following tracks can proceed independently within
+their own decision/acceptance gates; none requires rebuilding the completed foundation.
+
+| Track | Next outcome / gate |
+| --- | --- |
+| [#174](https://github.com/loveoverflowcom/cantos/issues/174), [#191](https://github.com/loveoverflowcom/cantos/issues/191), [#206](https://github.com/loveoverflowcom/cantos/issues/206) | Accept real Theatre login/onboarding while preserving Kanidm and provisioned-only Studio; [identity handoff](theatre-identity-handoff.md). Merged PR #208 adds a test-only Firebase proof prototype and proposed [ADR 0036](../decisions/0036-firebase-enrollment-proof.md); bootstrap/action binding/setup-delivery and durable/live gates remain open |
+| [#203](https://github.com/loveoverflowcom/cantos/issues/203), vision [#82](https://github.com/loveoverflowcom/cantos/issues/82) | Prove one bounded Gemini segment through the same Rust Forge core locally and via Firebase Functions; Studio controls it, private Drive holds drafts; [ADR 0022](../decisions/0022-cantos-forge-producer-cli.md). Runtime packaging, OAuth, spending/recovery and handoff remain unimplemented gates |
+| [#199](https://github.com/loveoverflowcom/cantos/issues/199), [#184](https://github.com/loveoverflowcom/cantos/issues/184) | Complete explicitly authorized Hosting/distribution acceptance using existing independent Firebase CLI/xtask tooling; [Hosting runbook](../deployment/firebase-hosting.md). Static Hosting, Functions and Android distribution are separate capabilities |
+| [#157](https://github.com/loveoverflowcom/cantos/issues/157) → [#171](https://github.com/loveoverflowcom/cantos/issues/171) | Accept exact public-cover policy before projection/delivery; [cover handoff](public-cover-implementation-handoff.md). Private cover and its Studio UI are implemented; #156 is closed |
+| [#177](https://github.com/loveoverflowcom/cantos/issues/177), [#178](https://github.com/loveoverflowcom/cantos/issues/178) | Choose a concrete metadata/transcript consumer and accept its release/rights/compatibility rules before schema expansion |
+| [#106](https://github.com/loveoverflowcom/cantos/issues/106) | Extend only reviewed [behavior catalog](../../specs/behavior/README.md) capabilities and their implementation observations; preserve draft vs accepted lifecycle |
+| [#141](https://github.com/loveoverflowcom/cantos/issues/141), [#142](https://github.com/loveoverflowcom/cantos/issues/142), [#143](https://github.com/loveoverflowcom/cantos/issues/143), [#145](https://github.com/loveoverflowcom/cantos/issues/145), [#167](https://github.com/loveoverflowcom/cantos/issues/167) | Finish bounded preview/runtime/localization decisions using [Leptos](015-leptos-ui-system.md) and [CMP](016-cmp-ui-system.md) inputs; completed #168/#169/#122 slices are foundations, not new tasks |
+| [#175](https://github.com/loveoverflowcom/cantos/issues/175), [#176](https://github.com/loveoverflowcom/cantos/issues/176) | Decide interest-receipt/privacy and read-only plan publication separately; no inferred payment or entitlement implementation |
+
+Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
+and leave a short current pointer. Existing source-bound evidence remains at its original path.

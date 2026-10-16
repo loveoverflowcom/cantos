@@ -1,9 +1,14 @@
 # Audio Lifecycle → real frontend handoff
 
-Session3's bounded server/contract slice is [Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md).
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/audio-lifecycle-frontend-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
+Session3's bounded server/contract slice is [Audio Lifecycle v1](../../../packages/contracts/audio-lifecycle-v1.md).
 It builds on [Content](content-identity-production-brief-handoff.md), [Brief](production-brief-audio-lifecycle-handoff.md)
-and the attributed PR69 intake. [Evidence](../evidence/audio-lifecycle.md) and
-[independent review](../evidence/audio-lifecycle-review.md) delimit actual checks.
+and the attributed PR69 intake. [Evidence](../../evidence/audio-lifecycle.md) and
+[independent review](../../evidence/audio-lifecycle-review.md) delimit actual checks.
 
 ## Live server surfaces
 
@@ -11,7 +16,7 @@ Catalog Work/unit and ContentRevision mutations/history, owner Brief create/read
 producer read grants/export, legacy script-owner audio prepare/PUT/status, and the Content/Brief
 AudioSubmission prepare/status/revoke, producer binary PUT/status, named review and private
 ReleaseCandidate create/read routes are implemented. See the exact method/path table in the
-[contract](../../packages/contracts/audio-lifecycle-v1.md#concrete-routes).
+[contract](../../../packages/contracts/audio-lifecycle-v1.md#concrete-routes).
 
 Studio owner routes use the existing development `cantos_session` cookie. External producer
 read and upload bearer credentials are separate from each other and from Studio sessions.

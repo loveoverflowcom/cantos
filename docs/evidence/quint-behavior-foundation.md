@@ -3,7 +3,7 @@
 Related: [issue 106](https://github.com/loveoverflowcom/cantos/issues/106),
 [ADR 0027](../decisions/0027-quint-executable-behavior.md),
 [capability inventory](../../specs/behavior/inventory.md) and
-[separate implementation-conformance handoff](../work-plan/quint-conformance-handoff.md).
+[separate implementation-conformance handoff](../archive/handoffs/quint-conformance-handoff.md).
 This is **PR A: executable model foundation**, not implementation or production acceptance.
 
 PR 117 was rebased from original head `0b6c3db04ed47f371cb9158e0328a0a7f322b625`

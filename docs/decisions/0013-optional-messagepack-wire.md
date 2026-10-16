@@ -1,10 +1,15 @@
 # ADR 0013: Optional MessagePack representation for Studio revision routes
 
-- Status: accepted for the implemented foundation; enabling MessagePack in a client is **not** accepted yet
+- Status: accepted legacy foundation; superseded by ADR 0023 for new preferred binary clients.
+  Existing MessagePack route compatibility is retained; this is not a protocol removal.
 - Date: 2026-10-11
 - Decision owner: Cantos maintainers
 - Related issue or PR: branch `feat/studio-messagepack-wire`
-- Supersedes / superseded by: N/A
+- Superseded by: [ADR 0023](0023-versioned-protobuf-wire.md) for binary preference only;
+  [current wire policy](../architecture/wire-codec.md) owns negotiation and rollout.
+
+The decisions and measurements below describe the original MessagePack foundation. Its rejected
+Protobuf alternative and proposed client switch are historical reasoning, not today's binary roadmap.
 
 ## Context
 

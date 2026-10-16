@@ -1,6 +1,7 @@
 # ADR 0021 — Podman-first service runtime
 
-- Status: accepted architecture; implementation lands in three sequential commits.
+- Status: accepted architecture; command/configuration tooling is implemented.
+  Historical commit sequencing below does not establish live infrastructure acceptance.
 - Date: 2026-10-13.
 - Owner: Cantos maintainers.
 - Refines: [ADR 0001](0001-modular-monolith.md), [ADR 0009](0009-monorepo-layout.md),

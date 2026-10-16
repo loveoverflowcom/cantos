@@ -1,7 +1,12 @@
 # Work-scoped delegation review handoff
 
-The [decision-pending RFC](../architecture/work-scoped-delegation-rfc.md) and
-[dated research evidence](../evidence/work-scoped-delegation-research.md) support
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/work-scoped-delegation-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
+The [decision-pending RFC](../../architecture/work-scoped-delegation-rfc.md) and
+[dated research evidence](../../evidence/work-scoped-delegation-research.md) support
 [#113](https://github.com/loveoverflowcom/cantos/issues/113). GitHub owns live execution status.
 This handoff recommends order, not a selected credential/API/schema or new authorization.
 
@@ -9,10 +14,10 @@ This handoff recommends order, not a selected credential/API/schema or new autho
 
 PR 136 first delivered the source-bound RFC comparison and synthetic evidence as documentation.
 After the owner selected direction A on 15 October 2026, the same PR adds the bounded first
-backend slice recorded in [ADR 0028](../decisions/0028-work-scoped-delegation.md): additive
+backend slice recorded in [ADR 0028](../../decisions/0028-work-scoped-delegation.md): additive
 migration 0026, the Catalog delegation core/application/SQL adapter, owner and bearer-only HTTP
-routes and the [delegation v1 contract](../../packages/contracts/delegation-v1.md), with its
-[implementation evidence](../evidence/work-scoped-delegation-implementation.md). Preserve
+routes and the [delegation v1 contract](../../../packages/contracts/delegation-v1.md), with its
+[implementation evidence](../../evidence/work-scoped-delegation-implementation.md). Preserve
 existing Studio/Admin/producer/storage boundaries and production gates. Do not create live
 grants/credentials, provision production roles, change identity/security settings, deploy or
 close the issue: everything the ADR does not decide remains open.
@@ -31,7 +36,7 @@ Mac work are not prerequisites or part of this PR.
    identity, independent Script/source relations, Brief grant checks, lifecycle final checks,
    artwork owner facade and publication mutations. Verify the inventory names actual code, not
    guessed proposed modules.
-3. Inspect and rerun the [exact archival A/B fixture](../evidence/work-scoped-delegation-fixture.md)
+3. Inspect and rerun the [exact archival A/B fixture](../../evidence/work-scoped-delegation-fixture.md)
    through its hash-checked extraction, independently of ignored session artifacts. Validate exact errors, signature
    rejection partitions and zero synthetic effect after current-parent revoke. Report its
    limitations: no production modules, SQL, HTTP, S3 or complete wire interoperability.
@@ -69,7 +74,7 @@ outside Catalog remain open; resolve them as one bounded review each rather than
 ## Verification and later acceptance
 
 For this Markdown-only change, use the already-installed repository toolchain and canonical
-entrypoints from [xtask](../../xtask/README.md):
+entrypoints from [xtask](../../../xtask/README.md):
 
 ```sh
 cargo xtask verify repository

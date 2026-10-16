@@ -5,7 +5,7 @@
 - Decision owner: unassigned — Publication/Media owner and deployment owner review required
 - Related issue or PR: [#170](https://github.com/loveoverflowcom/cantos/issues/170), RFC
   [#120](https://github.com/loveoverflowcom/cantos/issues/120), prerequisites #10/#11
-- Supersedes / superseded by: N/A; selects one row of [ADR 0028](0028-publication-streaming-evidence-gates.md)'s
+- Supersedes / superseded by: N/A; selects one row of [ADR 0038](0038-publication-streaming-evidence-gates.md)'s
   "Authorized delivery" track **for review only**. ADR 0028's evidence gates still apply.
 
 ## Context

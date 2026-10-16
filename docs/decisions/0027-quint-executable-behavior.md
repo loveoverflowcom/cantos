@@ -51,7 +51,7 @@ valid private AudioSubmission. It does not migrate schema, HTTP or database beha
 7. Follow the shared [behavior skill](../../.agents/skills/cantos-behavior/SKILL.md) for API,
    Leptos and CMP work. Generate scenarios from accepted declarations and retain their IDs;
    treat counterexamples as evidence to investigate, never permission to rewrite requirements.
-   [PR B](../work-plan/quint-conformance-handoff.md) compares independent test-only observations
+   [PR B](../archive/handoffs/quint-conformance-handoff.md) compares independent test-only observations
    from existing production pure seams through the [registered protocol](../../specs/behavior/observation-protocol.md). Wider shared UI/CMP scenarios remain later work.
 
 The CLI distinguishes [sampled simulation and solver checking](https://quint.sh/docs/quint).

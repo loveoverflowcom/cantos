@@ -22,7 +22,9 @@ An external editor/producer may receive only an explicitly granted Work UUID, op
 exact unit/revision/Brief/submission, selected operations and bounded time. Studio cookies and
 platform Admin credentials must never enter Forge or an untrusted producer environment.
 The [research evidence](../evidence/work-scoped-delegation-research.md) supports comparison,
-not selection; [the handoff](../work-plan/work-scoped-delegation-handoff.md) orders the next gates.
+not selection; the [archived handoff](../archive/handoffs/work-scoped-delegation-handoff.md)
+retains the original sequencing. The accepted first slice is below; [current priorities](../work-plan/current-priorities.md)
+and the owning ADR govern further review.
 
 ### First slice outcome (ADR 0028)
 

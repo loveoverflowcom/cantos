@@ -5,7 +5,7 @@ Issue [#131](https://github.com/loveoverflowcom/cantos/issues/131), based on
 preserves Studio's cookie-confirmed authority, mounted drafts and existing Catalog/Content/
 Brief/private-audio controllers. It introduces no backend, API, schema, permission or token
 change. Studio remains Web-only. Live identity-provider and capability acceptance stay with
-[the identity handoff](../work-plan/identity-authentication-handoff.md); this slice does not
+[the identity handoff](../archive/handoffs/identity-authentication-handoff.md); this slice does not
 close #66, #67, #8 or #9.
 
 ## Review boundary and component lookup

@@ -82,4 +82,4 @@ Production Brief must pin `(WorkId, ContentUnitId, ContentRevisionId, cc-r1)` an
 ScriptRef, separately pin guidance/profile revisions, and resolve authorized source/script
 bytes through their owning contexts. Equality of `cc-c1` alone never validates approval or
 rights. Brief staleness is computed against the current content head; old briefs never retarget.
-See the [session 2 handoff](../work-plan/content-identity-production-brief-handoff.md).
+See the [session 2 handoff](../archive/handoffs/content-identity-production-brief-handoff.md).

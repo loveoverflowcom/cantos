@@ -2,7 +2,7 @@
 
 This contract defines one owner-only, externally prepared PNG/JPEG Work cover. Shared raw
 DTOs, JSON Schema and the opt-in Protobuf edge representation are implemented independently
-of runtime activation. The [work item](../../docs/work-plan/012-private-work-artwork.md) owns
+of runtime activation. The [archived reviewed plan](../../docs/archive/superseded-plans/012-private-work-artwork.md) records
 product policy, storage prerequisites and layered acceptance. A private admitted image is
 neither a publication approval nor public delivery. No client UI/native route is added.
 

@@ -74,7 +74,7 @@ authentication, object-storage or full-API integration acceptance.
 
 Class: **confirmed defect**; category: rule; confidence: confirmed from source and inbound links.
 Both the Quint contract and the later publication-streaming proposal claimed ADR 0027.
-The publication proposal is now [ADR 0028](../decisions/0028-publication-streaming-evidence-gates.md),
+The publication proposal is now [ADR 0038](../decisions/0038-publication-streaming-evidence-gates.md),
 with inbound links updated. Quint remains ADR 0027. Both proposals retain their existing status;
 no unresolved delivery/cache/native-codec choice is selected. The older duplicate ADR 0022
 predates this scope and is not silently renumbered.

@@ -1,7 +1,7 @@
 # Studio Script Editor evidence
 
 Date: 2026-10-10. Review boundary: [issue #4](https://github.com/loveoverflowcom/cantos/issues/4)
-and [010 — Import and edit a versioned script](../work-plan/010-import-and-edit-script.md).
+and [010 — Import and edit a versioned script](../assurance/script-editor-acceptance.md).
 Base: `297f6fdb42568819d48c507ec09713667b3a6659` on `develop`; branch
 `feat/studio-script-editor`. Implementation milestone: `8d1c858`. Upstream `develop` at
 `4b2f786` was integrated by `8deb25c`, preserving its WAV work. The later upstream read-only

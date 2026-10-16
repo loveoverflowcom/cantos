@@ -2,7 +2,7 @@
 
 ## Scope and provenance
 
-Work item: [010](../work-plan/010-import-and-edit-script.md), contract criterion of
+Work item: [010](../assurance/script-editor-acceptance.md), contract criterion of
 [#1](https://github.com/loveoverflowcom/cantos/issues/1). Base: `develop` / `origin/develop` at
 `7e393361f412b87a34b8121528de78416b721e8c`; implementation branch `feat/script-ir-contract`.
 The base tree was clean. The historical `contracts/examples/episode-draft.json` is unchanged.

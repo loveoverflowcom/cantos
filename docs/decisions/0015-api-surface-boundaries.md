@@ -1,6 +1,7 @@
 # ADR 0015: Name the listener app `cantos-theatre` and split the API into surface groups
 
-- Status: proposed
+- Status: proposed policy record; the `cantos-theatre` name and separate Studio/Theatre/Admin
+  route groups are implemented. Per-surface production acceptance remains separate.
 - Date: 2026-10-12
 - Decision owner: Cantos maintainers
 - Related issue or PR: `refactor: rename Cantos Theatre and separate API boundaries` (targets `develop`)

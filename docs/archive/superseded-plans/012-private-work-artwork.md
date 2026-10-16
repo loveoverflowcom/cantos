@@ -1,5 +1,10 @@
 # Private Work cover: the small Catalog / Media MVP
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/012-private-work-artwork.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 Status: **IO_ACCEPTANCE_PENDING**. The original 2026-10-13 planning requirements are retained;
 implemented and executed scopes are recorded in the checkpoint below and its evidence ledger.
 Source request: [#104](https://github.com/loveoverflowcom/cantos/issues/104), plus the user's
@@ -626,13 +631,13 @@ boundary or demonstrated decoder safety failure is an implementation dependency/
 blocker to report, not a reason to expand this small MVP.
 
 See the [checked primary-source reference](catalog-media-standards-reference.md) and the
-[compact new-session Ultra handoff](catalog-media-mvp-ultra-handoff.md).
+[compact new-session Ultra handoff](../handoffs/catalog-media-mvp-ultra-handoff.md).
 
 ## Implementation checkpoint (2026-10-13)
 
 The bounded core, metadata contract/fixtures, full decoder, application orchestration and thin
 Studio adapter are implemented on refreshed develop `007ae8f`. See the
-[execution ledger](../evidence/private-work-artwork.md) for actual PASS/FAIL/NOT_RUN scopes.
+[execution ledger](../../evidence/private-work-artwork.md) for actual PASS/FAIL/NOT_RUN scopes.
 The additive 0023 source and ignored SQL acceptance tests do not establish database execution.
 The default host keeps artwork routes unmounted pending the parent's separately reviewed PR90
 integration; the current object port refuses persistence/verification rather than claiming

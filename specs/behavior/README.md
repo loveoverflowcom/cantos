@@ -10,7 +10,7 @@ The private AudioSubmission pilot is **PR A model foundation plus PR B pure-core
 model-only PASS neither accepts the model nor demonstrates Rust/DB/API/client conformance.
 `--conformance` reports independent Rust pure-core observations separately; it does not establish DB/API/client acceptance.
 Read [ADR 0027](../../docs/decisions/0027-quint-executable-behavior.md) and the
-[PR B observation handoff](../../docs/work-plan/quint-conformance-handoff.md).
+[PR B observation handoff](../../docs/archive/handoffs/quint-conformance-handoff.md).
 
 Two further **draft, model-only** capabilities describe proposed public media rules:
 `cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
