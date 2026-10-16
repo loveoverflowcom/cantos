@@ -133,6 +133,20 @@ mod tests {
     }
 
     #[test]
+    fn theatre_proxy_leaves_the_issuer_redirect_to_the_browser() {
+        let trunk: toml::Value =
+            toml::from_str(&read("apps/cantos-theatre/web/Trunk.toml")).unwrap();
+        let proxies = trunk["proxy"].as_array().unwrap();
+        assert_eq!(proxies.len(), 1);
+        assert_eq!(
+            proxies[0]["backend"].as_str(),
+            Some(format!("http://127.0.0.1:{API_PORT}/api/").as_str())
+        );
+        // A proxy following the 303 to the identity provider hides it from the browser.
+        assert_eq!(proxies[0]["no_redirect"].as_bool(), Some(true));
+    }
+
+    #[test]
     fn rust_version_matches_every_package() {
         let pin: toml::Value = toml::from_str(&read("rust-toolchain.toml")).unwrap();
         let toolchain = &pin["toolchain"];

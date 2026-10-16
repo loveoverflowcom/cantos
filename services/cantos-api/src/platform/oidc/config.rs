@@ -1,4 +1,4 @@
-use super::core::AuthError;
+use super::{core::AuthError, trust::IssuerTrust};
 const STUDIO_CLIENT_ID: &str = "cantos-studio-web-bff";
 pub const THEATRE_WEB_CLIENT_ID: &str = "cantos-theatre-web-bff";
 pub const THEATRE_NATIVE_CLIENT_ID: &str = "cantos-theatre-native";
@@ -21,6 +21,7 @@ pub struct OidcConfig {
     pub(crate) redirect: String,
     pub(crate) authentication: ClientAuthentication,
     pub(crate) secure: bool,
+    pub(crate) trust: Option<IssuerTrust>,
 }
 
 impl OidcConfig {
@@ -38,6 +39,7 @@ impl OidcConfig {
             redirect: THEATRE_NATIVE_REDIRECT.into(),
             authentication: ClientAuthentication::PublicNative,
             secure: true,
+            trust: None,
         })
     }
 
@@ -83,7 +85,23 @@ impl OidcConfig {
             redirect: format!("{web_origin}/api/v1/{surface}/auth/callback"),
             authentication: ClientAuthentication::Confidential(secret),
             secure: web.scheme() == "https",
+            trust: None,
         })
+    }
+
+    /// Private anchors only make sense for an HTTPS issuer; unused trust is a configuration error.
+    pub fn with_trust(self, trust: IssuerTrust) -> Result<Self, AuthError> {
+        if self.origin.scheme() != "https" {
+            return Err(AuthError::Configuration);
+        }
+        Ok(Self {
+            trust: Some(trust),
+            ..self
+        })
+    }
+
+    pub(crate) fn trust(&self) -> Option<&IssuerTrust> {
+        self.trust.as_ref()
     }
 
     pub(crate) fn endpoint(&self, value: &str) -> Result<Url, AuthError> {

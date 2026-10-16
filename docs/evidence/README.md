@@ -17,7 +17,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Brief/private audio | [Brief](production-brief.md), [Audio Lifecycle](audio-lifecycle.md); technical admission is not rights/listening approval |
 | Private storage/artwork | [Storage](provider-independent-storage.md), [provider blocker](longvan-s3-acceptance.md), [artwork](private-work-artwork.md), [Studio UI](studio-private-artwork-ui.md); keep real-provider and fixture/browser acceptance separate |
 | Publication/delivery | [Core](publication-core.md), [Range transport](playback-range-transport.md), [origin delivery](public-media-delivery-core.md); composition-gated cores are not live playback |
-| Identity | [Studio OIDC](studio-oidc.md), [Theatre activation](theatre-auth-activation.md), [Theatre identity](theatre-identity.md), [Firebase runtime](firebase-enrollment-runtime.md); live mail/provider/device gates stay explicit |
+| Identity | [Studio OIDC](studio-oidc.md), [Theatre activation](theatre-auth-activation.md), [Theatre identity](theatre-identity.md), [Firebase runtime](firebase-enrollment-runtime.md), [Theatre live sign-in](theatre-live-auth-206.md); live mail/provider/device gates stay explicit |
 | Behavior | [Quint foundation](quint-behavior-foundation.md), [pure-core observations](quint-code-conformance.md); draft model PASS is not accepted behavior or DB/API/client conformance |
 | Deployment tooling | [Hosting](issue199-firebase-hosting.md); local adapter tests do not establish a deployed-origin journey |
 

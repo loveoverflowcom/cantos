@@ -205,7 +205,12 @@ issuer configuration/account/grant was inspected or changed by implementation/te
 The opt-in development host accepts `CANTOS_THEATRE_OIDC_ISSUER` and
 `CANTOS_THEATRE_OIDC_SECRET` only as an explicit pair, independent of Studio. Issuer must end in
 `/oauth2/openid/cantos-theatre-web-bff`; scope is only `openid` and callback is the exact configured
-Web origin plus `/api/v1/theatre/auth/callback`. No live registration, grant, secret, account,
+Web origin plus `/api/v1/theatre/auth/callback`. An HTTPS issuer with a private authority (a local
+acceptance Kanidm) additionally needs `CANTOS_THEATRE_OIDC_CA_FILE`: an absolute, regular PEM file of
+at most 64 KiB, not group/other writable, holding only `CERTIFICATE` blocks (one to eight). Those
+anchors **replace** the public roots for this issuer's OIDC and registration/onboarding clients only;
+no other client gains them, validation is never disabled, a plain-HTTP issuer or a file without an
+issuer is refused, and nothing is installed into a system trust store. No live registration, grant, secret, account,
 container, certificate or network change is performed by implementation/tests. The current xtask
 Kanidm reconciliation plan remains Studio-specific; no Theatre live provisioning is implied.
 
