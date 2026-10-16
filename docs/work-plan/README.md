@@ -216,6 +216,10 @@ then #13/#14 player integration of the documented refresh contract. For
 [#171](https://github.com/loveoverflowcom/cantos/issues/171), the release-pinned cover kernel and
 [proposed ADR 0033](../decisions/0033-release-pinned-public-cover.md) are inputs to #157's P0
 decision only; no DTO, storage or delivery work starts before #157 accepts a contract.
+The [cover implementation handoff](public-cover-implementation-handoff.md) maps the existing
+seams, required owner decision receipt and subsequent SQL/storage/Web/CMP acceptance. Use that
+receipt before adding the public projection; private cover admission and audio delivery policy
+cannot supply it. This artwork gate does not require accepting unrelated P1 metadata families.
 Both draft Quint capabilities are model-only and the three new Kani kernels are registered but
 not yet run. GitHub owns execution status.
 
