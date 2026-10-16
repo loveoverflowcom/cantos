@@ -78,7 +78,11 @@ an already traversed anchor later in the walk.
 ## Playback and cache
 
 The immutable public manifest pins rendition ID, manifest digest, SHA-256, bytes, integer
-milliseconds, actual Ogg/Opus codec/channel/rate/profile and Content language. It never contains
+milliseconds, actual Ogg/Opus codec/channel/rate/profile and Content language. `duration_ms`
+(here and in `UnitSummary`) is the verified rendition duration, always `1..=3,600,000`; the
+server never emits `0` or an "unknown" value, although the schema's `minimum` is still `0`
+([#172](https://github.com/loveoverflowcom/cantos/issues/172), proposed tightening in
+[ADR 0035](../../docs/decisions/0035-theatre-catalog-unit-availability.md)). It never contains
 an expiring URL, private object ID, clearance/approval or QC evidence. There is one actual
 rendition, with no invented AAC or automatic quality fallback.
 
@@ -162,6 +166,19 @@ before claiming Web/CMP wire acceptance. No hand-written Kotlin wire DTO was add
 New endpoints are additive. Earlier Theatre mock playback vectors remain separate. Times are
 explicit Unix milliseconds (`*_at_ms`), not float seconds; these new fields choose the existing
 backend time representation instead of the earlier illustrative RFC3339 listener proposal.
+
+## Client state coverage (#172) is a review input, not a wire change
+
+The [coverage matrix](../../docs/work-plan/theatre-catalog-state-handoff.md) maps each Web/CMP
+catalog state to an existing field and lists gaps. Under the **proposed**
+[ADR 0035](../../docs/decisions/0035-theatre-catalog-unit-availability.md) the unit list stays
+"listenable now": `UnitSummary` gains no availability, reason, count or unknown-duration field,
+and a row's `unavailable` state is derived by the client from evidence it already holds. The
+shared fixtures [`units_empty_continuation.json`](fixtures/theatre/discovery/v1/units_empty_continuation.json),
+[`units_end_empty.json`](fixtures/theatre/discovery/v1/units_end_empty.json) and
+[`units_republished.json`](fixtures/theatre/discovery/v1/units_republished.json) show the empty
+intermediate page, the terminal empty page and a version change using only the v1 fields. A cursor is
+not consumed by a read, so a failed page is retried with the same cursor until it expires.
 
 ## Proposed P1 metadata is not part of this contract
 

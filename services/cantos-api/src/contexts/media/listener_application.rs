@@ -693,6 +693,30 @@ pub(super) mod tests {
         }
     }
 
+    /// Retry-page: the vault does not consume a cursor on read, so a client that lost a page
+    /// response resends the cursor it holds. The same keyset reaches the reader and the same
+    /// page returns, so a retry can neither skip nor repeat a row.
+    #[tokio::test]
+    async fn retrying_a_unit_cursor_replays_the_same_continuation() {
+        let read = Arc::new(UnitWalkRead {
+            remaining_visible: true,
+            requests: Mutex::new(vec![]),
+        });
+        let s = ListenerService::from_parts(read.clone(), Arc::new(UnavailablePlayback));
+        let work = item().publication.work().id().as_str().to_owned();
+        let cursor = s.units(&work, 1, None).await.unwrap().next_cursor.unwrap();
+
+        let first = s.units(&work, 1, Some(&cursor)).await.unwrap();
+        let retry = s.units(&work, 1, Some(&cursor)).await.unwrap();
+
+        assert_eq!(first, retry);
+        assert_eq!(first.items, vec![unit_summary(&item().publication, 9)]);
+        let requests = read.requests.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert!(requests[1].is_some());
+        assert_eq!(requests[1], requests[2]);
+    }
+
     #[tokio::test]
     async fn empty_catalog_and_private_or_absent_release_are_distinct() {
         let s = service(vec![false, false, false], Arc::new(UnavailablePlayback));
