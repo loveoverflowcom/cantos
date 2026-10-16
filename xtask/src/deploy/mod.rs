@@ -96,8 +96,8 @@ Examples:
   cargo xtask deploy firebase cantos-studio --web --project PROJECT_ID --channel live
 
 Configuration:
-  services/firebase-hosting/firebase.json   tracked policy (reviewed in Git)
-  services/firebase-hosting/.firebaserc     your target -> site mapping (ignored by Git)
+  infra/firebase/hosting/firebase.json   tracked policy (reviewed in Git)
+  infra/firebase/hosting/.firebaserc     your target -> site mapping (ignored by Git)
 The Firebase CLI authenticates by its own login or Application Default Credentials; xtask never
 reads, prints or stores a credential and never logs in. Static files only: the API is not served.
 See docs/deployment/firebase-hosting.md.";
@@ -282,6 +282,85 @@ mod tests {
             !workspace.path("artifacts/hosting/RUN-ID").exists(),
             "a dry run must not create the placeholder run directory"
         );
+    }
+
+    #[test]
+    fn relocated_config_and_staging_keep_spaces_and_ignore_legacy_project_authority() {
+        let root = std::env::temp_dir().join(format!(
+            "cantos hosting root with spaces {}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(root.join(hosting_config::CONFIG_DIR)).unwrap();
+        std::fs::create_dir_all(root.join("services/firebase-hosting")).unwrap();
+        std::fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        std::fs::write(
+            root.join(hosting_config::CONFIG_DIR).join("firebase.json"),
+            include_str!("../../../infra/firebase/hosting/firebase.json"),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join(hosting_config::CONFIG_DIR).join(".firebaserc"),
+            r#"{"targets":{"cantos-example":{"hosting":{"theatre":["selected-site"]}}}}"#,
+        )
+        .unwrap();
+        std::fs::write(root.join(".firebaserc"), "invalid legacy root authority").unwrap();
+        std::fs::write(
+            root.join("services/firebase-hosting/firebase.json"),
+            "invalid legacy policy",
+        )
+        .unwrap();
+        let workspace = Workspace::fixture(&root).unwrap();
+        let request = request::resolve(&raw()).unwrap();
+        let resolution = local_resolution(&workspace, &request);
+        assert_eq!(
+            resolution,
+            Resolution::Resolved {
+                site: hosting_config::SiteId::parse("selected-site").unwrap()
+            }
+        );
+        let mut runner = RecordingRunner::default();
+        assert_eq!(
+            run_request(&workspace, &raw(), &NoProbe, &mut runner).unwrap(),
+            ExitCode::SUCCESS
+        );
+        assert!(runner.commands.is_empty());
+        assert!(
+            !root.join("artifacts").exists(),
+            "planning writes no staging directory"
+        );
+        let run = root.join("artifacts/hosting/RUN-ID");
+        let config = run.join("firebase.json");
+        let command = firebase::release_command(
+            &firebase::Invocation {
+                project: &request.project,
+                config: &config,
+                cwd: &run,
+            },
+            firebase::ReleaseKind::Preview {
+                channel: "review-hosting",
+                target: "theatre",
+                expires: None,
+            },
+        );
+        assert_eq!(command.cwd, run);
+        assert_eq!(
+            command
+                .args
+                .windows(2)
+                .find(|pair| pair[0] == "--config")
+                .unwrap()[1],
+            config.to_string_lossy()
+        );
+        assert_eq!(command.to_command().get_current_dir(), Some(run.as_path()));
+        assert_eq!(
+            command
+                .to_command()
+                .get_args()
+                .filter(|arg| *arg == config.as_os_str())
+                .count(),
+            1
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

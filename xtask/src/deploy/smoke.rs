@@ -13,7 +13,7 @@
 
 // ACCEPTANCE(NOT_RUN): this judge has only seen fixtures. It has not been run against a real
 // Firebase Hosting response, so the media types Hosting assigns (`.wasm`, `.js`, `.css`), the
-// `Cache-Control` it emits for the policy in services/firebase-hosting and its CDN propagation
+// `Cache-Control` it emits for the policy in infra/firebase/hosting and its CDN propagation
 // delay after a release are unobserved. The verified local counterpart is the Firebase Hosting
 // emulator run recorded in docs/evidence/issue199-firebase-hosting.md. Owner: the operator of the
 // first live preview deploy; command: `cargo xtask deploy firebase <app> --web --project <id>

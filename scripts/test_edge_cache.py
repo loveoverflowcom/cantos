@@ -11,7 +11,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CADDYFILE = ROOT / "services/edge/Caddyfile"
+CADDYFILE = ROOT / "infra/edge/Caddyfile"
 IMMUTABLE = 'header @hashed Cache-Control "public, max-age=31536000, immutable"'
 REVALIDATE = 'header Cache-Control "no-cache"'
 

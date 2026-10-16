@@ -1,7 +1,7 @@
 # Edge: DuckDNS and Caddy for the Cantos VPS
 
 Operator-owned configuration for the public names under **`cantoss.duckdns.org`**. It is not a
-`cargo xtask services` process and is not in [the manifest](../manifest.toml): xtask never
+`cargo xtask services` process and is not in [the manifest](../../services/manifest.toml): xtask never
 starts it. The [Caddyfile](Caddyfile) is the single routing source.
 
 | Host | Serves | Source |
@@ -67,7 +67,7 @@ change. Podman is the runtime ([ADR 0021](../../docs/decisions/0021-podman-servi
 
 ```sh
 install -d -m 700 /root/cantos-services/edge/www/theatre /root/cantos-services/edge/www/studio
-cp Caddyfile /root/cantos-services/edge/Caddyfile
+cp infra/edge/Caddyfile /root/cantos-services/edge/Caddyfile
 podman network create cantos-edge
 podman volume create cantos-edge-data
 podman run -d --name cantos-edge --restart=always --network cantos-edge \

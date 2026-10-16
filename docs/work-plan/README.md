@@ -25,6 +25,7 @@ rebuild their implemented portions. Keep speculative expansion in [backlog](back
 | Theatre Web and native listening | [040](040-theatre-web-listening.md), [050](050-cmp-native-listening.md), [Library/Progress handoff](listener-library-progress-handoff.md) |
 | Public catalog, cover and metadata | [Catalog states](theatre-catalog-state-handoff.md), [cover handoff](public-cover-implementation-handoff.md), [P1 decisions](public-metadata-decision-handoff.md) |
 | Identity activation and onboarding | [Identity handoff](theatre-identity-handoff.md) |
+| Mechanical infrastructure ownership (#212) | [Repository layout](../architecture/repository-layout.md), [infra assets](../../infra/README.md); separate from #203 Forge/Functions runtime work and live deployment acceptance |
 | Shared previews and localization | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
 | Optional craft and membership | [Audio craft](audio-drama-quality.md), [interest receipt](membership-interest-handoff.md), [plan publication proposal](../product/membership-plan-publication.md) |
 

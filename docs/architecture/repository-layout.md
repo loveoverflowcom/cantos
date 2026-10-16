@@ -5,9 +5,12 @@
 > synthesis job CLIs and backend mixers are removed; details below describing the original
 > repository restructure are historical unless marked current.
 
-Status: implemented by [decision 0009](../decisions/0009-monorepo-layout.md). The layout moves
-existing code without changing behavior, migrations or wire contracts; the
-[restructure evidence](../evidence/monorepo-restructure.md) records what was run and what was not.
+The original application layout was implemented by
+[decision 0009](../decisions/0009-monorepo-layout.md); its
+[restructure evidence](../evidence/monorepo-restructure.md) records the original checks.
+[#212](https://github.com/loveoverflowcom/cantos/issues/212) separates existing edge and Firebase
+Hosting assets into `infra/` without changing application behavior, migrations or wire contracts.
+The current map below owns paths; historical decisions/evidence retain their source-bound scope.
 
 ## Platform scope
 
@@ -55,13 +58,18 @@ services/
   manifest.toml            Typed native/Podman/external process inventory                  CONFIGURED
   postgresql/              Official PostgreSQL17 Podman configuration; no crate            CONFIGURED
   kanidm/                  Opt-in Podman identity evaluation; no integration/code          CONFIG ONLY
+infra/                     Deployment/runtime assets; no application domain logic
+  edge/                    Public edge and host DNS updater assets                         CONFIG ONLY
+  firebase/
+    hosting/               Static Web Hosting policy and operator site-mapping example     CONFIG ONLY
+    app-distribution/      Existing CLI-only operator inputs; no new config format         DOCUMENTED
 packages/
   contracts/               Script IR/Studio/production schemas, fixtures, contract docs and
     api/                   the shared wire DTO crate        (package cantos-contracts)    IMPLEMENTED
   ui-system/               Shared canonical tokens/spec, licensed icons and renderer boundary
     leptos/                Web foundation                (package cantos-ui)             IMPLEMENTED
     cmp/                   Shared native controls and JVM desktop diagnostics              PREVIEW
-xtask/                     cargo xtask: build, run and verification command surface (package xtask)
+xtask/                     cargo xtask: command orchestration (package xtask), not deployment assets
 .cargo/                    the `cargo xtask` alias
 docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scripts/ are xtask primitives
 ```
@@ -87,8 +95,8 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   explicit unavailable state. It exists so its unsigned release graph and APK/AAB can be inspected
   for sandbox exclusion; it is a skeleton, not a listening feature, signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
-- **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
-  claim live Kanidm acceptance: the API now has opt-in [Studio OIDC](studio-oidc.md) alongside
+- **CONFIG ONLY** documents and validates deployment configuration, not live deployment or
+  integration acceptance. For Kanidm, the API has opt-in [Studio OIDC](studio-oidc.md) alongside
   development tokens, with live provider/production activation gated.
 - **FOUNDATION** is the [Cantos Forge](../../apps/cantos-forge/README.md) crate proposed by
   [decision 0022](../decisions/0022-cantos-forge-producer-cli.md): its pure, tested domain core,
@@ -97,7 +105,9 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   handoff, and it is not a Studio or Theatre client.
   The owner-selected [local/Functions direction](../decisions/0022-cantos-forge-producer-cli.md)
   lets Studio request operations while the same Rust producer core executes outside the API;
-  private Drive holds remote drafts. Those execution/storage adapters remain planned under #203.
+  private Drive holds remote drafts. Those execution/storage adapters, any future service-location
+  move and a concrete Functions consumer remain planned under #203. This layout adds no empty
+  Functions scaffold or runtime packaging choice.
 - **PREVIEW** is the separately requested [two-renderer catalogue](../../packages/ui-system/README.md#two-diagnostic-apps).
   It owns component/token diagnostics, not a Theatre/Studio mobile app or native listening.
 
@@ -136,9 +146,12 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   context. A listener request must never reach a Studio route and a Studio screen must not ship in
   the Theatre bundle. Enforcement stays in the backend: private drafts, voice assets and previews
   remain unavailable to public delivery whichever client asks.
-- **One backend.** `services/cantos-api` is the single deployable service for both products, as
-  decided in [decision 0001](../decisions/0001-modular-monolith.md). Studio v1 is implemented. The
-  API is split by surface into three route groups with separate routers, DTO modules, authentication
+- **One authoritative modular backend.** `services/cantos-api` owns authoritative metadata and
+  product APIs for both products, as decided in
+  [decision 0001](../decisions/0001-modular-monolith.md). This is not a claim that Cantos can have
+  only one runnable process: infrastructure and the planned Forge producer remain separate
+  owners, without duplicating Catalog, rights, review or publication authority. Studio v1 is
+  implemented. The API is split by surface into three route groups with separate routers, DTO modules, authentication
   and data access: `/api/v1/studio/*` (implemented), `/api/v1/theatre/*` (public Discovery/Playback
   core; actual delivery/identity/client acceptance pending) and `/api/v1/admin/*`
   (opt-in [Admin capability/revocation and audit](admin-authorization.md); live provider acceptance pending; see [decision 0015](../decisions/0015-api-surface-boundaries.md)).
@@ -148,12 +161,19 @@ apps/*  ──code/data──▶  packages/*          services/*  ──code/dat
   API, plus immutable Production Brief export and scoped development read grants; external
   audio intake and publication remain planned ([API contexts](api-contexts.md)).
   Script IR remains the shared kernel; HTTP surfaces stay separate from these contexts.
-- **Firebase Hosting is configuration, not code.** `services/firebase-hosting/` holds the tracked
+- **Firebase Hosting is configuration, not code.** `infra/firebase/hosting/` holds the tracked
   Hosting policy and a mapping example for the explicit, manual
   `cargo xtask deploy firebase` ([runbook](../deployment/firebase-hosting.md)). It serves only each
   Web app's static bundle: the API, PostgreSQL, Kanidm and storage stay outside it, and the
   API-origin and authentication contract for a deployed origin is a separate unmet gate. The VPS
-  [edge](../../services/edge/README.md) remains the authenticated same-origin route.
+  [edge](../../infra/edge/README.md) remains the authenticated same-origin route.
+- **Infrastructure and command orchestration are separate.** [`infra/`](../../infra/README.md)
+  owns deployment/runtime assets, including the edge configuration and Firebase Hosting policy.
+  `xtask/` owns typed command planning, validation and explicit execution, not a second copy of
+  those assets. The current service inventory and PostgreSQL/Kanidm configuration remain under
+  `services/`; this mechanical boundary does not move application or producer code, provision a
+  runtime or establish deployment acceptance. Add a Functions directory only with a concrete
+  consumer and reviewed runtime decision under #203.
 - **Kanidm is configuration, not code.** `services/kanidm/` holds deployment documentation and an
   example server config. The API implements a separate opt-in [Studio OIDC verifier](studio-oidc.md);
   nothing in this repository reimplements an identity provider.
@@ -236,11 +256,13 @@ the API owns the Studio frontend; Theatre Web will need its own origin or static
 
 ## Moved paths
 
-Evidence and decision records written before this change cite the old paths on purpose, because
-they describe what was run at the time. Their links point to the current files.
+Evidence and decision records written before each relevant move cite the old paths on purpose,
+because they describe what was run at the time. Their links point to the current files.
 
 | Before | After |
 | --- | --- |
+| `services/edge/` | `infra/edge/` (#212 deployment assets only) |
+| `services/firebase-hosting/` | `infra/firebase/hosting/` (#212 deployment assets only) |
 | `apps/server/` | `services/cantos-api/` |
 | `apps/web/` | `apps/cantos-studio/web/` |
 | `apps/mobile/` | `apps/cantos-theatre/mobile/` |

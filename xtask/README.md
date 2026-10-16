@@ -632,6 +632,10 @@ command, which stay outside every gate, preflight selection and CI job.
 
 ### distribute firebase
 
+Nonsecret CLI-only operator inputs are indexed under
+[`infra/firebase/app-distribution`](../infra/firebase/app-distribution/README.md); this product
+does not consume Hosting configuration, target/channel semantics or Functions codebases.
+
 ```sh
 # Local plan only: no tool probe, Gradle, Firebase, login, upload, receipt or artifact write.
 cargo xtask distribute firebase cantos-theatre --channel demo --groups cantos-internal --dry-run
@@ -770,8 +774,8 @@ release; any other value is a public preview channel. `Live`, ` live` and every 
 `/ : _ #` or uppercase are refused because the CLI would normalize them to another destination.
 `--expires` (`30m`, `12h`, `7d`; positive, at most 30 days) is for previews only.
 
-**Configuration.** `services/firebase-hosting/firebase.json` is the tracked policy;
-`services/firebase-hosting/.firebaserc` (ignored by Git, from `firebaserc.example` or
+**Configuration.** `infra/firebase/hosting/firebase.json` is the tracked policy;
+`infra/firebase/hosting/.firebaserc` (ignored by Git, from `firebaserc.example` or
 `firebase target:apply`) maps each target to **exactly one** site in the requested project, and the
 two targets to different sites. Nothing is edited. xtask validates the policy (only `hosting`; no
 `site`, hooks, redirects or non-static rewrites; no rewrite that is not a literal route outside

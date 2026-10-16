@@ -56,8 +56,11 @@ side in the same change when it is in scope.
 Cantos implements Script IR validation, authenticated PostgreSQL revisions and the Leptos
 Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
 [contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
-`apps/cantos-studio/web` (Studio), one backend in `services/cantos-api`, Kanidm configuration in
-`services/kanidm` and shared `packages/`; read the
+`apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-api`,
+current Forge code in `apps/cantos-forge`, Kanidm configuration in `services/kanidm` and shared
+`packages/`. Deployment/runtime assets live under [`infra/`](../../infra/README.md); `xtask/`
+owns command orchestration, not those assets. The #212 split adds no runtime; #203 owns any
+future Forge service-location move and concrete Functions consumer. Read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
 requested in a future roadmap. Theatre Web has anonymous live discovery/account reads and

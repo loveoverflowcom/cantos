@@ -11,6 +11,10 @@
 Distribution is a **remote write** and may invite or notify the selected testers. Nothing else in
 xtask (`build`, `run`, `verify`, `preflight`, `ci`, `build all`) can reach it.
 
+Infrastructure ownership and the existing CLI-only nonsecret inputs are indexed under
+[`infra/firebase/app-distribution`](../../../../infra/firebase/app-distribution/README.md).
+There is no Firebase `appDistribution` configuration section, Hosting target or Functions codebase.
+
 ## One-time Firebase setup (operator)
 
 xtask creates and changes nothing in Firebase. Prepare a **demo** Firebase project yourself:

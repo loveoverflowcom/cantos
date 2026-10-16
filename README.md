@@ -91,11 +91,13 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
 - `apps/cantos-forge`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow. The owner-selected Studio-controlled local/Functions and private Drive draft execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
-- `services/cantos-api`: metadata/rights/revision/production-planning APIs, Studio catalog API and pure media inspection.
+- `services/cantos-api`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
-- `services/firebase-hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); live deployment acceptance pending, the API is not served.
+- `infra/firebase/hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); live deployment acceptance pending, the API is not served.
+- `infra/edge`: operator-owned public edge and DNS updater assets, separate from application code and the `xtask` command surface.
+- `infra/`: [deployment/runtime assets](infra/README.md), not application domain logic; no Functions runtime is scaffolded here. Forge remains at `apps/cantos-forge`; #203 owns its future service-location move and concrete Functions adapter.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/`: [documentation map](docs/README.md), current owners and explicit ADR lifecycle; [active queue](docs/work-plan/README.md), source-bound evidence and historical archive have separate roles.
