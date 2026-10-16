@@ -2,4 +2,6 @@
     <string name="splash_tagline">Close your eyes.\nOpen a world.</string>
     <string name="splash_category">Stories · Podcasts · Audio drama</string>
     <string name="splash_status">Opening Cantos</string>
+    <string name="listening_unavailable_title">Cantos isn’t ready yet</string>
+    <string name="listening_unavailable_body">This version can’t play stories or podcasts yet.</string>
 </resources>

@@ -27,5 +27,6 @@ include(":shared", ":preview-sandbox")
 val androidEnabled = providers.gradleProperty("cantos.android").orNull == "true" ||
     providers.gradleProperty("cantos.native").orNull == "true"
 if (androidEnabled) {
-    include(":androidApp")
+    // The demo host composes :preview-sandbox; the production host consumes :shared only.
+    include(":androidApp", ":androidProductionApp")
 }

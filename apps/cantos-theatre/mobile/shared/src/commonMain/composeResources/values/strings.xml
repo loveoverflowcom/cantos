@@ -2,4 +2,6 @@
     <string name="splash_tagline">Nhắm mắt lại.\nMở một thế giới.</string>
     <string name="splash_category">Truyện · Podcast · Audio drama</string>
     <string name="splash_status">Đang mở Cantos</string>
+    <string name="listening_unavailable_title">Cantos chưa sẵn sàng</string>
+    <string name="listening_unavailable_body">Phiên bản này chưa phát được truyện hay podcast.</string>
 </resources>
