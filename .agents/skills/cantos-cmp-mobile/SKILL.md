@@ -230,6 +230,13 @@ steps. Skipping a step is a decision you state, as the foundation requires.
 
 ## Native gates: what only a device can prove
 
+Keep OS launcher icons, native splash/LaunchScreen and CMP brand components separate. Reuse
+the checksum-pinned official Logo Kit through the existing generator; inspect source artwork
+before changing native wrappers. Resource/asset-catalog checks and APK inspection establish
+packaging only. Launcher acceptance needs opened Home/drawer-or-App-Library/Settings captures
+with OS, mask, density, theme, source hash and installed build identity. See the shared
+[native icon review](../cantos-ui-design/references/visual-review.md#native-launcher-icons).
+
 | Claim | Cheapest deterministic evidence | Native evidence still required | Blocked when |
 |---|---|---|---|
 | interruption, focus loss or headset removal never becomes "user playing" or an unexpected resume | `example-tested` reducer table over interruption × intent sequences | `device-tested` per platform; call/route cases usually need physical hardware | no device with the needed audio route |

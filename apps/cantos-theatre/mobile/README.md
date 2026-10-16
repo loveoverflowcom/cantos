@@ -86,6 +86,26 @@ remain **NOT_RUN**. See the [resumed evidence](../../../docs/evidence/theatre-id
 Native playback, durable Library synchronization, downloads and broad issue acceptance remain
 deferred.
 
+## Native launcher icons
+
+The Android and iOS demo hosts consume generated native launcher assets from the checksum-pinned
+[Cantos Logo Kit v2](../../../packages/ui-system/shared/assets/cantos-logo-kit-v2/Logo-Guide.md).
+These resources are independent of the launch presentation below. Both Android manifest icon
+attributes resolve to `ic_launcher`: opaque density-specific legacy PNGs for API23–25 and a
+108dp adaptive descriptor for API26+, with light/night foreground/background and a tintable
+monochrome layer for supporting API33+ launchers. The C/bar paths and stroke ratios are unchanged;
+the monochrome layer uses the official knockout paths as positive ink. OS masking owns the outer
+tile; no rounded tile is nested in the adaptive foreground. The iOS `AppIcon` catalog supplies
+opaque 1024px default/dark sources and is selected by both Xcode target configurations. No custom
+tinted iOS appearance is supplied; OS tint acceptance remains separate.
+
+Regeneration extends the existing `scripts/ui_logos.py` primitive with `--native-launcher`
+(installed `rsvg-convert 2.60.0` required, never downloaded); `--native-launcher --check` verifies
+the checked-in resources without a renderer. [Generated provenance](launcher-icons.provenance.json)
+binds source and output hashes. The repository gate runs the focused source/resource regressions;
+`cargo xtask theatre-demo android-build` checks APK compilation. See the
+[launcher evidence and pending native acceptance](../../../docs/evidence/theatre-native-launcher-icons.md).
+
 ## Local launch presentation
 
 Android's real launcher installs pinned AndroidX SplashScreen compat before `super.onCreate`,

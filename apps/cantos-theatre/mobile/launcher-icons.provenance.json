@@ -1,0 +1,41 @@
+{
+  "kit": "Cantos Logo Kit v2",
+  "generator": "scripts/ui_logos.py --native-launcher",
+  "generator_sha256": "028950ebc6deb24f87a911f788280f27eac4a1257fca3760082a3f3931788700",
+  "renderer": "rsvg-convert version 2.60.0",
+  "sources": {
+    "svg/cantos-symbol.svg": "5845decd2d648d92be5a8d11dde69525c31e58058e0d8f5819804fb827941cbd",
+    "svg/cantos-symbol-dark.svg": "2a8e60f2bfda6b26ff0b409ee149e14e7bb1acb29ef23c3ed3b22bfdb351ce53",
+    "svg/cantos-symbol-mono.svg": "e85ce3316e6b2ebee9a9025cea8429e2296cabb8bf8be9884b384cf9e166ace0"
+  },
+  "native_adaptation": "OS-owned full-bleed tile; canonical C/bar strokes unchanged. Android monochrome uses canonical knockout strokes as tintable ink.",
+  "android_foreground": {
+    "canvas_dp": 108,
+    "scale": 1.2,
+    "translate_dp": 15.6,
+    "safe_circle_diameter_dp": 66
+  },
+  "ios_tinted": "Not supplied: Xcode 16.3; default/dark use canonical kit palettes. OS tint acceptance pending.",
+  "outputs": {
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/drawable/ic_launcher_foreground.xml": "e8e554dd8409212f1d80a993e90187fa94a50e76fc44a6c1b3a3cbb764f5b79a",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/values/launcher_colors.xml": "c6c59c3e33d7af48a012bc11358b63554a0a2af6be519d141dcff760b7037fc6",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/drawable-night/ic_launcher_foreground.xml": "083c7228246671306a381e6656db81963a15ec119994afeecad841a2fe71d67f",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/values-night/launcher_colors.xml": "9f5d0d1f8524dac3af3c20ebadd371fb799aa386caada4fba5672d28e154384a",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/drawable/ic_launcher_monochrome.xml": "82ec7bcf614f1c2c986e12cc2f0b53d6954406623d3554656dd51fbec1465967",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": "6a91ef9a8bf81b2859739ad20453fae2612e928c9ab9c4b5a3a5104eb2acf4ad",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-anydpi-v26/ic_launcher.xml": "6a91ef9a8bf81b2859739ad20453fae2612e928c9ab9c4b5a3a5104eb2acf4ad",
+    "apps/cantos-theatre/mobile/iosApp/CantosDemo/Assets.xcassets/AppIcon.appiconset/Contents.json": "dcd5b5b57071e0ebe1b33daaadeeb90641f744978f45bdb4c4c3f5cdc690554f",
+    "apps/cantos-theatre/mobile/iosApp/CantosDemo/Assets.xcassets/AppIcon.appiconset/cantos-light-1024.png": "d5c09b81c62609e6d89131a1c6691a68670f07f3b1d90dcd7dfdf2f06e9320e1",
+    "apps/cantos-theatre/mobile/iosApp/CantosDemo/Assets.xcassets/AppIcon.appiconset/cantos-dark-1024.png": "9c2671de3dd470661d78b7fbdf716e5b76bdafa54a40189af87807404c8f4e4f",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-mdpi/ic_launcher.png": "d7d54e5c6cf4389175915443bcb13df8ca6c9a56b1cb6182ae017cc16fc0bc8b",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-hdpi/ic_launcher.png": "6d04641565c2877f80d54c00471a6ef5ef354c10c030e1ba8da793d22fa6d4ec",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xhdpi/ic_launcher.png": "7d0d4cceb2271112158e72f75e0fd11a98656f86a9cefa0a0d0185d769f7e794",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xxhdpi/ic_launcher.png": "ff3467523b120f188ee4d93b35729a92c7941a5fac213c5fb5c321bc322fbf9d",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-xxxhdpi/ic_launcher.png": "33842eae001cbee327f98bc38a7adfa6233023c34a945a13c061f58f0ec2a0d7",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-mdpi/ic_launcher.png": "30e825c192c9d93aed28578fc82528f4936a482c32519599268fba42d06d031e",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-hdpi/ic_launcher.png": "8d37fb48eed72bbaba690e6d656b238e119d62686cd27c09b4543e6b1f982a35",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xhdpi/ic_launcher.png": "71ff512a73c562ed5ab73061e3cf23952bdd6e1bcb8caf95c76a127bdfe891fa",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xxhdpi/ic_launcher.png": "d08f32c0a27ee932adf4eb5682c92384e2e5535a5017898b3780628804e40388",
+    "apps/cantos-theatre/mobile/androidApp/src/main/res/mipmap-night-xxxhdpi/ic_launcher.png": "724df7a491b93dc5caec886dcd5983102076229348a5d6f09f8a2fbd24485155"
+  }
+}

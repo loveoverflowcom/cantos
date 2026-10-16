@@ -664,3 +664,12 @@ Native launch acceptance still needs the pinned iOS toolchain, API23 fallback, O
 restoration and screen-reader observations. The evidence record distinguishes the diagnostic
 Android runtime from JVM captures; it does not accept production native listening or change
 the backend sequence above. GitHub owns implementation and acceptance status.
+
+For [#190](https://github.com/loveoverflowcom/cantos/issues/190), keep native launcher assets
+independent of that splash and of shared CMP component admission. The
+[launcher handoff](../evidence/theatre-native-launcher-icons.md) binds generated resources to the
+official Logo Kit. Next accept the installed Android mask/theme/cache matrix and the iOS
+AppIcon bundle/Home/App Library/Settings observations with a separately supplied pinned native
+environment. Source hashes and APK compilation cannot accept those runtime claims. This native
+branding review does not reorder backend delivery, authorize toolchain installation or expand
+Studio beyond Web.
