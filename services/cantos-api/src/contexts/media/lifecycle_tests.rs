@@ -240,6 +240,43 @@ fn settled_records_reject_tamper_and_review_operation_id_split() {
         Err(AudioError::BindingMismatch)
     );
 }
+/// Theatre's `UnitSummary.duration_ms` and manifest duration copy this verified value, so the
+/// wire never carries an "unknown" (zero) or unbounded duration.
+#[test]
+fn a_verified_rendition_admits_only_a_positive_bounded_duration() {
+    let media = |duration_ms| dto::AudioMediaMetadata {
+        sha256: "a".repeat(64),
+        byte_length: 100,
+        container: "ogg".into(),
+        codec: "opus".into(),
+        channels: 1,
+        sample_rate_hz: 48000,
+        duration_ms,
+        audio_bitrate_bps: 24000,
+        profile_id: "opus-mono-24-v1".into(),
+    };
+    for (duration_ms, admitted) in [
+        (0, false),
+        (1, true),
+        (3_600_000, true),
+        (3_600_001, false),
+        (u64::MAX, false),
+    ] {
+        let created = AudioRendition::create(
+            &submission(),
+            media(duration_ms),
+            AudioRenditionId::parse(OP).unwrap(),
+            4000,
+        )
+        .map(|r| r.document().verified_media.duration_ms);
+        let expected = if admitted {
+            Ok(duration_ms)
+        } else {
+            Err(AudioError::BindingMismatch)
+        };
+        assert_eq!(created, expected, "duration_ms {duration_ms}");
+    }
+}
 #[test]
 fn json_escape_expansion_cannot_create_an_unpersistable_review_proof() {
     let mut raw = review(dto::AudioReviewKind::Qc);
