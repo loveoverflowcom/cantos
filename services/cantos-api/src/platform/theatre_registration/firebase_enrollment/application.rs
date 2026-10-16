@@ -10,7 +10,7 @@ use super::super::{
         CreatedPerson, Email, NetworkKey, PendingRegistration, RegistrationError,
         RegistrationPolicy,
     },
-    firebase_action::{ActionCode, FirebaseActionClient, FirebaseProjectId},
+    firebase_action::{ActionCode, ActionError, FirebaseActionClient, FirebaseProjectId},
 };
 use super::domain::{Enrollment, FailureStage, OneShotSetup, Phase, VerificationCredential};
 
@@ -281,10 +281,15 @@ impl FirebaseEnrollmentService {
             .await
         {
             Ok(action) => action,
-            Err(_) => {
+            Err(error) => {
                 // The check is non-consuming. Releasing only Inspecting cannot undo a
                 // concurrent cancellation/expiry or reopen any mutating effect fence.
                 self.repository.release_inspection(operation).await?;
+                if error == ActionError::ProviderDisabled {
+                    // A project setup fault must not read as "your link is unusable".
+                    eprintln!("event=firebase_action_inspection_refused outcome=provider_disabled");
+                    return Err(RegistrationError::Configuration);
+                }
                 return Ok(None);
             }
         };

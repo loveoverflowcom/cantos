@@ -88,6 +88,10 @@ No background recovery/cleanup is supplied; PII/budget/audit retention needs ope
   requires existing `apikeys.keys.lookup`/OAuth permission; it is not a request to grant one.
   Do not put a key in a logged URL/argv. Review Auth create/signing and Kanidm existing-person
   protection; application witnesses do not limit a stolen bearer.
+- Enable the project's Email/Password sign-in provider (keep client sign-up disabled): the
+  non-consuming action inspection otherwise fails with `PASSWORD_LOGIN_DISABLED`, which Cantos now
+  reports as a configuration fault (503) rather than an unusable link. A Spark project refused to set
+  a custom action URL; see the [live record](../evidence/theatre-live-auth-206.md).
 - Name action/API/Kanidm origins, approved recipient and mail-volume budget. Changing Auth
   action templates/authorized domains, creating credentials/grants/accounts, real mail and
   deployment each need their concrete authorized target. Code approval provides none of them.

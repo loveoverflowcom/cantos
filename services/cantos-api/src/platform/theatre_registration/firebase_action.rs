@@ -44,6 +44,9 @@ pub enum ActionError {
     Network,
     Quota,
     Provider,
+    /// The project has not enabled the Email/Password provider that action inspection needs.
+    /// An operator fault, never evidence about the caller's link.
+    ProviderDisabled,
     Rejected,
 }
 
@@ -482,6 +485,7 @@ pub(super) async fn decode<T: DeserializeOwned>(mut response: Response) -> Resul
         return Err(match error.error.message.as_str() {
             "INVALID_OOB_CODE" => ActionError::InvalidCode,
             "EXPIRED_OOB_CODE" => ActionError::Expired,
+            "PASSWORD_LOGIN_DISABLED" => ActionError::ProviderDisabled,
             "TOO_MANY_ATTEMPTS_TRY_LATER" | "QUOTA_EXCEEDED" => ActionError::Quota,
             _ => ActionError::Rejected,
         });
