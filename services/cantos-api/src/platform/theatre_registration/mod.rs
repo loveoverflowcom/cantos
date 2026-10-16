@@ -8,3 +8,7 @@ pub mod mail;
 pub mod mail_config;
 pub mod postgres;
 pub mod runtime;
+
+// Issue 206 is an isolated candidate, never part of runtime composition.
+#[cfg(test)]
+mod firebase_prototype;

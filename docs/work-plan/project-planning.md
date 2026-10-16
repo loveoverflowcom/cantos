@@ -71,6 +71,13 @@ states only proposed routes, not a feature implementation.
 
 ## Exit criteria and evidence
 
+The independent [#206 Firebase enrollment proposal](../decisions/0036-firebase-enrollment-proof.md)
+follows #174's existing registration owner. Review bootstrap/exclusive action binding and
+the protected setup-delivery amendment first; a test-only prototype may inform that decision.
+Then implement durable claims and contracts, disposable SQL and Web integration, followed by
+separately authorized Firebase/Kanidm/origin acceptance under #174/#191/#199. Neither a model
+nor fixture HTTP accepts the provider or closes those parent gates.
+
 - **Catalog:** create a plain novel chapter and an unscripted podcast episode without casting.
   The [backend API](../../packages/contracts/catalog-v1.md) is implemented; #66 also requires
   responsive/keyboard Studio Web flows and mocked client integration against that contract.

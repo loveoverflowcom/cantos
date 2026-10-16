@@ -686,6 +686,17 @@ OS/secure-store/provider acceptance, audit protection/retention and recovery gat
 
 ## Theatre native launch handoff
 
+For [#206](https://github.com/loveoverflowcom/cantos/issues/206), review the
+[Firebase proof/setup-delivery proposal](../decisions/0036-firebase-enrollment-proof.md)
+before adding runtime provider mode, persistence or client controls. The
+[isolated prototype](../evidence/firebase-enrollment-proof.md) can test supplied action/binding
+facts independently; it cannot accept bootstrap, project association, latest-resend semantics
+or protected delivery. Next: resolve those contracts and the setup-mail amendment, then durable
+claims/quotas/retention and real SQL, Web/origin and separately authorized provider acceptance.
+Reuse #174's merged registration owner and preserve #191/#199's login/origin gates. This
+does not reorder publication, select Firebase as login issuer or authorize live configuration.
+GitHub owns execution and review status.
+
 The [Mac Web auth and spacing slice](../evidence/theatre-web-auth-mac.md) repairs the returned
 Guest callback retry and the Library Account-entry gap, with browser fixture/visual evidence.
 Next accept existing-account Web login against an operator-prepared API/issuer/test account and

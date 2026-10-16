@@ -28,6 +28,11 @@ module theatre_registration {
   }
   action cancel = all { state.phase == Awaiting, record({ ...state, phase: Cancelled }) }
   action expire = record({ ...state, unexpired: false })
+  // Historical provider status, including emailVerified=true, is not possession of the
+  // current single-use email action proof. Neither status value authorizes an effect.
+  action observeProviderStatus(emailVerified: bool): bool = all {
+    state' = state, before' = state, last' = Transition, outcome' = NoOutcome
+  }
   action claim(proof: int): bool = {
     val allowed = state.phase == Awaiting and proof == state.epoch and state.unexpired
     record(if (allowed) { ...state, phase: Creating, claimedEpoch: proof, claimedValid: state.unexpired }
@@ -67,7 +72,8 @@ module theatre_registration {
   action step = {
     nondet proof = 0.to(3).oneOf()
     any {
-      rotate, cancel, expire, claim(proof), create, created(true), created(false),
+      rotate, cancel, expire, observeProviderStatus(false), observeProviderStatus(true),
+      claim(proof), create, created(true), created(false),
       beginSetup, setup, setupResult(true), setupResult(false), mail, mailResult(true), mailResult(false)
     }
   }
