@@ -3,7 +3,7 @@
 Review boundary: actual-byte private Content/Brief admission, immutable submission/rendition,
 independent upload capability, append-only named review and private candidate/readiness.
 [Contract](../../packages/contracts/audio-lifecycle-v1.md),
-[frontend handoff](../work-plan/audio-lifecycle-frontend-handoff.md) and
+[frontend handoff](../archive/handoffs/audio-lifecycle-frontend-handoff.md) and
 [independent review](audio-lifecycle-review.md) own the exact interface and limitations.
 
 ## Provenance and scope

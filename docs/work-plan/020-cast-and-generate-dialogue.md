@@ -6,12 +6,16 @@
 
 ## Current narrow implementation
 
-[ADR 0020](../decisions/0020-studio-private-audio-intake.md) implements owner-session,
-script-revision-bound private development intake with four explicit Opus profiles, verified
-bytes, private filesystem objects and immutable receipts. Rust/PostgreSQL runtime verification
-is **NOT_RUN**. This does not complete the general external producer/catalog-bound brief or
-QC/release/storage-delivery acceptance criteria below. Production S3, scoped producer grants,
-rights/listening review, publication and reference-aware orphan retention remain separate work.
+[Production Brief v1](../../packages/contracts/production-brief-v1.md) and
+[Audio Lifecycle v1](../../packages/contracts/audio-lifecycle-v1.md) implement immutable
+Catalog-bound instructions, scoped read/upload permissions, private byte inspection and
+receipts. Filesystem/S3 adapters and bounded Studio consumers also exist. Do not restart this
+plan at the older script-only ADR 0020 slice or copy its original NOT_RUN result as current status.
+
+The next boundaries are remaining #6/#7/#8 instruction/UI acceptance and #51 profile policy,
+then real identity/private-provider, named rights/listening, public delivery and retention
+acceptance under #9/#10/#11/#179/#180. The broader handoff proposal is not an implemented route
+contract. Forge producer execution is a separate #203 track under [ADR 0022](../decisions/0022-cantos-forge-producer-cli.md).
 
 ## Why
 

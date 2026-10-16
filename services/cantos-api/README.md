@@ -16,7 +16,7 @@ or in-backend mixing should remain.
 - Studio Catalog JSON HTTP API and domain/application/PostgreSQL persistence: Work/ContentUnit metadata,
   permissions, immutable revisions, archival, guarded reorder, idempotency and bounded queries.
   [API contract](../../packages/contracts/catalog-v1.md), [evidence](../../docs/evidence/studio-catalog-api.md)
-  and [remaining Catalog acceptance](../../docs/work-plan/011-studio-catalog-api.md).
+  and [remaining Catalog acceptance](../../docs/archive/handoffs/011-studio-catalog-api.md).
 - [Content Identity](../../packages/contracts/content-v1.md): immutable unit content, independent
   content sequence, text/source/script/recording bodies, full revision digest and exact retries.
   [Authority split](../../docs/decisions/0019-content-identity.md);
@@ -67,7 +67,7 @@ and provisions no account or credentials. See the [operator contract](../kanidm/
 records the latest signed mocks/real PostgreSQL and observed Studio browser checks separately
 from deferred Kanidm, unobserved runtime/accessibility and production acceptance.
 [Evidence](../../docs/evidence/identity-registry.md) and
-[OIDC/Listener handoff](../../docs/work-plan/identity-authentication-handoff.md) separate its scope.
+[OIDC/Listener handoff](../../docs/archive/handoffs/identity-authentication-handoff.md) separate its scope.
 
 ## Planned functionality (not implemented)
 

@@ -1,7 +1,12 @@
 # Quint PR B: independent implementation observations
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/quint-conformance-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 [Issue 106](https://github.com/loveoverflowcom/cantos/issues/106) originally separated the
-[PR A foundation](../../specs/behavior/README.md) and a subsequent implementation-conformance
+[PR A foundation](../../../specs/behavior/README.md) and a subsequent implementation-conformance
 session/PR. [PR 123](https://github.com/loveoverflowcom/cantos/pull/123) now supplies that pure-core
 observer inside [PR 117](https://github.com/loveoverflowcom/cantos/pull/117), rebased onto develop
 `1c1d2107f1ca1aacac8c66b7b418c1070b35160c`. The criteria below retain their original scope;
@@ -11,7 +16,7 @@ wider API/Leptos/CMP scenarios stay deferred. GitHub owns execution status.
 
 Consume stable capability `cantos.media.private-audio-admission` and its catalog property/run/
 witness IDs. Add a **test-only observation adapter** calling the existing production functions
-in [Media lifecycle](../../services/cantos-api/src/contexts/media/domain/lifecycle.rs):
+in [Media lifecycle](../../../services/cantos-api/src/contexts/media/domain/lifecycle.rs):
 
 - `decide_admission(&AudioSubmission, now, revoked, current, sha256, length, Option<&AudioRendition>)`
   returns exact `AdmissionDecision::{Inspect, Replay}` or `AudioError`.
@@ -21,7 +26,7 @@ in [Media lifecycle](../../services/cantos-api/src/contexts/media/domain/lifecyc
 - The separate `transition(state, SubmissionEvent)` matrix stays native and may receive an
   explicitly scoped conformance extension only after its distinct event semantics are modeled.
 
-Put tests beside [lifecycle_tests.rs](../../services/cantos-api/src/contexts/media/lifecycle_tests.rs)
+Put tests beside [lifecycle_tests.rs](../../../services/cantos-api/src/contexts/media/lifecycle_tests.rs)
 so the crate-visible constructor remains private. Call actual production decisions at every
 Begin/Complete event checkpoint. Named test assertions are marked `Assertion`/`NoOutcome`:
 preserve and compare those no-effect checkpoints without reapplying the preceding operation
@@ -80,10 +85,10 @@ in PR 117; current integrated results belong in the PR ledger.
 
 ## PR B implementation checkpoint
 
-The [observation protocol](../../specs/behavior/observation-protocol.md), registered test-only
-[observer](../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs) and
-[`--conformance` primitive](../../scripts/verify_behavior_conformance.py) implement the bounded
-pure-core handoff. [Evidence](../evidence/quint-code-conformance.md) records executed scope
+The [observation protocol](../../../specs/behavior/observation-protocol.md), registered test-only
+[observer](../../../services/cantos-api/src/contexts/media/quint_conformance_tests.rs) and
+[`--conformance` primitive](../../../scripts/verify_behavior_conformance.py) implement the bounded
+pure-core handoff. [Evidence](../../evidence/quint-code-conformance.md) records executed scope
 and residual acceptance. No production semantics or API/Protobuf/database fields changed.
 PR B's pure-core changes are included in rebased PR 117; their earlier results retain their
 original source identities and do not establish fresh acceptance of the rebased inputs.

@@ -77,4 +77,4 @@ with old-account control plus fresh external-account proof, or explicit privileg
 PR3 needs separate typed Listener credentials; a shared ActorId never shares Studio cookies/roles
 or producer grants. PR4 owns platform roles/admin audit. Account merge/unlink/recovery and provider
 deletion/issuer migration remain deferred. See [evidence](../evidence/identity-registry.md) and
-[handoff](../work-plan/identity-authentication-handoff.md).
+[handoff](../archive/handoffs/identity-authentication-handoff.md).

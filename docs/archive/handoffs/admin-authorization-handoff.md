@@ -1,9 +1,14 @@
 # Admin PR4 → combined identity review
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/admin-authorization-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 Current resumed status is in the [14 October appendix](#resumed-integration-handoff--14-october-2026); earlier sections
 retain their historical source, counts, hashes and blockers.
 
-The delegated PR4 delivers the [bounded Admin slice](../architecture/admin-authorization.md):
+The delegated PR4 delivers the [bounded Admin slice](../../architecture/admin-authorization.md):
 dedicated verified resource credential, exact registry actor, allowlisted/current system-group
 role, separate capability and Admin-only revocation, atomic append-only audit and operation replay.
 It adds no Library/UI work, live client/grant/secret/settings bootstrap or merge authority.
@@ -18,7 +23,7 @@ were read as open/draft. A **normal merge of published PR101** into this branch 
 PR92/98/101 commits unrewritten; initial integrated baseline is
 `09e496e44e5cfac9b7b3e34b9f988643f37f23dd`. Own code/docs are the diff above that baseline;
 PR-to-develop diff also contains those unmerged dependencies. Exact final source identity and
-verification logs are in [evidence](../evidence/admin-authorization.md) and the PR body.
+verification logs are in [evidence](../../evidence/admin-authorization.md) and the PR body.
 
 Worktree `/private/tmp/cantos-admin-authorization`, branch `feat/admin-authorization`. Original
 checkout and earlier worktree changes, refs, databases/audio/raw fixtures remain untouched.
@@ -36,7 +41,7 @@ Protobuf ADR0023 and all historical published commit references. No new Admin AD
 2. Preserve PR3's explicit incomplete **Web mounting/native resource IO**: its Web port is not
    mounted; native trusted discovery/durable flow/public-client exchange/resource revocation/
    registry consumer/Kotlin-Swift-host wiring is missing. Missing device acceptance does not
-   explain those code gaps. Follow [Theatre handoff](theatre-identity-handoff.md); do not mark them
+   explain those code gaps. Follow [Theatre handoff](../../work-plan/theatre-identity-handoff.md); do not mark them
    accepted because this Admin slice passes.
 3. Resolve and verify the actual live Admin current-group contract before enabling configuration.
    The signed-loopback provider in tests intentionally emits `cantos_admin_groups` on both JWT and
@@ -95,7 +100,7 @@ Implementation source `97efec8b358bcc7e7b79249fe55687933af6e67f`, tree
 `82fba427a0bd4af02f4a48e78a69dd8bbcb1281f`, normally inherits the reviewed Studio and Theatre
 integration, including Theatre's test-only immutable TRUNCATE graph repair. Historical source
 and gate descriptions above remain tied to their original checkpoints. The
-[current evidence appendix](../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
+[current evidence appendix](../../evidence/admin-authorization.md#independent-integrated-review-and-local-acceptance)
 owns this snapshot's final command counts, raw hashes, reviewed repairs and residual gates.
 
 The integration keeps the dedicated Admin confidential credential and current-group contract,
@@ -124,7 +129,7 @@ manifest stays unchanged at SHA256
 
 The original PR3 missing-source matrix above is historical. Current Theatre Web/native
 exchange/resource/session consumers are implemented in the inherited reviewed branch; their
-[current handoff](theatre-identity-handoff.md#independent-integrated-acceptance-handoff--13-october-2026)
+[current handoff](../handoffs/theatre-identity-2026-10-16.md#independent-integrated-acceptance-handoff--13-october-2026)
 distinguishes actual Web/PG/Android mock-build evidence from unrun native host/device acceptance.
 Android INTERNET/callback registration and dependent host activation remain unapplied after
 automatic approval rejection, awaiting the direct human exception. PR101 remains draft for that
@@ -147,7 +152,7 @@ PR101 is merged at develop `98f247e`; the specifically authorized Android INTERN
 Application/MainActivity source is applied and compiled. The previous pending-source/dependency
 statements above are historical. Actual device/system-browser/Keystore/Keychain/lifecycle/
 provider acceptance is NOT_RUN, canonical iOS 2.2.20 remains UNSUPPORTED, and production is closed.
-The [resumed evidence](../evidence/admin-authorization.md#resumed-integrated-review-and-acceptance--14-october-2026)
+The [resumed evidence](../../evidence/admin-authorization.md#resumed-integrated-review-and-acceptance--14-october-2026)
 owns new results; the old 13 Admin PG+1 restart counts/hashes are not rewritten.
 
 Admin normally consumes reviewed develop `98f247e`, storage PR90, IDE PR107 and Theatre through merge

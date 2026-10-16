@@ -129,4 +129,4 @@ SLO or performance gain is claimed. DBSP is rejected for this indexed point-look
 workload: asynchronous rights would weaken current admission. Synthetic PG plans/timings are
 recorded in [evidence](../evidence/admin-authorization.md); performance/load acceptance remains
 separate. See [wire contract](../../packages/contracts/admin-v1.md) and
-[combined-review handoff](../work-plan/admin-authorization-handoff.md).
+[combined-review handoff](../archive/handoffs/admin-authorization-handoff.md).

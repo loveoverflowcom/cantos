@@ -29,7 +29,7 @@ The following are **inspection facts**, not newly executed runtime tests:
 
 | Implemented authority | Source and observed boundary |
 | --- | --- |
-| Public Work/unit wire shape | [strict shared Rust DTOs](../../packages/contracts/api/src/theatre.rs), [JSON Schema](../../packages/contracts/schema/theatre/discovery/v1.schema.json) and [literal fixtures](../../packages/contracts/fixtures/theatre/discovery/v1/); no genre/credits/season fields |
+| Public Work/unit wire shape | [strict shared Rust DTOs](../../packages/contracts/api/src/theatre.rs), [JSON Schema](../../packages/contracts/schema/theatre/discovery/v1.schema.json) and [literal fixtures](../../packages/contracts/fixtures/theatre/discovery/v1); no genre/credits/season fields |
 | Query keys and typed rejection | [HTTP Theatre owner](../../services/cantos-api/src/interfaces/http/theatre.rs): works/search accept q, kind, language, limit and cursor; both query structs deny unknown fields and translate rejection to invalid_request |
 | Pure eligibility and query normalization | [Media listening core](../../services/cantos-api/src/contexts/media/domain/listening.rs): exact pinned/current identity checks, current visibility/archive/owner/rights gating; bounded q/language/limit |
 | Metadata and media projection | [listener projection](../../services/cantos-api/src/contexts/media/listener_projection.rs): released Work/unit text, actual released audio language, immutable listing anchors; no private envelope fields |
@@ -41,7 +41,7 @@ The following are **inspection facts**, not newly executed runtime tests:
 
 Retain [Discovery v1](../../packages/contracts/theatre-discovery-v1.md) and
 [Publication v1](../../packages/contracts/publication-v1.md) as the actual contract authorities.
-The [private artwork plan](012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
+The [private artwork plan](../archive/superseded-plans/012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
 requires a separate use case/decision for each P1 family. Its historical private-cover baseline
 is not current public metadata acceptance. Do not reimplement q/kind/language search v1.
 

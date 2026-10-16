@@ -249,7 +249,7 @@ current integrated tree's execution. Current activation/dependency state is the 
 
 Implementation started 2026-10-13 UTC on `feat/issue104-private-work-artwork`, from refreshed
 `develop` `007ae8f0a2d82ead84c5c0b98eecc3b5dece36b3` (PR92). The separately completed
-[bounded plan](../work-plan/012-private-work-artwork.md) is retained as design input, rather than
+[bounded plan](../archive/superseded-plans/012-private-work-artwork.md) is retained as design input, rather than
 feature evidence. Planning commit `e11184dbad41d1ce4151bbba65d8c439bb6e3bfc` was brought in as
 `a37de3f`, resolving only the work-queue append while preserving the identity integration section.
 

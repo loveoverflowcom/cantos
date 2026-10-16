@@ -143,4 +143,4 @@ Web UX/accessibility, Theatre, mobile, audio intake, QC, rights clearance, publi
 production-scale benchmark is claimed. The initial clock serializes all catalog writes and
 invalidates all cursors on any change; high contention requires a measured follow-up. Language
 validation checks bounded structural tags, not an IANA registry. Domain restore has no
-application command. See [the concrete continuation](../work-plan/011-studio-catalog-api.md).
+application command. See [the concrete continuation](../archive/handoffs/011-studio-catalog-api.md).

@@ -2,7 +2,7 @@
 
 Boundary: [Publication v1](../../packages/contracts/publication-v1.md),
 [external production ADR0018](../decisions/0018-external-audio-production.md), and
-[successor handoff](../work-plan/publication-discovery-handoff.md). This is PR1 of
+[successor handoff](../archive/handoffs/publication-discovery-handoff.md). This is PR1 of
 Publication → Discovery/Playback → Library/Progress. Related #9/#10/#11 remain open.
 
 **CORE_VERIFIED / IO_ACCEPTANCE_PENDING.** Actual typed/pure/model/fake-port/Router evidence

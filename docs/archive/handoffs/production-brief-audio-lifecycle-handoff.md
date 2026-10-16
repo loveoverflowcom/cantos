@@ -1,8 +1,13 @@
 # Production Brief → AudioLifecycle handoff
 
-Session2's bounded implementation is [Production Brief v1](../../packages/contracts/production-brief-v1.md).
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/production-brief-audio-lifecycle-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
+Session2's bounded implementation is [Production Brief v1](../../../packages/contracts/production-brief-v1.md).
 It follows fresh `develop` PR70 and preserves [Content handoff](content-identity-production-brief-handoff.md).
-Evidence, independent review and scope are in [the report](../evidence/production-brief.md).
+Evidence, independent review and scope are in [the report](../../evidence/production-brief.md).
 
 ## Available boundary
 

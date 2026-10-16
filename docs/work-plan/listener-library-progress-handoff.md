@@ -1,7 +1,7 @@
 # Listener Library / Progress handoff
 
 Backend slice for #12 / #17 / #35, additive to [PR93](https://github.com/loveoverflowcom/cantos/pull/93)
-Discovery/Playback and its [handoff](discovery-library-handoff.md). The MVP stays **Khám phá | Của tôi**,
+Discovery/Playback and its [handoff](../archive/handoffs/discovery-library-handoff.md). The MVP stays **Khám phá | Của tôi**,
 with **Nghe tiếp**, **Đã lưu**, **Lịch sử gần đây**. Current Web/CMP reducers remain mock/session-only;
 this slice does not turn their stores into account-sync acceptance. See [contract](../../packages/contracts/listener-library-v1.md)
 and [evidence](../evidence/listener-library-progress.md).

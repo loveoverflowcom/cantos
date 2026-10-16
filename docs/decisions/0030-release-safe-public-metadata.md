@@ -12,7 +12,7 @@
 The [source-bound review matrix](../work-plan/public-metadata-decision-handoff.md) inventories
 the implemented public contract and the proposed P1 consumers. Genres/categories, public
 contributors/credits and podcast seasons have no accepted authoring, rights or release contract.
-The private [artwork scope](../work-plan/012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
+The private [artwork scope](../archive/superseded-plans/012-private-work-artwork.md#deferred-scope-with-a-concrete-trigger-rather-than-placeholder-fields)
 explicitly deferred them. Prototype labels are not production fields or permission to publish
 private production casting. Issue #157 requires an owner-reviewed P1 matrix before implementation.
 

@@ -8,9 +8,9 @@
 
 Product context: the [Script IR dialogue model](../../../../docs/architecture/script-ir.md#purpose)
 (spoken text and optional pronunciation overrides),
-[business rule 9](../../../../docs/product/business-rules.md#casting-and-performance)
+[casting/performance guidance](../../../../docs/product/business-rules.md#casting-and-performance)
 (pronunciation rules stay inspectable) and the
-[010 risks](../../../../docs/work-plan/010-import-and-edit-script.md#risks--unknowns) (confirm
+[Script/editor risks](../../../../docs/assurance/script-editor-acceptance.md#risks--unknowns) (confirm
 languages and pronunciation needs with real fixtures). Fonts, diacritic clipping and display
 belong to [`cantos-ui-design`](../../cantos-ui-design/references/typography.md); editor input
 and selection mapping to [`script-editor.md`](../../cantos-leptos-web/references/script-editor.md).
@@ -177,7 +177,7 @@ pub enum Rendering {
   pronunciation rules are a separately versioned profile resolved when production inputs freeze;
   where character pronunciation guidance lives is not yet decided in the docs.
 - Mapping a `Rendering` to what a provider supports is the pipeline adapter's job
-  ([architecture § Interfaces](../../../../docs/architecture/overview.md#interfaces)); an
+  ([architecture § Layers and contexts](../../../../docs/architecture/overview.md#layers-and-contexts)); an
   unsupported rendering is an explicit finding, never a silent drop.
 - Mixed-language words, such as an English name in a `vi-VN` line, use an override. Per-span
   language tags are not modeled for the MVP; report a need rather than inventing one.

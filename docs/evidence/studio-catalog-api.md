@@ -2,7 +2,7 @@
 
 ## Boundary and provenance
 
-Work item: [011](../work-plan/011-studio-catalog-api.md), [#66](https://github.com/loveoverflowcom/cantos/issues/66).
+Work item: [011](../archive/handoffs/011-studio-catalog-api.md), [#66](https://github.com/loveoverflowcom/cantos/issues/66).
 Review boundary: authenticated Catalog backend/HTTP contracts; Studio Web catalog acceptance
 remains separate. Same branch `feat/studio-catalog-api`, draft [PR #68](https://github.com/loveoverflowcom/cantos/pull/68),
 base `develop` at `23b25a55cbb3b8d03526721835cf0318716b605a`.

@@ -1,10 +1,13 @@
-# ADR 0028: Publication streaming decisions remain evidence-gated
+# ADR 0038: Publication streaming decisions remain evidence-gated
 
 - Status: proposed
 - Date: 2026-10-14
 - Decision owner: Cantos project; acceptance and operator assignment required
 - Related issue: [#120](https://github.com/loveoverflowcom/cantos/issues/120)
 - Supersedes / superseded by: N/A; preserves ADR 0018 and the current private-read contract
+
+Renumbered from the duplicate publication ADR 0028 on 2026-10-16; this does not accept
+the proposal. ADR 0028 now uniquely identifies Work-scoped delegation.
 
 ## Context
 

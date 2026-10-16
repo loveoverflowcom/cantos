@@ -19,9 +19,9 @@ Every Cantos skill composes its order, vocabulary and report without redefining 
 - **Read before editing.** [`AGENTS.md`](../../../AGENTS.md), the owning product/architecture doc,
   work item and touched code. Product rules live in [`docs/`](../../../docs/README.md); link, never duplicate them.
 - **Repository reality.** Script IR, Axum/PostgreSQL editorial/catalog/content/brief and private
-  audio lifecycle slices, and Leptos Studio exist. Theatre Web is a session-only mock; Theatre
-  Mobile has a Gradle CMP mock with Android/iOS hosts and pure playback/controller tests.
-  Production listener API, native audio and delivery remain planned. Backend TTS/workers were
+  audio lifecycle slices, and Leptos Studio exist. Theatre Web has live discovery/account reads
+  plus explicit mocks; Mobile has a production-safe core, isolated demo and unavailable host.
+  Listener backend slices exist; native audio and production acceptance remain unfinished. TTS/workers were
   removed under [ADR 0018](../../../docs/decisions/0018-external-audio-production.md).
   Inspect commands and runtime capabilities; see [local execution](references/local-execution.md#runtime-portability).
 - **Platform scope.** Follow the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope):
@@ -59,8 +59,9 @@ Before changing a database-backed read/query or a write feeding a read model, lo
 It owns inventory, PostgreSQL baseline, simpler optimization comparison, DBSP fit,
 differential/failure checks, benchmark record and acceptance. Adopt incremental views only
 when measured benefit and semantics justify them; prioritize hot paths.
-Mutations need a separate overhead/consistency decision. One experimental, feature-gated DBSP read
-model exists ([ADR 0017](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)); production adoption does not.
+Mutations need a separate overhead/consistency decision. The generic optional DBSP library remains;
+its [old job-summary adapter](../../../docs/decisions/0017-experimental-dbsp-job-summary.md)
+is historical/retired, not a current production-adoption candidate.
 
 ## 1. Name the invariant before writing code
 

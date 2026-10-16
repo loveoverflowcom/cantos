@@ -1,6 +1,7 @@
 # ADR 0001 — Start with a modular Rust backend
 
-- Status: accepted baseline from the project brief; implementation pending.
+- Status: accepted baseline from the project brief; the modular monolith is implemented.
+  Live deployment and capability acceptance remain separate from this stack decision.
 - Date: 2026-10-09.
 - Scope: starting architecture and platform stack.
 

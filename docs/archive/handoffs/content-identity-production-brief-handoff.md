@@ -1,9 +1,14 @@
 # Content Identity → Production Brief handoff
 
+> **Historical snapshot — archived 2026-10-16.** Original path: `docs/work-plan/content-identity-production-brief-handoff.md`.
+> Retained for traceability; dates, commands, permissions, blockers and task status below
+> describe the original session and are not current execution instructions. Use the
+> [current priorities](../../work-plan/current-priorities.md) and [documentation map](../../README.md) before starting work.
+
 This is the PR 1 implementation boundary, not execution status for a broad issue.
-Authoritative model: [ADR 0019](../decisions/0019-content-identity.md).
-API: [Content Identity v1](../../packages/contracts/content-v1.md).
-Evidence and limits: [content identity](../evidence/content-identity.md).
+Authoritative model: [ADR 0019](../../decisions/0019-content-identity.md).
+API: [Content Identity v1](../../../packages/contracts/content-v1.md).
+Evidence and limits: [content identity](../../evidence/content-identity.md).
 
 ## Available to session 2
 

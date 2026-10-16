@@ -11,7 +11,7 @@
 Product rules: the Import and Adapt rows of the
 [production pipeline](../../../../docs/product/production-pipeline.md#end-to-end-flow),
 [business rules 2, 9 and 10](../../../../docs/product/business-rules.md) and the
-[010 scope, acceptance criteria and risks](../../../../docs/work-plan/010-import-and-edit-script.md).
+[Script/editor scope, acceptance criteria and risks](../../../../docs/assurance/script-editor-acceptance.md).
 Nothing below is implemented; parsers and providers are candidates that need an ADR.
 
 ## Contents
@@ -106,7 +106,7 @@ pub struct SourceSpan {
 
 Every transformation that loses or approximates meaning appends a `ConversionNote` (the same type
 the schema converters use). The creator reviews extraction and notes beside the source before
-adapting — "compare the imported result against the source" is a stated 010 risk.
+adapting — "compare the imported result against the source" is a stated editor risk.
 
 | Format | Kept | Logged as lossy or approximate | Rejected or requires a choice |
 |---|---|---|---|

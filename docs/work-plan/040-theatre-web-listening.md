@@ -1,5 +1,10 @@
 # Discover and listen in Theatre Web
 
+Current review boundary: real playback/integration under #13/#158/#170/#172. Anonymous live
+discovery and separate account/readonly Library client code already exist; reuse them and
+their [actual Web boundary](../../apps/cantos-theatre/web/README.md#explicit-live-and-mock-modes).
+The explicit mock player is not real playback. GitHub owns task status.
+
 ## Why
 
 Published production becomes valuable when listeners can find an audio drama, follow its episodes, and continue listening reliably. The web player also establishes the listening contracts consumed by native mobile.
@@ -18,13 +23,13 @@ Recommendation engines, subscriptions/payments, social feeds, live broadcasting,
 
 [030 — Mix, review, upload, and publish an episode](030-mix-review-and-publish.md). Inspect actual publication/delivery contracts and retention rules before choosing player and progress behavior. Confirm supported browsers and authentication/session conventions.
 
-The [private content-read contract](../../packages/contracts/private-content-reads-v1.md)
-documents a proposed publication-bound projection only. Media's owner preview/storage capability
-supplies no listener access. [#11](https://github.com/loveoverflowcom/cantos/issues/11) must
-provide the approved immutable manifest and isolation/retention authority;
-[#12](https://github.com/loveoverflowcom/cantos/issues/12) must provide separate listener
-identity, authorization and exact publication reads. Keep the Theatre API unavailable until
-those owning boundaries exist; neither Studio cookies nor a private S3 grant is a substitute.
+Publication, [Discovery](../../packages/contracts/theatre-discovery-v1.md) and
+[Library/Progress](../../packages/contracts/listener-library-v1.md) backend contracts already
+exist. [#170](https://github.com/loveoverflowcom/cantos/issues/170) owns real public media
+delivery: its origin-mode core is implemented but composition/acceptance remains gated by
+[ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md). #172 owns remaining public
+state/pagination gaps. Only unavailable capabilities stay fail-closed; do not disable existing
+anonymous discovery. Studio cookies and private-preview grants provide no listener authority.
 
 ## Suggested sequence
 

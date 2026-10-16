@@ -7,16 +7,17 @@
 > conflict handling, revision history, "what changed" views or any code that selects a script
 > revision for production.
 
-Product rules: [business rules 3 and 5](../../../../docs/product/business-rules.md#content-and-revisions),
+Product rules: [business rules 3 and 5](../../../../docs/product/business-rules.md#work-chapter-and-episode-identity),
 [Script IR § Revision and validation policy](../../../../docs/architecture/script-ir.md#revision-and-validation-policy)
-and the [010 acceptance criteria](../../../../docs/work-plan/010-import-and-edit-script.md#acceptance-criteria)
+and the [Script/editor acceptance criteria](../../../../docs/assurance/script-editor-acceptance.md#acceptance-criteria)
 (no silent overwrite of a competing edit, prior versions unaltered, reopen after restart, an
-interrupted save preserves the last valid script). Nothing below is implemented.
+interrupted save preserves the last valid script). Immutable save/revision behavior exists;
+the concrete types and algorithms below remain illustrative until matched to current source.
 
-**Doc wording to reconcile.** Business rule 3 makes a revision immutable "once a revision is
-submitted for production"; the Script IR document says "accepting a script produces an immutable
-revision". This reference treats the first transition that freezes content for production as the
-one that creates a `ScriptRevision`. Report the ambiguity when it affects a change.
+Current authority: accepted saves are immutable storage revisions; editorial/production and
+publication approval are separate gates. Provider/render/cache examples below apply to external
+producer tooling, not a Cantos API worker. Use the owning contracts and current source rather
+than implementing these sketches as a replacement revision model.
 
 ## Contents
 
@@ -119,7 +120,7 @@ operation both pass the pure check ([`persistence.md`](../../cantos-engineering/
 
 On conflict, the editor shows both versions and the creator resolves; resolution is an ordinary
 save whose base is the current head. Automatic merging is out of scope (real-time collaboration
-is a [010 non-goal](../../../../docs/work-plan/010-import-and-edit-script.md#non-goals)); a
+is a [editor non-goal](../../../../docs/assurance/script-editor-acceptance.md#non-goals)); a
 line-level three-way merge keyed by stable IDs is the natural later shape.
 
 If content ever moves to object storage, write the object first under a content-addressed key,
@@ -199,7 +200,7 @@ A line may appear in `respoken` and `moved` at once. `respoken` is defined as "t
 pipeline can never disagree about what changed in speech.
 
 What each delta means downstream is owned by
-[production pipeline § Cache and partial regeneration](../../../../docs/product/production-pipeline.md#cache-and-partial-regeneration)
+[production pipeline § Instructions and external production](../../../../docs/product/production-pipeline.md#instructions-and-external-production)
 and composed in [`fingerprints-and-invalidation.md`](../../cantos-production-pipeline/references/fingerprints-and-invalidation.md).
 Script IR's job is to report the delta precisely:
 
@@ -234,7 +235,7 @@ impl PinnedScriptRevision {
 
 - Production runs, provider requests, QC results and approvals store `(revision ID, digest)`.
   Frozen production inputs are the pipeline's
-  ([§ Freeze production inputs](../../../../docs/product/production-pipeline.md#freeze-production-inputs)).
+  ([production instructions and external production](../../../../docs/product/production-pipeline.md#instructions-and-external-production)).
 - The Studio head query returns a `DraftHead`, a different type that no production or publication
   function accepts. There is no `latest_revision()` in application code used by workers.
 - An edit during a run never changes the run. Studio may label the run stale by comparing its

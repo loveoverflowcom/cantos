@@ -1,5 +1,11 @@
 # Listen natively on Android and iOS
 
+Current review boundary: #14/#159 real native listening, followed by #15/#16/#17 lifecycle,
+offline and sync. The production-safe `:shared`, isolated `:preview-sandbox` and production
+Android host already exist; #122's sandbox/release exclusion slice is completed. The host
+truthfully renders unavailable until real listening adapters exist. See the
+[current platform matrix](../architecture/repository-layout.md#platform-scope).
+
 ## Why
 
 Listeners expect an audio episode to continue with the screen locked, remain controllable from the operating system, work offline, and resume across devices. A visual mobile shell alone does not deliver that experience.

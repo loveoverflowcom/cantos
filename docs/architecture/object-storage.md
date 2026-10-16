@@ -4,7 +4,7 @@ Media implements provider-independent private storage with filesystem and generi
 adapters, durable target selection and owner-authorized audio reads. This document describes
 the code boundary; the separate [evidence record](../evidence/provider-independent-storage.md)
 owns commands and actual results. No live-provider, publication or production-streaming
-acceptance is implied. See [ADR 0022](../decisions/0022-provider-independent-private-storage.md)
+acceptance is implied. See [ADR 0037](../decisions/0037-provider-independent-private-storage.md)
 and [Private content reads v1](../../packages/contracts/private-content-reads-v1.md).
 
 ## Content authorities
@@ -20,7 +20,7 @@ approval or publication is authoritative.
 | Exact Script IR export | Editorial; immutable export bytes, `sir-c1` content and `sir-e1` export digests in PostgreSQL | Exact authorized script/revision read |
 | Verified audio rendition and admission receipt | Media; immutable PostgreSQL metadata and bytes at the recorded private filesystem/S3 target | Media owner authorization, exact location and byte verification |
 | Private Work cover and selection history | Media sidecar; immutable PNG/JPEG facts and recorded target/key/SHA/length, Catalog-owned Work revision CAS | Current active owner, exact accepted asset and shared verified private read; no public image projection |
-| Published text/audio projection | Publication, when implemented | Approved immutable manifest plus separate listener authorization |
+| Published text/audio projection | Publication core; real delivery acceptance gated | Approved immutable manifest plus separate listener authorization; private storage grants no release access |
 
 Bounded text, sources and Script IR stay in PostgreSQL. A later large original/export may gain
 a private revision-bound location through its owning context; it must not duplicate Catalog,
@@ -262,7 +262,7 @@ locations do not cross it. Theatre cannot reuse Studio cookies/handlers or invok
 | Temporary grant | Protected API only | Declared presign plus usable version ID; otherwise protected API | Version pin, scoping, refresh, anonymous/expired denial |
 | Privacy | Owned private root; API-only development host | Operator-managed private bucket/least-privilege secrets | Anonymous GET/list denied; error/log redaction checked |
 | One-bucket intake | One private root | One wholly private bucket suffices | No public ACL/CDN origin or policy widening on private intake |
-| Publication | Unimplemented | Not implied by private S3 intake | Separate manifest/identity/isolation/CDN boundary after #11/#12 |
+| Publication | Separate release core; delivery gated | Not implied by private S3 intake | Separate manifest/identity/isolation/delivery acceptance under #11/#12/#170 |
 
 Long Vân, R2 and B2 are configuration targets, not domain variants. This slice has no live
 acceptance for any of them. The [Long Vân profile](../../services/cantos-api/config/storage.longvan.example.toml)
@@ -296,4 +296,4 @@ pull-driven exact-length bodies, not storage scope or listener authority. The
 [transport record](../evidence/playback-range-transport.md) separates its deterministic evidence
 from a test-only Theatre publication fixture. No private target, `PrivateStorage`, Studio
 preview or presigned URL is promoted or exposed to Theatre by sharing this helper. Publication
-composition stays fail-closed until the [delivery decisions and live gates](../decisions/0028-publication-streaming-evidence-gates.md) are accepted.
+composition stays fail-closed until the [delivery decisions and live gates](../decisions/0038-publication-streaming-evidence-gates.md) are accepted.

@@ -15,8 +15,8 @@ description: >-
 
 Rule owner for how Cantos represents, versions, digests, revises and admits script content. The
 product rules live in [Script IR](../../../docs/architecture/script-ir.md),
-[business rules § Content and revisions](../../../docs/product/business-rules.md#content-and-revisions),
-[010 — Import and edit a versioned script](../../../docs/work-plan/010-import-and-edit-script.md)
+[business rules § Content and revisions](../../../docs/product/business-rules.md#work-chapter-and-episode-identity),
+[Script/editor acceptance reference](../../../docs/assurance/script-editor-acceptance.md)
 and [`packages/contracts/README.md`](../../../packages/contracts/README.md). This skill owns the working method: how
 to model those rules as types, where each decision lives, how to test it and which evidence
 proves it. It composes [`cantos-engineering`](../cantos-engineering/SKILL.md) and reuses its

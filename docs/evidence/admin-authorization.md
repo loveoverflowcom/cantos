@@ -12,7 +12,7 @@ TLS bypass, Podman bootstrap or account security setting is used.
 ## Provenance and resource recovery
 
 Fresh develop00eab6d; published PR10141c3b75/treebe21bbac was normal-merged at09e496e.
-[Handoff](../work-plan/admin-authorization-handoff.md) records full dependency identities and
+[Handoff](../archive/handoffs/admin-authorization-handoff.md) records full dependency identities and
 separates own changes from inherited PR92/98/101. VOT origin/developf3fea641 was fetched and
 its Console proof/directory identity source inspected, with no source difference in the inspected
 proof/identity files between that ref and the local checkout. No Gateway/code is copied.

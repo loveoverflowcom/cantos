@@ -29,8 +29,10 @@ declared rights/provenance, rather than just effective body equality.
 
 ## Production, caching and costs
 
-8. Cantos never dispatches a TTS request, runs provider SDKs or reserves vendor spending.
-   External tools own their provider execution, retries, caches, budgets and usage accounts.
+8. Cantos API never dispatches TTS, runs provider SDKs or reserves vendor spending.
+   External producers own execution, retries, caches, budgets and usage accounts. The planned
+   [Forge local/Functions producer](../decisions/0022-cantos-forge-producer-cli.md) executes
+   outside the API; Studio requests authorized operations without owning provider secrets.
 9. A producer can submit external idempotency IDs, provider/model identifiers, duration,
    cost and quality reports as **caller-declared provenance**. These are not Cantos charges or
    independently verified measurements.
@@ -43,9 +45,10 @@ declared rights/provenance, rather than just effective body equality.
 
 12. Uploads are private, scoped to one authorized work/content unit and capped in bytes and
     accepted MIME/container/codec according to a **versioned profile**.
-13. A producer uploads directly to private object storage via a short-lived scoped grant.
-    The API validates the declared object reference, actual stored bytes, size and digest;
-    never trust a filename or client-declared digest alone.
+13. The implemented [Audio Lifecycle](../../packages/contracts/audio-lifecycle-v1.md) uses a
+    separate short-lived scoped bearer and bounded binary PUT through the API, which verifies
+    stored bytes and performs admission/finalization. Direct object-store uploads remain part
+    of the broader proposal, not a current route. Never trust a filename or declared digest alone.
 14. QC report fields preserve whether they are producer-declared, server-inspected or
     human-listened. A structural pass or a valid checksum is not editorial approval.
 15. Opus mono 20–40 kbps and AAC-LC mono fallback are candidates, not final constraints

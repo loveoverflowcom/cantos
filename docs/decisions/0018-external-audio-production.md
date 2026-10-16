@@ -43,6 +43,15 @@ risk and deployment complexity without making Cantos better at content managemen
 8. **No implicit implementation.** Proposed `audio-handoff-v1` routes and DTOs are design
    only until a separately reviewed API PR and tests implement them.
 
+## Producer clarification — 2026-10-16
+
+The owner selected [Cantos Forge](0022-cantos-forge-producer-cli.md) as a producer outside the
+API runtime: Studio may request producer operations through Firebase Functions, sharing the
+same Rust core as the local CLI. Private personal Drive holds drafts; API admission/publication
+remains authoritative on the VPS. This clarifies “external” without reviving backend TTS.
+Only the local artifact CLI foundation exists today; Functions/Drive/provider execution and
+automatic handoff remain #203 implementation/acceptance work.
+
 ## Security and invariants
 
 Producer tokens must be scoped per work/content unit, time-limited and revocable; they must

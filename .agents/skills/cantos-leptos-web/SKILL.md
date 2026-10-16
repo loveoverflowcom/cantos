@@ -71,7 +71,7 @@ the browser renders and drives it, the owner decides what is true.
   [`apps/cantos-theatre/web/README.md`](../../../apps/cantos-theatre/web/README.md),
   [repository layout](../../../docs/architecture/repository-layout.md),
   the [UI system](../../../docs/design/ui-system.md), and the work items
-  [010 (editor)](../../../docs/work-plan/010-import-and-edit-script.md),
+  [Script/editor acceptance](../../../docs/assurance/script-editor-acceptance.md),
   [020 (casting, progress)](../../../docs/work-plan/020-cast-and-generate-dialogue.md),
   [030 (QC, publication)](../../../docs/work-plan/030-mix-review-and-publish.md) and
   [040 (Theatre Web)](../../../docs/work-plan/040-theatre-web-listening.md). Link them; never

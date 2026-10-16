@@ -2,7 +2,7 @@
 
 Date: 2026-10-10. Review boundary: port the local editorial capabilities onto develop's
 existing Script IR, immutable revision backend and Studio without introducing another schema
-or save protocol. Part of [010](../work-plan/010-import-and-edit-script.md) / issue #1; no issue
+or save protocol. Part of [010](../assurance/script-editor-acceptance.md) / issue #1; no issue
 acceptance or production deployment is claimed.
 
 ## Invariant, owner and provenance

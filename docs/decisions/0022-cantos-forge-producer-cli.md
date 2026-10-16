@@ -1,87 +1,90 @@
-# ADR 0022: Cantos Forge is a producer-side CLI outside the API runtime
+# ADR 0022: Cantos Forge is a producer outside the API runtime
 
-- Status: proposed
-- Date: 2026-10-13
+- Status: **accepted product direction**, clarified by the owner on 2026-10-16 in #82/#203.
+  Local artifact CLI foundation is implemented; provider/Functions/Drive execution and API
+  submission are not. Runtime packaging and live acceptance remain decision gates.
+- Date: 2026-10-13; owner clarification: 2026-10-16
 - Decision owner: Cantos project
-- Related issue or PR: [#82 — Cantos Forge vision](https://github.com/loveoverflowcom/cantos/issues/82)
-- Supersedes / superseded by: N/A. Narrows the wording of [ADR 0018](0018-external-audio-production.md) without changing its API rules.
+- Related issues: [#82 — Forge vision](https://github.com/loveoverflowcom/cantos/issues/82),
+  [#203 — local/Functions implementation](https://github.com/loveoverflowcom/cantos/issues/203)
+- Refines [ADR 0018](0018-external-audio-production.md)'s producer wording without changing
+  its prohibition on synthesis inside Cantos API.
 
 ## Context
 
-[ADR 0018](0018-external-audio-production.md) removed TTS, provider workers, mixing and encoding
-from `cantos-api` and made external producers responsible for audio. Producers and AI hosts now
-lack one place that resolves instructions, keeps local drafts and artifact revisions, records
-evaluation evidence and prepares a handoff. Issue #82 records the owner's request for such an
-application under `apps/`, named **Cantos Forge**, covering stories, scripts and audio.
+Forge manages story/script/audio production outside the API runtime. The first foundation
+added a Rust library/CLI in `apps/cantos-forge`: local immutable artifact revisions, deterministic
+checks and handoff-bundle export. It does not yet generate audio, use Drive, expose an HTTP
+server or submit to Cantos API; [the application README](../../apps/cantos-forge/README.md)
+owns exact available commands.
 
-Known facts at `develop` 64979f3: `apps/` holds only Studio and Theatre; the API implements
-Production Brief read grants and the private Audio Lifecycle (owner-created submission, exact
-upload bearer, one binary `PUT` that admits). No route accepts a story or script from a
-producer. Assumption: Forge's first users are AI hosts calling a CLI, not people in a GUI.
-
-"External" in ADR 0018 means outside the API's runtime and trust boundary. It does not require
-the producer tooling to live outside this repository or product.
+On 2026-10-16 the owner chose Studio-controlled Gemini TTS, sharing one Forge implementation
+between local CLI and Firebase Functions. The owner also selected private personal Google Drive
+for remote **drafts**, reusing the existing story workspace rather than adding draft storage.
+This refines the original CLI-only scope and the former wording that Studio must never start
+a producer operation. It does not move TTS into the API or accept a deployed runtime.
 
 ## Decision
 
-1. `apps/cantos-forge` is a Rust CLI (one crate, package and binary `cantos-forge`) that runs in
-   the producer's environment. It is part of the Cantos product family, not of the API runtime.
-2. **The API, Studio and Theatre still never execute generation**, call a provider, spawn Forge
-   or depend on Forge running. ADR 0018's API rules are unchanged; only Forge may orchestrate
-   producer-side tools, and only in a later, separately reviewed slice.
-3. Dependencies point inward: Forge uses `packages/*` and pinned workspace dependencies, never
-   `services/` code, another app or PostgreSQL. A future handoff talks to the API over HTTP
-   using the producer credentials the API already defines; it never uses a Studio cookie.
-4. Forge has a functional core (`domain/`) with no I/O, clock, randomness, process, CLI or serde,
-   and an imperative shell. Local identities are distinct from any server identity; server IDs
-   become separate types only when a handoff receives them.
-5. Execution, evaluation, handoff and publication are independent. Forge records evidence and
-   never turns an AI assessment, a local check or an upload into Studio approval or publication.
-6. `cargo xtask` builds Forge and owns repository verification; Forge owns production workflows.
-   xtask never runs Forge or a provider inside build, test, preflight or CI.
-7. The first increment is the crate, its wiring and the verified pure core plus a truthful
-   `capabilities` command. The second increment adds a host-assisted local workflow over that
-   core: a filesystem workspace of write-once records, `artifact add/list/show`, `validate`
-   (a strict Ogg Opus inspector and UTF-8 text check) and `handoff export` to a local bundle.
-   Provider orchestration and the API handoff follow #82's sequence.
+1. **One producer core.** CLI and Functions adapters invoke the same Rust domain/application
+   use cases. Forge uses packages/contracts, never service code, another app's internals or
+   Narrative Forge internals. Extract another shared crate only for a concrete consumer.
+2. **Studio owns the workflow.** Web buttons, generation settings, status, preview and explicit
+   acceptance stay in Studio; no Forge GUI. Studio calls two separately configured backends:
+   VPS Cantos API for authoritative content/permissions/admission/publication, and Forge via
+   local/deployed Firebase Functions for producer operations.
+3. **API isolation.** Cantos API never calls Gemini, spawns Forge, holds provider credentials or
+   depends on Forge for catalog/playback. Theatre never starts generation. The browser requests
+   an authorized operation; only the producer executes it.
+4. **Draft ownership.** Private personal Drive is the remote home for applicable raw/score/audio
+   drafts, immutable revisions/checksums, indexes and producer state. Preserve the existing
+   [story workspace](../production/story-workspace.md); original authoring is not fabricated
+   source acquisition, and narration/podcast may omit Script IR. Deliberate offline CLI work
+   uses filesystem without mandatory Firebase credentials or server Work IDs.
+5. **No second authority.** Forge/Drive owns producer drafts, not a Catalog or release store.
+   No extra Firebase Storage/S3/Firestore merely for drafts. Reviewed canonical content and
+   media enter Cantos only through explicit authorized API admission. Draft upload or technical
+   PASS never grants review, rights or publication approval.
+6. **Safe effects.** Record pinned inputs and an attempt before a billable effect. Same key with
+   different input conflicts; retry is not a new generation decision. Unknown provider outcome
+   requires reconciliation/operator decision before paid replay. Drive is not a transactional
+   queue/lock: local/cloud serialization and cost/concurrency safety must be demonstrated.
+7. **Trusted adapters.** Drive OAuth, Gemini, Firebase/HTTP and process/encoder details stay in
+   adapters, not domain/Script IR. Use configured private destinations and trusted secret
+   bindings; never embed private folder IDs/tokens in Git or browser bundles. A publicly
+   reachable endpoint still authorizes every draft/status/preview/generation operation.
 
-## Alternatives
+Issue #203 owns concrete OAuth/access, byte readback/index updates, attempt recovery,
+authorization, limits and acceptance. Do not turn illustrative port/route names into contracts.
 
-| Option | Benefits | Costs and limitations | Reason selected or rejected |
-| --- | --- | --- | --- |
-| Forge as a CLI app in this workspace | shares pinned toolchain, contracts and gates; one place for producer rules | the workspace grows a native binary consumers must not confuse with the API | selected |
-| Keep producers fully outside Cantos (skills only) | nothing new to maintain | every AI host re-implements revisions, evidence and handoff differently; no typed safety | rejected by the owner's request in #82 |
-| Add producer workflows to `cantos-api` | one deployable | reverses ADR 0018; credentials and provider cost enter the server | rejected |
-| MCP server or daemon first | richer host integration | long-lived process and transport before any workflow exists | deferred; an adapter over the same core when a host needs it |
-| Separate domain crate for Forge now | compile-time isolation | no second consumer today ([ADR 0001](0001-modular-monolith.md)) | rejected until a second consumer exists |
+## Runtime packaging decision still open
 
-## Consequences
+| Candidate | Required next evidence |
+| --- | --- |
+| Gen 2 Function with thin Node/TypeScript wrapper and packaged Rust worker | Preferred feasibility spike in #203; prove deployed ABI/dependencies, encoder, cold start, deadlines, bounded memory and child cleanup; no copied TTS business logic |
+| Function gateway to authenticated private Cloud Run Rust container | Fallback only if the first approach is unsuitable; explain added service/cost and service authentication |
 
-- Product and user impact: none for listeners or creators. AI hosts get a discoverable
-  `cantos-forge capabilities --json` that truthfully reports the implemented commands and keeps
-  the API handoff and provider-managed workflows `unsupported`. Forge produces no audio: hosts
-  register what they made, and Forge measures, records evidence and writes a local bundle.
-- Compatibility and migrations: N/A. No schema, route, contract or persisted data changes.
-- Operations, storage, and production cost: a seventh workspace member built by `verify rust`
-  and CI; no provider, network call, credential or runtime service.
-- Implementation and recovery requirements: later slices must keep local and server state
-  apart, record attempts before billable effects, reconcile ambiguous outcomes before retry,
-  constrain paths, processes and output sizes, and keep secrets out of bundles and logs (#82).
-- Duplication to retire: Forge's Ogg Opus inspector follows the rules of the API's strict
-  container check (`services/cantos-api/src/contexts/media/structure.rs`) because Forge may not
-  import service code. Both must move to one shared pure package once the second consumer is
-  justified; until then a difference can only make Forge stricter or looser than admission, and
-  the API's independent inspection stays authoritative.
-- Deferred questions: workspace format evolution beyond `cantos-forge.workspace/v1`; instruction-bundle resolution from
-  `.agents/skills/`; the shared pure Script IR validator package; the first provider adapter;
-  self-service producer credentials (needs a separate API/permission design).
+Local process/emulator success does not prove a deployed Function. No runtime, worker protocol,
+HTTP DTO, queue, new service or cloud deployment is selected merely by this ADR.
+
+## Consequences and compatibility
+
+Existing local artifact/workspace/bundle formats and offline commands remain available.
+The API's Audio Lifecycle still uses owner preparation and a scoped binary PUT that admits/
+finalizes; no direct S3 write, automatic submission or publication is implied.
+
+Local provider recovery, authorized Functions/Drive I/O and API handoff require separately
+reviewed implementation. The Ogg/Opus inspector and prospective shared Script IR validator
+should be consolidated only through a justified shared pure boundary, never imports from
+service internals. Provider-generated claims remain producer-declared.
 
 ## Validation and revisit conditions
 
-Validated by `cargo test -p cantos-forge` (domain examples, properties, a compile-fail doctest,
-lexical layer checks, a differential check of the profile table against the intake contract,
-use cases over in-memory ports, the filesystem adapter on a real directory including tampering,
-and the built binary end to end) and by the xtask test that every workspace dependency points
-inward.
-Revisit if a second consumer needs the Forge core (split a package), if an API route starts to
-depend on Forge, or if a host requires a long-running transport.
+Historical local CLI/domain/filesystem/command evidence stays in the
+[Forge README](../../apps/cantos-forge/README.md). This amendment records owner direction;
+it adds no provider-live, Functions, Drive, SQL, device or listening evidence.
+
+Deliver one bounded requested Gemini segment before chapter-scale orchestration. Prove local/
+cloud use-case parity, private draft integrity/recovery, scoped authorization and uncertain
+billable-outcome handling; then verify explicit API admission. No production/deployment or
+paid-call authority follows from writing these docs.
