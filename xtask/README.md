@@ -23,10 +23,12 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 Tool detection never installs anything. Explicit `verify behavior --setup` alone installs its
 locked npm development dependency; ordinary verification never fetches it. xtask does not
 install other toolchains, initialize/start Podman Machine, change connections, call
-providers, create cloud resources, publish or deploy, with **one explicit, opt-in exception**:
+providers, create cloud resources, publish or deploy, with **two explicit, opt-in exceptions**:
 `distribute firebase` ([below](#distribute-firebase)) builds the Theatre Android *demo* APK and
-hands it to Firebase App Distribution. Only explicit `services up` starts local container
-infrastructure; build/test/run/preflight/ci never start it and never reach distribution.
+hands it to Firebase App Distribution, and `deploy firebase` ([below](#deploy-firebase)) builds one
+Leptos Web app and publishes its static bundle to Firebase Hosting. Only explicit `services up`
+starts local container infrastructure; build/test/run/preflight/ci never start it and never reach
+distribution or deployment.
 
 ## Commands
 
@@ -66,6 +68,8 @@ cargo xtask services [--instance NAME] logs postgresql|kanidm
 cargo xtask services [--instance NAME] down postgresql|kanidm|--all
 cargo xtask distribute firebase cantos-theatre --channel demo [--artifact apk] \
   (--groups ALIASES | --testers EMAILS)... [--app-id ID] [--release-notes TEXT | --release-notes-file PATH] [--dry-run]
+cargo xtask deploy firebase cantos-theatre|cantos-studio --web --project PROJECT_ID \
+  --channel live|PREVIEW_CHANNEL [--expires 7d] [--dry-run]   # explicit static Web deploy to Firebase Hosting
 cargo xtask compose-preview cantos-theatre|ui-system-cmp --file PATH --composable NAME \
   [--label SCENARIO] [--pid PID] [--android-cli PATH] [--timeout-seconds 60] [--dry-run]
 cargo xtask visual-compare --reference PNG --actual PNG --scenario ID \
@@ -95,7 +99,9 @@ Mobile and `services/kanidm` (configuration only) are not built. See the
 `dev` is the default unoptimized build. `--release` passes `--release` to Cargo or Trunk and
 produces an optimized local artifact. It is not a production image, a signed bundle or a
 deployment; none of those exist yet. (`distribute firebase` hands a *demo* debug APK to testers;
-it is not a production release either.)
+it is not a production release either. `deploy firebase` publishes the release Web bundle to
+Firebase Hosting on explicit request; that is static delivery, not a claim about the API or
+production readiness.)
 
 Trunk runs with `NO_COLOR=true`, matching the documented commands (Trunk 0.21 rejects an
 inherited `NO_COLOR=1`).
@@ -580,6 +586,8 @@ separates the original mock adapter checks from real rendering recorded in the
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
 | `distribute/` | explicit demo-APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |
+| `deploy/` | explicit static Web deployment to Firebase Hosting: `request` (pure plan), `hosting_config` (tracked policy, `.firebaserc` mapping, effective configuration), `bundle` (exact-bytes validation and manifest), `firebase` (CLI argv, site lookup, remote-outcome interpretation, redaction), `smoke` (read-only HTTPS judgement), `receipt`, `host` (files, bundle scan, Git, clock) and `flow` (stage ordering and short-circuiting) |
+| `run_files.rs`, `firebase_cli.rs` | what `distribute` and `deploy` share: private per-run directories, SHA-256, Git source identity and atomic records; the Firebase CLI version gate and output redaction |
 | `capture.rs` | bounded captured execution with a typed timeout/interruption/output-limit vocabulary, used where output must be interpreted |
 | `compose_preview.rs` | optional host-preview command and status mapping; the Python primitive owns capture/log/output validation |
 
@@ -594,8 +602,8 @@ planned through `theatre-demo`; production native listening remains `UNSUPPORTED
 do not add a mobile plan, scaffold or target without an explicit future roadmap request. A new script becomes a gate
 in `gate.rs`, is classified in `preflight/select.rs` and, if CI must run it, is added to a job
 in `ci.rs`. Release, deployment and provider-backed commands wait for their infrastructure; the
-single exception is the demo-APK `distribute firebase` command, which stays outside every gate,
-preflight selection and CI job.
+two exceptions are the demo-APK `distribute firebase` command and the static Web `deploy firebase`
+command, which stay outside every gate, preflight selection and CI job.
 
 ### distribute firebase
 
@@ -699,6 +707,115 @@ Deliberately absent from Phase A: `--no-build`, an arbitrary artifact path, an i
 a provider plugin framework, automatic recovery or retry, and any Firebase SDK, Crashlytics,
 Google Services plugin or `google-services.json` in the app. The production APK/AAB and an
 optional manual CI workflow are follow-ups with their own acceptance.
+
+### deploy firebase
+
+```sh
+# Local plan only: no tool probe, Trunk, Firebase, login, upload, receipt or artifact write.
+cargo xtask deploy firebase cantos-theatre --web \
+  --project PROJECT_ID --channel review-hosting --dry-run
+
+# Build Theatre Web once, validate the bundle, publish a PUBLIC preview. A REMOTE WRITE.
+cargo xtask deploy firebase cantos-theatre --web \
+  --project PROJECT_ID --channel review-hosting --expires 7d
+
+# A deliberate LIVE release of one app; Studio is independent and never builds Theatre.
+cargo xtask deploy firebase cantos-theatre --web --project PROJECT_ID --channel live
+cargo xtask deploy firebase cantos-studio --web --project PROJECT_ID --channel live
+```
+
+The operator setup (installing and logging in the Firebase CLI, creating sites, mapping them),
+verification and recovery are in the [Firebase Hosting runbook](../docs/deployment/firebase-hosting.md);
+this section is the contract. It is the second opt-in exception to "xtask publishes nothing"
+([ADR 0012](../docs/decisions/0012-xtask-command-surface.md)). `build`, `run`, `verify`, `preflight`,
+`ci` and `build all` never invoke it and gain no Firebase tool or credential requirement; a test
+asserts that no ordinary gate, CI or build plan contains a Firebase, Hosting or deploy command. It is
+local and manual: no GitHub Actions workflow, secret, `firebase init hosting:github` or automatic
+trigger exists or is needed. Firebase Hosting serves only the static bundle; the Rust API,
+PostgreSQL, Kanidm and object storage stay outside it, and the API-origin and authentication
+contract is a separate, unmet gate ([runbook](../docs/deployment/firebase-hosting.md#api-origin-and-authentication-a-separate-gate)).
+
+**Request.** The app (`cantos-theatre` or `cantos-studio`, nothing else), `--web`, `--project` and
+`--channel` are required and never defaulted; `cantos-api`, `cantos-forge`, `all` and mobile are
+rejected before any tool runs (usage error, exit 2; Theatre mobile is `UNSUPPORTED` like `build`).
+Four identifiers stay distinct: the **project ID** (`--project`), the **Hosting site ID** (read from
+the operator's `.firebaserc`), the **deploy target** (`cantos-theatre` → `theatre`, `cantos-studio` →
+`studio`) and an Android Firebase App ID (not used). `--channel live` is the only spelling of a live
+release; any other value is a public preview channel. `Live`, ` live` and every spelling containing
+`/ : _ #` or uppercase are refused because the CLI would normalize them to another destination.
+`--expires` (`30m`, `12h`, `7d`; positive, at most 30 days) is for previews only.
+
+**Configuration.** `services/firebase-hosting/firebase.json` is the tracked policy;
+`services/firebase-hosting/.firebaserc` (ignored by Git, from `firebaserc.example` or
+`firebase target:apply`) maps each target to **exactly one** site in the requested project, and the
+two targets to different sites. Nothing is edited. xtask validates the policy (only `hosting`; no
+`site`, hooks, redirects or non-static rewrites; no rewrite that is not a literal route outside
+`/api`; a `Cache-Control: no-cache` rule for every path and no long-lived caching) and renders a
+run-specific effective `firebase.json` and `.firebaserc` in the private run directory holding that
+one target, that one site and a run-relative `public`. Every Firebase subprocess except the initial `firebase --version` probe (run from the checkout root, with no project) gets an explicit
+`--project`, `--config` and the run directory as its working directory, so no active or default
+project, other product or `firebase-debug.log` in the checkout can be involved.
+
+**Stages** (each failure stops the rest; unreached stages are `NOT_RUN`):
+
+1. *Local prerequisites*: Cargo, the wasm32 target, Trunk and Git installed, and no inherited
+   `TRUNK_*` variable that could redirect the build (reported by name, never value).
+2. *Hosting configuration*: the policy and the mapping above.
+3. *Firebase CLI*: `firebase --version` must be 15.x and at least 15.34.0, the shared pin with
+   `distribute firebase`. xtask installs nothing and never logs in.
+4. *Run record*: a new private directory `artifacts/hosting/<run-id>/` (ignored by Git; concurrent
+   runs never share one), the effective configuration and the first receipt.
+5. *Hosting destination*: read-only `firebase hosting:sites:list --json` in the explicit project; the
+   mapped site must be in it. Missing login, site or permission stops here, before the build. This is
+   not proof of deploy permission.
+6. *Release build*: the existing locked release Trunk build (`build::release_bundle`, shared with
+   `web-performance`) of the selected app only, into the run's own fresh `dist`, with the app's own
+   `Trunk.toml`, explicit entrypoint and root public URL. The source identity (commit, dirty flag and
+   content fingerprint) is read before and after; a change refuses the bundle.
+7. *Bundle validation*: the exact public bytes (see the runbook): regular allow-listed static files
+   only, the selected app's `index.html` and `*.js`/`*_bg.wasm`, every reference present and inside
+   the bundle, `integrity` pins that match, no HTML masquerading as an asset, a path-ordered manifest
+   and one digest. Nothing from outside the bundle (credentials, `.env`, logs, receipts, audio) can be
+   public: the allow-list refuses it.
+8. *Intent receipt*: the bundle is scanned again and must have the same digest; intent is recorded
+   atomically. If it cannot be, nothing is uploaded.
+9. *Hosting release*: exactly one call, never retried. Preview: `firebase hosting:channel:deploy
+   <channel> --only <target> --project <id> --config <run>/firebase.json [--expires …]
+   --no-authorized-domains --non-interactive --json`. Live: `firebase deploy --only
+   hosting:<target> --project <id> --config <run>/firebase.json --message … --non-interactive
+   --json`. The preview command refuses `live`, so the two are different commands.
+10. *HTTP smoke*: read-only HTTPS GETs (no redirects, `https` only) to the URL the CLI reported,
+    judged on status, media type (notably `application/wasm`), `Cache-Control` and the SHA-256 of the
+    served bytes; plus a missing `.wasm` and an `/api/` path that must answer `404` rather than the
+    page. Up to 3 attempts, 5 s apart, while a release propagates; the write is never repeated. Needs
+    `curl`; without it the row is `NOT_RUN`. Static delivery only.
+11. *Final receipt*: the observed outcome.
+
+**Remote outcomes.** Exactly one of: *confirmed* (exit 0 and a result naming exactly the selected
+target, site and channel, with an `https` Hosting URL for a preview or a version of exactly this site
+for a live release), *rejected* (a recognised refusal; no release was reported), *unknown* (timeout
+after 20 minutes, interruption, output lost or over 4 MiB, changed or unrecognised output, an
+unclassified failure, or a nonzero exit) and *not started*. A failure after the CLI began is never
+reported as "nothing was written": a preview channel may exist and a version may be uploaded
+unreleased. Identifiers (version, URL, expiry) come from the CLI's result only; a live URL comes
+from the site lookup; none is invented, and "latest release" is never used to identify a run. On
+*rejected* or *unknown*, **reconcile in the Firebase console before replaying**. A successful
+release followed by a failed smoke or a failed receipt write stays a known remote release with a
+separate local failure and a recovery pointer.
+
+**Receipt and redaction.** `receipt.json` (schema version 1) records the run ID, source identity, tool
+versions, project, site, target and channel, effective-configuration digests, the build command, the
+bundle manifest and digest, the release identity, the smoke observations and each stage with a
+timestamp. Output and saved diagnostics are redacted (no addresses, tokens, signed or foreign links;
+Hosting and console links stay). The CLI may leave `firebase-debug.log` in the private run directory;
+keep it out of shared CI artifacts.
+
+Deliberately absent from this first delivery: `--no-build`, an arbitrary artifact path, deploy-all,
+automatic promotion, rollback or channel/site deletion, a provider framework, long-lived caching of
+hashed assets, an API-origin setting and any Firebase SDK, Functions, Cloud Run or App Hosting
+adapter. A live preview and live deployment of each app are **`NOT_RUN`**; see the
+[evidence record](../docs/evidence/issue199-firebase-hosting.md) and the `ACCEPTANCE(NOT_RUN)` markers
+in `xtask/src/deploy`.
 
 ### theatre-demo
 

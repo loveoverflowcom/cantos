@@ -1,0 +1,30 @@
+{
+  "hosting": [
+    {
+      "target": "theatre",
+      "public": "../../apps/cantos-theatre/web/dist",
+      "ignore": ["**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+      ]
+    },
+    {
+      "target": "studio",
+      "public": "../../apps/cantos-studio/web/dist",
+      "ignore": ["**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+      ]
+    }
+  ],
+  "emulators": {
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": false }
+  }
+}

@@ -10,8 +10,10 @@ mod cli;
 mod command;
 mod compose_preview;
 mod config;
+mod deploy;
 mod distribute;
 mod doctor;
+mod firebase_cli;
 mod gate;
 mod kani;
 mod kanidm;
@@ -21,6 +23,7 @@ mod probe;
 mod process;
 mod report;
 mod run;
+mod run_files;
 mod services;
 mod theatre_demo;
 mod theatre_host;
@@ -62,6 +65,7 @@ fn dispatch(task: Task) -> Result<ExitCode> {
     let tools = SystemTools::new(workspace.root());
     let mut runner = SystemRunner::new(workspace.root());
     match task {
+        Task::Deploy(args) => deploy::execute(&workspace, &args, &tools, &mut runner),
         Task::Distribute(args) => distribute::execute(&workspace, &args, &tools, &mut runner),
         Task::Kanidm(args) => kanidm::run(&workspace, &args, &mut runner),
         Task::Services(args) => services::run(&workspace, &args),

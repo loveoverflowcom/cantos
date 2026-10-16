@@ -91,6 +91,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
 - `services/postgresql`: explicit local rootless Podman configuration; native database tests remain separate.
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
+- `services/firebase-hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); live deployment acceptance pending, the API is not served.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/product`, `docs/architecture`, `docs/decisions`: current product rules, system shape and ADRs.

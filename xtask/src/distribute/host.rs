@@ -1,12 +1,11 @@
 //! The local-effect boundary of a distribution run: clock, Git identity, the Android build
 //! output, the private per-run directory and atomic receipt replacement. The coordinator talks to
-//! the [`Host`] trait; [`SystemHost`] is the real implementation and tests use fakes.
+//! the [`Host`] trait; [`SystemHost`] is the real implementation and tests use fakes. The neutral
+//! file, digest and Git primitives live in [`crate::run_files`] and are shared with `deploy`.
 
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use sha2::{Digest, Sha256};
@@ -16,8 +15,10 @@ use super::{
     receipt::Receipt,
     request::{Policy, NOTES_LIMIT},
 };
+pub use crate::run_files::{sha256_hex, RunDir, SourceIdentity};
 use crate::{
     config::THEATRE_MOBILE_DIR,
+    run_files::{self, create_private, hex, make_read_only},
     tools::{SystemTools, Tool},
     workspace::Workspace,
 };
@@ -53,25 +54,12 @@ fn read_notes_prefix(reader: impl Read) -> std::io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RunDir {
-    pub id: String,
-    pub path: PathBuf,
-}
-
 /// A run-owned copy of the exact bytes that were inspected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Staged {
     pub path: PathBuf,
     pub sha256: String,
     pub size_bytes: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourceIdentity {
-    pub commit: String,
-    pub dirty: bool,
-    pub content_fingerprint: Option<String>,
 }
 
 pub trait Host {
@@ -98,48 +86,6 @@ pub trait Host {
     fn persist(&mut self, run: &RunDir, receipt: &Receipt) -> Result<PathBuf, String>;
 }
 
-pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
-pub fn sha256_hex(bytes: &[u8]) -> String {
-    hex(&Sha256::digest(bytes))
-}
-
-/// RFC 3339 UTC timestamp for Unix seconds (proleptic Gregorian, no leap seconds).
-pub fn utc_timestamp(seconds: u64) -> String {
-    let days = (seconds / 86_400) as i64;
-    let remainder = seconds % 86_400;
-    // Howard Hinnant's civil-from-days.
-    let shifted = days + 719_468;
-    let era = shifted.div_euclid(146_097);
-    let day_of_era = shifted.rem_euclid(146_097);
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = if month_prime < 10 {
-        month_prime + 3
-    } else {
-        month_prime - 9
-    };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
-        remainder / 3_600,
-        remainder % 3_600 / 60,
-        remainder % 60
-    )
-}
-
-fn compact(timestamp: &str) -> String {
-    timestamp
-        .chars()
-        .filter(|c| c.is_ascii_digit() || *c == 'T' || *c == 'Z')
-        .collect()
-}
-
 pub struct SystemHost {
     root: PathBuf,
     tools: SystemTools,
@@ -150,21 +96,6 @@ impl SystemHost {
         Self {
             root: workspace.root().to_path_buf(),
             tools: SystemTools::new(workspace.root()),
-        }
-    }
-
-    fn git(&self, args: &[&str]) -> Result<Vec<u8>, String> {
-        let output = Command::new("git")
-            .args(args)
-            .current_dir(&self.root)
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|error| format!("could not run git: {}", error.kind()))?;
-        if output.status.success() {
-            Ok(output.stdout)
-        } else {
-            Err(format!("`git {}` failed", args.join(" ")))
         }
     }
 
@@ -179,56 +110,11 @@ impl Host for SystemHost {
     }
 
     fn now(&mut self) -> String {
-        let seconds = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
-        utc_timestamp(seconds)
+        run_files::now()
     }
 
     fn source_identity(&mut self) -> Result<SourceIdentity, String> {
-        let head = String::from_utf8_lossy(&self.git(&["rev-parse", "HEAD"])?)
-            .trim()
-            .to_owned();
-        if head.len() < 40 || !head.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err("git did not report a commit".to_owned());
-        }
-        let status = self.git(&["status", "--porcelain=v1", "-z", "--untracked-files=all"])?;
-        if status.is_empty() {
-            return Ok(SourceIdentity {
-                commit: head,
-                dirty: false,
-                content_fingerprint: None,
-            });
-        }
-        let mut digest = Sha256::new();
-        digest.update(b"status\0");
-        digest.update(&status);
-        digest.update(b"\0diff\0");
-        digest.update(self.git(&["diff", "HEAD", "--binary", "--no-ext-diff"])?);
-        digest.update(b"\0untracked\0");
-        let listing = self.git(&["ls-files", "--others", "--exclude-standard", "-z"])?;
-        for name in listing
-            .split(|byte| *byte == 0)
-            .filter(|name| !name.is_empty())
-        {
-            let relative = String::from_utf8_lossy(name).into_owned();
-            digest.update(name);
-            digest.update([0]);
-            let path = self.root.join(&relative);
-            if std::fs::symlink_metadata(&path).is_ok_and(|meta| meta.is_file()) {
-                digest.update(
-                    self.hash_file(&path)
-                        .map_err(|why| format!("could not fingerprint {relative}: {why}"))?
-                        .0,
-                );
-            }
-            digest.update([0]);
-        }
-        Ok(SourceIdentity {
-            commit: head,
-            dirty: true,
-            content_fingerprint: Some(hex(&digest.finalize())),
-        })
+        run_files::source_identity(&self.root)
     }
 
     fn tool_versions(&mut self) -> (Option<String>, Option<String>) {
@@ -239,24 +125,7 @@ impl Host for SystemHost {
     }
 
     fn create_run(&mut self) -> Result<RunDir, String> {
-        let base = self.root.join(RUNS_DIR);
-        std::fs::create_dir_all(&base)
-            .map_err(|error| format!("{}: {}", RUNS_DIR, error.kind()))?;
-        let stamp = compact(&self.now());
-        for attempt in 0..32u32 {
-            let id = format!("{stamp}-{}-{attempt}", std::process::id());
-            let path = base.join(&id);
-            match private_dir(&path) {
-                Ok(()) => {
-                    private_dir(&path.join("artifact"))
-                        .map_err(|error| format!("{}: {}", path.display(), error.kind()))?;
-                    return Ok(RunDir { id, path });
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(format!("{}: {}", path.display(), error.kind())),
-            }
-        }
-        Err("could not allocate a unique run directory".to_owned())
+        run_files::create_run(&self.root, RUNS_DIR, &["artifact"])
     }
 
     fn read_output_metadata(&mut self, policy: Policy) -> Result<Vec<u8>, OutputError> {
@@ -323,101 +192,15 @@ impl Host for SystemHost {
     }
 
     fn write_private(&mut self, run: &RunDir, name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
-        let path = run.path.join(name);
-        let mut file =
-            create_private(&path).map_err(|error| format!("{name}: {}", error.kind()))?;
-        file.write_all(bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|error| format!("{name}: {}", error.kind()))?;
-        Ok(path)
+        run_files::write_private(run, name, bytes)
     }
 
     fn hash_file(&mut self, path: &Path) -> Result<(String, u64), String> {
-        hash_path(path)
+        run_files::hash_path(path)
     }
 
     fn persist(&mut self, run: &RunDir, receipt: &Receipt) -> Result<PathBuf, String> {
-        let temporary = run.path.join(".receipt.json.tmp");
-        let target = run.path.join("receipt.json");
-        let write = || -> std::io::Result<()> {
-            let mut file = open_private(&temporary, true)?;
-            file.write_all(&receipt.to_json())?;
-            file.sync_all()?;
-            drop(file);
-            std::fs::rename(&temporary, &target)?;
-            // Make the rename durable where the platform allows opening a directory.
-            if let Ok(directory) = std::fs::File::open(&run.path) {
-                let _ = directory.sync_all();
-            }
-            Ok(())
-        };
-        write().map_err(|error| {
-            let _ = std::fs::remove_file(&temporary);
-            format!("{}: {}", target.display(), error.kind())
-        })?;
-        Ok(target)
-    }
-}
-
-fn hash_path(path: &Path) -> Result<(String, u64), String> {
-    let mut file = std::fs::File::open(path).map_err(|error| error.kind().to_string())?;
-    let mut digest = Sha256::new();
-    let mut buffer = vec![0u8; 1 << 16];
-    let mut size = 0u64;
-    loop {
-        let read = file
-            .read(&mut buffer)
-            .map_err(|error| error.kind().to_string())?;
-        if read == 0 {
-            return Ok((hex(&digest.finalize()), size));
-        }
-        size += read as u64;
-        digest.update(&buffer[..read]);
-    }
-}
-
-#[cfg(unix)]
-fn private_dir(path: &Path) -> std::io::Result<()> {
-    use std::os::unix::fs::DirBuilderExt;
-    std::fs::DirBuilder::new().mode(0o700).create(path)
-}
-
-#[cfg(not(unix))]
-fn private_dir(path: &Path) -> std::io::Result<()> {
-    std::fs::create_dir(path)
-}
-
-fn open_private(path: &Path, truncate: bool) -> std::io::Result<std::fs::File> {
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true);
-    if truncate {
-        options.create(true).truncate(true);
-    } else {
-        options.create_new(true);
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    options.open(path)
-}
-
-fn create_private(path: &Path) -> std::io::Result<std::fs::File> {
-    open_private(path, false)
-}
-
-fn make_read_only(path: &Path) -> std::io::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o400))
-    }
-    #[cfg(not(unix))]
-    {
-        let mut permissions = std::fs::metadata(path)?.permissions();
-        permissions.set_readonly(true);
-        std::fs::set_permissions(path, permissions)
+        run_files::persist_atomic(run, "receipt.json", &receipt.to_json())
     }
 }
 
@@ -425,6 +208,7 @@ fn make_read_only(path: &Path) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use crate::distribute::request::{AppId, AppIdSource, LiveRequest, NotesChoice, Recipients};
+    use std::process::{Command, Stdio};
 
     fn temp(name: &str) -> PathBuf {
         let dir =
@@ -457,23 +241,6 @@ mod tests {
             notes: NotesChoice::Generated,
             expected_cert: None,
         }
-    }
-
-    #[test]
-    fn timestamps_are_rfc3339_utc() {
-        assert_eq!(utc_timestamp(0), "1970-01-01T00:00:00Z");
-        assert_eq!(utc_timestamp(951_782_400), "2000-02-29T00:00:00Z");
-        assert_eq!(utc_timestamp(1_781_000_000), "2026-06-09T10:13:20Z");
-        assert_eq!(utc_timestamp(1_791_935_999), "2026-10-13T23:59:59Z");
-        assert_eq!(compact("2026-10-15T01:02:03Z"), "20261015T010203Z");
-    }
-
-    #[test]
-    fn digests_are_standard_sha256() {
-        assert_eq!(
-            sha256_hex(b"abc"),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
     }
 
     #[test]
@@ -720,15 +487,5 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(&root).unwrap();
-    }
-
-    #[test]
-    fn source_identity_of_this_checkout_is_a_commit_with_a_dirty_indicator() {
-        let workspace = Workspace::discover().unwrap();
-        let mut host = SystemHost::new(&workspace);
-        if let Ok(identity) = host.source_identity() {
-            assert_eq!(identity.commit.len(), 40);
-            assert_eq!(identity.dirty, identity.content_fingerprint.is_some());
-        }
     }
 }

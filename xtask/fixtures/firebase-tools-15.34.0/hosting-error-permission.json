@@ -1,0 +1,4 @@
+{
+  "status": "error",
+  "error": "Authorization failed. This account is missing the following required permissions on project cantos-example:\n\n  firebasehosting.sites.update"
+}
