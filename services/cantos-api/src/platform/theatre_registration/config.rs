@@ -135,11 +135,14 @@ fn smtp_from_lookup(
     if smtp.is_loopback_fixture() && lookup("CANTOS_ENV").as_deref() != Some("development") {
         return Err(RegistrationError::Configuration);
     }
-    let issuer_adapter = KanidmIssuer::new(KanidmConfig::new(
-        &issuer,
-        value("TOKEN")?.to_owned(),
-        number("SETUP_SECONDS")?,
-    )?)?;
+    let issuer_adapter = KanidmIssuer::new(
+        KanidmConfig::new(
+            &issuer,
+            value("TOKEN")?.to_owned(),
+            number("SETUP_SECONDS")?,
+        )?
+        .with_trust(store.theatre_identity().and_then(|v| v.issuer_trust())),
+    )?;
     let mailer = SmtpMailer::new(smtp).map_err(|_| RegistrationError::Configuration)?;
     // Snapshot before attaching the runtime avoids a Store -> service -> Store Arc cycle.
     let repository = PostgresRegistrationRepository::new(store, &issuer)?;

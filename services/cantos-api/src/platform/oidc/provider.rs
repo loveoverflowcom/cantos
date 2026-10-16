@@ -71,12 +71,16 @@ pub(crate) struct Exchange {
 
 impl Provider {
     pub fn new(config: OidcConfig) -> Result<Self, AuthError> {
-        let client = Client::builder()
+        let builder = Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(2))
-            .timeout(Duration::from_secs(5))
-            .build()
-            .map_err(|_| AuthError::Configuration)?;
+            .timeout(Duration::from_secs(5));
+        let client = match config.trust() {
+            Some(trust) => trust.apply(builder),
+            None => builder,
+        }
+        .build()
+        .map_err(|_| AuthError::Configuration)?;
         Ok(Self {
             config,
             client,

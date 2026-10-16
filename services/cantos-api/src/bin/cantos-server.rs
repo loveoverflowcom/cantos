@@ -59,15 +59,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(issuer) = env::var("CANTOS_THEATRE_OIDC_ISSUER") {
         let secret = env::var("CANTOS_THEATRE_OIDC_SECRET")
             .map_err(|_| "Theatre OIDC requires its separate operator-supplied client secret")?;
-        let identity = cantos_api::platform::theatre_identity::TheatreIdentity::new(
+        // Optional private authority for a private HTTPS issuer; it replaces the public roots for
+        // the Theatre issuer's OIDC and onboarding clients only. Never a system trust change.
+        let trust = match env::var_os("CANTOS_THEATRE_OIDC_CA_FILE") {
+            Some(path) => Some(
+                cantos_api::platform::theatre_identity::IssuerTrust::read_file(
+                    std::path::Path::new(&path),
+                )
+                .map_err(|_| "invalid Theatre OIDC private CA bundle")?,
+            ),
+            None => None,
+        };
+        let identity = cantos_api::platform::theatre_identity::TheatreIdentity::with_trust(
             &issuer,
             &web_origin,
             secret,
+            trust,
         )
         .map_err(|_| "invalid Theatre OIDC configuration")?;
         store = store.with_theatre_identity(identity);
-    } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some() {
-        return Err("Theatre secret requires explicit issuer".into());
+    } else if env::var_os("CANTOS_THEATRE_OIDC_SECRET").is_some()
+        || env::var_os("CANTOS_THEATRE_OIDC_CA_FILE").is_some()
+    {
+        return Err("Theatre secret or private CA requires explicit issuer".into());
     }
     if let Ok(issuer) = env::var("CANTOS_THEATRE_NATIVE_ISSUER") {
         let native = cantos_api::platform::theatre_identity::NativeIdentity::new(&issuer)

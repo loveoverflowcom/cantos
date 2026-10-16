@@ -160,11 +160,14 @@ pub fn from_lookup(
         web_origin,
     )
     .map_err(|_| RegistrationError::Configuration)?;
-    let issuer_adapter = KanidmIssuer::new(KanidmConfig::new(
-        &issuer,
-        value("TOKEN")?.to_owned(),
-        number("SETUP_SECONDS")?,
-    )?)?;
+    let issuer_adapter = KanidmIssuer::new(
+        KanidmConfig::new(
+            &issuer,
+            value("TOKEN")?.to_owned(),
+            number("SETUP_SECONDS")?,
+        )?
+        .with_trust(store.theatre_identity().and_then(|v| v.issuer_trust())),
+    )?;
     let repository = PostgresFirebaseEnrollmentRepository::new(store, &issuer, project)?;
     let service = FirebaseEnrollmentService::new(
         Arc::new(repository),

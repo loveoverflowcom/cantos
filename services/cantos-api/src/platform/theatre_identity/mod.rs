@@ -5,6 +5,7 @@ use crate::platform::oidc::config::OidcConfig;
 pub use crate::platform::oidc::core::AuthError;
 use crate::platform::oidc::core::{session_expiry, FLOW_SECONDS, SESSION_SECONDS};
 use crate::platform::oidc::provider::Provider;
+pub use crate::platform::oidc::trust::IssuerTrust;
 use crate::platform::postgres::Store;
 
 pub struct TheatreIdentity {
@@ -33,7 +34,20 @@ pub enum GuardedLogout {
 
 impl TheatreIdentity {
     pub fn new(issuer: &str, web_origin: &str, secret: String) -> Result<Self, AuthError> {
-        let config = OidcConfig::theatre_web(issuer, web_origin, secret)?;
+        Self::with_trust(issuer, web_origin, secret, None)
+    }
+
+    /// `trust` replaces the built-in roots for this issuer's clients only (OIDC and onboarding).
+    pub fn with_trust(
+        issuer: &str,
+        web_origin: &str,
+        secret: String,
+        trust: Option<IssuerTrust>,
+    ) -> Result<Self, AuthError> {
+        let mut config = OidcConfig::theatre_web(issuer, web_origin, secret)?;
+        if let Some(trust) = trust {
+            config = config.with_trust(trust)?;
+        }
         Ok(Self {
             provider: Provider::new(config.clone())?,
             // At most3 leases in the existing8-connection pool leaves capacity for dispatch.
@@ -43,6 +57,11 @@ impl TheatreIdentity {
     }
     pub fn web_origin(&self) -> &str {
         &self.config.web_origin
+    }
+
+    /// The private issuer anchors, so registration's onboarding client trusts exactly the same.
+    pub(crate) fn issuer_trust(&self) -> Option<&IssuerTrust> {
+        self.config.trust()
     }
 
     pub(crate) fn registration_issuer_matches(&self, issuer: &str) -> bool {

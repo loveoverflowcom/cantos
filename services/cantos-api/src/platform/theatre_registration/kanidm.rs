@@ -4,6 +4,7 @@
 //! preserves the supplied UUID and rejects duplicates, including recycled entries.
 //! Only a positive response creates the witness required for the credential intent.
 //! See the pinned server/core/src/https/v1.rs and server/lib/src/plugins/base.rs.
+use crate::platform::oidc::trust::IssuerTrust;
 use reqwest::{header, Client, Response, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::json;
@@ -23,6 +24,7 @@ pub struct KanidmConfig {
     origin: Url,
     bearer: String,
     setup_ttl_seconds: u32,
+    trust: Option<IssuerTrust>,
 }
 
 impl KanidmConfig {
@@ -58,7 +60,16 @@ impl KanidmConfig {
             origin,
             bearer,
             setup_ttl_seconds,
+            trust: None,
         })
+    }
+
+    /// The same private anchors as the Theatre OIDC client for this issuer; absent keeps defaults.
+    pub(crate) fn with_trust(self, trust: Option<&IssuerTrust>) -> Self {
+        Self {
+            trust: trust.cloned(),
+            ..self
+        }
     }
 }
 
@@ -77,13 +88,17 @@ struct Intent {
 
 impl KanidmIssuer {
     pub fn new(config: KanidmConfig) -> Result<Self, RegistrationError> {
-        let client = Client::builder()
+        let builder = Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .connect_timeout(Duration::from_secs(2))
-            .timeout(Duration::from_secs(5))
-            .build()
-            .map_err(|_| RegistrationError::Configuration)?;
+            .timeout(Duration::from_secs(5));
+        let client = match &config.trust {
+            Some(trust) => trust.apply(builder),
+            None => builder,
+        }
+        .build()
+        .map_err(|_| RegistrationError::Configuration)?;
         let api_origin = config.origin.clone();
         Ok(Self {
             config,
