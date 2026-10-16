@@ -1001,6 +1001,10 @@
           "declaration": "conflictingRequestTest"
         },
         {
+          "id": "cantos.production.forge-attempt.run.conflicting-request-while-open",
+          "declaration": "conflictingRequestWhileOpenTest"
+        },
+        {
           "id": "cantos.production.forge-attempt.run.crash-before-dispatch",
           "declaration": "crashBeforeDispatchTest"
         },

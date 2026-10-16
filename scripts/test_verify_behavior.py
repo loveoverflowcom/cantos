@@ -15,6 +15,17 @@ class BehaviorContracts(unittest.TestCase):
     def setUp(self):
         self.cap = behavior.read_json(behavior.ROOT / behavior.CATALOG)["capabilities"][0]
 
+    def typecheck_fixture(self, variables, module="forge_attempt", definitions=(), qualifier="val"):
+        declarations = [{"kind": "var", "name": name, "id": index + 1000}
+                        for index, name in enumerate(variables)]
+        declarations += [{"kind": "def", "name": name, "id": index, "qualifier": qualifier}
+                         for index, name in enumerate(definitions)]
+        return {"stage": "typechecking", "errors": [],
+                "modules": [{"name": module, "declarations": declarations}],
+                "types": {str(row["id"]): {"type": {"kind": "int" if row["kind"] == "var" else "bool"},
+                                           "typeVariables": [], "rowVariables": []}
+                          for row in declarations}}
+
     def catalog_fixture(self, change=None):
         # These fixtures never create Git markers or a fake installed verifier.
         directory = tempfile.TemporaryDirectory(prefix="cantos-behavior-contract-")
@@ -35,6 +46,71 @@ class BehaviorContracts(unittest.TestCase):
         (root / behavior.CATALOG).write_text(json.dumps(catalog))
         return root
 
+    def synthetic_forge_campaign(self, trace_mutation=None, type_mutation=None):
+        """Exercise the real gate shell with synthetic Quint/process outputs only."""
+        root = self.catalog_fixture()
+        cap = behavior.load_catalog(root, "cantos.production.forge-attempt")[0]
+        receipt = behavior.artifact_root(root) / "installation.json"
+        receipt.write_text('{"schemaVersion": 1}\n')
+        versions = {"installationReceiptSha256": behavior.digest(receipt)}
+        inputs = {source: behavior.digest(root / source) for source in (cap["model"], cap["scenarios"])}
+        variables = ["state", "before", "last", "verdict", "ack"]
+        labels = []
+
+        def write_trace(path, source, status, count, label):
+            data = {"#meta": {"format": "ITF", "source": source, "status": status},
+                    "vars": list(variables),
+                    "states": [{**{name: {} for name in variables}, "#meta": {"index": i}}
+                               for i in range(count)]}
+            if trace_mutation:
+                trace_mutation(label, data)
+            path.write_text(json.dumps(data))
+
+        def launch(argv, _cwd, _timeout=10, _log=None):
+            if argv[:2] == ["git", "rev-parse"]:
+                return CompletedProcess(argv, 0, "revision\n", "")
+            label = Path(argv[-1]).stem
+            labels.append(label)
+            if argv[3] == "typecheck":
+                data = self.typecheck_fixture(variables, cap["module"],
+                                              [row["declaration"] for row in cap["properties"] + cap["witnesses"]])
+                if label == "scenario-types":
+                    scenario = self.typecheck_fixture([], cap["scenarioModule"],
+                                                       [row["declaration"] for row in cap["runs"]], "run")
+                    data["modules"] += scenario["modules"]
+                    data["types"].update(scenario["types"])
+                if type_mutation:
+                    type_mutation(label, data)
+                code = 0
+            elif argv[3] == "test":
+                names = [row["declaration"] for row in cap["runs"]]
+                pattern = argv[argv.index("--out-itf") + 1]
+                for name in names:
+                    write_trace(Path(pattern.replace("{test}", name).replace("{seq}", "1")),
+                                argv[4], "passed", 2, label)
+                data = {"stage": "testing", "errors": [], "failed": [], "ignored": [], "passed": names}
+                code = 0
+            else:
+                self.assertEqual(argv[3], "run")
+                violation = label != "properties"
+                status, code = ("violation", 1) if violation else ("ok", 0)
+                count = 2 if violation else cap["simulation"]["steps"] + 1
+                write_trace(Path(argv[argv.index("--out-itf") + 1]), argv[4], status, count, label)
+                data = {"stage": "running", "status": status, "trace": [{}] * count, "seed": 203, "errors": []}
+            Path(argv[-1]).write_text(json.dumps(data))
+            return CompletedProcess(argv, code, "", "")
+
+        error = None
+        with patch.object(behavior, "process", side_effect=launch), \
+                patch.object(behavior, "snapshot", return_value=inputs), \
+                patch.object(behavior, "installed_tool", return_value=(versions, {}, None)):
+            try:
+                behavior.execute_capability(root, cap, versions, {"node": "node"}, Path("cli.js"), inputs, "revision")
+            except behavior.BehaviorError as failure:
+                error = failure
+        bundle = next((root / "target/verification/behavior").glob(cap["id"] + "-*"))
+        return cap, behavior.read_json(bundle / "report.json"), bundle, labels, error
+
     def test_current_catalog_executable_capabilities_and_all_controls(self):
         selected = behavior.load_catalog(behavior.ROOT)
         # Explicit capability counts pin the reviewed selection and each sensitivity control set.
@@ -45,7 +121,7 @@ class BehaviorContracts(unittest.TestCase):
             "cantos.tooling.hosting-deploy": (6, 3, 3),
             "cantos.presentation.locale-preference": (6, 4, 4),
             "cantos.identity.theatre-registration": (11, 5, 4),
-            "cantos.production.forge-attempt": (12, 7, 9),
+            "cantos.production.forge-attempt": (13, 7, 9),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:
@@ -129,6 +205,33 @@ class BehaviorContracts(unittest.TestCase):
         with self.assertRaises(behavior.BehaviorError):
             behavior.validate_types({**valid, "errors": ["type error"]}, "pilot", ["property"])
 
+    def test_observation_variables_use_only_the_exact_successful_typechecked_model(self):
+        variables = ["state", "before", "last", "verdict", "ack"]
+        valid = self.typecheck_fixture(variables)
+        valid["modules"].append({"name": "foreign_model", "declarations": [
+            {"kind": "var", "name": "foreign", "id": 2000}]})
+        self.assertEqual(behavior.observation_variables(valid, "forge_attempt"), sorted(variables))
+        mutations = (
+            lambda x: x.update(stage="parsing"),
+            lambda x: x.update(errors=["type error"]),
+            lambda x: x["modules"][0].update(name="wrong_model"),
+            lambda x: x["modules"].append(copy.deepcopy(x["modules"][0])),
+            lambda x: x["modules"][0].update(declarations=[]),
+            lambda x: x["modules"][0]["declarations"].append(copy.deepcopy(x["modules"][0]["declarations"][0])),
+            lambda x: x["modules"][0]["declarations"][0].update(name="not a Quint name"),
+            lambda x: x["modules"][0]["declarations"][0].update(id=1001),
+            lambda x: x["types"].pop("1000"),
+            lambda x: x["types"].update({"1000": {}}),
+            lambda x: x["types"]["1000"].update(type={}),
+            lambda x: x["types"]["1000"].update(type={"kind": "var", "name": "a"}),
+            lambda x: x["types"]["1000"].update(typeVariables=["a"]),
+        )
+        for mutate in mutations:
+            malformed = copy.deepcopy(valid)
+            mutate(malformed)
+            with self.subTest(mutate=mutate), self.assertRaises(behavior.BehaviorError):
+                behavior.observation_variables(malformed, "forge_attempt")
+
     def test_itf_requires_complete_observation_envelope_and_counterexample(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.json"
@@ -137,11 +240,54 @@ class BehaviorContracts(unittest.TestCase):
             valid = {"#meta": {"format": "ITF", "source": str(source), "status": "violation"},
                      "vars": variables, "states": [{**{k: {} for k in variables}, "#meta": {"index": i}} for i in range(2)]}
             path.write_text(json.dumps(valid))
-            self.assertEqual(len(behavior.validate_itf(path, source, "violation", 2)), 64)
+            self.assertEqual(len(behavior.validate_itf(path, source, "violation", 2, expected_variables=variables)), 64)
             for edit in ({"vars": []}, {"states": []}, {"states": [{"state": {}}, {"state": {}}]}):
                 path.write_text(json.dumps({**valid, **edit}))
                 with self.subTest(edit=edit), self.assertRaises(behavior.BehaviorError):
-                    behavior.validate_itf(path, source, "violation", 2)
+                    behavior.validate_itf(path, source, "violation", 2, expected_variables=variables)
+
+    def test_itf_accepts_forge_five_variable_observation_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.json"
+            source = Path("forge_attempt_tests.qnt")
+            variables = ["state", "before", "last", "verdict", "ack"]
+            expected = behavior.observation_variables(self.typecheck_fixture(variables), "forge_attempt")
+            data = {"#meta": {"format": "ITF", "source": str(source), "status": "passed"},
+                    "vars": variables,
+                    "states": [{**{name: {} for name in variables}, "#meta": {"index": i}}
+                               for i in range(2)]}
+            path.write_text(json.dumps(data))
+            self.assertEqual(len(behavior.validate_itf(path, source, "passed", 2, expected_variables=expected)), 64)
+
+    def test_forge_itf_rejects_missing_extra_duplicate_foreign_or_untyped_variables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.json"
+            source = Path("forge_attempt.qnt")
+            variables = ["state", "before", "last", "verdict", "ack"]
+            expected = behavior.observation_variables(self.typecheck_fixture(variables), "forge_attempt")
+            valid = {"#meta": {"format": "ITF", "source": str(source), "status": "violation"},
+                     "vars": variables,
+                     "states": [{**{name: {} for name in variables}, "#meta": {"index": i}}
+                                for i in range(2)]}
+            mutations = (
+                lambda x: x.update(vars=x["vars"][:-1]),
+                lambda x: x["vars"].append("foreign"),
+                lambda x: x["vars"].__setitem__(-1, "state"),
+                lambda x: x["vars"].__setitem__(-1, "outcome"),
+                lambda x: x["vars"].__setitem__(-1, {}),
+                lambda x: x["states"][1].pop("ack"),
+                lambda x: x["states"][1].update(foreign={}),
+            )
+            for mutate in mutations:
+                malformed = copy.deepcopy(valid)
+                mutate(malformed)
+                path.write_text(json.dumps(malformed))
+                with self.subTest(mutate=mutate), self.assertRaises(behavior.BehaviorError):
+                    behavior.validate_itf(path, source, "violation", 2, expected_variables=expected)
+            path.write_text(json.dumps(valid))
+            for malformed in (None, [], ["ack", "ack"], ["ack", {}]):
+                with self.subTest(expected=malformed), self.assertRaises(behavior.BehaviorError):
+                    behavior.validate_itf(path, source, "violation", 2, expected_variables=malformed)
 
     def test_itf_rejects_partial_reordered_wrong_source_or_wrong_status(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -151,7 +297,7 @@ class BehaviorContracts(unittest.TestCase):
             valid = {"#meta": {"format": "ITF", "source": str(source), "status": "ok"},
                      "vars": variables, "states": [{**{k: {} for k in variables}, "#meta": {"index": i}} for i in range(31)]}
             path.write_text(json.dumps(valid))
-            behavior.validate_itf(path, source, "ok", 31)
+            behavior.validate_itf(path, source, "ok", 31, expected_variables=variables)
             for mutation in (lambda x: x.update(states=x["states"][:2]),
                              lambda x: x["states"][1]["#meta"].update(index=0),
                              lambda x: x["#meta"].update(source="foreign.qnt"),
@@ -160,7 +306,46 @@ class BehaviorContracts(unittest.TestCase):
                 mutation(malformed)
                 path.write_text(json.dumps(malformed))
                 with self.assertRaises(behavior.BehaviorError):
-                    behavior.validate_itf(path, source, "ok", 31)
+                    behavior.validate_itf(path, source, "ok", 31, expected_variables=variables)
+
+    def test_forge_campaign_binds_all_trace_kinds_and_reports_typechecked_variables(self):
+        cap, report, bundle, labels, error = self.synthetic_forge_campaign()
+        self.assertIsNone(error)
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(set(report["stages"].values()), {"PASS"})
+        self.assertEqual(report["observationVariables"], ["ack", "before", "last", "state", "verdict"])
+        self.assertEqual(len(report["traces"]), len(cap["runs"]) + len(cap["witnesses"]) + len(cap["controls"]) + 1)
+        self.assertIn("scenario-types", labels)
+        self.assertIn("control-1-types", labels)
+        for evidence in report["traces"].values():
+            for item in evidence if isinstance(evidence, list) else [evidence]:
+                self.assertEqual(sorted(behavior.read_json(bundle / item["file"])["vars"]), report["observationVariables"])
+
+    def test_forge_campaign_rejects_foreign_envelopes_at_every_trace_stage(self):
+        witness = behavior.load_catalog(behavior.ROOT, "cantos.production.forge-attempt")[0]["witnesses"][0]
+        for label, stage in (("named-runs", "scenarios"), ("properties", "simulation"),
+                             ("witness-" + witness["declaration"], "witnesses"), ("control-1", "negativeControls")):
+            def mutate(actual, data):
+                if actual == label:
+                    data["vars"][-1] = "foreign"
+            with self.subTest(label=label):
+                _, report, _, _, error = self.synthetic_forge_campaign(trace_mutation=mutate)
+                self.assertIsNotNone(error)
+                self.assertIn("wrong ITF observation variables", str(error))
+                self.assertEqual(report["status"], "FAIL")
+                self.assertEqual(report["stages"][stage], "FAIL")
+                self.assertEqual(report["stages"]["freshness"], "NOT_RUN")
+
+    def test_forge_campaign_rejects_changed_scenario_or_control_variable_declarations(self):
+        for label, stage in (("scenario-types", "typecheck"), ("control-1-types", "negativeControls")):
+            def mutate(actual, data):
+                if actual == label:
+                    data["modules"][0]["declarations"][0]["name"] = "foreign"
+            with self.subTest(label=label):
+                _, report, _, _, error = self.synthetic_forge_campaign(type_mutation=mutate)
+                self.assertIsNotNone(error)
+                self.assertIn("observation variables differ", str(error))
+                self.assertEqual(report["stages"][stage], "FAIL")
 
     def test_node_preload_is_refused_and_global_module_fallback_is_cleared(self):
         with patch.dict(os.environ, {"NODE_OPTIONS": "--require unreviewed.js"}):
@@ -274,12 +459,13 @@ class BehaviorContracts(unittest.TestCase):
                 if argv[3] == "typecheck":
                     scenario = argv[4] == str(root / self.cap["scenarios"])
                     rows = self.cap["runs"] if scenario else self.cap["properties"] + self.cap["witnesses"]
-                    declarations = [{"kind": "def", "name": row["declaration"], "id": i,
-                                     "qualifier": "run" if scenario else "val"} for i, row in enumerate(rows)]
-                    data = {"stage": "typechecking", "errors": [], "modules": [
-                        {"name": self.cap["scenarioModule"] if scenario else self.cap["module"],
-                         "declarations": declarations}],
-                        "types": {str(i): {"type": {"kind": "bool"}} for i in range(len(rows))}}
+                    data = self.typecheck_fixture(["state", "before", "last", "outcome"], self.cap["module"],
+                                                  [] if scenario else [row["declaration"] for row in rows])
+                    if scenario:
+                        runs = self.typecheck_fixture([], self.cap["scenarioModule"],
+                                                      [row["declaration"] for row in rows], "run")
+                        data["modules"] += runs["modules"]
+                        data["types"].update(runs["types"])
                 else:
                     # A nominal passing output without any actual ITF cannot pass scenarios.
                     data = {"stage": "testing", "errors": [], "failed": [], "ignored": [],

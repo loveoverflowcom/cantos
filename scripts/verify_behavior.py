@@ -280,11 +280,21 @@ def installed_tool(root, require_receipt=True):
     return versions, executables, cli
 
 
+def checked_module(data, module):
+    require(isinstance(data, dict) and data.get("stage") == "typechecking" and data.get("errors") == [],
+            "Quint type/effect checks did not complete")
+    modules = data.get("modules")
+    require(isinstance(modules, list), "missing typechecked modules")
+    selected = [m for m in modules if isinstance(m, dict) and m.get("name") == module]
+    require(len(selected) == 1, "Quint checked the wrong or duplicate module")
+    declarations = selected[0].get("declarations")
+    require(isinstance(declarations, list) and all(isinstance(d, dict) for d in declarations),
+            "invalid typechecked declarations")
+    return declarations
+
+
 def validate_types(data, module, declarations, kind="predicate"):
-    require(data.get("stage") == "typechecking" and data.get("errors") == [], "Quint type/effect checks did not complete")
-    modules = {m["name"]: m for m in data.get("modules", [])}
-    require(module in modules, "Quint checked the wrong module")
-    defs = {d.get("name"): d for d in modules[module]["declarations"] if d.get("kind") == "def"}
+    defs = {d.get("name"): d for d in checked_module(data, module) if d.get("kind") == "def"}
     for name in declarations:
         require(name in defs, f"missing selected declaration: {name}")
         declaration = defs[name]
@@ -292,6 +302,29 @@ def validate_types(data, module, declarations, kind="predicate"):
         require(inferred.get("kind") == "bool", "selected declaration is not a Boolean")
         qualifiers = ("run",) if kind == "run" else ("val", "pureval")
         require(declaration.get("qualifier") in qualifiers, "selected declaration has the wrong execution mode")
+
+
+def observation_variables(data, module):
+    """Bind trace fields to typed vars in the selected model, never trace contents."""
+    declarations = [d for d in checked_module(data, module) if d.get("kind") == "var"]
+    require(bool(declarations), "selected model has no observation variables")
+    types = data.get("types")
+    require(isinstance(types, dict), "missing observation variable types")
+    names, identities = set(), set()
+    for declaration in declarations:
+        name, identity = declaration.get("name"), declaration.get("id")
+        require(isinstance(name, str) and NAME.fullmatch(name) and name not in names,
+                "invalid or duplicate observation variable")
+        require(type(identity) is int and identity not in identities,
+                "invalid or duplicate observation variable identity")
+        inferred = types.get(str(identity))
+        require(isinstance(inferred, dict) and isinstance(inferred.get("type"), dict) and
+                isinstance(inferred["type"].get("kind"), str) and bool(inferred["type"]["kind"]) and
+                inferred["type"]["kind"] != "var" and not inferred.get("typeVariables") and
+                not inferred.get("rowVariables"), "observation variable lacks a concrete checked type")
+        names.add(name)
+        identities.add(identity)
+    return sorted(names)
 
 
 def validate_scenarios(data, expected):
@@ -311,20 +344,29 @@ def validate_simulation(data, returncode, violation, steps):
     require(violation or len(trace) == steps + 1, "sample campaign ended before its requested step bound")
 
 
-def validate_itf(path, source, status, count=None):
+def validate_itf(path, source, status, count=None, *, expected_variables):
     data = read_json(path)
+    require(isinstance(data, dict), "invalid ITF envelope")
     meta = data.get("#meta", {})
-    require(meta.get("format") == "ITF" and meta.get("source") == str(source) and meta.get("status") == status,
+    require(isinstance(meta, dict) and meta.get("format") == "ITF" and
+            meta.get("source") == str(source) and meta.get("status") == status,
             "ITF source/status is not bound to this command")
+    require(isinstance(expected_variables, list) and bool(expected_variables) and
+            all(isinstance(v, str) and NAME.fullmatch(v) for v in expected_variables) and
+            len(set(expected_variables)) == len(expected_variables), "invalid expected observation variables")
     variables = data.get("vars")
-    require(isinstance(variables, list) and len(variables) == 4 and
-            set(variables) == {"state", "before", "last", "outcome"}, "wrong ITF observation variables")
+    require(isinstance(variables, list) and all(isinstance(v, str) for v in variables) and
+            len(variables) == len(expected_variables) and set(variables) == set(expected_variables),
+            "wrong ITF observation variables")
     states = data.get("states")
     require(isinstance(states, list) and len(states) >= 2, "empty or missing ITF counterexample")
     require(count is None or len(states) == count, "ITF/result checkpoint count differs")
     for index, state in enumerate(states):
-        require(isinstance(state, dict) and all(v in state for v in variables), "incomplete ITF observations")
-        observed = state.get("#meta", {}).get("index")
+        require(isinstance(state, dict) and set(state) == set(expected_variables) | {"#meta"},
+                "incomplete or foreign ITF observations")
+        metadata = state.get("#meta")
+        require(isinstance(metadata, dict), "missing ITF checkpoint metadata")
+        observed = metadata.get("index")
         require(type(observed) is int and observed == index, "ITF checkpoint indices are missing or reordered")
     return digest(path)
 
@@ -376,7 +418,7 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
               "implementationConformance": "NOT_RUN", "solverProof": "NOT_RUN",
               "selection": {key: cap[key] for key in ("properties", "runs", "witnesses")},
               "controlSelection": [{"id": row["id"], "property": row["property"]} for row in cap["controls"]],
-              "commands": [], "traces": {}}
+              "commands": [], "traces": {}, "observationVariables": []}
     stage = "typecheck"
     budget = cap["simulation"]
     base = [executables["node"], "--max-old-space-size=512", str(cli)]
@@ -407,7 +449,10 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
                                       "--max-steps", str(budget["steps"]), "--invariant", invariant,
                                       "--out-itf", str(trace)])
         validate_simulation(data, result.returncode, violation, budget["steps"])
-        report["traces"][label] = {"file": trace.name, "sha256": validate_itf(trace, source, data["status"], len(data["trace"])), "seed": data["seed"]}
+        report["traces"][label] = {"file": trace.name,
+                                   "sha256": validate_itf(trace, source, data["status"], len(data["trace"]),
+                                                          expected_variables=report["observationVariables"]),
+                                   "seed": data["seed"]}
 
     try:
         retain_inputs(root, bundle, inputs)
@@ -421,6 +466,11 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
             result, data = invoke(label, ["typecheck", str(root / source)])
             require(result.returncode == 0, "type/effect process failed")
             validate_types(data, module, defs, "run" if label == "scenario-types" else "predicate")
+            variables = observation_variables(data, cap["module"])
+            if label == "model-types":
+                report["observationVariables"] = variables
+            else:
+                require(variables == report["observationVariables"], "scenario/model observation variables differ")
         stages[stage] = "PASS"
         stage = "scenarios"
         names = [r["declaration"] for r in cap["runs"]]
@@ -432,7 +482,10 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
         for name in names:
             paths = sorted(bundle.glob("run_" + name + "_*.itf.json"))
             require(len(paths) == budget["scenarioSamples"], "missing or duplicate named-run traces")
-            report["traces"][name] = [{"file": path.name, "sha256": validate_itf(path, root / cap["scenarios"], "passed")} for path in paths]
+            report["traces"][name] = [{"file": path.name,
+                                       "sha256": validate_itf(path, root / cap["scenarios"], "passed",
+                                                              expected_variables=report["observationVariables"])}
+                                      for path in paths]
         stages[stage] = "PASS"
         stage = "simulation"
         invariant = " and ".join(p["declaration"] for p in cap["properties"])
@@ -452,6 +505,8 @@ def execute_capability(root, cap, versions, executables, cli, inputs, revision, 
             result, data = invoke(label + "-types", ["typecheck", str(mutant)])
             require(result.returncode == 0, "negative control type/effect failure is not a killed mutation")
             validate_types(data, cap["module"], [props[row["property"]]])
+            require(observation_variables(data, cap["module"]) == report["observationVariables"],
+                    "negative control/model observation variables differ")
             simulate(label, mutant, props[row["property"]], True, budget["witnessSamples"])
         stages[stage] = "PASS"
         stage = "freshness"

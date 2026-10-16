@@ -69,7 +69,7 @@ fn drift(registered: &BTreeSet<String>, claimed: &[String]) -> Vec<String> {
 #[test]
 fn every_registered_run_has_exactly_one_native_mirror_and_no_unknown_run_is_claimed() {
     let registered = registered_runs();
-    assert!(registered.len() >= 12, "the catalog lost registered runs");
+    assert!(registered.len() >= 13, "the catalog lost registered runs");
     let source = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(MIRROR))
         .expect("readable mirror tests");
     let claimed = claimed_runs(&source).expect("well-formed markers");

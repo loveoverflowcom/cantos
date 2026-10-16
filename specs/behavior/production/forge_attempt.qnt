@@ -1,5 +1,5 @@
 // Draft executable expectations for #203's producer-side generation attempts.
-// Authority: #203 sections 3 and 4 and ADR 0022, not live provider, Studio or Functions behavior.
+// Authority: #203 section 5's durable safety and ADR 0022, not live provider, Studio or Functions behavior.
 // One operation, two abstract request classes (1 and 2), costs 1 or 2 against a budget of 3 and
 // at most 3 attempts. The provider, persistence, clocks, authorization and billing are NOT
 // modeled: `dispatch` abstracts "a billable provider call started", and uncertain outcomes are
