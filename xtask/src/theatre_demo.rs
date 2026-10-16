@@ -57,7 +57,8 @@ pub fn tools() -> Vec<Tool> {
     vec![Tool::Gradle, Tool::Java, Tool::TheatreDemoGradleProject]
 }
 
-fn gradle_command(workspace: &Workspace) -> CommandSpec {
+/// The offline Gradle invocation shared by the demo and production-host commands.
+pub fn gradle_command(workspace: &Workspace) -> CommandSpec {
     CommandSpec::new("gradle", workspace.root()).args([
         "--project-dir",
         THEATRE_MOBILE_DIR,
@@ -186,6 +187,11 @@ pub fn android_prerequisite(project: &Path, sdk: Option<&Path>) -> Result<(), &'
     {
         return Err("Android mock Gradle module, manifest or shared Android sources are missing");
     }
+    android_sdk_prerequisite(sdk)
+}
+
+/// An already installed, absolute SDK with platform 35 and build tools 35.0.0; never downloaded.
+pub fn android_sdk_prerequisite(sdk: Option<&Path>) -> Result<(), &'static str> {
     let sdk =
         sdk.ok_or("set ANDROID_HOME or ANDROID_SDK_ROOT to an already installed Android SDK")?;
     if !sdk.is_absolute() {
