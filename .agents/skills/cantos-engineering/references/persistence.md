@@ -3,14 +3,17 @@
 > **Scope.** Design and verify Cantos PostgreSQL usage: what the database owns, transaction
 > boundaries, constraints as a second barrier, optimistic concurrency on drafts and progress,
 > append-only history, migrations and real-database tests. Use when adding a table, migration,
-> query, transaction, uniqueness rule or concurrency control. Job claiming, leases and the outbox
-> are detailed in [`cantos-production-pipeline`](../../cantos-production-pipeline/references/durable-jobs.md).
+> query, transaction, uniqueness rule or concurrency control. External upload recovery is
+> detailed in [`cantos-production-pipeline`](../../cantos-production-pipeline/references/durable-jobs.md);
+> backend synthesis jobs and provider leases are retired under ADR 0018.
 
-PostgreSQL owns metadata, revision history, durable job state, cost records, approvals,
+PostgreSQL owns metadata, revision history, producer submission receipts, approvals,
 publication manifests and listener progress; media bytes live in object storage
 ([architecture § Data and delivery](../../../../docs/architecture/overview.md#data-and-delivery)).
-No schema, migration tool or SQL library is selected yet; record the choice in an ADR with the
-first slice.
+The API uses `tokio-postgres` with `deadpool-postgres` and a checked migration registry in
+`services/cantos-api/src/platform/postgres/migrations.rs`. Inspect its current schema and
+adapters before adding persistence; historical provider-job/cost tables remain compatibility
+data, not current synthesis runtime state.
 
 For queries or writes feeding a read model, apply the foundation's
 [read-performance workflow](postgresql-read-performance.md). It owns PostgreSQL baselines,
@@ -61,7 +64,7 @@ database with two concurrent writers.
 Settled records are inserted, never updated in content ([`immutability.md`](immutability.md)).
 Where a mutable pointer exists (draft head, active release, lease owner), the pointer change is
 a guarded transition and the pointed-at records stay immutable. Consider revoking `UPDATE` on
-settled tables for the application role once a migration tool exists; prove it with an
+settled tables for the application role through reviewed migrations; prove it with an
 integration test, not by reading the migration.
 
 ## Migrations

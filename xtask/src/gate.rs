@@ -655,7 +655,7 @@ mod tests {
                 keep: false,
                 suite: Some(PostgresScope::TheatreFirebase),
             }),
-            [gate.clone()]
+            [Gate::TheatreFirebasePostgres]
         );
         assert!(!full().contains(&gate));
         let mut runner = RecordingRunner::default();

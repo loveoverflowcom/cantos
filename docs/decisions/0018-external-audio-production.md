@@ -49,7 +49,7 @@ The owner selected [Cantos Forge](0022-cantos-forge-producer-cli.md) as a produc
 API runtime: Studio may request producer operations through Firebase Functions, sharing the
 same Rust core as the local CLI. Private personal Drive holds drafts; API admission/publication
 remains authoritative on the VPS. This clarifies “external” without reviving backend TTS.
-Only the local artifact CLI foundation exists today; Functions/Drive/provider execution and
+The local artifact CLI and library-only attempt/recovery core exist today; Functions/Drive/provider execution and
 automatic handoff remain #203 implementation/acceptance work.
 
 ## Security and invariants

@@ -79,7 +79,7 @@ separate from current deployment acceptance.
 | Publication/listener backend | Release core, anonymous Discovery and account-owned Library/Progress exist. Origin delivery has a composition-gated core; real public delivery/activation remains unaccepted |
 | Theatre clients | Web has live anonymous discovery/account reads and explicit mocks; CMP has isolated previews, production-safe shared code and an unavailable production host. Native audio/background/offline/full sync remain unfinished |
 | Identity | Studio/Theatre/Admin adapters and Theatre registration state exist; real issuer/login/signup activation remains under #174/#191. Firebase email proof (#206) is not an activated replacement |
-| Forge | Local artifact/register/validate/export CLI exists. Provider execution, Functions, Drive adapter, recovery and API submission remain planned under #203 |
+| Forge | Local artifact/register/validate/export CLI and library-only attempt/recovery core exist. Real provider execution, Functions, Drive adapter, durable recovery and API submission remain planned under #203 |
 | Deployment | Manual Firebase Hosting and demo distribution tooling exist; deployed-origin/tester acceptance is separate. No Functions deployment is implied |
 
 Use [current priorities](../work-plan/current-priorities.md) and linked issues for the next

@@ -17,7 +17,7 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 | --- | --- | --- |
 | Cantos Studio | Manage work/series, chapter/episode, script (optional), audio, briefs, submissions, approvals and publication | Leptos Web only |
 | Cantos API | Authorized catalog, immutable content/brief revisions, signed external-audio intake, metadata, checks and release authority | Rust + Axum + PostgreSQL |
-| Cantos Forge | Local artifact/register/validate/export foundation; planned shared local/Functions producer controlled by Studio, with private Drive drafts | Rust producer outside the API runtime; Functions/Drive/provider execution not implemented |
+| Cantos Forge | Local artifact/register/validate/export foundation and library-only attempt/recovery core; planned shared local/Functions producer controlled by Studio, with private Drive drafts | Rust producer outside the API runtime; Functions/Drive/provider execution not implemented |
 | External AI agents / plugins | Fetch instructions, perform TTS/recording/editing/mixing/encoding, run production-side QC, upload deliverables | Outside Cantos API; independently operated |
 | Cantos Theatre | Discover and listen to immutable published releases; resume, native background listening and offline use | Leptos Web and Compose Multiplatform mobile |
 
@@ -89,7 +89,7 @@ sessions; live-provider/production and separate Theatre/Admin identity remain ga
 See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](docs/evidence/studio-oidc.md).
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
-- `apps/cantos-forge`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow. The owner-selected Studio-controlled local/Functions and private Drive draft execution remains #203 implementation work; this build makes no provider call or API submission.
+- `apps/cantos-forge`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow and a library-only attempt/recovery core with a mock provider. The owner-selected Studio-controlled local/Functions and private Drive draft execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
 - `services/cantos-api`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
