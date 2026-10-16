@@ -71,7 +71,7 @@
 | [Decision 0022](decisions/0022-cantos-forge-producer-cli.md) | Proposed: Cantos Forge, a producer-side CLI outside the API runtime; API/Studio/Theatre still never execute generation |
 | [Decision 0025](decisions/0025-actor-identity-root.md) | Proposed: `ActorId` as the root of owner and listener identity; listener slice implemented, Studio slices pending |
 | [Decision 0026](decisions/0026-theatre-mobile-local-storage-sandbox.md) | Proposed: Theatre Mobile per-layer storage test doubles, directory classes and adoption gates; `ProgressPort` contract suite implemented, no storage library adopted |
-| [Decision 0032](decisions/0032-theatre-signup-and-provisioned-studio.md) | Accepted: Theatre listener self-registration and one or two securely provisioned Studio administrators; issuer capability and live provisioning remain separate |
+| [Decision 0034](decisions/0034-theatre-signup-and-provisioned-studio.md) | Accepted: Theatre listener self-registration and one or two securely provisioned Studio administrators; issuer capability and live provisioning remain separate |
 | [Executable behavior](../specs/behavior/README.md) / [ADR 0027](decisions/0027-quint-executable-behavior.md) | Quint catalog and private admission model with independent pure-core observations; [PR B observation handoff](work-plan/quint-conformance-handoff.md), DB/API/runtime acceptance separate |
 | [Work plan](work-plan/README.md) | Recommended sequence, dependencies and review boundaries |
 | [GitHub planning](work-plan/project-planning.md) | Issue/dependency map, Kanban workflow and links to source documents |

@@ -15,6 +15,7 @@ entitled access and retained-release/history access are separate dependencies.
 | GET | `/works/{work_id}/units?limit=&cursor=` | ordered `UnitPage` |
 | GET | `/publications/{publication_id}` | `PublicationManifest` |
 | POST | `/publications/{publication_id}/playback-authorizations` | `PlaybackAuthorization` or explicit error |
+| GET, HEAD | `/media/{grant}` | Raw `audio/ogg` bytes or `ListenerError`; **composition-gated**, see [origin-mode media](#origin-mode-media-proposed-adr-0032) |
 
 IDs are canonical lower-case UUIDs and are immutable identity, never a title, slug or order.
 `publication_id` is the exact immutable AudioRelease ID. Units retain Chapter/Episode kind.
@@ -91,13 +92,48 @@ non-HTTPS or credential-bearing locations, fragments, whitespace/control charact
 unbounded expiry. This binding is not actual-byte or current-eligibility verification.
 The default adapter returns `rendition_unavailable`, with no URL. A real adapter must validate
 public-object SHA/length/identity and enforce current revocation/withdrawal on every GET/HEAD,
-Range/seek, audio/ogg content type, cache isolation and grant refresh. No public adapter, public
-activation, file Range/CDN probe or CORS verification occurred here. Private Storage PR90 is
-not public delivery and is not incorporated.
+Range/seek, audio/ogg content type, cache isolation and grant refresh. The proposed origin-mode
+adapter below does so only together with its media route; no host composes it, and no public
+activation, real storage, CDN or CORS verification occurred. Private Storage PR90 is not public
+delivery and is not incorporated.
 
 All JSON responses currently use `Cache-Control:no-store` and nosniff because eligibility is
 mutable even when manifest identity is immutable. No signed URL is a catalog/cache identity.
 Conditional ETag caching, per-origin CORS and native/client adoption are deferred acceptance.
+
+## Origin-mode media (proposed ADR 0032)
+
+**Implemented core, composition-gated, IO_ACCEPTANCE_PENDING.** [ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md)
+is proposed, not accepted. Only trusted host code can compose `OriginPlayback`; the default host
+does not, so `GET /media/{grant}` answers `not_found` and playback POST stays
+`rendition_unavailable`. No production publication-class object reader exists yet (#10/#11).
+
+When composed, `PlaybackAuthorization.url` is `https://{api origin}/api/v1/theatre/media/{grant}`
+with `grant` = `pg1_` + 32 hex publication UUID + 16 hex expiry + 64 hex HMAC-SHA256 (116 ASCII
+characters, lower case). The grant is an opaque bearer capability: clients must not parse,
+log or persist it, and it names no private object. `expires_at_ms` is
+`min(issued + 120000, rights valid_until)`.
+
+Every GET/HEAD re-resolves current eligibility, authenticates the grant against the exact sealed
+identity (publication, rendition, manifest digest, SHA-256, object, byte length), opens the
+object and re-admits the grant before sending bytes. HTTP mechanics are the shared transport:
+strong ETag `"{sha256}"`, `Accept-Ranges: bytes`, single ranges (open, closed, suffix) → 206 with
+`Content-Range`; unsatisfiable → 416 `bytes */{length}`; multi-range → full 200; `If-Match`,
+`If-None-Match` (304), entity-tag `If-Range`; date validators are ignored. `Content-Type:
+audio/ogg`, exact `Content-Length`, no content encoding, `private, no-store, no-transform`,
+`nosniff`. HEAD has no body.
+
+| Media response | HTTP | Code / retryable | Client action |
+| --- | --- | --- | --- |
+| Bytes | 200 / 206 / 304 | — | Play; never swap to another publication |
+| Malformed Range or validator | 400 / 412 / 416 | `invalid_request` / false | Fix the request |
+| Unknown, forged, tampered, expired, withdrawn, revoked, superseded, owner-disabled or unconfigured | 404 | `not_found` / false | Re-POST the authorization for the same `publication_id`; `200` with the same `sha256` resumes at the current position, `404` means stop |
+| Lanes exhausted, storage timeout/unavailable | 503 | `unavailable` / true | Retry with backoff |
+| Eligible release whose promoted object is missing | 503 | `rendition_unavailable` / true | Retry later; do not fall back to another rendition |
+| Stored bytes contradict the sealed identity | 500 | `unavailable` / false | Stop and report |
+
+Clients should refresh shortly before `expires_at_ms`. Theatre Web (#13), CMP (#14/#16) and the
+player UX issues (#154/#155) own player integration; none is implemented by this contract change.
 
 ## Errors and compatibility
 
@@ -137,12 +173,13 @@ inputs, not new wire fields or accepted semantics. Existing strict v1 readers re
 properties, so even optional response fields require deliberate compatibility/version review.
 Current q/kind/language filters, cursor behavior and public projections remain unchanged.
 
-## Shared transport prototype boundary
+## Shared transport boundary
 
-The [#120 transport draft](../../docs/evidence/playback-range-transport.md) reuses HTTP mechanics
-with the real Studio private-reader consumer and a test-only Theatre JSON/application/byte
-fixture. The fixture pins actual arbitrary transport bytes but mocks publication/SQL/codec
-authority; it is not playable-media admission, a public storage adapter or live delivery.
-No new endpoint, wire field, signer, provider or runtime switch is introduced. The normal
-PlaybackDelivery/PublicationDelivery composition remains unavailable. Production mode and
-cache security remain [proposed evidence-gated decisions](../../docs/decisions/0028-publication-streaming-evidence-gates.md).
+The [#120 transport draft](../../docs/evidence/playback-range-transport.md) introduced the shared
+HTTP mechanics. [#170's core](../../docs/evidence/public-media-delivery-core.md) now drives the
+Theatre contract fixture through the production `/media/{grant}` route and `OriginPlayback`,
+with named eligibility and publication-object doubles over arbitrary transport bytes. That is
+mock-integration evidence, not playable-media admission, a public storage adapter or live
+delivery. No wire field, provider or runtime switch is introduced, and the normal composition
+remains unavailable. Cache security beyond no-store remains an
+[evidence-gated decision](../../docs/decisions/0028-publication-streaming-evidence-gates.md).

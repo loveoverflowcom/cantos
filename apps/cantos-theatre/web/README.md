@@ -353,7 +353,7 @@ navigation. Contextual Back/cancel invalidates old presentation requests and res
 entry's focus/scroll within the mounted session. Deep links without accepted context fall back to
 Home.
 
-[ADR 0032](../../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) accepts
+[ADR 0034](../../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
 listener self-registration and provisioned-only Studio administrators. Web independently reads
 `GET /api/v1/theatre/auth/configuration` on mount. Registration distinguishes loading,
 `identity_unconfigured`, `provider_unsupported`, transport failure and invalid response; failed

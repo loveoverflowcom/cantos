@@ -881,8 +881,9 @@ class TheatreSandboxIsolationTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         self.mobile = self.root / checks.THEATRE_MOBILE
-        self.write("settings.gradle.kts", 'include(":shared", ":preview-sandbox", ":androidApp")\n')
+        self.write("settings.gradle.kts", 'include(":shared", ":preview-sandbox", ":androidApp", ":androidProductionApp")\n')
         self.write("shared/build.gradle.kts", 'plugins { kotlin("multiplatform") }\n')
+        self.write("androidProductionApp/build.gradle.kts", 'dependencies { implementation(project(":shared")) }\n')
         self.write("preview-sandbox/build.gradle.kts", '''plugins { kotlin("multiplatform") }
 kotlin { sourceSets { commonMain { dependencies { implementation(project(":shared")) } } } }
 ''')
@@ -931,6 +932,8 @@ kotlin { sourceSets { commonMain { dependencies { implementation(project(":share
             "val database = FakeStorageDatabase()",
             "val port = FakePersistentProgressPort()",
             "val fixture = DemoFixtures",
+            "import com.cantos.theatre.app.mockAppContainer",
+            "val container = mockAppContainer(scope)",
             "val owner = AppContainer . mock()",
             "val engine = io.ktor.client.engine.mock.MockEngine()",
         ):
@@ -1062,8 +1065,44 @@ implementation(compose.desktop.uiTestJUnit4)
         self.write("bridge/build.gradle.kts", 'dependencies { api(project(":shared")) }')
         self.assertViolation("Gradle project dependency cycle")
 
+    def test_production_host_composes_shared_only_and_its_sources_obey_the_boundary(self):
+        self.source("class TheatreActivity(val engine: com.cantos.theatre.ports.MediaEngine)",
+                    module="androidProductionApp", source_set="main")
+        self.write("androidProductionApp/src/main/AndroidManifest.xml", '<activity android:name=".app.TheatreActivity"/>')
+        self.assertEqual(self.errors(), [])
+        for dependencies, fragment in (
+            ('implementation(project(":shared"))\nimplementation(project(":preview-sandbox"))',
+             "production host main dependency reaches sandbox/demo module: :androidProductionApp -> :preview-sandbox"),
+            ('implementation(project(":shared"))\nimplementation(project(":androidApp"))',
+             ":androidProductionApp -> :androidApp"),
+            ('implementation(project(":shared"))\nimplementation(project(":bridge"))',
+             "production host must depend on :shared and no other local project"),
+            ('implementation("androidx.activity:activity-compose:1.10.1")',
+             "production host must depend on :shared and no other local project"),
+            ('implementation(project(":shared"))\nimplementation("io.ktor:ktor-client-mock:3.0.0")',
+             "androidProductionApp/build.gradle.kts: shared main graph must not include test dependency"),
+        ):
+            with self.subTest(dependencies=dependencies):
+                self.write("bridge/build.gradle.kts", 'plugins { kotlin("multiplatform") }')
+                self.write("androidProductionApp/build.gradle.kts", f"dependencies {{ {dependencies} }}")
+                self.assertViolation(fragment)
+        self.write("androidProductionApp/build.gradle.kts", 'dependencies { implementation(project(":shared")) }')
+        for body in ("import com.cantos.theatre.app.mockAppContainer",
+                     "val app = com.cantos.theatre.app.CantosDemoApp",
+                     "val fixture = DemoFixtures"):
+            with self.subTest(body=body):
+                self.source(body, module="androidProductionApp", source_set="main", filename="Host.kt")
+                self.assertViolation("androidProductionApp/src/main/kotlin/com/cantos/theatre/app/Host.kt")
+        self.source("val ready = true", module="androidProductionApp", source_set="main", filename="Host.kt")
+        self.write("androidProductionApp/src/main/AndroidManifest.xml", '<activity android:name="com.cantos.theatre.demo.MainActivity"/>')
+        self.assertViolation("androidProductionApp/src/main/AndroidManifest.xml: shared main resource references")
+
+    def test_production_host_must_remain_a_separate_included_module(self):
+        self.write("settings.gradle.kts", 'include(":shared", ":preview-sandbox", ":androidApp")\n')
+        self.assertViolation("production host :androidProductionApp must be a separate included Gradle module")
+
     def test_sandbox_cannot_be_replaced_by_package_only_separation(self):
-        self.write("settings.gradle.kts", 'include(":shared")\nval example = """include(":preview-sandbox")"""')
+        self.write("settings.gradle.kts", 'include(":shared", ":androidProductionApp")\nval example = """include(":preview-sandbox")"""')
         self.assertViolation(":preview-sandbox must be a separate included Gradle module")
         self.write("preview-sandbox/build.gradle.kts", 'dependencies { implementation(project(":shared")) }')
         self.assertViolation("preview-sandbox must be a Kotlin Multiplatform module")

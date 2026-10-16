@@ -188,7 +188,7 @@ preserved without rebase/reset.
 
 ### Accepted decision and actual implementation
 
-[ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md) accepts listener
+[ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md) accepts listener
 self-registration and only one or two securely provisioned Studio administrators. The earlier
 self-signup/invitation/defer choice is settled. Pinned Kanidm **1.10.5** source has no accepted
 public signup operation: `/ui/enrol` handles an existing authenticated account's credential
@@ -229,7 +229,7 @@ no local log file is claimed for those two focused invocations.
 
 | Layer / exact scope | Result / evidence |
 | --- | --- |
-| L1/L2 admission and purpose boundaries | Source reviewed independently against ADR 0032; exact issuer+subject policy is separate from verification, SQL issuance and resource rights |
+| L1/L2 admission and purpose boundaries | Source reviewed independently against ADR 0034; exact issuer+subject policy is separate from verification, SQL issuance and resource rights |
 | L3 Studio pure/signed mock HTTP | **PASS**, 12 tests: `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-api --lib platform::studio_oidc::tests --locked`; real local synthetic HTTP issuer, no live accounts. First sandbox run had 4 loopback bind failures; the same authorized escalated command passed unchanged |
 | L3 configuration contract | **PASS**, 4 tests: `RUSTUP_TOOLCHAIN=1.98.1 cargo test -p cantos-contracts --locked --lib theatre_identity::tests`; literal fixtures, schema and strict unknown/credential rejection |
 | L3 Theatre application/presentation | **PASS**, 195 unit tests + 3 doctests: `RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test -p cantos-theatre --locked`; includes retry/stale/protocol partitions and locale × registration-state semantics |
@@ -302,7 +302,7 @@ being treated as a successful identity operation.
 ## Email registration bridge follow-up
 
 This follow-up supersedes the earlier statement that no onboarding bridge was implemented.
-Direction A in ADR0032 is approved for code and isolated tests: retain Kanidm, compose an
+Direction A in ADR0034 is approved for code and isolated tests: retain Kanidm, compose an
 email-verification onboarding module in the existing monolith, and keep live activation off.
 The earlier login/Studio roster and Library spacing evidence remains attributable to its
 recorded inputs; this section adds no mobile, live identity or inbox acceptance.

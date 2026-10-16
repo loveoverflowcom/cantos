@@ -35,6 +35,10 @@ Authenticated/private transport remains no-store; audio carries no-transform and
 These HTTP mechanics follow [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html), not a new
 entitlement, retention or public-cache policy.
 
+[ADR 0032](0032-theatre-origin-playback-delivery.md) later **proposes** the origin/API proxy row
+of the "Authorized delivery" track for #170. That proposal is not acceptance; every evidence
+requirement below still applies before any host composes it.
+
 ## Alternatives
 
 | Open track | Alternatives | Evidence required before selection |

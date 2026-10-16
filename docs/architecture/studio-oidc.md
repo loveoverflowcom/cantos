@@ -9,7 +9,7 @@ was provisioned. [Surface boundaries](../decisions/0015-api-surface-boundaries.m
 
 ## Closed Studio enrollment
 
-The [accepted account-enrollment decision](../decisions/0032-theatre-signup-and-provisioned-studio.md)
+The [accepted account-enrollment decision](../decisions/0034-theatre-signup-and-provisioned-studio.md)
 allows public self-registration for Theatre and limits Studio to one or two securely
 preprovisioned administrator accounts. Studio has no public signup route or enrollment form.
 These are Studio operator accounts; admission does not grant the separate `/api/v1/admin`

@@ -10,7 +10,7 @@
 Studio is a **Web-only content management application** for creators and editors; Theatre
 is the listening application (Web, Android and iOS).
 
-[Account access policy](../decisions/0032-theatre-signup-and-provisioned-studio.md): Theatre
+[Account access policy](../decisions/0034-theatre-signup-and-provisioned-studio.md): Theatre
 listeners self-register; Studio has no public registration and admits only one or two securely
 provisioned administrator accounts. Actual issuer capability and live acceptance are separate
 from this accepted product policy.

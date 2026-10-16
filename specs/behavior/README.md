@@ -12,6 +12,12 @@ model-only PASS neither accepts the model nor demonstrates Rust/DB/API/client co
 Read [ADR 0027](../../docs/decisions/0027-quint-executable-behavior.md) and the
 [PR B observation handoff](../../docs/work-plan/quint-conformance-handoff.md).
 
+Two further **draft, model-only** capabilities describe proposed public media rules:
+`cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
+and `cantos.media.public-cover-projection` ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)).
+Neither has a registered Rust observer, so `--conformance` does not apply to them; their
+[inventory rows](inventory.md) separate implemented kernels from model assumptions.
+
 ## Run locally
 
 ```sh

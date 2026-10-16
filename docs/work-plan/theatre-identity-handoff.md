@@ -3,7 +3,7 @@
 The [#191 activation slice](../evidence/theatre-auth-activation.md) adds nonsecret native build
 inputs and typed missing/invalid diagnostics on top of these owners. Its source regressions,
 preview prerequisites and unrun artifact/provider/device checks are recorded separately from
-the historical integrated results below. [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md)
+the historical integrated results below. [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md)
 now accepts Theatre self-registration and provisioned-only Studio access; #174 owns the approved
 email-verification/Kanidm onboarding implementation and independent live acceptance. See the
 [client evidence matrix](live-client-api-matrix.md#theatre-identity-activation) for the #179/#180
@@ -17,7 +17,7 @@ and earlier sections retain results and blockers of their original native/identi
 
 The product owner settled the audience/access choice: Theatre users self-register; Studio has
 no public registration and uses only one or two securely provisioned administrator accounts.
-The accepted policy is [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md).
+The accepted policy is [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md).
 The earlier #174/#191 selection between self-signup, invitation and defer no longer needs a
 product decision. The owner subsequently approved code and isolated tests for retained Kanidm:
 mailbox proof first, create a new person, then deliver a link for credential setup at the issuer.

@@ -567,6 +567,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "media", "ListenerService", "new"),
             ("contexts", "media", "ListenerError"),
             ("contexts", "media", "PlaybackDelivery"),
+            # Trusted origin-delivery composition value (proposed ADR 0032); no decision API.
+            ("contexts", "media", "OriginPlayback"),
         }
         listener_composition = path in {
             ("contexts", "listening", "LibraryService"),
@@ -678,6 +680,8 @@ def check_api_architecture(root=ROOT):
 THEATRE_MOBILE = Path("apps/cantos-theatre/mobile")
 THEATRE_SOURCE = THEATRE_MOBILE / "shared/src"
 THEATRE_SANDBOX_SOURCE = THEATRE_MOBILE / "preview-sandbox/src"
+# Production application hosts compose :shared only; their main sources obey the shared boundary.
+THEATRE_PRODUCTION_HOSTS = (":androidProductionApp",)
 THEATRE_PACKAGE = ("com", "cantos", "theatre")
 THEATRE_LAYERS = {"domain", "ports", "application", "features", "adapters", "app", "demo", "presentation"}
 # Allowlisted layers may import only these namespaces. Features use the denylist in
@@ -706,8 +710,9 @@ THEATRE_IMPORT_STATEMENT = re.compile(
     rf"(?m)(?:^|;)[ \t]*import\s+({THEATRE_QUALIFIED}(?:\s*\.\s*\*)?)(?:\s+as\s+{THEATRE_IDENT})?"
 )
 THEATRE_QUALIFIED_USE = re.compile(rf"(?<![\w.`])({THEATRE_QUALIFIED})")
+# Types and top-level factories alike, such as MockStorageDatabase and mockAppContainer.
 THEATRE_SANDBOX_SYMBOL = re.compile(
-    r"(?:Mock[A-Z]\w*|Fake[A-Z]\w*|Demo[A-Z]\w*|CantosDemo\w*)\Z"
+    r"(?:[Mm]ock[A-Z]\w*|[Ff]ake[A-Z]\w*|[Dd]emo[A-Z]\w*|CantosDemo\w*)\Z"
 )
 THEATRE_SANDBOX_PART = re.compile(r"(?:mock|demo|sandbox|preview)(?:[-_]|$)", re.I)
 THEATRE_TEST_NAMESPACES = (
@@ -908,10 +913,17 @@ def theatre_production_modules(root):
             errors.append(f"{file.relative_to(root)}: preview-sandbox must depend explicitly on :shared")
     if ":androidApp" in builds and not {":shared", ":preview-sandbox"} <= graph[":androidApp"]:
         errors.append(f"{THEATRE_MOBILE}/androidApp/build.gradle.kts: demo host must depend explicitly on shared and preview-sandbox")
+    for host in THEATRE_PRODUCTION_HOSTS:
+        if host not in included or host not in builds:
+            errors.append(f"{THEATRE_MOBILE}/settings.gradle.kts: production host {host} must be a separate included Gradle module")
+        elif graph[host] != {":shared"}:
+            errors.append(f"{builds[host][0].relative_to(root)}: production host must depend on :shared and no other local project")
     if re.search(r"\bproject\s*\([^)]*\)\s*\.\s*projectDir\b", settings_text):
         errors.append(f"{THEATRE_MOBILE}/settings.gradle.kts: projectDir remapping needs an explicit architecture policy")
 
-    production, pending = set(), [(":shared",)]
+    # A stack: :shared is visited first, so its own edges are reported from :shared.
+    production = set()
+    pending = [(host,) for host in THEATRE_PRODUCTION_HOSTS if host in builds] + [(":shared",)]
     while pending:
         chain = pending.pop()
         module = chain[-1]
@@ -920,7 +932,8 @@ def theatre_production_modules(root):
         production.add(module)
         if module != ":shared" and (module == ":androidApp" or any(
                 THEATRE_SANDBOX_PART.match(part) for part in re.split(r"[:/]+", module) if part)):
-            errors.append(f"{THEATRE_MOBILE}: shared main dependency reaches sandbox/demo module: {' -> '.join(chain)}")
+            owner = "shared" if chain[0] == ":shared" else "production host"
+            errors.append(f"{THEATRE_MOBILE}: {owner} main dependency reaches sandbox/demo module: {' -> '.join(chain)}")
             continue
         if module not in builds:
             errors.append(f"{THEATRE_MOBILE}: unresolved local project dependency: {' -> '.join(chain)}")
@@ -992,7 +1005,8 @@ def check_theatre_architecture(root=ROOT):
     for source_path in sorted(production_sources | {THEATRE_SANDBOX_SOURCE}):
         source = root / source_path
         production = source_path in production_sources
-        for file in sorted(source.glob("*Main/**/*.kt")):
+        # Android application modules use the plain `main` source set.
+        for file in sorted({*source.glob("*Main/**/*.kt"), *source.glob("main/**/*.kt")}):
             label = file.relative_to(root).as_posix()
             parts = file.relative_to(source).parts
             source_set = parts[0]
@@ -1059,7 +1073,7 @@ def check_theatre_architecture(root=ROOT):
                     else:
                         report(match.start(1), name, reason)
         if production:
-            for file in sorted(source.glob("*Main/**/*")):
+            for file in sorted({*source.glob("*Main/**/*"), *source.glob("main/**/*")}):
                 if not file.is_file() or file.suffix == ".kt":
                     continue
                 label = file.relative_to(root).as_posix()

@@ -35,12 +35,22 @@ class BehaviorContracts(unittest.TestCase):
         (root / behavior.CATALOG).write_text(json.dumps(catalog))
         return root
 
-    def test_current_catalog_has_one_executable_pilot_and_all_controls(self):
+    def test_current_catalog_executable_capabilities_and_all_controls(self):
         selected = behavior.load_catalog(behavior.ROOT)
-        self.assertEqual([cap["id"] for cap in selected], [self.cap["id"]])
-        self.assertEqual(len(selected[0]["runs"]), 19)
-        self.assertEqual(len(selected[0]["properties"]), 7)
-        self.assertEqual(len(selected[0]["witnesses"]), 11)
+        # Explicit capability counts pin the reviewed selection and each sensitivity control set.
+        expected = {
+            self.cap["id"]: (19, 7, 11),
+            "cantos.media.public-playback-delivery": (12, 5, 10),
+            "cantos.media.public-cover-projection": (10, 5, 8),
+            "cantos.identity.theatre-registration": (8, 5, 4),
+        }
+        self.assertEqual([cap["id"] for cap in selected], list(expected))
+        for cap in selected:
+            with self.subTest(capability=cap["id"]):
+                self.assertEqual(
+                    (len(cap["runs"]), len(cap["properties"]), len(cap["witnesses"])),
+                    expected[cap["id"]])
+                self.assertEqual(len(cap["controls"]), len(cap["properties"]))
 
     def test_unknown_or_unmodeled_selection_fails(self):
         for selection in ("cantos.unknown", "cantos.publishing.lifecycle"):

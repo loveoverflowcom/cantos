@@ -42,8 +42,10 @@ native audio and live client integration remain deferred; public media delivery 
 The [native identity configuration slice](docs/evidence/theatre-auth-activation.md) supplies
 nonsecret Android metadata/iOS plist build inputs and typed missing/invalid configuration
 diagnostics. Source regression evidence does not establish a configured artifact or live login.
-No production Android host exists yet, so its release dependency graph and APK/AAB exclusion
-remain **BLOCKED / NOT_RUN**; the demo APK establishes no production isolation.
+A production Android host composes `:shared` only and, until production listening adapters
+exist, states that listening is unavailable. `cargo xtask theatre-host android-release` inspects
+its release classpaths and unsigned APK/AAB bytes for sandbox, mock and test content; the demo
+APK establishes no production isolation.
 See the [sandbox isolation record](docs/evidence/issue122-cmp-sandbox-isolation.md) for current checks.
 
 [Private object storage](docs/architecture/object-storage.md) implements filesystem and generic

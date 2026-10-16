@@ -35,10 +35,13 @@ pub enum Kernel {
     PublicationCommit,
     ListenerAccess,
     ListenerReconcile,
+    ByteRange,
+    PlaybackGrant,
+    PublicCover,
 }
 
 impl Kernel {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 10] = [
         Self::CatalogRevision,
         Self::ImageBounds,
         Self::WavPayload,
@@ -46,6 +49,9 @@ impl Kernel {
         Self::PublicationCommit,
         Self::ListenerAccess,
         Self::ListenerReconcile,
+        Self::ByteRange,
+        Self::PlaybackGrant,
+        Self::PublicCover,
     ];
 
     pub fn name(self) -> &'static str {
@@ -57,6 +63,9 @@ impl Kernel {
             Self::PublicationCommit => "publication-commit",
             Self::ListenerAccess => "listener-access",
             Self::ListenerReconcile => "listener-reconcile",
+            Self::ByteRange => "byte-range",
+            Self::PlaybackGrant => "playback-grant",
+            Self::PublicCover => "public-cover",
         }
     }
 
@@ -69,6 +78,9 @@ impl Kernel {
             Self::PublicationCommit => "contexts::media::domain::publication::kani_proofs::publication_pointer_and_rights_fail_closed",
             Self::ListenerAccess => "contexts::media::domain::listening::kani_proofs::listener_keyset_and_access_window",
             Self::ListenerReconcile => "contexts::listening::domain::reconcile::kani_proofs::progress_reconciliation_never_blindly_overwrites_or_wraps",
+            Self::ByteRange => "contexts::media::domain::object_storage::kani_proofs::byte_range_normalization_stays_inside_the_exact_object",
+            Self::PlaybackGrant => "contexts::media::domain::playback_grant::kani_proofs::playback_grant_expiry_and_fetch_fail_closed",
+            Self::PublicCover => "contexts::media::domain::public_cover::kani_proofs::public_cover_requires_pinned_bound_image_and_current_disclosure",
         }
     }
 
@@ -87,6 +99,11 @@ impl Kernel {
             Self::ListenerReconcile => {
                 "services/cantos-api/src/contexts/listening/domain/reconcile.rs"
             }
+            Self::ByteRange => "services/cantos-api/src/contexts/media/domain/object_storage.rs",
+            Self::PlaybackGrant => {
+                "services/cantos-api/src/contexts/media/domain/playback_grant.rs"
+            }
+            Self::PublicCover => "services/cantos-api/src/contexts/media/domain/public_cover.rs",
         }
     }
 
@@ -99,6 +116,9 @@ impl Kernel {
             Self::PublicationCommit => 6,
             Self::ListenerAccess => 5,
             Self::ListenerReconcile => 7,
+            Self::ByteRange => 6,
+            Self::PlaybackGrant => 6,
+            Self::PublicCover => 6,
         }
     }
 
@@ -116,6 +136,9 @@ impl Kernel {
             Self::PublicationCommit => vec![format!("{}.assertion.1", self.harness())],
             Self::ListenerAccess => Vec::new(),
             Self::ListenerReconcile => Vec::new(),
+            Self::ByteRange => Vec::new(),
+            Self::PlaybackGrant => Vec::new(),
+            Self::PublicCover => Vec::new(),
         }
     }
 
@@ -218,6 +241,9 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
                 Kernel::SubmissionWindow,
                 Kernel::PublicationCommit,
                 Kernel::ListenerAccess,
+                Kernel::ByteRange,
+                Kernel::PlaybackGrant,
+                Kernel::PublicCover,
             ]);
         }
         if path == "services/cantos-api/src/contexts/media/domain/wav_inspection/mod.rs" {
@@ -617,7 +643,10 @@ mod tests {
                 Kernel::WavPayload,
                 Kernel::SubmissionWindow,
                 Kernel::PublicationCommit,
-                Kernel::ListenerAccess
+                Kernel::ListenerAccess,
+                Kernel::ByteRange,
+                Kernel::PlaybackGrant,
+                Kernel::PublicCover
             ]
         );
         for path in [

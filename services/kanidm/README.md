@@ -150,7 +150,7 @@ and revocation recovery policy. Mocked results must never be relabeled Kanidm-li
 
 ## Studio administrator provisioning contract
 
-[ADR 0032](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) fixes Studio to
+[ADR 0034](../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) fixes Studio to
 one or two administrator accounts provisioned by an authorized operator, with no public Studio
 registration. The accounts administer Studio content within existing resource permissions;
 they receive no implicit `/api/v1/admin` capability, provider administration or cross-owner access.
@@ -192,7 +192,7 @@ remains local-only under the current host restrictions; it is not an account-pro
 
 ## Theatre identity PR3 (operator preparation remains separate)
 
-The accepted [Theatre self-registration policy and onboarding direction](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md)
+The accepted [Theatre self-registration policy and onboarding direction](../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md)
 retain Kanidm. The pinned1.10.5 public UI has no integrated signup, but authenticated person
 creation and credential-update-intent APIs exist. The approved implementation wraps those
 operations in a Theatre-owned email-verification workflow; it never collects passwords or

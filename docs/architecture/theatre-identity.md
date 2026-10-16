@@ -10,7 +10,7 @@ from live-provider and native acceptance.
 
 ## Accepted enrollment policy and current capability
 
-[ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md) accepts listener
+[ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md) accepts listener
 self-registration and limits Studio to one or two securely provisioned administrator accounts.
 The former self-signup/invitation/defer product choice is resolved. Theatre identity, account
 creation and Studio application admission remain separate facts; a Theatre account never gains
@@ -23,7 +23,7 @@ On 16 October the product owner approved a Theatre email-verification/onboarding
 those APIs, keeping the issuer and its credential UI. Missing integration configuration remains
 an unavailable capability; local adapter construction never establishes deployed authority or
 successful signup. The source audit, accepted direction and live-operation boundary are in
-ADR 0032. OIDC discovery alone cannot enable registration.
+ADR 0034. OIDC discovery alone cannot enable registration.
 
 The delivery order is pure registration rules and contract, deterministic adapters/HTTP/Web,
 disposable PostgreSQL, then separately authorized issuer/mail and real Web acceptance. No real

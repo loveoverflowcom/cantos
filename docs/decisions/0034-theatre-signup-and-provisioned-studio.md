@@ -1,4 +1,4 @@
-# ADR 0032: Theatre self-registration and provisioned Studio administrators
+# ADR 0034: Theatre self-registration and provisioned Studio administrators
 
 - Status: accepted product policy and Kanidm onboarding direction; live activation remains separate
 - Date: 2026-10-16

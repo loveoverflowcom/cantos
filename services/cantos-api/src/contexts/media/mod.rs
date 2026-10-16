@@ -41,10 +41,15 @@ pub use publication_delivery::{
 mod listener_application;
 mod listener_cursor;
 mod listener_delivery;
+mod listener_media;
 mod listener_projection;
 #[cfg(test)]
 pub(crate) use listener_application::PlaybackFixtureEligibility;
 pub use listener_application::{ListenerError, ListenerService};
-pub use listener_delivery::{MediaGrant, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit};
+pub use listener_delivery::{
+    MediaGrant, OriginPlayback, PlaybackDelivery, PlaybackDeliveryFuture, PlaybackPermit,
+    PublicMediaOrigin, PublicationObjectRef, PublicationObjects,
+};
+pub use listener_media::AuthorizedMedia;
 
 pub(crate) use postgres::listener::{library_public_work, library_publications};

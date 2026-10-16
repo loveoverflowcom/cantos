@@ -196,6 +196,20 @@ contract-fixture groundwork to that same sequence. Before connecting live Theatr
 checks under the [proposed delivery decision gates](../decisions/0028-publication-streaming-evidence-gates.md).
 Shared Studio transport and mocked publication bytes do not replace those dependencies.
 
+For [#170](https://github.com/loveoverflowcom/cantos/issues/170), review
+[proposed ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md) (origin-mode Range
+with sealed 120 s grants). Its pure grant kernel, origin adapter, `/theatre/media/{grant}` route
+and mock-integrated fixture exist behind trusted composition that no host performs; see the
+[core evidence ledger](../evidence/public-media-delivery-core.md). Recommended order: owner
+acceptance of ADR 0032, then #10/#11's promoted publication-class `PublicationObjects` adapter,
+then real-bytes/expiry/withdrawal/key-rotation/access-log acceptance through the deployed proxy,
+then #13/#14 player integration of the documented refresh contract. For
+[#171](https://github.com/loveoverflowcom/cantos/issues/171), the release-pinned cover kernel and
+[proposed ADR 0033](../decisions/0033-release-pinned-public-cover.md) are inputs to #157's P0
+decision only; no DTO, storage or delivery work starts before #157 accepts a contract.
+Both draft Quint capabilities are model-only and the three new Kani kernels are registered but
+not yet run. GitHub owns execution status.
+
 ## Compiler compatibility review boundary
 
 The [production Rust pin](../architecture/rust-toolchain.md) keeps edition 2021 and locked
@@ -239,7 +253,7 @@ Recommended order stays small and reviewable:
    PASS results never accept different follow-up source.
 3. #129's [Web Home/Auth/Account boundary](../evidence/theatre-web-auth-account.md) applies the
    admitted shared variants to anonymous Home and explicit contextual auth, while retaining
-   #35's two primary destinations and avatar Account entry. [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md)
+   #35's two primary destinations and avatar Account entry. [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md)
    accepts listener self-registration; keep current unsupported provider signup explicitly
    unavailable until its exact mechanism and return contract are implemented and accepted.
    A prototype form or route is no registration receipt. Prioritize the recorded provider-return,
@@ -249,7 +263,7 @@ Recommended order stays small and reviewable:
    account owner, with provider, device and assistive-technology acceptance still unrun.
 4. #131's [Studio shell slice](../evidence/studio-login-dashboard.md) adopts login-only
    entry and a bounded Bàn viết projection over the existing authorized workspace. Apply
-   ADR 0032's one or two securely provisioned Studio administrator accounts through server-side
+   ADR 0034's one or two securely provisioned Studio administrator accounts through server-side
    admission; Theatre signup cannot grant this authority. Keep live
    issuer/group denial, full browser/assistive-technology acceptance and exact artwork fidelity
    separate from synthetic-HTTP UI evidence. The next review should finish those acceptance
@@ -292,9 +306,10 @@ affected renderer/state/lifecycle gaps before expanding #143's proposal batches.
 memory-session semantics; replay does not implement durable storage, native audio or OS process
 death. The [#122 module extraction](../evidence/issue122-cmp-sandbox-isolation.md) keeps these
 diagnostics in `:preview-sandbox`, which consumes the neutral UI and owners in `:shared`.
-Before native product rollout, prioritize a real production Android host, then inspect its
-release compile/runtime graphs and APK/AAB classes, resources and manifest for sandbox exclusion.
-The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
+The production Android host now composes `:shared` only; `cargo xtask theatre-host
+android-release` inspects its release compile/runtime graphs and APK/AAB classes, resources and
+manifest for sandbox exclusion. Rerun it when #14 adds production adapters, permissions, signing
+or R8. The demo host cannot supply that acceptance. Preserve #109's storage ordering/fault/reset contracts,
 #144's replay/lifecycle semantics and #130's guest/account boundary while composing production
 adapters; add storage libraries only with #16/#17's consumers and reviewed account policy.
 This orchestration slice qualifies no shared API and does not reorder the backend queue;
@@ -418,9 +433,9 @@ API sequence above. GitHub owns status.
   separate KMP build boundary, per-layer storage test doubles and adoption gates. The
   adapter-agnostic `ProgressPort` contract and its mock bindings stay together in sandbox tests;
   core-only tests stay in `:shared` to avoid a reverse test dependency. Okio/SQLDelight-style
-  dependencies wait for their #16/#17 consumers. Next, the real production Android host and its
-  release graph/APK/AAB inspection must establish exclusion before claiming #122 acceptance;
-  those checks remain blocked by the absent host.
+  dependencies wait for their #16/#17 consumers. The production Android host and its
+  release graph/APK/AAB inspection establish #122's exclusion for the unsigned, unshrunk
+  release; the host deliberately renders an unavailable state until #14's adapters exist.
   Review common/JVM behavior separately from Android/iOS runtime; implement the authorized
   listener/publication and account contracts before durable sync or production acceptance.
 
@@ -597,8 +612,9 @@ extends the production-safe shared boundary to `app` and `adapters`, with main-s
 declared Gradle dependency/source-routing and resource guards. Its scope and actual negative
 checks are recorded in [#122 evidence](../evidence/issue122-cmp-sandbox-isolation.md).
 The guard is lexical: it does not establish compiler/Gradle resolution, runtime behavior or
-production DEX/resource exclusion. Retain it while adding production adapters, then inspect
-the real release graphs and artifacts when a production Android host exists. This tooling
+production DEX/resource exclusion. Retain it while adding production adapters; the production
+host's real release graphs and artifacts are inspected by `cargo xtask theatre-host
+android-release`, whose inspector is unit-tested and sensitivity-checked. This tooling
 change does not reorder the product queue; GitHub owns implementation and acceptance status.
 
 ## Editor workspace hygiene
@@ -660,7 +676,7 @@ OS/secure-store/provider acceptance, audit protection/retention and recovery gat
 The [Mac Web auth and spacing slice](../evidence/theatre-web-auth-mac.md) repairs the returned
 Guest callback retry and the Library Account-entry gap, with browser fixture/visual evidence.
 Next accept existing-account Web login against an operator-prepared API/issuer/test account and
-apply [ADR 0032](../decisions/0032-theatre-signup-and-provisioned-studio.md): Theatre listeners
+apply [ADR 0034](../decisions/0034-theatre-signup-and-provisioned-studio.md): Theatre listeners
 self-register; Studio has no public signup and admits only one or two securely provisioned
 administrators. Verify Studio admission at callback and every protected request, including
 refusal of a valid Theatre account and removal from the configured Studio subjects. These local
@@ -673,7 +689,7 @@ inspection and separately authorized Web/native provider, callback, secure-store
 acceptance after the [nonsecret build-input slice](../evidence/theatre-auth-activation.md).
 The existing Web BFF/proxy and native controller remain the owners; do not rebuild their
 protocol or infer live login from source tests or Android preview. [#174](https://github.com/loveoverflowcom/cantos/issues/174)
-continues to own email-verified self-registration and its Web/native contract. After ADR0032's
+continues to own email-verified self-registration and its Web/native contract. After ADR0034's
 product choice, the owner approved code and isolated tests in the same Draft PR #196 for a
 Theatre module that verifies email before creating a new Kanidm person, then sends an issuer
 credential-setup link. Kanidm1.10.5 has those authenticated APIs although its public UI lacks

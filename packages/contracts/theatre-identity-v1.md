@@ -32,7 +32,7 @@ mock state. Client intent IDs/bodies are stable; A's pending intents cannot be s
 
 ## Registration policy and implemented capability
 
-[ADR0032](../../docs/decisions/0032-theatre-signup-and-provisioned-studio.md) accepts
+[ADR0034](../../docs/decisions/0034-theatre-signup-and-provisioned-studio.md) accepts
 public self-registration for Theatre and separately provisioned Studio administrators. Theatre
 registration never creates Studio authority or changes a Studio admission list. Product approval
 does not establish provider support or authorize live account/provider configuration changes.

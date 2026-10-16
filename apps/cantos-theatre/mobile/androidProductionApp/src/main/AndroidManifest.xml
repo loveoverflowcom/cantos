@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Production host: no permission, network, identity callback or diagnostic entry point
+     until a production adapter consumes it. Launcher artwork stays with the demo host (#122). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="false"
+        android:label="Cantos"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Cantos">
+        <activity
+            android:name=".app.TheatreActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

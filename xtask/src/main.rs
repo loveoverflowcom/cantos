@@ -23,6 +23,7 @@ mod report;
 mod run;
 mod services;
 mod theatre_demo;
+mod theatre_host;
 mod tools;
 mod ui_preview;
 mod visual_compare;
@@ -134,6 +135,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
         }
         Task::TheatreDemo { action } => {
             theatre_demo::execute(&workspace, action, &tools, &mut runner)
+        }
+        Task::TheatreHost { action } => {
+            theatre_host::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
             let mut steps = gate::steps(&gate::verify_suite(&suite), &workspace);

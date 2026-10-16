@@ -3,9 +3,12 @@
 This change separates the preview build graph from the shared application code. It is part of
 [#122](https://github.com/loveoverflowcom/cantos/issues/122), based on
 `develop@84ebda4f30fbba271ca8bbc68839f69e37afa646`, including merged #163 and #164.
-**Production Android release acceptance remains BLOCKED / NOT_RUN:** this repository has a
-demo Android host, not a production Android host. Keep the issue open until that acceptance is
-completed. A demo APK, library graph or R8 removal cannot establish production APK/AAB exclusion.
+The first slice (PR #165) recorded production Android release acceptance as BLOCKED / NOT_RUN
+because only a demo host existed. The
+[production host follow-up](#production-android-host-and-release-artifact-acceptance) adds a
+production Android host that composes `:shared` only, its explicit release command and actual
+release classpath plus APK/AAB inspection. A demo APK, library graph or R8 removal is still not
+used as production exclusion evidence.
 
 ## Ownership and compatibility
 
@@ -13,7 +16,7 @@ completed. A demo APK, library graph or R8 removal cannot establish production A
 preview-sandbox (KMP) -> shared (KMP)
 Android demo         -> shared + preview-sandbox
 desktop/iOS demo     -> preview-sandbox -> shared
-future production host -> shared + production adapters (not implemented here)
+production Android host -> shared only (follow-up below; no listening adapter exists yet)
 ```
 
 - `shared` retains domain rules, ports, application controllers, injected `AppContainer`,
@@ -244,13 +247,92 @@ sandbox dependency and mock composition root predate this PR. There is no produc
 xtask production release command. Shared library release graphs cannot clear that acceptance.
 The exact Kotlin/Native 2.2.20 and official Android preview CLI prerequisites remain unavailable.
 
+## Production Android host and release artifact acceptance
+
+The follow-up is based on `develop@f3619bf`. It closes the remaining #122 criterion with a real
+production host instead of treating the demo APK as evidence.
+
+```text
+:androidProductionApp (com.cantos.theatre) -> :shared
+:androidApp (com.cantos.theatre.demo)      -> :shared + :preview-sandbox
+```
+
+- **Host.** `apps/cantos-theatre/mobile/androidProductionApp` is an Android application module
+  included only with `-Pcantos.android=true`, like the demo host. Its single launcher
+  `TheatreActivity` is the production composition root. No production catalog, progress or media
+  adapter exists yet (#14), so it cannot compose an `AppContainer`; it renders the shared
+  `CantosListeningUnavailable` state. That state is explicit, localized (Vietnamese default,
+  English) and has no catalog, library, player, sample, diagnostic or loading content. There is
+  no Application subclass, permission, identity callback, metadata, network adapter or mock
+  fallback. The minSdk 23 floor comes from the shared library and is not a support decision.
+- **Release type.** The release is unsigned and unshrunk (`isMinifyEnabled = false`,
+  `isShrinkResources = false`), so absence comes from the dependency graph and never from R8.
+  Signing, shrinking, distribution, launcher artwork and platform support remain separate #14
+  decisions. Launcher artwork stays with the demo host; the production host has the system default
+  icon, so no launcher acceptance is claimed.
+- **Gradle boundary.** `:androidProductionApp:assertReleaseDependencyBoundary` runs before every
+  build of the host (`preBuild`). It resolves `releaseCompileClasspath` and
+  `releaseRuntimeClasspath`, rejects unresolved results, allows local projects `:shared` and the
+  host only, and refuses test/mock/tooling modules. Report:
+  `androidProductionApp/build/reports/release-boundary/resolved-dependencies.txt`.
+- **Artifact inspection.** `cargo xtask theatre-host android-release` builds
+  `:androidProductionApp:assembleRelease` and `:bundleRelease`, compiles the sandbox's Android
+  release classes as the forbidden inventory, and runs `scripts/inspect_android_release.py` on the
+  actual APK and AAB. The inspector parses `class_defs` of every DEX file, so it reports
+  defined classes rather than referenced types. It rejects the exact sandbox class inventory,
+  Cantos mock/demo/preview/workbench names, and test or Compose tooling namespaces. It also
+  rejects sandbox resource bytes even when renamed, foreign Compose resource packages and
+  mock/demo/sandbox/preview paths. Manifests are decoded by installed `aapt2`; the AAB's proto
+  manifest is repacked as a proto APK. Each must declare the application ID, one expected launcher,
+  no debuggable/test-only flag, no instrumentation and only allowlisted permissions. The APK and
+  AAB must define the same class set and three production classes, preventing a vacuous pass.
+- **Static guard.** `check_theatre_architecture` now requires the production host as an included
+  module whose only local project edge is `:shared`. It scans its plain `main` source set with the
+  shared boundary. It also rejects lowercase sandbox factories such as `mockAppContainer`, which
+  the previous symbol pattern missed in shared and host code.
+
+| Layer / claim | Status | Executed evidence and scope |
+| --- | --- | --- |
+| Release classpaths | PASS | Both host release classpaths resolve to local projects `:androidProductionApp` and `:shared` plus external AndroidX, JetBrains Compose and Kotlin libraries and their transitive `org.jspecify` and Guava `listenablefuture`; no sandbox, demo host, test, mock or Compose tooling component. |
+| Release APK/AAB bytes | PASS | `cargo xtask theatre-host android-release`: unsigned APK SHA-256 `3f4507f6a6d20a1a48bf9e5a3e1349537a6e06658cbb198661904d41338d19bd` (130 entries) and AAB `984a4062502e33337aae74555d0765445bd4f986275e5e1b9824697dd86a69e0` (136 entries) each define the same 25,984 classes, with zero findings against 69 sandbox classes and three sandbox resource files. The rebuilt APK was byte-identical. |
+| Manifest | PASS | Package `com.cantos.theatre`, minSdk 23/targetSdk 35, one launcher `com.cantos.theatre.app.TheatreActivity`, no debuggable/test-only flag. The only permission is the androidx.core `com.cantos.theatre.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` signature permission; library components are Compose resources, AndroidX startup and profile installer. |
+| Gradle boundary sensitivity | PASS | A process-local ignored init script adding `:preview-sandbox` to the host makes `assertReleaseDependencyBoundary` fail for both release classpaths before compilation. No project file was edited. |
+| Artifact inspector sensitivity | PASS | With that injection and the boundary task explicitly excluded, the resulting APK/AAB (26,147 classes each) produce 272 findings and exit 1: all 69 inventory classes, sandbox R and resource-accessor classes, transitive `ui-tooling-preview`, the foreign Compose resource package and the three resource files in each artifact. Clean outputs were then rebuilt and reinspected. |
+| Inspector and policy unit tests | PASS | `scripts/test_inspect_android_release.py`: 11 tests on synthetic DEX/ZIP bytes and recorded aapt2 output in both formats, under Python 3.9.6 and 3.14. Eleven hand mutants of the inspector (referenced-type listing, ignored inventory/test namespaces/resource bytes/foreign package, any permission, debuggable, launcher, empty inventory, APK/AAB mismatch, required classes) are each killed. |
+| Host static contract | PASS | `scripts/test_theatre_android_production_host.py`: four manifest, theme-token, build and import tests. |
+| Architecture guard | PASS | 32 Theatre guard tests. The new host and lowercase-factory cases produce 13 failures against the previous checker, so they are not vacuous. |
+| xtask command | PASS | Unit tests cover exact Gradle tasks, inspector arguments, missing host/SDK/inventory refusal, missing tools and no inspection after a failed build. |
+| Shared presentation | PASS | `cargo xtask theatre-demo verify`: shared 125 and sandbox 213 desktop tests, zero failures/errors/skips. Two new tests check localized heading/body semantics, absence of shell/player/demo nodes, and a 16-capture layout matrix. |
+| Demo host | PASS | `cargo xtask theatre-demo android-build` still packages the demo debug APK. |
+| Android runtime (emulator) | PASS, bounded | A locally debug-key-signed copy of the inspected APK ran on the `Pixel_7` AVD: Android 17 (API 37) `sdk_gphone16k_arm64`, 1080×2400 at 420 dpi (411×914 dp). Observations covered cold launch without a crash, no `DEBUGGABLE` flag, English light, Vietnamese dark through per-app locale, Vietnamese at font scale 2.0 and landscape (914×411 dp). The app was then uninstalled and the emulator stopped. |
+| TalkBack, physical device, process death, launcher icon | NOT_RUN | No screen-reader walk, physical device, OS process kill or Home/drawer observation was performed. A connected physical phone was deliberately not used. |
+| Signed/shrunk production release, store distribution | NOT_RUN | No production signing, R8 configuration or distribution exists; these are separate #14 release decisions. |
+| iOS production host | NOT_RUN | #122 concerns Android APK/AAB; Kotlin/Native 2.2.20 is still absent (2.4.20 is installed), so iOS linking remains `UNSUPPORTED`. |
+
+The opened JVM captures are under ignored
+`artifacts/ui-evidence/issue122-production-host/jvm/` (light/dark, vi/en, 390×844, 320×568,
+844×390 and 320×568 at 2× text). Large text scrolls vertically without horizontal clipping;
+the logo is decorative and the title is a heading. The opened emulator captures are under
+`artifacts/ui-evidence/issue122-production-host/emulator/`:
+
+| Observation | Capture SHA-256 |
+| --- | --- |
+| English, light, 411×914 dp | `3a3fdfe7d81605a5c0e45833793d2bee33b4f27182d58fc47f27b6482964d7da` |
+| Vietnamese, dark, 411×914 dp | `e67f91e39554e84edf2260d459cb1817c9d7ca6f7f8d46dcdfc3a255e4527308` |
+| Vietnamese, light, font scale 2.0 | `35b41bdc3fadda96ccb125b8d7da02978b23d6852613f1e0ab1bb1b33cc3931d` |
+| Vietnamese, light, landscape 914×411 dp | `4521559c64bfbf68e51301ebe3bd221b9fd6e9b5f9df1e913acf5a19dad005ea` |
+
+UI Automator dumps beside them contain exactly the localized title and body text. Logs are under
+ignored `artifacts/agent-runs/issue122-production-host/`. Tools were existing installations:
+Gradle 8.14.3, Microsoft JDK 17.0.19, Android SDK platform 35/build-tools 35.0.0, emulator AVD
+`Pixel_7`, Rust 1.98.1 and Python 3.9.6. Nothing was installed or downloaded.
+
 ## Deferred acceptance and production impact
 
-- **#122 / production host owner:** adopt a real production host under #14, then add its exact
-  release command to xtask. Inspect that host's `releaseCompileClasspath` and
-  `releaseRuntimeClasspath`, build its actual release APK/AAB, and inspect DEX/classes, resources
-  and manifest for sandbox classes, fixtures, test libraries, controls and permissions. The host
-  and reproducible command are unavailable today; assignment is required before acceptance.
+- **#122 production release isolation:** accepted by the follow-up above for the unsigned,
+  unshrunk Android release of the production host. Rerun `cargo xtask theatre-host
+  android-release` whenever the host, `:shared` or their dependencies change. When #14 adds
+  production adapters, permissions, signing or R8, update the inspector allowlists deliberately.
 - **Native owner:** provide already installed Kotlin/Native 2.2.20 and usable Xcode simulator SDK,
   then run `cargo xtask theatre-demo ios-build --kotlin-native-home <installed-2.2.20>`; link success
   still requires separate Android/iOS launch/lifecycle/accessibility acceptance.
@@ -270,4 +352,5 @@ No schema/migration, Script IR/API DTO, publication/cache/audio revision, rights
 or provider cost changes. No new persistence, path provider, SQLite engine, filesystem or HTTP
 mock consumer is introduced; their traversal/isolation/crash gates remain with #16/#17 at adoption.
 [ADR 0026](../decisions/0026-theatre-mobile-local-storage-sandbox.md) remains proposed. Production
-native listening stays unsupported, and incomplete behavior remains outside production hosts.
+native listening stays unsupported: the production host states this explicitly rather than
+shipping incomplete behavior.
