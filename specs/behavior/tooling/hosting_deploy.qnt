@@ -6,6 +6,7 @@ module hosting_deploy {
   type Remote = NotStarted | Pending | Confirmed | Rejected | Unknown
   type Smoke = NotRun | Passed | Failed
   type Event = NoEvent | Assertion | Prepare | Intent | Fire | Finish | SmokeCheck | Persist
+  type Outcome = NoOutcome | Changed
   type State = {
     ready: bool, intent: bool, stopped: bool, attempts: int,
     remote: Remote, smoke: Smoke
@@ -17,9 +18,10 @@ module hosting_deploy {
   var state: State
   var before: State
   var last: Event
-  action init = all { state' = initial, before' = initial, last' = NoEvent }
+  var outcome: Outcome
+  action init = all { state' = initial, before' = initial, last' = NoEvent, outcome' = NoOutcome }
   action record(successor: State, event: Event): bool = all {
-    state' = successor, before' = state, last' = event
+    state' = successor, before' = state, last' = event, outcome' = Changed
   }
   action prepare(valid: bool): bool = all {
     state.attempts == 0 and not(state.stopped),

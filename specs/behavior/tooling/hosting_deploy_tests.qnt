@@ -1,7 +1,7 @@
 module hosting_deploy_tests {
   import hosting_deploy.* from "./hosting_deploy"
   action check(predicate: bool): bool = all {
-    assert(predicate), state' = state, before' = state, last' = Assertion
+    assert(predicate), state' = state, before' = state, last' = Assertion, outcome' = NoOutcome
   }
   run missingBundleTest = init.then(prepare(false))
     .then(check(state.stopped and state.attempts == 0 and state.remote == NotStarted))
