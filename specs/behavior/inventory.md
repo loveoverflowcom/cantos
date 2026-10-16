@@ -30,6 +30,23 @@ expiry, and stale plus revoked stays visibly stale. Never infer producer access 
 The independent explicit `transition(state, event)` matrix is retained in native tests;
 observing a later clock is not its explicit `Expire` event.
 
+## Draft: `cantos.media.public-playback-delivery` (#170)
+
+| Classification | Authority / fact | Model consequence |
+| --- | --- | --- |
+| Proposed, not accepted | [ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md#decision) recommends origin-mode Range delivery with sealed 120 s grants and per-fetch rechecks; [ADR 0028](../../docs/decisions/0028-publication-streaming-evidence-gates.md) keeps its evidence gates. | Lifecycle stays `draft`; a PASS is model-only and accepts nothing. |
+| Implemented, independently of this model | [Pure kernel](../../services/cantos-api/src/contexts/media/domain/playback_grant.rs) `grant_expiry`/`decide_media_fetch`; [application](../../services/cantos-api/src/contexts/media/listener_media.rs) admits before planning and again after object open; [authorization](../../services/cantos-api/src/contexts/media/listener_application.rs) re-resolves after sealing. Native example/property/tamper tests and the route mock integration stay authoritative for their boundaries. | `admit` and `issuedExpiry` mirror those seams; no Rust observer is registered (`--conformance` does not apply). |
+| Model assumption | One immutable publication (identity 1); another unit's release is identity 2. Time classes 0–6 with publishedAt=1, rightsUntil=5, TTL=2, including rollback. `authentic` abstracts the HMAC result; tokens, keys, URLs and bytes are not modeled. Eligibility loss (withdraw/revoke/supersede/owner disable) is one irreversible fact. | No hash, Range, header, SQL isolation, restart or concurrency claim; HTTP transport is native-tested. |
+| Model assumption | `Opening` is shell history between admission and the post-open recheck; `completeFetch` abstracts verified object bytes. | Covers withdrawal/expiry while the object opens; not lane bounds or body streaming. |
+
+## Draft: `cantos.media.public-cover-projection` (#171, proposal for #157)
+
+| Classification | Authority / fact | Model consequence |
+| --- | --- | --- |
+| Proposed, not accepted | [ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md#decision) recommends the release-pinned cover plus an explicit per-image disclosure; #157 has not accepted it. | `draft`; no wire field or delivery follows from a PASS. |
+| Implemented, independently of this model | [Pure kernel](../../services/cantos-api/src/contexts/media/domain/public_cover.rs) `project_public_cover`/`cover_outcome` over existing [artwork history](../../services/cantos-api/src/contexts/media/domain/artwork.rs) `artwork_at`. No production shell supplies a disclosure; it is always `Undecided`. | `effectiveAt`, `disclosure` and `coverView` mirror those seams; no observer is registered. |
+| Model assumption | Two synthetic images; asset binding is exact (binding/corruption partitions are native tests). Release eligibility is one flag; a publish pins the current head revision. Time classes 0–6. | No SQL, storage, wire, cache or client claim. |
+
 ## Deferred capabilities
 
 | Stable capability ID | Approved / implemented | Assumed / needs-decision | Why deferred |

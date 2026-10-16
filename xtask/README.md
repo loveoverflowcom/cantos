@@ -53,7 +53,7 @@ cargo xtask ui-preview cmp android-build             # compile the isolated Andr
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
-cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile]...
+cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
 cargo xtask ci [--job repository|rust|web|postgres] [--dry-run]
@@ -432,11 +432,14 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 
 ### Optional targeted Kani proofs
 
-`cargo xtask verify kani` selects exactly seven registered API-library propositions:
+`cargo xtask verify kani` selects exactly ten registered API-library propositions:
 `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`, `publication-commit`,
-`listener-access` and `listener-reconcile`. Repeat `--harness` to select a subset;
+`listener-access`, `listener-reconcile`, `byte-range`, `playback-grant` and `public-cover`.
+Repeat `--harness` to select a subset;
 unknown selectors and arbitrary verifier arguments are rejected. Registration owns the actual
-fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7) and reviewed unreachable checks.
+fully qualified harness names, unwind 2, expected covers (6/13/7/8/6/5/7/6/6/6) and reviewed unreachable checks.
+The last three were registered for #170/#171 without an actual Kani run (pinned x86_64 Linux
+model unavailable on the authoring host); see the [proof ledger](../docs/assurance/kani.md#public-media-kernels-registered-not-yet-run).
 The earlier [execution record](../docs/assurance/kani.md) describes their production reach and
 limits. The listener kernel checks actual keyset order/expiry; historical Web mock harnesses remain outside this registry.
 

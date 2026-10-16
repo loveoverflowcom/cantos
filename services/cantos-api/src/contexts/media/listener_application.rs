@@ -1,8 +1,11 @@
 //! Listener use cases: no Studio token, session cookie, editorial access or production work.
 use super::{
-    domain::listening::{after_work, DiscoveryQuery, ListenerDomainError},
+    domain::{
+        listening::{after_work, DiscoveryQuery, ListenerDomainError, ListenerPublication},
+        playback_grant::grant_expiry,
+    },
     listener_cursor::{CursorVault, Keyset},
-    listener_delivery::{PlaybackDelivery, PlaybackPermit, UnavailablePlayback},
+    listener_delivery::{OriginPlayback, PlaybackDelivery, PlaybackPermit, UnavailablePlayback},
     listener_projection::{publication_manifest, unit_summary, work_summary},
     postgres::listener::{PgRead, ReadItem},
 };
@@ -17,6 +20,11 @@ use std::{
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::sync::Semaphore;
+
+/// Concurrent origin-mode media responses per process, including open bodies. A proposed
+/// starting bound (ADR 0032), not a measured capacity; exhaustion is a retryable 503.
+const MEDIA_LANES: usize = 32;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListenerError {
     InvalidRequest,
@@ -92,6 +100,9 @@ pub struct ListenerService {
     read: Arc<dyn ListenerRead>,
     cursors: Arc<CursorVault>,
     delivery: Arc<dyn PlaybackDelivery>,
+    /// Present only when trusted composition enabled origin delivery (proposed ADR 0032).
+    pub(super) media: Option<OriginPlayback>,
+    pub(super) media_lanes: Arc<Semaphore>,
 }
 
 /// Named external-read double for the crate-root transport contract fixture only.
@@ -109,35 +120,52 @@ pub(crate) enum PlaybackFixtureEligibility {
 
 #[cfg(test)]
 impl ListenerService {
+    /// Production origin delivery and media route over a named eligibility read double.
     pub(crate) fn playback_contract_fixture(
-        delivery: Arc<dyn PlaybackDelivery>,
+        origin: OriginPlayback,
         sha256: String,
         byte_length: u64,
         eligibility: Arc<std::sync::Mutex<PlaybackFixtureEligibility>>,
         now: Arc<std::sync::atomic::AtomicI64>,
+        media_lanes: usize,
     ) -> Self {
-        Self {
-            read: Arc::new(tests::FixtureRead {
+        let mut service = Self::from_parts(
+            Arc::new(tests::FixtureRead {
                 sha256,
                 byte_length,
                 eligibility,
                 now,
             }),
-            cursors: Arc::new(CursorVault::default()),
-            delivery,
-        }
+            Arc::new(UnavailablePlayback),
+        )
+        .with_origin_playback(origin);
+        service.media_lanes = Arc::new(Semaphore::new(media_lanes));
+        service
     }
 }
 impl ListenerService {
     pub fn new(store: Store) -> Self {
+        Self::from_parts(Arc::new(PgRead(store)), Arc::new(UnavailablePlayback))
+    }
+    fn from_parts(read: Arc<dyn ListenerRead>, delivery: Arc<dyn PlaybackDelivery>) -> Self {
         Self {
-            read: Arc::new(PgRead(store)),
+            read,
             cursors: Arc::new(CursorVault::default()),
-            delivery: Arc::new(UnavailablePlayback),
+            delivery,
+            media: None,
+            media_lanes: Arc::new(Semaphore::new(MEDIA_LANES)),
         }
     }
+    /// A grant-only adapter. It enables no Theatre media route.
     pub fn with_playback_delivery(mut self, delivery: Arc<dyn PlaybackDelivery>) -> Self {
         self.delivery = delivery;
+        self.media = None;
+        self
+    }
+    /// Proposed ADR 0032 mode A: the same value issues grants and serves the media route.
+    pub fn with_origin_playback(mut self, origin: OriginPlayback) -> Self {
+        self.delivery = Arc::new(origin.clone());
+        self.media = Some(origin);
         self
     }
     pub async fn works(
@@ -244,22 +272,29 @@ impl ListenerService {
             next_cursor,
         })
     }
-    async fn resolve(&self, publication: &str) -> Result<(ReadItem, i64), ListenerError> {
+    /// One fresh read: the current eligible publication, if any, and the read's clock.
+    pub(super) async fn current(
+        &self,
+        publication: &str,
+    ) -> Result<(Option<ReadItem>, i64), ListenerError> {
         let snapshot = self
             .read
             .read(ReadRequest::Publication {
                 id: id(publication)?,
             })
             .await?;
-        let p = snapshot
-            .items
-            .into_iter()
-            .next()
-            .ok_or(ListenerError::NotFound)?;
-        if p.publication.release().document().id != publication {
+        let item = snapshot.items.into_iter().next();
+        if item
+            .as_ref()
+            .is_some_and(|p| p.publication.release().document().id != publication)
+        {
             return Err(ListenerError::Corrupt);
         }
-        Ok((p, snapshot.now))
+        Ok((item, snapshot.now))
+    }
+    async fn resolve(&self, publication: &str) -> Result<(ReadItem, i64), ListenerError> {
+        let (item, now) = self.current(publication).await?;
+        Ok((item.ok_or(ListenerError::NotFound)?, now))
     }
     pub async fn manifest(
         &self,
@@ -275,19 +310,9 @@ impl ListenerService {
         let (initial, now) = self.resolve(publication).await?;
         let d = initial.publication.release().document();
         let m = &d.manifest;
-        let until = now
-            .checked_add(120_000)
-            .ok_or(ListenerError::Corrupt)?
-            .min(m.distribution_clearance.request.valid_until);
-        let permit = PlaybackPermit {
-            publication_id: d.id.clone(),
-            rendition_id: m.rendition_id.clone(),
-            manifest_digest: m.digest.clone(),
-            sha256: m.media.sha256.clone(),
-            object_id: m.delivery_object_id.clone(),
-            byte_length: m.media.byte_length,
-            valid_until: until,
-        };
+        let until = grant_expiry(now, m.distribution_clearance.request.valid_until)
+            .ok_or(ListenerError::RenditionUnavailable)?;
+        let permit = permit_for(&initial.publication, until);
         let grant = self.delivery.grant(permit.clone()).await?;
         // Re-read from a fresh PG transaction after external signing. A stale snapshot cannot grant.
         let (fresh, fresh_now) = self.resolve(publication).await?;
@@ -308,6 +333,20 @@ impl ListenerService {
             content_type: "audio/ogg".into(),
             byte_range_supported: true,
         })
+    }
+}
+/// The sealed public-only permit for an eligible publication and one access window.
+pub(super) fn permit_for(publication: &ListenerPublication, valid_until: i64) -> PlaybackPermit {
+    let d = publication.release().document();
+    let m = &d.manifest;
+    PlaybackPermit {
+        publication_id: d.id.clone(),
+        rendition_id: m.rendition_id.clone(),
+        manifest_digest: m.digest.clone(),
+        sha256: m.media.sha256.clone(),
+        object_id: m.delivery_object_id.clone(),
+        byte_length: m.media.byte_length,
+        valid_until,
     }
 }
 #[cfg(test)]
@@ -386,14 +425,19 @@ pub(super) mod tests {
         pub(super) now: Arc<std::sync::atomic::AtomicI64>,
     }
     impl ListenerRead for FixtureRead {
-        fn read(&self, _request: ReadRequest) -> ReadFuture {
+        fn read(&self, request: ReadRequest) -> ReadFuture {
             let now = self.now.load(std::sync::atomic::Ordering::SeqCst);
+            // Like the SQL reader, an unknown publication ID resolves to nothing.
             let item = item_with_media(
                 &self.sha256,
                 self.byte_length,
                 *self.eligibility.lock().unwrap(),
                 now,
-            );
+            )
+            .filter(|item| match &request {
+                ReadRequest::Publication { id } => *id == item.publication.release().document().id,
+                _ => true,
+            });
             Box::pin(async move {
                 Ok(ReadSnapshot {
                     now,
@@ -436,11 +480,7 @@ pub(super) mod tests {
         }
     }
     fn service(sequence: Vec<bool>, delivery: Arc<dyn PlaybackDelivery>) -> ListenerService {
-        ListenerService {
-            read: Arc::new(SequencedRead(Mutex::new(sequence))),
-            cursors: Arc::new(CursorVault::default()),
-            delivery,
-        }
+        ListenerService::from_parts(Arc::new(SequencedRead(Mutex::new(sequence))), delivery)
     }
     const ID: &str = "80000000-0000-4000-8000-000000000008";
     #[tokio::test]
@@ -540,11 +580,8 @@ pub(super) mod tests {
     }
     #[tokio::test]
     async fn discovery_projects_resolved_publications_with_listing_anchors() {
-        let s = ListenerService {
-            read: Arc::new(AnchoredRead(9)),
-            cursors: Arc::new(CursorVault::default()),
-            delivery: Arc::new(UnavailablePlayback),
-        };
+        let s =
+            ListenerService::from_parts(Arc::new(AnchoredRead(9)), Arc::new(UnavailablePlayback));
         let work_id = item().publication.work().id().as_str().to_owned();
         let page = s
             .works("ÁNH ĐÈN", Some("podcast"), Some("vi-VN"), 20, None)
@@ -622,11 +659,7 @@ pub(super) mod tests {
                 remaining_visible,
                 requests: Mutex::new(vec![]),
             });
-            let s = ListenerService {
-                read: read.clone(),
-                cursors: Arc::new(CursorVault::default()),
-                delivery: Arc::new(UnavailablePlayback),
-            };
+            let s = ListenerService::from_parts(read.clone(), Arc::new(UnavailablePlayback));
             let work = item().publication.work().id().as_str().to_owned();
             let first = s.units(&work, 1, None).await.unwrap();
             assert_eq!(first.work_id, work);

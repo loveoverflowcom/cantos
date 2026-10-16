@@ -3,6 +3,11 @@
 **Prototype against contract fixtures — not public delivery acceptance.** Part of
 [#120](https://github.com/loveoverflowcom/cantos/issues/120), retaining #10/#11/#13/#14 ownership.
 
+> **Superseded fixture (2026-10-16, #170):** the test-only `fixture_bytes` handler described below
+> was replaced by the production `/theatre/media/{grant}` route and `OriginPlayback`; see the
+> [public media core ledger](public-media-delivery-core.md). The transport kernel and its
+> Studio consumer are unchanged. This record remains the historical evidence of that draft.
+
 ## Review boundary and provenance
 
 Base: `develop` at `1c1d2107f1ca1aacac8c66b7b418c1070b35160c`, tree

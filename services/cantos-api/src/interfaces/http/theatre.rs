@@ -1,9 +1,10 @@
 //! Public anonymous Theatre reads and playback authorization. No Studio session/cookie reuse.
-use super::AppState;
+use super::{audio_transport, AppState};
 use crate::contexts::media::{ListenerError, ListenerService};
 use axum::{
-    extract::{DefaultBodyLimit, Extension, Path, Query},
-    http::StatusCode,
+    body::Body,
+    extract::{rejection::PathRejection, DefaultBodyLimit, Extension, Path, Query},
+    http::{HeaderMap, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -21,6 +22,7 @@ pub(super) fn routes() -> Router<AppState> {
             "/publications/{publication}/playback-authorizations",
             post(playback),
         )
+        .route("/media/{grant}", get(media))
         .fallback(theatre_not_found)
         .layer(DefaultBodyLimit::max(32 * 1024))
 }
@@ -33,6 +35,7 @@ pub(super) fn playback_contract_routes() -> Router {
             "/publications/{publication}/playback-authorizations",
             post(playback),
         )
+        .route("/media/{grant}", get(media))
 }
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -153,6 +156,71 @@ async fn playback(
     match service.authorize_playback(&id).await {
         Ok(v) => Json(v).into_response(),
         Err(e) => error(e),
+    }
+}
+/// Origin-mode bytes (proposed ADR 0032). GET and HEAD share one path; every request is
+/// re-admitted against current eligibility, and every response is private/no-store.
+async fn media(
+    Extension(service): Extension<ListenerService>,
+    grant: Result<Path<String>, PathRejection>,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
+    let mut response = match grant {
+        Ok(Path(grant)) => media_response(&service, &grant, &method, &headers).await,
+        Err(_) => error(ListenerError::NotFound),
+    };
+    if method == Method::HEAD {
+        *response.body_mut() = Body::empty();
+    }
+    audio_transport::private_response(response)
+}
+async fn media_response(
+    service: &ListenerService,
+    grant: &str,
+    method: &Method,
+    headers: &HeaderMap,
+) -> Response {
+    let lane = match service.media_lane() {
+        Ok(lane) => lane,
+        Err(e) => return error(e),
+    };
+    let authorized = match service.authorize_media(grant).await {
+        Ok(authorized) => authorized,
+        Err(e) => return error(e),
+    };
+    let plan = match audio_transport::plan(
+        headers,
+        method,
+        authorized.sha256(),
+        authorized.byte_length(),
+    ) {
+        Ok(plan) => plan,
+        Err(e) => return error(transport_error(e)),
+    };
+    if !plan.requires_storage() {
+        let rejection = error(ListenerError::InvalidRequest);
+        return audio_transport::metadata_response(plan, method, lane, rejection)
+            .unwrap_or_else(|e| error(transport_error(e)));
+    }
+    let stored = match service.open_media(&authorized, plan.range()).await {
+        Ok(stored) => stored,
+        Err(e) => return error(e),
+    };
+    audio_transport::response(stored, plan, method, lane)
+        .unwrap_or_else(|e| error(transport_error(e)))
+}
+fn transport_error(e: audio_transport::AudioTransportError) -> ListenerError {
+    use audio_transport::AudioTransportError;
+    match e {
+        AudioTransportError::MalformedRange
+        | AudioTransportError::MalformedIfRange
+        | AudioTransportError::MalformedIfMatch
+        | AudioTransportError::MalformedIfNoneMatch
+        | AudioTransportError::UnsupportedMethod => ListenerError::InvalidRequest,
+        AudioTransportError::InvalidRepresentation
+        | AudioTransportError::InconsistentPlan
+        | AudioTransportError::DeclaredLengthMismatch => ListenerError::Corrupt,
     }
 }
 async fn theatre_not_found() -> Response {
