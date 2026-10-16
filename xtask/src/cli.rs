@@ -189,6 +189,8 @@ pub enum VerifySuite {
     Repository,
     /// rustfmt, clippy -D warnings and tests for the whole Cargo workspace.
     Rust,
+    /// Forge Rust lint/tests and offline Firebase Functions wrapper tests (Node 22+).
+    Forge,
     /// WASM clippy and Trunk builds for Studio and Theatre Web.
     Web,
     /// Script IR goldens, wire/media contract tests, WAV oracle and actual Opus intake inspection.
@@ -411,6 +413,7 @@ mod tests {
         for (line, suite) in [
             ("verify repository", VerifySuite::Repository),
             ("verify rust", VerifySuite::Rust),
+            ("verify forge", VerifySuite::Forge),
             ("verify web", VerifySuite::Web),
             ("verify contracts", VerifySuite::Contracts),
             ("verify mutation", VerifySuite::Mutation),

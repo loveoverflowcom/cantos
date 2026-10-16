@@ -57,10 +57,10 @@ Cantos implements Script IR validation, authenticated PostgreSQL revisions and t
 Studio; inspect [the API service guide](../../services/cantos-api/README.md) and the current
 [contracts](../../packages/contracts/README.md) and code. The layout is `apps/cantos-theatre/{web,mobile}` (Theatre) and
 `apps/cantos-studio/web` (Studio), the authoritative modular backend in `services/cantos-api`,
-current Forge code in `apps/cantos-forge`, Kanidm configuration in `services/kanidm` and shared
+current Forge code in `services/cantos-forge-functions`, Kanidm configuration in `services/kanidm` and shared
 `packages/`. Deployment/runtime assets live under [`infra/`](../../infra/README.md); `xtask/`
-owns command orchestration, not those assets. The #212 split adds no runtime; #203 owns any
-future Forge service-location move and concrete Functions consumer. Read the
+owns command orchestration, not those assets. The #212 split adds no runtime; #203 relocates the existing Forge crate without changing its
+`cantos-forge` package/CLI identity. Functions hosting and live-provider acceptance are separate. Read the
 [platform matrix](../../docs/architecture/repository-layout.md#platform-scope) before choosing consumers.
 Studio is web-only: do not implement, scaffold, build or maintain Studio Mobile unless explicitly
 requested in a future roadmap. Theatre Web has anonymous live discovery/account reads and
@@ -69,6 +69,9 @@ and unavailable production Android host; native audio, downloads and durable syn
 Backend listener contracts exist; real client/provider acceptance stays separate.
 Studio Mobile is out of scope / not implemented and is only a policy notice. Shared libraries may
 serve Theatre Mobile and Studio Web.
+Forge adds local artifact commands, attempt/recovery core, local durable attempt adapter and
+finite Rust/Node worker boundary; real provider/Functions/Drive execution and API handoff remain
+absent. See the [worker acceptance boundary](../../docs/deployment/forge-worker.md).
 Bounded manuscript import, caller-hosted adaptation tooling (Cantos performs no inference),
 casting with frozen guidance; obsolete local/Google TTS probe CLIs are removed; optional MessagePack
 representation for four Studio routes are implemented. Production native listening

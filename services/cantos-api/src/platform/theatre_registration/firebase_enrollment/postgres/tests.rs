@@ -527,6 +527,101 @@ async fn action_expiry_is_rechecked_after_waiting_for_the_enrollment_lock() {
 
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL; no live provider or mail"]
+async fn expiry_during_receipt_writes_rolls_back_every_fresh_effect_fence() {
+    let h = Harness::new().await;
+    for (previous, next) in [
+        ("ready", "send_started"),
+        ("send_started", "mail_started"),
+        ("mail_started", "awaiting_action"),
+        ("inspecting", "consuming"),
+        ("consuming", "creating"),
+        ("consuming", "cancelled"),
+        ("created", "setup_started"),
+        ("setup_started", "handed_off"),
+    ] {
+        // Every fixture follows the real SQL phase graph. Send phases need a fresh
+        // initial row because AwaitingAction cannot move backwards.
+        let enrollment = if matches!(previous, "ready" | "send_started" | "mail_started") {
+            let enrollment = candidate(&format!("early-receipt-{next}@example.test"));
+            h.admin.execute(
+                "WITH clock AS MATERIALIZED(SELECT clock_timestamp() AS now) INSERT INTO theatre_firebase_enrollments(namespace,id,project,uid,email,email_key,accepted_at,expires_at,last_sent_at,phase) SELECT $1,$2::text::uuid,$3,$4,$5,$6,clock.now,clock.now+interval '2 seconds',clock.now,'bootstrap_started' FROM clock",
+                &[&NAMESPACE, &enrollment.id().to_string(), &PROJECT, &enrollment.uid(), &enrollment.registration().email().as_str(), &enrollment.registration().email().canonical_key()],
+            ).await.unwrap();
+            for phase in ["ready", "send_started", "mail_started"] {
+                h.admin.execute(
+                    "UPDATE theatre_firebase_enrollments SET phase=$3 WHERE namespace=$1 AND id=$2::text::uuid",
+                    &[&NAMESPACE, &enrollment.id().to_string(), &phase],
+                ).await.unwrap();
+                if phase == previous {
+                    break;
+                }
+            }
+            enrollment
+        } else {
+            let enrollment = h
+                .seed_awaiting(&format!("receipt-{next}@example.test"), 2000)
+                .await;
+            let id = enrollment.id();
+            assert!(h.repository.claim_action(id).await.unwrap().is_some());
+            if previous != "inspecting" {
+                assert!(h.repository.begin_consume(id).await.unwrap());
+            }
+            if matches!(previous, "created" | "setup_started") {
+                assert!(h.repository.begin_create(id).await.unwrap());
+                let person = CreatedPerson::confirmed(id, id).unwrap();
+                assert!(h.repository.created(id, person).await.unwrap());
+            }
+            if previous == "setup_started" {
+                assert!(h.repository.begin_setup(id).await.unwrap());
+            }
+            enrollment
+        };
+        let id = enrollment.id();
+        let before: i64 = h.admin.query_one(
+            "SELECT count(*) FROM theatre_firebase_enrollment_receipts WHERE namespace=$1 AND enrollment_id=$2::text::uuid",
+            &[&NAMESPACE, &id.to_string()],
+        ).await.unwrap().get(0);
+        let mut locker = connect(&h.config).await;
+        let lock = locker.transaction().await.unwrap();
+        lock.batch_execute(
+            "LOCK TABLE theatre_firebase_enrollment_receipts IN ACCESS EXCLUSIVE MODE",
+        )
+        .await
+        .unwrap();
+        let repository = h.repository.clone();
+        let transition =
+            tokio::spawn(async move { repository.advance(id, previous, next, true).await });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let waiting: bool = h.admin.query_one(
+                    "SELECT EXISTS(SELECT 1 FROM pg_stat_activity a JOIN pg_locks l ON l.pid=a.pid WHERE a.datname=current_database() AND a.usename='cantos_app' AND a.wait_event_type='Lock' AND NOT l.granted AND l.relation='theatre_firebase_enrollment_receipts'::regclass)",
+                    &[],
+                ).await.unwrap().get(0);
+                if waiting { break; }
+                tokio::task::yield_now().await;
+            }
+        }).await.unwrap();
+        assert!(h.admin.query_one(
+            "SELECT expires_at>clock_timestamp() FROM theatre_firebase_enrollments WHERE namespace=$1 AND id=$2::text::uuid",
+            &[&NAMESPACE, &id.to_string()],
+        ).await.unwrap().get::<_, bool>(0), "{previous} -> {next} reached receipt wait while fresh");
+        h.wait_until_expired(id).await;
+        lock.commit().await.unwrap();
+        assert!(!transition.await.unwrap().unwrap(), "{previous} -> {next}");
+        assert_eq!(h.phase(enrollment.id()).await, previous);
+        let after: i64 = h.admin.query_one(
+            "SELECT count(*) FROM theatre_firebase_enrollment_receipts WHERE namespace=$1 AND enrollment_id=$2::text::uuid",
+            &[&NAMESPACE, &id.to_string()],
+        ).await.unwrap().get(0);
+        assert_eq!(
+            after, before,
+            "an expired effect cannot leave a transition receipt"
+        );
+    }
+}
+
+#[tokio::test]
+#[ignore = "xtask disposable PostgreSQL; no live provider or mail"]
 async fn interrupted_bootstrap_send_and_blocked_outcomes_never_gain_an_automatic_retry() {
     let h = Harness::new().await;
     let bootstrap = bootstrap(

@@ -20,7 +20,7 @@ use crate::{
 pub enum BuildTarget {
     /// The Axum/PostgreSQL backend and its CLIs (`services/cantos-api`).
     CantosApi,
-    /// Cantos Forge, the producer-side CLI (`apps/cantos-forge`); runs outside the API.
+    /// Cantos Forge, the producer-side CLI (`services/cantos-forge-functions`); runs outside the API.
     CantosForge,
     /// Cantos Studio, the creator product (`apps/cantos-studio`).
     CantosStudio,

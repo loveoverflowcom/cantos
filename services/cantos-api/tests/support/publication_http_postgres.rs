@@ -58,33 +58,8 @@ impl PublishedFixture {
         let rendition = upload(a.h.app.clone(), id, UPLOAD, bytes)
             .await
             .success(StatusCode::OK);
-        for kind in ["qc", "rights", "editorial"] {
-            a.h.json(
-                "POST",
-                &format!("{}/{id}/reviews", a.path()),
-                Some(ALICE),
-                Some(review_request(&rendition, kind, "approved")),
-            )
-            .await
-            .success(StatusCode::CREATED);
-        }
-        let candidate =
-            a.h.json(
-                "POST",
-                &format!("{}/{id}/release-candidates", a.path()),
-                Some(ALICE),
-                Some(json!({"operation_id":operation(),"rendition_digest":rendition["digest"]})),
-            )
-            .await
-            .success(StatusCode::CREATED)["candidate"]
-                .clone();
-        let base = format!(
-            "/content-units/{}/release-candidates/{}",
-            a.unit,
-            candidate["id"].as_str().unwrap()
-        );
-        let clearance=a.h.json("POST",&format!("{base}/distribution-rights"),Some(ALICE),Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"decision":"cleared","rights_refs":["catalog-rights"],"valid_until":now(&a.h).await+3_600_000,"evidence_refs":["catalog-rights"],"notes":"Named synthetic owner's distribution decision; no legal proof claim."}))).await.success(StatusCode::CREATED);
-        let approval=a.h.json("POST",&format!("{base}/publication-approvals"),Some(ALICE),Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"clearance_digest":clearance["digest"],"decision":"approved","notes":"Approve exact synthetic candidate, measured envelope and fixture-only QC."}))).await.success(StatusCode::CREATED);
+        let (candidate, clearance, approval) =
+            approve_candidate(&a.h, &a.unit, id, &rendition, now(&a.h).await + 3_600_000).await;
         Self {
             a,
             submission,
@@ -109,6 +84,45 @@ impl PublishedFixture {
         serde_json::from_str(&text).unwrap()
     }
 }
+// Shared by single-release regressions and same-database catalog walks. Every record below
+// passes the actual Studio HTTP boundary; only the public-delivery observer is a named fake.
+async fn approve_candidate(
+    h: &Harness,
+    unit: &str,
+    submission: &str,
+    rendition: &Value,
+    valid_until: i64,
+) -> (Value, Value, Value) {
+    let path = format!("/content-units/{unit}/audio-submissions/{submission}");
+    for kind in ["qc", "rights", "editorial"] {
+        h.json(
+            "POST",
+            &format!("{path}/reviews"),
+            Some(ALICE),
+            Some(review_request(rendition, kind, "approved")),
+        )
+        .await
+        .success(StatusCode::CREATED);
+    }
+    let candidate = h
+        .json(
+            "POST",
+            &format!("{path}/release-candidates"),
+            Some(ALICE),
+            Some(json!({"operation_id":operation(),"rendition_digest":rendition["digest"]})),
+        )
+        .await
+        .success(StatusCode::CREATED)["candidate"]
+        .clone();
+    let base = format!(
+        "/content-units/{unit}/release-candidates/{}",
+        candidate["id"].as_str().unwrap()
+    );
+    let clearance = h.json("POST", &format!("{base}/distribution-rights"), Some(ALICE), Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"decision":"cleared","rights_refs":["catalog-rights"],"valid_until":valid_until,"evidence_refs":["catalog-rights"],"notes":"Named synthetic owner's distribution decision; no legal proof claim."}))).await.success(StatusCode::CREATED);
+    let approval = h.json("POST", &format!("{base}/publication-approvals"), Some(ALICE), Some(json!({"operation_id":operation(),"candidate_digest":candidate["digest"],"clearance_digest":clearance["digest"],"decision":"approved","notes":"Approve exact synthetic candidate, measured envelope and fixture-only QC."}))).await.success(StatusCode::CREATED);
+    (candidate, clearance, approval)
+}
+
 #[tokio::test]
 #[ignore = "disposable PostgreSQL and trusted media tools required"]
 async fn publication_flow_replays_restarts_and_republishes_immutable_history() {
@@ -902,3 +916,6 @@ impl PublishedFixture {
         self.a.h.json("POST",&format!("/content-units/{}/publication/withdraw",self.a.unit),Some(ALICE),Some(json!({"operation_id":operation(),"release_id":release,"expected_pointer_version":version,"reason":"Synthetic listener regression"}))).await.success(StatusCode::OK)
     }
 }
+
+#[path = "theatre_catalog_walk_http_postgres.rs"]
+mod theatre_catalog_walk_http;

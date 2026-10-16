@@ -17,7 +17,7 @@ Older TTS experiments and job migrations are historical evidence, **not current 
 | --- | --- | --- |
 | Cantos Studio | Manage work/series, chapter/episode, script (optional), audio, briefs, submissions, approvals and publication | Leptos Web only |
 | Cantos API | Authorized catalog, immutable content/brief revisions, signed external-audio intake, metadata, checks and release authority | Rust + Axum + PostgreSQL |
-| Cantos Forge | Local artifact/register/validate/export foundation; planned shared local/Functions producer controlled by Studio, with private Drive drafts | Rust producer outside the API runtime; Functions/Drive/provider execution not implemented |
+| Cantos Forge | Local artifact/register/validate/export, attempt/recovery core and local durable attempt adapter, finite Rust worker and Node process boundary; planned Studio-controlled execution with private Drive app-data drafts | Rust producer outside the API runtime; HTTP fails closed, Functions/Drive/provider execution not implemented |
 | External AI agents / plugins | Fetch instructions, perform TTS/recording/editing/mixing/encoding, run production-side QC, upload deliverables | Outside Cantos API; independently operated |
 | Cantos Theatre | Discover and listen to immutable published releases; resume, native background listening and offline use | Leptos Web and Compose Multiplatform mobile |
 
@@ -89,7 +89,7 @@ sessions; live-provider/production and separate Theatre/Admin identity remain ga
 See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](docs/evidence/studio-oidc.md).
 
 - `apps/cantos-studio/web`: creator Web UI; Studio Mobile is out of scope.
-- `apps/cantos-forge`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow. The owner-selected Studio-controlled local/Functions and private Drive draft execution remains #203 implementation work; this build makes no provider call or API submission.
+- `services/cantos-forge-functions`: producer-side library/CLI ([ADR 0022](docs/decisions/0022-cantos-forge-producer-cli.md)); today a host-assisted local artifact/check/export workflow, attempt/recovery core, local attempt persistence and finite Rust/Node worker boundary. The owner-selected Studio-controlled local/Functions and private Drive app-data execution remains #203 implementation work; this build makes no provider call or API submission.
 - `apps/cantos-theatre/web`: anonymous live discovery, separate listener account boundary and explicit session-only previews; `apps/cantos-theatre/mobile`: production-safe `shared` plus isolated `preview-sandbox` CMP demo; native listening planned.
 - `services/cantos-api`: authoritative modular metadata/rights/revision/production-planning backend, Studio catalog API and pure media inspection; this does not forbid separately owned processes.
 - `services/manifest.toml`: typed process inventory; [services](services/README.md) defines Podman-first ownership.
@@ -97,7 +97,7 @@ See [registry evidence](docs/evidence/identity-registry.md) and [OIDC evidence](
 - `services/kanidm`: operator-owned identity configuration; Studio OIDC is implemented in the API, live acceptance pending.
 - `infra/firebase/hosting`: tracked Firebase Hosting policy for the explicit, manual `cargo xtask deploy firebase` of one static Web app ([runbook](docs/deployment/firebase-hosting.md)); live deployment acceptance pending, the API is not served.
 - `infra/edge`: operator-owned public edge and DNS updater assets, separate from application code and the `xtask` command surface.
-- `infra/`: [deployment/runtime assets](infra/README.md), not application domain logic; no Functions runtime is scaffolded here. Forge remains at `apps/cantos-forge`; #203 owns its future service-location move and concrete Functions adapter.
+- `infra/`: [deployment/runtime assets](infra/README.md), not application domain logic; the Forge implementation lives separately at `services/cantos-forge-functions`. Moving source does not establish Functions hosting or live-provider acceptance.
 - `packages/contracts`: versioned Script IR, Catalog/Content/Brief, private Audio Lifecycle and Publication/Discovery/Library contracts; public delivery acceptance remains deferred.
 - `.agents/skills`: portable external-producer and editorial instruction skills.
 - `docs/`: [documentation map](docs/README.md), current owners and explicit ADR lifecycle; [active queue](docs/work-plan/README.md), source-bound evidence and historical archive have separate roles.

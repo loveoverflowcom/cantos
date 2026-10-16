@@ -48,7 +48,7 @@ impl Package {
     pub fn manifest(self) -> &'static str {
         match self {
             Self::Api => "services/cantos-api/Cargo.toml",
-            Self::Forge => "apps/cantos-forge/Cargo.toml",
+            Self::Forge => "services/cantos-forge-functions/Cargo.toml",
         }
     }
 
@@ -162,7 +162,7 @@ impl Kernel {
                 "services/cantos-api/src/contexts/media/domain/playback_grant.rs"
             }
             Self::PublicCover => "services/cantos-api/src/contexts/media/domain/public_cover.rs",
-            Self::ForgeAttemptLedger => "apps/cantos-forge/src/domain/attempt.rs",
+            Self::ForgeAttemptLedger => "services/cantos-forge-functions/src/domain/attempt.rs",
         }
     }
 
@@ -282,8 +282,8 @@ pub fn affected(changed: Option<&[String]>, uncertain: bool) -> Vec<Kernel> {
             selected.extend(Kernel::in_package(Package::Api));
         }
         if path == Package::Forge.manifest()
-            || path == "apps/cantos-forge/src/lib.rs"
-            || path.starts_with("apps/cantos-forge/src/domain/")
+            || path == "services/cantos-forge-functions/src/lib.rs"
+            || path.starts_with("services/cantos-forge-functions/src/domain/")
         {
             selected.extend(Kernel::in_package(Package::Forge));
         }
@@ -827,7 +827,10 @@ mod tests {
             assert_eq!(Package::from_name(name), None, "{name:?}");
         }
         assert_eq!(Package::Api.manifest(), "services/cantos-api/Cargo.toml");
-        assert_eq!(Package::Forge.manifest(), "apps/cantos-forge/Cargo.toml");
+        assert_eq!(
+            Package::Forge.manifest(),
+            "services/cantos-forge-functions/Cargo.toml"
+        );
     }
 
     #[test]
@@ -866,7 +869,10 @@ mod tests {
             kernel.harness(),
             "domain::attempt::kani_proofs::attempt_ledger_traces_never_overspend_or_blindly_retry"
         );
-        assert_eq!(kernel.source(), "apps/cantos-forge/src/domain/attempt.rs");
+        assert_eq!(
+            kernel.source(),
+            "services/cantos-forge-functions/src/domain/attempt.rs"
+        );
         assert_eq!(kernel.covers(), 9);
         assert!(kernel.unreachable().is_empty());
         assert_eq!(Kernel::ALL.len(), 11);
@@ -937,8 +943,8 @@ mod tests {
         let api = configuration_candidates(root, Some(home), Package::Api);
         let forge = configuration_candidates(root, Some(home), Package::Forge);
         assert!(api.contains(&root.join("services/cantos-api/Cargo.toml")));
-        assert!(!api.contains(&root.join("apps/cantos-forge/Cargo.toml")));
-        assert!(forge.contains(&root.join("apps/cantos-forge/Cargo.toml")));
+        assert!(!api.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
+        assert!(forge.contains(&root.join("services/cantos-forge-functions/Cargo.toml")));
         assert!(!forge.contains(&root.join("services/cantos-api/Cargo.toml")));
         for candidates in [&api, &forge] {
             assert!(candidates.contains(&root.join("Cargo.toml")));
@@ -954,7 +960,7 @@ mod tests {
         };
         assert_eq!(
             shared(&api, "services/cantos-api/Cargo.toml"),
-            shared(&forge, "apps/cantos-forge/Cargo.toml")
+            shared(&forge, "services/cantos-forge-functions/Cargo.toml")
         );
     }
 
@@ -997,10 +1003,10 @@ mod tests {
             api[&key("services/cantos-api/Cargo.toml")],
             digest("services/cantos-api/Cargo.toml")
         );
-        assert!(!api.contains_key(&key("apps/cantos-forge/Cargo.toml")));
+        assert!(!api.contains_key(&key("services/cantos-forge-functions/Cargo.toml")));
         assert_eq!(
-            forge[&key("apps/cantos-forge/Cargo.toml")],
-            digest("apps/cantos-forge/Cargo.toml")
+            forge[&key("services/cantos-forge-functions/Cargo.toml")],
+            digest("services/cantos-forge-functions/Cargo.toml")
         );
         assert!(!forge.contains_key(&key("services/cantos-api/Cargo.toml")));
     }
@@ -1009,21 +1015,21 @@ mod tests {
     fn forge_selection_is_package_local_in_both_directions() {
         let forge = [Kernel::ForgeAttemptLedger];
         for path in [
-            "apps/cantos-forge/src/domain/attempt.rs",
-            "apps/cantos-forge/src/domain/mod.rs",
-            "apps/cantos-forge/src/domain/digest.rs",
-            "apps/cantos-forge/Cargo.toml",
-            "apps/cantos-forge/src/lib.rs",
+            "services/cantos-forge-functions/src/domain/attempt.rs",
+            "services/cantos-forge-functions/src/domain/mod.rs",
+            "services/cantos-forge-functions/src/domain/digest.rs",
+            "services/cantos-forge-functions/Cargo.toml",
+            "services/cantos-forge-functions/src/lib.rs",
         ] {
             assert_eq!(pick(&[path], false), forge, "{path}");
         }
         // Forge code that no registered proof reaches, and unrelated trees, select nothing.
         for path in [
-            "apps/cantos-forge/src/application/mod.rs",
-            "apps/cantos-forge/src/main.rs",
-            "apps/cantos-forge/tests/cli.rs",
-            "apps/cantos-forge/README.md",
-            "apps/cantos-forge/src/domainx/attempt.rs",
+            "services/cantos-forge-functions/src/application/mod.rs",
+            "services/cantos-forge-functions/src/main.rs",
+            "services/cantos-forge-functions/tests/cli.rs",
+            "services/cantos-forge-functions/README.md",
+            "services/cantos-forge-functions/src/domainx/attempt.rs",
         ] {
             assert_eq!(pick(&[path], false), [], "{path}");
         }
@@ -1033,7 +1039,10 @@ mod tests {
         }
         assert_eq!(pick(&["Cargo.lock"], true), Kernel::ALL);
         assert_eq!(
-            pick(&["apps/cantos-forge/src/domain/attempt.rs"], true),
+            pick(
+                &["services/cantos-forge-functions/src/domain/attempt.rs"],
+                true
+            ),
             Kernel::ALL
         );
         // No API path selects the Forge kernel, and no Forge path selects an API kernel.
@@ -1062,7 +1071,7 @@ mod tests {
         assert_eq!(pick(&api_paths, false).last(), Some(&Kernel::PublicCover));
         let mixed = pick(
             &[
-                "apps/cantos-forge/src/domain/attempt.rs",
+                "services/cantos-forge-functions/src/domain/attempt.rs",
                 Kernel::ImageBounds.source(),
             ],
             false,

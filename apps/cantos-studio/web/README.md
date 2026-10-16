@@ -20,6 +20,13 @@ evidence are separately recorded in the
 
 ## Build and run
 
+The owner-selected Forge workspace is a future section of this app, backed by a separately
+configured producer client; it is not implemented by the relocated producer/worker foundation.
+See [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md) and the
+[worker acceptance boundary](../../../docs/deployment/forge-worker.md). Forge downtime must
+not disable existing content/manual-audio workflows. No browser-held provider/OAuth secret,
+automatic draft ingestion or publication is permitted.
+
 Requires Rust 1.98.1, `wasm32-unknown-unknown`, Trunk 0.21.14 and matching wasm-bindgen 0.2.100.
 From the repository root:
 

@@ -386,8 +386,11 @@ Run the smallest check that settles a finding or a disposition. Never call a pai
 to real storage, dispatch jobs, publish, install toolchains or dispatch or re-run remote CI.
 Record every check with its exact command, directory, revision plus dirty state, toolchain
 version, output location and result: `passed | failed | blocked | not-run | unavailable |
-zero-selected`. Only `passed` is a pass. Today the runnable checks are the repository checks;
-they prove document and skill hygiene, nothing about an application.
+zero-selected`. Only `passed` is a pass. Discover the applicable implemented gates in
+[`cargo xtask`](../../../../xtask/README.md); tool availability and executed scope remain
+separate. Repository checks prove document and skill hygiene, nothing about an application;
+Rust, contracts, behavior, Web, PostgreSQL and optional targeted proof checks have their own
+boundaries and prerequisites.
 
 ## 11. Freshness and adversarial re-check
 

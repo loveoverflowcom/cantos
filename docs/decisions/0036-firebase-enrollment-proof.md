@@ -129,4 +129,4 @@ not activation instructions. The registered registration Quint model remains dra
 abstract proof epochs prove neither Firebase binding nor implementation conformance.
 
 The recorded user decision accepts the code direction; neither a test nor a PR merge accepts live activation. Keep the mode disabled while effective bootstrap, exclusive project/UID binding, action ingress or protected delivery has no live evidence. Do not silently switch issuers, hide SMTP behind Firebase or close
-#174/#191 from this prototype.
+#174/#191 from this code/test slice.

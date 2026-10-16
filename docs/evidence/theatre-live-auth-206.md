@@ -57,7 +57,7 @@ served Trunk.
 | Resend (same UID), second mail, immediate Cantos confirm | PASS | inspect → consume → positive Kanidm create → intent → phase `handed_off`; setup link shown once in the confirming tab |
 | Credentials via the setup link (password + TOTP), then real OIDC login as that person | PASS | a new actor distinct from the pre-created one; session 200 after reload; Studio 401, Admin 404; sign-out → 401 with provider revocation completed |
 | Replay of the consumed code | PASS | `{"status":"unavailable"}`; phase unchanged; no second person |
-| API library tests / Clippy / fmt | 629 PASS (94 ignored) / PASS / PASS | `cargo test --offline --locked -p cantos-api --lib`, `cargo clippy --offline --locked -p cantos-api --all-targets -- -D warnings`, `cargo fmt --all -- --check` |
+| API library tests / Clippy / fmt | 629 PASS (99 ignored) / PASS / PASS | `cargo test --offline --locked -p cantos-api --lib`, `cargo clippy --offline --locked -p cantos-api --all-targets -- -D warnings`, `cargo fmt --all -- --check` |
 | xtask config tests | PASS (21) | `cargo test --offline --locked -p xtask config::tests` |
 
 Two of the three budgeted mails were sent. The Firebase user `cantos_<operation>` (email verified) and

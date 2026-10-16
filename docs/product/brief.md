@@ -40,7 +40,7 @@ published releases.
 | Theatre Web/CMP | Discover and play eligible immutable releases, with native mobile playback and later background/offline/sync acceptance |
 
 For Forge, the owner chose local CLI plus Firebase Functions over the **same Rust application
-core**, with no separate Forge GUI. Private personal Google Drive is the remote draft workspace
+core**, with no separate Forge GUI. Private personal Google Drive `appDataFolder` is the primary remote draft workspace
 for applicable source/script/index/state/audio-preview artifacts; deliberate offline local work
 uses filesystem. Drive success is neither API admission nor publication. Firebase Hosting serves
 static Web assets; it is distinct from Forge Functions and the VPS API.
@@ -79,7 +79,7 @@ separate from current deployment acceptance.
 | Publication/listener backend | Release core, anonymous Discovery and account-owned Library/Progress exist. Origin delivery has a composition-gated core; real public delivery/activation remains unaccepted |
 | Theatre clients | Web has live anonymous discovery/account reads and explicit mocks; CMP has isolated previews, production-safe shared code and an unavailable production host. Native audio/background/offline/full sync remain unfinished |
 | Identity | Studio/Theatre/Admin adapters and Theatre registration state exist; real issuer/login/signup activation remains under #174/#191. Firebase email proof (#206) is not an activated replacement |
-| Forge | Local artifact/register/validate/export CLI exists. Provider execution, Functions, Drive adapter, recovery and API submission remain planned under #203 |
+| Forge | Local artifact/register/validate/export CLI, attempt/recovery core, local durable attempt adapter and finite Rust/Node worker boundary exist. Real provider execution, deployed Functions, Drive adapter, cross-runtime fencing, Studio controls and API submission remain planned under #203 |
 | Deployment | Manual Firebase Hosting and demo distribution tooling exist; deployed-origin/tester acceptance is separate. No Functions deployment is implied |
 
 Use [current priorities](../work-plan/current-priorities.md) and linked issues for the next

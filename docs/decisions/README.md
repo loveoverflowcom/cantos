@@ -30,7 +30,7 @@ instruction to restore runtime behavior. Evidence proves only its named inputs/e
 | [0019 — Content identity](0019-content-identity.md) | Accepted bounded implementation | Separate metadata/content authority and exact immutable bindings |
 | [0020 — Private audio intake](0020-studio-private-audio-intake.md) | Accepted development scope | Explicit Opus envelopes; production/listening acceptance separate |
 | [0021 — Podman services](0021-podman-service-runtime.md) | Accepted; tooling/config implemented | Live infrastructure and provider acceptance separate |
-| [0022 — Cantos Forge](0022-cantos-forge-producer-cli.md) | Accepted owner direction | Local foundation exists; Studio-controlled local/Functions + private Drive draft execution pending |
+| [0022 — Cantos Forge](0022-cantos-forge-producer-cli.md) | Accepted owner direction | Relocated local CLI, attempt core/store and finite worker boundary exist; Studio-controlled local/Functions + private Drive app-data execution pending |
 | [0023 — Protobuf wire](0023-versioned-protobuf-wire.md) | Implemented opt-in pilot | JSON default; activation/full #97 acceptance deferred |
 | [0024 — Studio OIDC](0024-studio-oidc-bff.md) | Proposed production adoption; implemented slice | Live issuer/admission acceptance separate |
 | [0025 — Actor identity root](0025-actor-identity-root.md) | Proposed; listener slice implemented | Studio migration slices pending |

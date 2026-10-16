@@ -66,10 +66,13 @@ separate task through [`cantos-work-item`](../cantos-work-item/SKILL.md) or the 
 
 ## Repository reality
 
-Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, the Leptos
-Studio, a session-only Theatre Web mock, `cargo xtask` and Python oracles. Theatre Mobile has an
-isolated memory-only Gradle CMP mock, Android/iOS hosts and common/desktop tests; no native audio,
-listener API, downloads or durable sync. Host tests/linking are not device verification.
+Cantos has a Rust backend (Axum, PostgreSQL), the shared `cantos-contracts` crate, Leptos
+Studio, Theatre Web live discovery/account/readonly Library boundaries plus explicit session-only
+mocks, `cargo xtask` and Python oracles. Forge has local artifact commands and a library-only
+attempt/recovery core with a mock provider; real provider/Functions/Drive execution remains absent.
+Theatre Mobile has a production-safe shared core, isolated Gradle CMP demo, unavailable production
+Android host and common/JVM listener transport seam; native audio, live client integration,
+downloads and durable sync remain absent. Host tests/linking are not device verification.
 Studio is web-only. Flag Studio Mobile scaffolds or build/test/preview
 targets against the [platform matrix](../../../docs/architecture/repository-layout.md#platform-scope). Discover manifests and runners before saying a check exists,
 could run or ran ([local-execution](../cantos-engineering/references/local-execution.md)). Review
