@@ -98,6 +98,12 @@ pub fn normalize_search(value: &str) -> String {
 pub fn after_work(time: i64, id: u128, after_time: i64, after_id: u128) -> bool {
     time < after_time || (time == after_time && id > after_id)
 }
+/// Units ordering kernel, shared by the guard over reader rows and its proof. Ascending listing
+/// position, then ascending immutable numeric UUID. For canonical lower-case UUID text this is
+/// the SQL `COLLATE "C"` byte order of `unit_id`, so the guard and the query agree.
+pub fn after_unit(position: u32, id: u128, after_position: u32, after_id: u128) -> bool {
+    position > after_position || (position == after_position && id > after_id)
+}
 pub fn access_window_valid(published: i64, expires: i64, now: i64) -> bool {
     published >= 0 && published <= now && now < expires
 }
@@ -486,6 +492,22 @@ mod tests {
     }
 
     #[test]
+    fn unit_keyset_direction_matches_ascending_position_and_ascending_identity_at_extremes() {
+        for (position, id, anchor_position, anchor_id, expected) in [
+            (u32::MAX, 0, 0, u128::MAX, true),
+            (0, u128::MAX, u32::MAX, 0, false),
+            (0, u128::MAX, 0, 0, true),
+            (0, 0, 0, u128::MAX, false),
+            (u32::MAX, u128::MAX, u32::MAX, u128::MAX, false),
+        ] {
+            assert_eq!(
+                after_unit(position, id, anchor_position, anchor_id),
+                expected
+            );
+        }
+    }
+
+    #[test]
     fn immutable_anchor_prevents_replacement_duplicates_and_deletion_skips() {
         let initial = [(30, 1), (30, 2), (20, 3), (10, 4)];
         let first = &initial[..2];
@@ -500,7 +522,12 @@ mod tests {
     }
     proptest! {
       #[test] fn keyset_is_strict_total_order(t in 0i64..i64::MAX,i in any::<u128>(),u in 0i64..i64::MAX,j in any::<u128>()){prop_assert!(!after_work(t,i,t,i));if (t,i)!=(u,j){prop_assert_ne!(after_work(t,i,u,j),after_work(u,j,t,i));}}
-        #[test] fn stable_work_anchors_page_once_under_insert_delete_and_rendition_replacement(data in prop::collection::vec((0i64..20,any::<bool>()),1..80),limit in 1usize..10){
+        #[test] fn unit_keyset_is_strict_total_order(p in 0u32..3,i in any::<u128>(),q in 0u32..3,j in any::<u128>()){prop_assert!(!after_unit(p,i,p,i));if (p,i)!=(q,j){prop_assert_ne!(after_unit(p,i,q,j),after_unit(q,j,p,i));}}
+      #[test] fn unit_keyset_matches_sql_c_collation_of_canonical_uuid_text(p in 0u32..3,i in any::<u128>(),q in 0u32..3,j in any::<u128>()){
+            let (a,b)=(uuid::Uuid::from_u128(i).to_string(),uuid::Uuid::from_u128(j).to_string());
+            prop_assert_eq!(after_unit(p,i,q,j),(p,a.as_bytes())>(q,b.as_bytes()));
+        }
+      #[test] fn stable_work_anchors_page_once_under_insert_delete_and_rendition_replacement(data in prop::collection::vec((0i64..20,any::<bool>()),1..80),limit in 1usize..10){
             let original:Vec<_>=data.iter().enumerate().map(|(i,(t,stable))|(*t,i as u128,*stable)).collect();
             let stable:std::collections::BTreeSet<_>=original.iter().filter(|v|v.2).map(|v|v.1).collect();
             let mut anchor=None;let mut seen=Vec::new();let mut step=0;
