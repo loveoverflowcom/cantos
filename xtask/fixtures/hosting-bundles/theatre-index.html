@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi-VN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cantos</title>
+  <link rel="stylesheet" href="/tokens-3708958437b0fef6.css" integrity="sha384-kcQubNPpqEBsf6Tve5PZadXJczRAT06mhVNe8h/uUT0kMdizsaAV0Ad6ecj95SMK"/>
+  <link rel="stylesheet" href="/foundation-951b963d9814b6c.css" integrity="sha384-CdOoByNKh7fvRQA6w17/Lkh4B0/B8JkVNBF7IwYTjLcSLWSdPWj1tujY/F2E7oFR"/>
+  <link rel="stylesheet" href="/theatre-ca2c9510ca313bc0.css" integrity="sha384-5R0AdCVlxkJC0DkKq9TVYWedcbe+TYSjsju9z/yZYVzWuPI8pfySvU3f4Jaabw3q"/>
+  
+  
+<script type="module">
+import init, * as bindings from '/cantos-theatre-a34b29a2a671bedf.js';
+const wasm = await init({ module_or_path: '/cantos-theatre-a34b29a2a671bedf_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/cantos-theatre-a34b29a2a671bedf.js" crossorigin="anonymous" integrity="sha384-qdOE1gMqfJq1B5eF8ANyO5Gs5CbO6RjqYlBlMyP/FEgzQlbCtSjp9vHOHlWOyBpn"><link rel="preload" href="/cantos-theatre-a34b29a2a671bedf_bg.wasm" crossorigin="anonymous" integrity="sha384-bL0XAnOnspICsp3H5o3LLcUbfpaAUqOFnviSfluo8PXaYb7mqxzns6B0A9/tVGCm" as="fetch" type="application/wasm"></head>
+<body></body>
+</html>

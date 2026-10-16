@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "result": {
+    "sites": [
+      {
+        "name": "projects/000000000000/sites/example-theatre",
+        "defaultUrl": "https://example-theatre.web.app",
+        "type": "DEFAULT_SITE",
+        "labels": {}
+      },
+      {
+        "name": "projects/000000000000/sites/example-studio",
+        "defaultUrl": "https://example-studio.web.app",
+        "type": "USER_SITE",
+        "labels": {}
+      }
+    ]
+  }
+}

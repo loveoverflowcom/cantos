@@ -16,6 +16,11 @@ Theatre and Studio share no cookie, permission or UI. The API enforces the
 [surface boundaries](../../docs/decisions/0015-api-surface-boundaries.md) per route group; the edge
 forwards `/api/*` unchanged and adds no authorization.
 
+A static-only alternative for **previews** is Firebase Hosting, deployed by the explicit, manual
+`cargo xtask deploy firebase` ([runbook](../../docs/deployment/firebase-hosting.md)). It serves no
+API, does not replace this same-origin edge for authenticated production, and changes nothing here
+until a separately reviewed origin and authentication cutover exists.
+
 **The API is not deployed.** `cantos-server` supports `CANTOS_ENV=development`, a loopback bind and
 local PostgreSQL only ([Studio OIDC boundary](../../docs/architecture/studio-oidc.md)). Every `/api/*`
 route therefore answers `503 {"error":"api_unavailable"}` because nothing owns the network alias

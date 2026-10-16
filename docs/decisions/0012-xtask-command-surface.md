@@ -68,6 +68,11 @@ The authoritative contract is [`xtask/README.md`](../../xtask/README.md).
   for preflight and, when required, placed in a CI job.
 - Deferred questions: mobile build/run once a Gradle project exists; Kanidm integration; release
   and deployment commands; whether `mutation` should join CI.
+- Amendment (2026-10-16): two explicit, opt-in remote-write commands now exist and stay outside every
+  gate, preflight selection and CI job: `distribute firebase` (demo APK to App Distribution testers,
+  #184) and `deploy firebase` (one static Web bundle to Firebase Hosting, #199;
+  [runbook](../deployment/firebase-hosting.md)). Production release/image commands and any
+  automatic or CI-triggered deployment remain deferred.
 
 ## Validation and revisit conditions
 

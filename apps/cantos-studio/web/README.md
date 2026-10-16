@@ -28,7 +28,13 @@ rustup target add wasm32-unknown-unknown --toolchain 1.98.1
 cargo xtask build cantos-studio --web   # NO_COLOR=true trunk build --locked in this directory
 cargo xtask verify web                  # WASM clippy plus Trunk builds of Studio and Theatre
 cargo xtask web-performance cantos-studio # release asset hashes and offline compression sizes
+cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dry-run # plan a Hosting deploy
 ```
+
+The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
+([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves no API, so Studio shows its
+unavailable states there and sign-in is not established. Never upload private Studio content to a
+preview, which is public.
 
 Trunk fetches its matching wasm-bindgen helper on its first build. An offline build requires
 that helper on `PATH` as well as the Cargo cache; the Mac run used

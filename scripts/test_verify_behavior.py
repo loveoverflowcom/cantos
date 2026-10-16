@@ -37,11 +37,12 @@ class BehaviorContracts(unittest.TestCase):
 
     def test_current_catalog_executable_capabilities_and_all_controls(self):
         selected = behavior.load_catalog(behavior.ROOT)
-        # The pilot plus two draft public-media models (#170/#171); counts pin the selection.
+        # Explicit capability counts pin the reviewed selection and each sensitivity control set.
         expected = {
             self.cap["id"]: (19, 7, 11),
             "cantos.media.public-playback-delivery": (12, 5, 10),
             "cantos.media.public-cover-projection": (10, 5, 8),
+            "cantos.tooling.hosting-deploy": (6, 3, 3),
         }
         self.assertEqual([cap["id"] for cap in selected], list(expected))
         for cap in selected:

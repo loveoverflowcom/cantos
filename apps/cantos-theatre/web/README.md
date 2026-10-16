@@ -10,6 +10,11 @@ The [library MVP record](../../../docs/evidence/theatre-web-library-mvp.md) scop
 [#35](https://github.com/loveoverflowcom/cantos/issues/35) follow-up to this Web mock; CMP and
 acceptance against real listener data remain separate.
 
+A static release bundle of this app can be published to Firebase Hosting with the explicit, manual
+`cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
+([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves no API, so sign-in,
+catalog and playback on that origin are not established; the API-origin gate is separate.
+
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library
 reactive projections. Deterministic work counters and bundle bytes are separate from browser

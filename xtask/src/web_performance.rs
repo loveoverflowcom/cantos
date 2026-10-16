@@ -69,17 +69,7 @@ fn plan(workspace: &Workspace, args: &WebPerformanceArgs, output: &std::path::Pa
     let mut release = build::step(workspace, Unit::Web(app), Profile::Release, false);
     // Command-owned fresh output prevents an inherited/configured dist from making a
     // successful build inventory an older bundle. Target/config remain the app's own.
-    release.commands[0] = release.commands[0].clone().args([
-        "--config".to_owned(),
-        workspace
-            .path(app.web_dir())
-            .join("Trunk.toml")
-            .display()
-            .to_string(),
-        "--dist".to_owned(),
-        output.join("dist").display().to_string(),
-        "index.html".to_owned(),
-    ]);
+    release.commands[0] = build::release_bundle(workspace, app, &output.join("dist"));
     vec![
         Step::new(
             "capture Web build provenance",
