@@ -38,7 +38,7 @@ REQUIRED = (
     "docs/architecture/repository-layout.md",
     "docs/decisions/0009-monorepo-layout.md",
     "apps/README.md",
-    "apps/cantos-forge/README.md",
+    "services/cantos-forge-functions/README.md",
     "apps/cantos-theatre/web/README.md",
     "apps/cantos-theatre/mobile/README.md",
     "apps/cantos-studio/web/README.md",

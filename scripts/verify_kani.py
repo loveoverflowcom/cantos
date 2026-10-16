@@ -39,9 +39,9 @@ PACKAGES = {
          "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
     "cantos-forge": (
-        "apps/cantos-forge/Cargo.toml",
-        ("apps/cantos-forge/src", ".cargo"),
-        ("Cargo.toml", "apps/cantos-forge/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
+        "services/cantos-forge-functions/Cargo.toml",
+        ("services/cantos-forge-functions/src", ".cargo"),
+        ("Cargo.toml", "services/cantos-forge-functions/Cargo.toml", "scripts/verify_kani.py", "xtask/src/kani.rs"),
     ),
 }
 FORBIDDEN_ENVIRONMENT = frozenset((

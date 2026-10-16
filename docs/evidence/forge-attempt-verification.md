@@ -9,7 +9,7 @@ This records what was and was not verified for the first slice of
 Kani kernel and mock-provider tests for **when a billable provider call may start**. It adds no
 real provider, persistent attempt store, CLI command, Studio control, authorization or Firebase
 hosting, and it claims no deployed or live behavior. Rules and layout:
-[Forge README](../../apps/cantos-forge/README.md#generation-attempts).
+[Forge README](../../services/cantos-forge-functions/README.md#generation-attempts).
 
 ## Invariant and owners
 
@@ -22,9 +22,9 @@ attempt, inside the operator's attempt and spend limits.
 | Owner | Role |
 | --- | --- |
 | [`specs/behavior/production/forge_attempt.qnt`](../../specs/behavior/production/forge_attempt.qnt), catalog capability `cantos.production.forge-attempt` (draft) | expected behavior: 7 properties, 12 named runs, 9 witnesses, 7 negative controls |
-| [`domain/attempt.rs`](../../apps/cantos-forge/src/domain/attempt.rs), [`domain/generation.rs`](../../apps/cantos-forge/src/domain/generation.rs) | pure decisions, the `Ledger` integer kernel, the request fingerprint |
-| [`application/produce.rs`](../../apps/cantos-forge/src/application/produce.rs) | reserve, then call once, then record, over the `AttemptStore` and `Provider` ports |
-| [`adapters/mock_provider.rs`](../../apps/cantos-forge/src/adapters/mock_provider.rs) | deterministic, scriptable, no network, no spend |
+| [`domain/attempt.rs`](../../services/cantos-forge-functions/src/domain/attempt.rs), [`domain/generation.rs`](../../services/cantos-forge-functions/src/domain/generation.rs) | pure decisions, the `Ledger` integer kernel, the request fingerprint |
+| [`application/produce.rs`](../../services/cantos-forge-functions/src/application/produce.rs) | reserve, then call once, then record, over the `AttemptStore` and `Provider` ports |
+| [`adapters/mock_provider.rs`](../../services/cantos-forge-functions/src/adapters/mock_provider.rs) | deterministic, scriptable, no network, no spend |
 | Kani kernel `forge-attempt-ledger` ([ledger](../assurance/kani.md#forge-attempt-ledger-kernel-203)) | bounded proof of the kernel |
 
 ## Evidence ledger

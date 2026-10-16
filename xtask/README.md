@@ -15,7 +15,7 @@ The decision is recorded in [ADR 0012](../docs/decisions/0012-xtask-command-surf
 
 | Layer | Owns |
 | --- | --- |
-| Cargo, rustup, Trunk, Python 3, Git, PostgreSQL binaries | Primitive tool execution |
+| Cargo, rustup, Trunk, Python 3, Node.js, Git, PostgreSQL binaries | Primitive tool execution |
 | `scripts/*.py` | Repository checks, independent oracles, the mutation runner, the disposable PostgreSQL runner and its retained-fixture API host. Their logic is reused, not rewritten |
 | `cargo xtask` | Targets, profiles, surfaces, gate catalog, prerequisite checks, changed-path selection, process supervision and the CI job contract |
 | GitHub Actions | Runner lifecycle and environment: the pinned toolchain, Trunk, PostgreSQL 17 binaries. Each job then calls `cargo xtask ci --job <job>` |
@@ -53,7 +53,7 @@ cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
 cargo xtask theatre-host android-release             # production host release APK/AAB + boundary inspection
 
-cargo xtask verify repository|rust|web|contracts|mutation|dbsp
+cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
@@ -85,7 +85,9 @@ cargo xtask visual-compare --spike-pairs JSON [--python PATH]
 
 `cantos-api` is the Axum/PostgreSQL backend. `cantos-forge` is the producer-side CLI
 ([ADR 0022](../docs/decisions/0022-cantos-forge-producer-cli.md)); it takes no surface flag and
-xtask only builds it: no `run`, gate or CI job executes Forge, and Forge calls no provider.
+xtask builds its binaries and `verify forge` checks its Rust package and offline Functions
+wrapper. Ordinary gates use fixtures and injected doubles; they never call a live provider or
+deploy a Function. No `run` command starts Forge.
 `cantos-studio` (creators) is web-only: pass
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
@@ -322,6 +324,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `script-ir-reference` | `scripts/reference_script_ir.py` (independent Python c1 oracle) | python3 |
 | `rust-lint` | `cargo clippy <workspace or -p …> --all-targets --locked -- -D warnings` | clippy |
 | `rust-tests` | `cargo test <workspace or -p …> --locked` | cargo |
+| `forge-functions` | `cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target`, then `node --test test/boundary.test.mjs test/native-worker.test.mjs` in `services/cantos-forge-functions/firebase` | cargo, installed stable Node.js 22+ |
 | `dbsp` | `cargo clippy -p cantos-api --features dbsp-experimental --all-targets --locked -- -D warnings`; `cargo test -p cantos-api --features dbsp-experimental --locked` | clippy |
 | `contract-tests` | `cargo test -p cantos-contracts`; `cantos-api` Script IR, Studio/import/production/audio-intake wire, JSON/MessagePack wire, diff, CLI admission, WAV and ordinary audio-intake test targets | cargo |
 | `wav-reference` | `cargo build -p cantos-api --bin inspect-wav`; `scripts/reference_wav_inspection.py` | cargo, python3 |
@@ -340,6 +343,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `repository` | repository |
 | `behavior` | behavior (locked model tool, named runs/properties/witnesses/controls; optional pure-core conformance) |
 | `rust` | rust-format, rust-lint (workspace), rust-tests (workspace) |
+| `forge` | rust-lint (cantos-forge), rust-tests (cantos-forge), forge-functions |
 | `web` | web-lint, web-build for Studio and Theatre, ui-preview |
 | `contracts` | script-ir-reference, protobuf-reference, contract-tests, wav-reference, audio-inspection |
 | `mutation` | mutation |
@@ -350,6 +354,18 @@ same catalog in [`gate.rs`](src/gate.rs).
 The mutation and PostgreSQL runners use `cargo --offline`; run `cargo fetch --locked` once on a
 new machine. On macOS setups affected by `/var` versus `/private/var`, prefix Python-heavy runs
 with `TMPDIR=/private/tmp`.
+
+`verify forge` is a focused checkpoint for the relocated producer service. The Node gate first
+builds the native Rust worker into the repository's explicit `target` directory (independent of
+inherited `CARGO_TARGET_DIR`), then uses the built-in runner with explicit test entrypoints for
+the isolated boundary and actual Node-to-Rust child transport. Missing test files fail instead
+of silently passing with no tests. The test binary path is derived from the test file's
+repository location; requests and environment cannot override it. The tests require no npm
+installation, Firebase CLI, credential, live provider, network or deployed service. Missing
+Cargo/Node or an older/prerelease Node version is
+`UNSUPPORTED` before any selected command executes. Local stable Node 22+ is sufficient for
+these wrapper tests; their result does not qualify the separately selected hosted Node 22
+runtime. This prerequisite is independent of the exact Node/npm pins for Quint.
 
 The `audio-inspection` gate explicitly runs the ignored real-media tests that ordinary
 `cargo test` skips. Tests encode owned synthetic signals into temporary files at runtime,
@@ -412,6 +428,8 @@ Selection ([`preflight/select.rs`](src/preflight/select.rs)) is pure and conserv
   select both local CMP gates directly because Kotlin is not a Cargo workspace member. Renderer documentation alone remains
   a document, and a Leptos-only change does not require Gradle.
   An affected `cantos-api` selects `dbsp`, `wav-reference`, `audio-inspection` and `postgres`.
+- Non-document inputs beneath `services/cantos-forge-functions` select its Rust lint/tests and
+  `forge-functions`; they do not select the API, database or Web clients.
 - Protobuf schema, fixtures, Rust adapters and oracle inputs select `protobuf-reference`; schema/fixture/adapter changes also select `theatre-cmp-demo` so both languages consume the independent corpus. The oracle has its own pinned lock and vendored protoc; runtime/WASM builds never run protoc.
 - Script IR fixtures select `script-ir-reference`; Script IR sources and tests select `mutation`.
 - Non-document `specs/behavior`, `tools/behavior` and `scripts/verify_behavior.py` inputs select
@@ -458,7 +476,7 @@ process. See the [observation protocol](../specs/behavior/observation-protocol.m
 kernels: `catalog-revision`, `image-bounds`, `wav-payload`, `submission-window`,
 `publication-commit`, `listener-access`, `listener-reconcile`, `byte-range`, `playback-grant`
 and `public-cover`. One is in the `cantos-forge` package: `forge-attempt-ledger`
-(`apps/cantos-forge/src/domain/attempt.rs`). Every kernel names exactly one workspace package
+(`services/cantos-forge-functions/src/domain/attempt.rs`). Every kernel names exactly one workspace package
 (the closed allowlist is `cantos-api` and `cantos-forge`) and passes it to the primitive as
 `--package`; the primitive refuses any other name, and an absent value means `cantos-api`.
 Repeat `--harness` to select a subset;
@@ -481,7 +499,7 @@ This is separate from normal builds, `verify rust`, full preflight and every CI 
 `preflight --kani` adds the registered gates; `--changed-only --kani` narrows to affected kernels.
 Kernel source/owner inputs select their propositions. Selection is package-local: API
 manifest/build/contract inputs select only the ten API kernels, and a changed
-`apps/cantos-forge/src/domain/**`, `apps/cantos-forge/src/lib.rs` or `apps/cantos-forge/Cargo.toml`
+`services/cantos-forge-functions/src/domain/**`, `services/cantos-forge-functions/src/lib.rs` or `services/cantos-forge-functions/Cargo.toml`
 selects only `forge-attempt-ledger`. The primitive and its tests, shared Cargo/toolchain/
 verification and uncertain changes select all eleven. Unrelated documents, Web/CMP, other Forge
 modules and service configuration select none and print a no-affected-kernel note.
@@ -508,7 +526,7 @@ additional Python 3.11/TOML parser is required. Rust uses the already locked TOM
 It hashes the exact bytes it approves and binds existing and absent root/ancestor/Cargo-home
 configuration candidates to each proof command. The required manifests are the workspace
 manifest and the owning package's manifest only (`services/cantos-api/Cargo.toml` or
-`apps/cantos-forge/Cargo.toml`); Rust computes one snapshot per package and the primitive
+`services/cantos-forge-functions/Cargo.toml`); Rust computes one snapshot per package and the primitive
 re-derives the identical set from the same package name, so an approval for one package is
 never accepted for the other. The primitive refuses stale approval before
 proof execution and rechecks the complete candidate set on every outcome.
@@ -532,7 +550,7 @@ revision and sanitized dirty/diff hashes, source/configuration identities, the p
 before/after lock and model digests. Model binding for an API kernel covers all API source,
 contracts API source/schema inputs, their manifests/build scripts, root Cargo/.cargo settings and
 the primitive/registry, including created/deleted files. For the Forge kernel it covers all
-`apps/cantos-forge/src` files, the Forge manifest, root Cargo/.cargo settings and the
+`services/cantos-forge-functions/src` files, the Forge manifest, root Cargo/.cargo settings and the
 primitive/registry, and no API or contracts source (the Forge manifest depends only on external
 crates), also including created/deleted files. Relevant ancestor/Cargo-home configuration is
 also bound. These endpoint
@@ -547,7 +565,7 @@ output before making a `bounded-model-checked` claim; ordinary adapter tests do 
 | Job | Gates |
 | --- | --- |
 | `repository` | repository, script-ir-reference |
-| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), dbsp, wav-reference, audio-inspection |
+| `rust` | rust-format, protobuf-reference, rust-lint (workspace), rust-tests (workspace), forge-functions, dbsp, wav-reference, audio-inspection |
 | `web` | web-lint, web-build (Studio and Theatre) |
 | `postgres` | `cargo fetch --locked`, then postgres |
 
@@ -559,6 +577,8 @@ runs in CI except `mutation`, `cmp-ui-preview` and `theatre-cmp-demo`. Mutation 
 a local `ui-preview cmp verify` / preflight gate until a separately provisioned Gradle CI lane is
 added. Existing `verify web` and the Web CI job never require the Kotlin toolchain. Branch
 protection and required checks are configured outside this repository.
+The Rust CI job also provisions Node 22 through a SHA-pinned `actions/setup-node` with package
+manager caching disabled, then runs the same offline wrapper gate. xtask itself installs nothing.
 
 ### doctor
 

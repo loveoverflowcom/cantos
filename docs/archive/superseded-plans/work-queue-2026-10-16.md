@@ -408,7 +408,7 @@ DBSP job views are historical experiments, not prerequisites for the new roadmap
 
 [Issue #82](https://github.com/loveoverflowcom/cantos/issues/82) and the proposed
 [ADR 0022](../../decisions/0022-cantos-forge-producer-cli.md) add a producer-side CLI outside the
-API runtime. Its [foundation](../../../apps/cantos-forge/README.md) holds the crate, xtask build, the
+API runtime. Its [foundation](../../../services/cantos-forge-functions/README.md) holds the crate, xtask build, the
 tested pure core and a host-assisted local workflow (workspace, register, validate, export a
 local bundle). Recommended next: instruction bundles and AI/human review evidence commands, then
 provider orchestration and the authorized handoff as separate boundaries. None of this changes the

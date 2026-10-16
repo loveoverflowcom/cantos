@@ -145,7 +145,7 @@ pub mod testing {
         };
         PackageGraph {
             packages: vec![
-                package("cantos-forge", "apps/cantos-forge", &[]),
+                package("cantos-forge", "services/cantos-forge-functions", &[]),
                 package(
                     "cantos-studio",
                     "apps/cantos-studio/web",
@@ -270,8 +270,8 @@ mod tests {
         assert_eq!(
             inward_violations(&graph),
             [
-                "cantos-forge (apps/cantos-forge) -> cantos-api (services/cantos-api)",
-                "cantos-forge (apps/cantos-forge) -> cantos-studio (apps/cantos-studio/web)",
+                "cantos-forge (services/cantos-forge-functions) -> cantos-api (services/cantos-api)",
+                "cantos-forge (services/cantos-forge-functions) -> cantos-studio (apps/cantos-studio/web)",
                 "cantos-contracts (packages/contracts/api) -> cantos-api (services/cantos-api)",
                 "cantos-api (services/cantos-api) -> cantos-studio (apps/cantos-studio/web)",
                 "cantos-ui (packages/ui-system/leptos) -> xtask (xtask)",

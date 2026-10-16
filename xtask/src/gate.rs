@@ -11,7 +11,7 @@ use crate::{
     build::{self, Profile},
     cli::{PostgresScope, VerifySuite},
     command::CommandSpec,
-    config::{App, API_PACKAGE, DBSP_FEATURE, UI_PACKAGE, WASM_TARGET},
+    config::{App, API_PACKAGE, DBSP_FEATURE, FORGE_PACKAGE, UI_PACKAGE, WASM_TARGET},
     kani::{self, Kernel},
     pipeline::Step,
     theatre_demo,
@@ -30,6 +30,7 @@ pub enum GateKind {
     ProtobufReference,
     RustLint,
     RustTests,
+    ForgeFunctions,
     Dbsp,
     ContractTests,
     WavReference,
@@ -82,6 +83,8 @@ pub enum Gate {
     ProtobufReference,
     RustLint(Scope),
     RustTests(Scope),
+    /// Offline Node wrapper tests; mocks own every external identity/provider/storage port.
+    ForgeFunctions,
     /// The API built with its experimental DBSP incremental core: lint and every non-ignored test,
     /// so the feature's added dependency features cannot silently change existing behavior.
     Dbsp,
@@ -132,6 +135,7 @@ impl Gate {
             Gate::ProtobufReference => GateKind::ProtobufReference,
             Gate::RustLint(_) => GateKind::RustLint,
             Gate::RustTests(_) => GateKind::RustTests,
+            Gate::ForgeFunctions => GateKind::ForgeFunctions,
             Gate::Dbsp => GateKind::Dbsp,
             Gate::ContractTests => GateKind::ContractTests,
             Gate::WavReference => GateKind::WavReference,
@@ -194,6 +198,7 @@ impl Gate {
             Gate::ProtobufReference => vec![Tool::Cargo, Tool::Python3, Tool::Clippy],
             Gate::RustLint(_) | Gate::Dbsp => vec![Tool::Cargo, Tool::Clippy],
             Gate::RustTests(_) | Gate::ContractTests => vec![Tool::Cargo],
+            Gate::ForgeFunctions => vec![Tool::Cargo, Tool::Node],
             Gate::WavReference | Gate::Mutation => vec![Tool::Cargo, Tool::Python3],
             Gate::AudioInspection => vec![Tool::Cargo, Tool::Ffmpeg, Tool::Ffprobe],
             Gate::WebLint(_) => vec![Tool::Cargo, Tool::Clippy, Tool::Wasm32Target],
@@ -293,6 +298,27 @@ impl Gate {
             Gate::RustTests(scope) => {
                 vec![cargo(&["test"]).args(scope.cargo_args()).args(["--locked"])]
             }
+            Gate::ForgeFunctions => vec![
+                cargo(&[
+                    "build",
+                    "--locked",
+                    "-p",
+                    FORGE_PACKAGE,
+                    "--bin",
+                    "cantos-forge-worker",
+                    "--target-dir",
+                    "target",
+                ]),
+                CommandSpec::new(
+                    "node",
+                    workspace.path("services/cantos-forge-functions/firebase"),
+                )
+                .args([
+                    "--test",
+                    "test/boundary.test.mjs",
+                    "test/native-worker.test.mjs",
+                ]),
+            ],
             Gate::Dbsp => vec![
                 cargo(&["clippy", "-p", API_PACKAGE, "--features", DBSP_FEATURE]).args([
                     "--all-targets",
@@ -380,6 +406,7 @@ pub fn full() -> Vec<Gate> {
         Gate::ProtobufReference,
         Gate::RustLint(Scope::Workspace),
         Gate::RustTests(Scope::Workspace),
+        Gate::ForgeFunctions,
         Gate::Dbsp,
         Gate::WavReference,
         Gate::AudioInspection,
@@ -420,6 +447,14 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
             Gate::RustLint(Scope::Workspace),
             Gate::RustTests(Scope::Workspace),
         ],
+        VerifySuite::Forge => {
+            let scope = Scope::Packages([FORGE_PACKAGE.to_owned()].into());
+            vec![
+                Gate::RustLint(scope.clone()),
+                Gate::RustTests(scope),
+                Gate::ForgeFunctions,
+            ]
+        }
         VerifySuite::Web => vec![
             Gate::WebLint(App::ALL.into_iter().collect()),
             Gate::WebBuild(App::Studio),
@@ -503,6 +538,75 @@ mod tests {
             ]
         );
         assert_eq!(verify_suite(&VerifySuite::Dbsp), [Gate::Dbsp]);
+    }
+
+    #[test]
+    fn forge_suite_checks_its_rust_package_and_offline_functions_boundary() {
+        let scope = Scope::Packages([FORGE_PACKAGE.to_owned()].into());
+        assert_eq!(
+            verify_suite(&VerifySuite::Forge),
+            [
+                Gate::RustLint(scope.clone()),
+                Gate::RustTests(scope),
+                Gate::ForgeFunctions,
+            ]
+        );
+        assert_eq!(
+            lines(&Gate::ForgeFunctions),
+            [
+                "cargo build --locked -p cantos-forge --bin cantos-forge-worker --target-dir target",
+                "(in services/cantos-forge-functions/firebase) node --test test/boundary.test.mjs test/native-worker.test.mjs",
+            ]
+        );
+        assert_eq!(Gate::ForgeFunctions.tools(), [Tool::Cargo, Tool::Node]);
+        for command in Gate::ForgeFunctions.commands(&workspace()) {
+            assert!(
+                command.env.is_empty(),
+                "no binary path environment override"
+            );
+        }
+        assert!(full().contains(&Gate::ForgeFunctions));
+    }
+
+    #[test]
+    fn missing_node_stops_forge_before_any_command_and_reports_unsupported() {
+        use crate::{
+            command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
+        };
+
+        let steps = steps(&verify_suite(&VerifySuite::Forge), &workspace());
+        for (missing, statuses) in [
+            (
+                Tool::Node,
+                [Status::NotRun, Status::NotRun, Status::Unsupported],
+            ),
+            (
+                Tool::Cargo,
+                [
+                    Status::Unsupported,
+                    Status::Unsupported,
+                    Status::Unsupported,
+                ],
+            ),
+        ] {
+            let mut runner = RecordingRunner::default();
+            let report = pipeline::execute(
+                "forge test",
+                &steps,
+                &FakeTools::without(&[missing]),
+                &mut runner,
+            );
+            assert!(runner.commands.is_empty());
+            assert_eq!(
+                report
+                    .outcomes
+                    .iter()
+                    .map(|row| row.status)
+                    .collect::<Vec<_>>(),
+                statuses
+            );
+            assert!(report.outcomes[2].detail.contains(missing.label()));
+        }
     }
 
     #[test]

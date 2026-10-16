@@ -20,24 +20,27 @@ flowchart TD
 
 Solid edges describe existing component boundaries, not live end-to-end acceptance.
 Dashed edges describe #203's **planned** producer execution, Drive persistence and API handoff.
-Forge currently registers/checks/exports local artifacts and has a library-only attempt/recovery
-core with a mock provider. It does not yet call Gemini, serve HTTP or submit to the API.
+Forge currently registers/checks/exports local artifacts and has an attempt/recovery core,
+local filesystem attempt adapter, finite Rust worker and bounded Node process adapter. HTTP
+access fails closed pending invocation authority. It does not call Gemini/Drive or submit to
+the API; [the worker runbook](../deployment/forge-worker.md) owns exact limits and live gates.
 
 Studio owns the buttons, configuration, status, preview and explicit acceptance. Its planned
 producer execution boundary is Forge via local/deployed Firebase Functions. CLI and Functions
-must invoke the same Rust use cases through thin adapters; the exact Functions runtime packaging still
-needs a feasibility decision. No separate Forge GUI or TypeScript copy of production logic.
+must invoke the same Rust use cases through thin adapters. The Node 22 + prepackaged Rust
+candidate has a local process boundary; deployed packaging/encoder compatibility remains
+unverified. No separate Forge GUI or TypeScript copy of producer logic.
 
 Cantos API never spawns Forge, stores Gemini credentials or requires Forge for catalog/playback.
 Theatre never triggers synthesis. Static Firebase Hosting serves the Web bundles and is a
 separate deployment boundary from Functions and the VPS API.
 
 Application code, deployment assets and developer orchestration have separate owners:
-`services/cantos-api` remains the authoritative modular backend, current Forge code stays at
-`apps/cantos-forge`, [`infra/`](../../infra/README.md) holds edge and static Hosting assets, and
-`xtask/` owns commands. #212 is only that mechanical infrastructure boundary. #203 owns a future
-Forge service-location move and the concrete Functions consumer/runtime decision; no Functions
-scaffold or live deployment acceptance follows from the directory split.
+`services/cantos-api` remains the authoritative modular backend, Forge code lives at
+`services/cantos-forge-functions` with the `cantos-forge` package/CLI identity,
+[`infra/`](../../infra/README.md) holds deployment assets, and `xtask/` owns commands. #212 is only
+the mechanical infrastructure boundary; #203 owns the separate producer runtime. Source
+placement establishes no live deployment, credential, storage or provider acceptance.
 
 ## Layers and contexts
 
@@ -49,7 +52,7 @@ scaffold or live deployment acceptance follows from the directory split.
 | Catalog | Work/unit metadata and separate ContentRevision; optional exact ScriptRef | No mandatory drama workflow |
 | Media / Publication | Verified private assets, scoped intake, reviews, immutable releases and active pointers | Private storage is not a public grant |
 | Listening | Public release reads and separate account-owned Library/Progress | No Studio permissions or production work |
-| Forge producer | Local artifact foundation and library-only attempt/recovery core; planned real provider execution and private draft I/O | Outside API; no authoritative Catalog or publication |
+| Forge producer | Local artifact foundation, attempt/recovery core and local store, finite Rust/Node worker boundary; planned real provider execution and private app-data I/O | Outside API; no authoritative Catalog or publication |
 
 Use domain → application → adapters: pure typed decisions, explicit use cases/authorization and
 thin HTTP/PostgreSQL/storage/provider effects. Apps share versioned contracts, not service code

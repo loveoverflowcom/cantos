@@ -20,7 +20,7 @@ pub enum CiJob {
     /// Documents, links, skills, Python tests and the independent Script IR oracle.
     Repository,
     /// Formatting, clippy and tests for the whole Cargo workspace, the API with its experimental
-    /// DBSP feature, the WAV oracle and actual read-only Opus intake inspection.
+    /// DBSP feature, offline Forge wrapper tests, the WAV oracle and read-only Opus inspection.
     Rust,
     /// WASM clippy and Trunk builds of both Web clients and the UI gallery.
     Web,
@@ -39,6 +39,7 @@ impl CiJob {
                 Gate::ProtobufReference,
                 Gate::RustLint(Scope::Workspace),
                 Gate::RustTests(Scope::Workspace),
+                Gate::ForgeFunctions,
                 Gate::Dbsp,
                 Gate::WavReference,
                 Gate::AudioInspection,
@@ -148,6 +149,19 @@ mod tests {
         assert!(!CiJob::Repository.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Web.gates().contains(&Gate::AudioInspection));
         assert!(!CiJob::Postgres.gates().contains(&Gate::AudioInspection));
+    }
+
+    #[test]
+    fn rust_ci_runs_offline_forge_wrapper_tests_with_node_22_provisioned() {
+        assert!(CiJob::Rust.gates().contains(&Gate::ForgeFunctions));
+        assert!(!CiJob::Web.gates().contains(&Gate::ForgeFunctions));
+        assert!(!CiJob::Postgres.gates().contains(&Gate::ForgeFunctions));
+        let workspace = Workspace::discover().unwrap();
+        let workflow =
+            std::fs::read_to_string(workspace.path(".github/workflows/repository-checks.yml"))
+                .unwrap();
+        assert!(workflow.contains("node-version: '22'"));
+        assert!(workflow.contains("package-manager-cache: false"));
     }
 
     #[test]

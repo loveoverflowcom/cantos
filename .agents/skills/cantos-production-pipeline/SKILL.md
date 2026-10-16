@@ -16,6 +16,12 @@ This skill is the **server-side contract and review guide**, not a TTS executor.
 Use [engineering](../cantos-engineering/SKILL.md) for functional core, effect boundaries,
 typed state machines, verification and honest evidence labels.
 
+For the separate Forge producer service, follow accepted [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md)
+and the [worker boundary](../../../docs/deployment/forge-worker.md). Studio may control that
+external execution; the Cantos API still never synthesizes. Local worker/process tests and
+filesystem attempts do not establish owner invocation authority, distributed fencing,
+app-data persistence, Gemini/encoder or deployed acceptance.
+
 ## Capability ownership
 
 | Work | Owner |

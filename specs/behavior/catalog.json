@@ -945,11 +945,11 @@
     {
       "id": "cantos.production.forge-attempt",
       "lifecycle": "draft",
-      "owner": "apps/cantos-forge/src/domain/attempt.rs",
+      "owner": "services/cantos-forge-functions/src/domain/attempt.rs",
       "sourceRefs": [
         "docs/decisions/0022-cantos-forge-producer-cli.md#decision",
         "docs/decisions/0018-external-audio-production.md",
-        "apps/cantos-forge/README.md"
+        "services/cantos-forge-functions/README.md"
       ],
       "model": "specs/behavior/production/forge_attempt.qnt",
       "module": "forge_attempt",

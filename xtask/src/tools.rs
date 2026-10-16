@@ -26,6 +26,7 @@ pub enum Tool {
     CmpAndroidGradleProject,
     TheatreDemoGradleProject,
     Python3,
+    Node,
     Git,
     Initdb,
     PgCtl,
@@ -39,7 +40,7 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub const ALL: [Tool; 21] = [
+    pub const ALL: [Tool; 22] = [
         Tool::Cargo,
         Tool::Rustfmt,
         Tool::Clippy,
@@ -51,6 +52,7 @@ impl Tool {
         Tool::CmpAndroidGradleProject,
         Tool::TheatreDemoGradleProject,
         Tool::Python3,
+        Tool::Node,
         Tool::Git,
         Tool::Initdb,
         Tool::PgCtl,
@@ -76,6 +78,7 @@ impl Tool {
             Tool::CmpAndroidGradleProject => "CMP Android preview Gradle project",
             Tool::TheatreDemoGradleProject => "Theatre mock Gradle project",
             Tool::Python3 => "python3",
+            Tool::Node => "Node 22+ (Forge wrapper tests)",
             Tool::Git => "git",
             Tool::Initdb => "initdb",
             Tool::PgCtl => "pg_ctl",
@@ -114,6 +117,7 @@ impl Tool {
             Tool::BehaviorRuntime => "install the exact Node/npm versions in tools/behavior/package.json separately",
             Tool::Quint => "provide pinned Node/npm, then run cargo xtask verify behavior --setup explicitly",
             Tool::Python3 => "install Python 3",
+            Tool::Node => "put installed stable Node.js 22 or newer on PATH; xtask never installs it (separate from the pinned Quint runtime)",
             Tool::Git => "install Git",
             Tool::Ffmpeg | Tool::Ffprobe => {
                 "put trusted installed ffmpeg and ffprobe executables on PATH; xtask never installs them"
@@ -138,6 +142,7 @@ impl Tool {
             Tool::CmpAndroidGradleProject => None,
             Tool::TheatreDemoGradleProject => None,
             Tool::Python3 => Some(("python3", &["--version"])),
+            Tool::Node => Some(("node", &["--version"])),
             Tool::Git => Some(("git", &["--version"])),
             Tool::Initdb => Some(("initdb", &["--version"])),
             Tool::PgCtl => Some(("pg_ctl", &["--version"])),
@@ -252,6 +257,9 @@ impl SystemTools {
             Tool::Java => self
                 .version(tool)
                 .is_some_and(|version| java_version_supported(&version)),
+            Tool::Node => self
+                .version(tool)
+                .is_some_and(|version| node_version_supported(&version)),
             Tool::Rustfmt
             | Tool::Clippy
             | Tool::Ffmpeg
@@ -324,6 +332,19 @@ fn java_version_supported(version: &str) -> bool {
         .and_then(|number| number.split('.').next())
         .and_then(|major| major.parse::<u32>().ok())
         .is_some_and(|major| major >= 17)
+}
+
+/// Wrapper tests use the Node 22 built-in APIs; this does not qualify a hosted runtime.
+fn node_version_supported(version: &str) -> bool {
+    let Some(number) = version.strip_prefix('v') else {
+        return false;
+    };
+    let parts: Vec<_> = number.split('.').collect();
+    parts.len() == 3
+        && parts.iter().all(|part| {
+            !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())
+        })
+        && parts[0].parse::<u32>().is_ok_and(|major| major >= 22)
 }
 
 /// A package-local preview must be a real Gradle project, not a reserved README.
@@ -436,6 +457,32 @@ mod tests {
         ] {
             assert!(!java_version_supported(version), "{version}");
         }
+    }
+
+    #[test]
+    fn forge_wrapper_tests_require_stable_node_22_or_newer_independently_of_quint() {
+        assert_eq!(
+            Tool::Node.version_command(),
+            Some(("node", &["--version"][..]))
+        );
+        for version in ["v22.0.0", "v22.15.0", "v24.10.0"] {
+            assert!(node_version_supported(version), "{version}");
+        }
+        for version in [
+            "v20.19.0",
+            "v21.7.3",
+            "v22.0.0-rc.1",
+            "v24.0.0-nightly20250101",
+            "22.15.0",
+            "v22",
+            "v22..0",
+            "v22.1.x",
+            "",
+        ] {
+            assert!(!node_version_supported(version), "{version}");
+        }
+        let probe = testing::FakeTools::without(&[Tool::BehaviorRuntime, Tool::Quint]);
+        assert!(probe.available(Tool::Node));
     }
 
     #[test]
