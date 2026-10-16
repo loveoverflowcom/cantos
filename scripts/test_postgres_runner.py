@@ -125,7 +125,8 @@ class PostgresRunnerTests(unittest.TestCase):
             **inherited, "DATABASE_URL": database, "CANTOS_ENV": "development",
             "CANTOS_BIND_ADDRESS": "127.0.0.1:8080"})
         self.assertEqual(output.getvalue(),
-                         "Theatre test fixture: empty public catalog; identity and playback remain separate.\n")
+                         "Theatre test fixture: empty public catalog; identity and playback remain separate.\n"
+                         "Seed synthetic works with `cargo xtask seed theatre`.\n")
         self.assertNotIn("script", output.getvalue())
         self.assertNotIn("alice", output.getvalue())
 
@@ -179,6 +180,26 @@ class PostgresRunnerTests(unittest.TestCase):
         self.assertEqual(inherited["DATABASE_URL"], "production")
         self.assertEqual(serve_studio.studio_environment(config, {})["DATABASE_URL"], config["app_url"])
         self.assertEqual(serve_studio.studio_environment(config, {"CANTOS_TEST_CONTEXT": "catalog"})["DATABASE_URL"], config["catalog_app_url"])
+
+    def test_theatre_context_serves_only_a_seed_recorded_for_this_retained_cluster(self):
+        config = {"retained": True, "cluster": "/repo/target/revision-evidence/cluster-1", "port": 12345,
+                  "theatre_app_url": "postgresql://cantos_app@127.0.0.1:12345/cantos_test_audio"}
+        database = "cantos_test_" + "a" * 32
+        seed = {"cluster": config["cluster"], "port": 12345, "database": database,
+                "app_url": "postgresql://cantos_app@example.com:1/production"}
+        inherited = {"CANTOS_TEST_CONTEXT": "theatre", "DATABASE_URL": "production"}
+        env = serve_studio.studio_environment(config, inherited, seed)
+        # The URL is rebuilt from the retained port and name, never copied from the record.
+        self.assertEqual(env["DATABASE_URL"], f"postgresql://cantos_app@127.0.0.1:12345/{database}")
+        for stale in (dict(seed, cluster="/repo/target/revision-evidence/cluster-2"), dict(seed, port=1)):
+            with self.subTest(stale=stale):
+                self.assertEqual(serve_studio.studio_environment(config, inherited, stale)["DATABASE_URL"],
+                                 config["theatre_app_url"])
+        editorial = dict(config, app_url="postgresql://cantos_app@127.0.0.1:12345/cantos_test_editorial")
+        self.assertEqual(serve_studio.studio_environment(editorial, {}, seed)["DATABASE_URL"], editorial["app_url"])
+        for unsafe in ("production", 'cantos_test_x";DROP DATABASE postgres;', None, "cantos_test_" + "A" * 32):
+            with self.subTest(unsafe=unsafe), self.assertRaisesRegex(ValueError, "seed theatre --reset"):
+                serve_studio.studio_environment(config, inherited, dict(seed, database=unsafe))
 
     def test_theatre_context_refuses_old_records_and_urls_outside_the_disposable_app_role(self):
         inherited = {"CANTOS_TEST_CONTEXT": "theatre"}

@@ -24,6 +24,7 @@ mod process;
 mod report;
 mod run;
 mod run_files;
+mod seed;
 mod services;
 mod theatre_demo;
 mod theatre_host;
@@ -114,6 +115,12 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             };
             match run::plan_run(&workspace, target, &options) {
                 Ok(plan) => run::launch(&workspace, &plan, &tools, &mut runner),
+                Err(refusal) => Ok(refuse(refusal)),
+            }
+        }
+        Task::Seed { target, reset } => {
+            match seed::execute(&workspace, target, reset, &tools, &mut runner)? {
+                Ok(code) => Ok(code),
                 Err(refusal) => Ok(refuse(refusal)),
             }
         }

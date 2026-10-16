@@ -306,7 +306,8 @@ fn classify_script(script: &str, impact: &mut Impact) {
         | "render_compose_preview.py"
         | "prepare_story_workspace.py"
         | "benchmark_revision_reads.py"
-        | "serve_studio.py" => {}
+        | "serve_studio.py"
+        | "seed_theatre.py" => {}
         _ if script.starts_with("test_") && script.ends_with(".py") => {}
         _ => impact.broaden = Some(format!("scripts/{script} has no known impact")),
     }
@@ -636,6 +637,10 @@ mod tests {
             ])),
             ["repository", "rust-format"]
         );
+        // Its offline unit tests run in repository; the seed test itself is a cantos-api test.
+        let seed = pick(&["scripts/seed_theatre.py", "scripts/test_seed_theatre.py"]);
+        assert_eq!(seed.broadened, None);
+        assert_eq!(names(&seed), ["repository", "rust-format"]);
     }
 
     #[test]

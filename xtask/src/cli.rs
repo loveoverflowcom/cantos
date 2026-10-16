@@ -11,6 +11,7 @@ use crate::{
     gate::GateKind,
     kani::Kernel,
     run::{AppTarget, RunTarget},
+    seed::SeedTarget,
     theatre_demo::DemoAction,
     theatre_host::HostAction,
     ui_preview::{PreviewAction, Renderer},
@@ -98,6 +99,15 @@ pub enum Task {
         /// API loopback origin; Web profiles require their Trunk origin (Studio 8081, Theatre 8082).
         #[arg(long, value_name = "ORIGIN")]
         web_origin: Option<String>,
+    },
+    /// Explicit synthetic development data, only in the cluster kept by `verify postgres --keep`.
+    /// Never a gate, preflight selection or CI job.
+    Seed {
+        #[arg(value_enum)]
+        target: SeedTarget,
+        /// Drop only the recorded seed database and its record.
+        #[arg(long)]
+        reset: bool,
     },
     /// Serve only Web; Studio requires an API, Theatre warns if anonymous catalog is unavailable.
     App {
@@ -229,6 +239,24 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn seed_names_one_target_and_reset_is_explicit() {
+        assert!(matches!(
+            parse("seed theatre").unwrap(),
+            Task::Seed {
+                target: SeedTarget::Theatre,
+                reset: false
+            }
+        ));
+        assert!(matches!(
+            parse("seed theatre --reset").unwrap(),
+            Task::Seed { reset: true, .. }
+        ));
+        for invalid in ["seed", "seed studio", "seed theatre --database-url x"] {
+            assert!(parse(invalid).is_err(), "{invalid}");
+        }
     }
 
     #[test]

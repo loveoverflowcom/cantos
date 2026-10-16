@@ -919,3 +919,6 @@ impl PublishedFixture {
 
 #[path = "theatre_catalog_walk_http_postgres.rs"]
 mod theatre_catalog_walk_http;
+
+#[path = "theatre_dev_seed_http_postgres.rs"]
+mod theatre_dev_seed_http;

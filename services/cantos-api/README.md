@@ -194,6 +194,14 @@ tests, integration mocks and verification must be reported with actual results; 
 not finish for handoff. No test of historical TTS synthesis may be used as proof that
 external audio upload, storage or publication exists.
 
+The same harness owns the synthetic Theatre development catalog
+(`tests/support/theatre_dev_seed_http_postgres.rs`). It publishes novel, story and podcast
+Works through the real Studio routes, app-role SQL and private Opus intake, with only the
+test-only public-delivery observer substituted. The PostgreSQL gate runs it as a regression;
+`cargo xtask seed theatre` retains its database for local Web/CMP work
+([runbook](../../docs/deployment/theatre-seeded-catalog.md)). `cantos-server` never composes the
+fake observer, so a seeded host keeps playback `rendition_unavailable`.
+
 ## Theatre discovery and playback boundary
 
 The [Theatre v1 contract](../../packages/contracts/theatre-discovery-v1.md) exposes real
