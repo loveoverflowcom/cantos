@@ -142,7 +142,7 @@ fn map_failure(error: ActionError) -> Refusal {
         ActionError::Timeout => Refusal::Timeout,
         ActionError::Network => Refusal::Network,
         ActionError::Quota => Refusal::Quota,
-        ActionError::Provider => Refusal::Provider,
+        ActionError::Provider | ActionError::ProviderDisabled => Refusal::Provider,
         ActionError::Rejected => Refusal::Rejected,
     }
 }
