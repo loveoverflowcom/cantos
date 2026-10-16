@@ -567,6 +567,8 @@ def dependency_error(path, owner, domain, http, listener_pg_test=False):
             ("contexts", "media", "ListenerService", "new"),
             ("contexts", "media", "ListenerError"),
             ("contexts", "media", "PlaybackDelivery"),
+            # Trusted origin-delivery composition value (proposed ADR 0032); no decision API.
+            ("contexts", "media", "OriginPlayback"),
         }
         listener_composition = path in {
             ("contexts", "listening", "LibraryService"),

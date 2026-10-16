@@ -405,3 +405,29 @@ unsupported numeric claim, and ran no duplicate proof or I/O. Numeric acceptance
 and exact counts on 64-bit x86_64 remain the entire proof scope. Exact error-variant precedence,
 32-bit acceptance, actual decoder/resource safety, SQL/storage/auth/HTTP/restart and production
 readiness remain outside it; see the separate current [layered evidence](../evidence/private-work-artwork.md).
+
+## Public media kernels registered, not yet run
+
+Issues [#170](https://github.com/loveoverflowcom/cantos/issues/170) and
+[#171](https://github.com/loveoverflowcom/cantos/issues/171) add three loop-free production
+kernels to the fixed registry. **No Kani execution is claimed for them:** the authoring host is
+macOS arm64, while the fixed model pins x86_64-unknown-linux-gnu, Kani 0.68.0 and CBMC 6.11.0.
+Their status is `NOT_RUN` until `cargo xtask verify kani --harness byte-range --harness
+playback-grant --harness public-cover` runs on that model and its output is recorded here.
+
+| Kernel | Production function | Proposition (unwind 2, no assumptions/stubs) | Covers |
+| --- | --- | --- | --- |
+| `byte-range` | `ByteRange::normalize` (shared by Studio private reads and the Theatre media route) | For every parser-admissible closed/open/suffix specification and full `u64` length: exact normalized bounds, `first <= last < length`, exact byte count, `Unsatisfiable` exactly for empty objects, empty suffixes and starts at/after the length | 6 |
+| `playback-grant` | `grant_expiry`, `decide_media_fetch` | Grant expiry is exactly `min(now + TTL, rights end)` widened to i128 and strictly future; per-fetch admission equals the complete precedence Expired → Unbounded → NotCurrent → Forged → OutsideRights over full i64 clocks | 6 |
+| `public-cover` | `cover_outcome` | Every pinned state × decision kind × same/other image × full i64 clock/expiry: exact fallback precedence; a shown cover implies a bound pinned image with a same-image clearance valid now | 6 |
+
+The harnesses were written to have no assertion inside an unreachable branch, so no
+`--allow-unreachable` entry is registered; an actual run may still report a compiler-inserted
+unreachable check, which must then be reviewed rather than allowed blindly. HMAC correctness,
+artwork-history resolution, SQL, storage, HTTP and restart behavior are outside these kernels.
+The same propositions are mirrored by ordinary deterministic tests that did run locally:
+`fetch_admission_matches_an_independent_widened_specification` (property),
+`grant_expiry_is_bounded_by_ttl_rights_and_the_present`,
+`cover_outcome_matches_an_independent_precedence_table` (bounded exhaustive) and the existing
+`normalized_ranges_never_escape_exact_object` property. Those are `property-tested` /
+`example-tested`, not `bounded-model-checked`.

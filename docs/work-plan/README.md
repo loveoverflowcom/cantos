@@ -196,6 +196,20 @@ contract-fixture groundwork to that same sequence. Before connecting live Theatr
 checks under the [proposed delivery decision gates](../decisions/0028-publication-streaming-evidence-gates.md).
 Shared Studio transport and mocked publication bytes do not replace those dependencies.
 
+For [#170](https://github.com/loveoverflowcom/cantos/issues/170), review
+[proposed ADR 0032](../decisions/0032-theatre-origin-playback-delivery.md) (origin-mode Range
+with sealed 120 s grants). Its pure grant kernel, origin adapter, `/theatre/media/{grant}` route
+and mock-integrated fixture exist behind trusted composition that no host performs; see the
+[core evidence ledger](../evidence/public-media-delivery-core.md). Recommended order: owner
+acceptance of ADR 0032, then #10/#11's promoted publication-class `PublicationObjects` adapter,
+then real-bytes/expiry/withdrawal/key-rotation/access-log acceptance through the deployed proxy,
+then #13/#14 player integration of the documented refresh contract. For
+[#171](https://github.com/loveoverflowcom/cantos/issues/171), the release-pinned cover kernel and
+[proposed ADR 0033](../decisions/0033-release-pinned-public-cover.md) are inputs to #157's P0
+decision only; no DTO, storage or delivery work starts before #157 accepts a contract.
+Both draft Quint capabilities are model-only and the three new Kani kernels are registered but
+not yet run. GitHub owns execution status.
+
 ## Compiler compatibility review boundary
 
 The [production Rust pin](../architecture/rust-toolchain.md) keeps edition 2021 and locked
