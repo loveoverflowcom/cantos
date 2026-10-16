@@ -116,6 +116,14 @@ Origins/CSRF, action leakage and cross-device continuation remain separate gates
   Current receipts are retained; age-based cleanup requires a separate reviewed procedure.
 - Recovery: rejected/unknown effects stop automatic replay. A process killed while inspecting
   conservatively strands that operation; provider reads cannot restore action possession.
+- Live observation (16 October 2026): one real run on project `cantos-a348b` with a local Kanidm
+  reached mail → Cantos handler → one-shot setup → OIDC login → logout and refused a replayed code
+  ([record](../evidence/theatre-live-auth-206.md)). It also showed that action inspection needs the
+  Email/Password provider enabled (reported as a 503 configuration fault). It does not accept
+  activation, and these gates remain **open**: a custom action handler (the Spark project refused the
+  action URL, so the default hosted handler still receives the link), a least-privilege
+  signing/creation credential (the broad default Admin SDK key was used) and cleanup of that key,
+  the test user and the test person.
 - Unaccepted activation gates: exact project/API-key association, effective Auth and Kanidm
   target protection, existing-email behavior, numeric policy/retention, safe action ingress,
   recipient/mail budget, origins and the real proof→setup→OIDC→session journey.

@@ -33,6 +33,12 @@ before changing that boundary. Do not rebuild auth from the mock screen or treat
    now exist. [Local evidence](../evidence/firebase-enrollment-runtime.md) does not establish
    effective cloud privileges, action origins, inbox/setup/OIDC or activation. Firebase proof
    must not become a session, a new issuer/password store or existing-account reset shortcut.
+   The [live record](../evidence/theatre-live-auth-206.md) now shows one real journey against
+   project `cantos-a348b` and a local Kanidm (mail → Cantos handler → setup → OIDC → logout, replay
+   refused). It is not activation: the custom action handler was **not** accepted (Spark refused the
+   action URL), the signing/creation credential was the broad default Admin SDK key rather than a
+   least-privilege one, and that key, the test Firebase user and the test Kanidm person are not yet
+   cleaned up. Each needs its own operator approval.
 4. In the specifically authorized environment, observe actual email/action/setup → Kanidm login
    → server-confirmed session → private read → logout/rejected old session. Web and Android/iOS
    system-browser/secure-store/device acceptance are separate observations.
