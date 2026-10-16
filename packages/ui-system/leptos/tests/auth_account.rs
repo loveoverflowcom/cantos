@@ -1,7 +1,7 @@
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason,
-    EmptyAccessibleName, FieldState, Surface, SurfaceTone, SurfaceVariant, TextField,
-    TextFieldKind, TextFieldVariant,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
+    DisabledReason, EmptyAccessibleName, FieldState, Surface, SurfaceTone, SurfaceVariant,
+    TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -96,6 +96,66 @@ fn back_is_a_named_native_action_not_a_link_submit_or_implicit_navigation() {
         assert!(html.contains("aria-hidden=\"true\""));
         assert!(html.contains("Host đang chờ; không phát intent lần hai"));
     }
+}
+
+#[test]
+fn unified_back_keeps_one_named_target_and_the_host_owned_blocked_state() {
+    for icon_only in [false, true] {
+        for state in [
+            ButtonState::Enabled,
+            ButtonState::Disabled(DisabledReason::new("Chờ ngữ cảnh từ host").unwrap()),
+            ButtonState::Loading(DisabledReason::new("Host đang chờ").unwrap()),
+        ] {
+            let html = view! {
+                <BackButton id="unified-back" variant=BackButtonVariant::Unified
+                    name=AccessibleName::new("Về Tài khoản <giữ ý định>").unwrap()
+                    icon_only=icon_only state=state.clone() described_by="return-context"
+                    on_back=Callback::new(|_| {})/>
+            }
+            .to_html();
+            let button = opening_tag(&html, "button", "unified-back");
+            assert_eq!(html.matches("<button ").count(), 1, "{html}");
+            assert!(button.contains("cui-back-button-unified"), "{button}");
+            assert!(button.contains("type=\"button\""), "{button}");
+            assert_eq!(button.contains("disabled"), !state.can_press(), "{button}");
+            assert_eq!(
+                button.contains("aria-busy=\"true\""),
+                state.is_busy(),
+                "{button}"
+            );
+            let descriptions = if state.can_press() {
+                "return-context"
+            } else {
+                "return-context unified-back-reason"
+            };
+            assert!(
+                button.contains(&format!("aria-describedby=\"{descriptions}\"")),
+                "{button}"
+            );
+            assert_eq!(
+                html.matches("Về Tài khoản &lt;giữ ý định&gt;").count(),
+                1,
+                "{html}"
+            );
+            assert_eq!(html.contains("class=\"cui-sr-only\""), icon_only, "{html}");
+            assert!(
+                html.contains("aria-hidden=\"true\""),
+                "decorative icon: {html}"
+            );
+            assert!(!html.contains("href="));
+            assert!(!html.contains("tabindex="));
+            assert!(!button.contains("aria-label="));
+        }
+    }
+    let html = view! {
+        <BackButton id="existing-back" name=AccessibleName::new("Về Đăng nhập").unwrap()
+            on_back=Callback::new(|_| {})/>
+    }
+    .to_html();
+    assert!(
+        !html.contains("cui-back-button-unified"),
+        "candidate must remain opt-in: {html}"
+    );
 }
 
 #[test]

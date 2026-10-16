@@ -44,6 +44,7 @@ recipe_enum!(ComponentId {
     Switch => "switch",
     Dialog => "dialog",
     Select => "select",
+    BackButton => "back-button",
 });
 
 recipe_enum!(ScenarioState {
@@ -65,7 +66,7 @@ impl ComponentId {
     pub const fn states(self) -> &'static [ScenarioState] {
         use ScenarioState::*;
         match self {
-            Self::Button | Self::AuthPrimary => &[Enabled, Disabled, Loading],
+            Self::Button | Self::AuthPrimary | Self::BackButton => &[Enabled, Disabled, Loading],
             Self::FilterChip => &[Unselected, Selected, Disabled, Loading],
             Self::Switch => &[Off, On, Disabled, Loading],
             Self::Dialog => &[Closed, Open],
@@ -82,7 +83,7 @@ impl ComponentId {
 
     pub const fn default_state(self) -> ScenarioState {
         match self {
-            Self::Button | Self::AuthPrimary => ScenarioState::Enabled,
+            Self::Button | Self::AuthPrimary | Self::BackButton => ScenarioState::Enabled,
             Self::FilterChip => ScenarioState::Unselected,
             Self::Switch => ScenarioState::Off,
             Self::Dialog => ScenarioState::Closed,

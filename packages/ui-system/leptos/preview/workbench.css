@@ -43,7 +43,8 @@
 .cui-specimen-frame[data-motion="force-full"] .cui-button {
   transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing);
 }
-.cui-specimen-frame[data-motion="force-full"] .cui-button[data-variant="auth-primary"] {
+.cui-specimen-frame[data-motion="force-full"] .cui-button[data-variant="auth-primary"],
+.cui-specimen-frame[data-motion="force-full"] .cui-back-button-unified {
   transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
 }
 .cui-specimen-frame[data-motion="force-full"] .cui-filter-chip {

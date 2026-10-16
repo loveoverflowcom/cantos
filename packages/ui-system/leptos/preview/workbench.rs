@@ -1,8 +1,9 @@
 //! Preview-only composition root. Recipes select production controls; no services are built.
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
-    Button, ButtonState, ButtonVariant, ChoiceState, Density, Dialog, DisabledReason, FilterChip,
-    IconName, Select, SelectOption, Space, Stack, Switch, TextField, Theme, UiRoot,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant, ChoiceState,
+    Density, Dialog, DisabledReason, FilterChip, IconName, Select, SelectOption, Space, Stack,
+    Switch, TextField, Theme, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -287,6 +288,29 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let press = Callback::new(move |_| host.log(format!("{} press", log_id.get_value())));
     let label = Signal::derive(move || fixture_label(host.recipe.get()).to_owned());
     let content = match component {
+        ComponentId::BackButton => {
+            let name = Signal::derive(move || {
+                let recipe = host.recipe.get();
+                AccessibleName::new(match (recipe.locale, recipe.fixture) {
+                    (Locale::Vi, Fixture::Standard) => "Về Tài khoản",
+                    (Locale::En, Fixture::Standard) => "Back to Account",
+                    (Locale::Vi, Fixture::LongVietnamese) => "Về Tài khoản của Nguyễn Thị Ánh Nguyệt, giữ nguyên ý định đăng ký Membership",
+                    (Locale::En, Fixture::LongVietnamese) => "Back to Nguyễn Thị Ánh Nguyệt’s account, keeping the Membership registration context",
+                }).expect("nonblank localized preview name")
+            });
+            let login_name = Signal::derive(move || AccessibleName::new(copy(host.recipe.get().locale, "Về Đăng nhập", "Back to Sign in")).expect("nonblank localized preview name"));
+            let login_id = format!("{control_id}-login");
+            let icon_id = format!("{control_id}-icon");
+            let baseline_id = format!("{control_id}-baseline");
+            view! {
+                <BackButton id=control_id variant=BackButtonVariant::Unified name=name state=button_state on_back=press/>
+                <BackButton id=login_id variant=BackButtonVariant::Unified name=login_name state=button_state on_back=press/>
+                <BackButton id=icon_id variant=BackButtonVariant::Unified name=name icon_only=true state=button_state on_back=press/>
+                <p class="cui-gallery-note">"Unified Web candidate — unqualified. Hover, pressed and keyboard focus require real input. Every sample records a host intent only; no route/history effect."</p>
+                <p class="cui-gallery-note">"Existing IconTonal presentation (compatibility baseline):"</p>
+                <BackButton id=baseline_id name=name state=button_state on_back=press/>
+            }.into_any()
+        }
         ComponentId::Button | ComponentId::AuthPrimary => view! {
             <Button id=control_id variant=if component == ComponentId::AuthPrimary { ButtonVariant::AuthPrimary } else { ButtonVariant::Primary }
                 icon=IconName::ArrowForward state=button_state on_press=press>{move || label.get()}</Button>

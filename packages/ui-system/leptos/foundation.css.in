@@ -302,6 +302,27 @@
   border-radius: var(--cantos-shape-auth-pressed);
 }
 :where(.cantos-ui) .cui-back-button-icon-only { gap: 0; }
+/* #222 candidate: the native button owns the one state layer and the full target.
+   Keep the existing IconTonal presentation until this Web variant is admitted. */
+:where(.cantos-ui) .cui-back-button-unified {
+  min-inline-size: var(--cantos-size-back-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  /* Cap the corner at the Web control role so a wrapped label never becomes an oval. */
+  border-radius: var(--cantos-web-shape-control);
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-button-icon {
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  background: transparent;
+  border-radius: 0;
+  transition: none;
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-control-label { text-align: start; }
+:where(.cantos-ui) .cui-back-button-unified:active:not(:disabled) {
+  border-radius: var(--cantos-shape-auth-pressed);
+}
+:where(.cantos-ui) .cui-back-button-unified:dir(rtl) .cui-icon { transform: scaleX(-1); }
 :where(.cantos-ui) .cui-surface[data-tone="primary-container"] {
   --cantos-web-supporting-text-color: var(--cantos-color-on-primary-container);
   background: var(--cantos-color-primary-container);
@@ -328,6 +349,7 @@
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) { transition: none; }
   :where(.cantos-ui) .cui-back-button .cui-button-icon { transition: none; }
+  :where(.cantos-ui) .cui-back-button-unified { transition: none; }
 }
 @media (forced-colors: active) {
   :where(.cantos-ui) .cui-button[data-variant="auth-outlined"] { border: var(--cantos-size-auth-outline) solid ButtonText; }

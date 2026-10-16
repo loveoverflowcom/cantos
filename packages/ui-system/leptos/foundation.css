@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:769744abc6d85bd939271a38efee705f1ef3e1c961936505156195533d8f5913
+/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:18d669d041c8871a48336fe5f71b538afcbd2a87271c582d281ae50c980d2818
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -304,6 +304,27 @@
   border-radius: var(--cantos-shape-auth-pressed);
 }
 :where(.cantos-ui) .cui-back-button-icon-only { gap: 0; }
+/* #222 candidate: the native button owns the one state layer and the full target.
+   Keep the existing IconTonal presentation until this Web variant is admitted. */
+:where(.cantos-ui) .cui-back-button-unified {
+  min-inline-size: var(--cantos-size-back-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  /* Cap the corner at the Web control role so a wrapped label never becomes an oval. */
+  border-radius: var(--cantos-web-shape-control);
+  transition: background-color var(--cantos-motion-feedback-duration) var(--cantos-motion-effects-easing), border-radius var(--cantos-motion-shape-duration) var(--cantos-motion-effects-easing);
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-button-icon {
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  background: transparent;
+  border-radius: 0;
+  transition: none;
+}
+:where(.cantos-ui) .cui-back-button-unified .cui-control-label { text-align: start; }
+:where(.cantos-ui) .cui-back-button-unified:active:not(:disabled) {
+  border-radius: var(--cantos-shape-auth-pressed);
+}
+:where(.cantos-ui) .cui-back-button-unified:dir(rtl) .cui-icon { transform: scaleX(-1); }
 :where(.cantos-ui) .cui-surface[data-tone="primary-container"] {
   --cantos-web-supporting-text-color: var(--cantos-color-on-primary-container);
   background: var(--cantos-color-primary-container);
@@ -330,6 +351,7 @@
 @media (prefers-reduced-motion: reduce) {
   :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) { transition: none; }
   :where(.cantos-ui) .cui-back-button .cui-button-icon { transition: none; }
+  :where(.cantos-ui) .cui-back-button-unified { transition: none; }
 }
 @media (forced-colors: active) {
   :where(.cantos-ui) .cui-button[data-variant="auth-outlined"] { border: var(--cantos-size-auth-outline) solid ButtonText; }

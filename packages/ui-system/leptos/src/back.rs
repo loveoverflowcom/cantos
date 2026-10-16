@@ -4,6 +4,15 @@ use crate::{
     button::component_class, AccessibleName, Button, ButtonState, ButtonVariant, IconName,
 };
 
+/// Web presentation only. The unified candidate stays opt-in until preview admission.
+/// Neither variant changes the host's contextual return intent.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BackButtonVariant {
+    #[default]
+    IconTonal,
+    Unified,
+}
+
 /// Contextual native Back action, not a router, logout action or browser-history policy.
 /// The host must provide both a localized nonblank name and the return intent callback.
 /// `icon_only` hides only the visible text; the same name remains accessible.
@@ -19,15 +28,19 @@ pub fn BackButton(
     #[prop(into)] id: String,
     #[prop(into)] name: Signal<AccessibleName>,
     on_back: Callback<MouseEvent>,
+    #[prop(optional)] variant: BackButtonVariant,
     #[prop(optional)] icon_only: bool,
     #[prop(into, default = ButtonState::Enabled.into())] state: Signal<ButtonState>,
     #[prop(into, default = String::new().into())] class: Signal<String>,
     #[prop(into, default = String::new().into())] described_by: Signal<String>,
 ) -> impl IntoView {
-    let base = if icon_only {
-        "cui-back-button cui-back-button-icon-only"
-    } else {
-        "cui-back-button"
+    let base = match (variant, icon_only) {
+        (BackButtonVariant::IconTonal, false) => "cui-back-button",
+        (BackButtonVariant::IconTonal, true) => "cui-back-button cui-back-button-icon-only",
+        (BackButtonVariant::Unified, false) => "cui-back-button cui-back-button-unified",
+        (BackButtonVariant::Unified, true) => {
+            "cui-back-button cui-back-button-unified cui-back-button-icon-only"
+        }
     };
     view! {
         <Button id=id variant=ButtonVariant::Text icon=IconName::ArrowBack

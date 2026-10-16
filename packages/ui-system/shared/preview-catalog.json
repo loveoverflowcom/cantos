@@ -638,6 +638,9 @@
         "disabled",
         "loading",
         "focus",
+        "hover",
+        "unified-web",
+        "forced-colors",
         "pressed",
         "icon-only",
         "named",
@@ -648,7 +651,7 @@
       ],
       "leptos": {
         "status": "implemented-unverified",
-        "reason": "Preview implementation only; two-renderer runtime, accessibility and inspected-reference admission pending. No application adoption."
+        "reason": "Existing BackButton plus opt-in Unified Web presentation in the recipe workbench; runtime and inspected-reference admission pending. No new application adoption."
       },
       "cmp": {
         "status": "implemented-unverified",

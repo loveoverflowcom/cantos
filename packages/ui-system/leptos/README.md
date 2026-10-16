@@ -198,6 +198,7 @@ The full API/token catalog stays available; exact recipe support is intentionall
 | `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
 | `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
 | `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `empty-options` |
+| `back-button` | `back-button` / opt-in `BackButtonVariant::Unified`, Account/Sign in/icon-only plus unchanged IconTonal baseline | `enabled`, `disabled`, `loading` |
 
 The canonical query is versioned. For example, append this query to the local preview URL:
 
@@ -308,6 +309,17 @@ blocked text keeps the full-contrast disabled role. The neutral Back specimen ma
 filled label capsules visible in both themes. The host alone resolves contextual return
 destinations, cancellation and draft/scroll retention. This primitive does not call browser history, choose a fallback route, authenticate,
 log out or implement native system Back.
+
+`BackButtonVariant::Unified` is a Web-only, preview-only candidate for
+[#222](https://github.com/loveoverflowcom/cantos/issues/222). The native button owns one
+continuous hover/pressed layer, token inline/block padding and the 48-unit minimum target;
+its decorative arrow has no separately painted circle. The outer pressed shape uses
+`shape.authPressed`; keyboard focus retains the shared focus roles. Long labels wrap, and RTL
+mirrors the arrow while keeping logical start alignment. Reduced motion removes the shape
+transition. This uses existing tokens without changing their canonical values or CMP layout.
+`IconTonal` remains the default so existing product callers retain their presentation until
+required admission. The recipe workbench includes VI/EN, Account/Sign in, long text and
+icon-only specimens with host intent logs; actual hover/focus/press requires native input.
 
 The actual [auth specimens](preview/auth_samples.rs) live in the existing actions, fields,
 navigation and layout gallery families. They expose host-driven enabled/loading/disabled and

@@ -545,8 +545,8 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     assert_eq!(specimens.len(), 102);
     let components = preview::preview_catalog::COMPONENTS;
     assert_eq!(components.len(), 32);
-    // The immutable v3 inventory still describes the 198-state baseline. The Web Select
-    // extension adds diagnostic states without promoting any proposed API or qualification.
+    // The immutable v3 inventory still describes the 198-state baseline. Web repair
+    // scenarios add diagnostics without promoting a proposed API or qualification.
     let select_extension = [
         "web-menu",
         "web-menu-expanded",
@@ -557,8 +557,18 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     for state in select_extension {
         assert!(select.states.contains(&state));
     }
+    let back_extension = ["hover", "unified-web", "forced-colors"];
+    let back = components
+        .iter()
+        .find(|api| api.id == "back-button")
+        .unwrap();
+    for state in back_extension {
+        assert!(back.states.contains(&state));
+    }
     assert_eq!(
-        components.iter().map(|api| api.states.len()).sum::<usize>() - select_extension.len(),
+        components.iter().map(|api| api.states.len()).sum::<usize>()
+            - select_extension.len()
+            - back_extension.len(),
         198
     );
     assert_eq!(
@@ -657,6 +667,35 @@ fn scenario_workbench_restores_recipe_environment_and_keeps_unique_production_an
     for attribute in html.split(" id=\"").skip(1) {
         let id = attribute.split('"').next().unwrap();
         assert!(ids.insert(id), "duplicate workbench ID {id}");
+    }
+}
+
+#[test]
+fn back_recipe_uses_the_real_control_with_localized_names_and_an_explicit_baseline() {
+    for (locale, account, login) in [
+        ("vi", "Về Tài khoản", "Về Đăng nhập"),
+        ("en", "Back to Account", "Back to Sign in"),
+    ] {
+        let query = format!("?v=1&component=back-button&state=enabled&locale={locale}&mode=matrix");
+        let html = Owner::new()
+            .with(|| view! { <preview::workbench::Workbench initial_query=query/> }.to_html());
+        assert!(!html.contains("using the default recipe"));
+        for state in ["enabled", "disabled", "loading"] {
+            let id = format!("scenario-back-button-{state}-control");
+            let button = opening_tag(&html, &id);
+            assert!(button.contains("cui-back-button-unified"), "{button}");
+            assert_eq!(button.contains("disabled"), state != "enabled", "{button}");
+            assert!(
+                !opening_tag(&html, &format!("{id}-baseline")).contains("cui-back-button-unified")
+            );
+        }
+        assert!(html.contains(account), "{html}");
+        assert!(html.contains(login), "{html}");
+        let mut ids = BTreeSet::new();
+        for attribute in html.split(" id=\"").skip(1) {
+            let id = attribute.split('"').next().unwrap();
+            assert!(ids.insert(id), "duplicate workbench ID {id}");
+        }
     }
 }
 

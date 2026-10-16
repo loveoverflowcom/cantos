@@ -1,8 +1,8 @@
 //! Auth/account design-v2 specimens only. No identity, navigation or payment effects.
 use cantos_ui::{
-    AccessibleName, BackButton, Button, ButtonState, ButtonVariant, DisabledReason, FieldState,
-    IconName, Select, Space, Stack, Status, Surface, SurfaceTone, SurfaceVariant, TextField,
-    TextFieldKind, TextFieldVariant,
+    AccessibleName, BackButton, BackButtonVariant, Button, ButtonState, ButtonVariant,
+    DisabledReason, FieldState, IconName, Select, Space, Stack, Status, Surface, SurfaceTone,
+    SurfaceVariant, TextField, TextFieldKind, TextFieldVariant,
 };
 use leptos::prelude::*;
 
@@ -166,7 +166,7 @@ pub fn BackButtonSamples(
         _ => ButtonState::Enabled,
     });
     let on_back = Callback::new(move |_| returns.update(|count| *count += 1));
-    // A neutral canvas keeps the icon circle distinct and exposes accidental label fills.
+    // Compare the unified candidate with the unchanged compatibility presentation.
     view! {
         <Surface tone=SurfaceTone::Plain variant=SurfaceVariant::AccountGroup>
             <Stack gap=Space::Sm>
@@ -177,12 +177,14 @@ pub fn BackButtonSamples(
                     <option value="loading">"Đang chờ"</option>
                     <option value="disabled">"Bị khóa"</option>
                 </Select>
-                <div data-preview-scenario="back-visible-label back-focus back-pressed back-loading back-disabled">
-                    <BackButton id="auth-back-visible" name=name state=state on_back=on_back/>
+                <div data-preview-scenario="back-visible-label back-hover back-focus back-pressed back-loading back-disabled back-unified-web">
+                    <BackButton id="auth-back-visible" variant=BackButtonVariant::Unified name=name state=state on_back=on_back/>
                 </div>
                 <div data-preview-scenario="back-icon-only">
-                    <BackButton id="auth-back-icon" name=name icon_only=true state=state on_back=on_back/>
+                    <BackButton id="auth-back-icon" variant=BackButtonVariant::Unified name=name icon_only=true state=state on_back=on_back/>
                 </div>
+                <p>"Unified Web candidate · chưa qualified. Mẫu IconTonal hiện hành để đối chiếu:"</p>
+                <BackButton id="auth-back-baseline" name=name state=state on_back=on_back/>
                 <Button id="auth-back-change-context" variant=ButtonVariant::Text
                     on_press=Callback::new(move |_| name.set(AccessibleName::new("Về Tài khoản, giữ nguyên ý định đăng ký Membership").expect("nonblank alternate name")))>
                     "Đổi nơi quay về trong mẫu"
