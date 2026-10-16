@@ -6,6 +6,19 @@ Firebase mailbox proof, a dedicated UID per enrollment and one-shot Kanidm setup
 action template or deployment is created by configuration parsing. See the separate
 [runtime evidence](../evidence/firebase-enrollment-runtime.md).
 
+A first real journey against project `cantos-a348b` is recorded in the
+[live record](../evidence/theatre-live-auth-206.md). It leaves these gates **open** before any
+activation:
+
+- **Custom action handler.** Setting the action URL failed on the Spark project, so the mail kept
+  the default hosted handler. The requirement that the default handler never consumes the code first
+  is unaccepted, and the first mail's code was invalid for an undetermined reason.
+- **Least privilege.** The default Admin SDK key was used; a dedicated narrow service account, role
+  and binding were never created. Signing/creation authority is unaccepted.
+- **Cleanup.** The generated key (id prefix `2795eafc`), the test Firebase user, the test Kanidm
+  person, local containers and the project changes are still in place; each deletion needs separate
+  approval.
+
 ## Implemented, disabled composition
 
 The existing API host selects one provider with `CANTOS_THEATRE_REGISTRATION_PROVIDER`:
