@@ -26,8 +26,9 @@ signup and production identity/delivery acceptance remain separate. See the
 Theatre Mobile has an isolated [CMP mock](../../apps/cantos-theatre/mobile/README.md): its
 production-safe `:shared` KMP module contains the UI/domain/application and ports, and the
 separate `:preview-sandbox` module contains mock adapters, fixtures and demo composition.
-There is no production Android host; production release graph/APK/AAB exclusion remains
-**BLOCKED / NOT_RUN**. Native audio and live listener resources remain absent; a common/JVM
+A production Android host composes `:shared` only and renders an explicit unavailable state;
+its release graph and unsigned APK/AAB exclusion are inspected by `cargo xtask theatre-host
+android-release`. Native audio and live listener resources remain absent; a common/JVM
 HTTP boundary is available. Studio Mobile is only a scope notice: never a workspace
 member, Gradle module, xtask target, CI lane or automatic build/test/preview consumer. Shared
 contracts, tokens and libraries may serve Theatre Mobile and Studio Web. Historical decisions
@@ -43,7 +44,8 @@ apps/
     mobile/                Kotlin Compose Multiplatform     (isolated demo; no native audio) DEMO
       shared/              Production-safe UI/domain/application, ports and non-mock adapters
       preview-sandbox/     Separate KMP mock adapters, fixtures, previews and demo hosts
-      androidApp/          Explicit demo Android host; no production host implemented
+      androidApp/          Explicit demo Android host (com.cantos.theatre.demo)
+      androidProductionApp/ Production Android host: :shared only, unavailable state     RELEASE BOUNDARY
   cantos-studio/           Cantos Studio: the creator product
     web/                   Leptos CSR script editor         (package cantos-studio)       IMPLEMENTED
     mobile/                Scope notice only                (no implementation)          OUT OF SCOPE
@@ -78,7 +80,12 @@ docs/  templates/  scripts/  .agents/  .github/             unchanged roles; scr
   with target evidence in its [record](../../apps/cantos-theatre/mobile/docs/mock-skeleton.md).
   It implements no native audio, listener API, background playback, downloads or durable sync.
   The [sandbox extraction record](../evidence/issue122-cmp-sandbox-isolation.md) distinguishes
-  module/source checks from the unrun production artifact checks; a demo build does not accept #122.
+  module/source checks from the production host's release artifact checks; a demo build never
+  stands for them.
+- **RELEASE BOUNDARY** is the production Android host (`com.cantos.theatre`): a real application
+  module that composes `:shared` only and, without production listening adapters, renders an
+  explicit unavailable state. It exists so its unsigned release graph and APK/AAB can be inspected
+  for sandbox exclusion; it is a skeleton, not a listening feature, signed release or distribution.
 - **OUT OF SCOPE** is a policy notice, not a reserved client or a future automatic build target.
 - **CONFIG ONLY** documents and validates deployment configuration. Cantos does not yet
   claim live Kanidm acceptance: the API now has opt-in [Studio OIDC](studio-oidc.md) alongside
@@ -168,10 +175,10 @@ Not shared, deliberately:
   Shared contracts and semantic tokens may serve Theatre Mobile and Studio Web; extract further
   libraries only for concrete consumers.
   Within Theatre Mobile, `:preview-sandbox` depends on `:shared`; demo hosts select both
-  explicitly. `:shared` has no reverse sandbox dependency or implicit mock fallback. A future
-  production host consumes `:shared` and production adapters only. Static source/build guards
-  protect the declared boundary; actual production release classpaths and APK/AAB contents
-  still require independent inspection when that host exists.
+  explicitly. `:shared` has no reverse sandbox dependency or implicit mock fallback. The
+  production host `:androidProductionApp` consumes `:shared` and, later, production adapters
+  only. Static source/build guards protect the declared boundary; its resolved release
+  classpaths and actual APK/AAB contents are inspected independently by `theatre-host`.
 
 ## Cargo workspace
 

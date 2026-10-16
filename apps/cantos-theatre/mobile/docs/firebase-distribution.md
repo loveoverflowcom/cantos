@@ -3,9 +3,9 @@
 > **Scope (Phase A of [#184](https://github.com/loveoverflowcom/cantos/issues/184)).** An explicit,
 > opt-in `cargo xtask` command builds the Theatre Android **demo** APK and hands it to Firebase App
 > Distribution for QA testers. It distributes the isolated mock host (`com.cantos.theatre.demo`,
-> debug variant). It is **not** a production release: production APK/AAB distribution is
-> `UNSUPPORTED` until a real production Android host exists and its release graph is shown to exclude
-> sandbox code ([#122](https://github.com/loveoverflowcom/cantos/issues/122)). Studio is Web-only.
+> debug variant). It is **not** a production release: the production host's sandbox exclusion is
+> inspected ([#122](https://github.com/loveoverflowcom/cantos/issues/122)), but it has no listening
+> adapter or signing, so production APK/AAB distribution stays `UNSUPPORTED` (#14). Studio is Web-only.
 > The command contract is in the [xtask README](../../../../xtask/README.md#distribute-firebase).
 
 Distribution is a **remote write** and may invite or notify the selected testers. Nothing else in

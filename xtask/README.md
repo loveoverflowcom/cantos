@@ -49,6 +49,7 @@ cargo xtask ui-preview leptos build|run|verify       # package-local Leptos gall
 cargo xtask ui-preview leptos run --open             # loopback browser preview on 8083
 cargo xtask ui-preview cmp build|run|verify          # package-local CMP desktop preview
 cargo xtask ui-preview cmp android-build             # compile the isolated Android preview library
+cargo xtask theatre-host android-release             # production host release APK/AAB + boundary inspection
 
 cargo xtask verify repository|rust|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
@@ -84,7 +85,8 @@ xtask only builds it: no `run`, gate or CI job executes Forge, and Forge calls n
 `--web`; `--mobile` is rejected as a usage error (exit 2), not a reserved implementation.
 `cantos-theatre` (listeners, alias `cantos`) supports `--web` and `--mobile`; one must be named.
 Theatre Mobile has an isolated mock Gradle project. Production `--mobile` remains
-`UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence.
+`UNSUPPORTED` because native listening adapters are absent; use `theatre-demo` for mock evidence
+and `theatre-host android-release` for the production host's release isolation.
 Studio Mobile is excluded from all build/run/test/preview plans, even if files appear in its
 out-of-scope directory. `build all` covers the API, Forge and both Web clients and notes that Theatre
 Mobile and `services/kanidm` (configuration only) are not built. See the
@@ -719,10 +721,9 @@ Missing prerequisites are `UNSUPPORTED`, failed executed steps are `FAIL`.
 
 The demo desktop, Android and iOS hosts explicitly consume `:preview-sandbox`; the production-safe
 `:shared` module never depends on it. Verification retains both the independent shared-core suite
-and sandbox port/workbench/UI tests. These commands produce demo evidence only. No production
-Android host exists yet, so production `releaseCompileClasspath` / `releaseRuntimeClasspath` and
-APK/AAB class/resource/manifest exclusion remain `BLOCKED` / `NOT_RUN`; a demo debug APK cannot
-accept those claims. See the [isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md).
+and sandbox port/workbench/UI tests. These commands produce demo evidence only; a demo debug APK
+cannot accept production `releaseCompileClasspath` / `releaseRuntimeClasspath` or APK/AAB
+exclusion. Use [`theatre-host`](#theatre-host) for those claims.
 
 The local `theatre-cmp-demo` preflight gate runs mock common/JVM tests when its source/build
 inputs or consumed CMP/shared tokens change. It does not stand for native acceptance or
@@ -731,6 +732,37 @@ component qualification. It is outside CI until a Gradle lane is separately prov
 only stored owned process groups for cleanup. The supervisor keeps exited leaders unreaped
 until their group has been signalled, preventing descendant leaks without stale-PGID lookup.
 Details and evidence live in the [mock guide](../apps/cantos-theatre/mobile/README.md).
+
+### theatre-host
+
+The production Theatre Android host (`androidProductionApp`, `com.cantos.theatre`) composes
+`:shared` only. Until production listening adapters exist (#14) it renders an explicit
+unavailable state; it has no mock, sample or diagnostic fallback.
+
+```sh
+cargo xtask theatre-host android-release
+# 1. gradle -Pcantos.android=true :androidProductionApp:assertReleaseDependencyBoundary
+#      :androidProductionApp:assembleRelease :androidProductionApp:bundleRelease
+#      :preview-sandbox:compileReleaseKotlinAndroid
+# 2. python3 scripts/inspect_android_release.py --apk ... --aab ... --aapt2 <SDK>/build-tools/35.0.0/aapt2
+```
+
+The SDK and tool prerequisites match `theatre-demo android-build`; the host, shared Android
+sources and sandbox resource inventory must exist. Missing prerequisites are `UNSUPPORTED`.
+The Gradle task resolves both release classpaths and allows no local project except `:shared`
+and no test, mock or Compose tooling module. The sandbox is compiled only as the forbidden
+class inventory. The inspector reads the actual unsigned, unshrunk APK and AAB: DEX
+`class_defs`, sandbox class names and resource bytes, Compose resource packages, entry paths and
+the `aapt2`-decoded manifest. It also checks package, launcher, debuggable/test-only flags and
+allowlisted permissions. Its APK/AAB class sets must match and named production classes must
+exist; an empty inventory or unreadable artifact exits 2, never `PASS`. A failed build
+stops before inspection, so stale outputs are never inspected. Reports are written under
+`apps/cantos-theatre/mobile/androidProductionApp/build/reports/release-boundary/`.
+
+Nothing is signed, installed, shrunk or distributed; this is release-isolation evidence, not a
+production release or listening acceptance. Preflight does not run it (it selects only the JVM
+mock gate for host changes and notes this command). See the
+[isolation record](../docs/evidence/issue122-cmp-sandbox-isolation.md#production-android-host-and-release-artifact-acceptance).
 
 The retained local fixture can now select its existing test context with
 `CANTOS_TEST_CONTEXT=editorial|catalog|audio` on `run cantos-studio --web --test-cluster`.

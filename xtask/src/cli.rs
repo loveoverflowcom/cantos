@@ -12,6 +12,7 @@ use crate::{
     kani::Kernel,
     run::{AppTarget, RunTarget},
     theatre_demo::DemoAction,
+    theatre_host::HostAction,
     ui_preview::{PreviewAction, Renderer},
 };
 
@@ -118,6 +119,12 @@ pub enum Task {
     TheatreDemo {
         #[command(subcommand)]
         action: DemoAction,
+    },
+    /// Build and inspect the production Theatre Android host's release APK/AAB; it composes
+    /// `:shared` only. Nothing is signed, installed or distributed.
+    TheatreHost {
+        #[command(subcommand)]
+        action: HostAction,
     },
     /// Run one verification suite.
     Verify {
@@ -460,6 +467,24 @@ mod tests {
             "theatre-demo ios-build",
             "theatre-demo run --open",
             "theatre-demo deploy",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
+    }
+
+    #[test]
+    fn theatre_host_has_only_the_explicit_android_release_inspection() {
+        assert!(matches!(
+            parse("theatre-host android-release").unwrap(),
+            Task::TheatreHost {
+                action: HostAction::AndroidRelease
+            }
+        ));
+        for line in [
+            "theatre-host",
+            "theatre-host android-build",
+            "theatre-host android-release --install",
+            "theatre-host ios-release",
         ] {
             assert!(parse(line).is_err(), "{line}");
         }

@@ -65,8 +65,8 @@ Keep these steps in the evidence record:
    for each finding. For owner recreation, separately test A→B→A, reset/dispose during delayed
    work, injected-owner disposal and rejected stale callbacks with controlled time. A memory
    remount never proves OS process death. Diagnostics do not fill shared admission or product-flow
-   evidence; [#122](https://github.com/loveoverflowcom/cantos/issues/122) still owns production
-   source/dependency and APK/AAB exclusion acceptance.
+   evidence; [#122](https://github.com/loveoverflowcom/cantos/issues/122)'s production
+   source/dependency and APK/AAB exclusion belongs to `cargo xtask theatre-host android-release`.
 
 CMP workbench intent replay is separate from motion-frame replay. Motion recipes (inputs plus
 observation marks at virtual times) run on a manual clock owned by the test, never by production UI

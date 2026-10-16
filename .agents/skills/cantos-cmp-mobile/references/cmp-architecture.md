@@ -83,9 +83,10 @@ remain in `androidMain` / `iosMain` or Swift.
 The implementation keeps ARC-01's production-safe UI/domain/application/ports in `:shared` and
 mock adapters, fixtures, previews, diagnostic composition and workbench in `:preview-sandbox`.
 The sandbox depends on shared; shared has no reverse dependency or implicit mock fallback.
-Existing hosts are demo hosts. A future production host consumes shared plus production
-adapters and must establish release graph and actual APK/AAB exclusion independently; the
-absent production host leaves that acceptance **BLOCKED / NOT_RUN**. Build/verify integrate
+`androidApp` and the desktop/iOS hosts are demo hosts. The production host `androidProductionApp`
+consumes shared plus production adapters only (none exist yet, so it renders an explicit
+unavailable state) and establishes release graph and actual APK/AAB exclusion independently
+through `cargo xtask theatre-host android-release`. Build/verify integrate
 `:shared:assertProductionSafeDependencies` for resolved shared desktop and opt-in Android
 release compile/runtime graphs; its report is `shared/build/reports/production-boundary/resolved-dependencies.txt`.
 That library guard is separate from the lexical source guard and production artifact acceptance;
