@@ -6,6 +6,10 @@ rust-version = "1.98.1"
 publish = false
 description = "Producer-side Cantos Forge CLI: local production records outside the Cantos API runtime"
 
+[lints.rust]
+# Kani injects its crate only for cfg(kani); ordinary builds carry no proof dependency.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
 [dependencies]
 clap = { version = "=4.6.7", features = ["derive"] }
 getrandom = "=0.3.4"

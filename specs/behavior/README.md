@@ -12,6 +12,11 @@ model-only PASS neither accepts the model nor demonstrates Rust/DB/API/client co
 Read [ADR 0027](../../docs/decisions/0027-quint-executable-behavior.md) and the
 [PR B observation handoff](../../docs/archive/handoffs/quint-conformance-handoff.md).
 
+A **draft, model-only** producer-side capability, `cantos.production.forge-attempt` (#203,
+[Forge](../../apps/cantos-forge/README.md#generation-attempts)), describes when a billable provider call
+may start and what an uncertain outcome permits. It has no Rust observer; native mirror tests
+carry each named run's ID and `tests/behavior_binding.rs` keeps the lists equal.
+
 Two further **draft, model-only** capabilities describe proposed public media rules:
 `cantos.media.public-playback-delivery` ([ADR 0032](../../docs/decisions/0032-theatre-origin-playback-delivery.md))
 and `cantos.media.public-cover-projection` ([ADR 0033](../../docs/decisions/0033-release-pinned-public-cover.md)).
