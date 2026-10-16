@@ -545,8 +545,20 @@ fn design_discovery_preserves_baseline_and_never_promotes_a_proposal_to_an_api()
     assert_eq!(specimens.len(), 102);
     let components = preview::preview_catalog::COMPONENTS;
     assert_eq!(components.len(), 32);
+    // The immutable v3 inventory still describes the 198-state baseline. The Web Select
+    // extension adds diagnostic states without promoting any proposed API or qualification.
+    let select_extension = [
+        "web-menu",
+        "web-menu-expanded",
+        "long-vietnamese",
+        "large-text",
+    ];
+    let select = components.iter().find(|api| api.id == "select").unwrap();
+    for state in select_extension {
+        assert!(select.states.contains(&state));
+    }
     assert_eq!(
-        components.iter().map(|api| api.states.len()).sum::<usize>(),
+        components.iter().map(|api| api.states.len()).sum::<usize>() - select_extension.len(),
         198
     );
     assert_eq!(

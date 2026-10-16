@@ -233,11 +233,15 @@
         "missing-value",
         "reordered-options",
         "unsupported-option",
-        "interrupted"
+        "interrupted",
+        "web-menu",
+        "web-menu-expanded",
+        "long-vietnamese",
+        "large-text"
       ],
       "leptos": {
         "status": "registered",
-        "reason": "Existing bounded gallery evidence; new catalog runtime qualification remains pending."
+        "reason": "Native baseline retained. The opt-in Web menu is preview-only; browser, accessibility, visual and consumer admission remain pending."
       },
       "cmp": {
         "status": "implemented-unverified",

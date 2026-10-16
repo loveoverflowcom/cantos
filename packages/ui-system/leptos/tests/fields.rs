@@ -1,6 +1,7 @@
 use cantos_ui::{
     Checkbox, ChoiceState, DisabledReason, FieldError, FieldHelp, FieldLabel, FieldState,
-    NumberField, Radio, RangeField, Select, Switch, TextArea, TextField, TextFieldKind,
+    NumberField, Radio, RangeField, Select, SelectOption, Switch, TextArea, TextField,
+    TextFieldKind,
 };
 use leptos::prelude::*;
 use std::sync::{
@@ -12,6 +13,78 @@ fn control<'a>(html: &'a str, element: &str, id: &str) -> &'a str {
     let start = html.find(&format!("<{element} id=\"{id}\"")).unwrap();
     let end = html[start..].find('>').unwrap() + start;
     &html[start..=end]
+}
+
+#[test]
+fn menu_select_preserves_native_fallback_form_facts_and_named_composite_anatomy() {
+    let html = view! {
+        <Select id="theme" name="theme-preference" label="Giao diện" value="missing" required=true
+            options=vec![SelectOption::new("system", "Theo hệ thống"), SelectOption::new("dark", "Tối <script>")]
+            placeholder="Chọn giao diện" help="Giữ lựa chọn đã lưu" error="Chọn giá trị hợp lệ"
+            described_by="preferences-context" on_input=Callback::new(|_: String| panic!("render dispatched input"))/>
+    }.to_html();
+    let fallback = control(&html, "select", "theme");
+    assert!(fallback.contains("name=\"theme-preference\""), "{fallback}");
+    assert!(fallback.contains("required"), "{fallback}");
+    assert!(!fallback.contains("hidden"), "{fallback}");
+    let trigger = control(&html, "button", "theme-trigger");
+    for attribute in [
+        "type=\"button\"",
+        "hidden",
+        "role=\"combobox\"",
+        "aria-controls=\"theme-listbox\"",
+        "aria-expanded=\"false\"",
+        "aria-required=\"true\"",
+        "aria-invalid=\"true\"",
+        "aria-describedby=\"preferences-context theme-help theme-error\"",
+    ] {
+        assert!(
+            trigger.contains(attribute),
+            "missing {attribute}: {trigger}"
+        );
+    }
+    assert!(html.contains("popover=\"auto\""), "{html}");
+    assert!(html.contains("role=\"listbox\""), "{html}");
+    assert_eq!(html.matches("role=\"option\"").count(), 2);
+    assert!(!html.contains("aria-selected=\"true\""), "{html}");
+    assert!(!html.contains("<script>"), "{html}");
+    assert!(html.contains("Chọn giao diện"), "{html}");
+}
+
+#[test]
+fn menu_select_projects_disabled_loading_and_language_without_selecting_a_default() {
+    for state in [
+        ChoiceState::Disabled(DisabledReason::new("Không thể đổi").unwrap()),
+        ChoiceState::Loading(DisabledReason::new("Đang đọc").unwrap()),
+    ] {
+        let busy = state.is_loading();
+        let html = view! {
+            <Select id="locale" label="Ngôn ngữ" value="en" state=state
+                options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
+                    SelectOption { lang: Some("en".to_owned()), disabled: true, ..SelectOption::new("en", "English") }]
+                on_input=Callback::new(|_: String| panic!("render dispatched input"))/>
+        }.to_html();
+        for element in [
+            control(&html, "select", "locale"),
+            control(&html, "button", "locale-trigger"),
+        ] {
+            assert!(element.contains("disabled"), "{element}");
+            assert!(
+                element.contains(&format!("aria-busy=\"{busy}\"")),
+                "{element}"
+            );
+            assert!(
+                element.contains("aria-describedby=\"locale-reason\""),
+                "{element}"
+            );
+        }
+        assert!(
+            html.contains("aria-selected=\"true\" aria-disabled=\"true\""),
+            "{html}"
+        );
+        assert!(html.contains("lang=\"vi-VN\""), "{html}");
+        assert!(html.contains("lang=\"en\""), "{html}");
+    }
 }
 
 #[test]

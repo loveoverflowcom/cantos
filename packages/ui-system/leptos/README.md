@@ -15,7 +15,7 @@ No HTTP, backend, provider, domain rule, browser storage or playback dependency 
 | `Link`, `NavItem`, `NavTabs` | Native links and labelled navigation; reactive safe `LinkHref`, `aria-current="page"`, optional icon; NavTabs is ordinary link navigation, not an ARIA tab widget |
 | `FilterChip` | Controlled `selected`, native `aria-pressed`, `on_change(bool)`; blocked/loading reason |
 | `TextField`, `TextArea`, `NumberField` | Required stable ID, visible label, controlled raw string and `on_input(String)`; editable/readonly/disabled/loading |
-| `Select` | Native option children, controlled string, `on_input(String)` dispatched on native change; enabled/disabled/loading |
+| `Select` | Native option children by default; opt-in `options: Signal<Vec<SelectOption>>` Web menu candidate in preview; controlled string, enabled/disabled/loading |
 | `Checkbox`, `Radio`, `Switch` | Native checked inputs, controlled bool, `on_change(bool)`; Radio requires group name/value; Switch exposes switch semantics |
 | `RangeField` | Native range and keyboard steps; raw string callback, native min/max/step; optional localized `value_text` |
 | `FieldLabel`, `FieldHelp`, `FieldError` | Composable label/description primitives for caller-owned native controls |
@@ -78,6 +78,39 @@ async regions mounted and own deduplication/throttling. Loading keeps visible co
 static indicator; no continuous animation or delay is needed. Keep the announcement outside any
 caller-owned busy content region so assistive technology can announce it. Tone is supplementary
 to text/icons.
+
+## Web Select menu candidate — preview only
+
+For the `select` recipe, pass `options` instead of native option children. `SelectOption`
+carries an opaque stable unique value, localized label, optional content language and disabled
+fact. `placeholder` describes a missing value; it never selects or dispatches the first option.
+Existing callers with native option children retain their current implementation. Do not pass
+both option children and `options`: the latter selects the menu presentation.
+
+The menu uses a native non-submit button with select-only combobox semantics, a nonmodal
+Popover listbox and `aria-activedescendant`. Arrow keys/Home/End and localized typeahead browse;
+Enter/Space/Tab or leaving focus acknowledges the active enabled option. Escape or toggling
+the trigger discards browsing. Pointer selection acknowledges once. The caller must update
+`value` to accept a change. A changed option list/value/availability cancels an open browse.
+No async/domain decision, preference storage or OS-theme lookup enters the component.
+
+The browser adapter constrains the top-layer popup to the visual viewport, matches the trigger
+width, aligns its leading edge (including RTL), flips above when necessary, and repositions on
+scroll/resize/trigger reflow. Inset and offset use the computed token padding. Listener/observer
+cleanup belongs to the mounted owner. Selected, active, disabled and error are separate facts;
+the selected check remains visible in forced colors. There is no menu animation or delayed intent.
+
+Unsupported Popover engines, SSR and an unsuccessful enhancement retain the native select;
+its OS popup is **not** claimed to match M3. The native control retains form name/required/value,
+and native invalid submission focuses the enhanced trigger when present. Keyboard/focus,
+touch, form validity, viewport positioning and assistive technology still require browser
+acceptance; native string rendering does not prove them.
+
+This is an unqualified Web presentation of the existing `select` API. The shared baseline and
+qualification gate remain intact; CMP layout is unchanged. **Account/Settings/topbar migration
+is deferred** until preview admission under the
+[existing policy](../../../.agents/skills/cantos-ui-design/references/preview-catalog.md).
+See [#221 evidence and continuation](../../../docs/evidence/web-select-221.md).
 
 ## Styling and gallery
 
@@ -164,6 +197,7 @@ The full API/token catalog stays available; exact recipe support is intentionall
 | `filter-chip` | `filter-chip` / `FilterChip` | `unselected`, `selected`, `disabled`, `loading` |
 | `switch` | `switch` / native `Switch` | `off`, `on`, `disabled`, `loading` |
 | `dialog` | `dialog` / native controlled `Dialog` | `closed`, `open` |
+| `select` | `select` / opt-in Web menu candidate, Theme + Language examples | `enabled`, `disabled`, `loading`, `error`, `missing-value`, `empty-options` |
 
 The canonical query is versioned. For example, append this query to the local preview URL:
 

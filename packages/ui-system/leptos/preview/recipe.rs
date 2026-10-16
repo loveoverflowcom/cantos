@@ -43,6 +43,7 @@ recipe_enum!(ComponentId {
     FilterChip => "filter-chip",
     Switch => "switch",
     Dialog => "dialog",
+    Select => "select",
 });
 
 recipe_enum!(ScenarioState {
@@ -55,6 +56,9 @@ recipe_enum!(ScenarioState {
     On => "on",
     Closed => "closed",
     Open => "open",
+    Error => "error",
+    MissingValue => "missing-value",
+    EmptyOptions => "empty-options",
 });
 
 impl ComponentId {
@@ -65,6 +69,14 @@ impl ComponentId {
             Self::FilterChip => &[Unselected, Selected, Disabled, Loading],
             Self::Switch => &[Off, On, Disabled, Loading],
             Self::Dialog => &[Closed, Open],
+            Self::Select => &[
+                Enabled,
+                Disabled,
+                Loading,
+                Error,
+                MissingValue,
+                EmptyOptions,
+            ],
         }
     }
 
@@ -74,6 +86,7 @@ impl ComponentId {
             Self::FilterChip => ScenarioState::Unselected,
             Self::Switch => ScenarioState::Off,
             Self::Dialog => ScenarioState::Closed,
+            Self::Select => ScenarioState::Enabled,
         }
     }
 

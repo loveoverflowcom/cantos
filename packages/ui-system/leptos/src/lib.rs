@@ -11,6 +11,7 @@ mod layout;
 mod logo;
 mod navigation;
 mod root;
+mod select_menu;
 pub mod tokens;
 
 pub use avatar::{
@@ -36,6 +37,7 @@ pub use layout::{
 pub use logo::{Logo, LogoTone, LogoVariant};
 pub use navigation::{FilterChip, InvalidLinkHref, Link, LinkHref, NavItem, NavTabs};
 pub use root::{Density, Theme, UiRoot};
+pub use select_menu::SelectOption;
 
 /// Load these before app styles. Trunk consumers can link the same files directly.
 pub const TOKEN_CSS: &str = include_str!("../tokens.css");

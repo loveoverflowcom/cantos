@@ -2,7 +2,7 @@
 use super::{motion_probe, platform, recipe::*, Gallery};
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, ChoiceState, Density, Dialog, DisabledReason, FilterChip,
-    IconName, Select, Space, Stack, Switch, TextField, Theme, UiRoot,
+    IconName, Select, SelectOption, Space, Stack, Switch, TextField, Theme, UiRoot,
 };
 use leptos::prelude::*;
 
@@ -227,11 +227,29 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
     let selected = RwSignal::new(matches!(state, ScenarioState::Selected | ScenarioState::On));
     let opened = RwSignal::new(false);
     let text = RwSignal::new(String::new());
+    let language_value = RwSignal::new("vi-VN".to_owned());
+    let select_value = RwSignal::new(
+        if state == ScenarioState::MissingValue {
+            "missing"
+        } else {
+            "system"
+        }
+        .to_owned(),
+    );
     // Same mounted component across modes/themes. Only an explicit recipe/reset restores data.
     Effect::new(move |_| {
         host.reset.get();
         selected.set(matches!(state, ScenarioState::Selected | ScenarioState::On));
         text.set(fixture_label(host.recipe.get_untracked()).to_owned());
+        language_value.set("vi-VN".to_owned());
+        select_value.set(
+            if state == ScenarioState::MissingValue {
+                "missing"
+            } else {
+                "system"
+            }
+            .to_owned(),
+        );
     });
     let active = Memo::new(move |_| {
         let recipe = host.recipe.get();
@@ -277,6 +295,36 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
             <FilterChip id=control_id selected=selected state=button_state on_change=change>{move || label.get()}</FilterChip>
         }.into_any(),
         ComponentId::Switch => view! { <Switch id=control_id label=label checked=selected state=choice_state on_change=change/> }.into_any(),
+        ComponentId::Select => {
+            let language_id = format!("{control_id}-language");
+            let options = Signal::derive(move || {
+                if state == ScenarioState::EmptyOptions { return Vec::new(); }
+                let recipe = host.recipe.get();
+                vec![
+                    SelectOption::new("system", if recipe.fixture == Fixture::LongVietnamese {
+                        fixture_label(recipe)
+                    } else { copy(recipe.locale, "Theo hệ thống", "System default") }),
+                    SelectOption::new("light", copy(recipe.locale, "Sáng", "Light")),
+                    SelectOption { disabled: true, ..SelectOption::new("unavailable", copy(recipe.locale, "Không khả dụng", "Unavailable")) },
+                    SelectOption::new("dark", copy(recipe.locale, "Tối", "Dark")),
+                ]
+            });
+            view! {
+                <Select id=control_id label=Signal::derive(move || copy(host.recipe.get().locale, "Giao diện", "Theme").to_owned())
+                    value=select_value options=options state=choice_state
+                    placeholder=Signal::derive(move || copy(host.recipe.get().locale, "Chọn giao diện", "Choose a theme").to_owned())
+                    help=Signal::derive(move || Some(copy(host.recipe.get().locale, "Dùng bàn phím hoặc chạm để chọn. Escape giữ lựa chọn cũ.", "Use the keyboard or touch to choose. Escape keeps the previous value.").to_owned()))
+                    error=Signal::derive(move || (state == ScenarioState::Error).then(|| copy(host.recipe.get().locale, "Lựa chọn không hợp lệ; chọn lại giao diện.", "Invalid choice; choose a theme again.").to_owned()))
+                    on_input=Callback::new(move |value: String| { select_value.set(value.clone()); host.log(format!("{} input={value}", log_id.get_value())); })/>
+                <p class="cui-gallery-note">{move || format!("Controlled value: {}", select_value.get())}</p>
+                <Select id=language_id label=Signal::derive(move || copy(host.recipe.get().locale, "Ngôn ngữ", "Language").to_owned())
+                    value=language_value state=choice_state
+                    options=vec![SelectOption { lang: Some("vi-VN".to_owned()), ..SelectOption::new("vi-VN", "Tiếng Việt") },
+                        SelectOption { lang: Some("en".to_owned()), ..SelectOption::new("en", "English") }]
+                    on_input=Callback::new(move |value: String| { language_value.set(value.clone()); host.log(format!("{} locale={value}", log_id.get_value())); })/>
+                <p class="cui-gallery-note">"Web menu candidate — unqualified. Native fallback on unsupported engines. Expanded/hover/focus require real input; this recipe does not force visual states."</p>
+            }.into_any()
+        }
         ComponentId::Dialog => {
             let dialog_id = format!("{id}-modal");
             let draft_id = format!("{id}-draft");

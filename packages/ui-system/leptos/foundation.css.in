@@ -507,6 +507,96 @@
   pointer-events: none;
   color: var(--cantos-color-on-surface-variant);
 }
+/* Web-only Select presentation: the Popover top layer avoids clipping ancestors;
+   the DOM adapter anchors it to the trigger and constrains it to the visual viewport. */
+:where(.cantos-ui) .cui-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-sm);
+  text-align: start;
+  cursor: pointer;
+}
+:where(.cantos-ui) .cui-select-trigger > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) :is(.cui-select-trigger, .cui-select-native-indicator, .cui-select > select)[hidden] {
+  display: none;
+}
+:where(.cantos-ui) .cui-select-native-indicator {
+  position: absolute;
+  inset-inline-end: var(--cantos-space-control-inline);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--cantos-color-on-surface-variant);
+}
+:where(.cantos-ui) .cui-select-menu {
+  display: none;
+  box-sizing: border-box;
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: var(--cantos-space-sm);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--cantos-size-border) solid var(--cantos-color-outline-variant);
+  border-radius: var(--cantos-web-shape-overlay);
+  background: var(--cantos-color-surface-container-high);
+  color: var(--cantos-color-on-surface);
+  box-shadow: var(--cantos-elevation-overlay);
+  font: inherit;
+}
+:where(.cantos-ui) .cui-select-menu:popover-open { display: block; }
+:where(.cantos-ui) .cui-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cantos-space-sm);
+  box-sizing: border-box;
+  min-block-size: var(--cantos-size-control);
+  padding: var(--cantos-space-sm) var(--cantos-space-control-inline);
+  border: var(--cantos-size-border) solid transparent;
+  border-radius: var(--cantos-web-shape-control);
+  cursor: pointer;
+}
+:where(.cantos-ui) .cui-select-option-label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+:where(.cantos-ui) .cui-select-option-check {
+  display: flex;
+  visibility: hidden;
+  flex: none;
+}
+:where(.cantos-ui) .cui-select-option[aria-selected="true"] {
+  background: var(--cantos-color-primary-container);
+  color: var(--cantos-color-on-primary-container);
+}
+:where(.cantos-ui) .cui-select-option[aria-selected="true"] .cui-select-option-check {
+  visibility: visible;
+}
+:where(.cantos-ui) .cui-select-option[aria-disabled="false"]:hover {
+  background-image: linear-gradient(color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent), color-mix(in srgb, currentColor calc(var(--cantos-state-hover-opacity) * 100%), transparent));
+}
+:where(.cantos-ui) .cui-select-option[data-active="true"] {
+  outline: var(--cantos-size-border) solid var(--cantos-color-focus);
+  outline-offset: calc(-1 * var(--cantos-size-border));
+}
+:where(.cantos-ui) .cui-select-option[aria-disabled="true"] {
+  color: var(--cantos-color-on-surface-variant);
+  cursor: default;
+}
+@media (forced-colors: active) {
+  :where(.cantos-ui) .cui-select-option[aria-selected="true"] {
+    border-color: Highlight;
+  }
+  :where(.cantos-ui) .cui-select-option[data-active="true"] {
+    outline-color: Highlight;
+  }
+  :where(.cantos-ui) .cui-select-option[aria-disabled="true"] { color: GrayText; }
+}
 :where(.cantos-ui) .cui-textarea {
   resize: vertical;
   white-space: pre-wrap;
