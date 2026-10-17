@@ -101,8 +101,12 @@ Nothing on the VPS changes: the edge fetches the new bytes from Firebase on the 
 
 ## Identity: Studio administrator and Theatre sign-in (operator-run)
 
-Account creation and credentials belong to the owner. Run this yourself in an interactive
-terminal; it prints one-time credential links only there:
+`cantos-vps identity` is operator-run. The operator may run it directly or explicitly delegate
+account creation, OAuth2 client/group setup and credential-reset issuance to an AI agent for
+a named host and accounts, without repeated confirmation within that scope. Deployment
+authorization alone does not authorize identity changes. The command requires an interactive
+terminal and prints one-time credential links; keep secrets and links out of chat, agent logs
+and Git. The operator completes personal password/passkey setup in their own interactive session:
 
 ```bash
 ssh -t root@42.96.18.245 cantos-vps identity --studio-admin YOUR_ACCOUNT_NAME \

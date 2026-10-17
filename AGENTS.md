@@ -122,9 +122,14 @@ Production API deployment to the VPS is the explicit, opt-in
 ([contract](xtask/README.md#deploy-vps), [runbook](docs/deployment/vps-production.md)). It builds the
 image locally from committed `HEAD`, then the uploaded `infra/vps/bin/cantos-vps` backs up, migrates,
 grants, switches and health-gates with automatic switch-back. It is a remote write: `--dry-run` shows
-the plan, and an agent runs it only on the user's explicit request naming the host. Never create
-Kanidm accounts or credentials for the user: `cantos-vps identity` is operator-run. CircleCI
-(`.circleci/config.yml`) only offers a manual pipeline that calls these commands.
+the plan, and an agent runs it only on the user's explicit request naming the host.
+`cantos-vps identity` is operator-run: the operator may explicitly delegate it to an AI agent
+for a named host and accounts, including Kanidm account creation, OAuth2 client/group setup and
+credential-reset issuance. Once authorized, the agent may complete that scope without repeated
+confirmation. Deployment authorization alone does not authorize identity changes. Keep secrets
+and one-time credential links out of chat, agent logs and Git; the operator completes personal
+password/passkey setup in their own interactive session. CircleCI (`.circleci/config.yml`) only
+offers a manual pipeline that calls the deployment commands.
 
 Repository-level operations go through `cargo xtask`; scripts and external tools are implementation primitives, not competing orchestration interfaces. Read the [command contract](xtask/README.md) before running or adding a check, and never add a parallel build/test/run entrypoint. Add meaningful crash/retry and publication-gate coverage when implementing those flows. UI changes require observations on relevant viewports/platforms, realistic Vietnamese text, focus/text scaling and accessibility; an image alone does not verify interaction or motion.
 
