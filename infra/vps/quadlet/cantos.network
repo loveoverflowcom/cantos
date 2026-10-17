@@ -5,4 +5,6 @@ Description=Cantos private container network
 
 [Network]
 NetworkName=cantos
+# A stable bridge name lets the host firewall route exactly this network (cantos-vps bootstrap).
+PodmanArgs=--interface-name=cantos0
 Label=io.cantos.owner=cantos-vps
