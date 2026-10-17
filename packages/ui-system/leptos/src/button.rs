@@ -201,7 +201,11 @@ pub fn Button(
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>
-                {icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true"><Icon name=name/></span> })}
+                {move || if state.get().is_busy() {
+                    Some(view! { <span class="cui-button-icon" aria-hidden="true"><span class="cui-action-progress"></span></span> }.into_any())
+                } else {
+                    icon.map(|name| view! { <span class="cui-button-icon" aria-hidden="true"><Icon name=name/></span> }.into_any())
+                }}
                 <span class="cui-control-label">{children()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()
@@ -282,6 +286,7 @@ pub fn IconButton(
     view! {
         <div class="cui-button-field">
             <button id=id type="button" class=move || component_class("cui-button cui-icon-button", &class.get())
+                title=move || name.get().as_str().to_owned()
                 data-variant=variant.as_str() data-state=move || state.get().as_str()
                 disabled=move || !state.get().can_press()
                 aria-busy=move || state.get().is_busy().then_some("true")
@@ -295,7 +300,11 @@ pub fn IconButton(
                         if let Some(callback) = on_press { callback.run(event); }
                     }
                 }>
-                <Icon name=icon/>
+                {move || if state.get().is_busy() {
+                    view! { <span class="cui-action-progress" aria-hidden="true"></span> }.into_any()
+                } else {
+                    view! { <Icon name=icon/> }.into_any()
+                }}
                 <span class="cui-sr-only">{move || name.get().as_str().to_owned()}</span>
             </button>
             <span id=reason_id class="cui-button-reason" hidden=move || state.get().can_press()

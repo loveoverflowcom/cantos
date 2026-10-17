@@ -79,7 +79,11 @@ internal fun AuthActionSample(state: String, onPress: () -> Unit, modifier: Modi
         variant = variant,
         controlModifier = modifier.fillMaxWidth(),
         interactionSource = rememberSamplePress(state == "auth-pressed"),
-        icon = if (variant == ButtonVariant.AuthPrimary) "arrow_forward" else null,
+        icon = when (variant) {
+            ButtonVariant.AuthPrimary -> "login"
+            ButtonVariant.AuthSecondary -> "person_add"
+            else -> null
+        },
     ) {
         Text(label)
     }

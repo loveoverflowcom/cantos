@@ -15,10 +15,12 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -59,6 +61,28 @@ class ComponentSemanticsTest {
             }
         }
         compose.onNodeWithContentDescription("Thêm cảnh cho Ánh đèn cuối sân khấu").performClick()
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun labeled_action_icons_keep_one_named_target_and_pending_never_dispatches() {
+        var calls = 0
+        var state by mutableStateOf<ButtonState>(ButtonState.Enabled)
+        val label = "Lưu bản nháp của Nguyễn Thị Ánh Nguyệt / Save draft"
+        compose.setContent {
+            UiRoot(preferences = UiPreferences(textScale = 2f)) {
+                Button(label, { calls += 1 }, state = state, icon = "save")
+            }
+        }
+        val action = compose.onNodeWithContentDescription(label)
+        compose.onAllNodesWithContentDescription(label, useUnmergedTree = true).assertCountEquals(1)
+        action.assertIsEnabled().performClick()
+        assertEquals(1, calls)
+        compose.runOnIdle { state = ButtonState.Loading(DisabledReason.of("Đang chờ / Waiting")) }
+        action.assertIsNotEnabled().assert(SemanticsMatcher.expectValue(
+            SemanticsProperties.StateDescription, "Đang chờ / Waiting"))
+        compose.onNodeWithText("Đang chờ / Waiting").assertExists()
+        action.performClick()
         assertEquals(1, calls)
     }
 

@@ -247,6 +247,13 @@ its original guard. Workspace panes remain mounted, preserving session drafts. E
 discard uses the controlled native Dialog; Escape/cancel preserve the draft. Other existing
 navigation/discard paths keep their browser confirmations.
 
+`ActionButton` forwards an optional typed `IconName` into the existing shared Button.
+`FormSubmit` accepts an optional caller-owned decorative `ViewFn` slot, wraps it in
+`aria-hidden` icon anatomy and keeps one visible label in its native submit button. The slot
+adds no handler, form guard or submit effect; no interactive view belongs there. New shared
+Icon imports at a consumer site still require admission. The paired VI/EN login fixture
+checks adapter anatomy; it does not establish real browser Enter or auth acceptance.
+
 Buffered authoring/casting fields retain native NodeRefs, IME and commit/undo behavior, using
 shared FieldLabel/FieldError and `cui-field-control` anatomy. Casting Select preserves PR29's
 memoized options, provider/model switching, reactive bounds and full unsupported values. Neutral

@@ -1,7 +1,7 @@
 //! Studio presentation adapters. Values, permissions and effects remain app-owned.
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, ChoiceState, Dialog, DialogError, DisabledReason,
-    ErrorState, FilterChip, Select,
+    ErrorState, FilterChip, IconName, Select,
 };
 use leptos::{ev::MouseEvent, prelude::*};
 
@@ -208,6 +208,7 @@ pub fn ActionButton(
     on_press: Callback<MouseEvent>,
     #[prop(optional)] focus_on_press: bool,
     #[prop(optional)] variant: ButtonVariant,
+    #[prop(optional)] icon: Option<IconName>,
     #[prop(into, default = false.into())] blocked: Signal<bool>,
     #[prop(into, default = false.into())] busy: Signal<bool>,
     #[prop(default = BlockReason::ContextReady)] reason: BlockReason,
@@ -221,7 +222,7 @@ pub fn ActionButton(
     };
     let reasons = StoredValue::new((reason, loading));
     view! {
-        <Button id=id variant=variant described_by=described_by on_press=on_press focus_on_press=focus_on_press
+        <Button id=id variant=variant nostrip:icon=icon described_by=described_by on_press=on_press focus_on_press=focus_on_press
             state=Signal::derive(move || {
                 let busy = busy.get();
                 let reason = reasons.with_value(|(blocked, loading)| if busy { loading } else { blocked }.get(english.get()));
@@ -231,12 +232,15 @@ pub fn ActionButton(
 }
 
 /// Real form submission stays native (including Enter); the form owns the submit guard/effect.
+/// The optional decorative slot takes a caller-owned view; adopting Icon at a new product site
+/// still requires its two-renderer qualification. No interactive content belongs in this slot.
 #[component]
 pub fn FormSubmit(
     #[prop(into)] id: String,
     english: Signal<bool>,
     blocked: Signal<bool>,
     children: Children,
+    #[prop(optional)] icon: Option<ViewFn>,
 ) -> impl IntoView {
     let Ok(reason) = LocalizedReason::new(BlockReason::ContextReady) else {
         return view! { <ErrorState title=text(Key::ControlUnavailable, english.get_untracked())><p>{text(Key::PermissionHelp, english.get_untracked())}</p></ErrorState> }.into_any();
@@ -247,7 +251,10 @@ pub fn FormSubmit(
     view! {
         <div class="cui-button-field">
             <button id=id class="cui-button" data-variant="tonal" type="submit" disabled=move || blocked.get()
-                aria-describedby=move || blocked.get().then(|| described_by.clone())>{children()}</button>
+                aria-describedby=move || blocked.get().then(|| described_by.clone())>
+                {icon.map(|icon| view! { <span class="cui-button-icon" aria-hidden="true">{icon.run()}</span> })}
+                <span class="cui-control-label">{children()}</span>
+            </button>
             <span id=reason_id class="cui-button-reason" hidden=move || !blocked.get()>{move || reason.with_value(|r| r.get(english.get()).as_str().to_owned())}</span>
         </div>
     }.into_any()
@@ -396,6 +403,45 @@ pub fn DelegationRevokeDialog(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_submit_and_action_adapters_keep_one_label_and_decorative_icon_without_render_effects()
+    {
+        let owner = Owner::new();
+        owner.with(|| {
+            let calls = RwSignal::new(0);
+            for english in [false, true] {
+                let label = if english { "Sign in to Cantos Studio" } else { "Đăng nhập Cantos Studio" };
+                for blocked in [false, true] {
+                    let html = view! {
+                        <form>
+                            <FormSubmit id="login-fixture" english=Signal::stored(english)
+                                blocked=Signal::stored(blocked)
+                                icon=ViewFn::from(|| view! { <span data-fixture="decorative-slot"></span> })>{label}</FormSubmit>
+                        </form>
+                    }.to_html();
+                    assert_eq!(html.matches("<button ").count(), 1);
+                    assert!(html.contains("type=\"submit\""), "{html}");
+                    assert!(html.contains("aria-hidden=\"true\""), "{html}");
+                    assert!(html.contains("cui-control-label"), "{html}");
+                    assert_eq!(html.matches(label).count(), 1, "{html}");
+                    assert_eq!(html.contains(" disabled"), blocked, "{html}");
+                    assert!(!html.contains("aria-label="), "{html}");
+                }
+                for busy in [false, true] {
+                    let html = view! {
+                        <ActionButton id="action-fixture" english=Signal::stored(english) icon=IconName::Save
+                            busy=Signal::stored(busy) on_press=Callback::new(move |_| calls.update(|value| *value += 1))>{label}</ActionButton>
+                    }.to_html();
+                    assert_eq!(html.contains("aria-busy=\"true\""), busy, "{html}");
+                    assert_eq!(html.contains("cui-action-progress"), busy, "{html}");
+                    assert_eq!(html.contains("<svg"), !busy, "forward the optional glyph: {html}");
+                    assert!(html.contains("aria-hidden=\"true\""), "{html}");
+                    assert_eq!(calls.get_untracked(), 0, "render cannot dispatch");
+                }
+            }
+        });
+    }
 
     #[test]
     fn busy_and_blocked_actions_never_dispatch_and_keep_localized_reason() {

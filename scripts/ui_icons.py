@@ -40,7 +40,9 @@ def render():
     lines.extend(f"    {variant(name)}," for name in names)
     lines += ["}", "", "impl IconName {", "    pub const ALL: &'static [Self] = &["]
     lines.extend(f"        Self::{variant(name)}," for name in names)
-    lines += ["    ];", "}", "", "/// Decorative only. The parent control or adjacent text owns the localized name.",
+    lines += ["    ];", "", "    pub const fn as_str(self) -> &'static str {", "        match self {"]
+    lines.extend(f'            Self::{variant(name)} => "{name}",' for name in names)
+    lines += ["        }", "    }", "}", "", "/// Decorative only. The parent control or adjacent text owns the localized name.",
               "#[component]", "pub fn Icon(name: IconName) -> impl IntoView {", "    view! {",
               '        <svg class="cui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"',
               '            fill="currentColor" aria-hidden="true" focusable="false">',

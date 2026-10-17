@@ -1,4 +1,4 @@
-/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:4c885450094628ff27be3a172b74efc90553ac30953f67387d54a6b214b4d778
+/* Generated from Cantos UI tokens v0.6.0 sha256:25e99c49faa15a9112cd03e7e92f21360b808bbe68f0a2531017d9a0e21f0741 template-sha256:f3b586d06ba17193da21014d36d4fc506bc831b5756496d9818f48e1f5c9b0cb
    by python3 scripts/ui_tokens.py. Do not edit. */
 /* Component-owned styles. All selectors stay inside the theme boundary. */
 /* The one Web corner mapping. The shared shape.* roles (tokens.json) serve the 4/8/12/16/20
@@ -235,6 +235,18 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+/* A stationary indeterminate ring: the adjacent localized reason announces waiting.
+   It never implies disclosure or success, and needs no motion/reduced-motion adapter. */
+:where(.cantos-ui) .cui-action-progress {
+  box-sizing: border-box;
+  display: inline-block;
+  flex-shrink: 0;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  border: var(--cantos-size-focus-width) solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: var(--cantos-shape-pill);
 }
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);
