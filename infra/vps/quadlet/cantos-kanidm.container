@@ -1,0 +1,30 @@
+# Kanidm identity provider. Reachable only on the private network; the edge publishes it
+# as https://$CANTOS_IDM_HOST with its own public certificate.
+[Unit]
+Description=Cantos Kanidm identity provider
+Requires=cantos-network.service
+After=cantos-network.service
+
+[Container]
+ContainerName=cantos-kanidm
+Image=docker.io/kanidm/server:1.10.5
+Pull=missing
+Network=cantos.network
+NetworkAlias=cantos-kanidm
+Volume=cantos-kanidm-data:/data
+Volume=/root/cantos-services/kanidm:/config:ro
+Exec=/sbin/kanidmd server -c /config/server.toml
+# Exec form: the image has no /bin/sh for a shell-form health command.
+HealthCmd=["/sbin/kanidmd","scripting","healthcheck","--verify-tls","-c","/config/server.toml"]
+HealthInterval=15s
+HealthStartPeriod=60s
+HealthRetries=3
+Notify=healthy
+Label=io.cantos.owner=cantos-vps
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

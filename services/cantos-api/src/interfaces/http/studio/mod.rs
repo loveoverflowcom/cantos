@@ -164,7 +164,7 @@ async fn start_session(
     body: Result<Json<SessionRequest>, axum::extract::rejection::JsonRejection>,
     mount: Mount,
 ) -> Response {
-    if state.store.studio_oidc().is_some() {
+    if state.store.studio_oidc().is_some() || !state.store.development_sessions_enabled() {
         return error_response(StoreError::Forbidden);
     }
     if headers.contains_key(super::STUDIO_SESSION_HEADER) {

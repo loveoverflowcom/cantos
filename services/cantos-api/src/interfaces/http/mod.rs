@@ -48,7 +48,14 @@ pub struct AppState {
 
 pub fn router(state: AppState, dist: &str) -> Router {
     let publication = PublicationService::new(state.store.clone());
-    router_with_publication(state, dist, publication)
+    router_with_publication(state, Some(dist), publication)
+}
+
+/// Production host composition: the same surfaces as [`router`], with no static file fallback.
+/// Web apps are served by their own hosting; every non-API path is a JSON `not_found`.
+pub fn api_router(state: AppState) -> Router {
+    let publication = PublicationService::new(state.store.clone());
+    router_with_publication(state, None, publication)
 }
 
 /// Trusted host composition only. Requests cannot replace the media delivery consumer.
@@ -59,10 +66,14 @@ pub fn router_with_publication_delivery(
 ) -> Router {
     let publication =
         PublicationService::new(state.store.clone()).with_publication_delivery(delivery);
-    router_with_publication(state, dist, publication)
+    router_with_publication(state, Some(dist), publication)
 }
 
-fn router_with_publication(state: AppState, dist: &str, publication: PublicationService) -> Router {
+fn router_with_publication(
+    state: AppState,
+    dist: Option<&str>,
+    publication: PublicationService,
+) -> Router {
     // TODO(issue170, #10/#11): production composition stays unavailable until proposed ADR
     // 0032 is accepted and a promoted publication-class object adapter has live byte/Range/
     // expiry/withdrawal acceptance. Without it the media route answers not_found.
@@ -78,7 +89,7 @@ pub fn router_with_theatre_delivery(
 ) -> Router {
     let publication = PublicationService::new(state.store.clone());
     let listener = ListenerService::new(state.store.clone()).with_playback_delivery(delivery);
-    router_with_services(state, dist, publication, listener)
+    router_with_services(state, Some(dist), publication, listener)
 }
 
 /// Trusted origin-delivery composition (proposed ADR 0032 mode A). One value enables grant
@@ -86,12 +97,12 @@ pub fn router_with_theatre_delivery(
 pub fn router_with_origin_playback(state: AppState, dist: &str, origin: OriginPlayback) -> Router {
     let publication = PublicationService::new(state.store.clone());
     let listener = ListenerService::new(state.store.clone()).with_origin_playback(origin);
-    router_with_services(state, dist, publication, listener)
+    router_with_services(state, Some(dist), publication, listener)
 }
 
 fn router_with_services(
     state: AppState,
-    dist: &str,
+    dist: Option<&str>,
     publication: PublicationService,
     listener: ListenerService,
 ) -> Router {
@@ -116,7 +127,7 @@ pub fn router_with_listener_identity(
 ) -> Router {
     let publication = PublicationService::new(state.store.clone());
     let listener = ListenerService::new(state.store.clone());
-    router_with_identity_services(state, dist, publication, listener, authenticator)
+    router_with_identity_services(state, Some(dist), publication, listener, authenticator)
 }
 
 /// Trusted composition override for the private-artwork application capability.
@@ -125,7 +136,7 @@ pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: Artwork
     let listener = ListenerService::new(state.store.clone());
     router_with_identity_and_artwork(
         state,
-        dist,
+        Some(dist),
         publication,
         listener,
         std::sync::Arc::new(DenyListenerAuthentication),
@@ -135,7 +146,7 @@ pub fn router_with_private_artwork(state: AppState, dist: &str, artwork: Artwork
 
 fn router_with_identity_services(
     state: AppState,
-    dist: &str,
+    dist: Option<&str>,
     publication: PublicationService,
     listener: ListenerService,
     authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
@@ -151,7 +162,7 @@ fn router_with_identity_services(
 
 fn router_with_identity_and_artwork(
     state: AppState,
-    dist: &str,
+    dist: Option<&str>,
     publication: PublicationService,
     listener: ListenerService,
     authenticator: std::sync::Arc<dyn ListenerAuthenticator>,
@@ -191,13 +202,14 @@ fn router_with_identity_and_artwork(
             origin_and_cache,
         ));
     let host = Router::new().nest(routes::API_BASE, api);
-    let host = if state.store.audio_storage_is_enabled() || artwork.is_some() {
+    let host = match dist {
         // ServeDir follows nested symlinks. An intake-enabled process therefore serves no
         // static files at all, even if public and private root paths appear disjoint.
         // Every private artwork composition follows the same API-only rule.
-        host.fallback(not_found)
-    } else {
-        host.fallback_service(ServeDir::new(dist))
+        Some(dist) if !state.store.audio_storage_is_enabled() && artwork.is_none() => {
+            host.fallback_service(ServeDir::new(dist))
+        }
+        _ => host.fallback(not_found),
     };
     let host = if let Some(artwork) = artwork {
         host.layer(axum::Extension(artwork))
@@ -719,5 +731,98 @@ mod tests {
                 "{error:?}"
             );
         }
+    }
+
+    fn production_state(store: Store) -> AppState {
+        AppState {
+            store,
+            web_origin: "https://studio.cantos.example".into(),
+        }
+    }
+
+    async fn send(app: &Router, request: axum::http::Request<Body>) -> (StatusCode, String) {
+        let response = app.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, String::from_utf8_lossy(&body).into_owned())
+    }
+
+    const DEV_TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[tokio::test]
+    async fn production_host_offers_no_development_studio_credential() {
+        // Every refusal precedes PostgreSQL: the unreachable pool proves no session lookup ran.
+        let store = middleware_state().store.without_development_sessions();
+        let app = api_router(production_state(store));
+        let get = |uri: &str| axum::http::Request::get(uri).body(Body::empty()).unwrap();
+
+        let (status, body) = send(&app, get("/api/v1/studio/auth/configuration")).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(body.contains("unavailable"), "{body}");
+
+        let login = axum::http::Request::post("/api/v1/studio/session")
+            .header(header::ORIGIN, "https://studio.cantos.example")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(format!(r#"{{"token":"{DEV_TOKEN}"}}"#)))
+            .unwrap();
+        assert_eq!(send(&app, login).await.0, StatusCode::FORBIDDEN);
+
+        let legacy = axum::http::Request::post("/api/v1/session")
+            .header(header::ORIGIN, "https://studio.cantos.example")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(format!(r#"{{"token":"{DEV_TOKEN}"}}"#)))
+            .unwrap();
+        assert_eq!(send(&app, legacy).await.0, StatusCode::FORBIDDEN);
+
+        let cookie = |uri: &str| {
+            axum::http::Request::get(uri)
+                .header(header::COOKIE, format!("cantos_session={DEV_TOKEN}"))
+                .body(Body::empty())
+                .unwrap()
+        };
+        assert_eq!(
+            send(&app, cookie("/api/v1/studio/session")).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            send(&app, cookie("/api/v1/studio/works")).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn development_host_keeps_reporting_the_token_mode() {
+        let app = router(middleware_state(), "unused-dist");
+        let request = axum::http::Request::get("/api/v1/studio/auth/configuration")
+            .body(Body::empty())
+            .unwrap();
+        let (status, body) = send(&app, request).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains("development"), "{body}");
+    }
+
+    #[tokio::test]
+    async fn api_router_serves_no_static_files() {
+        let dist = std::env::temp_dir().join(format!("cantos-api-dist-{}", std::process::id()));
+        std::fs::create_dir_all(&dist).unwrap();
+        std::fs::write(dist.join("index.html"), "<!doctype html>static").unwrap();
+        let request = || {
+            axum::http::Request::get("/index.html")
+                .body(Body::empty())
+                .unwrap()
+        };
+
+        let development = router(middleware_state(), dist.to_str().unwrap());
+        let (status, body) = send(&development, request()).await;
+        assert_eq!(
+            (status, body.as_str()),
+            (StatusCode::OK, "<!doctype html>static")
+        );
+
+        let production = api_router(production_state(middleware_state().store));
+        let (status, body) = send(&production, request()).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(!body.contains("static"), "{body}");
+        std::fs::remove_dir_all(dist).unwrap();
     }
 }

@@ -797,6 +797,7 @@ def main():
         registration_postgres_tests(env, EVIDENCE)
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
+        run(["cargo", "test", "-p", "cantos-api", "--test", "production_grants_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "production-grants-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())

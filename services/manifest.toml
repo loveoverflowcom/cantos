@@ -8,7 +8,7 @@ owner = "Cantos backend maintainers"
 required_dependencies = ["postgresql"]
 optional_dependencies = ["kanidm", "object-storage"]
 development = "Native cargo xtask run; explicit migrated DATABASE_URL or retained test cluster"
-production = "Planned deployment; development host is not a production runtime"
+production = "CANTOS_ENV=production image on the VPS (infra/vps, ADR 0039); two single-origin processes"
 environment = ["DATABASE_URL", "CANTOS_ENV", "CANTOS_BIND", "CANTOS_AUDIO_ROOT", "CANTOS_STORAGE_CONFIG"]
 ports = [8080]
 health = "Native run checks TCP readiness; no identity or publication readiness implied"

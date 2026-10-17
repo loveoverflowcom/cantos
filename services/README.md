@@ -7,10 +7,10 @@ runtime boundary; [manifest.toml](manifest.toml) is the versioned process invent
 
 | Service | Runtime | Current state | Owner |
 | --- | --- | --- | --- |
-| `cantos-api` | native Rust/Axum | implemented development HTTP host; production deployment planned | backend maintainers |
+| `cantos-api` | native Rust/Axum (development); Podman Quadlet image on the VPS (production) | implemented; deployed as two single-origin processes ([ADR 0039](../docs/decisions/0039-vps-production-runtime.md), [runbook](../docs/deployment/vps-production.md)) | backend maintainers |
 | `cantos-forge-functions` | Rust producer library/CLI/finite worker, Node process adapter | existing CLI retained, local attempt persistence; HTTP unavailable, no registered local service or live Functions acceptance | producer maintainers |
 | `postgresql` | rootless Podman OCI | local runtime configuration; backend SQL and native verification implemented | infrastructure operator |
-| `kanidm` | rootless Podman OCI | operator configuration; API Studio/Theatre OIDC adapters implemented; local Theatre sign-in/logout accepted, production activation gated | identity operator |
+| `kanidm` | rootless Podman OCI (local); Quadlet on the VPS | API Studio/Theatre OIDC adapters implemented; running privately on the VPS behind the edge, live clients/accounts created only by the operator-run `cantos-vps identity` | identity operator |
 | `object-storage` | external | filesystem and generic S3-compatible adapters implemented; real-provider/deployment acceptance separate | storage operator |
 
 The API is the authoritative modular content backend, not a restriction to one possible service
@@ -21,8 +21,10 @@ CLI identity. Source placement does not register Forge in the local process inve
 establish Functions packaging, deployment or provider acceptance.
 The API never synthesizes audio or calls Gemini.
 
-Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the public
-edge and static Firebase Hosting are not registered xtask services. Their directory move does
+Cross-environment deployment configuration lives in [`infra/`](../infra/README.md): the VPS
+production runtime ([`infra/vps`](../infra/vps/README.md)), the public edge and static Firebase
+Hosting are not registered xtask services; production PostgreSQL/Kanidm there are Quadlet
+units, independent of `cargo xtask services`. Their directory move does
 not change live resources, start lifecycle commands or establish deployment acceptance.
 
 ## Runtime policy

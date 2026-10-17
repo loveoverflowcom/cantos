@@ -1,93 +1,115 @@
-# Public HTTPS edge for the Cantos VPS. Caddy obtains and renews one Let's Encrypt
+# Public HTTPS edge for the Cantos VPS (ADR 0039). Caddy obtains and renews one Let's Encrypt
 # certificate per host (HTTP-01 on port 80), so DNS must already point at this machine;
 # DuckDNS resolves every subdomain of `cantoss` to the same address.
 #
-#   cantoss.duckdns.org         Cantos Theatre Web (listeners)
-#   studio.cantoss.duckdns.org  Cantos Studio Web (creators)
-#   api.cantoss.duckdns.org     Cantos API for non-browser clients (native apps, producers)
+#   {$CANTOS_THEATRE_HOST}  Cantos Theatre Web (listeners) + its /api/*
+#   {$CANTOS_STUDIO_HOST}   Cantos Studio Web (creators)   + its /api/*
+#   {$CANTOS_API_HOST}      Cantos API for non-browser clients (native apps, producers)
+#   {$CANTOS_IDM_HOST}      Kanidm sign-in pages and OIDC endpoints
 #
-# Both web apps call the API same-origin under /api/, so each web host proxies /api/* itself
-# instead of using CORS. Theatre and Studio never share a host, cookie or permission.
+# Every value comes from /root/cantos-services/config/edge.env; nothing here names a project.
 #
-# `cantos-api` is the network alias a future production API container must take on the
-# `cantos-edge` Podman network. cantos-server is development-only (loopback, no production
-# mode), so nothing may be attached under that alias yet; until then every API route
-# answers 503 rather than reaching a development host.
+# The Web bundles live on Firebase Hosting (two separate sites). Firebase cannot proxy to this
+# VPS, so the edge does the reverse: each Web host serves its pages from its Firebase site and
+# its own /api/* from the matching API process. Browser, cookies, OIDC callbacks and CSRF Origin
+# checks therefore stay same-origin; no CORS, no cross-site cookie and no client API origin.
+# Theatre and Studio never share a host, cookie, API process or permission.
 
-(cantos_api) {
-	reverse_proxy cantos-api:8080
+{
+	# The admin API stays inside the container; reloads use `caddy reload` there.
+	admin localhost:2019
 }
 
-# An unattached or unreachable upstream is a dial error (502/504), reported as an honest 503.
-(cantos_errors) {
-	handle_errors {
-		@upstream expression {err.status_code} in [502, 503, 504]
-		handle @upstream {
-			header Content-Type application/json
-			header Retry-After 60
-			respond `{"error":"api_unavailable"}` 503
-		}
-	}
-}
-
+# `?` sets a default only: the API's stricter `Referrer-Policy: no-referrer` must survive.
 (cantos_security) {
 	header {
-		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
+		?X-Content-Type-Options nosniff
+		?Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
 }
 
-# Static Trunk builds with client-side routing: serve a real file, else the app shell.
-# Everything revalidates except Trunk's content-hashed assets (`name-<hash>[_bg].ext`).
-(cantos_spa) {
-	root * {args[0]}
-	encode zstd gzip
-	@hashed {
-		path_regexp -[0-9a-f]{8,}(_bg)?\.(js|wasm|css)$
-		file {path}
-	}
-	# Classify the final served path, not a missing hash-shaped request that falls
-	# back to index.html. A route keeps Caddy from sorting header before try_files.
-	route {
-		try_files {path} /index.html
-		header Cache-Control "no-cache"
-		header @hashed Cache-Control "public, max-age=31536000, immutable"
-		file_server
+# An absent or unhealthy upstream is a dial error (502/504), reported as an honest 503.
+(cantos_errors) {
+	handle_errors 502 503 504 {
+		@api path /api/*
+		handle @api {
+			header Content-Type application/json
+			header Retry-After 60
+			respond `{"error":"api_unavailable"}` 503
+		}
+		handle {
+			header Content-Type "text/plain; charset=utf-8"
+			header Retry-After 60
+			respond "Cantos is temporarily unavailable." 503
+		}
 	}
 }
 
-cantoss.duckdns.org {
+# One API process per Web origin. JSON is compressed here; the API owns Cache-Control.
+(cantos_api) {
+	encode zstd gzip
+	reverse_proxy {args[0]}:8080
+}
+
+# A Firebase Hosting site as the static origin. Host must be the *.web.app name for Firebase
+# routing. Its own HSTS/Alt-Svc describe web.app, not this host, so they are replaced/dropped.
+(firebase_site) {
+	reverse_proxy https://{args[0]}.web.app {
+		header_up Host {upstream_hostport}
+		header_down -Strict-Transport-Security
+		header_down -Alt-Svc
+		header_down -X-Served-By
+		header_down -X-Cache
+		header_down -X-Cache-Hits
+		header_down -X-Timer
+	}
+}
+
+{$CANTOS_THEATRE_HOST} {
 	import cantos_security
 	import cantos_errors
 	handle /api/* {
-		import cantos_api
+		import cantos_api cantos-api-theatre
 	}
 	handle {
-		import cantos_spa /srv/theatre
+		import firebase_site {$CANTOS_THEATRE_FIREBASE_SITE}
 	}
 }
 
-studio.cantoss.duckdns.org {
+{$CANTOS_STUDIO_HOST} {
 	import cantos_security
 	import cantos_errors
 	header X-Frame-Options DENY
 	handle /api/* {
-		import cantos_api
+		import cantos_api cantos-api-studio
 	}
 	handle {
-		import cantos_spa /srv/studio
+		import firebase_site {$CANTOS_STUDIO_FIREBASE_SITE}
 	}
 }
 
-api.cantoss.duckdns.org {
+{$CANTOS_API_HOST} {
 	import cantos_security
 	import cantos_errors
-	# The API surface is /api/v1/{studio,theatre,admin}/*; the root serves no content.
+	# The API surface is /api/v1/{studio,theatre,admin}/*; the root serves no content. Studio
+	# cookies are host-only on the Studio host and never reach this name.
 	handle /api/* {
-		import cantos_api
+		import cantos_api cantos-api-theatre
 	}
 	handle {
 		respond "Cantos API" 404
+	}
+}
+
+{$CANTOS_IDM_HOST} {
+	import cantos_security
+	# Kanidm serves TLS itself with a certificate from the host's private CA.
+	reverse_proxy https://cantos-kanidm:8443 {
+		transport http {
+			tls_trust_pool file /etc/caddy/internal-ca.pem
+			tls_server_name cantos-kanidm
+		}
 	}
 }

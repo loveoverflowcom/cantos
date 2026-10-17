@@ -1,0 +1,8 @@
+[Unit]
+Description=Cantos PostgreSQL logical backup
+Requires=cantos-postgres.service
+After=cantos-postgres.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cantos-vps backup scheduled

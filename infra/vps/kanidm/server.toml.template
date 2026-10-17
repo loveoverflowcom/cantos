@@ -1,0 +1,16 @@
+# Rendered by `cantos-vps bootstrap` into /root/cantos-services/kanidm/server.toml.
+# `domain` is permanent identity data (WebAuthn/passkey relying party); never change it on an
+# initialized database. TLS is the host's private CA; the edge presents the public certificate.
+version = "2"
+bindaddress = "[::]:8443"
+db_path = "/data/kanidm.db"
+tls_chain = "/config/chain.pem"
+tls_key = "/config/key.pem"
+domain = "@IDM_HOST@"
+origin = "https://@IDM_HOST@"
+log_level = "info"
+
+[online_backup]
+path = "/data/backups/"
+schedule = "00 20 * * *"
+versions = 7

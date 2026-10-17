@@ -47,7 +47,7 @@ impl OidcConfig {
         matches!(self.authentication, ClientAuthentication::PublicNative)
     }
     /// HTTPS with normal certificate validation; local HTTP is limited to literal loopback.
-    /// This does not enable a production host. Cantos-server still requires development/loopback.
+    /// The host mode (development or production) is decided separately in `platform::host`.
     pub fn new(issuer: &str, web_origin: &str, secret: String) -> Result<Self, AuthError> {
         Self::for_web(issuer, web_origin, secret, STUDIO_CLIENT_ID, "studio")
     }
