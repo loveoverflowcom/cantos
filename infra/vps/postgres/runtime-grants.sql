@@ -1,12 +1,11 @@
 -- Least-privilege runtime grants for `cantos_app`, applied by `cantos-vps deploy` as
--- `cantos_owner` after every migration run. Every statement is idempotent. The only REVOKE
--- removes what historical migrations 0007-0009 grant automatically to an existing cantos_app.
+-- `cantos_owner` after every current-schema migration run. Every statement is idempotent.
 --
 -- Source of truth: each statement is the union of the narrow grants that the PostgreSQL
 -- integration tests give the same role for the route groups this deployment enables
 -- (services/cantos-api/tests/*_postgres.rs and the services/kanidm operator contract).
--- Deliberately absent: DDL, TRUNCATE, actor/registry writes, legacy durable_* and
--- speech_clips tables, Admin functions/tables (Admin stays unconfigured), Theatre native
+-- Deliberately absent: DDL, TRUNCATE, actor/registry writes, retired TTS tables,
+-- Admin functions/tables (Admin stays unconfigured), Theatre native
 -- identity, Theatre registration (SMTP mode has no block). Firebase enrollment has its own
 -- optional block, theatre-registration-grants.sql, applied only when registration is enabled
 -- (cantos-vps apply_grants); a block for any other feature must be reviewed before it is set.
@@ -14,10 +13,8 @@
 
 GRANT USAGE ON SCHEMA public TO cantos_app;
 
--- Retired TTS/worker tables (ADR 0018): legacy data only, never read by the current API.
-REVOKE ALL ON durable_runs, durable_jobs, durable_steps, durable_budgets, durable_reservations,
-    durable_attempts, durable_observations, durable_settlements, durable_resolutions,
-    durable_controls, durable_dispatches, durable_step_changes, speech_clips FROM cantos_app;
+-- Startup checks the schema epoch and migration checksums without owner privileges.
+GRANT SELECT ON cantos_schema, cantos_migrations TO cantos_app;
 
 -- Editorial: scripts, revisions, evidence, reviews, imports.
 GRANT SELECT ON actors, sessions, scripts, script_members, script_evidence, script_revisions,
@@ -29,10 +26,9 @@ GRANT UPDATE (head_revision) ON scripts TO cantos_app;
 GRANT UPDATE ON sessions TO cantos_app;
 
 -- Adaptation proposals supplied by external callers.
-GRANT SELECT, INSERT ON adaptation_runs, adaptation_attempts, adaptation_observations,
-    adaptation_proposals, adaptation_cancellations, adaptation_acceptances,
+GRANT SELECT, INSERT ON adaptation_runs, adaptation_proposals, adaptation_cancellations, adaptation_acceptances,
     adaptation_submissions TO cantos_app;
-GRANT UPDATE (status, problem, dispatch_deadline, updated_at) ON adaptation_runs TO cantos_app;
+GRANT UPDATE (status, updated_at) ON adaptation_runs TO cantos_app;
 
 -- Production planning inputs and briefs.
 GRANT SELECT, INSERT ON production_settings, production_rights_claims, production_snapshots,

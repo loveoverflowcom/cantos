@@ -404,12 +404,12 @@ async fn another_issuer_cannot_claim_or_advance_the_original_registration() {
 
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL; no live issuer or mail"]
-async fn migration_preserves_prior_checksums_and_database_refuses_phase_rollback_or_audit_edits() {
+async fn baseline_replay_preserves_checksums_and_database_refuses_phase_rollback_or_audit_edits() {
     let h = Harness::new().await;
     let previous: Vec<(i32, Vec<u8>)> = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<27 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await
@@ -417,14 +417,10 @@ async fn migration_preserves_prior_checksums_and_database_refuses_phase_rollback
         .iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(previous.len(), 26);
-    // Reconstruct only the additive new shape in this newly allocated disposable database.
+    assert_eq!(previous.len(), 1);
+    // Current baseline replay preserves existing authoritative records.
     h.admin
-        .batch_execute(
-            "DROP TABLE theatre_registration_mail_starts; DROP TABLE theatre_registrations;
-         DROP FUNCTION theatre_registration_guard(); DELETE FROM cantos_migrations WHERE version=27;
-         INSERT INTO actors(id) VALUES('registration-legacy-fixture');",
-        )
+        .batch_execute("INSERT INTO actors(id) VALUES('registration-legacy-fixture');")
         .await
         .unwrap();
     migrate(&h.config).await.unwrap();
@@ -432,7 +428,7 @@ async fn migration_preserves_prior_checksums_and_database_refuses_phase_rollback
     let retained: Vec<(i32, Vec<u8>)> = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<27 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await

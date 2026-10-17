@@ -59,7 +59,7 @@ cargo xtask verify repository|rust|forge|web|contracts|mutation|dbsp
 cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in Quint + pure-core replay
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
-cargo xtask verify postgres --suite legacy-dbsp      # legacy capture-retirement migrations only
+cargo xtask verify postgres --suite schema           # current baseline/refusal and SQL acceptance
 cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger]...
 
@@ -371,7 +371,7 @@ same catalog in [`gate.rs`](src/gate.rs).
 | `mutation` | `scripts/mutate_script_ir.py` (nine bounded mutants in a disposable offline copy) | cargo, python3 |
 | `postgres` | `scripts/test_postgres.py [--keep]` (new disposable cluster; never an inherited URL) | cargo, python3, initdb, pg_ctl, psql, ffmpeg, ffprobe |
 | `postgres (theatre-firebase)` | `scripts/test_postgres.py --suite theatre-firebase` (new disposable cluster; Firebase enrollment and SMTP registration SQL only) | cargo, python3, initdb, pg_ctl, psql |
-| `postgres (legacy-dbsp)` | `scripts/test_postgres.py --suite legacy-dbsp` (new disposable cluster; legacy DBSP capture-retirement migrations only) | cargo, python3, initdb, pg_ctl, psql |
+| `postgres (schema)` | `scripts/test_postgres.py --suite schema` (new disposable cluster; current schema bootstrap/refusal and current SQL flows) | cargo, python3, initdb, pg_ctl, psql |
 
 | `verify` suite | Gates |
 | --- | --- |
@@ -426,15 +426,22 @@ restart campaign remain unrun by this command. A `PASS` for `postgres (theatre-f
 satisfies the full `postgres` gate: default verification, preflight and CI still select the full
 gate and retain their ffmpeg/ffprobe prerequisites.
 
-`cargo xtask verify postgres --suite legacy-dbsp` selects the separately named migration
-acceptance gate. It runs `cantos-api`'s ignored `legacy_dbsp_postgres` target with locked,
-offline Cargo and requires at least one passing test. It uses the same isolated native cluster
-and cleanup path as the other PostgreSQL scopes; no inherited database URL, containers or
-media tools are used. Logs and its scope record are under
-`target/revision-evidence/legacy-dbsp/`; `--keep` is refused. Its `PASS` establishes only the
-legacy capture-retirement assertions exercised by that target. Other database contexts,
-media, HTTP hosts and the full restart campaign remain `NOT_RUN`. The full `postgres` gate
-also runs this target; the focused command never replaces full-gate acceptance.
+`cargo xtask verify postgres --suite schema` selects current schema bootstrap/replay/refusal,
+least-privilege and current SQL owner acceptance without media prerequisites. It includes caller
+adaptation, imports, revisions, Catalog/Content/Brief and delegation repository/HTTP, actor/Theatre
+identity, native credentials,
+Studio OIDC and both registration SQL owners. It uses a new owned cluster, locked/offline Cargo
+and nonzero passing-test checks per target. It never takes
+an inherited database URL or performs a live cutover. Logs and the exact selected scope are under
+`target/revision-evidence/schema/`; `--keep` is refused. The scope record lists all integration
+targets, registration selectors and skipped tests. Catalog HTTP's nested `audio_lifecycle_http::`
+tests (including publication/discovery media fixtures) are excluded because they require real
+`ffmpeg`/`ffprobe`. Restart-only tests and their full-suite fixture writers are skipped to preserve
+retained fixture records; completed disposable databases are
+released between targets. Full media, actual HTTP process/restart and PostgreSQL 18.6 acceptance
+remain separate; this gate never replaces full `postgres`.
+The retired `legacy-dbsp` suite is no longer accepted. Generic `verify dbsp` remains optional
+incremental-core evidence, without a PostgreSQL feed or production consumer.
 
 ### Isolated Theatre enrollment testing
 
@@ -888,9 +895,12 @@ release; any other value is a public preview channel. `Live`, ` live` and every 
 **Configuration.** `infra/firebase/hosting/firebase.json` is the tracked policy;
 `infra/firebase/hosting/.firebaserc` (ignored by Git, from `firebaserc.example` or
 `firebase target:apply`) maps each target to **exactly one** site in the requested project, and the
-two targets to different sites. Nothing is edited. xtask validates the policy (only `hosting`; no
-`site`, hooks, redirects or non-static rewrites; no rewrite that is not a literal route outside
-`/api`; a `Cache-Control: no-cache` rule for every path and no long-lived caching) and renders a
+two targets to different sites. Site IDs must be hostname labels of at most 30 characters, never
+domains or URLs; every configured target is validated so an ambiguous other-app mapping cannot
+conceal a shared site. Shorter desired names remain conditional on verified allocation; see the
+[transition/rollback runbook](../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237).
+Nothing is edited. xtask validates the policy (only `hosting`; no `site`, hooks, redirects or
+rewrites; a `Cache-Control: no-cache` rule for every path and no long-lived caching) and renders a
 run-specific effective `firebase.json` and `.firebaserc` in the private run directory holding that
 one target, that one site and a run-relative `public`. Every Firebase subprocess except the initial `firebase --version` probe (run from the checkout root, with no project) gets an explicit
 `--project`, `--config` and the run directory as its working directory, so no active or default

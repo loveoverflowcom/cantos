@@ -1,7 +1,7 @@
 use cantos_api::{
     interfaces::http::{api_router, router, AppState},
     platform::host::{host_settings, HostMode},
-    platform::postgres::{local_config, Store},
+    platform::postgres::{local_config, verify_schema, Store},
     platform::studio_oidc::{OidcConfig, StudioOidc},
 };
 use std::{env, net::SocketAddr};
@@ -12,6 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = host.bind();
     let config =
         local_config(&env::var("DATABASE_URL")?).map_err(|_| "invalid local PostgreSQL config")?;
+    verify_schema(&config).await?;
     // Caller-owned generation enters through authenticated context/submission tools.
     let mut store = Store::new(config).map_err(|_| "database pool unavailable")?;
     if !host.development_sessions() {

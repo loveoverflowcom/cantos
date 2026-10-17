@@ -237,6 +237,7 @@ class Benchmark:
 
     def start_host(self):
         self.host_log = (self.output / "host.log").open("a")
+        self.sql("GRANT SELECT ON cantos_schema,cantos_migrations TO cantos_app")
         self.host = subprocess.Popen([str(ROOT / "target/debug/cantos-server")], cwd=ROOT,
                                      env=dict(self.env, DATABASE_URL=self.app_url, CANTOS_ENV="development",
                                               CANTOS_BIND_ADDRESS=f"127.0.0.1:{self.http_port}",
@@ -555,7 +556,7 @@ def main():
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
                                 (*REVISION_READ_SOURCES, "services/cantos-api/src/interfaces/http/mod.rs",
-                                 "services/cantos-api/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
+                                 "services/cantos-api/schema/0001_current.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:
         benchmark.start()

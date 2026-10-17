@@ -823,12 +823,12 @@ async fn database_guards_reject_binding_changes_replay_lifetime_extension_and_re
 
 #[tokio::test]
 #[ignore = "xtask disposable PostgreSQL; no live provider or mail"]
-async fn additive_migration_preserves_all_prior_checksums_and_legacy_registration_rows() {
+async fn baseline_replay_preserves_checksums_and_smtp_registration_rows() {
     let h = Harness::new().await;
     let checksums = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<28 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await
@@ -837,12 +837,9 @@ async fn additive_migration_preserves_all_prior_checksums_and_legacy_registratio
         .into_iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(before.len(), 27);
+    assert_eq!(before.len(), 1);
     h.admin.batch_execute(
-        "DROP TABLE theatre_firebase_enrollment_receipts; DROP TABLE theatre_firebase_send_starts;
-         DROP TABLE theatre_firebase_enrollments; DROP FUNCTION theatre_firebase_enrollment_receipt();
-         DROP FUNCTION theatre_firebase_enrollment_guard(); DELETE FROM cantos_migrations WHERE version=28;
-         INSERT INTO actors(id) VALUES('firebase-legacy-fixture');
+        "INSERT INTO actors(id) VALUES('firebase-legacy-fixture');
          INSERT INTO theatre_registrations(namespace,id,email,email_key,token_hash,expires_at,last_sent_at,phase)
          VALUES('legacy-smtp','10000000-0000-0000-0000-000000000001','Minh@example.test','minh@example.test',decode(repeat('ab',32),'hex'),clock_timestamp()+interval '5 minutes',clock_timestamp(),'awaiting_verification');",
     ).await.unwrap();
@@ -851,7 +848,7 @@ async fn additive_migration_preserves_all_prior_checksums_and_legacy_registratio
     let after: Vec<(i32, Vec<u8>)> = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<28 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await

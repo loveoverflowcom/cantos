@@ -12,26 +12,9 @@ use cantos_api::{
     script_ir::read_script,
 };
 use cantos_contracts::SaveRevisionRequest;
-use sha2::{Digest, Sha256};
 use tokio_postgres::{Client, Config, NoTls};
 use uuid::Uuid;
 
-const OLD: [&str; 14] = [
-    include_str!("../migrations/0001_script_revisions.sql"),
-    include_str!("../migrations/0002_editorial_handoff.sql"),
-    include_str!("../migrations/0003_manuscript_import.sql"),
-    include_str!("../migrations/0004_ai_adaptation.sql"),
-    include_str!("../migrations/0005_caller_adaptation.sql"),
-    include_str!("../migrations/0006_production_inputs.sql"),
-    include_str!("../migrations/0007_durable_jobs.sql"),
-    include_str!("../migrations/0008_speech_clips.sql"),
-    include_str!("../migrations/0009_durable_step_changes.sql"),
-    include_str!("../migrations/0010_studio_audio_intake.sql"),
-    include_str!("../migrations/0011_catalog.sql"),
-    include_str!("../migrations/0012_content_identity.sql"),
-    include_str!("../migrations/0013_production_briefs.sql"),
-    include_str!("../migrations/0014_audio_lifecycle.sql"),
-];
 const SCRIPT: &str =
     include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
 const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -58,7 +41,7 @@ struct Harness {
 }
 
 impl Harness {
-    async fn new(old_schema: bool) -> Self {
+    async fn new() -> Self {
         let url = env::var("CANTOS_TEST_CLUSTER_URL").expect("use cargo xtask verify postgres");
         let mut config = local_config(&url).unwrap();
         assert_eq!(config.get_user(), Some("cantos_test_admin"));
@@ -70,23 +53,8 @@ impl Harness {
             .await
             .unwrap();
         config.dbname(&db);
-        let mut admin = connect(&config).await;
-        if old_schema {
-            let tx = admin.transaction().await.unwrap();
-            tx.batch_execute("CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL)").await.unwrap();
-            for (i, sql) in OLD.iter().enumerate() {
-                tx.batch_execute(sql).await.unwrap();
-                tx.execute(
-                    "INSERT INTO cantos_migrations VALUES($1,$2)",
-                    &[&((i + 1) as i32), &Sha256::digest(sql.as_bytes()).to_vec()],
-                )
-                .await
-                .unwrap();
-            }
-            tx.commit().await.unwrap();
-        } else {
-            migrate(&config).await.unwrap();
-        }
+        let admin = connect(&config).await;
+        migrate(&config).await.unwrap();
         let service = IdentityService::new(PostgresIdentityRegistry::new(
             Store::new(config.clone()).unwrap(),
         ));
@@ -105,8 +73,8 @@ impl Harness {
 
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
-async fn identity_migration_preserves_legacy_ownership_sessions_history_and_checksums() {
-    let h = Harness::new(true).await;
+async fn baseline_replay_preserves_ownership_sessions_and_immutable_history() {
+    let h = Harness::new().await;
     h.admin
         .batch_execute("INSERT INTO actors(id) VALUES('legacy');")
         .await
@@ -162,21 +130,17 @@ async fn identity_migration_preserves_legacy_ownership_sessions_history_and_chec
             .export_digest,
         saved.export_digest
     );
-    let rows = h
+    let row = h
         .admin
-        .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<=14 ORDER BY version",
+        .query_one(
+            "SELECT count(*),min(version),min(octet_length(checksum)) FROM cantos_migrations",
             &[],
         )
         .await
         .unwrap();
-    assert_eq!(rows.len(), 14);
-    for (row, sql) in rows.iter().zip(OLD) {
-        assert_eq!(
-            row.get::<_, Vec<u8>>(1),
-            Sha256::digest(sql.as_bytes()).to_vec()
-        );
-    }
+    assert_eq!(row.get::<_, i64>(0), 1);
+    assert_eq!(row.get::<_, i32>(1), 1);
+    assert_eq!(row.get::<_, i32>(2), 32);
     assert_eq!(h.counts().await, (1, 1));
     for value in ["\u{0085}", "\u{2003}", "a\u{009f}b", "\u{3000}"] {
         for sql in [
@@ -200,7 +164,7 @@ async fn identity_migration_preserves_legacy_ownership_sessions_history_and_chec
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_concurrent_registration_and_acknowledgement_loss_have_no_orphan_actor() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     let k = key("issuer-a", "sub");
     let candidates = [actor("alice"), actor("bob")];
     let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(2));
@@ -251,7 +215,7 @@ async fn identity_concurrent_registration_and_acknowledgement_loss_have_no_orpha
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_linking_collision_and_disable_are_fail_closed() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     h.admin
         .batch_execute(
             "INSERT INTO actors(id,active) VALUES('legacy',true),('inactive',false),('other',true)",
@@ -306,7 +270,7 @@ async fn identity_linking_collision_and_disable_are_fail_closed() {
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_mutations_recheck_disable_after_actor_lock_wait() {
     for replay_registration in [true, false] {
-        let mut h = Harness::new(false).await;
+        let mut h = Harness::new().await;
         let bound_key = key("issuer", "bound");
         let new_key = key("issuer", "new");
         h.service
@@ -392,7 +356,7 @@ async fn identity_mutations_recheck_disable_after_actor_lock_wait() {
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_constraints_immutability_rollback_and_http_role_isolation_hold() {
-    let mut h = Harness::new(false).await;
+    let mut h = Harness::new().await;
     h.service
         .register(&key("issuer", "s"), &actor("a"))
         .await
@@ -445,7 +409,7 @@ async fn identity_constraints_immutability_rollback_and_http_role_isolation_hold
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_adapter_rolls_back_actor_when_binding_insert_fails() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     h.admin.batch_execute("CREATE TRIGGER identity_test_refuse_insert BEFORE INSERT ON actor_external_identities FOR EACH ROW EXECUTE FUNCTION reject_settled_change()").await.unwrap();
     let k = key("issuer", "rollback");
     assert_eq!(
@@ -467,7 +431,7 @@ async fn identity_adapter_rolls_back_actor_when_binding_insert_fails() {
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_candidate_collision_across_distinct_keys_has_one_winner() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     let barrier = std::sync::Arc::new(tokio::sync::Barrier::new(2));
     let mut tasks = Vec::new();
     for subject in ["one", "two"] {
@@ -500,7 +464,7 @@ async fn identity_candidate_collision_across_distinct_keys_has_one_winner() {
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_operator_commands_consume_the_real_registry_without_issuing_a_session() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     let host = match &h.config.get_hosts()[0] {
         tokio_postgres::config::Host::Tcp(host) => host,
         _ => panic!("disposable harness uses TCP"),
@@ -550,7 +514,7 @@ async fn identity_operator_commands_consume_the_real_registry_without_issuing_a_
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL via cargo xtask verify postgres"]
 async fn identity_exact_lookup_uses_primary_key_without_an_incremental_view() {
-    let h = Harness::new(false).await;
+    let h = Harness::new().await;
     h.admin.batch_execute("INSERT INTO actors(id) VALUES('indexed'); INSERT INTO actor_external_identities(issuer,subject,actor_id) SELECT 'synthetic-issuer-'||n,'subject','indexed' FROM generate_series(1,2000) n; ANALYZE actor_external_identities; ANALYZE actors;").await.unwrap();
     let issuer = "synthetic-issuer-1750";
     let subject = "subject";

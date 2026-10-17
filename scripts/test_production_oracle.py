@@ -159,18 +159,19 @@ class ProductionOracleTests(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError, "app-role SQL oracle failed"):
             oracle.sql({}, url, "SELECT 1")
 
-    def test_input_only_journey_checks_zero_execution_rows_after_durable_migration(self):
+    def test_input_only_journey_requires_retired_execution_relations_to_be_absent(self):
         script = "8f8ac1f2-4bc3-4c80-808e-ac02a62917b2"
-        counts = {"generation_attempts": 0, "generation_or_cost_rows": 0}
+        counts = {"retired_execution_relations": 0}
         with patch.object(oracle, "sql", return_value=counts) as execute:
             self.assertEqual(oracle.row_counts({}, "local-test-url", script), counts)
         query = execute.call_args.args[2]
-        for table in ("durable_attempts", "durable_reservations", "durable_settlements"):
-            self.assertIn(f"count(*) FROM {table}", query)
-        self.assertNotIn("pg_tables", query)
+        self.assertIn("pg_catalog.pg_class", query)
+        for retired in ("durable_", "adaptation_attempts", "adaptation_observations", "speech_clips"):
+            self.assertIn(retired, query)
+        self.assertNotIn("FROM durable_", query)
         oracle.assert_delta(counts, counts)
         with self.assertRaises(AssertionError):
-            oracle.assert_delta(counts, dict(counts, generation_or_cost_rows=1))
+            oracle.assert_delta(counts, dict(counts, retired_execution_relations=1))
 
     def test_http_fails_before_network_for_an_invalid_port_or_non_api_path(self):
         for port, path in ((0, "/api/v1/studio/production/catalog"),

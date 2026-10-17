@@ -24,11 +24,11 @@ reusable evidence for another engine path, not a live read model:
 
 - `services/cantos-api/src/platform/incremental` — engine-independent signed changes, the count view, whole
   transaction paging and the pure fence/shadow decisions; `incremental::dbsp` — the circuit.
-- Migration `0009_durable_step_changes.sql` — the historical trigger-written transactional outbox
-  stamped with `xid8`; positions were `{frontier, bootstrap snapshot}`, never a sequence number.
-  Forward migration `0029_retire_durable_step_capture.sql` disables only its capture trigger,
-  retaining historical rows and integrity protections. The retained outbox is not a complete
-  feed after retirement; a new consumer needs its own snapshot/adapter, not a replay of this table.
+- Historical migration `0009_durable_step_changes.sql` created a transactional outbox and
+  `0029` disabled capture in epoch 1. Their exact hashes remain in the legacy manifest and
+  original Git revision. Epoch 2 excludes this unused feed and retires its SQL verification
+  obligation; deployed historical rows stay intact pending an explicit inventoried cutover.
+  A future consumer requires its own snapshot/adapter, never replay of this historical table.
 - `cargo xtask verify dbsp`. The `summary_view` maintainer, its PostgreSQL tests and
   `scripts/benchmark_job_summary_dbsp.py` are gone; recover them from commit `2de8c69`.
 

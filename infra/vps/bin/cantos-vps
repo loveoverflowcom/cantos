@@ -37,6 +37,7 @@ readonly LOCK=/run/lock/cantos-vps.lock
 readonly BACKUP_KEEP=${CANTOS_BACKUP_KEEP:-14}
 readonly API_UNITS=(cantos-api-theatre cantos-api-studio)
 readonly SOCKET_URL_SUFFIX='@/cantos?host=/run/postgresql'
+readonly SCHEMA_EPOCH=2
 
 log() { printf '[cantos-vps] %s\n' "$*" >&2; }
 die() {
@@ -388,19 +389,25 @@ backup() {
   [[ $label =~ ^[A-Za-z0-9._-]{1,64}$ ]] || die "invalid backup label" 65
   unit_active cantos-postgres || die "cantos-postgres is not running" 69
   install -d -m 0700 "$BACKUPS"
-  local stamp file
+  local stamp file epoch
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   file=$BACKUPS/cantos-$stamp-$label.dump
   podman exec cantos-postgres sh -c \
     'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_dump -U postgres -d cantos -Fc' \
     >"$file.partial"
   [[ -s $file.partial ]] || die "empty backup" 70
+  if ! epoch=$(database_schema_epoch); then
+    epoch=unrecognized
+    log "schema epoch unavailable; preserving backup with unrecognized metadata (ordinary restore will refuse it)"
+  fi
+  printf '%s\n' "$epoch" >"$file.schema-epoch.partial"
   mv "$file.partial" "$file"
-  (cd "$BACKUPS" && sha256sum "$(basename "$file")" >"$(basename "$file").sha256")
+  mv "$file.schema-epoch.partial" "$file.schema-epoch"
+  (cd "$BACKUPS" && sha256sum "$(basename "$file")" "$(basename "$file").schema-epoch" >"$(basename "$file").sha256")
   log "backup $file ($(du -h "$file" | cut -f1))"
   local old
   while IFS= read -r old; do
-    rm -f "$old" "$old.sha256"
+    rm -f "$old" "$old.sha256" "$old.schema-epoch"
   done < <(ls -1t "$BACKUPS"/cantos-*.dump 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)))
   printf '%s\n' "$file"
 }
@@ -410,13 +417,27 @@ restore() {
   require_root
   with_lock
   [[ $confirm == --yes-replace-database ]] || die "restore replaces the cantos database; pass --yes-replace-database" 64
-  [[ -f $file && -f $file.sha256 ]] || die "backup or checksum missing: $file" 66
+  [[ -f $file && -f $file.sha256 && -f $file.schema-epoch ]] ||
+    die "backup, checksum or schema-epoch metadata missing; historical restore needs its reviewed legacy bundle" 66
   (cd "$(dirname "$file")" && sha256sum -c --quiet "$(basename "$file").sha256") || die "checksum mismatch" 65
+  awk -v name="$(basename "$file").schema-epoch" '
+    substr($0, 65, 2) == "  " && substr($0, 67) == name { found = 1 }
+    END { exit !found }
+  ' "$file.sha256" || die "schema-epoch metadata is not covered by the backup checksum" 65
+  [[ $(<"$file.schema-epoch") == "$SCHEMA_EPOCH" ]] ||
+    die "backup schema epoch is not $SCHEMA_EPOCH; use the explicit schema-cutover plan" 65
+  [[ -s $STATE/current ]] || die "no current API revision recorded" 66
+  local current
+  current=$(<"$STATE/current")
+  check_revision "$current"
+  require_schema_image "$current"
+  check_schema "$current" || die "current database schema is incompatible; restore requires an explicit cutover plan" 65
   backup pre-restore >/dev/null
   systemctl stop "${API_UNITS[@]/%/.service}"
   podman exec -i cantos-postgres sh -c \
     'PGPASSWORD="$(cat /run/secrets/postgres-password)" exec pg_restore -U postgres -d cantos --clean --if-exists --single-transaction' \
     <"$file"
+  check_schema "$current" || die "restored schema rejected; APIs remain stopped; inspect the backup and recovery plan" 65
   apply_grants
   systemctl start "${API_UNITS[@]/%/.service}"
   log "restored $file"
@@ -435,11 +456,72 @@ check_revision() {
   [[ $label == "$revision" ]] || die "image revision label $label does not match $revision" 65
 }
 
-migrate() {
+run_migrator() {
+  local revision=$1
+  shift
   podman run --rm --network none --pull never \
     --secret cantos-db-owner-url,type=env,target=DATABASE_URL \
     -v cantos-postgres-socket:/run/postgresql \
-    --entrypoint /usr/local/bin/cantos-migrate "$(image_for "$1")"
+    --entrypoint /usr/local/bin/cantos-migrate "$(image_for "$revision")" "$@"
+}
+
+check_schema() { run_migrator "$1" --check; }
+migrate() { run_migrator "$1"; }
+
+require_schema_image() {
+  local epoch
+  epoch=$(podman image inspect --format '{{ index .Labels "io.cantos.schema-epoch" }}' "$(image_for "$1")")
+  [[ $epoch == "$SCHEMA_EPOCH" ]] ||
+    die "image $1 does not declare schema epoch $SCHEMA_EPOCH; cross-epoch deploy/rollback needs an explicit cutover" 65
+}
+
+# Conservative read-only empty-install probe. Any user schema, relation, routine or type
+# prevents fresh bootstrap; the migrator independently checks again under its database lock.
+database_is_empty() {
+  local empty
+  empty=$(psql_superuser cantos <<'SQL'
+\pset tuples_only on
+\pset format unaligned
+BEGIN READ ONLY;
+SELECT NOT EXISTS (
+    SELECT 1 FROM pg_namespace n
+    WHERE n.nspname <> 'public' AND n.nspname <> 'information_schema'
+        AND n.nspname !~ '^pg_'
+) AND NOT EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_'
+) AND NOT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_'
+) AND NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname <> 'information_schema' AND n.nspname !~ '^pg_'
+);
+COMMIT;
+SQL
+  ) || return 1
+  [[ $empty == t ]]
+}
+
+database_schema_epoch() {
+  if database_is_empty; then printf 'empty\n'; return; fi
+  local marker epoch
+  marker=$(printf '\\pset tuples_only on\n\\pset format unaligned\nSELECT to_regclass('\''public.cantos_schema'\'') IS NOT NULL;\n' |
+    psql_superuser cantos) || return 1
+  if [[ $marker != t ]]; then printf 'legacy\n'; return; fi
+  epoch=$(printf '\\pset tuples_only on\n\\pset format unaligned\nBEGIN READ ONLY; SELECT epoch FROM public.cantos_schema; COMMIT;\n' |
+    psql_superuser cantos) || return 1
+  [[ $epoch =~ ^[0-9]+$ ]] || die "unrecognized schema-epoch registry" 65
+  printf '%s\n' "$epoch"
+}
+
+preflight_schema() {
+  local revision=$1
+  require_schema_image "$revision"
+  if ! database_is_empty; then
+    check_schema "$revision" ||
+      die "database is not current schema epoch $SCHEMA_EPOCH; no migration or image switch attempted; inventory and approved cutover required" 65
+  fi
 }
 
 # Registration is configured outside this script (a drop-in or EnvironmentFile for the Theatre
@@ -491,8 +573,15 @@ deploy() {
   validate_runtime_browser_configuration
   check_revision "$revision"
   unit_active cantos-postgres || die "cantos-postgres is not running; run cantos-vps bootstrap" 69
+  preflight_schema "$revision"
   local previous=""
   [[ -s $STATE/current ]] && previous=$(<"$STATE/current")
+  if [[ -n $previous && $previous != "$revision" ]]; then
+    check_revision "$previous"
+    require_schema_image "$previous"
+    # Automatic rollback must be usable before the new image changes anything.
+    if ! database_is_empty; then check_schema "$previous" || die "previous image cannot serve the current schema" 65; fi
+  fi
   log "deploying $revision (previous: ${previous:-none})"
   local dump
   dump=$(backup "pre-${revision:0:12}")
@@ -537,6 +626,8 @@ rollback() {
   previous=$(<"$STATE/previous")
   current=$(<"$STATE/current")
   check_revision "$previous"
+  require_schema_image "$previous"
+  check_schema "$previous" || die "previous image cannot serve this schema; no image switch attempted" 65
   switch_to "$previous" || die "previous revision $previous is unhealthy" 71
   printf '%s\n' "$current" >"$STATE/previous"
   printf '%s\n' "$previous" >"$STATE/current"

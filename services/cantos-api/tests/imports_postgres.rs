@@ -742,8 +742,7 @@ async fn imported_sources_are_immutable_tamper_detected_and_legacy_links_reuse_r
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
-async fn migration_three_preserves_preexisting_sources_and_revisions_without_backfill() {
-    // A separate pre-import schema proves upgrade rather than a fresh-schema round trip.
+async fn baseline_replay_preserves_source_records_and_revisions_without_backfill() {
     let cluster_config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
     let cluster = connect(&cluster_config).await;
     let name = format!("cantos_test_{}", Uuid::new_v4().simple());
@@ -754,24 +753,7 @@ async fn migration_three_preserves_preexisting_sources_and_revisions_without_bac
     let mut config = cluster_config;
     config.dbname(&name);
     let admin = connect(&config).await;
-    let one = include_str!("../migrations/0001_script_revisions.sql");
-    let two = include_str!("../migrations/0002_editorial_handoff.sql");
-    admin
-        .batch_execute(
-            "CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL)",
-        )
-        .await
-        .unwrap();
-    for (version, sql) in [(1i32, one), (2i32, two)] {
-        admin.batch_execute(sql).await.unwrap();
-        admin
-            .execute(
-                "INSERT INTO cantos_migrations VALUES($1,$2)",
-                &[&version, &token_hash(sql)],
-            )
-            .await
-            .unwrap();
-    }
+    migrate(&config).await.unwrap();
     admin.batch_execute("INSERT INTO actors(id) VALUES('alice'); INSERT INTO script_evidence VALUES('alice','source','old-source','pre-import synthetic original')").await.unwrap();
     admin.execute("INSERT INTO sessions(token_hash,actor_id,expires_at) VALUES($1,'alice',CURRENT_TIMESTAMP+interval '1 hour')", &[&token_hash(ALICE)]).await.unwrap();
     for (kind, id) in read_script(SCRIPT.as_bytes()).unwrap().evidence_refs() {

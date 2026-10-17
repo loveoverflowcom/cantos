@@ -1,0 +1,152 @@
+{
+  "schemaEpoch": 1,
+  "sourceRevision": "3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a",
+  "policy": "Recognition and audit only. Not executable or an upgrade path. Original SQL remains in Git at sourceRevision.",
+  "migrations": [
+    {
+      "version": 1,
+      "file": "0001_script_revisions.sql",
+      "sha256": "e2ba782cb354536e933568d30bbbce43f2f10e2257e632963333b217b0d4a36c"
+    },
+    {
+      "version": 2,
+      "file": "0002_editorial_handoff.sql",
+      "sha256": "a311b2890ae74205277f751446b63c5cb17aa3d7c95c2b6d2e19c09872b3cfac"
+    },
+    {
+      "version": 3,
+      "file": "0003_manuscript_import.sql",
+      "sha256": "7d5df383da104e727343cb4b3d535dca3651df861ff5fecc52036b412ff8a453"
+    },
+    {
+      "version": 4,
+      "file": "0004_ai_adaptation.sql",
+      "sha256": "f80fe245bbf5785387779f9aa055096dcb0a249ae39aa6da7b2cc8a024f6da32"
+    },
+    {
+      "version": 5,
+      "file": "0005_caller_adaptation.sql",
+      "sha256": "43f3fa6dda3216e5c257c72e8c8eee44318cbbd00a7c29cf3f14ddd2ef4b5ae2"
+    },
+    {
+      "version": 6,
+      "file": "0006_production_inputs.sql",
+      "sha256": "0d5886f6d4e14714e4eaacceaa34cae049dd048b63157127b8e07926099bd980"
+    },
+    {
+      "version": 7,
+      "file": "0007_durable_jobs.sql",
+      "sha256": "ebab18ee1cf5fa694921d3a518e4ab0e0325e09b3c9bf58e984380cf4e190f0a"
+    },
+    {
+      "version": 8,
+      "file": "0008_speech_clips.sql",
+      "sha256": "c4c24a041dc27c1192f61d48bfab703aad864169d23783c20f2528e401b79c50"
+    },
+    {
+      "version": 9,
+      "file": "0009_durable_step_changes.sql",
+      "sha256": "df9f352679c43ff409887197f56eeb93b0ca4ffc534ad6c39671fe8dac6650bb"
+    },
+    {
+      "version": 10,
+      "file": "0010_studio_audio_intake.sql",
+      "sha256": "afc799315314e97583bebc67390a17320c6abdcfff8ff124e0d8d59406f5c6bd"
+    },
+    {
+      "version": 11,
+      "file": "0011_catalog.sql",
+      "sha256": "461c6d337cd0e19a8cb1025f3ddd2fdc581d44ad709359e250b4931c6a3f844c"
+    },
+    {
+      "version": 12,
+      "file": "0012_content_identity.sql",
+      "sha256": "16606377c10cdd52671386dfcde52fd136d692059350a0f1bd3ba91d9bf00158"
+    },
+    {
+      "version": 13,
+      "file": "0013_production_briefs.sql",
+      "sha256": "d8867dada4e8cd9f06d312b3832918461187292f461d954af2a842609409af5c"
+    },
+    {
+      "version": 14,
+      "file": "0014_audio_lifecycle.sql",
+      "sha256": "bd02160f43938dfa3d696880ce0c19d4f71f3244f9f46abd5b5f374e50380386"
+    },
+    {
+      "version": 15,
+      "file": "0015_media_storage_targets.sql",
+      "sha256": "d154e7c8ef90fc70611d4015d85bb01a095ec31b399cf699e13b83e80d9caa5e"
+    },
+    {
+      "version": 16,
+      "file": "0016_audio_publication.sql",
+      "sha256": "b118cd7c1720cd9b1e4fb34cc9fbfdaca995a8f96f36a6b81b08b22ae8cdf02c"
+    },
+    {
+      "version": 17,
+      "file": "0017_listener_discovery.sql",
+      "sha256": "d6910a5b48afe4f135819eee832dfe85391b4c17cab5e47f0f97805ef8b43756"
+    },
+    {
+      "version": 18,
+      "file": "0018_actor_external_identities.sql",
+      "sha256": "2e2073306693616530f273dffe9a05346f0aa9ee1bc1830a572d3da5eff18860"
+    },
+    {
+      "version": 19,
+      "file": "0019_listener_library_progress.sql",
+      "sha256": "d262afe4d7f114e4684d8cf94875870d284c415f08f05862e7002b15575340ce"
+    },
+    {
+      "version": 20,
+      "file": "0020_studio_oidc.sql",
+      "sha256": "2792b8133cee9d16be38b33d6a5ffd9e95baa9f7d09cced333e6f5a9a22e8b55"
+    },
+    {
+      "version": 21,
+      "file": "0021_theatre_identity.sql",
+      "sha256": "a5b47ff71f0d2faa0b0e056e851b6c74906c2f2ae4db1e7a577e4cb2d51e927a"
+    },
+    {
+      "version": 22,
+      "file": "0022_admin_authorization_audit.sql",
+      "sha256": "17cdd04fac01fba7b6e1d194bff569cb9f0a56a0798d7c982f785b270e940ce0"
+    },
+    {
+      "version": 23,
+      "file": "0023_private_work_artwork.sql",
+      "sha256": "df98caf0122d39842ff58abd749a5b25970481a69b817cb926aeb3a6f49c4c18"
+    },
+    {
+      "version": 24,
+      "file": "0024_theatre_native_identity.sql",
+      "sha256": "2bbfbc2e9addcee42a64e352aa7188f00602d7e8d31e2cb21d9fda305f402ff5"
+    },
+    {
+      "version": 25,
+      "file": "0025_studio_oidc_final_time.sql",
+      "sha256": "f3a8bceeb1bfa720b8907386a7d89c76560798f0e21a93b55018c1131a3631b1"
+    },
+    {
+      "version": 26,
+      "file": "0026_catalog_delegation.sql",
+      "sha256": "5ca3c0db55a823a25f44661c88ab9cf0b9588403d599c08108fbb7f6c74f83f7"
+    },
+    {
+      "version": 27,
+      "file": "0027_theatre_registration.sql",
+      "sha256": "4d91bc260bdede2124a412f071e26012f195ccce9454dcb4ef471b1083fda69b"
+    },
+    {
+      "version": 28,
+      "file": "0028_firebase_enrollment.sql",
+      "sha256": "4161407e4a8449aedc083c596d7143eb9d398342b15712421d31a77afb480595"
+    },
+    {
+      "version": 29,
+      "file": "0029_retire_durable_step_capture.sql",
+      "sha256": "53535e0e97340e94b63dc5d19190cbecdb234f03271b9bbf99cf3b394f078079"
+    }
+  ]
+}

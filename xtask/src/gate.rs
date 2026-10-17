@@ -103,8 +103,9 @@ pub enum Gate {
     },
     /// Narrow SQL acceptance only; never replaces the complete PostgreSQL gate.
     TheatreFirebasePostgres,
-    /// Legacy change-capture retirement only; never replaces the complete PostgreSQL gate.
-    LegacyDbspPostgres,
+    /// Current baseline, least-privilege and selected current-owner SQL without media tools;
+    /// never replaces the complete PostgreSQL gate.
+    SchemaPostgres,
     Kani(Kernel),
 }
 
@@ -148,7 +149,7 @@ impl Gate {
             Gate::CmpUiPreview => GateKind::CmpUiPreview,
             Gate::TheatreCmpDemo => GateKind::TheatreCmpDemo,
             Gate::Mutation => GateKind::Mutation,
-            Gate::Postgres { .. } | Gate::TheatreFirebasePostgres | Gate::LegacyDbspPostgres => {
+            Gate::Postgres { .. } | Gate::TheatreFirebasePostgres | Gate::SchemaPostgres => {
                 GateKind::Postgres
             }
             Gate::Kani(_) => GateKind::Kani,
@@ -172,7 +173,7 @@ impl Gate {
             Gate::WebBuild(app) => format!("{kind} ({})", app.cli_name()),
             Gate::Kani(kernel) => format!("kani ({})", kernel.name()),
             Gate::TheatreFirebasePostgres => "postgres (theatre-firebase)".into(),
-            Gate::LegacyDbspPostgres => "postgres (legacy-dbsp)".into(),
+            Gate::SchemaPostgres => "postgres (schema)".into(),
             _ => kind,
         }
     }
@@ -221,7 +222,7 @@ impl Gate {
                 Tool::Ffmpeg,
                 Tool::Ffprobe,
             ],
-            Gate::TheatreFirebasePostgres | Gate::LegacyDbspPostgres => vec![
+            Gate::TheatreFirebasePostgres | Gate::SchemaPostgres => vec![
                 Tool::Cargo,
                 Tool::Python3,
                 Tool::Initdb,
@@ -394,11 +395,9 @@ impl Gate {
                 "--suite",
                 "theatre-firebase",
             ])],
-            Gate::LegacyDbspPostgres => vec![python(&[
-                "scripts/test_postgres.py",
-                "--suite",
-                "legacy-dbsp",
-            ])],
+            Gate::SchemaPostgres => {
+                vec![python(&["scripts/test_postgres.py", "--suite", "schema"])]
+            }
         }
     }
 
@@ -486,7 +485,7 @@ pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
         VerifySuite::Postgres { keep, suite } => match suite {
             None => vec![Gate::Postgres { keep: *keep }],
             Some(PostgresScope::TheatreFirebase) => vec![Gate::TheatreFirebasePostgres],
-            Some(PostgresScope::LegacyDbsp) => vec![Gate::LegacyDbspPostgres],
+            Some(PostgresScope::Schema) => vec![Gate::SchemaPostgres],
         },
     }
 }
@@ -790,24 +789,24 @@ mod tests {
     }
 
     #[test]
-    fn legacy_dbsp_sql_has_its_own_scope_without_media_prerequisites() {
+    fn schema_sql_has_its_own_scope_without_media_prerequisites() {
         use crate::{
             command::testing::RecordingRunner, pipeline, report::Status, tools::testing::FakeTools,
         };
-        let gate = Gate::LegacyDbspPostgres;
-        assert_eq!(gate.name(), "postgres (legacy-dbsp)");
+        let gate = Gate::SchemaPostgres;
+        assert_eq!(gate.name(), "postgres (schema)");
         assert_eq!(gate.kind(), GateKind::Postgres);
         assert_eq!(gate.tools(), Gate::TheatreFirebasePostgres.tools());
         assert_eq!(
             lines(&gate),
-            ["python3 scripts/test_postgres.py --suite legacy-dbsp"]
+            ["python3 scripts/test_postgres.py --suite schema"]
         );
         assert_eq!(
             verify_suite(&VerifySuite::Postgres {
                 keep: false,
-                suite: Some(PostgresScope::LegacyDbsp),
+                suite: Some(PostgresScope::Schema),
             }),
-            [Gate::LegacyDbspPostgres]
+            [Gate::SchemaPostgres]
         );
         assert!(!full().contains(&gate));
         let mut runner = RecordingRunner::default();
@@ -818,7 +817,7 @@ mod tests {
             &mut runner,
         );
         assert_eq!(report.outcomes.len(), 1);
-        assert_eq!(report.outcomes[0].name, "postgres (legacy-dbsp)");
+        assert_eq!(report.outcomes[0].name, "postgres (schema)");
         assert_eq!(report.outcomes[0].status, Status::Pass);
         assert_eq!(runner.commands.len(), 1);
     }
@@ -917,7 +916,7 @@ mod tests {
             Gate::ContractTests,
             Gate::Postgres { keep: true },
             Gate::TheatreFirebasePostgres,
-            Gate::LegacyDbspPostgres,
+            Gate::SchemaPostgres,
         ]) {
             for command in gate.commands(&workspace) {
                 for arg in command

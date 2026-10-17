@@ -13,7 +13,7 @@ use crate::platform::ids::canonical_uuid;
 mod migrations;
 mod session;
 
-pub use migrations::migrate;
+pub use migrations::{migrate, verify_schema, SchemaError, SCHEMA_EPOCH};
 pub use session::token_hash;
 pub(crate) use session::{authenticate, session_token_registered};
 

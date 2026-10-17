@@ -34,9 +34,15 @@ risk and deployment complexity without making Cantos better at content managemen
 5. **Pure tools are permitted.** Script IR validation/diff, metadata checks, a bounded WAV
    structure inspector and declarative audio profile schemas remain useful. Their presence
    does not imply inference/mixing.
-6. **Historical compatibility.** Keep applied SQL migrations 0007–0009 and audit/evidence docs
-   without destructive schema rewrite. Deprecate obsolete tables/write paths. Plan eventual
-   data retention/cleanup separately, after surveying deployed installations.
+6. **Historical data and current schema.** Preserve deployed historical records and migration
+   checksums until an inventoried, backed-up, explicitly approved cutover. The owner's
+   [2026-10-17 scope clarification](https://github.com/loveoverflowcom/cantos/issues/239),
+   also recorded in [#67](https://github.com/loveoverflowcom/cantos/issues/67), permits removing
+   retired TTS migration/runtime code from the current fresh-install baseline. Retain an
+   auditable legacy migration manifest and source history, not an indefinite compatibility
+   engine. A new schema epoch must reject an existing legacy database rather than reset it,
+   rewrite applied checksums or implicitly transform its data. See the
+   [cutover safeguards](../deployment/postgres-schema-cutover.md).
 7. **DBSP stays technology-optional.** Engine-independent incremental computation may remain as
    an isolated library for future metadata projections; the old production-job summary adapter
    is not a current use case. Do not add DBSP solely to preserve orphaned TTS jobs.

@@ -6,7 +6,7 @@ use axum::{
 };
 use cantos_api::{
     interfaces::http::{router, AppState},
-    platform::postgres::{local_config, migrate, token_hash, Store, StoreError},
+    platform::postgres::{local_config, migrate, token_hash, SchemaError, Store, StoreError},
     script_ir::read_script,
 };
 use cantos_contracts::{
@@ -619,106 +619,31 @@ async fn source_bytes_operator_credentials_and_review_rollback_cross_real_bounda
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
-async fn additive_migrations_upgrade_existing_revision_bytes_and_roll_back_failed_extension() {
-    let config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
-    let cluster = connect(&config).await;
-    let name = format!("cantos_test_{}", Uuid::new_v4().simple());
-    cluster
-        .batch_execute(&format!("CREATE DATABASE {name}"))
-        .await
-        .unwrap();
-    let mut config = config;
-    config.dbname(&name);
-    let admin = connect(&config).await;
-    let migration = include_str!("../migrations/0001_script_revisions.sql");
-    admin.batch_execute(migration).await.unwrap();
-    admin.batch_execute("CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL); INSERT INTO actors VALUES('alice',true)").await.unwrap();
-    admin
-        .execute(
-            "INSERT INTO cantos_migrations VALUES(1,$1)",
-            &[&token_hash(migration)],
-        )
-        .await
-        .unwrap();
-    admin
-        .execute(
-            "INSERT INTO sessions VALUES($1,'alice',CURRENT_TIMESTAMP+interval '1 hour',false)",
-            &[&token_hash(ALICE)],
-        )
-        .await
-        .unwrap();
-    for (kind, id) in read_script(FIXTURE.as_bytes()).unwrap().evidence_refs() {
-        admin
-            .execute(
-                "INSERT INTO script_evidence VALUES('alice',$1,$2,'synthetic evidence')",
-                &[&kind, &id],
-            )
-            .await
-            .unwrap();
-    }
-    let store = Store::new(config.clone()).unwrap();
+async fn baseline_replay_preserves_accepted_revision_bytes_without_retired_runtime_tables() {
+    let h = Harness::new(None).await;
     let script = Uuid::new_v4().to_string();
-    let saved = store.save(ALICE, &script, request(0)).await.unwrap();
-    admin
-        .batch_execute("CREATE TABLE source_records(collision text)")
-        .await
-        .unwrap();
-    assert!(matches!(
-        migrate(&config).await,
-        Err(StoreError::Unavailable)
-    ));
+    let saved = h.store.save(ALICE, &script, request(0)).await.unwrap();
+    migrate(&h.admin_config).await.unwrap();
+    migrate(&h.admin_config).await.unwrap();
+    assert_eq!(h.store.load(ALICE, &script, Some(1)).await.unwrap(), saved);
     assert_eq!(
-        admin
+        h.admin
             .query_one("SELECT count(*) FROM cantos_migrations", &[])
             .await
             .unwrap()
             .get::<_, i64>(0),
         1
     );
-    assert_eq!(
-        admin
-            .query_one("SELECT to_regclass('script_reviews')::text", &[])
-            .await
-            .unwrap()
-            .get::<_, Option<String>>(0),
-        None
-    );
-    admin
-        .batch_execute("DROP TABLE source_records")
-        .await
-        .unwrap();
-    migrate(&config).await.unwrap();
-    migrate(&config).await.unwrap();
-    assert_eq!(store.load(ALICE, &script, Some(1)).await.unwrap(), saved);
-    assert_eq!(
-        admin
-            .query_one("SELECT count(*) FROM cantos_migrations", &[])
-            .await
-            .unwrap()
-            .get::<_, i64>(0),
-        28
-    );
-    assert_eq!(
-        admin
-            .query_one("SELECT to_regclass('durable_runs')::text", &[])
-            .await
-            .unwrap()
-            .get::<_, Option<String>>(0),
-        Some("durable_runs".into())
-    );
-    assert_eq!(
-        admin
-            .query_one("SELECT to_regclass('speech_clips')::text", &[])
-            .await
-            .unwrap()
-            .get::<_, Option<String>>(0),
-        Some("speech_clips".into())
-    );
+    let row = h.admin.query_one("SELECT to_regclass('durable_runs')::text,to_regclass('speech_clips')::text,to_regclass('adaptation_attempts')::text", &[])
+        .await.unwrap();
+    for column in 0..3 {
+        assert_eq!(row.get::<_, Option<String>>(column), None);
+    }
 }
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
-async fn migration_replay_is_checked_and_failed_ddl_rolls_back() {
+async fn baseline_checksum_mismatch_and_unrecognized_database_are_refused_without_mutation() {
     let h = Harness::new(None).await;
     let script = Uuid::new_v4().to_string();
     let saved = h.store.save(ALICE, &script, request(0)).await.unwrap();
@@ -733,7 +658,7 @@ async fn migration_replay_is_checked_and_failed_ddl_rolls_back() {
         .unwrap();
     assert!(matches!(
         migrate(&h.admin_config).await,
-        Err(StoreError::CorruptRevision)
+        Err(SchemaError::ChecksumMismatch)
     ));
     let mut config = local_config(&env::var("CANTOS_TEST_CLUSTER_URL").unwrap()).unwrap();
     let cluster = connect(&config).await;
@@ -750,7 +675,7 @@ async fn migration_replay_is_checked_and_failed_ddl_rolls_back() {
         .unwrap();
     assert!(matches!(
         migrate(&config).await,
-        Err(StoreError::Unavailable)
+        Err(SchemaError::UnrecognizedDatabase)
     ));
     let row = admin
         .query_one(
