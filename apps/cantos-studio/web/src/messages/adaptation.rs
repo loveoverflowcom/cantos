@@ -10,7 +10,6 @@ pub struct AdaptationCopy {
     pub help: &'static str,
     pub provider: &'static str,
     pub model: &'static str,
-    pub endpoint: &'static str,
     pub prompt: &'static str,
     pub config: &'static str,
     pub source_id: &'static str,
@@ -27,7 +26,6 @@ pub struct AdaptationCopy {
     pub provenance: &'static str,
     pub checksum: &'static str,
     pub extraction: &'static str,
-    pub input_digest: &'static str,
     pub records: &'static str,
     pub cost: &'static str,
     pub usage: &'static str,
@@ -59,16 +57,16 @@ pub fn adaptation_copy(english: bool) -> AdaptationCopy {
     if english {
         AdaptationCopy {
             title: "Host-generated radio-drama review", help: "Cantos stores context and validates proposals; it does not generate content or call AI. Prepare a pinned context with the tools, generate in your chosen host under your control, submit the result through the tools, then open its ID here to compare, edit and explicitly accept.",
-            provider: "Declared provider / method · unverified", model: "Declared model · unverified", endpoint: "Historical declared destination", prompt: "Prompt / contract version", config: "Recorded settings · unverified",
+            provider: "Declared provider / method · unverified", model: "Declared model · unverified", prompt: "Prompt / contract version", config: "Recorded settings · unverified",
             source_id: "Adaptation source ID", script_id: "Target script ID (UUID)", base: "Pinned base revision", pending: "The submitted outcome is unresolved. Retry the exact operation as its original actor; keep the operation ID to recover it.", retry: "Retry exact submitted operation", operation: "Operation ID",
-            run_id: "Context / proposal ID (UUID)", open: "Open context or submitted proposal", refresh: "Refresh context / proposal status", new_run: "Choose another proposal / discard browser edits", new_help: "Refreshing preserves browser edits. To open another proposal, explicitly discard them. Retry reconciles only the original acceptance snapshot; it does not generate content.", provenance: "Pinned context / proposal provenance", checksum: "Source checksum", extraction: "Extraction version", input_digest: "Input content / export digest", records: "Generation / rights claim records", cost: "Reported cost · unverified", usage: "Reported input / output tokens · unverified", unknown: "Unknown · not reported", original: "Preserved source and extraction", source_missing: "Open a context or proposal to inspect its pinned source. Compare every extraction page and its warnings before acceptance.", original_binary: "The original is a binary document. Download it and compare its extraction below.", download: "Download preserved original", proposal: "Submitted host proposal", proposal_help: "This JSON is editable. The backend validates the complete Script IR and its pinned provenance on acceptance. Source coverage is a submitted claim to review, not proof that every fact is preserved.", edit: "Proposal Script IR (editable JSON)", findings: "Review findings", coverage: "Submitted source coverage claim", coverage_help: "Block numbers follow the extraction above. Review represented text as well as omissions; all coverage records are shown.", represented: "Represented", omitted: "Omitted", block: "Source block", review: "I compared the source and pinned input revision with the current proposal and reviewed unresolved facts, speakers, omissions and performance suggestions.", accept: "Accept current proposal as a new revision", accept_help: "This explicit action saves a new immutable revision. It does not overwrite the source or earlier revisions, approve production, or grant publication rights.", accept_required: "A valid submitted proposal, matching pinned source/input and explicit review of the current text are required. A changed base requires a new context; it is never silently rebased.", accepted: "Accepted immutable revision · read only", reopen: "Reopen this exact accepted revision", problem: "Submitted result failed validation or needs review", no_findings: "No additional result findings. You must still compare the complete source and proposal.",
+            run_id: "Context / proposal ID (UUID)", open: "Open context or submitted proposal", refresh: "Refresh context / proposal status", new_run: "Choose another proposal / discard browser edits", new_help: "Refreshing preserves browser edits. To open another proposal, explicitly discard them. Retry reconciles only the original acceptance snapshot; it does not generate content.", provenance: "Pinned context / proposal provenance", checksum: "Source checksum", extraction: "Extraction version", records: "Generation / rights claim records", cost: "Reported cost · unverified", usage: "Reported input / output tokens · unverified", unknown: "Unknown · not reported", original: "Preserved source and extraction", source_missing: "Open a context or proposal to inspect its pinned source. Compare every extraction page and its warnings before acceptance.", original_binary: "The original is a binary document. Download it and compare its extraction below.", download: "Download preserved original", proposal: "Submitted host proposal", proposal_help: "This JSON is editable. The backend validates the complete Script IR and its pinned provenance on acceptance. Source coverage is a submitted claim to review, not proof that every fact is preserved.", edit: "Proposal Script IR (editable JSON)", findings: "Review findings", coverage: "Submitted source coverage claim", coverage_help: "Block numbers follow the extraction above. Review represented text as well as omissions; all coverage records are shown.", represented: "Represented", omitted: "Omitted", block: "Source block", review: "I compared the source and pinned input revision with the current proposal and reviewed unresolved facts, speakers, omissions and performance suggestions.", accept: "Accept current proposal as a new revision", accept_help: "This explicit action saves a new immutable revision. It does not overwrite the source or earlier revisions, approve production, or grant publication rights.", accept_required: "A valid submitted proposal, matching pinned source/input and explicit review of the current text are required. A changed base requires a new context; it is never silently rebased.", accepted: "Accepted immutable revision · read only", reopen: "Reopen this exact accepted revision", problem: "Submitted result failed validation or needs review", no_findings: "No additional result findings. You must still compare the complete source and proposal.",
         }
     } else {
         AdaptationCopy {
             title: "Biên tập đề xuất kịch phát thanh từ host", help: "Cantos lưu context và kiểm tra đề xuất; không tự sinh nội dung hay gọi AI. Dùng tool chuẩn bị context đã ghim, tự tạo nội dung trong host bạn chọn, gửi kết quả qua tool, rồi mở ID tại đây để đối chiếu, sửa và chấp nhận rõ ràng.",
-            provider: "Provider / phương thức khai báo · chưa xác minh", model: "Model khai báo · chưa xác minh", endpoint: "Đích xử lý khai báo trước đây", prompt: "Phiên bản prompt / hợp đồng", config: "Thiết lập được khai báo · chưa xác minh",
+            provider: "Provider / phương thức khai báo · chưa xác minh", model: "Model khai báo · chưa xác minh", prompt: "Phiên bản prompt / hợp đồng", config: "Thiết lập được khai báo · chưa xác minh",
             source_id: "ID nguồn chuyển thể", script_id: "ID kịch bản đích (UUID)", base: "Bản sửa đổi gốc đã ghim", pending: "Chưa xác định được kết quả đã gửi. Đăng nhập đúng actor ban đầu rồi thử lại chính operation đó; giữ operation ID để khôi phục.", retry: "Thử lại đúng operation đã gửi", operation: "Operation ID",
-            run_id: "ID context / đề xuất (UUID)", open: "Mở context hoặc đề xuất đã gửi", refresh: "Cập nhật trạng thái", new_run: "Chọn đề xuất khác / bỏ sửa trong trình duyệt", new_help: "Cập nhật trạng thái giữ phần đang sửa. Để mở đề xuất khác, hãy chủ động bỏ phần sửa đó. Thử lại chỉ xác định kết quả snapshot chấp nhận ban đầu; không sinh nội dung.", provenance: "Nguồn gốc đã ghim của context / đề xuất", checksum: "Checksum nguồn", extraction: "Phiên bản phân tích", input_digest: "Digest nội dung / export đầu vào", records: "Hồ sơ sinh nội dung / xác nhận quyền", cost: "Chi phí được khai báo · chưa xác minh", usage: "Token đầu vào / đầu ra khai báo · chưa xác minh", unknown: "Chưa biết · chưa được báo", original: "Nguồn gốc được giữ và phần phân tích", source_missing: "Mở context hoặc đề xuất để xem nguồn đã ghim. Đối chiếu mọi trang phân tích và cảnh báo trước khi chấp nhận.", original_binary: "Bản gốc là tài liệu nhị phân. Tải xuống và đối chiếu phần phân tích bên dưới.", download: "Tải bản gốc được giữ", proposal: "Đề xuất do host gửi", proposal_help: "Sửa cảnh, nhân vật và lời thoại bằng editor có cấu trúc. JSON nâng cao vẫn có thể mở. Khi chấp nhận, backend kiểm tra Script IR đầy đủ và nguồn gốc đã ghim. Độ bao phủ nguồn được gửi vào cần được xem lại; đó chưa phải bằng chứng giữ đủ mọi sự kiện.", edit: "Script IR đề xuất (JSON có thể sửa)", findings: "Các điểm cần xem lại", coverage: "Độ bao phủ nguồn được khai báo", coverage_help: "Số block khớp phần phân tích bên trên. Kiểm tra cả đoạn được chuyển thể và đoạn bỏ qua; toàn bộ hồ sơ bao phủ được hiển thị.", represented: "Đã thể hiện", omitted: "Bỏ qua", block: "Block nguồn", review: "Tôi đã đối chiếu nguồn và revision đầu vào đã ghim với đề xuất hiện tại và xem lại sự kiện chưa rõ, người nói, phần bỏ qua và gợi ý diễn xuất.", accept: "Chấp nhận đề xuất hiện tại thành bản sửa đổi mới", accept_help: "Thao tác rõ ràng này lưu bản sửa đổi bất biến mới. Nguồn và các bản trước được giữ nguyên; thao tác chưa duyệt sản xuất hay cấp quyền xuất bản.", accept_required: "Cần đề xuất gửi vào hợp lệ, nguồn/đầu vào đã ghim khớp và xác nhận đã xem văn bản hiện tại. Nếu bản gốc đã đổi, cần context mới; không tự đổi gốc.", accepted: "Bản sửa đổi bất biến đã chấp nhận · chỉ đọc", reopen: "Mở lại chính bản sửa đổi đã chấp nhận", problem: "Kết quả đã gửi chưa hợp lệ hoặc cần xem lại", no_findings: "Kết quả chưa ghi thêm điểm cần xem. Bạn vẫn phải đối chiếu toàn bộ nguồn và đề xuất.",
+            run_id: "ID context / đề xuất (UUID)", open: "Mở context hoặc đề xuất đã gửi", refresh: "Cập nhật trạng thái", new_run: "Chọn đề xuất khác / bỏ sửa trong trình duyệt", new_help: "Cập nhật trạng thái giữ phần đang sửa. Để mở đề xuất khác, hãy chủ động bỏ phần sửa đó. Thử lại chỉ xác định kết quả snapshot chấp nhận ban đầu; không sinh nội dung.", provenance: "Nguồn gốc đã ghim của context / đề xuất", checksum: "Checksum nguồn", extraction: "Phiên bản phân tích", records: "Hồ sơ sinh nội dung / xác nhận quyền", cost: "Chi phí được khai báo · chưa xác minh", usage: "Token đầu vào / đầu ra khai báo · chưa xác minh", unknown: "Chưa biết · chưa được báo", original: "Nguồn gốc được giữ và phần phân tích", source_missing: "Mở context hoặc đề xuất để xem nguồn đã ghim. Đối chiếu mọi trang phân tích và cảnh báo trước khi chấp nhận.", original_binary: "Bản gốc là tài liệu nhị phân. Tải xuống và đối chiếu phần phân tích bên dưới.", download: "Tải bản gốc được giữ", proposal: "Đề xuất do host gửi", proposal_help: "Sửa cảnh, nhân vật và lời thoại bằng editor có cấu trúc. JSON nâng cao vẫn có thể mở. Khi chấp nhận, backend kiểm tra Script IR đầy đủ và nguồn gốc đã ghim. Độ bao phủ nguồn được gửi vào cần được xem lại; đó chưa phải bằng chứng giữ đủ mọi sự kiện.", edit: "Script IR đề xuất (JSON có thể sửa)", findings: "Các điểm cần xem lại", coverage: "Độ bao phủ nguồn được khai báo", coverage_help: "Số block khớp phần phân tích bên trên. Kiểm tra cả đoạn được chuyển thể và đoạn bỏ qua; toàn bộ hồ sơ bao phủ được hiển thị.", represented: "Đã thể hiện", omitted: "Bỏ qua", block: "Block nguồn", review: "Tôi đã đối chiếu nguồn và revision đầu vào đã ghim với đề xuất hiện tại và xem lại sự kiện chưa rõ, người nói, phần bỏ qua và gợi ý diễn xuất.", accept: "Chấp nhận đề xuất hiện tại thành bản sửa đổi mới", accept_help: "Thao tác rõ ràng này lưu bản sửa đổi bất biến mới. Nguồn và các bản trước được giữ nguyên; thao tác chưa duyệt sản xuất hay cấp quyền xuất bản.", accept_required: "Cần đề xuất gửi vào hợp lệ, nguồn/đầu vào đã ghim khớp và xác nhận đã xem văn bản hiện tại. Nếu bản gốc đã đổi, cần context mới; không tự đổi gốc.", accepted: "Bản sửa đổi bất biến đã chấp nhận · chỉ đọc", reopen: "Mở lại chính bản sửa đổi đã chấp nhận", problem: "Kết quả đã gửi chưa hợp lệ hoặc cần xem lại", no_findings: "Kết quả chưa ghi thêm điểm cần xem. Bạn vẫn phải đối chiếu toàn bộ nguồn và đề xuất.",
         }
     }
 }
@@ -121,24 +119,8 @@ pub fn adaptation_run_status(status: AdaptationStatus, english: bool) -> &'stati
         (AdaptationStatus::AwaitingProposal, false) => {
             "Đã chuẩn bị context · chờ đề xuất từ host gửi vào"
         }
-        (AdaptationStatus::Queued, true) => "Queued · historical recorded status",
-        (AdaptationStatus::Queued, false) => "Đã xếp hàng · trạng thái đã ghi trước đây",
-        (AdaptationStatus::Running, true) => "Running · historical recorded status",
-        (AdaptationStatus::Running, false) => "Đang xử lý · trạng thái đã ghi trước đây",
         (AdaptationStatus::Succeeded, true) => "Proposal ready for human review",
         (AdaptationStatus::Succeeded, false) => "Đề xuất sẵn sàng để người biên tập xem",
-        (AdaptationStatus::InvalidOutput, true) => {
-            "Invalid submitted output · no revision accepted"
-        }
-        (AdaptationStatus::InvalidOutput, false) => {
-            "Đầu ra đã gửi không hợp lệ · chưa chấp nhận revision"
-        }
-        (AdaptationStatus::Failed, true) => "Failed · no revision accepted",
-        (AdaptationStatus::Failed, false) => "Thất bại · chưa chấp nhận revision",
-        (AdaptationStatus::Ambiguous, true) => {
-            "Provider outcome unknown · do not silently generate again"
-        }
-        (AdaptationStatus::Ambiguous, false) => "Chưa rõ kết quả provider · không tự sinh lại",
         (AdaptationStatus::Cancelled, true) => "Cancelled · source and saved revisions preserved",
         (AdaptationStatus::Cancelled, false) => "Đã hủy · nguồn và revision đã lưu được giữ",
         (AdaptationStatus::Accepted, true) => "Accepted as an immutable revision",
@@ -187,16 +169,10 @@ pub fn adaptation_finding(code: AdaptationFindingCode, english: bool) -> &'stati
 
 pub fn adaptation_problem(code: &str, english: bool) -> &'static str {
     match (code, english) {
-        ("provider_outcome_unknown", true) => "The provider outcome is unknown. The saved attempt will not be automatically generated again. Review the run and its operator recovery record.",
-        ("provider_outcome_unknown", false) => "Chưa biết kết quả provider. Lần xử lý đã lưu sẽ không tự sinh lại. Xem run và hồ sơ khôi phục của operator.",
-        ("provider_unavailable" | "provider_rejected", true) => "The provider could not fulfill this request. This is a preserved historical failure; Cantos does not start generation.",
-        ("provider_unavailable" | "provider_rejected", false) => "Provider chưa xử lý được yêu cầu này. Đây là lỗi trước đây được giữ lại; Cantos không khởi chạy sinh nội dung.",
-        ("provider_configuration_changed", true) => "The run's pinned provider configuration changed. An operator must review it; a different configuration cannot silently replace this attempt.",
-        ("provider_configuration_changed", false) => "Cấu hình provider đã ghim của run đã đổi. Operator cần xem lại; cấu hình khác không tự thay thế lần xử lý này.",
-        ("output_too_large" | "provider_output_too_large" | "output_findings_too_large", true) => "Submitted output exceeded the bounded size. No revision was accepted; the source and prior revisions remain available.",
-        ("output_too_large" | "provider_output_too_large" | "output_findings_too_large", false) => "Đầu ra đã gửi vượt giới hạn dung lượng. Chưa chấp nhận revision; nguồn và các bản trước vẫn còn.",
-        ("invalid_output" | "invalid_script_output" | "provider_malformed_response", true) => "Submitted output failed the structured or semantic contract. No revision was accepted. Inspect the findings and saved run.",
-        ("invalid_output" | "invalid_script_output" | "provider_malformed_response", false) => "Đầu ra đã gửi chưa đạt hợp đồng cấu trúc hoặc ngữ nghĩa. Chưa chấp nhận revision. Xem các lỗi và run đã lưu.",
+        ("output_too_large" | "output_findings_too_large", true) => "Submitted output exceeded the bounded size. No revision was accepted; the source and prior revisions remain available.",
+        ("output_too_large" | "output_findings_too_large", false) => "Đầu ra đã gửi vượt giới hạn dung lượng. Chưa chấp nhận revision; nguồn và các bản trước vẫn còn.",
+        ("invalid_output" | "invalid_script_output", true) => "Submitted output failed the structured or semantic contract. No revision was accepted. Inspect the findings and saved run.",
+        ("invalid_output" | "invalid_script_output", false) => "Đầu ra đã gửi chưa đạt hợp đồng cấu trúc hoặc ngữ nghĩa. Chưa chấp nhận revision. Xem các lỗi và run đã lưu.",
         (_, true) => "This run needs operator review. Its saved source and accepted revisions remain intact; use the displayed findings for recovery.",
         (_, false) => "Run này cần operator xem lại. Nguồn và revision đã chấp nhận vẫn được giữ; dùng các lỗi hiển thị để khôi phục.",
     }
@@ -253,23 +229,6 @@ pub fn adaptation_provider_detail(english: bool) -> &'static str {
     }
 }
 
-pub fn adaptation_model_evidence_label(english: bool) -> &'static str {
-    if english {
-        "Historical model evidence fingerprint"
-    } else {
-        "Dấu vân tay bằng chứng model đã ghi trước đây"
-    }
-}
-
-pub fn adaptation_model_evidence(recorded: bool, english: bool) -> &'static str {
-    match (recorded, english) {
-        (true, true) => "Recorded model evidence from a historical run. This configuration evidence does not prove generation succeeded.",
-        (true, false) => "Bằng chứng model được ghi từ run trước đây. Bằng chứng cấu hình này chưa chứng minh sinh nội dung thành công.",
-        (false, true) => "No historical model evidence fingerprint recorded. A fixture is not evidence of a real model run.",
-        (false, false) => "Chưa ghi dấu vân tay bằng chứng model trước đây. Fixture chưa phải bằng chứng một lần chạy model thật.",
-    }
-}
-
 pub fn adaptation_cost(cost: Option<&AdaptationCost>, english: bool) -> String {
     match cost {
         None => adaptation_copy(english).unknown.into(),
@@ -298,7 +257,6 @@ pub struct HostCopy {
     pub submitted_by: &'static str,
     pub submitted_at: &'static str,
     pub output_checksum: &'static str,
-    pub legacy: &'static str,
 }
 
 pub fn host_copy(english: bool) -> HostCopy {
@@ -316,7 +274,6 @@ pub fn host_copy(english: bool) -> HostCopy {
             submitted_by: "Result submitted by",
             submitted_at: "Result received at",
             output_checksum: "Submitted output checksum",
-            legacy: "Preserved historical proposal. These recorded generation details do not configure or prove a current integration. Cantos does not start generation.",
         }
     } else {
         HostCopy {
@@ -332,7 +289,6 @@ pub fn host_copy(english: bool) -> HostCopy {
             submitted_by: "Người gửi kết quả",
             submitted_at: "Thời điểm nhận kết quả",
             output_checksum: "Checksum đầu ra đã gửi",
-            legacy: "Đề xuất trước đây được giữ lại. Thông tin sinh nội dung đã ghi chưa cấu hình hay chứng minh tích hợp hiện tại. Cantos không khởi chạy sinh nội dung.",
         }
     }
 }
@@ -388,12 +344,7 @@ mod tests {
         for english in [false, true] {
             for status in [
                 AdaptationStatus::AwaitingProposal,
-                AdaptationStatus::Queued,
-                AdaptationStatus::Running,
                 AdaptationStatus::Succeeded,
-                AdaptationStatus::InvalidOutput,
-                AdaptationStatus::Failed,
-                AdaptationStatus::Ambiguous,
                 AdaptationStatus::Cancelled,
                 AdaptationStatus::Accepted,
             ] {
@@ -476,22 +427,6 @@ mod tests {
                 adaptation_copy(english).unknown
             );
         }
-    }
-
-    #[test]
-    fn historical_model_evidence_copy_distinguishes_configuration_from_generation_and_fixture() {
-        assert!(
-            adaptation_model_evidence(true, true).contains("does not prove generation succeeded")
-        );
-        assert!(adaptation_model_evidence(true, false)
-            .contains("chưa chứng minh sinh nội dung thành công"));
-        assert!(adaptation_model_evidence(false, true)
-            .contains("No historical model evidence fingerprint recorded"));
-        assert!(adaptation_model_evidence(false, false).contains("Fixture chưa phải bằng chứng"));
-        assert_ne!(
-            adaptation_model_evidence_label(true),
-            adaptation_model_evidence_label(false)
-        );
     }
 
     #[test]

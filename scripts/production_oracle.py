@@ -113,18 +113,17 @@ def row_counts(env, app_url, script):
         'approvals',(SELECT count(*) FROM production_approvals WHERE script_id='{script}'),
         'revisions',(SELECT count(*) FROM script_revisions WHERE script_id='{script}'),
         'reviews',(SELECT count(*) FROM script_reviews WHERE script_id='{script}'),
-        'generation_attempts',(SELECT count(*) FROM adaptation_attempts),
-        'generation_or_cost_rows',(SELECT count(*) FROM durable_attempts)
-            +(SELECT count(*) FROM durable_reservations)
-            +(SELECT count(*) FROM durable_settlements))::text;""")
+        'retired_execution_relations',(SELECT count(*) FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+            AND (left(c.relname,8)='durable_'
+                OR c.relname IN ('adaptation_attempts','adaptation_observations','speech_clips'))))::text;""")
 
 
 def assert_delta(before, after, **changes):
     assert before.keys() == after.keys()
     for name in before:
         assert after[name] == before[name] + changes.get(name, 0), (name, before, after)
-    assert after["generation_attempts"] == 0
-    assert after["generation_or_cost_rows"] == 0
+    assert after["retired_execution_relations"] == 0
 
 
 def finding_codes(response):
@@ -515,7 +514,7 @@ def production_before_restart(env, port, token, app_url):
     assert counts["rights"] == len(rights_intents)
     assert counts["snapshots"] == len(snapshots) == 3 and counts["approvals"] == 2
     assert counts["revisions"] == 2 and counts["reviews"] == 2
-    assert counts["generation_attempts"] == counts["generation_or_cost_rows"] == 0
+    assert counts["retired_execution_relations"] == 0
     reads = bounded_reads(env, app_url, port, token, base, final_snapshot["id"], script)
     reads["writes"] = {name: summarize_latency(samples) for name, samples in writes.items()}
     return {"script": script, "base": base, "catalog": catalog, "source": source,
@@ -565,4 +564,4 @@ def production_after_restart(env, port, token, app_url, fixture):
         "snapshot_id": final["id"], "input_digest": final["document"]["input_digest"],
         "inputs_eligible": True, "approval_current": True, "billable_dispatch_available": False,
         "fixture": "synthetic local logic evidence; no provider voice or legal consent claim"}, indent=2) + "\n")
-    print("PASS: production settings/rights/review/freeze/approval/eligibility actual loopback HTTP + app-role PostgreSQL + independent p1 digest/Unicode exact estimate + missing/pending/revoked/expired rights + unknown/exceeded budget + stale settings/text + concurrent duplicate freeze + host kill + PostgreSQL restart + exact immutable replay + zero generation/cost attempts")
+    print("PASS: production settings/rights/review/freeze/approval/eligibility actual loopback HTTP + app-role PostgreSQL + independent p1 digest/Unicode exact estimate + missing/pending/revoked/expired rights + unknown/exceeded budget + stale settings/text + concurrent duplicate freeze + host kill + PostgreSQL restart + exact immutable replay + retired execution tables absent")

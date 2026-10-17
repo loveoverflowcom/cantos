@@ -20,9 +20,10 @@ class PostgresRunnerTests(unittest.TestCase):
         self.assertTrue(runner.parse_args(["--keep"]).keep)
         self.assertEqual(runner.parse_args(["--suite", "theatre-firebase"]).suite,
                          "theatre-firebase")
-        self.assertEqual(runner.parse_args(["--suite", "legacy-dbsp"]).suite, "legacy-dbsp")
+        self.assertEqual(runner.parse_args(["--suite", "schema"]).suite, "schema")
         for arguments in (["--suite", "theatre-firebase", "--keep"],
-                          ["--suite", "legacy-dbsp", "--keep"],
+                          ["--suite", "schema", "--keep"],
+                          ["--suite", "legacy-dbsp"],
                           ["--suite", "unregistered"]):
             with self.subTest(arguments=arguments), contextlib.redirect_stderr(io.StringIO()), \
                     patch.object(runner.shutil, "which") as probe:
@@ -78,7 +79,7 @@ class PostgresRunnerTests(unittest.TestCase):
             self.assertIn("full PostgreSQL/media/HTTP/restart campaign NOT_RUN", output.getvalue())
             host.assert_not_called()
 
-    def test_legacy_dbsp_scope_runs_only_its_target_in_an_isolated_owned_cluster(self):
+    def test_schema_scope_runs_current_sql_targets_in_an_isolated_owned_cluster(self):
         with tempfile.TemporaryDirectory() as directory:
             evidence = Path(directory)
             commands = []
@@ -91,36 +92,73 @@ class PostgresRunnerTests(unittest.TestCase):
                          "PGHOSTADDR": "192.0.2.1", "PGSERVICE": "live",
                          "CANTOS_TEST_CLUSTER_URL": "private", "CANTOS_ENV": "production"}
             with patch.object(runner, "EVIDENCE", evidence), \
-                    patch.object(sys, "argv", ["test_postgres.py", "--suite", "legacy-dbsp"]), \
+                    patch.object(sys, "argv", ["test_postgres.py", "--suite", "schema"]), \
                     patch.dict(os.environ, inherited, clear=True), \
                     patch.object(runner.shutil, "which", return_value="/installed/tool") as probe, \
                     patch.object(runner, "free_port", return_value=12345), \
                     patch.object(runner, "run", side_effect=execute), \
+                    patch.object(runner, "reap_completed_databases") as reap, \
                     patch.object(runner.subprocess, "Popen") as host, \
                     contextlib.redirect_stdout(io.StringIO()) as output:
                 runner.main()
             self.assertEqual([call.args[0] for call in probe.call_args_list],
                              ["initdb", "pg_ctl", "psql", "cargo"])
             self.assertEqual([command[0] for command, _, _ in commands],
-                             ["initdb", "pg_ctl", "psql", "cargo", "pg_ctl"])
+                             ["initdb", "pg_ctl", "psql"] + ["cargo"] * 14 + ["pg_ctl"])
             cluster = Path(commands[0][0][2]).parent
-            self.assertEqual(cluster.parent, evidence / "legacy-dbsp")
+            self.assertEqual(cluster.parent, evidence / "schema")
             self.assertEqual(commands[-1][0],
                              ["pg_ctl", "-D", str(cluster / "pgdata"), "-m", "fast", "-w", "stop"])
             for _, environment, _ in commands:
                 self.assertEqual(environment, {
                     "PATH": "/installed",
                     "CANTOS_TEST_CLUSTER_URL": "postgresql://cantos_test_admin@127.0.0.1:12345/postgres"})
-            self.assertEqual(commands[3][0], [
-                "cargo", "test", "-p", "cantos-api", "--test", "legacy_dbsp_postgres",
-                "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"])
-            self.assertEqual(commands[3][2], evidence / "legacy-dbsp" / "legacy-dbsp-postgres-tests.log")
-            record = json.loads((evidence / "legacy-dbsp" / "run.json").read_text())
-            self.assertEqual(record["suite"], "legacy-dbsp")
-            self.assertEqual(record["checks"], ["legacy-dbsp-postgres-tests"])
+            targets = ["schema_postgres", "production_grants_postgres", "adaptations_postgres",
+                       "imports_postgres", "revisions_postgres", "catalog_http_postgres",
+                       "catalog_postgres", "delegation_http_postgres", "identity_postgres", "theatre_identity_postgres",
+                       "theatre_native_postgres", "studio_oidc_postgres"]
+            logs = ["schema-postgres-tests", "production-grants-postgres-tests",
+                    "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
+                    "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
+                    "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
+                    "studio-oidc-postgres-tests", "theatre-firebase-postgres-tests",
+                    "theatre-registration-postgres-tests"]
+            sql_commands = commands[3:-1]
+            self.assertEqual([command[5] for command, _, _ in sql_commands[:12]], targets)
+            selectors = ["platform::theatre_registration::firebase_enrollment::postgres::tests",
+                         "platform::theatre_registration::postgres::tests"]
+            self.assertEqual([command[7] for command, _, _ in sql_commands[12:]], selectors)
+            for (command, _, path), name in zip(sql_commands, logs):
+                self.assertIn("--offline", command)
+                self.assertIn("--ignored", command)
+                self.assertIn("--test-threads=1", command)
+                self.assertEqual(path, evidence / "schema" / f"{name}.log")
+            skipped = {
+                "adaptations_postgres": ["studio_editor_import_proposal_edit_accept_review_save_and_reopen_preserve_history"],
+                "imports_postgres": ["import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation"],
+                "revisions_postgres": ["restart_fixture_for_process_and_database_recovery"],
+                "catalog_http_postgres": ["catalog_http_recovery_after_server_restart",
+                                          "committed_http_catalog_emits_exact_postgres_restart_oracle",
+                                          "audio_lifecycle_http::"],
+                "catalog_postgres": ["catalog_recovery_after_server_restart",
+                                     "committed_catalog_fixture_survives_new_store_and_emits_server_restart_oracle"],
+            }
+            for command, _, _ in sql_commands[:12]:
+                actual_skips = [command[index + 1] for index, arg in enumerate(command) if arg == "--skip"]
+                self.assertEqual(actual_skips, skipped.get(command[5], []))
+            record = json.loads((evidence / "schema" / "run.json").read_text())
+            self.assertEqual(record["suite"], "schema")
+            self.assertEqual(record["checks"], logs)
+            self.assertEqual(record["integration_targets"], targets)
+            self.assertEqual(record["registration_selectors"], selectors)
+            self.assertEqual(record["skipped_tests"], skipped)
             self.assertEqual(record["full_suite"], "NOT_RUN")
             self.assertFalse(record["retained"])
             self.assertFalse((evidence / "run.json").exists())
+            self.assertEqual(reap.call_count, 13)
+            for call in reap.call_args_list:
+                self.assertEqual(call.args[1], "postgresql://cantos_test_admin@127.0.0.1:12345/postgres")
+                self.assertEqual(call.args[2], set())
             self.assertIn("full PostgreSQL/media/HTTP/restart campaign NOT_RUN", output.getvalue())
             host.assert_not_called()
 
@@ -152,7 +190,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     self.assertRaisesRegex(RuntimeError, "selected no passing SQL tests"):
                 runner.registration_postgres_tests({}, Path("/synthetic/evidence"))
 
-    def test_legacy_dbsp_scope_stops_owned_cluster_on_error_or_interrupt(self):
+    def test_schema_scope_stops_owned_cluster_on_error_or_interrupt(self):
         for failure in (RuntimeError("synthetic SQL failure"), KeyboardInterrupt()):
             with self.subTest(failure=type(failure).__name__), tempfile.TemporaryDirectory() as directory:
                 commands = []
@@ -164,7 +202,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     return ""
 
                 with patch.object(runner, "EVIDENCE", Path(directory)), \
-                        patch.object(sys, "argv", ["test_postgres.py", "--suite", "legacy-dbsp"]), \
+                        patch.object(sys, "argv", ["test_postgres.py", "--suite", "schema"]), \
                         patch.object(runner.shutil, "which", return_value="/installed/tool"), \
                         patch.object(runner, "free_port", return_value=12345), \
                         patch.object(runner, "run", side_effect=execute), \
@@ -172,23 +210,35 @@ class PostgresRunnerTests(unittest.TestCase):
                     runner.main()
                 self.assertEqual(commands[-1][0], "pg_ctl")
                 self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
-                self.assertFalse((Path(directory) / "legacy-dbsp" / "run.json").exists())
+                self.assertFalse((Path(directory) / "schema" / "run.json").exists())
 
-    def test_legacy_dbsp_selection_refuses_zero_missing_or_failed_test_summary(self):
-        for output in ("test result: ok. 0 passed; 0 failed; 0 ignored;\n", "compiled only\n",
-                       "test result: ok. 2 passed; 1 failed;\n"):
-            with self.subTest(output=output), patch.object(runner, "run", return_value=output), \
-                    self.assertRaisesRegex(RuntimeError, "selected no passing SQL tests"):
-                runner.legacy_dbsp_postgres_tests({}, Path("/synthetic/evidence"))
+    def test_schema_selection_refuses_zero_missing_or_failed_test_summary_for_every_target(self):
+        valid = "test result: ok. 2 passed; 0 failed; 0 ignored;\n"
+        invalid = ("test result: ok. 0 passed; 0 failed; 0 ignored;\n", "compiled only\n",
+                   "test result: ok. 2 passed; 1 failed;\n")
+        targets = ["schema-postgres-tests", "production-grants-postgres-tests",
+                   "adaptation-postgres-tests", "import-postgres-tests", "revision-postgres-tests",
+                   "catalog-http-postgres-tests", "catalog-postgres-tests", "delegation-http-postgres-tests", "identity-postgres-tests",
+                   "theatre-identity-postgres-tests", "theatre-native-postgres-tests",
+                   "studio-oidc-postgres-tests", "theatre-firebase-postgres-tests",
+                   "theatre-registration-postgres-tests"]
+        for index, target in enumerate(targets):
+            for output in invalid:
+                with self.subTest(target=target, output=output), \
+                        patch.object(runner, "run", side_effect=[valid] * index + [output]), \
+                        patch.object(runner, "reap_completed_databases"), \
+                        self.assertRaisesRegex(RuntimeError, f"{target} selected no passing SQL tests"):
+                    runner.schema_postgres_tests({"CANTOS_TEST_CLUSTER_URL": "owned"},
+                                                 Path("/synthetic/evidence"), include_current=True)
 
-    def test_full_postgres_gate_includes_legacy_dbsp_before_existing_acceptance(self):
+    def test_full_postgres_gate_includes_schema_before_existing_acceptance(self):
         with tempfile.TemporaryDirectory() as directory:
             commands = []
 
             def execute(command, env=None, output=None):
                 commands.append(command)
                 if "admin_postgres" in command:
-                    raise RuntimeError("stop synthetic full suite after DBSP target")
+                    raise RuntimeError("stop synthetic full suite after schema target")
                 return "test result: ok. 2 passed; 0 failed; 0 ignored;\n"
 
             with patch.object(runner, "EVIDENCE", Path(directory)), \
@@ -200,7 +250,7 @@ class PostgresRunnerTests(unittest.TestCase):
                     self.assertRaisesRegex(RuntimeError, "stop synthetic full suite"):
                 runner.main()
             self.assertEqual([command[5] for command in commands if command[0] == "cargo"],
-                             ["legacy_dbsp_postgres", "admin_postgres"])
+                             ["schema_postgres", "production_grants_postgres", "admin_postgres"])
             self.assertEqual(commands[-1][-4:], ["-m", "fast", "-w", "stop"])
 
     def test_theatre_main_executes_its_retained_fixture_without_editorial_script_or_token(self):
@@ -537,7 +587,7 @@ class PostgresRunnerTests(unittest.TestCase):
 
     def test_editor_row_oracle_uses_declared_local_database_and_fails_closed_on_psql_failure(self):
         local_url = "postgresql://cantos_app@127.0.0.1:12345/cantos_test_studio_editor"
-        expected = {"revisions": 2, "acceptances": 1, "attempts": 0}
+        expected = {"revisions": 2, "acceptances": 1}
         completed = subprocess.CompletedProcess([], 0, json.dumps(expected), "")
         with patch.object(runner.subprocess, "run", return_value=completed) as execute:
             self.assertEqual(runner.editor_snapshot({"PATH": "/synthetic"}, local_url), expected)
@@ -546,6 +596,7 @@ class PostgresRunnerTests(unittest.TestCase):
         self.assertIn("ON_ERROR_STOP=1", command)
         self.assertIn("count(*) FROM script_reviews", command[-1])
         self.assertIn("count(*) FROM script_revisions", command[-1])
+        self.assertNotIn("attempts", command[-1])
         self.assertEqual(execute.call_args.kwargs["timeout"], 10)
         failed = subprocess.CompletedProcess([], 1, "", "database unavailable")
         with patch.object(runner.subprocess, "run", return_value=failed), \

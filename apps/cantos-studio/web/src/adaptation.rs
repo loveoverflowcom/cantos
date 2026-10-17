@@ -90,75 +90,46 @@ pub fn is_run_id(id: &str) -> bool {
 }
 
 pub fn response_id(response: &AdaptationReviewResponse) -> &str {
-    match response {
-        AdaptationReviewResponse::Caller { context } => &context.id,
-        AdaptationReviewResponse::Legacy { run, .. } => &run.id,
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    &context.id
 }
 pub fn response_actor(response: &AdaptationReviewResponse) -> &str {
-    match response {
-        AdaptationReviewResponse::Caller { context } => &context.created_by,
-        AdaptationReviewResponse::Legacy { run, .. } => &run.created_by,
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    &context.created_by
 }
 pub fn response_status(response: &AdaptationReviewResponse) -> AdaptationStatus {
-    match response {
-        AdaptationReviewResponse::Caller { context } => context.status,
-        AdaptationReviewResponse::Legacy { run, .. } => run.status,
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    context.status
 }
 pub fn response_proposal(response: &AdaptationReviewResponse) -> Option<&AdaptationProposal> {
-    match response {
-        AdaptationReviewResponse::Caller { context } => context.proposal.as_ref(),
-        AdaptationReviewResponse::Legacy { run, .. } => run.proposal.as_ref(),
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    context.proposal.as_ref()
 }
 fn response_source(response: &AdaptationReviewResponse) -> &ImportResponse {
-    match response {
-        AdaptationReviewResponse::Caller { context } => &context.source,
-        AdaptationReviewResponse::Legacy { source, .. } => source,
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    &context.source
 }
 fn response_target(response: &AdaptationReviewResponse) -> (&str, u64) {
-    match response {
-        AdaptationReviewResponse::Caller { context } => (
-            &context.request.script_id,
-            context.request.expected_revision,
-        ),
-        AdaptationReviewResponse::Legacy { run, .. } => {
-            (&run.request.script_id, run.request.expected_revision)
-        }
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    (
+        &context.request.script_id,
+        context.request.expected_revision,
+    )
 }
 fn response_input(response: &AdaptationReviewResponse) -> Option<&RevisionResponse> {
-    match response {
-        AdaptationReviewResponse::Caller { context } => context.input_revision.as_ref(),
-        AdaptationReviewResponse::Legacy { input_revision, .. } => input_revision.as_deref(),
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    context.input_revision.as_ref()
 }
 fn response_accepted(response: &AdaptationReviewResponse) -> Option<&RevisionResponse> {
-    match response {
-        AdaptationReviewResponse::Caller { context } => context.accepted_revision.as_ref(),
-        AdaptationReviewResponse::Legacy { run, .. } => run.accepted_revision.as_ref(),
-    }
+    let AdaptationReviewResponse::Caller { context } = response;
+    context.accepted_revision.as_ref()
 }
 fn source_is_bound(response: &AdaptationReviewResponse) -> bool {
-    let source = response_source(response);
-    let (id, checksum, version) = match response {
-        AdaptationReviewResponse::Caller { context } => (
-            &context.request.source_id,
-            &context.request.source_sha256,
-            &context.request.extractor_version,
-        ),
-        AdaptationReviewResponse::Legacy { run, .. } => (
-            &run.request.source_id,
-            &run.source_sha256,
-            &run.extractor_version,
-        ),
-    };
-    source.id == *id
-        && source.sha256 == *checksum
-        && matches!(&source.outcome, ImportOutcome::Parsed { extraction } if extraction.extractor_version == *version)
+    let AdaptationReviewResponse::Caller { context } = response;
+    let source = &context.source;
+    source.id == context.request.source_id
+        && source.sha256 == context.request.source_sha256
+        && matches!(&source.outcome, ImportOutcome::Parsed { extraction } if extraction.extractor_version == context.request.extractor_version)
 }
 fn input_is_bound(response: &AdaptationReviewResponse) -> bool {
     let (script, expected) = response_target(response);
@@ -369,16 +340,9 @@ impl AdaptationReview {
         next.draft_changed = next.draft != next.baseline;
         if let Some(stored) = &self.stored {
             let mut response = stored.as_ref().clone();
-            match &mut response {
-                AdaptationReviewResponse::Caller { context } => {
-                    context.status = AdaptationStatus::Accepted;
-                    context.accepted_revision = Some(revision.clone());
-                }
-                AdaptationReviewResponse::Legacy { run, .. } => {
-                    run.status = AdaptationStatus::Accepted;
-                    run.accepted_revision = Some(revision.clone());
-                }
-            }
+            let AdaptationReviewResponse::Caller { context } = &mut response;
+            context.status = AdaptationStatus::Accepted;
+            context.accepted_revision = Some(revision.clone());
             next.stored = Some(Arc::new(response));
         }
         next.accepted = Some(Arc::new(revision));
@@ -442,15 +406,14 @@ impl AdaptationReview {
             next.status = ReviewStatus::Error(ErrorCode::CorruptRevision);
             return next;
         }
-        if let AdaptationReviewResponse::Caller { context } = &response {
-            if context.latest_submission.as_ref().is_some_and(|receipt| {
-                receipt.run_id != context.id
-                    || receipt.context_digest != context.context_digest
-                    || receipt.submitted_by != actor
-            }) {
-                next.status = ReviewStatus::Error(ErrorCode::CorruptRevision);
-                return next;
-            }
+        let AdaptationReviewResponse::Caller { context } = &response;
+        if context.latest_submission.as_ref().is_some_and(|receipt| {
+            receipt.run_id != context.id
+                || receipt.context_digest != context.context_digest
+                || receipt.submitted_by != actor
+        }) {
+            next.status = ReviewStatus::Error(ErrorCode::CorruptRevision);
+            return next;
         }
         // A different proposal or pinned input cannot inherit the previous acknowledgement.
         if self.stored.as_ref().is_some_and(|stored| {

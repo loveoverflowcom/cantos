@@ -544,103 +544,12 @@ async fn checked_operation_replay_preserves_original_bytes_and_rejects_rechecksu
     tx.rollback().await.unwrap();
 }
 
-// The pinned historical migration registry includes gaps. Record each exact source checksum
-// before adding 0023; published files are never rewritten or renumbered by this test.
-const PINNED_BASE: [(i32, &str); 18] = [
-    (
-        1,
-        include_str!("../../migrations/0001_script_revisions.sql"),
-    ),
-    (
-        2,
-        include_str!("../../migrations/0002_editorial_handoff.sql"),
-    ),
-    (
-        3,
-        include_str!("../../migrations/0003_manuscript_import.sql"),
-    ),
-    (4, include_str!("../../migrations/0004_ai_adaptation.sql")),
-    (
-        5,
-        include_str!("../../migrations/0005_caller_adaptation.sql"),
-    ),
-    (
-        6,
-        include_str!("../../migrations/0006_production_inputs.sql"),
-    ),
-    (7, include_str!("../../migrations/0007_durable_jobs.sql")),
-    (8, include_str!("../../migrations/0008_speech_clips.sql")),
-    (
-        9,
-        include_str!("../../migrations/0009_durable_step_changes.sql"),
-    ),
-    (
-        10,
-        include_str!("../../migrations/0010_studio_audio_intake.sql"),
-    ),
-    (11, include_str!("../../migrations/0011_catalog.sql")),
-    (
-        12,
-        include_str!("../../migrations/0012_content_identity.sql"),
-    ),
-    (
-        13,
-        include_str!("../../migrations/0013_production_briefs.sql"),
-    ),
-    (
-        14,
-        include_str!("../../migrations/0014_audio_lifecycle.sql"),
-    ),
-    (
-        16,
-        include_str!("../../migrations/0016_audio_publication.sql"),
-    ),
-    (
-        17,
-        include_str!("../../migrations/0017_listener_discovery.sql"),
-    ),
-    (
-        18,
-        include_str!("../../migrations/0018_actor_external_identities.sql"),
-    ),
-    (
-        19,
-        include_str!("../../migrations/0019_listener_library_progress.sql"),
-    ),
-];
-
 #[tokio::test]
 #[ignore = "requires xtask's disposable PostgreSQL cluster"]
-async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_pinned_checksums() {
-    let config = database().await;
-    let admin = connect(&config).await;
-    admin
-        .batch_execute(
-            "CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL)",
-        )
-        .await
-        .unwrap();
-    for (version, sql) in PINNED_BASE {
-        admin.batch_execute(sql).await.unwrap();
-        admin
-            .execute(
-                "INSERT INTO cantos_migrations VALUES($1,$2)",
-                &[&version, &Sha256::digest(sql.as_bytes()).to_vec()],
-            )
-            .await
-            .unwrap();
-    }
-    admin.batch_execute("GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,script_evidence,catalog_clock,catalog_works,catalog_work_revisions,catalog_units,catalog_unit_revisions,catalog_members,catalog_operations TO cantos_app; GRANT INSERT ON catalog_works,catalog_work_revisions,catalog_operations TO cantos_app; GRANT UPDATE(revoked) ON sessions TO cantos_app; GRANT UPDATE(revision) ON catalog_clock TO cantos_app; GRANT UPDATE(head_revision,lifecycle) ON catalog_works TO cantos_app; GRANT EXECUTE ON FUNCTION catalog_lock_actor(text),catalog_lock_member(text,text) TO cantos_app; INSERT INTO actors(id) VALUES('alice');").await.unwrap();
-    admin.execute("INSERT INTO sessions(token_hash,actor_id,expires_at) VALUES($1,'alice',clock_timestamp()+interval '1 hour')",&[&token_hash(ALICE)]).await.unwrap();
-    let mut app = config.clone();
-    app.user("cantos_app");
-    let h = Harness {
-        admin,
-        store: Store::new(app).unwrap(),
-        config: config.clone(),
-    };
+async fn baseline_replay_preserves_exact_catalog_snapshot_and_operation_bytes() {
+    let h = Harness::new().await;
     let original = h.work(ALICE).await;
-    let query="SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations WHERE version<=19 AND version<>15),'snapshot',(SELECT json_build_array(encode(snapshot,'hex'),snapshot_digest,recorded_by) FROM catalog_work_revisions WHERE work_id=$1 AND revision=1),'operations',(SELECT json_agg(json_build_array(actor_id,operation_id,fingerprint,encode(result_bytes,'hex'),result_digest) ORDER BY operation_id) FROM catalog_operations),'head',(SELECT head_revision FROM catalog_works WHERE id=$1),'clock',(SELECT revision FROM catalog_clock))::text";
+    let query="SELECT json_build_object('snapshot',(SELECT json_build_array(encode(snapshot,'hex'),snapshot_digest,recorded_by) FROM catalog_work_revisions WHERE work_id=$1 AND revision=1),'operations',(SELECT json_agg(json_build_array(actor_id,operation_id,fingerprint,encode(result_bytes,'hex'),result_digest) ORDER BY operation_id) FROM catalog_operations),'head',(SELECT head_revision FROM catalog_works WHERE id=$1),'clock',(SELECT revision FROM catalog_clock))::text";
     let before: String = h
         .admin
         .query_one(query, &[&original.id().as_str()])
@@ -660,18 +569,6 @@ async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_p
         h.store.catalog_work(ALICE, original.id()).await.unwrap(),
         original
     );
-    let versions: Vec<i32> = h
-        .admin
-        .query(
-            "SELECT version FROM cantos_migrations ORDER BY version",
-            &[],
-        )
-        .await
-        .unwrap()
-        .iter()
-        .map(|row| row.get(0))
-        .collect();
-    assert_eq!(versions, (1..=29).collect::<Vec<_>>());
     assert_eq!(h.admin.query_one("SELECT (SELECT count(*) FROM media_image_intents)+(SELECT count(*) FROM media_image_assets)+(SELECT count(*) FROM media_work_artwork_changes)+(SELECT count(*) FROM media_artwork_operations)",&[]).await.unwrap().get::<_,i64>(0),0);
 }
 

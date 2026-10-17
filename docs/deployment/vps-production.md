@@ -5,6 +5,12 @@ selects direct Firebase Hosting and API-mediated browser requests; [ADR 0039](..
 retains the VPS runtime/durability rules. Installed configuration is transitional. Recheck the
 remote status and Hosting releases before every operation; this document is not a deployment receipt.
 
+**Schema transition:** current source requires epoch 2. Ordinary deploy/rollback refuses the
+previous epoch-1 database and images; it cannot convert the deployed installation. Read the
+[controlled cutover runbook](postgres-schema-cutover.md) before packaging this source for a
+live host. Inventory, backup/restore and approved data conversion remain separate from source
+verification. PostgreSQL 17.11 stays pinned until a separate major-upgrade acceptance.
+
 ## Destinations and remaining transition
 
 | Component | Destination | Acceptance boundary |
@@ -163,11 +169,27 @@ are in [infra/vps](../../infra/vps/README.md). Preserve volumes `cantos-postgres
 The edge publishes 80/443; host SSH is separately operator managed. Never prune persistent data.
 
 API rollback: `cargo xtask deploy vps cantos-api --host root@42.96.18.245 --rollback` (remote write).
-Restore is an explicit destructive operator operation through `cantos-vps restore FILE
---yes-replace-database`: checksum, pre-restore backup, stop APIs, transactional restore, grants,
-restart. Image rollback does not restore schema/data. Retain the current/previous image and bundle
-identities; Hosting rollback uses the selected site's console release history. Copy backups to an
-operator-selected off-host destination and verify restoration separately; a scheduled same-disk
+Rollback swaps the API image only after its epoch label and read-only schema check pass.
+Restore requires exactly the dump and its `.schema-epoch` sidecar in the checksum manifest,
+epoch 2 and a compatible current image/database, takes a `pre-restore` backup, stops both APIs
+and restores in one transaction.
+It checks the restored schema before applying grants/restarting; rejection leaves the APIs stopped.
+Historical backups require their matching legacy bundle and a separately reviewed recovery plan,
+not fabricated epoch metadata. Cross-epoch recovery follows the [cutover plan](postgres-schema-cutover.md).
+Copy each finalized backup off the VPS regularly, keeping **all three siblings** together:
+`FILE.dump`, `FILE.dump.schema-epoch` and `FILE.dump.sha256`. In the destination directory,
+verify `sha256sum -c FILE.dump.sha256` before the separate restore drill. Copying only the dump
+loses the metadata required by ordinary restore. The originals live on the same VPS disk.
+Failed dump/checksum creation or unreadable schema metadata stops before retention or deployment.
+`FILE.dump.sha256` is finalized only after recognized schema metadata and a successful checksum.
+An unknown-epoch archive is retained with its metadata and partial checksum for investigation
+and returns failure; it never establishes a usable recovery point. Retention counts only finalized
+checksum manifests, so failed artifacts cannot displace good backups on a later run.
+`.partial` files are incomplete evidence,
+never usable backups. Kanidm keeps its own daily online backup
+(7 versions) in `cantos-kanidm-data`.
+Configuration rollback: the previous bundle stays at `/root/cantos-services/runtime.previous`.
+Hosting rollback uses the selected site's console release history. A scheduled same-disk
 backup is not disaster-recovery acceptance.
 
 After an authorized change, open both direct Hosting URLs in a fresh browser session. Inspect

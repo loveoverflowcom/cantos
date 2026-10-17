@@ -37,7 +37,15 @@ static files.
 | Android Firebase App ID | `1:123:android:abc` | App Distribution only; unrelated to Hosting |
 
 The mapping *target → site* is yours: it lives in `infra/firebase/hosting/.firebaserc`, ignored by
-Git. The repository never contains a real project or site ID.
+Git. Tracked deployment policy and mapping examples contain no allocated project or site IDs;
+deployment evidence records the destinations actually observed.
+
+Site IDs are globally unique hostname labels of **at most 30 characters**, using lowercase
+letters, digits and hyphens, with no leading/trailing hyphen. A site ID contains neither a dot nor
+a URL. `cantos` would serve `https://cantos.web.app`, and `cantos-studio` would serve
+`https://cantos-studio.web.app`; `studio.cantos.web.app` is not a supported Firebase-provisioned
+name. A `studio.cantos.*` hierarchy requires an operator-owned custom domain. These are desired
+names, not allocated destinations; the technical target/package remains `cantos-theatre`.
 
 ## One-time setup
 
@@ -90,7 +98,9 @@ cd ../../..
 xtask requires each target to map to **exactly one** site in the project you pass, and the two
 targets to name **different** sites. A missing file, a different project's mapping, two sites for one
 target, or one site for both targets is a refusal before any tool runs. xtask never edits this file.
-It reads it as strict JSON (no comments).
+It reads it as strict JSON (no comments). Every configured target must be valid, including the
+other app's mapping: an ambiguous list can conceal a shared site and is refused. An absent other
+target is allowed for a one-app setup.
 
 Notes:
 
@@ -271,6 +281,65 @@ and identity gateway migration. No wildcard CORS, token-in-localStorage or weake
 policy is a substitute. Initial email-action HTML needs no-store/no-referrer on Hosting itself
 before registration activation; VPS-only query protection does not cover a direct Hosting request.
 
+## Shorter site names: controlled transition (#237)
+
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting with
+explicit API addressing, exact per-surface CORS and API-host callbacks. Follow the
+[current production runbook](vps-production.md) for the combined configuration, origin-drift
+checks and rollout authority. Changing a Site ID selects no cookie or callback policy.
+`web.app` and the DuckDNS API remain cross-site: CORS cannot make SameSite=Strict sessions work
+across them. Same-site domain selection, the minimal identity gateway and actual
+login/reload/logout, surface isolation and callback acceptance remain separate gates.
+
+**2026-10-17 read-only inspection:** `firebase hosting:sites:list --project cantos-a348b --json
+--non-interactive` returned exit **2**, JSON status `error`: the existing Firebase authentication
+was not accepted. No site was created, mapped or deployed by this work. The previously recorded
+sites `cantoss-theatre` and `cantoss-studio` are historical deployment evidence, not a fresh ownership
+check. Ownership and availability of `cantos` and `cantos-studio` remain **unverified**. Keep the
+working operator mapping and Caddy upstreams until the following gates pass.
+
+1. The operator restores their Firebase login, then repeats the read-only site listing in the
+   explicit project. Record the returned site IDs, `type` (`DEFAULT_SITE`/`USER_SITE`) and default
+   URLs without account addresses or credentials. Presence establishes allocation to this project;
+   absence does **not** establish global availability. An HTTP response at a desired URL also
+   proves no ownership. The default site cannot be renamed or deleted. A different ID requires an
+   additional site; site creation needs separate operator approval. If the preferred ID cannot be
+   allocated, record that blocker and agree an alternative before changing mappings.
+2. After separately approved creation, repeat the listing and verify both destination sites belong
+   to the intended project. Save the current ignored `.firebaserc`, the edge's `edge.env`, the
+   deployed release IDs and bundle receipts in a private operator backup. Retain old sites and
+   releases. Remap the local targets with the setup commands above; never rename source modules,
+   API namespaces or Android identifiers. Run per-app xtask dry runs and inspect their exact
+   project/site/target/channel before authorizing the separate live writes.
+3. Deploy each app independently through `cargo xtask deploy firebase <app> --web --project
+   cantos-a348b --channel live` only on an explicit request naming that app, project and channel.
+   Require each new static site's own receipt and smoke: correct HTML/CSS/JS/WASM bytes, MIME and
+   revalidation headers, missing assets as 404, and `/api/*` as 404. These checks do not accept
+   login, catalog or playback on a raw Firebase URL.
+4. For the selected direct-Hosting topology, separately review the new exact Web origins,
+   per-surface API CORS, fixed Web return origins and API-host OIDC callbacks through the
+   [production configuration procedure](vps-production.md#direct-hosting--api-configuration).
+   Supply the required HTTPS `CANTOS_API_ORIGIN` during each app's build/deploy. Preserve
+   host-only Strict session cookies and existing CSRF checks. A shorter `web.app` URL still
+   requires the independent same-site domain/gateway gate before authenticated use; a static
+   release or CORS response cannot accept it. Missing identity provisioning or disabled features
+   stay `NOT_RUN`.
+5. If the operator explicitly retains a transitional Caddy static proxy, changing its upstream
+   Site ID changes no public browser origin. Back up `edge.env`, validate the candidate Caddy
+   configuration with the new environment and restart only `cantos-edge.service` to load it;
+   a reload alone does not refresh the container's EnvironmentFile. Preserve its certificate
+   volumes and check the original public hosts and their same-origin APIs. This optional
+   compatibility step does not replace ADR 0041's direct-Hosting rollout or authorize origin,
+   identity, cookie, email-action or DNS changes.
+6. If acceptance fails, restore the private mapping and known-good release IDs. For an authorized
+   transitional proxy change, also restore its site IDs/environment, restart that same edge unit
+   and repeat the checks. Restore origin/identity configuration separately through the reviewed
+   migration procedure; image rollback does not restore it. Reconcile uncertain outcomes before
+   retrying. Redirecting/deprecating old URLs requires separate reviewed policy and authority:
+   the current static deploy policy rejects redirects. Keep old sites and release history until
+   acceptance and a separately approved retention decision; never delete them to obtain a shorter
+   name.
+
 ## Recovery and reconciliation
 
 - **A failed or uncertain run exits nonzero** with a typed reason and keeps the stage vocabulary.
@@ -341,6 +410,7 @@ PASS, account list or old deployment record as current state. Historical tool-de
 - [Firebase CLI setup and authentication](https://firebase.google.com/docs/cli)
 - [Hosting multisites](https://firebase.google.com/docs/hosting/multisites) and
   [deploy targets](https://firebase.google.com/docs/cli/targets)
+- [Default site: its ID cannot be changed or deleted](https://firebase.google.com/docs/hosting/default-site)
 - [Hosting configuration: files, rewrites, headers](https://firebase.google.com/docs/hosting/full-config)
 - [Local testing, preview and live deployment](https://firebase.google.com/docs/hosting/test-preview-deploy)
 - [Channels, releases, versions and rollback](https://firebase.google.com/docs/hosting/manage-hosting-resources)

@@ -48,9 +48,14 @@ cargo xtask deploy firebase cantos-studio --web --project ID --channel NAME --dr
 ```
 
 The explicit, manual `deploy firebase` can publish this app's static bundle to Firebase Hosting
-([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves no API, so Studio shows its
-unavailable states there and sign-in is not established. Never upload private Studio content to a
-preview, which is public.
+([runbook](../../../docs/deployment/firebase-hosting.md)); Hosting serves static files and clients
+use the explicit Cantos API origin. Direct-origin sign-in remains gated by domain/cookie/gateway
+acceptance. Never upload private Studio content to a preview, which is public.
+Studio keeps its own Hosting site and browser origin. The preferred `cantos-studio.web.app`
+name is conditional on verified allocation; `studio.cantos.web.app` is not supported. The
+[site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+requires exact API-origin/CORS/return/callback review under ADR 0041. Short names alone establish
+no authenticated session or same-site domain.
 
 Trunk fetches its matching wasm-bindgen helper on its first build. An offline build requires
 that helper on `PATH` as well as the Cargo cache; the Mac run used
@@ -157,7 +162,8 @@ Adaptation tools prepare a context pinned to the imported source ID/checksum, ex
 target script and input revision, with a recorded source export permission claim. The host generates
 under the user's control and submits a bounded structured result through the tools. Studio opens
 the context or proposal ID through `GET /api/v1/studio/adaptations/{id}/review`; it never requests AI
-generation. Historical proposals remain readable through the same tagged response.
+generation. The tagged response admits only the current caller context workflow; retired
+server-generated runs have no compatibility review path.
 
 The review shows preserved source text, paged extraction and warnings, the pinned input revision,
 coverage claims and unsupported pacing/prosody beside the structured proposal editor and optional advanced JSON. Caller-declared host,
@@ -168,9 +174,6 @@ The exact accepted revision can be reopened read-only. Ordinary editor text stay
 Unresolved acceptance retains the original actor, operation ID, base and JSON snapshot for exact
 retry; later typing and IME composition survive responses. A changed base requires a new context.
 Rights claims do not establish legal eligibility, production approval or publication permission.
-
-Historical model evidence can be shown for preserved run metadata. The compatibility fingerprint
-field records prior evidence; it does not configure a current runtime or prove a successful run.
 
 An uncertain mutation retains its exact actor/operation/snapshot for reconciliation. A different
 actor, stale response or changed input cannot silently replace the visible proposal or accepted

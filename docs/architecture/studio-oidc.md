@@ -168,11 +168,11 @@ The existing pinned `url` serializer owns this encoding; secrets remain backend-
 
 ## Studio sessions, disable and logout
 
-Additive [0020](../../services/cantos-api/migrations/0020_studio_oidc.sql) follows inherited 0018;
+Historical additive [0020](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0020_studio_oidc.sql) follows inherited 0018;
 0019 belongs to Library/Progress. Original SQL checksums are unchanged. Existing sessions gain
 `auth_kind` defaulting to `development`. New OIDC sessions reuse 32-byte SHA-256 hashes and actor
 FKs; expiry is the minimum of ID-token expiry, introspected access expiry and 15 minutes, with no
-refresh token. Additive [0025](../../services/cantos-api/migrations/0025_studio_oidc_final_time.sql)
+refresh token. Historical additive [0025](https://github.com/loveoverflowcom/cantos/blob/3e6c183d3d616e8ec4a782ba788b4b70d0c6e49a/services/cantos-api/migrations/0025_studio_oidc_final_time.sql)
 replaces the issuance function while preserving 0020 and its grants. SQL rechecks flow, proof/access
 and previous-session expiry after registry/actor waits, then after every issuance effect and
 constraint lock wait. Expiry at the final fence raises a private exception and rolls back the

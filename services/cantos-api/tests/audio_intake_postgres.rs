@@ -1594,7 +1594,7 @@ async fn changing_the_write_target_preserves_exact_historical_reads_without_copy
 
 #[tokio::test]
 #[ignore = "new disposable PostgreSQL cluster and ffmpeg required"]
-async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_digests_and_reads() {
+async fn baseline_replay_preserves_receipt_bytes_digests_storage_targets_and_reads() {
     let h = Harness::new().await;
     let intent = h.intent().await;
     let bytes = opus();
@@ -1605,7 +1605,7 @@ async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_dige
     let migration_rows = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<15 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await
@@ -1614,26 +1614,7 @@ async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_dige
         .iter()
         .map(|row| (row.get(0), row.get(1)))
         .collect();
-    assert_eq!(original_migrations.len(), 14);
-
-    // Only this newly created disposable database is reconstructed to the pre-0015 shape.
-    // The accepted receipt, object and all earlier migration checksums remain untouched.
-    h.admin
-        .batch_execute(
-            "BEGIN;
-         ALTER TABLE audio_intake_receipts DROP COLUMN storage_target_id;
-         ALTER TABLE audio_renditions DROP COLUMN storage_target_id;
-         DELETE FROM cantos_migrations WHERE version=15;
-         COMMIT;",
-        )
-        .await
-        .unwrap();
-    let row = h.admin.query_one(
-        "SELECT object_key,receipt_bytes,receipt_digest FROM audio_intake_receipts WHERE intent_id=$1", &[&intent.id],
-    ).await.unwrap();
-    assert_eq!(row.get::<_, String>(0), before.object_key);
-    assert_eq!(row.get::<_, Vec<u8>>(1), before.bytes);
-    assert_eq!(row.get::<_, String>(2), before.digest);
+    assert_eq!(original_migrations.len(), 1);
 
     migrate(&h.config).await.unwrap();
     migrate(&h.config).await.unwrap();
@@ -1642,7 +1623,7 @@ async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_dige
     let migrated_rows = h
         .admin
         .query(
-            "SELECT version,checksum FROM cantos_migrations WHERE version<15 ORDER BY version",
+            "SELECT version,checksum FROM cantos_migrations ORDER BY version",
             &[],
         )
         .await
@@ -1655,7 +1636,7 @@ async fn additive_storage_location_migration_preserves_legacy_receipt_bytes_dige
     assert_eq!(
         h.admin
             .query_one(
-                "SELECT count(*) FROM cantos_migrations WHERE version=15",
+                "SELECT count(*) FROM cantos_migrations WHERE version=1",
                 &[]
             )
             .await

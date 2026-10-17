@@ -25,7 +25,8 @@ COPY --from=build /out/cantos-server /out/cantos-migrate /usr/local/bin/
 ARG CANTOS_REVISION=unknown
 LABEL org.opencontainers.image.title="cantos-api" \
       org.opencontainers.image.source="https://github.com/loveoverflowcom/cantos" \
-      org.opencontainers.image.revision="${CANTOS_REVISION}"
+      org.opencontainers.image.revision="${CANTOS_REVISION}" \
+      io.cantos.schema-epoch="2"
 ENV CANTOS_ENV=production CANTOS_BIND_ADDRESS=0.0.0.0:8080 RUST_BACKTRACE=0
 USER 10001:10001
 EXPOSE 8080

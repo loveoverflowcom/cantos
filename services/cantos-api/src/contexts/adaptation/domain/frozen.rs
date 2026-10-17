@@ -1,20 +1,14 @@
 //! Immutable frozen inputs of an adaptation and the typed digests that identify them.
 //!
-//! `a1` is the retired provider-run preimage, kept readable; `c1` is the caller-owned context.
-//! Both bind the exact source, base revision and the evidence record identities minted for the
-//! run, from which acceptance rebuilds raw binding facts and re-admits them. These serialized
-//! snapshots are not sealed provenance or authorization witnesses; SQL reconstruction and
-//! transaction-time source/base/access checks remain required.
-use cantos_contracts::{
-    AdaptationContextRequest, AdaptationCost, AdaptationProblem, AdaptationProviderMetadata,
-    AdaptationUsage, ImportResponse, RevisionResponse, StartAdaptationRequest,
-};
+//! Caller-owned contexts bind the exact source, base revision and server-minted evidence IDs.
+//! These snapshots are not authorization witnesses; transaction-time source/base/access checks
+//! remain required.
+use cantos_contracts::{AdaptationContextRequest, ImportResponse, RevisionResponse};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::TrustedBinding;
 
-pub const INPUT_A1_DIGEST: &[u8] = b"cantos/adaptation-input/a1\n";
 pub const INPUT_C1_DIGEST: &[u8] = b"cantos/adaptation-input/c1\n";
 pub const PROPOSAL_DIGEST: &[u8] = b"cantos/adaptation-proposal/p1\n";
 pub const SUBMISSION_DIGEST: &[u8] = b"cantos/adaptation-submission/s1\n";
@@ -53,30 +47,7 @@ fn binding(
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct FrozenAdaptation {
-    pub request: StartAdaptationRequest,
-    pub source: ImportResponse,
-    pub base: Option<RevisionResponse>,
-    pub provider: AdaptationProviderMetadata,
-    pub generation_record_id: String,
-    pub rights_record_id: String,
-}
-
-impl FrozenAdaptation {
-    pub fn binding(&self, run: &str) -> TrustedBinding {
-        binding(
-            &self.source,
-            self.base.as_ref(),
-            &self.generation_record_id,
-            &self.rights_record_id,
-            run,
-        )
-    }
-}
-
-/// c1 is separate from the preserved a1 preimage: no provider configuration or attestation.
+/// Caller-owned context: no provider execution configuration or attestation.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FrozenContext {
@@ -103,15 +74,4 @@ impl FrozenContext {
             run,
         )
     }
-}
-
-/// What a retired provider run reported, recorded once.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Observation {
-    pub problem: Option<AdaptationProblem>,
-    pub usage: Option<AdaptationUsage>,
-    pub cost: Option<AdaptationCost>,
-    pub output_sha256: Option<String>,
-    pub output_byte_len: Option<u64>,
 }

@@ -29,18 +29,6 @@ const SCRIPT: &str =
     include_str!("../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json");
 const ORIGINAL: &str = "\u{feff}Ánh đèn cuối sân khấu\r\nNgười kể chuyện đã trở về.\r\n";
 const EVIDENCE: &str = "../../target/catalog-evidence";
-const BASELINE: [&str; 9] = [
-    include_str!("../migrations/0001_script_revisions.sql"),
-    include_str!("../migrations/0002_editorial_handoff.sql"),
-    include_str!("../migrations/0003_manuscript_import.sql"),
-    include_str!("../migrations/0004_ai_adaptation.sql"),
-    include_str!("../migrations/0005_caller_adaptation.sql"),
-    include_str!("../migrations/0006_production_inputs.sql"),
-    include_str!("../migrations/0007_durable_jobs.sql"),
-    include_str!("../migrations/0008_speech_clips.sql"),
-    include_str!("../migrations/0009_durable_step_changes.sql"),
-];
-
 struct Harness {
     admin: Client,
     config: Config,
@@ -1649,7 +1637,7 @@ async fn settled_catalog_records_are_immutable_and_app_has_no_delete_identity_up
     for query in [
         "UPDATE catalog_work_revisions SET snapshot=snapshot",
         "DELETE FROM catalog_unit_revisions",
-        // Delegated lineage (0026) references receipts, so only CASCADE reaches the trigger;
+        // Delegated lineage references receipts, so only CASCADE reaches the trigger;
         // a plain TRUNCATE is refused earlier by that foreign key (asserted below).
         "TRUNCATE catalog_operations CASCADE",
         "UPDATE catalog_works SET owner_id='bob'",
@@ -1682,107 +1670,28 @@ async fn settled_catalog_records_are_immutable_and_app_has_no_delete_identity_up
 
 #[tokio::test]
 #[ignore = "disposable PostgreSQL cluster required"]
-async fn migrations_0010_and_0011_upgrade_0009_and_preserve_existing_bytes_and_checksums() {
-    verify_combined_migration_upgrade(false).await;
-}
-
-#[tokio::test]
-#[ignore = "disposable PostgreSQL cluster required"]
-async fn migration_0010_fills_gap_after_0011_through_0013_and_preserves_bytes_and_checksums() {
-    verify_combined_migration_upgrade(true).await;
-}
-
-async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
-    let (config, database) = database_config().await;
-    let admin = connect(&config).await;
-    admin
-        .batch_execute(
-            "CREATE TABLE cantos_migrations(version integer PRIMARY KEY,checksum bytea NOT NULL)",
-        )
-        .await
-        .unwrap();
-    for (index, sql) in BASELINE.iter().enumerate() {
-        admin.batch_execute(sql).await.unwrap();
-        let version = (index + 1) as i32;
-        let checksum = Sha256::digest(sql.as_bytes()).to_vec();
-        admin
-            .execute(
-                "INSERT INTO cantos_migrations VALUES($1,$2)",
-                &[&version, &checksum],
-            )
-            .await
-            .unwrap();
-    }
-    if catalog_already_applied {
-        for (version, sql) in [
-            (11, include_str!("../migrations/0011_catalog.sql")),
-            (12, include_str!("../migrations/0012_content_identity.sql")),
-            (13, include_str!("../migrations/0013_production_briefs.sql")),
-        ] {
-            admin.batch_execute(sql).await.unwrap();
-            admin
-                .execute(
-                    "INSERT INTO cantos_migrations VALUES($1,$2)",
-                    &[&version, &Sha256::digest(sql.as_bytes()).to_vec()],
-                )
-                .await
-                .unwrap();
-        }
-    }
-    // Seed old surfaces through their existing authority before audio migration 0010 exists.
-    admin.batch_execute("INSERT INTO actors(id) VALUES('alice'); GRANT USAGE ON SCHEMA public TO cantos_app; GRANT SELECT ON actors,sessions,scripts,script_revisions,script_members,script_evidence,revision_evidence TO cantos_app; GRANT INSERT ON scripts,script_revisions,revision_evidence TO cantos_app; GRANT UPDATE(head_revision) ON scripts TO cantos_app;
-         GRANT UPDATE(revoked) ON sessions TO cantos_app;").await.unwrap();
-    admin.execute("INSERT INTO sessions(token_hash,actor_id,expires_at) VALUES($1,'alice',clock_timestamp()+interval '1 hour')", &[&token_hash(ALICE)]).await.unwrap();
-    for (kind, id) in read_script(SCRIPT.as_bytes()).unwrap().evidence_refs() {
-        admin.execute("INSERT INTO script_evidence(owner_id,kind,id,description) VALUES('alice',$1,$2,'Legacy synthetic evidence')", &[&kind,&id]).await.unwrap();
-    }
-    let h = Harness::from_connections(config.clone(), database, admin);
-    let source = h.source("alice", "old-manuscript").await;
+async fn baseline_replay_preserves_exact_source_script_and_catalog_bytes() {
+    let h = Harness::new().await;
+    let source = h.source("alice", "baseline-manuscript").await;
     let script = h.script(ALICE).await;
-    let catalog_before = if catalog_already_applied {
-        grant_and_seed(&h.admin).await;
-        Some(h.create(ALICE, WorkKind::Story).await)
-    } else {
-        None
-    };
-    let historical_text = h.admin.query_one("SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations),'source',(SELECT json_build_array(encode(coalesce(original_bytes,convert_to(original_text,'UTF8')),'hex'),sha256) FROM source_records WHERE id='old-manuscript'),'script',(SELECT json_build_array(encode(canonical_export,'hex'),content_digest,export_digest) FROM script_revisions WHERE script_id=$1 AND revision=1))::text", &[&script.id()]).await.unwrap().get::<_,String>(0);
-    let historical: Value = serde_json::from_str(&historical_text).unwrap();
-    migrate(&config).await.unwrap();
-    migrate(&config).await.unwrap();
-    grant_and_seed(&h.admin).await;
-    let versions: Vec<i32> = h
-        .admin
-        .query(
-            "SELECT version FROM cantos_migrations ORDER BY version",
-            &[],
-        )
-        .await
-        .unwrap()
-        .iter()
-        .map(|row| row.get(0))
-        .collect();
-    assert_eq!(versions, (1..=29).collect::<Vec<_>>());
-    let preserved_versions = if catalog_already_applied {
-        "version<=13 AND version<>10"
-    } else {
-        "version<=9"
-    };
-    let retained_query = format!("SELECT json_build_object('migrations',(SELECT json_agg(json_build_array(version,encode(checksum,'hex')) ORDER BY version) FROM cantos_migrations WHERE {preserved_versions}),'source',(SELECT json_build_array(encode(coalesce(original_bytes,convert_to(original_text,'UTF8')),'hex'),sha256) FROM source_records WHERE id='old-manuscript'),'script',(SELECT json_build_array(encode(canonical_export,'hex'),content_digest,export_digest) FROM script_revisions WHERE script_id=$1 AND revision=1))::text");
-    let retained_text = h
-        .admin
-        .query_one(&retained_query, &[&script.id()])
-        .await
-        .unwrap()
-        .get::<_, String>(0);
-    let retained: Value = serde_json::from_str(&retained_text).unwrap();
-    assert_eq!(historical, retained);
-    if let Some(before) = catalog_before {
-        assert_eq!(
-            h.store.catalog_work(ALICE, before.id()).await.unwrap(),
-            before
-        );
-    }
     let work = h.create(ALICE, WorkKind::Story).await;
+    let query = "SELECT json_build_object('source',(SELECT json_build_array(encode(coalesce(original_bytes,convert_to(original_text,'UTF8')),'hex'),sha256) FROM source_records WHERE id='baseline-manuscript'),'script',(SELECT json_build_array(encode(canonical_export,'hex'),content_digest,export_digest) FROM script_revisions WHERE script_id=$1 AND revision=1),'catalog',(SELECT json_agg(json_build_array(revision,encode(snapshot,'hex'),snapshot_digest) ORDER BY revision) FROM catalog_work_revisions WHERE work_id=$2),'operations',(SELECT json_agg(json_build_array(operation_id,encode(result_bytes,'hex'),result_digest) ORDER BY operation_id) FROM catalog_operations))::text";
+    let before: String = h
+        .admin
+        .query_one(query, &[&script.id(), &work.id().as_str()])
+        .await
+        .unwrap()
+        .get(0);
+    migrate(&h.config).await.unwrap();
+    migrate(&h.config).await.unwrap();
+    let after: String = h
+        .admin
+        .query_one(query, &[&script.id(), &work.id().as_str()])
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(before, after);
+    assert_eq!(h.store.catalog_work(ALICE, work.id()).await.unwrap(), work);
     h.store
         .catalog_execute(
             ALICE,
@@ -1795,7 +1704,7 @@ async fn verify_combined_migration_upgrade(catalog_already_applied: bool) {
                 details: UnitDetails {
                     source: Some(source),
                     script: Some(script),
-                    ..unit_details("Legacy links")
+                    ..unit_details("Liên kết sau khi kiểm tra schema")
                 },
             },
         )

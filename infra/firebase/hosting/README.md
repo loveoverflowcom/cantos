@@ -46,3 +46,12 @@ Only a deployed response/browser check establishes delivery. Firebase receives t
 email-action query before JavaScript can remove it: these headers do not prove query-log
 redaction or registration acceptance. Keep that [independent gate](../../../docs/deployment/firebase-enrollment-proof.md)
 closed until the action origin, code handling and logging evidence are reviewed.
+
+Site mappings accept Firebase hostname labels of at most 30 characters, never a domain or URL.
+The preferred shorter names in [#237](https://github.com/loveoverflowcom/cantos/issues/237),
+`cantos` and `cantos-studio`, remain conditional on verified allocation to the operator's project.
+The 2026-10-17 read-only lookup was blocked by Firebase authentication; no new mapping was chosen.
+`studio.cantos.web.app` is not a valid default Hosting name. Source package/target names remain
+`cantos-theatre` and `cantos-studio`. See the [controlled transition and rollback](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+before changing the ignored mapping or transitional Caddy upstreams. Direct Hosting needs the
+explicit API origin from ADR 0041; static delivery does not establish browser authentication.

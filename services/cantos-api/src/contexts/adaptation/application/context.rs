@@ -13,7 +13,6 @@ use super::super::domain::{
     FrozenContext, CONTRACT_VERSION, INPUT_C1_DIGEST, OUTPUT_SCHEMA, PROMPT_VERSION,
 };
 use super::super::postgres::{self, ActorLock};
-use super::legacy::run_in_transaction;
 use super::{accepted_revision, check_pinned_source, stored_proposal};
 use crate::contexts::editorial::{
     authorize, load_revision, register_evidence, script_exists, Action, EvidenceKind,
@@ -237,25 +236,9 @@ impl Store {
         let mut client = self.connection().await?;
         let tx = client.transaction().await?;
         let actor = authenticate(&tx, token).await?;
-        let version = postgres::input_version(&tx, &actor, id)
-            .await?
-            .ok_or(StoreError::NotFound)?;
-        let response = match version.as_str() {
-            "c1" => {
-                let (context, _) = context_in_transaction(&tx, &actor, id).await?;
-                AdaptationReviewResponse::Caller {
-                    context: Box::new(context),
-                }
-            }
-            "a1" => {
-                let (run, frozen) = run_in_transaction(&tx, &actor, id).await?;
-                AdaptationReviewResponse::Legacy {
-                    run: Box::new(run),
-                    source: Box::new(frozen.source),
-                    input_revision: frozen.base.map(Box::new),
-                }
-            }
-            _ => return Err(StoreError::CorruptRevision),
+        let (context, _) = context_in_transaction(&tx, &actor, id).await?;
+        let response = AdaptationReviewResponse::Caller {
+            context: Box::new(context),
         };
         authenticate(&tx, token).await?;
         tx.commit().await?;

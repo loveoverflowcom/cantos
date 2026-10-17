@@ -13,6 +13,26 @@ Publication, Discovery, Library/Progress, identity adapters and Firebase Hosting
 have implemented slices. Their presence does not establish provider, playback or deployment acceptance.
 See [product status](../product/brief.md#implementation-status) and the [contract index](../../packages/contracts/README.md).
 
+## Database and Hosting transition prerequisites
+
+[#238](https://github.com/loveoverflowcom/cantos/issues/238) removes retired provider runtime
+before [#239](https://github.com/loveoverflowcom/cantos/issues/239)'s current fresh schema is used.
+Review source cleanup and fresh/refusal SQL evidence together, then inventory the deployed
+schema/data, rehearse authoritative-data conversion and backup restore, and approve the exact
+cutover separately. The [cutover runbook](../deployment/postgres-schema-cutover.md) preserves
+PostgreSQL authority and keeps the PostgreSQL 17 → 18.6 decision independent. An epoch-2 source
+build does not authorize deploying over an epoch-1 database or rewriting its migration checksums.
+
+[#237](https://github.com/loveoverflowcom/cantos/issues/237) is an independent Hosting track:
+first establish project ownership/availability for the requested short Site IDs, then approve
+per-app site allocation/deploy and exact-origin acceptance through the
+[Hosting runbook](../deployment/firebase-hosting.md) and accepted
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md). Preserve the direct-Hosting/API
+boundary, origin/callback drift safeguards and Studio/Theatre isolation. Short Site IDs alone
+establish neither compatible session domains nor authentication acceptance; qualify same-site
+domains and the minimal identity gateway separately. Keep the schema cutover independent of
+that rollout.
+
 ## Recommended next boundaries
 
 | Order | Issue owner | One next outcome | Dependency / review input |

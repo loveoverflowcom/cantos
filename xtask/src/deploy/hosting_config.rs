@@ -35,13 +35,14 @@ pub const FIREBASERC: &str = ".firebaserc";
 /// The Hosting `public` directory inside a run, relative to the effective config beside it.
 pub const PUBLIC_DIR: &str = "dist";
 
-/// A Hosting site ID: DNS-label shaped. Not a project ID, a deploy target or an App ID.
+/// A Hosting site ID: a hostname label of at most 30 characters, as required by Firebase
+/// Hosting multisites. Not a project ID, a deploy target, a custom domain or an App ID.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SiteId(String);
 
 impl SiteId {
     pub fn parse(text: &str) -> Result<Self, String> {
-        let valid = (1..=63).contains(&text.len())
+        let valid = (1..=30).contains(&text.len())
             && !text.starts_with('-')
             && !text.ends_with('-')
             && text
@@ -51,7 +52,7 @@ impl SiteId {
             Ok(Self(text.to_owned()))
         } else {
             Err(format!(
-                "`{text}` is not a Hosting site ID (lowercase letters, digits and hyphens, at most 63 characters)"
+                "`{text}` is not a Hosting site ID (lowercase letters, digits and hyphens, at most 30 characters; no dots or URL)"
             ))
         }
     }
@@ -177,7 +178,9 @@ pub fn resolve_mapping(
     let site = site_of(target)?.ok_or(MappingError::TargetUnmapped(target))?;
     for other in [App::Theatre, App::Studio].map(hosting_target) {
         if other != target {
-            if let Ok(Some(other_site)) = site_of(other) {
+            // A configured but malformed other target cannot establish isolation. In particular,
+            // an ambiguous list may include this app's site and must not be silently ignored.
+            if let Some(other_site) = site_of(other)? {
                 if other_site == site {
                     return Err(MappingError::SharedSite(site.0));
                 }
@@ -888,6 +891,65 @@ mod tests {
 
     fn rc(body: &str) -> String {
         format!(r#"{{"targets":{{"cantos-example":{{"hosting":{body}}}}}}}"#)
+    }
+
+    #[test]
+    fn site_ids_are_firebase_labels_not_custom_domains_or_urls() {
+        for valid in ["cantos", "cantos-studio", "a", &"a".repeat(30)] {
+            assert_eq!(SiteId::parse(valid).unwrap().as_str(), valid);
+        }
+        for invalid in [
+            "",
+            "studio.cantos",
+            "studio.cantos.web.app",
+            "https://cantos.web.app",
+            "Cantos",
+            "cantos_studio",
+            "-cantos",
+            "cantos-",
+            &"a".repeat(31),
+        ] {
+            assert!(SiteId::parse(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn every_configured_target_must_establish_site_isolation() {
+        for (body, expected) in [
+            (
+                r#"{"theatre":["cantos"],"studio":["cantos","another-site"]}"#,
+                MappingError::TargetAmbiguous {
+                    target: "studio",
+                    sites: 2,
+                },
+            ),
+            (
+                r#"{"theatre":["cantos"],"studio":"cantos"}"#,
+                MappingError::BadSite { target: "studio" },
+            ),
+            (
+                r#"{"theatre":["cantos"],"studio":["studio.cantos.web.app"]}"#,
+                MappingError::BadSite { target: "studio" },
+            ),
+        ] {
+            assert_eq!(
+                resolve_mapping(Some(&rc(body)), &project(), "theatre"),
+                Err(expected)
+            );
+        }
+        let shortened = rc(r#"{"theatre":["cantos"],"studio":["cantos-studio"]}"#);
+        assert_eq!(
+            resolve_mapping(Some(&shortened), &project(), "theatre")
+                .unwrap()
+                .as_str(),
+            "cantos"
+        );
+        assert_eq!(
+            resolve_mapping(Some(&shortened), &project(), "studio")
+                .unwrap()
+                .as_str(),
+            "cantos-studio"
+        );
     }
 
     #[test]

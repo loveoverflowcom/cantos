@@ -45,3 +45,8 @@ Authorized `identity` uses those same Web origins and API callbacks, and writes 
 receipt before deploy/rollback. The receipt does not prove live provider state or remove obsolete
 redirects: an operator must review those and accept the callback/session flow separately. See the
 [migration procedure and cookie/domain gate](../../docs/deployment/vps-production.md#direct-hosting--api-configuration).
+
+The current image declares schema epoch 2. Ordinary deploy/rollback rejects legacy databases
+and images from another epoch; it does not convert or reset a deployed database. PostgreSQL
+stays pinned to 17.11. Read the [schema cutover plan](../../docs/deployment/postgres-schema-cutover.md)
+before deploying the current source to an installation using historical migrations.

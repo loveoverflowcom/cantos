@@ -64,8 +64,8 @@ separates exact original bytes from normalized extraction, and never saves a scr
 grants publication permission automatically. Its hand-authored Schema and independent literal
 wire examples are checked by the shared consumer and backend contract tests.
 
-The [adaptation v1 contract](adaptation-v1.md) adds private revision-pinned runs, a closed
-provider proposal format and explicit reviewed acceptance. Server-created IDs/evidence and the
+The [adaptation v1 contract](adaptation-v1.md) adds private revision-pinned caller contexts, a closed
+untrusted proposal format and explicit reviewed acceptance. Server-created IDs/evidence and the
 existing Script IR reader form the admission boundary. Proposal citation coverage and findings
 stay outside Script IR and require source comparison. The [tool schemas](adaptation-tools-v1.json) expose source-bound context/read/submit/review
 operations over the existing authenticated HTTP service and CLI. Caller provenance is declared,

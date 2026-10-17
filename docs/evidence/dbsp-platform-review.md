@@ -1,5 +1,10 @@
 # Optional DBSP platform and legacy capture retirement
 
+> Source-bound review below describes its pinned epoch-1 baseline. Current source retires the
+> historical SQL chain and `legacy-dbsp` suite under #238/#239; see the
+> [current schema/cutover boundary](../deployment/postgres-schema-cutover.md).
+> The generic optional DBSP core remains independent, with no current PostgreSQL consumer.
+
 Source-bound audit and local implementation record, 17 October 2026. Baseline:
 `451d3a068ebfd0e0ce54d7d3bb7f61057e7a5884` on `develop`, checked against the live remote.
 This is not production activation or a decision to add a business projection. PostgreSQL

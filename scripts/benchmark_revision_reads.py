@@ -99,12 +99,14 @@ def source_queries():
     for label, prefix in [("auth", "SELECT a.id,coalesce(to_jsonb(s)->>'auth_kind','development') FROM sessions"),
                           ("member", "SELECT role FROM script_members"),
                           ("evidence", "SELECT id FROM script_evidence WHERE"),
-                          ("migration", "SELECT checksum FROM cantos_migrations"),
+                          ("migration", "SELECT version,checksum FROM public.cantos_migrations ORDER BY version"),
                           ("head_lock", "SELECT owner_id,head_revision FROM scripts"),
                           ("revision", "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND revision=$2"),
                           ("replay", "SELECT {REVISION_COLUMNS} FROM script_revisions WHERE script_id=$1 AND accepted_by=$2")]:
         literals = re.findall(r'"(?:\\.|[^"\\])*"', source)
-        matches = [json.loads(item) for item in literals if json.loads(item).startswith(prefix)]
+        # Only decode the selected query: unrelated Rust literals may contain physical
+        # newlines (valid Rust, invalid JSON). Selected-query drift still fails closed.
+        matches = [json.loads(item) for item in literals if item.startswith('"' + prefix)]
         if not matches or len(set(matches)) != 1:
             raise RuntimeError(f"SQL extraction ambiguous/missing: {label}")
         queries[label] = matches[0].replace("{REVISION_COLUMNS}", columns).replace("{lock}", "SHARE")
@@ -237,6 +239,7 @@ class Benchmark:
 
     def start_host(self):
         self.host_log = (self.output / "host.log").open("a")
+        self.sql("GRANT SELECT ON cantos_schema,cantos_migrations TO cantos_app")
         self.host = subprocess.Popen([str(ROOT / "target/debug/cantos-server")], cwd=ROOT,
                                      env=dict(self.env, DATABASE_URL=self.app_url, CANTOS_ENV="development",
                                               CANTOS_BIND_ADDRESS=f"127.0.0.1:{self.http_port}",
@@ -555,7 +558,7 @@ def main():
               "query_hashes": {key: hashlib.sha256(query.encode()).hexdigest() for key, query in benchmark.queries.items()},
               "source_hashes": {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in
                                 (*REVISION_READ_SOURCES, "services/cantos-api/src/interfaces/http/mod.rs",
-                                 "services/cantos-api/migrations/0001_script_revisions.sql", "scripts/benchmark_revision_reads.py")},
+                                 "services/cantos-api/schema/0001_current.sql", "scripts/benchmark_revision_reads.py")},
               "candidate": CANDIDATE, "results": benchmark.results, "phases": []}
     try:
         benchmark.start()

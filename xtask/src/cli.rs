@@ -232,8 +232,8 @@ pub enum VerifySuite {
 pub enum PostgresScope {
     /// Firebase enrollment SQL and existing SMTP registration migration compatibility only.
     TheatreFirebase,
-    /// Legacy DBSP change-capture retirement and retained-data migration acceptance only.
-    LegacyDbsp,
+    /// Current baseline, least-privilege, editorial/catalog and identity SQL without media tools.
+    Schema,
 }
 
 #[cfg(test)]
@@ -317,17 +317,18 @@ mod tests {
             }
         ));
         assert!(matches!(
-            parse("verify postgres --suite legacy-dbsp").unwrap(),
+            parse("verify postgres --suite schema").unwrap(),
             Task::Verify {
                 suite: VerifySuite::Postgres {
                     keep: false,
-                    suite: Some(PostgresScope::LegacyDbsp),
+                    suite: Some(PostgresScope::Schema),
                 }
             }
         ));
         for line in [
             "verify postgres --suite theatre-firebase --keep",
-            "verify postgres --suite legacy-dbsp --keep",
+            "verify postgres --suite schema --keep",
+            "verify postgres --suite legacy-dbsp",
             "verify postgres --suite audio",
             "verify postgres --suite all",
         ] {

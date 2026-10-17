@@ -4,7 +4,7 @@
 Never reads DATABASE_URL or connects to an existing database. --keep retains this
 test cluster for local Studio and Theatre inspection; its explicit stop command is printed.
 --suite theatre-firebase runs only Firebase and SMTP registration SQL acceptance.
---suite legacy-dbsp runs only legacy DBSP capture-retirement migration acceptance.
+--suite schema runs current-baseline, least-privilege and selected current-owner SQL acceptance without media tools.
 """
 import argparse
 import hashlib
@@ -135,35 +135,83 @@ def isolated_environment():
             if not key.startswith(("PG", "CANTOS_")) and key != "DATABASE_URL"}
 
 
+REGISTRATION_SQL_TARGETS = (
+    ("theatre-firebase-postgres-tests",
+     "platform::theatre_registration::firebase_enrollment::postgres::tests"),
+    ("theatre-registration-postgres-tests",
+     "platform::theatre_registration::postgres::tests"),
+)
+
+
 def registration_postgres_tests(env, evidence):
     """Both registration owners share the actual migration path, never media fixtures."""
-    for name, selector in (
-            ("theatre-firebase-postgres-tests",
-             "platform::theatre_registration::firebase_enrollment::postgres::tests"),
-            ("theatre-registration-postgres-tests",
-             "platform::theatre_registration::postgres::tests")):
+    for name, selector in REGISTRATION_SQL_TARGETS:
         output = run(["cargo", "test", "-p", "cantos-api", "--lib", "--locked", "--offline",
                       selector, "--", "--ignored", "--test-threads=1", "--nocapture"],
                      env=env, output=evidence / f"{name}.log")
         summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
         if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
             raise RuntimeError(f"FAIL: {name} selected no passing SQL tests")
+    return [name for name, _ in REGISTRATION_SQL_TARGETS]
 
 
-def legacy_dbsp_postgres_tests(env, evidence):
-    """The migration target owns its synthetic databases inside this runner's cluster."""
-    output = run(["cargo", "test", "-p", "cantos-api", "--test", "legacy_dbsp_postgres",
-                  "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"],
-                 env=env, output=evidence / "legacy-dbsp-postgres-tests.log")
-    summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
-    if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
-        raise RuntimeError("FAIL: legacy-dbsp-postgres-tests selected no passing SQL tests")
+def schema_sql_targets(include_current=False):
+    targets = [
+        ("schema_postgres", "schema-postgres-tests", ()),
+        ("production_grants_postgres", "production-grants-postgres-tests", ()),
+    ]
+    if include_current:
+        # Fixture writers and recovery-only tests belong to the full restart campaign.
+        # A narrow run must not replace a retained full-suite fixture with its stopped cluster.
+        # Catalog's nested audio/publication/discovery fixtures encode real media with ffmpeg.
+        targets.extend([
+            ("adaptations_postgres", "adaptation-postgres-tests",
+             ("studio_editor_import_proposal_edit_accept_review_save_and_reopen_preserve_history",)),
+            ("imports_postgres", "import-postgres-tests",
+             ("import_restart_fixture_preserves_exact_bytes_receipt_and_same_operation",)),
+            ("revisions_postgres", "revision-postgres-tests",
+             ("restart_fixture_for_process_and_database_recovery",)),
+            ("catalog_http_postgres", "catalog-http-postgres-tests",
+             ("catalog_http_recovery_after_server_restart",
+              "committed_http_catalog_emits_exact_postgres_restart_oracle",
+              "audio_lifecycle_http::")),
+            ("catalog_postgres", "catalog-postgres-tests",
+             ("catalog_recovery_after_server_restart",
+              "committed_catalog_fixture_survives_new_store_and_emits_server_restart_oracle")),
+            ("delegation_http_postgres", "delegation-http-postgres-tests", ()),
+            ("identity_postgres", "identity-postgres-tests", ()),
+            ("theatre_identity_postgres", "theatre-identity-postgres-tests", ()),
+            ("theatre_native_postgres", "theatre-native-postgres-tests", ()),
+            ("studio_oidc_postgres", "studio-oidc-postgres-tests", ()),
+        ])
+    return targets
+
+
+def schema_postgres_tests(env, evidence, include_current=False):
+    """Current schema and SQL owners accept only this runner's disposable databases."""
+    checks = []
+    for target, name, skipped in schema_sql_targets(include_current):
+        command = ["cargo", "test", "-p", "cantos-api", "--test", target,
+                   "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"]
+        for test in skipped:
+            command.extend(["--skip", test])
+        output = run(command, env=env, output=evidence / f"{name}.log")
+        summary = re.search(r"test result: ok\. ([0-9]+) passed; ([0-9]+) failed;", output)
+        if summary is None or int(summary[1]) == 0 or int(summary[2]) != 0:
+            raise RuntimeError(f"FAIL: {name} selected no passing SQL tests")
+        checks.append(name)
+        if include_current:
+            reap_completed_databases(env, env["CANTOS_TEST_CLUSTER_URL"], set())
+    if include_current:
+        checks.extend(registration_postgres_tests(env, evidence))
+        reap_completed_databases(env, env["CANTOS_TEST_CLUSTER_URL"], set())
+    return checks
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keep", action="store_true")
-    parser.add_argument("--suite", choices=("full", "theatre-firebase", "legacy-dbsp"), default="full")
+    parser.add_argument("--suite", choices=("full", "theatre-firebase", "schema"), default="full")
     args = parser.parse_args(argv)
     if args.keep and args.suite != "full":
         parser.error("--keep requires the full PostgreSQL suite")
@@ -317,7 +365,6 @@ def adaptation_snapshot(env, app_url):
     """Independent application-role row counts, outside the HTTP response implementation."""
     query = """SELECT json_build_object(
         'caller_runs',(SELECT count(*) FROM adaptation_runs WHERE input_version='c1'),
-        'attempts',(SELECT count(*) FROM adaptation_attempts),
         'submissions',(SELECT count(*) FROM adaptation_submissions),
         'proposals',(SELECT count(*) FROM adaptation_proposals),
         'acceptances',(SELECT count(*) FROM adaptation_acceptances),
@@ -329,7 +376,6 @@ def adaptation_snapshot(env, app_url):
     if result.returncode:
         raise RuntimeError("adaptation row-count oracle failed")
     snapshot = json.loads(result.stdout)
-    assert snapshot["attempts"] == 0
     return snapshot
 
 
@@ -483,7 +529,7 @@ def adaptation_after_restart(env, port, token, app_url, fixture):
     assert import_http(port, token, source=fixture["source"]["id"], original=True) == fixture["original"]
     assert adaptation_snapshot(env, app_url) == fixture["snapshot"]
     ADAPTATION_EVIDENCE.mkdir(parents=True, exist_ok=True)
-    evidence = {"generation": "repository-authored synthetic fixture; no inference", "attempts": 0,
+    evidence = {"generation": "repository-authored synthetic fixture; no inference", "backend_generation": "not supported",
                 "source_sha256_oracle": hashlib.sha256(fixture["original"]).hexdigest(),
                 "initial_context_cli": fixture["context_envelope"],
                 "invalid_submission_cli": fixture["invalid_envelope"],
@@ -493,7 +539,7 @@ def adaptation_after_restart(env, port, token, app_url, fixture):
                 "replayed_review_cli": replayed_review, "row_count_oracle": fixture["snapshot"]}
     (ADAPTATION_EVIDENCE / "external-tool-restart.json").write_text(
         json.dumps(evidence, ensure_ascii=False, indent=2) + "\n")
-    print("PASS: actual subprocess CLI + loopback HTTP + app-role PostgreSQL context/invalid+valid proposal/review/accept + host kill + PostgreSQL restart + exact replay + immutable source/revision + zero generation attempts")
+    print("PASS: actual subprocess CLI + loopback HTTP + app-role PostgreSQL context/invalid+valid proposal/review/accept + host kill + PostgreSQL restart + exact replay + immutable source/revision + caller-authored proposals")
 
 
 def studio_http(port, token, path, method="GET", payload=None):
@@ -515,7 +561,6 @@ def editor_snapshot(env, app_url):
     """Independent SQL row counts detect any duplicate or partial editor acceptance."""
     query = """SELECT json_build_object(
         'runs',(SELECT count(*) FROM adaptation_runs),
-        'attempts',(SELECT count(*) FROM adaptation_attempts),
         'submissions',(SELECT count(*) FROM adaptation_submissions),
         'proposals',(SELECT count(*) FROM adaptation_proposals),
         'acceptances',(SELECT count(*) FROM adaptation_acceptances),
@@ -802,17 +847,21 @@ def main():
             print("PASS: PostgreSQL theatre-firebase SQL and SMTP registration compatibility; "
                   "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
             return
-        if args.suite == "legacy-dbsp":
-            legacy_dbsp_postgres_tests(env, evidence)
+        if args.suite == "schema":
+            checks = schema_postgres_tests(env, evidence, include_current=True)
             (evidence / "run.json").write_text(json.dumps({
                 "suite": args.suite, "cluster": str(cluster), "port": port,
                 "retained": False, "full_suite": "NOT_RUN",
-                "checks": ["legacy-dbsp-postgres-tests"],
+                "checks": checks,
+                "integration_targets": [target for target, _, _ in schema_sql_targets(True)],
+                "registration_selectors": [selector for _, selector in REGISTRATION_SQL_TARGETS],
+                "skipped_tests": {target: list(skipped) for target, _, skipped in schema_sql_targets(True)
+                                  if skipped},
             }, indent=2) + "\n")
-            print("PASS: PostgreSQL legacy DBSP capture-retirement migration acceptance; "
+            print("PASS: PostgreSQL current schema baseline, least-privilege and selected current-owner SQL acceptance; "
                   "full PostgreSQL/media/HTTP/restart campaign NOT_RUN")
             return
-        legacy_dbsp_postgres_tests(env, EVIDENCE)
+        schema_postgres_tests(env, EVIDENCE)
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "admin_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture", "--skip", "admin_recovery_after_database_restart"], env=env, output=EVIDENCE / "admin-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
@@ -820,7 +869,6 @@ def main():
         registration_postgres_tests(env, EVIDENCE)
         run(["cargo", "test", "-p", "cantos-api", "--test", "theatre_native_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "theatre-native-postgres-tests.log")
         run(["cargo", "test", "-p", "cantos-api", "--test", "studio_oidc_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "studio-oidc-postgres-tests.log")
-        run(["cargo", "test", "-p", "cantos-api", "--test", "production_grants_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "production-grants-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
         run(["cargo", "test", "-p", "cantos-api", "--test", "identity_postgres", "--locked", "--offline", "--", "--ignored", "--test-threads=1", "--nocapture"], env=env, output=EVIDENCE / "identity-postgres-tests.log")
         reap_completed_databases(env, url, retained_restart_databases())
@@ -857,13 +905,18 @@ def main():
         migration_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{fixture['database']}"
         run(["psql", "-X", migration_url, "-v", "ON_ERROR_STOP=1", "-c",
              "GRANT INSERT ON source_records,script_evidence TO cantos_app; "
-             "GRANT SELECT,INSERT ON adaptation_runs,adaptation_attempts,adaptation_observations,"
+             "GRANT SELECT,INSERT ON adaptation_runs,"
              "adaptation_proposals,adaptation_cancellations,adaptation_acceptances,adaptation_submissions TO cantos_app; "
-             "GRANT UPDATE(status,problem,dispatch_deadline,updated_at) ON adaptation_runs TO cantos_app; "
+             "GRANT UPDATE(status,updated_at) ON adaptation_runs TO cantos_app; "
              "GRANT SELECT,INSERT ON production_settings,production_rights_claims,production_snapshots,production_approvals TO cantos_app; "
              "GRANT SELECT,INSERT ON audio_upload_intents,audio_intake_receipts TO cantos_app; "
              "GRANT EXECUTE ON FUNCTION production_lock_actor(text),production_lock_member(text,text) TO cantos_app;"], env=env)
         app_url = f"postgresql://cantos_app@127.0.0.1:{port}/{fixture['database']}"
+        # The server's read-only startup check uses only registry SELECT, never DDL.
+        for database in {fixture['database'], editor['database'], catalog['database'], audio['database']}:
+            registry_url = f"postgresql://cantos_test_admin@127.0.0.1:{port}/{database}"
+            run(["psql", "-X", registry_url, "-v", "ON_ERROR_STOP=1", "-c",
+                 "GRANT SELECT ON cantos_schema,cantos_migrations TO cantos_app"], env=env)
         env["DATABASE_URL"] = app_url
         editor_app_url = f"postgresql://cantos_app@127.0.0.1:{port}/{editor['database']}"
         editor_env = dict(env, DATABASE_URL=editor_app_url)

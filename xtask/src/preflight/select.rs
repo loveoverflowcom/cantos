@@ -511,7 +511,7 @@ mod tests {
 
     #[test]
     fn an_api_change_does_not_build_unrelated_web_clients() {
-        let selection = pick(&["services/cantos-api/migrations/0006_production_inputs.sql"]);
+        let selection = pick(&["services/cantos-api/schema/0001_current.sql"]);
         assert_eq!(
             names(&selection),
             [

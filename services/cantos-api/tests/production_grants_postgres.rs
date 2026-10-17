@@ -148,12 +148,26 @@ async fn deployed_runtime_grants_alone_serve_studio_and_theatre_requests() {
         "{public}"
     );
 
+    for retired in [
+        "durable_jobs",
+        "speech_clips",
+        "adaptation_attempts",
+        "adaptation_observations",
+    ] {
+        assert!(
+            owner
+                .query_one("SELECT to_regclass($1)::text IS NULL", &[&retired])
+                .await
+                .unwrap()
+                .get::<_, bool>(0),
+            "retired relation {retired} must be absent"
+        );
+    }
+
     for (table, privilege) in [
         ("admin_audit", "SELECT"),
         ("admin_access_revocations", "INSERT"),
         ("actor_external_identities", "SELECT"),
-        ("durable_jobs", "SELECT"),
-        ("speech_clips", "SELECT"),
         ("theatre_registrations", "SELECT"),
         ("theatre_firebase_enrollments", "SELECT"),
         ("theatre_native_sessions", "SELECT"),
@@ -237,6 +251,22 @@ async fn registration_grants_are_separate_minimal_idempotent_and_revocable() {
         .batch_execute(REGISTRATION_GRANTS)
         .await
         .expect("registration grants are idempotent");
+    for retired in [
+        "durable_jobs",
+        "speech_clips",
+        "adaptation_attempts",
+        "adaptation_observations",
+    ] {
+        assert!(
+            owner
+                .query_one("SELECT to_regclass($1)::text IS NULL", &[&retired])
+                .await
+                .unwrap()
+                .get::<_, bool>(0),
+            "retired relation {retired} must be absent"
+        );
+    }
+
     for (table, privilege) in [
         (enrollments, "SELECT"),
         (enrollments, "INSERT"),
@@ -267,6 +297,22 @@ async fn registration_grants_are_separate_minimal_idempotent_and_revocable() {
             "{column}"
         );
     }
+    for retired in [
+        "durable_jobs",
+        "speech_clips",
+        "adaptation_attempts",
+        "adaptation_observations",
+    ] {
+        assert!(
+            owner
+                .query_one("SELECT to_regclass($1)::text IS NULL", &[&retired])
+                .await
+                .unwrap()
+                .get::<_, bool>(0),
+            "retired relation {retired} must be absent"
+        );
+    }
+
     for (table, privilege) in [
         (enrollments, "DELETE"),
         (enrollments, "TRUNCATE"),
@@ -331,6 +377,22 @@ async fn registration_grants_are_separate_minimal_idempotent_and_revocable() {
         .batch_execute(REGISTRATION_REVOKE)
         .await
         .expect("registration revoke is idempotent");
+    for retired in [
+        "durable_jobs",
+        "speech_clips",
+        "adaptation_attempts",
+        "adaptation_observations",
+    ] {
+        assert!(
+            owner
+                .query_one("SELECT to_regclass($1)::text IS NULL", &[&retired])
+                .await
+                .unwrap()
+                .get::<_, bool>(0),
+            "retired relation {retired} must be absent"
+        );
+    }
+
     for (table, privilege) in [(enrollments, "SELECT"), (starts, "INSERT")] {
         assert!(!table_privilege(&owner, table, privilege).await);
     }

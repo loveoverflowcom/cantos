@@ -1,4 +1,4 @@
-# Private adaptation tools and v1 compatibility
+# Private caller-authored adaptation tools
 
 Cantos exports source-bound data and validates caller-created proposals. The user-controlled
 Gemini / ChatGPT / Codex host owns generation and chooses when to call these tools. Cantos
@@ -17,7 +17,7 @@ Axum service; it does not implement another store or run shell commands from its
 | `context` | `POST /api/v1/studio/adaptations/contexts` | Freeze a source/revision context; return 201 |
 | `context-read` | `GET /api/v1/studio/adaptations/{run}/context` | Reopen the same frozen caller context |
 | `submit` | `POST /api/v1/studio/adaptations/{run}/proposals` | Validate caller output and persist a valid/invalid receipt; return 200 |
-| `review` | `GET /api/v1/studio/adaptations/{run}/review` | Read caller context or historical run for editorial comparison |
+| `review` | `GET /api/v1/studio/adaptations/{run}/review` | Read a caller context for editorial comparison |
 
 Run `python3 scripts/cantos_adaptation_tool.py schemas` to discover the four names/arguments.
 All other commands require an explicit `--base-url http://127.0.0.1:<port>` (numeric loopback,
@@ -118,17 +118,26 @@ transaction and receipt. Stale head, changed trusted bindings, cancellation or i
 cannot overwrite source/history. Acceptance grants no production or publication approval.
 The tool surface does not expose this editorial mutation.
 
-## Historical compatibility
+## Retired provider workflow
 
-Migration 0005 extends the existing run/proposal/acceptance authority with an immutable
-`input_version` and append-only submission receipts. c1 contexts never dispatch inference or
-create provider attempts. Historical a1 inputs keep their original decoder, field order and
-fingerprint; optional `local_model_digest`/legacy config keys stay solely for stored-record
-compatibility. Historical `GET /adaptations/{run}`, cancellation and acceptance receipts remain
-readable. The retired start/provider compatibility endpoints return unavailable/null and cannot
-generate. Expired historical dispatched attempts may reconcile to ambiguity without redispatch.
+The current runtime accepts only caller-owned `c1` contexts. The retired provider `a1`
+workflow, its start/provider/read/cancel routes, provider-run DTOs and historical review variant
+are removed under [#238](https://github.com/loveoverflowcom/cantos/issues/238). They return the
+ordinary route `404`, rather than a disabled execution entrypoint. `/review` keeps the existing
+`workflow: "caller"` envelope; it cannot expose or accept an `a1` run. The current status set is
+`awaiting_proposal`, `succeeded`, `cancelled`, `accepted`. Invalid proposal output is recorded in
+an immutable submission receipt while the context remains `awaiting_proposal`.
+
+Retiring runtime access does not authorize deleting deployed historical records. Fresh-schema
+and controlled database cutover are separately owned by
+[#239](https://github.com/loveoverflowcom/cantos/issues/239); an old installation needs inventory,
+validated backups and approved transfer before replacement. Historical source/evidence remains
+available through Git and the source-bound evidence archive, without a live compatibility adapter.
+The deprecated unprefixed Studio HTTP alias is a separate compatibility surface and is retained.
 
 [Shared DTOs](api/src/adaptations.rs) and the [HTTP schema](schema/adaptation/v1.schema.json)
-define both caller and historical wire shapes. Actual CLI/socket/PostgreSQL and Studio evidence
-belongs in the [execution record](../../docs/evidence/ai-script-adaptation.md). Synthetic content and
-model generation quality are distinct; no live model acceptance is implied by these contracts.
+define the current caller wire shapes. The
+[runtime inventory](../../docs/evidence/legacy-runtime-inventory.md) records callers and removals.
+Historical execution results remain in the
+[adaptation evidence](../../docs/evidence/ai-script-adaptation.md); they do not establish results
+for the changed source or imply live model acceptance.

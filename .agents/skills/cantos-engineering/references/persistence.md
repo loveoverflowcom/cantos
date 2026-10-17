@@ -12,8 +12,10 @@ publication manifests and listener progress; media bytes live in object storage
 ([architecture § Data and delivery](../../../../docs/architecture/overview.md#data-and-delivery)).
 The API uses `tokio-postgres` with `deadpool-postgres` and a checked migration registry in
 `services/cantos-api/src/platform/postgres/migrations.rs`. Inspect its current schema and
-adapters before adding persistence; historical provider-job/cost tables remain compatibility
-data, not current synthesis runtime state.
+adapters before adding persistence. The epoch-2 fresh baseline contains only current owners;
+historical provider-job SQL is recorded by a checksummed manifest, not executed. Existing epoch-1
+databases require the [explicit cutover](../../../../docs/deployment/postgres-schema-cutover.md)
+and are never implicitly upgraded or reset.
 
 For queries or writes feeding a read model, apply the foundation's
 [read-performance workflow](postgresql-read-performance.md). It owns PostgreSQL baselines,
@@ -68,6 +70,13 @@ settled tables for the application role through reviewed migrations; prove it wi
 integration test, not by reading the migration.
 
 ## Migrations
+
+- Scope version numbers to the schema epoch. The current migrator accepts only an empty database
+  or exact epoch-2 registry; the runtime checks it read-only. Never relabel an epoch-1 registry,
+  rewrite historical checksums or replay the new baseline onto nonempty old data.
+- Historical SQL bytes remain auditable in Git and `schema/legacy-epoch-1-manifest.json`.
+  Source retirement is not permission to delete live data; inventory, verified restore and a
+  reviewed one-time authoritative-data mapping precede any separately approved cutover.
 
 - Each migration is forward-only, reviewed, and paired with fixtures of the data it transforms.
 - Separate expand (add nullable column, backfill) from contract (enforce, drop) when a running

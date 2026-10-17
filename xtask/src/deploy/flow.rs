@@ -1635,6 +1635,11 @@ mod tests {
         let two_sites = RC.replace("[\"example-studio\"]", "[\"example-theatre\"]");
         let other_project = RC.replace("cantos-example", "some-other-project");
         let ambiguous = RC.replace("[\"example-theatre\"]", "[\"a\",\"b\"]");
+        let ambiguous_other = RC.replace(
+            "[\"example-studio\"]",
+            "[\"example-theatre\",\"example-studio\"]",
+        );
+        let dotted_site = RC.replace("example-studio", "studio.cantos.web.app");
         let cases: Vec<(&str, Result<ConfigFiles, String>, &str)> = vec![
             (
                 "no mapping",
@@ -1680,6 +1685,22 @@ mod tests {
                     firebaserc: Some(RC.into()),
                 }),
                 "top-level key",
+            ),
+            (
+                "other target conceals a shared site",
+                Ok(ConfigFiles {
+                    policy: POLICY.into(),
+                    firebaserc: Some(ambiguous_other),
+                }),
+                "exactly one",
+            ),
+            (
+                "custom domain in other site mapping",
+                Ok(ConfigFiles {
+                    policy: POLICY.into(),
+                    firebaserc: Some(dotted_site),
+                }),
+                "invalid site",
             ),
         ];
         for (label, config, needle) in cases {

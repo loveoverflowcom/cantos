@@ -20,7 +20,10 @@ Read [README.md](README.md), the [documentation map](docs/README.md), relevant o
 archived handoffs and source-bound evidence are not active plans; proposed ADRs are not accepted
 policy. Inspect actual code before treating a module, schema, command or API as implemented.
 
-The current user's instructions take priority. Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
+The current user's instructions take priority. The current fresh PostgreSQL schema is epoch 2;
+legacy epoch-1 databases fail closed and require the [controlled cutover](docs/deployment/postgres-schema-cutover.md).
+Retired SQL is auditable through its manifest and original Git history, never silently replayed.
+ Preserve Cantos Studio and Cantos Theatre terminology, Rust/Axum/PostgreSQL/Leptos/CMP choices and native mobile playback. Keep docs in English unless the task requests otherwise; retain correct Vietnamese names and representative content.
 
 ## Repository layout
 
@@ -154,11 +157,12 @@ run their standalone equivalents again when covered by that handoff run.
 | Registered Quint models/tooling | `cargo xtask verify behavior` (model-only by default; `--conformance` adds the registered pure-core observer; explicit `--setup` for the locked development tool) |
 | Script IR validator/encoder | additionally `cargo xtask verify mutation` |
 | Studio or Theatre Web | `cargo xtask verify web` |
-| Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`); optional `--suite theatre-firebase` verifies only Firebase/SMTP registration SQL, and `--suite legacy-dbsp` only legacy capture retirement; neither replaces the full gate |
+| Persistence, migrations or the HTTP host | `cargo xtask verify postgres` (PostgreSQL `initdb`, `pg_ctl` and `psql` on `PATH`); optional `--suite schema` verifies the current baseline/refusal/grants and selected current SQL owners, and `--suite theatre-firebase` only Firebase/SMTP registration SQL; neither replaces the full gate |
 | Generic DBSP incremental engine (job summary binding retired) | `cargo xtask verify dbsp`; do not reintroduce a synthesis worker to satisfy it |
 | Local PNG comparator/tooling | `cargo xtask visual-compare --self-test` (core plus optional pinned-Pillow tests); compare existing attributed pairs with `cargo xtask visual-compare` and open the images; metric PASS is not UX approval |
 
-Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). PostgreSQL checks create a new disposable
+Use Rust 1.98.1 (`RUSTUP_TOOLCHAIN=1.98.1`, as in CI). Current schema supports stable PostgreSQL 17/18;
+production major upgrades remain separately approved. PostgreSQL checks create a new disposable
 cluster; never substitute a production or inherited database URL. `cargo xtask run`/`app` start
 only local processes they own and never provision databases, identity or providers. Report each
 gate as xtask printed it: `PASS`, `FAIL`, `NOT_RUN` (explicit `--skip` or not reached) or

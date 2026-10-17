@@ -803,10 +803,9 @@
         "docs/decisions/0034-theatre-signup-and-provisioned-studio.md#decision",
         "docs/decisions/0036-firebase-enrollment-proof.md#decision",
         "packages/contracts/theatre-identity-v1.md",
-        "services/cantos-api/migrations/0027_theatre_registration.sql",
+        "services/cantos-api/schema/0001_current.sql",
         "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/application.rs",
-        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/postgres.rs",
-        "services/cantos-api/migrations/0028_firebase_enrollment.sql"
+        "services/cantos-api/src/platform/theatre_registration/firebase_enrollment/postgres.rs"
       ],
       "model": "specs/behavior/identity/theatre_registration.qnt",
       "module": "theatre_registration",

@@ -81,6 +81,10 @@ and bootstrap are explicit subcommands; CircleCI only offers a manual pipeline t
   for a trusted-proxy peer policy.
 - Migrations are forward-only. An automatic rollback switches the image back over an already
   migrated schema; restoring a backup is an explicit, confirmed operator action.
+- The [epoch 2 cutover boundary](../deployment/postgres-schema-cutover.md) subsequently makes
+  current deploy/rollback require compatible image/schema checks. Historical TTS-schema
+  installations must complete a separately inventoried and approved cutover; an ordinary
+  deployment cannot bridge epochs, reset data or upgrade PostgreSQL 17 to 18.
 - Changing `idm.cantoss.duckdns.org` after initialization is a Kanidm domain migration.
 
 ## Rejected alternatives

@@ -102,51 +102,43 @@ The former `contexts/synthesis`, `cantos-worker`, `production-jobs`, `probe-*-tt
 `inspect-tts-receipt` code paths were intentionally removed, not wrapped with a disabled
 flag. Deleted provider/worker compatibility reexports are not maintained.
 
-## Migration compatibility
+## Current schema and explicit cutover
 
-Previously applied SQL migrations 0001–0009 are immutable and replay checks their original
-checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
-queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
-additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–29 (29 migrations), including original private storage0015, Admin0022, coordinated
-private Artwork0023, additive Work-scoped delegation0026 and opt-in Theatre registration0027 and separately selected Firebase enrollment0028.
-Historical SQL bytes/checksums are unchanged. Forward migration0029 disables only the retired
-`durable_steps_change_capture` trigger: it preserves the legacy tables, recorded bytes, outbox,
-function, privileges and other integrity triggers. The outbox is historical after this point;
-re-enabling capture alone cannot reconstruct the gap. A new consumer requires a separately
-reviewed snapshot/adapter. [Current DBSP review](../../docs/evidence/dbsp-platform-review.md).
-`cargo xtask verify postgres --suite legacy-dbsp` exercises this upgrade on a new disposable
-cluster; it does not qualify the whole PostgreSQL gate or a PostgreSQL-to-DBSP consumer.
-Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
-Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
-credential issuance and session/browser-flow fences, with operator-applied narrow grants in
-services/kanidm. Theatre0021/0024 add separate Web/native flows and sessions with narrow exact
-issuer/subject issuance; no Studio credential grants Listener authority.
-Admin0022 adds dedicated role decisions and append-only Admin-only revocation/audit, with no
-automatic runtime grants or authority over Studio, Theatre or producer resources.
-[Theatre identity](../../docs/architecture/theatre-identity.md) records mounted Web/native
-consumers and the user-authorized Android host source. Its [resumed evidence](../../docs/evidence/theatre-identity.md#resumed-native-identity-acceptance--14-october-2026)
-separates actual common/PG/Android build results from NOT_RUN device/system-browser/secure-store/
-provider acceptance and the UNSUPPORTED canonical iOS framework gate.
-[Admin authorization](../../docs/architecture/admin-authorization.md) retains its separate live
-current-group, credential and least-privilege activation gates.
-Identity0018 alone grants no HTTP-role registry access. Production Brief
-migration0013 is additive; upgrade/replay tests preserve
-the old bytes/checksums. Catalog application-role grants are deliberately narrow and reproduced
-in `tests/catalog_postgres.rs::grant_and_seed`; Content grants in
-`tests/catalog_http_postgres.rs::Harness::new` add only SELECT/INSERT on content revisions/heads
-and UPDATE(revision_id,revision) on heads. Brief grants add SELECT/INSERT on `production_briefs`, `production_brief_heads`,
-`production_producer_grants`, `production_producer_revocations` and UPDATE(brief_id,version)
-on Brief heads only. Work-scoped delegation0026 grants add only SELECT/INSERT on
-`catalog_delegation_grants`, `catalog_delegation_revocations` and `catalog_delegated_operations`
-(reproduced in `tests/delegation_http_postgres.rs::Harness::new`); the tables are append-only.
-Deployment role provisioning remains separate.
+The only executable fresh-install schema is [epoch 2 baseline](schema/0001_current.sql).
+It contains current Catalog/Content, editorial/source/caller adaptation, production guidance,
+private audio/publication/listener state and separate auth/registration boundaries. There are
+no provider attempts/observations, durable TTS jobs, speech clips or DBSP capture tables.
+Current caller adaptation admits `c1` only; the [runtime inventory](../../docs/evidence/legacy-runtime-inventory.md)
+records retained consumers and removed handlers. The generic optional incremental engine
+remains independent of PostgreSQL authority and has no production consumer.
 
-Migration0015 adds `storage_target_id` to receipt/rendition location metadata without rewriting
-immutable snapshots or digests. Existing rows name `legacy-filesystem`; new rows record the
-configured target explicitly. Preserve the original root for that historical target. The old
-filesystem-only application can still write local rows using the default, but cannot read new
-S3 assets; rollback after remote writes requires a compatible reader.
+`cantos-migrate` serializes initialization under an advisory transaction lock. It creates epoch
+and checksummed version-1 registries only in a genuinely empty database, in the same transaction
+as the baseline. A matching current registry is checked without replaying DDL. An old
+`cantos_migrations` registry, unmarked user objects, missing/foreign epochs, missing/extra registry
+versions or checksum mismatch fail closed. No command implicitly upgrades or resets old data.
+`cantos-migrate --check` and server startup perform read-only schema checks; the app role receives
+only registry SELECT in the [runtime grants](../../infra/vps/postgres/runtime-grants.sql).
+
+The [legacy manifest](schema/legacy-epoch-1-manifest.json) records the exact SHA-256 of all 29
+historical migrations at `develop@3e6c183`. Their executable SQL is retired from this tree;
+original bytes remain at that immutable Git revision. Deployed historical checksums and rows
+are never rewritten. [Controlled cutover](../../docs/deployment/postgres-schema-cutover.md)
+requires a live inventory, verified backup/restore, reviewed authoritative-data transformation
+or specifically approved reinitialization, and a matching database/image rollback plan.
+Ordinary VPS deploy and rollback refuse crossing epochs. This source branch must not be
+rolled onto the existing VPS database as an automatic migration.
+
+Supported server majors are PostgreSQL 17 and 18. The existing VPS/developer Podman pins stay
+17.11; PostgreSQL 18.6 needs its own isolated acceptance and approved major upgrade. Rust client
+pins are `tokio-postgres 0.7.18` and `deadpool-postgres 0.14.2`; actual local test versions and
+outcomes belong in the PR. PostgreSQL 19 is refused. Current fresh/replay/refusal and least-privilege
+acceptance runs through `cargo xtask verify postgres --suite schema`; it does not qualify live
+cutover, the full media/restart campaign or an untested server version.
+
+Private storage location IDs such as `legacy-filesystem` are still current authority: they
+identify original bytes, not a retired TTS workflow. Preserve their roots and target mappings
+when planning data conversion. A schema change never moves media or rewrites immutable digests.
 
 ## Private audio storage
 
@@ -197,7 +189,7 @@ Deployment is [`cargo xtask deploy vps`](../../docs/deployment/vps-production.md
 
 ## Local verification
 
-From the repository root, using Rust 1.98.1 and PostgreSQL 17 where needed:
+From the repository root, using Rust 1.98.1 and PostgreSQL 17 or 18 where needed:
 
 ```sh
 cargo xtask verify repository

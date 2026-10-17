@@ -1,24 +1,22 @@
 //! Adaptation tables: runs with their frozen inputs, caller submissions, admitted proposals,
-//! provider observations, cancellations and acceptance links. Each decoder re-checks the stored
+//! cancellations and acceptance links. Each decoder re-checks the stored
 //! record against its typed digest and the columns that index it.
 use cantos_contracts::{
-    AcceptAdaptationRequest, AdaptationProblem, AdaptationProposal, AdaptationStatus,
-    AdaptationSubmissionReceipt, AdaptationSubmissionStatus, ImportOutcome,
-    SubmitAdaptationProposalRequest,
+    AcceptAdaptationRequest, AdaptationProposal, AdaptationStatus, AdaptationSubmissionReceipt,
+    AdaptationSubmissionStatus, ImportOutcome, SubmitAdaptationProposalRequest,
 };
 use sha2::{Digest, Sha256};
 use tokio_postgres::Row;
 
 use super::domain::{
-    generation_record_id, rights_record_id, typed_digest, FrozenAdaptation, FrozenContext,
-    Observation, INPUT_A1_DIGEST, INPUT_C1_DIGEST, MAX_REQUEST_BYTES, PROPOSAL_DIGEST,
-    SUBMISSION_DIGEST,
+    generation_record_id, rights_record_id, typed_digest, FrozenContext, INPUT_C1_DIGEST,
+    MAX_REQUEST_BYTES, PROPOSAL_DIGEST, SUBMISSION_DIGEST,
 };
 use crate::contexts::editorial::export_digest;
 use crate::platform::postgres::{normalized_uuid, StoreError, Tx};
 use crate::script_ir::read_canonical_script;
 
-const RUN_COLUMNS: &str = "input_version,id,owner_id,operation_id,source_id,script_id,frozen_input::text AS frozen_input,input_digest,status,problem::text AS problem,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at,to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at";
+const RUN_COLUMNS: &str = "input_version,id,owner_id,operation_id,source_id,script_id,frozen_input::text AS frozen_input,input_digest,status,to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS recorded_at,to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS updated_at";
 const SUBMISSION_COLUMNS: &str = "id,run_id,owner_id,operation_id,request::text AS request,receipt::text AS receipt,receipt_digest,to_char(submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS submitted_at";
 
 fn corrupt<T>(_: T) -> StoreError {
@@ -61,12 +59,7 @@ pub(super) async fn lock_actor(
 fn decode_status(status: &str) -> Result<AdaptationStatus, StoreError> {
     match status {
         "awaiting_proposal" => Ok(AdaptationStatus::AwaitingProposal),
-        "queued" => Ok(AdaptationStatus::Queued),
-        "running" => Ok(AdaptationStatus::Running),
         "succeeded" => Ok(AdaptationStatus::Succeeded),
-        "invalid_output" => Ok(AdaptationStatus::InvalidOutput),
-        "failed" => Ok(AdaptationStatus::Failed),
-        "ambiguous" => Ok(AdaptationStatus::Ambiguous),
         "cancelled" => Ok(AdaptationStatus::Cancelled),
         "accepted" => Ok(AdaptationStatus::Accepted),
         _ => Err(StoreError::CorruptRevision),
@@ -95,54 +88,6 @@ impl RunRow {
 
     pub(super) fn status(&self) -> Result<AdaptationStatus, StoreError> {
         decode_status(&self.0.get::<_, String>("status"))
-    }
-
-    pub(super) fn problem(&self) -> Result<Option<AdaptationProblem>, StoreError> {
-        self.0
-            .get::<_, Option<String>>("problem")
-            .map(|json| serde_json::from_str(&json))
-            .transpose()
-            .map_err(corrupt)
-    }
-
-    /// The retired `a1` preimage, bound to this row's identities.
-    pub(super) fn frozen_adaptation(&self) -> Result<FrozenAdaptation, StoreError> {
-        let row = &self.0;
-        let frozen: FrozenAdaptation =
-            serde_json::from_str(&row.get::<_, String>("frozen_input")).map_err(corrupt)?;
-        if typed_digest(INPUT_A1_DIGEST, &frozen).map_err(corrupt)?
-            != row.get::<_, String>("input_digest")
-            || frozen.request.operation_id != row.get::<_, String>("operation_id")
-            || frozen.request.source_id != row.get::<_, String>("source_id")
-            || frozen.request.script_id != row.get::<_, String>("script_id")
-            || frozen.source.imported_by != row.get::<_, String>("owner_id")
-            || frozen.source.id != frozen.request.source_id
-            || !frozen.request.rights_authorization
-            || frozen.request.expected_provider != frozen.provider
-            || frozen.generation_record_id != generation_record_id(&row.get::<_, String>("id"))
-            || frozen.rights_record_id != rights_record_id(&row.get::<_, String>("id"))
-        {
-            return Err(StoreError::CorruptRevision);
-        }
-        normalized_uuid(&frozen.request.operation_id).map_err(corrupt)?;
-        normalized_uuid(&frozen.request.script_id).map_err(corrupt)?;
-        match &frozen.base {
-            Some(base) => {
-                let script = read_canonical_script(base.script_json.as_bytes()).map_err(corrupt)?;
-                if base.script_id != frozen.request.script_id
-                    || base.revision != frozen.request.expected_revision
-                    || base.content_digest != script.content_digest().to_string()
-                    || base.export_digest != export_digest(base.script_json.as_bytes())
-                {
-                    return Err(StoreError::CorruptRevision);
-                }
-            }
-            None if frozen.request.expected_revision != 0 => {
-                return Err(StoreError::CorruptRevision)
-            }
-            None => (),
-        }
-        Ok(frozen)
     }
 
     /// The caller-owned `c1` context, bound to this row's identities.
@@ -205,27 +150,6 @@ pub(super) async fn lock_run(
     Ok(tx.query_opt(&query, &[&id, &actor]).await?.map(RunRow))
 }
 
-/// The same locked row again, after this transaction changed it.
-pub(super) async fn reload_run(tx: &Tx<'_>, actor: &str, id: &str) -> Result<RunRow, StoreError> {
-    let query =
-        format!("SELECT {RUN_COLUMNS} FROM adaptation_runs WHERE id=$1 AND owner_id=$2 FOR UPDATE");
-    Ok(RunRow(tx.query_one(&query, &[&id, &actor]).await?))
-}
-
-pub(super) async fn input_version(
-    tx: &Tx<'_>,
-    actor: &str,
-    id: &str,
-) -> Result<Option<String>, StoreError> {
-    Ok(tx
-        .query_opt(
-            "SELECT input_version FROM adaptation_runs WHERE id=$1 AND owner_id=$2",
-            &[&id, &actor],
-        )
-        .await?
-        .map(|row| row.get(0)))
-}
-
 pub(super) async fn run_by_operation(
     tx: &Tx<'_>,
     actor: &str,
@@ -255,29 +179,6 @@ pub(super) async fn insert_context_run(
     new: NewContextRun<'_>,
 ) -> Result<(), StoreError> {
     tx.execute("INSERT INTO adaptation_runs(id,owner_id,operation_id,source_id,script_id,frozen_input,input_digest,status,input_version) VALUES($1,$2,$3,$4,$5,$6::text::jsonb,$7,'awaiting_proposal','c1')",&[&new.id,&new.actor,&new.operation,&new.source,&new.script,&new.frozen_json,&new.digest]).await?;
-    Ok(())
-}
-
-/// A retired provider dispatch whose deadline passed has an unknown outcome: it becomes
-/// ambiguous with an interruption observation, and is never resent.
-pub(super) async fn expire_dispatch(tx: &Tx<'_>, id: &str) -> Result<(), StoreError> {
-    let problem = || AdaptationProblem {
-        code: "dispatch_outcome_unknown".into(),
-        issues: vec![],
-    };
-    let reason = serde_json::to_string(&problem()).map_err(|_| StoreError::Unavailable)?;
-    let changed = tx.execute("UPDATE adaptation_runs SET status='ambiguous',problem=$2::text::jsonb,dispatch_deadline=NULL,updated_at=clock_timestamp() WHERE id=$1 AND status='running' AND dispatch_deadline<=clock_timestamp()", &[&id,&reason]).await?;
-    if changed == 1 {
-        let observation = Observation {
-            problem: Some(problem()),
-            usage: None,
-            cost: None,
-            output_sha256: None,
-            output_byte_len: None,
-        };
-        let json = serde_json::to_string(&observation).map_err(|_| StoreError::Unavailable)?;
-        tx.execute("INSERT INTO adaptation_observations(run_id,kind,observation) VALUES($1,'interrupted',$2::text::jsonb)", &[&id,&json]).await?;
-    }
     Ok(())
 }
 
@@ -318,13 +219,6 @@ pub(super) async fn insert_proposal(
 pub(super) async fn mark_proposal_received(tx: &Tx<'_>, id: &str) -> Result<bool, StoreError> {
     let changed=tx.execute("UPDATE adaptation_runs SET status='succeeded',updated_at=clock_timestamp() WHERE id=$1 AND input_version='c1' AND status='awaiting_proposal'",&[&id]).await?;
     Ok(changed == 1)
-}
-
-pub(super) async fn provider_observation(
-    tx: &Tx<'_>,
-    id: &str,
-) -> Result<Option<Observation>, StoreError> {
-    tx.query_opt("SELECT observation::text FROM adaptation_observations WHERE run_id=$1 AND kind='provider_result'", &[&id]).await?.map(|row| serde_json::from_str::<Observation>(&row.get::<_,String>(0))).transpose().map_err(corrupt)
 }
 
 /// The script revision an acceptance of this run created, if any.
@@ -406,12 +300,6 @@ pub(super) async fn insert_cancellation(
         &[&actor, &operation, &id],
     )
     .await?;
-    Ok(())
-}
-
-/// A retired provider run also drops its dispatch deadline.
-pub(super) async fn cancel_legacy_run(tx: &Tx<'_>, id: &str) -> Result<(), StoreError> {
-    tx.execute("UPDATE adaptation_runs SET status='cancelled',dispatch_deadline=NULL,updated_at=clock_timestamp() WHERE id=$1", &[&id]).await?;
     Ok(())
 }
 

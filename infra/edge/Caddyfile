@@ -13,6 +13,8 @@
 # Firebase Hosting with explicit client API origin and exact-origin API CORS. Installed files
 # do not change with source; reconcile through the current production runbook before rollout.
 # Theatre and Studio keep independent origin-pinned API processes and permission boundaries.
+# Transitional static upstreams use verified Firebase Site IDs, never domains or URLs;
+# changing their EnvironmentFile requires an explicitly authorized edge restart.
 
 {
 	# The admin API stays inside the container; reloads use `caddy reload` there.

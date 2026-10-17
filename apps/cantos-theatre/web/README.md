@@ -1,7 +1,7 @@
 # Cantos Theatre Web
 
 The existing `cantos-theatre` target remains **Rust 2021 / Leptos 0.7.8 CSR/WASM**. It implements
-a public discovery Home, a same-origin listener account/auth boundary and an explicitly isolated
+a public discovery Home, a separate listener account/auth boundary and an explicitly isolated
 session-only mock; users see
 **Cantos**. The [PR 02 validation record](../../../docs/evidence/theatre-web-pr02.md)
 names the local build, reducer/fake-port tests and integrated-browser observations. No production
@@ -12,8 +12,13 @@ acceptance against real listener data remain separate.
 
 A static release bundle of this app can be published to Firebase Hosting with the explicit, manual
 `cargo xtask deploy firebase cantos-theatre --web --project ID --channel NAME`
-([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves no API, so sign-in,
-catalog and playback on that origin are not established; the API-origin gate is separate.
+([runbook](../../../docs/deployment/firebase-hosting.md)). Hosting serves static files; clients call
+the explicit Cantos API origin. Catalog and authentication require separate API deployment and
+domain/cookie/gateway acceptance; static delivery establishes no playback.
+The preferred shorter site `cantos.web.app` is conditional on verified allocation; the technical
+module stays `cantos-theatre`. Its [site transition](../../../docs/deployment/firebase-hosting.md#shorter-site-names-controlled-transition-237)
+follows ADR 0041 direct Hosting/API addressing and exact-origin review. Cross-site authentication
+remains unavailable until the independent domain/cookie/gateway acceptance.
 
 The [performance pattern audit](../../../docs/evidence/web-performance-patterns.md) measures
 release assets with `cargo xtask web-performance cantos-theatre` and narrows mock-player/library

@@ -10,6 +10,8 @@ playback never starts production.
 The current direction is governed by [ADR 0018](docs/decisions/0018-external-audio-production.md)
 and the [external audio handoff proposal](packages/contracts/external-audio-handoff-v1.md).
 Older TTS experiments and job migrations are historical evidence, **not current runtime scope**.
+The [current schema and cutover policy](docs/deployment/postgres-schema-cutover.md) makes fresh
+initialization explicit and refuses legacy databases; source cleanup never authorizes a live reset.
 
 ## Product surfaces
 
@@ -128,7 +130,7 @@ Gradle wrapper files, Kotlin/Swift sources, Compose resources, Xcode projects/sh
 and editable `local.properties` remain visible. Generated vectors, Compose captures, APKs
 and Kotlin/Native frameworks already live under excluded module `build` directories.
 
-Use the exact Rust 1.98.1 pin in [`rust-toolchain.toml`](rust-toolchain.toml), a local PostgreSQL 17
+Use the exact Rust 1.98.1 pin in [`rust-toolchain.toml`](rust-toolchain.toml), a local PostgreSQL 17 or 18
 cluster for database tests, and Trunk for Leptos Web. `rustup show active-toolchain` installs the
 minimal compiler, matching rustfmt/Clippy and `wasm32-unknown-unknown` target when needed.
 All seven package MSRVs are 1.98.1; edition 2021 and locked dependency versions stay unchanged.
@@ -140,7 +142,7 @@ cargo xtask verify repository
 cargo xtask verify rust
 cargo xtask verify contracts
 cargo xtask verify postgres
-cargo xtask verify postgres --suite legacy-dbsp # narrow legacy capture-retirement acceptance
+cargo xtask verify postgres --suite schema # current baseline/refusal and SQL acceptance
 cargo xtask verify theatre-auth --suite firebase-emulator --dry-run
 cargo xtask build cantos-forge
 cargo xtask web-performance cantos-theatre

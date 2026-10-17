@@ -15,7 +15,6 @@ use crate::script_ir::read_canonical_script;
 
 mod accept;
 mod context;
-mod legacy;
 mod submit;
 
 /// Admits caller output with identities minted here: random, and independent of model text and
