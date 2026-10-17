@@ -84,6 +84,17 @@ time window, project, revocation or disabled state, and the operation binding.
 - **C.** If neither yields a safe proof, keep Firebase mode disabled and use the existing
   SMTP enrollment (ADR 0034) when a mail relay is acceptable.
 
+## Probe A result (2026-10-17)
+
+With the owner's authorization to re-set only the action URL (no plan, billing, authorized-domain
+or mail change), one `PATCH` of `notification.sendEmail.callbackUri` to `https://cantoss.duckdns.org/`
+on project `cantos-a348b` (Identity Toolkit admin v2, through the signed-in Firebase CLI's own
+client) was rejected: HTTP 400 `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`, the same as in #206. A read-back
+shows the project unchanged (`https://cantos-a348b.firebaseapp.com/__/auth/action`). The plan was
+not re-inspected, so the cause stays unestablished; no mail was sent. Option 3 therefore remains
+blocked on this project, and the remaining choices are a different project/plan the owner names,
+probe B, or C.
+
 ## Consequences
 
 - Product and user impact: none today; Firebase-mode signup stays disabled in production.

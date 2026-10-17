@@ -83,6 +83,13 @@ not created.
 | Edge behavior | header spoof, code in upstream URL, caching, oversize body, Kanidm admin reach | pinned `caddy:2.11.7-alpine` against stub upstreams; `caddy validate` of the real file | example-tested (stubs; no TLS, no real Firebase or Kanidm) | PASS |
 | Cross-device, lost-response, replay, concurrent confirm, Kanidm uncertain outcomes | duplicate provisioning | existing suites (`firebase_enrollment`, `firebase_action`, HTTP firebase tests) | unchanged; re-run PASS in the registration filter (129 tests) | PASS |
 
+## Follow-up probe: action URL (owner-authorized)
+
+Re-setting only the Auth action URL on `cantos-a348b` to `https://cantoss.duckdns.org/` was
+rejected again with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`; read-back confirmed no change and no mail
+was sent (details in ADR 0040). Evidence level: integration-tested against the real Identity
+Toolkit admin API for the negative result only.
+
 ## Not covered / residual risk
 
 - **Live behavior** of every edge change on the VPS, including real Kanidm sign-in and credential
