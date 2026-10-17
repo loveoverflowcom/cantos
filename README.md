@@ -140,6 +140,7 @@ cargo xtask verify repository
 cargo xtask verify rust
 cargo xtask verify contracts
 cargo xtask verify postgres
+cargo xtask verify postgres --suite legacy-dbsp # narrow legacy capture-retirement acceptance
 cargo xtask build cantos-forge
 cargo xtask web-performance cantos-theatre
 cargo xtask preflight --changed-only

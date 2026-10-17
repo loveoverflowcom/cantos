@@ -82,8 +82,11 @@ keeps real isolation/Range/expiry/withdrawal and Web/native acceptance separate.
 ordinary composition remains unavailable. Changing private write targets moves no old objects.
 
 Historical migrations 0007–0009 stay intact for checksum/upgrade compatibility. No retention
-or table drop is authorized by documentation cleanup. The generic optional DBSP library remains;
-its retired synthesis-job summary is not an active backend use case.
+or table drop is authorized by documentation cleanup. Forward migration 0029 disables only
+the unused durable-step capture trigger; existing source/outbox rows and integrity protections
+remain. The retained outbox stops being a complete feed at retirement. The optional DBSP
+grouped-count library remains; its retired synthesis-job summary is not an active backend use
+case. See the [platform review](../evidence/dbsp-platform-review.md) before any new adapter.
 
 ## Authentication and security
 

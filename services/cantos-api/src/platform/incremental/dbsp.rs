@@ -5,8 +5,8 @@
 //! group's `(members, flagged…)` row; nothing is recomputed from the full input. Two more
 //! operators maintain the integrated weight of each member row and of each member id, and report
 //! any that is not exactly one: a change applied twice, a retraction of a row that was never
-//! inserted, or two rows for one member. Such a step is refused and the engine must be discarded,
-//! never patched.
+//! inserted, or two rows for one group-scoped member id. Any failed step permanently poisons
+//! the instance; its owner must drop it and rebuild from authority, never patch it.
 use dbsp::{
     typed_batch::SpineSnapshot,
     utils::{Tup2, Tup3, Tup4},
@@ -26,7 +26,7 @@ type MemberKey = Tup2<String, String>;
 pub enum EngineError {
     Start(String),
     Step(String),
-    /// Member rows or member ids whose integrated weight is not exactly one after the step.
+    /// Member rows or group-scoped member ids whose integrated weight is not exactly one.
     Integrity {
         rows: usize,
         members: usize,
@@ -35,13 +35,16 @@ pub enum EngineError {
     InvalidCount {
         group: String,
     },
+    /// A previous step failed; this instance must be dropped and rebuilt from authority.
+    Poisoned,
 }
 
 /// The whole output of one transaction. A transaction may run several internal steps (DBSP
 /// splits a large input), and a plain `output()` handle keeps only the last step's delta.
 type Accumulated<K, V> = OutputHandle<SpineSnapshot<OrdIndexedZSet<K, V>>>;
 
-/// One single-worker, in-memory DBSP runtime. Not checkpointed: a lost engine is rebuilt.
+/// One single-worker, in-memory DBSP runtime. Not checkpointed: a lost or poisoned engine is
+/// dropped and rebuilt. A failed step does not roll back the circuit's internal state.
 pub struct DbspCounts {
     // Dropping the handle stops the runtime's worker thread.
     handle: DBSPHandle,
@@ -49,6 +52,7 @@ pub struct DbspCounts {
     counts: Accumulated<String, CountRow>,
     row_anomalies: Accumulated<MemberRow, ZWeight>,
     member_anomalies: Accumulated<MemberKey, ZWeight>,
+    poisoned: bool,
 }
 
 impl DbspCounts {
@@ -86,11 +90,23 @@ impl DbspCounts {
             counts,
             row_anomalies,
             member_anomalies,
+            poisoned: false,
         })
     }
 
-    /// Feeds one batch and returns only the groups whose counts changed.
+    /// Feeds one batch and returns only the groups whose counts changed. The first failure
+    /// retains its exact cause; every later call refuses input with `EngineError::Poisoned`.
+    /// The owner must also discard this engine if its output is rejected by `CountView`.
     pub fn step(&mut self, changes: Vec<MemberChange>) -> Result<Vec<CountChange>, EngineError> {
+        if self.poisoned {
+            return Err(EngineError::Poisoned);
+        }
+        let result = self.step_once(changes);
+        self.poisoned = result.is_err();
+        result
+    }
+
+    fn step_once(&mut self, changes: Vec<MemberChange>) -> Result<Vec<CountChange>, EngineError> {
         let mut batch: Vec<Tup2<MemberRow, ZWeight>> = changes
             .into_iter()
             .map(|change| Tup2(member_row(change.member), change.sign.weight()))
@@ -99,8 +115,8 @@ impl DbspCounts {
         self.handle
             .transaction()
             .map_err(|error| EngineError::Step(error.to_string()))?;
-        // The anomaly views are empty before every step, or the engine was already refused, so
-        // any inserted anomaly is a current one.
+        // Every earlier step succeeded, so the integrated anomaly views were empty. Any
+        // inserted anomaly is current; an error prevents every subsequent circuit step.
         let rows = inserted(&self.row_anomalies.concat().consolidate());
         let members = inserted(&self.member_anomalies.concat().consolidate());
         if rows > 0 || members > 0 {
@@ -239,6 +255,151 @@ mod tests {
         assert_eq!(engine.step(vec![]).unwrap(), []);
     }
 
+    #[test]
+    fn a_group_move_retracts_both_old_counts_and_inserts_both_new_counts() {
+        let mut engine = DbspCounts::start().unwrap();
+        let mut view = CountView::default();
+        let moving = member("a", "1", [true, false]);
+        view.apply(
+            engine
+                .step(vec![
+                    insert(moving.clone()),
+                    insert(member("a", "2", [false, false])),
+                    insert(member("b", "3", [false, true])),
+                    insert(member("c", "4", [true, true])),
+                ])
+                .unwrap(),
+        )
+        .unwrap();
+
+        let mut changes = engine
+            .step(vec![
+                retract(moving),
+                insert(member("b", "1", [true, false])),
+            ])
+            .unwrap();
+        changes.sort();
+        assert_eq!(
+            changes,
+            [
+                CountChange {
+                    sign: Sign::Insert,
+                    group: "a".into(),
+                    counts: counts(1, 0, 0),
+                },
+                CountChange {
+                    sign: Sign::Insert,
+                    group: "b".into(),
+                    counts: counts(2, 1, 1),
+                },
+                CountChange {
+                    sign: Sign::Retract,
+                    group: "a".into(),
+                    counts: counts(2, 1, 0),
+                },
+                CountChange {
+                    sign: Sign::Retract,
+                    group: "b".into(),
+                    counts: counts(1, 0, 1),
+                },
+            ]
+        );
+        assert_eq!(view.apply(changes).unwrap(), 2);
+        assert_eq!(view.get("a"), counts(1, 0, 0));
+        assert_eq!(view.get("b"), counts(2, 1, 1));
+        assert_eq!(view.get("c"), counts(1, 1, 1));
+        assert_eq!(engine.step(vec![]).unwrap(), []);
+    }
+
+    #[test]
+    fn groups_can_reuse_a_local_id_without_coupling_their_member_rows() {
+        let mut engine = DbspCounts::start().unwrap();
+        let mut view = CountView::default();
+        let first = member("a", "local-1", [true, false]);
+        let second = member("b", "local-1", [false, true]);
+        view.apply(
+            engine
+                .step(vec![insert(first.clone()), insert(second.clone())])
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(view.len(), 2);
+        assert_eq!(view.get("a"), counts(1, 1, 0));
+        assert_eq!(view.get("b"), counts(1, 0, 1));
+
+        view.apply(
+            engine
+                .step(vec![
+                    retract(first),
+                    retract(second),
+                    insert(member("b", "local-1", [true, true])),
+                ])
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(view.len(), 1);
+        assert_eq!(view.get("a"), counts(0, 0, 0));
+        assert_eq!(view.get("b"), counts(1, 1, 1));
+    }
+
+    #[test]
+    fn count_rows_preserve_unit_signs_and_the_full_nonnegative_i64_range() {
+        for (weight, sign) in [(-1, Sign::Retract), (1, Sign::Insert)] {
+            for (row, expected) in [
+                (Tup3(0, 0, 0), counts(0, 0, 0)),
+                (Tup3(1, 0, 1), counts(1, 0, 1)),
+                (
+                    Tup3(i64::MAX, i64::MAX, i64::MAX - 1),
+                    counts(i64::MAX as u64, i64::MAX as u64, (i64::MAX - 1) as u64),
+                ),
+            ] {
+                assert_eq!(
+                    count_change("a".into(), row, weight),
+                    Ok(CountChange {
+                        sign,
+                        group: "a".into(),
+                        counts: expected,
+                    })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn count_rows_reject_nonunit_weights_negative_counts_and_flags_above_members() {
+        for weight in [i64::MIN, -2, 0, 2, i64::MAX] {
+            assert_eq!(
+                count_change("bad-weight".into(), Tup3(1, 0, 0), weight),
+                Err(EngineError::InvalidCount {
+                    group: "bad-weight".into(),
+                })
+            );
+        }
+        for row in [
+            Tup3(i64::MIN, 0, 0),
+            Tup3(-1, 0, 0),
+            Tup3(1, i64::MIN, 0),
+            Tup3(1, -1, 0),
+            Tup3(1, 0, i64::MIN),
+            Tup3(1, 0, -1),
+            Tup3(0, 1, 0),
+            Tup3(0, 0, 1),
+            Tup3(1, 2, 0),
+            Tup3(1, 0, 2),
+            Tup3(i64::MAX - 1, i64::MAX, 0),
+            Tup3(i64::MAX - 1, 0, i64::MAX),
+        ] {
+            for weight in [-1, 1] {
+                assert_eq!(
+                    count_change("bad-count".into(), row, weight),
+                    Err(EngineError::InvalidCount {
+                        group: "bad-count".into(),
+                    })
+                );
+            }
+        }
+    }
+
     /// Regression: a step above DBSP's 10,000-record split runs as several internal steps; the
     /// output of every one of them must reach the view.
     #[test]
@@ -337,10 +498,73 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_integrity_failure_permanently_refuses_empty_repair_and_valid_steps() {
+        let row = member("a", "1", [false, false]);
+        let wrong = member("a", "1", [true, false]);
+        let replacement = member("a", "1", [true, true]);
+        for (initial, invalid, repair, expected) in [
+            (
+                vec![insert(row.clone())],
+                vec![insert(row.clone())],
+                vec![retract(row.clone())],
+                EngineError::Integrity {
+                    rows: 1,
+                    members: 1,
+                },
+            ),
+            (
+                vec![],
+                vec![retract(row.clone())],
+                vec![insert(row.clone())],
+                EngineError::Integrity {
+                    rows: 1,
+                    members: 1,
+                },
+            ),
+            (
+                vec![insert(row.clone())],
+                vec![retract(wrong.clone()), insert(replacement.clone())],
+                vec![insert(wrong.clone()), retract(replacement)],
+                EngineError::Integrity {
+                    rows: 1,
+                    members: 0,
+                },
+            ),
+            (
+                vec![insert(row.clone())],
+                vec![insert(wrong.clone())],
+                vec![retract(wrong)],
+                EngineError::Integrity {
+                    rows: 0,
+                    members: 1,
+                },
+            ),
+        ] {
+            let mut engine = DbspCounts::start().unwrap();
+            engine.step(initial).unwrap();
+            assert_eq!(engine.step(invalid), Err(expected));
+            for changes in [vec![], repair, vec![insert(member("b", "2", [true, true]))]] {
+                assert_eq!(engine.step(changes), Err(EngineError::Poisoned));
+            }
+        }
+
+        let mut rebuilt = DbspCounts::start().unwrap();
+        assert_eq!(
+            rebuilt.step(vec![insert(row)]).unwrap(),
+            [CountChange {
+                sign: Sign::Insert,
+                group: "a".into(),
+                counts: counts(1, 0, 0),
+            }]
+        );
+    }
+
     #[derive(Debug, Clone)]
     enum Op {
         Insert(u8, [bool; 2]),
         Update(usize, [bool; 2]),
+        Move(usize, u8),
         Delete(usize),
     }
 
@@ -349,6 +573,7 @@ mod tests {
             (0u8..5, any::<[bool; 2]>()).prop_map(|(group, flags)| Op::Insert(group, flags)),
             (any::<usize>(), any::<[bool; 2]>())
                 .prop_map(|(index, flags)| Op::Update(index, flags)),
+            (any::<usize>(), 0u8..5).prop_map(|(index, group)| Op::Move(index, group)),
             any::<usize>().prop_map(Op::Delete),
         ]
     }
@@ -356,9 +581,9 @@ mod tests {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(48))]
 
-        /// Differential law: after any sequence of inserts, transitions and deletes, split into
-        /// arbitrary engine steps, the view maintained from DBSP output deltas equals an
-        /// independent recount of the surviving members.
+        /// Differential law: after any sequence of inserts, flag transitions, group moves and
+        /// deletes, split into arbitrary engine steps, the view maintained from DBSP output
+        /// deltas equals an independent recount of the surviving members.
         #[test]
         fn maintained_counts_equal_a_recount_of_the_current_members(
             steps in proptest::collection::vec(proptest::collection::vec(op(), 0..10), 1..8)
@@ -385,11 +610,19 @@ mod tests {
                             changes.push(retract(old));
                             changes.push(insert(new));
                         }
+                        Op::Move(index, group) if !members.is_empty() => {
+                            let id = members.keys().nth(index % members.len()).unwrap().clone();
+                            let old = members[&id].clone();
+                            let new = Member { group: format!("g{group}"), ..old.clone() };
+                            members.insert(id, new.clone());
+                            changes.push(retract(old));
+                            changes.push(insert(new));
+                        }
                         Op::Delete(index) if !members.is_empty() => {
                             let id = members.keys().nth(index % members.len()).unwrap().clone();
                             changes.push(retract(members.remove(&id).unwrap()));
                         }
-                        Op::Update(..) | Op::Delete(_) => {}
+                        Op::Update(..) | Op::Move(..) | Op::Delete(_) => {}
                     }
                 }
                 view.apply(engine.step(changes).unwrap()).unwrap();

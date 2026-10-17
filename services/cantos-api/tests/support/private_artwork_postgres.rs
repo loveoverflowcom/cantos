@@ -671,7 +671,7 @@ async fn additive_upgrade_preserves_exact_catalog_snapshot_operation_bytes_and_p
         .iter()
         .map(|row| row.get(0))
         .collect();
-    assert_eq!(versions, (1..=28).collect::<Vec<_>>());
+    assert_eq!(versions, (1..=29).collect::<Vec<_>>());
     assert_eq!(h.admin.query_one("SELECT (SELECT count(*) FROM media_image_intents)+(SELECT count(*) FROM media_image_assets)+(SELECT count(*) FROM media_work_artwork_changes)+(SELECT count(*) FROM media_artwork_operations)",&[]).await.unwrap().get::<_,i64>(0),0);
 }
 

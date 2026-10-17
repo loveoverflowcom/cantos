@@ -1,24 +1,34 @@
 //! Engine-independent core of the experimental incremental read model.
 //!
-//! An incremental engine receives signed member changes from PostgreSQL's committed change feed
-//! and returns signed changes of per-group counts. This module owns the values on both sides,
+//! This two-flag grouped-count sample describes signed member changes from a committed feed
+//! and signed changes of per-group counts. No current PostgreSQL adapter is installed. This
+//! module owns the values on both sides,
 //! the view that applies output changes, whole-transaction paging of the feed and the freshness
-//! decision that lets a request use the view only when it provably equals the request's own
-//! PostgreSQL snapshot. It performs no I/O and names no engine, table or domain type.
+//! decision over caller-established snapshot coverage and unapplied-change facts. It performs
+//! no I/O and names no engine, table or domain type. A future adapter owns domain projection
+//! mapping, complete input, authorization and authoritative fallback; these values prove none
+//! of those facts by themselves.
 //!
 //! # Committed-position contract
 //!
 //! Every feed row carries its writer's top-level transaction id (`xid8`, ordered, never wraps).
 //! A view at [`CommittedPosition`] `{frontier F, bootstrap S0}` reflects exactly the committed
 //! rows that are visible in the bootstrap snapshot `S0` or belong to a transaction below `F`.
-//! The feed only advances `F` to a snapshot's `xmin`, below which no transaction is still
+//! The feed only advances `F` up to a snapshot's `xmin`, below which no transaction is still
 //! running, and only applies whole transactions; so no committed row is skipped, none is applied
 //! twice and no transaction is ever half visible.
 //!
-//! A request whose snapshot `S` satisfies `F <= xmin(S)` sees every row the view applied. If, in
-//! that same snapshot, its group has no row at or after `F` outside `S0`, then the view's rows
-//! for the group are exactly the rows `S` sees: [`Freshness::Exact`]. Otherwise the view is not
-//! comparable with that request, and the caller must use the authoritative query instead.
+//! The request must independently establish that its snapshot `S` covers the committed input
+//! transactions represented by `S0`. Acquiring an atomic view/position before taking a new READ
+//! COMMITTED statement snapshot can establish this ordering; a retained REPEATABLE READ or
+//! exported snapshot cannot assume it. `F <= xmin(S)` alone is insufficient: a later bootstrap
+//! may see a commit invisible to an older request with the same xmin.
+//!
+//! With bootstrap coverage and `F <= xmin(S)`, if the group's snapshot has no change at or after
+//! `F` outside `S0`, its committed projection equals the view: [`Freshness::Exact`]. These facts
+//! belong to one coherent view/position and request snapshot, with no request-local uncommitted
+//! projection changes. Missing coverage is conservatively [`Freshness::Ahead`]; the caller must
+//! use the authoritative query. This decision grants no access right.
 
 #[cfg(feature = "dbsp-experimental")]
 pub mod dbsp;
@@ -50,7 +60,8 @@ impl Sign {
     }
 }
 
-/// The projected facts of one member of a group, such as a step of a job and two of its flags.
+/// One member of the two-flag grouped-count sample. Identity is `(group, id)`, so two groups may
+/// use the same local id. A concrete adapter owns any business meaning and typed projection.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Member {
     pub group: String,
@@ -239,13 +250,20 @@ impl Snapshot {
             return Err(FeedError::MalformedPosition);
         };
         let (xmin, xmax): (TxId, TxId) = (xmin.parse()?, xmax.parse()?);
-        let running = running
-            .split(',')
-            .filter(|id| !id.is_empty())
-            .map(TxId::from_str)
-            .collect::<Result<Vec<_>, _>>()?;
-        if xmin > xmax || running.iter().any(|id| *id < xmin || *id >= xmax) {
+        if xmin.get() == 0 || xmax.get() == 0 || xmin > xmax {
             return Err(FeedError::MalformedPosition);
+        }
+        if !running.is_empty() {
+            // PostgreSQL permits equal adjacent IDs and a single trailing comma. Never drop
+            // other empty items: they are missing positions, not absent transactions.
+            let mut previous = xmin;
+            for id in running.strip_suffix(',').unwrap_or(running).split(',') {
+                let id: TxId = id.parse()?;
+                if id < previous || id >= xmax {
+                    return Err(FeedError::MalformedPosition);
+                }
+                previous = id;
+            }
         }
         Ok(Snapshot {
             text: text.to_owned(),
@@ -395,10 +413,15 @@ pub fn plan_page(
     })
 }
 
-/// The fence a request evaluates in its own PostgreSQL snapshot, for one group.
+/// Facts an adapter establishes for one coherent view/position and request snapshot, for one
+/// group. This is not a visibility or authorization executor. Unknown coverage must be false;
+/// see the module's committed-position and request-ordering preconditions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Fence {
-    /// `frontier <= xmin` of the request's snapshot: it sees everything the view applied.
+    /// The request snapshot covers the committed input transactions represented by bootstrap.
+    /// `frontier <= xmin` does not establish this; an older snapshot can have the same xmin.
+    pub covers_bootstrap: bool,
+    /// `frontier <= xmin` of the request snapshot covers transactions applied below the frontier.
     pub covers_frontier: bool,
     /// The group has a visible change at or after the frontier that the bootstrap did not read.
     pub unapplied_change: bool,
@@ -406,16 +429,21 @@ pub struct Fence {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Freshness {
-    /// The view's rows for the group are exactly the rows the request's snapshot sees.
+    /// The view matches the committed projection in the request snapshot under `Fence`'s
+    /// preconditions. This says nothing about current authorization.
     Exact,
     /// The request sees a change the view has not applied yet.
     Lagging,
-    /// The view may include a transaction the request's snapshot cannot see.
+    /// Bootstrap or frontier coverage is missing: the view may include an invisible transaction.
     Ahead,
 }
 
 pub fn freshness(fence: Fence) -> Freshness {
     match fence {
+        Fence {
+            covers_bootstrap: false,
+            ..
+        } => Freshness::Ahead,
         Fence {
             covers_frontier: false,
             ..
@@ -425,6 +453,7 @@ pub fn freshness(fence: Fence) -> Freshness {
             ..
         } => Freshness::Lagging,
         Fence {
+            covers_bootstrap: true,
             covers_frontier: true,
             unapplied_change: false,
         } => Freshness::Exact,
@@ -448,44 +477,6 @@ pub fn shadow_compare(
         Freshness::Exact if authoritative == view => ShadowOutcome::Match,
         Freshness::Exact => ShadowOutcome::Mismatch,
         other => ShadowOutcome::NotComparable(other),
-    }
-}
-
-/// Which path answers a read: the authoritative query alone, the query compared against the
-/// view, or the view whenever it is provably exact.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReadModel {
-    Postgres,
-    DbspShadow,
-    DbspServe,
-}
-
-impl ReadModel {
-    pub const VARIABLE: &'static str = "CANTOS_JOB_SUMMARY_READ_MODEL";
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ReadModel::Postgres => "postgres",
-            ReadModel::DbspShadow => "dbsp-shadow",
-            ReadModel::DbspServe => "dbsp-serve",
-        }
-    }
-
-    pub fn uses_view(self) -> bool {
-        self != ReadModel::Postgres
-    }
-}
-
-impl FromStr for ReadModel {
-    type Err = ();
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "postgres" => Ok(ReadModel::Postgres),
-            "dbsp-shadow" => Ok(ReadModel::DbspShadow),
-            "dbsp-serve" => Ok(ReadModel::DbspServe),
-            _ => Err(()),
-        }
     }
 }
 
@@ -531,7 +522,7 @@ mod tests {
             change: MemberChange {
                 sign: Sign::Insert,
                 member: Member {
-                    group: "job".into(),
+                    group: "group".into(),
                     id: id.into(),
                     flags: [false, false],
                 },
@@ -667,6 +658,49 @@ mod tests {
     }
 
     #[test]
+    fn empty_items_in_a_nonempty_snapshot_xip_list_are_malformed() {
+        for bad in ["1:5:,2", "1:5:2,,3", "1:5:,", "1:5:,2,", "1:5:2,,"] {
+            assert_eq!(
+                Snapshot::parse(bad),
+                Err(FeedError::MalformedPosition),
+                "{bad}"
+            );
+        }
+        assert_eq!(Snapshot::parse("1:5:").unwrap().as_str(), "1:5:");
+        // PostgreSQL accepts equal adjacent IDs and a single trailing comma.
+        for valid in ["1:5:2,", "1:5:2,2,3", "1:5:2,2,3,"] {
+            assert_eq!(Snapshot::parse(valid).unwrap().as_str(), valid);
+        }
+    }
+
+    #[test]
+    fn snapshots_reject_zero_bounds_descending_and_overflowing_positions() {
+        for bad in [
+            "0:0:",
+            "0:5:",
+            "1:0:",
+            "1:5:3,2",
+            "1:5:2,3,2,",
+            "1:5:18446744073709551616",
+            "1:18446744073709551616:",
+            "18446744073709551616:18446744073709551616:",
+        ] {
+            assert_eq!(
+                Snapshot::parse(bad),
+                Err(FeedError::MalformedPosition),
+                "{bad}"
+            );
+        }
+        for valid in [
+            "1:1:",
+            "18446744073709551615:18446744073709551615:",
+            "1:18446744073709551615:1,18446744073709551614",
+        ] {
+            assert_eq!(Snapshot::parse(valid).unwrap().as_str(), valid);
+        }
+    }
+
+    #[test]
     fn an_exhausted_window_advances_the_frontier_to_the_settled_bound() {
         let page = plan_page(TxId(10), TxId(20), vec![row(11, "x"), row(11, "y")], 3).unwrap();
         assert_eq!((page.transactions(), page.frontier()), (1, TxId(20)));
@@ -725,6 +759,7 @@ mod tests {
     #[test]
     fn only_an_exact_fence_lets_a_view_answer_or_be_compared() {
         let fence = |covers_frontier, unapplied_change| Fence {
+            covers_bootstrap: true,
             covers_frontier,
             unapplied_change,
         };
@@ -748,18 +783,51 @@ mod tests {
     }
 
     #[test]
-    fn read_models_have_one_spelling_each() {
-        for model in [
-            ReadModel::Postgres,
-            ReadModel::DbspShadow,
-            ReadModel::DbspServe,
-        ] {
-            assert_eq!(model.as_str().parse(), Ok(model));
+    fn a_frontier_comparison_alone_cannot_cover_a_later_bootstrap() {
+        // xid 15 committed between these snapshots, while xid 10 remained running. Bootstrap
+        // includes its row; the older request does not, despite their identical xmin/frontier.
+        let request = Snapshot::parse("10:20:10,15").unwrap();
+        let bootstrap = Snapshot::parse("10:20:10").unwrap();
+        let position = CommittedPosition::bootstrap(bootstrap);
+        assert!(position.frontier() <= request.xmin());
+        assert_eq!(
+            freshness(Fence {
+                covers_bootstrap: false,
+                covers_frontier: true,
+                unapplied_change: false,
+            }),
+            Freshness::Ahead,
+        );
+    }
+
+    #[test]
+    fn missing_bootstrap_coverage_always_prevents_exact_or_shadow_comparison() {
+        let (pg, view) = (counts(4, 2, 1), counts(4, 2, 0));
+        for covers_bootstrap in [false, true] {
+            for covers_frontier in [false, true] {
+                for unapplied_change in [false, true] {
+                    let actual = freshness(Fence {
+                        covers_bootstrap,
+                        covers_frontier,
+                        unapplied_change,
+                    });
+                    let expected = match (covers_bootstrap, covers_frontier, unapplied_change) {
+                        (true, true, false) => Freshness::Exact,
+                        (true, true, true) => Freshness::Lagging,
+                        _ => Freshness::Ahead,
+                    };
+                    assert_eq!(actual, expected);
+                    if expected != Freshness::Exact {
+                        for candidate in [pg, view] {
+                            assert_eq!(
+                                shadow_compare(pg, candidate, actual),
+                                ShadowOutcome::NotComparable(expected),
+                            );
+                        }
+                    }
+                }
+            }
         }
-        for bad in ["", "dbsp", "DBSP-SERVE", "postgresql"] {
-            assert_eq!(bad.parse::<ReadModel>(), Err(()));
-        }
-        assert!(!ReadModel::Postgres.uses_view());
     }
 
     /// Applying the row changes between consecutive member states equals recounting the latest.
@@ -807,14 +875,17 @@ mod tests {
                 prop_assert_eq!(page.transactions(), distinct.len());
                 prop_assert_eq!(page.changes().len(), txids.len());
                 prop_assert!(start <= page.frontier().get() && page.frontier().get() <= settled);
-                let position = CommittedPosition::bootstrap(
-                    Snapshot::parse(&format!("{start}:{start}:")).unwrap(),
-                );
-                let advanced = position.advance(&page).unwrap();
-                prop_assert_eq!(advanced.frontier(), page.frontier());
-                prop_assert_eq!(advanced.bootstrap_snapshot(), position.bootstrap_snapshot());
-                if page.frontier() != position.frontier() {
-                    prop_assert_eq!(advanced.advance(&page), Err(FeedError::PageStartMismatch));
+                // Paging supports abstract zero frontiers; PostgreSQL snapshots do not.
+                if start > 0 {
+                    let position = CommittedPosition::bootstrap(
+                        Snapshot::parse(&format!("{start}:{start}:")).unwrap(),
+                    );
+                    let advanced = position.advance(&page).unwrap();
+                    prop_assert_eq!(advanced.frontier(), page.frontier());
+                    prop_assert_eq!(advanced.bootstrap_snapshot(), position.bootstrap_snapshot());
+                    if page.frontier() != position.frontier() {
+                        prop_assert_eq!(advanced.advance(&page), Err(FeedError::PageStartMismatch));
+                    }
                 }
             }
         }

@@ -28,6 +28,7 @@ rebuild their implemented portions. Keep speculative expansion in [backlog](back
 | Production VPS and Web hosting (ADR 0039) | [VPS runbook](../deployment/vps-production.md), [deployment record](../evidence/vps-production-deployment.md); next: operator-run `cantos-vps identity` and live Studio/Theatre sign-in acceptance, reboot test, off-host backup copies, CircleCI context |
 | Mechanical infrastructure ownership (#212) | [Repository layout](../architecture/repository-layout.md), [infra assets](../../infra/README.md); separate from #203 Forge/Functions runtime work and live deployment acceptance |
 | Forge paid-attempt safety (#203) | [Attempt core evidence](../evidence/forge-attempt-verification.md), [race/readback follow-up](../evidence/forge-attempt-reconciliation.md), [worker boundary](../deployment/forge-worker.md); establish invocation authority and cross-runtime fencing before enabling a real provider |
+| Optional DBSP platform | [Current review, capture retirement and bounded core hardening](../evidence/dbsp-platform-review.md); review migration compatibility, terminal engine errors and snapshot/freshness evidence before proposing a measured non-synthesis consumer |
 | Shared previews and localization | [Leptos](015-leptos-ui-system.md), [CMP](016-cmp-ui-system.md) |
 | Optional craft and membership | [Audio craft](audio-drama-quality.md), [interest receipt](membership-interest-handoff.md), [plan publication proposal](../product/membership-plan-publication.md) |
 

@@ -195,7 +195,7 @@ mod tests {
     fn development_keeps_the_local_contract() {
         let host = settings(&[("CANTOS_ENV", "development")]).unwrap();
         assert_eq!(host.mode(), HostMode::Development);
-        assert_eq!(host.bind(), "127.0.0.1:8080".parse().unwrap());
+        assert_eq!(host.bind(), "127.0.0.1:8080".parse::<SocketAddr>().unwrap());
         assert_eq!(host.web_origin(), "http://127.0.0.1:8080");
         assert_eq!(host.web_dist(), Some(DEVELOPMENT_DIST));
         assert!(host.development_sessions());
@@ -212,7 +212,7 @@ mod tests {
     fn production_requires_explicit_bind_and_https_origin() {
         let host = settings(&PRODUCTION).unwrap();
         assert_eq!(host.mode(), HostMode::Production);
-        assert_eq!(host.bind(), "0.0.0.0:8080".parse().unwrap());
+        assert_eq!(host.bind(), "0.0.0.0:8080".parse::<SocketAddr>().unwrap());
         assert_eq!(host.web_origin(), "https://studio.cantoss.duckdns.org");
         assert_eq!(host.web_dist(), None);
         assert!(!host.development_sessions());

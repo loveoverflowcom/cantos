@@ -94,7 +94,7 @@ src/
       domain/               # pure lifecycle/publication/profile/integrity/range/WAV rules
     listening/              # separate account-owned Library/progress/history
   interfaces/http/          # separate Studio, Theatre and Admin surfaces
-  platform/                 # postgres/session/IDs/migrations/generic incremental
+  platform/                 # postgres/session/IDs/migrations/optional grouped-count core
   bin/                      # server, migrate, operator, inspect-wav, validate/diff
 ```
 
@@ -108,9 +108,15 @@ Previously applied SQL migrations 0001–0009 are immutable and replay checks th
 checksums. The old `durable_*`/`speech_clips` tables are legacy data, not current generation
 queues. Do not edit old SQL or drop populated tables during this pivot. Catalog
 additive migration 0011 adds Catalog tables independently of audio-intake0010, now integrated with original SQL. Content Identity migration0012 is additive after Catalog0011. The migration registry has
-versions 1–28 (28 migrations), including original private storage0015, Admin0022, coordinated
+versions 1–29 (29 migrations), including original private storage0015, Admin0022, coordinated
 private Artwork0023, additive Work-scoped delegation0026 and opt-in Theatre registration0027 and separately selected Firebase enrollment0028.
-Historical SQL bytes/checksums are unchanged.
+Historical SQL bytes/checksums are unchanged. Forward migration0029 disables only the retired
+`durable_steps_change_capture` trigger: it preserves the legacy tables, recorded bytes, outbox,
+function, privileges and other integrity triggers. The outbox is historical after this point;
+re-enabling capture alone cannot reconstruct the gap. A new consumer requires a separately
+reviewed snapshot/adapter. [Current DBSP review](../../docs/evidence/dbsp-platform-review.md).
+`cargo xtask verify postgres --suite legacy-dbsp` exercises this upgrade on a new disposable
+cluster; it does not qualify the whole PostgreSQL gate or a PostgreSQL-to-DBSP consumer.
 Standalone Publication0016 does not depend on storage0015. Discovery0017, Identity0018 and
 Library/Progress0019 originals are inherited from develop. Studio0020 and0025 add its separate
 credential issuance and session/browser-flow fences, with operator-applied narrow grants in
