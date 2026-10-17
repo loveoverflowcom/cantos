@@ -146,12 +146,16 @@ pub enum BlockReason {
     ReadOnly,
     ProductionReview,
     Artwork(crate::live::artwork::copy::Key),
+    #[cfg(debug_assertions)]
+    Forge(crate::messages::forge::Key),
 }
 
 impl BlockReason {
     pub fn text(self, english: bool) -> &'static str {
         let copy = messages::copy(english);
         match self {
+            #[cfg(debug_assertions)]
+            Self::Forge(key) => crate::messages::forge::text(key, english),
             Self::Artwork(key) => crate::live::artwork::copy::text(key, english),
             Self::Busy => copy.busy,
             Self::ContextReady => text(Key::ControlBlocked, english),
@@ -263,6 +267,39 @@ pub fn FormSubmit(
 fn confirm_discard_request(blocked: bool, open: RwSignal<bool>, confirm: Callback<(), bool>) {
     if open.get_untracked() && !blocked && confirm.run(()) {
         open.set(false);
+    }
+}
+
+/// Debug composition only. Indirect use here supplies no shared admission or live authority.
+#[cfg(debug_assertions)]
+#[component]
+pub fn ForgeSyncDialog(
+    open: Signal<bool>,
+    english: Signal<bool>,
+    details: Signal<String>,
+    on_cancel: Callback<()>,
+    on_confirm: Callback<MouseEvent>,
+    on_error: Callback<DialogError>,
+) -> impl IntoView {
+    use crate::messages::forge::{text as copy, Key as ForgeKey};
+    move || {
+        let language = english.get();
+        view! {
+            <Dialog id="forge-sync-dialog" title=copy(ForgeKey::Plan, language)
+                close_label=copy(ForgeKey::Close, language) open=open
+                on_close_request=Callback::new(move |_| on_cancel.run(())) on_error=on_error
+                description=copy(ForgeKey::PlanHelp, language)
+                actions=move || view! {
+                    <ActionButton id="forge-sync-cancel" english=english variant=ButtonVariant::Text
+                        icon=IconName::Close on_press=Callback::new(move |_| on_cancel.run(()))>
+                        {move || copy(ForgeKey::Cancel, english.get())}
+                    </ActionButton>
+                    <ActionButton id="forge-sync-confirm" english=english icon=IconName::CloudSync
+                        on_press=on_confirm>{move || copy(ForgeKey::Confirm, english.get())}</ActionButton>
+                }>
+                <p class="forge-plan-identity">{move || details.get()}</p>
+            </Dialog>
+        }
     }
 }
 

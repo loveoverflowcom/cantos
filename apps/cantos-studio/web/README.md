@@ -20,6 +20,15 @@ evidence are separately recorded in the
 
 ## Build and run
 
+Development-only Forge mock: in the existing debug Studio runtime, open
+`http://127.0.0.1:8081/?preview=studio-forge` after `cargo xtask app cantos-studio --web`.
+The normal launcher retains its local-API prerequisite; this explicit composition returns
+before live bootstrap and makes no API/provider/storage requests. It is absent from release
+builds and is never a production fallback. Recipe v1, immutable session revisions, separate
+run/storage/take/sync states and remaining acceptance are documented in the
+[Forge mock record](../../../docs/evidence/studio-forge-mock-ui.md). Reload/reset discards mock
+changes. No real keys or audio are accepted by this preview.
+
 The owner-selected Forge workspace is a future section of this app, backed by a separately
 configured producer client; it is not implemented by the relocated producer/worker foundation.
 See [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md) and the

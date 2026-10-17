@@ -5,6 +5,8 @@ mod adaptation;
 pub use adaptation::*;
 pub mod authoring;
 pub mod entry;
+#[cfg(debug_assertions)]
+pub mod forge;
 pub mod production;
 pub mod workspace;
 

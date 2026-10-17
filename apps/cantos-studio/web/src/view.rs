@@ -262,6 +262,11 @@ async fn recover_changed_session(
 
 #[component]
 pub fn Studio() -> impl IntoView {
+    #[cfg(debug_assertions)]
+    if crate::forge::view::requested() {
+        let theme = RwSignal::new(Theme::Light);
+        return view! {<UiRoot class="studio-shell" theme=theme density=Density::Comfortable><crate::forge::view::Preview theme=theme/></UiRoot>}.into_any();
+    }
     // The existing Studio composition root also hosts its offline debug form preview.
     #[cfg(debug_assertions)]
     if crate::live::artwork::preview::requested() {

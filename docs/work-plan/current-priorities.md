@@ -46,6 +46,10 @@ auth/navigation [#224](https://github.com/loveoverflowcom/cantos/issues/224) and
 actions [#229](https://github.com/loveoverflowcom/cantos/issues/229). Reuse the #225 Select,
 BackButton and AuthTonal candidates; their renderer/admission gates still precede adoption.
 This track changes presentation and explicit mock composition, not live auth/producer authority.
+The [Studio Forge debug mock](../evidence/studio-forge-mock-ui.md) now supplies the isolated
+controller/composition review surface. Inspect its real renderer and reference, including
+raw-text recovery, exact sync identity and dialog focus, before live-client implementation;
+mock receipts do not satisfy the worker's invocation or API-admission gates.
 
 Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
 and leave a short current pointer. Existing source-bound evidence remains at its original path.

@@ -1,0 +1,53 @@
+/* Studio-owned debug composition; shared roles remain at token v0.6.0. */
+.studio-shell .forge-mock {
+  max-inline-size: 90rem;
+  margin-inline: auto;
+  padding: var(--cantos-space-lg);
+  container: forge / inline-size;
+}
+.forge-mock :where(section, aside, div, li) { min-inline-size: 0; }
+.forge-mock :where(p, h1, h2, h3, h4, dd) { overflow-wrap: anywhere; }
+.forge-heading, .forge-section-heading, .forge-nav, .forge-drafts > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cantos-space-md);
+  align-items: center;
+  justify-content: space-between;
+}
+.forge-heading { margin-block-end: var(--cantos-space-md); }
+.forge-brand, .forge-eyebrow, .forge-muted { color: var(--cantos-color-on-surface-variant); }
+.forge-brand { font-weight: var(--cantos-type-label-weight); }
+.forge-boundary, .forge-diagnostics, .forge-step {
+  padding: var(--cantos-space-md);
+  background: var(--cantos-color-surface-container);
+  border-radius: var(--cantos-web-shape-reading);
+}
+.forge-boundary { border-inline-start: var(--cantos-size-focus-width) solid var(--cantos-color-primary); }
+.forge-diagnostics { margin-block: var(--cantos-space-md); }
+.forge-preferences { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cantos-space-md); }
+.forge-nav { justify-content: flex-start; padding-block: var(--cantos-space-sm); border-block-end: var(--cantos-size-border) solid var(--cantos-color-outline-variant); margin-block-end: var(--cantos-space-lg); }
+.forge-nav [aria-current="page"] { border-block-end: var(--cantos-size-focus-width) solid var(--cantos-color-primary); }
+.forge-drafts, .forge-take-list { list-style: none; margin: 0; padding: 0; }
+.forge-drafts > li { padding-block: var(--cantos-space-md); border-block-end: var(--cantos-size-border) solid var(--cantos-color-outline-variant); }
+.forge-drafts h3, .forge-drafts p, .forge-take-list h4 { margin-block: var(--cantos-space-xs); }
+.forge-editor-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: var(--cantos-space-lg); align-items: start; }
+.forge-script { padding: var(--cantos-space-md); background: var(--cantos-color-surface); border-radius: var(--cantos-web-shape-reading); }
+.studio-shell .forge-script textarea { min-block-size: 25rem; font-family: var(--cantos-type-family-editorial); }
+.forge-takes { padding: var(--cantos-space-md); background: var(--cantos-color-surface-container); border-radius: var(--cantos-web-shape-reading); }
+.forge-take-list > li { padding-block: var(--cantos-space-md); border-block-end: var(--cantos-size-border) solid var(--cantos-color-outline-variant); }
+.forge-take-list [aria-current="true"] { border-inline-start: var(--cantos-size-focus-width) solid var(--cantos-color-primary); padding-inline-start: var(--cantos-space-sm); }
+.forge-mock .cui-button-field { max-inline-size: 100%; }
+.forge-mock .cui-button { max-inline-size: 100%; }
+.forge-mock .cui-field { margin-block-end: var(--cantos-space-md); }
+.forge-settings { max-inline-size: 48rem; }
+.forge-step { margin-block-start: var(--cantos-space-xl); }
+.forge-step > .cui-field { max-inline-size: 28rem; }
+.forge-plan-identity { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.forge-revision { color: var(--cantos-color-on-surface-variant); font-variant-numeric: tabular-nums; }
+.forge-mock [hidden] { display: none; }
+@container forge (max-width: 52rem) {
+  .forge-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 25rem) {
+  .studio-shell .forge-mock { padding: var(--cantos-space-sm); }
+}
