@@ -118,6 +118,19 @@ DBSP under the same commit position. The comparison must include read distributi
 amplification, lag, memory, fallback capacity, replay/restart and authorization/revocation.
 Neither Catalog nor Discovery is selected by this audit.
 
+The closest existing read to reassess is Theatre Discovery's `works()` query in
+`services/cantos-api/src/contexts/media/postgres/listener.rs`: representative selection,
+joins, substring search and sorting could become expensive, but it is not a grouped-count
+consumer. Its current rights/approval, pointer, visibility, revocation and expiry predicates
+remain authoritative. [Discovery's synthetic workload targets](theatre-discovery.md#read-inventory-targets-and-dbsp-decision)
+are explicitly unmeasured; there is no observed slow query or missed budget here. Existing
+Catalog SQL/HTTP plan tests exercise small synthetic point/list reads, not a DBSP aggregate
+baseline. Registration rate-limit counts are transactional admission rules under a lock and
+time window, not candidates for an asynchronous projection without a new correctness decision.
+The decision remains **defer**: measure the exact authorized SQL on disposable representative
+data, compare query/index changes and their write cost, then review a bounded experiment only
+if a repeatable performance gap remains. No benchmark or experimental adapter was added.
+
 ## Verification scope
 
 The optional-feature checkpoint also exposed ambiguous `.parse()` inference in two existing
@@ -135,6 +148,27 @@ current business constructors and are never submitted as content or media. Tests
 - Application role cannot forge, update, delete, truncate the feed or re-enable capture.
 - Transaction rollback restores trigger state and rows; a clean installation retains the
   table/function with capture disabled and an empty outbox.
+
+Supplemental tests retain the capture function definition/owner/ACL, table ACL, feed index
+and constraints; prove capture still operates after a rolled-back retirement; and seed a
+fresh migrated schema without adding captured rows. The same owned PostgreSQL target compares
+18 in-range unsigned-decimal snapshot vectors with actual `pg_snapshot` casts and constructs an older
+REPEATABLE READ request plus a later bootstrap with equal xmin but different committed-row
+visibility. This is a real snapshot oracle, not a PostgreSQL-to-DBSP adapter or proof of
+bootstrap/change-feed continuity. It adds no engine checkpoint/restart claim.
+
+The first SQL differential run exposed a test-oracle assumption: PostgreSQL17.4 accepts
+an overflowing decimal bound pair, whereas the Rust constructor rejects it. PostgreSQL's
+parser uses `strtou64` without an overflow check at this boundary. The structural differential
+therefore covers values within u64; exact Rust overflow rejection remains a native regression.
+No broader PostgreSQL spelling compatibility or engine/feed conformance is claimed.
+
+Native circuit regressions cover exact old/new deltas when a member moves groups, independent
+members with the same local id in different groups, signed/count conversion boundaries and
+terminal reuse after all four tested integrity shapes. The existing independent-recount
+property includes group moves. Returned runtime `Step`/`InvalidCount` failures are contained
+by the common wrapper but are not directly fault-injected through the circuit; panic safety
+and a rejected external view remain caller obligations as described above.
 
 `cargo xtask verify postgres --suite legacy-dbsp` owns a new disposable PostgreSQL cluster,
 refuses inherited database configuration and `--keep`, and requires nonzero passing tests.

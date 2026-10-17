@@ -2,7 +2,10 @@
 //! These synthetic legacy rows exercise SQL compatibility, not a current producer workflow.
 use std::env;
 
-use cantos_api::platform::postgres::{local_config, migrate};
+use cantos_api::platform::{
+    incremental::{freshness, CommittedPosition, FeedError, Fence, Freshness, Snapshot, TxId},
+    postgres::{local_config, migrate},
+};
 use sha2::{Digest, Sha256};
 use tokio_postgres::{Client, Config, NoTls};
 use uuid::Uuid;
@@ -134,6 +137,27 @@ async fn legacy_triggers(admin: &Client) -> Vec<(String, String)> {
     ).await.unwrap().iter().map(|r| (r.get(0),r.get(1))).collect()
 }
 
+async fn retained_capture_definition(admin: &Client) -> String {
+    admin
+        .query_one(
+            "SELECT jsonb_build_object(
+            'function',pg_get_functiondef(p.oid),
+            'function_owner',p.proowner,
+            'function_acl',p.proacl,
+            'table_acl',c.relacl,
+            'index',pg_get_indexdef('public.durable_step_changes_by_job'::regclass),
+            'constraints',(SELECT jsonb_agg(pg_get_constraintdef(oid) ORDER BY conname)
+                FROM pg_constraint WHERE conrelid=c.oid))::text
+         FROM pg_proc p,pg_class c
+         WHERE p.oid='public.durable_step_change_capture()'::regprocedure
+             AND c.oid='public.durable_step_changes'::regclass",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0)
+}
+
 #[tokio::test]
 #[ignore = "cargo xtask verify postgres --suite legacy-dbsp"]
 async fn retirement_preserves_legacy_rows_checksums_and_stops_only_capture() {
@@ -142,6 +166,7 @@ async fn retirement_preserves_legacy_rows_checksums_and_stops_only_capture() {
     assert_eq!(capture_enabled(&admin).await, "O");
     let before = retained_rows(&admin).await;
     let mut triggers = legacy_triggers(&admin).await;
+    let capture_definition = retained_capture_definition(&admin).await;
     let feed = captured_rows(&admin).await;
     assert_ne!(feed, "[]");
     let checksums = admin
@@ -160,6 +185,10 @@ async fn retirement_preserves_legacy_rows_checksums_and_stops_only_capture() {
         }
     }
     assert_eq!(legacy_triggers(&admin).await, triggers);
+    assert_eq!(
+        retained_capture_definition(&admin).await,
+        capture_definition
+    );
     assert_eq!(retained_rows(&admin).await, before);
     for row in checksums {
         let version: i32 = row.get(0);
@@ -227,6 +256,11 @@ async fn retirement_preserves_legacy_rows_checksums_and_stops_only_capture() {
     let mut app_config = config.clone();
     app_config.user("cantos_app");
     let app = connect(&app_config).await;
+    assert_eq!(captured_rows(&app).await, feed);
+    assert!(!admin.query_one(
+        "SELECT has_function_privilege('cantos_app','public.durable_step_change_capture()','EXECUTE')",
+        &[],
+    ).await.unwrap().get::<_, bool>(0));
     for sql in [
         "INSERT INTO durable_step_changes(job_id,step_id,weight,succeeded,reused) VALUES('job','forged',1,false,false)",
         "UPDATE durable_step_changes SET weight=-weight",
@@ -250,8 +284,21 @@ async fn retirement_is_transactional_and_fresh_install_retains_the_historical_fe
     tx.rollback().await.unwrap();
     assert_eq!(capture_enabled(&admin).await, "O");
     assert_eq!(retained_rows(&admin).await, before);
+    admin
+        .batch_execute(
+            "INSERT INTO durable_steps(id,job_id,dialogue_id,input_fingerprint)
+         VALUES('after-rollback','job','after-rollback','after-rollback')",
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin.query_one(
+        "SELECT count(*) FROM durable_step_changes WHERE step_id='after-rollback' AND weight=1",
+        &[],
+    ).await.unwrap().get::<_, i64>(0), 1);
+    let before_migration = retained_rows(&admin).await;
     migrate(&config).await.unwrap();
     assert_eq!(capture_enabled(&admin).await, "D");
+    assert_eq!(retained_rows(&admin).await, before_migration);
 
     let (fresh, fresh_admin) = empty_database().await;
     migrate(&fresh).await.unwrap();
@@ -265,4 +312,160 @@ async fn retirement_is_transactional_and_fresh_install_retains_the_historical_fe
         .await
         .unwrap()
         .get::<_, bool>(0));
+    seed_legacy_rows(&fresh_admin).await;
+    assert_eq!(captured_rows(&fresh_admin).await, "[]");
+    let fresh_rows = retained_rows(&fresh_admin).await;
+    migrate(&fresh).await.unwrap();
+    assert_eq!(retained_rows(&fresh_admin).await, fresh_rows);
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite legacy-dbsp"]
+async fn snapshot_parser_matches_postgres_structural_acceptance() {
+    let (_, admin) = empty_database().await;
+    // Compare decimal values within u64, not PostgreSQL whitespace/sign/overflow aliases.
+    // The database cast is the independent acceptance oracle; no DBSP adapter is installed.
+    for (text, accepted) in [
+        ("1:1:", true),
+        ("10:20:", true),
+        ("10:20:10,15,19", true),
+        ("10:20:10,10,19,", true),
+        ("18446744073709551615:18446744073709551615:", true),
+        ("", false),
+        ("10:20", false),
+        ("0:20:", false),
+        ("10:0:", false),
+        ("20:10:", false),
+        ("10:20:9", false),
+        ("10:20:20", false),
+        ("10:20:15,14", false),
+        ("10:20:10,,15", false),
+        ("10:20:10,,", false),
+        ("10:20:,", false),
+        ("10:20::", false),
+        ("10:20:18446744073709551615", false),
+    ] {
+        let postgres = admin
+            .query_one("SELECT $1::text::pg_snapshot::text", &[&text])
+            .await;
+        assert_eq!(postgres.is_ok(), accepted, "PostgreSQL: {text}");
+        if accepted {
+            let snapshot = Snapshot::parse(text).unwrap();
+            assert_eq!(snapshot.as_str(), text);
+            // Normalization may remove duplicates or the permitted trailing comma.
+            let canonical: String = postgres.unwrap().get(0);
+            let canonical = Snapshot::parse(&canonical).unwrap();
+            assert_eq!(snapshot.xmin(), canonical.xmin(), "{text}");
+            assert_eq!(snapshot.xmax(), canonical.xmax(), "{text}");
+        } else {
+            assert_eq!(
+                Snapshot::parse(text),
+                Err(FeedError::MalformedPosition),
+                "{text}"
+            );
+            assert_eq!(
+                postgres.unwrap_err().code().unwrap().code(),
+                "22P02",
+                "{text}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "cargo xtask verify postgres --suite legacy-dbsp"]
+async fn equal_xmin_does_not_establish_bootstrap_visibility() {
+    let (config, admin) = empty_database().await;
+    admin
+        .batch_execute("CREATE TABLE snapshot_rows(id integer PRIMARY KEY)")
+        .await
+        .unwrap();
+    let mut anchor = connect(&config).await;
+    let anchor_tx = anchor.transaction().await.unwrap();
+    let anchor_id: String = anchor_tx
+        .query_one("SELECT pg_current_xact_id()::text", &[])
+        .await
+        .unwrap()
+        .get(0);
+
+    let mut reader = connect(&config).await;
+    let old_request = reader
+        .build_transaction()
+        .isolation_level(tokio_postgres::IsolationLevel::RepeatableRead)
+        .start()
+        .await
+        .unwrap();
+    let old_text: String = old_request
+        .query_one("SELECT pg_current_snapshot()::text", &[])
+        .await
+        .unwrap()
+        .get(0);
+    let old_snapshot = Snapshot::parse(&old_text).unwrap();
+    assert_eq!(old_snapshot.xmin(), anchor_id.parse::<TxId>().unwrap());
+
+    let mut writer = connect(&config).await;
+    let writer_tx = writer.transaction().await.unwrap();
+    let writer_id: String = writer_tx
+        .query_one("SELECT pg_current_xact_id()::text", &[])
+        .await
+        .unwrap()
+        .get(0);
+    writer_tx
+        .execute("INSERT INTO snapshot_rows VALUES(1)", &[])
+        .await
+        .unwrap();
+    // Neither the row nor its writer is visible before commit.
+    assert_eq!(
+        admin
+            .query_one("SELECT count(*) FROM snapshot_rows", &[])
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+    writer_tx.commit().await.unwrap();
+
+    let bootstrap = admin
+        .query_one(
+            "SELECT pg_current_snapshot()::text,(SELECT count(*) FROM snapshot_rows)",
+            &[],
+        )
+        .await
+        .unwrap();
+    let bootstrap_text: String = bootstrap.get(0);
+    let bootstrap_snapshot = Snapshot::parse(&bootstrap_text).unwrap();
+    assert_eq!(bootstrap.get::<_, i64>(1), 1);
+    assert_eq!(
+        old_request
+            .query_one("SELECT count(*) FROM snapshot_rows", &[])
+            .await
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+    assert_eq!(bootstrap_snapshot.xmin(), old_snapshot.xmin());
+    let visibility = admin
+        .query_one(
+            "SELECT pg_visible_in_snapshot($1::text::xid8,$2::text::pg_snapshot),
+                pg_visible_in_snapshot($1::text::xid8,$3::text::pg_snapshot)",
+            &[&writer_id, &old_text, &bootstrap_text],
+        )
+        .await
+        .unwrap();
+    assert!(!visibility.get::<_, bool>(0));
+    assert!(visibility.get::<_, bool>(1));
+
+    let position = CommittedPosition::bootstrap(bootstrap_snapshot);
+    let covers_frontier = position.frontier() <= old_snapshot.xmin();
+    assert!(covers_frontier);
+    assert_eq!(
+        freshness(Fence {
+            covers_bootstrap: false,
+            covers_frontier,
+            unapplied_change: false,
+        }),
+        Freshness::Ahead
+    );
+    old_request.rollback().await.unwrap();
+    anchor_tx.rollback().await.unwrap();
 }
