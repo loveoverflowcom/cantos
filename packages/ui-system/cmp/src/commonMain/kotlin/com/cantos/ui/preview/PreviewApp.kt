@@ -522,7 +522,7 @@ internal fun ComponentExample(
                             Text("Lưu · ${variant.name}")
                         }
                     } else {
-                        Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant,
+                        Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant, icon = "save",
                             controlModifier = if (variant == ButtonVariant.Primary) modifier else Modifier)
                     }
                 }

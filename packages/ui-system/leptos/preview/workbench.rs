@@ -365,7 +365,10 @@ fn Specimen(host: Host, component: ComponentId, state: ScenarioState) -> impl In
         }
         ComponentId::Button | ComponentId::AuthPrimary => view! {
             <Button id=control_id variant=if component == ComponentId::AuthPrimary { ButtonVariant::AuthPrimary } else { ButtonVariant::Primary }
-                icon=IconName::ArrowForward state=button_state on_press=press>{move || label.get()}</Button>
+                icon=if component == ComponentId::AuthPrimary { IconName::Login } else { IconName::Save }
+                state=button_state on_press=press>{move || format!("{}: {}", copy(host.recipe.get().locale,
+                    if component == ComponentId::AuthPrimary { "Đăng nhập Cantos" } else { "Lưu bản nháp" },
+                    if component == ComponentId::AuthPrimary { "Sign in to Cantos" } else { "Save draft" }), label.get())}</Button>
         }.into_any(),
         ComponentId::FilterChip => view! {
             <FilterChip id=control_id selected=selected state=button_state on_change=change>{move || label.get()}</FilterChip>

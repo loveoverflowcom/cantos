@@ -234,6 +234,18 @@
   justify-content: center;
   flex-shrink: 0;
 }
+/* A stationary indeterminate ring: the adjacent localized reason announces waiting.
+   It never implies disclosure or success, and needs no motion/reduced-motion adapter. */
+:where(.cantos-ui) .cui-action-progress {
+  box-sizing: border-box;
+  display: inline-block;
+  flex-shrink: 0;
+  inline-size: var(--cantos-size-icon);
+  block-size: var(--cantos-size-icon);
+  border: var(--cantos-size-focus-width) solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: var(--cantos-shape-pill);
+}
 :where(.cantos-ui) .cui-button:where([data-variant="auth-primary"], [data-variant="auth-secondary"], [data-variant="auth-outlined"]) {
   --cantos-web-auth-capsule: var(--cantos-shape-pill);
   border-radius: var(--cantos-web-auth-capsule);

@@ -38,18 +38,18 @@ pub fn AuthActionSamples(
                     <option value="disabled">"Bị khóa"</option>
                 </Select>
                 <div data-preview-scenario="auth-primary auth-focus auth-pressed auth-long-label auth-loading auth-disabled">
-                    <Button id="auth-primary" variant=ButtonVariant::AuthPrimary icon=IconName::ArrowForward
+                    <Button id="auth-primary" variant=ButtonVariant::AuthPrimary icon=IconName::Login
                         state=state on_press=press>
                         "Đăng nhập với Cantos ID để giữ những câu chuyện và dấu trang của Nguyễn Thị Ánh Nguyệt"
                     </Button>
                 </div>
                 <div data-preview-scenario="auth-secondary">
-                    <Button id="auth-secondary" variant=ButtonVariant::AuthSecondary state=state on_press=press>
+                    <Button id="auth-secondary" variant=ButtonVariant::AuthSecondary icon=IconName::PersonAdd state=state on_press=press>
                         "Tạo tài khoản Cantos"
                     </Button>
                 </div>
                 <div data-preview-scenario="auth-outlined">
-                    <Button id="auth-outlined" variant=ButtonVariant::AuthOutlined state=state on_press=press>
+                    <Button id="auth-outlined" variant=ButtonVariant::AuthOutlined icon=IconName::Refresh state=state on_press=press>
                         "Thử lại hành động mẫu, giữ nguyên thông tin đã nhập"
                     </Button>
                 </div>

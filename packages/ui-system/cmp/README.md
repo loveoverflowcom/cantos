@@ -66,6 +66,10 @@ associated help/error/reason. Material's visual checkbox/radio/switch has no sec
 Stable-value SelectOption lists support null/missing/empty selection and unavailable options;
 localized placeholder/empty/menu descriptions are required, and external input changes close
 open menus. The fixed-list index overload remains compatible.
+The trigger reserves a trailing disclosure slot and options reserve a trailing selected-check
+slot; loading uses a separate pending cue. Popup minimum width follows its measured anchor.
+The [#229 evidence](../../../docs/evidence/theatre-cmp-action-icons-229.md) separates JVM
+semantics/captures from the outstanding reference, native-window, device and AT acceptance.
 
 RangeField accepts finite in-range values, 0–1000 interior ticks, localized valueText, completion
 and keyboard alternatives. Stepped configurations need finite distinct native Float ticks;

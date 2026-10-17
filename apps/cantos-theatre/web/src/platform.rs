@@ -140,6 +140,31 @@ pub fn focus_button(button: NodeRef<leptos::html::Button>) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn focus_button(_button: NodeRef<leptos::html::Button>) {}
 
+/// Signup phase changes may remove the initiating control. Resolve within this mounted panel
+/// after rendering; a disposed/removed panel cannot focus a new route with the same field IDs.
+pub(crate) fn focus_in_signup(panel: NodeRef<leptos::html::Div>, id: &'static str) {
+    #[cfg(target_arch = "wasm32")]
+    leptos::leptos_dom::helpers::request_animation_frame(move || {
+        use leptos::wasm_bindgen::JsCast;
+        let Some(Some(panel)) = panel.try_get_untracked() else {
+            return;
+        };
+        if !panel.is_connected() {
+            return;
+        }
+        if let Some(element) = panel
+            .query_selector(&format!("#{id}"))
+            .ok()
+            .flatten()
+            .and_then(|element| element.dyn_into::<leptos::web_sys::HtmlElement>().ok())
+        {
+            let _ = element.focus();
+        }
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = (panel, id);
+}
+
 /// Focus an element rendered by the current frame, after Leptos has applied the change.
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn focus_by_id(id: String) {

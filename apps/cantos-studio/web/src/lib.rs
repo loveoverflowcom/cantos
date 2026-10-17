@@ -10,6 +10,10 @@ pub mod session;
 pub mod ui;
 pub mod wire;
 
+// An explicit debug composition only; never a production fallback or a service client.
+#[cfg(debug_assertions)]
+pub mod forge;
+
 #[cfg(target_arch = "wasm32")]
 pub mod api;
 #[cfg(target_arch = "wasm32")]

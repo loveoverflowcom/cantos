@@ -378,7 +378,8 @@ body { margin: 0; }
 .theatre-brand .cui-logo { inline-size: 100%; max-inline-size: 10rem; block-size: auto; }
 .theatre-auth { max-inline-size: 70rem; margin-inline: auto; }
 .theatre-auth-top { display: flex; align-items: center; justify-content: space-between; gap: var(--cantos-space-lg); margin-block-end: var(--cantos-space-xl); }
-.theatre-auth-brand { inline-size: 9rem; flex-shrink: 0; }
+.theatre-auth-brand { inline-size: 9rem; min-block-size: var(--cantos-size-control); flex-shrink: 0; display: inline-flex; align-items: center; border-radius: var(--cantos-web-shape-control); }
+.theatre-auth-brand:focus-visible { outline: var(--cantos-size-focus-width) solid var(--cantos-color-focus); outline-offset: var(--cantos-size-focus-offset); }
 .theatre-auth-brand .cui-logo { inline-size: 100%; block-size: auto; }
 .theatre-auth-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--cantos-space-xl); align-items: center; }
 .theatre-auth-story { overflow: hidden; }

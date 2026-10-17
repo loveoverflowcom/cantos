@@ -371,7 +371,7 @@ pub fn LiveBoundary(#[prop(optional)] preview: bool) -> impl IntoView {
                     <super::LiveContainer>
                         <main id="theatre-main" node_ref=main tabindex="-1" class="theatre-main">
                             {move || match nav.route.get() {
-                                Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth
+                                Route::Auth(auth) => view! { <AuthPage state registration signup locale route=auth preview_icons=preview
                                     on_back=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.back(); })
                                     on_register on_login=Callback::new(move |()| { crate::live::signup::leave(signup, preview); if network_allowed.get_untracked() { nav.login(state); } })
                                     on_home=Callback::new(move |()| { crate::live::signup::leave(signup, preview); nav.cancel(); auth_browser::go(nav.route, Route::Discover, false); })
