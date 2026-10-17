@@ -163,8 +163,10 @@ class TheatreAuthRunnerTests(unittest.TestCase):
                         time.sleep(0.01)
 
     def test_capture_output_is_bounded_during_collection_and_suppressed(self):
-        if os.name != "posix" or not hasattr(os, "waitid") or not hasattr(os, "WNOWAIT"):
-            self.skipTest("bounded local collector requires POSIX waitid")
+        # The runtime lane is Linux-only; Darwin exposes waitid but refuses signaling
+        # an exited process group before reaping, unlike the Linux cleanup contract.
+        if sys.platform != "linux" or not hasattr(os, "waitid") or not hasattr(os, "WNOWAIT"):
+            self.skipTest("bounded local collector requires Linux process-group semantics")
         with patch.object(runner, "MAX_OUTPUT", 1024):
             with self.assertRaisesRegex(RuntimeError, "output suppressed"):
                 runner.captured([os.sys.executable, "-I", "-c", "print('x'*2048)"],
