@@ -1,0 +1,405 @@
+{
+  "owners": [
+    {
+      "path": "apps/cantos-theatre/web/src/messages.rs",
+      "mode": "bilingual",
+      "reason": "Existing Theatre root typed resource catalog; public catalog keys extend this owner."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/features/auth_copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Theatre authentication typed resource owner, retained pending #167/#168."
+    },
+    {
+      "path": "apps/cantos-theatre/web/src/membership_preview/copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Theatre membership preview typed resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio root resource owner; legacy struct API remains pending #168."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/adaptation.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio adaptation resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/authoring.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio authoring resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/entry.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio entry typed resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/forge.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio Forge mock typed resource owner; no feature-local replacement."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/production.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio production typed resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/messages/workspace.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio workspace typed resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio live workspace resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/dashboard_copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio dashboard resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/delegation/copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio delegation resource owner."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/artwork/copy.rs",
+      "mode": "bilingual",
+      "reason": "Existing Studio private artwork resource owner."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/presentation/model/ShellCopy.kt",
+      "mode": "bilingual",
+      "reason": "Existing CMP shell CopyKey/ShellText resource owner."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/auth/presentation/AuthCopy.kt",
+      "mode": "bilingual",
+      "reason": "Existing CMP authentication AuthText resource owner."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/kotlin/com/cantos/theatre/features/membership/presentation/MembershipCopy.kt",
+      "mode": "bilingual",
+      "reason": "Existing CMP membership MembershipText resource owner."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/preview-sandbox/src/commonMain/kotlin/com/cantos/theatre/app/DemoShellCopy.kt",
+      "mode": "bilingual",
+      "reason": "Existing sandbox-only ShellText overrides; never a production catalog."
+    },
+    {
+      "path": "apps/cantos-theatre/mobile/shared/src/commonMain/composeResources/values/strings.xml",
+      "mode": "bilingual",
+      "reason": "Existing launch Compose resources use explicit Vietnamese and _en resource IDs."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/messages.rs",
+      "mode": "bilingual",
+      "reason": "Package-local preview owner: fixed English tool constants and paired locale specimen resources; no app catalog import."
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewToolCopy.kt",
+      "mode": "fixed-english-tool",
+      "reason": "Package-local development tool shell uses fixed English; fixture locale remains independently selectable."
+    }
+  ],
+  "exceptions": [
+    {
+      "path": "apps/cantos-studio/web/src/live/artwork/form.rs",
+      "literal": "r{} · {}",
+      "context": "}}<p>{art.alt_text.clone()}</p>{m.current_media.as_ref().map(|media|view!{<p>{copy::media_facts(media.byte_length,media.width_px,media.height_px,super::mime_name(media.content_type),english.get())}</p>})}<small>{format!(\"r{} · {}\",current.work_revision,art.image_asset_id)}</small></div>}.into_any(),",
+      "reason": "Immutable revision/asset-ID notation; punctuation is identical in both locales."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/workspace.rs",
+      "literal": "{} · r{}",
+      "context": "<ul class=\"live-list\">{move ||facts.with(|f|f.works.clone()).into_iter().map(|w| {let id=w.id.clone();view! {<li><button class=\"cui-button\" type=\"button\" disabled=move ||blocked.get() on:click=move |_|pick_work.run(id.clone())><span lang=w.details.language.clone()>{w.details.title}</span><small>{move ||format!(\"{} · r{}\",copy::work_kind(&w.kind,english.get()),w.revision)}</small></button></li>}}).collect_view()}</ul>",
+      "reason": "Immutable content/chapter identity and revision notation; parameters retain original values."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/workspace.rs",
+      "literal": "{} · r{}",
+      "context": "<h3 lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move ||facts.with(|f|f.work.as_ref().map(|w|format!(\"{} · r{}\",w.details.title,w.revision)).unwrap_or_default())}</h3>",
+      "reason": "Immutable content/chapter identity and revision notation; parameters retain original values."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/workspace.rs",
+      "literal": "{} · r{}",
+      "context": "<ul class=\"live-list\">{move ||facts.with(|f|f.units.clone()).into_iter().map(|u| {let id=u.id.clone();view! {<li><button type=\"button\" class=\"cui-button\" disabled=move ||blocked.get() on:click=move |_|pick_unit.run(id.clone())><span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{u.details.title}</span><small>{move ||format!(\"{} · r{}\",copy::unit_kind(&u.kind,english.get()),u.revision)}</small></button></li>}}).collect_view()}</ul>",
+      "reason": "Immutable content/chapter identity and revision notation; parameters retain original values."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/workspace.rs",
+      "literal": "{} · r{}",
+      "context": "<h3 lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move ||facts.with(|f|f.unit.as_ref().map(|u|format!(\"{} · r{}\",u.details.title,u.revision)).unwrap_or_default())}</h3><p><code>{move ||facts.with(Facts::unit_id)}</code></p>",
+      "reason": "Immutable content/chapter identity and revision notation; parameters retain original values."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/live/dashboard.rs",
+      "literal": " · ",
+      "context": "<p>{move || text(Key::SelectedUnit, english.get())}\" · \"<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>",
+      "reason": "Punctuation separates immutable IDs or already-localized labels; no translatable words."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "novel",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "story",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "podcast",
+      "context": "view! { <option value=\"novel\" selected=move || value.get()==\"novel\">{move || crate::live::copy::work_kind(\"novel\", english.get())}</option><option value=\"story\" selected=move || value.get()==\"story\">{move || crate::live::copy::work_kind(\"story\", english.get())}</option><option value=\"podcast\" selected=move || value.get()==\"podcast\">{move || crate::live::copy::work_kind(\"podcast\", english.get())}</option> }",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "novel",
+      "context": "\"novel\",",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "podcast",
+      "context": "\"podcast\",",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/ui.rs",
+      "literal": "story",
+      "context": "\"story\",",
+      "reason": "CreateWork protocol value passed to the existing owner work_kind lookup; visible label is localized."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/design_samples.rs",
+      "literal": " · ",
+      "context": "<summary><span class=\"cui-gallery-eyebrow\">{entry.family}\" · \"{entry.design_status}</span><strong>{entry.name}</strong><code>{entry.id}</code></summary>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/design_samples.rs",
+      "literal": " · ",
+      "context": "<div><dt>{tool::DESIGN_OWNER}</dt><dd>{entry.owner}\" · \"{entry.scope}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/design_samples.rs",
+      "literal": " · ",
+      "context": "<div><dt>{tool::DESIGN_MATRIX}</dt><dd>{entry.states.join(\" · \")}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/design_samples.rs",
+      "literal": " · ",
+      "context": "<div><dt>{tool::DESIGN_BASELINE}</dt><dd>{api.states.join(\" · \")}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": " · ",
+      "context": "<div><dt>{tool::CATALOG_ID}</dt><dd><code>{entry.id}</code>\" · \"{entry.family}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": " · ",
+      "context": "<div><dt>{tool::CATALOG_STATES}</dt><dd>{entry.states.join(\" · \")}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": " · ",
+      "context": "<div><dt>\"Leptos\"</dt><dd><code>{entry.leptos.status}</code>\" · \"{entry.leptos.reason}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": " · ",
+      "context": "<div><dt>\"CMP\"</dt><dd><code>{entry.cmp.status}</code>\" · \"{entry.cmp.reason}</dd></div>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": " · ",
+      "context": "<summary><code>{entry.name}</code>\" · \"{entry.kind}</summary>",
+      "reason": "Preview registry metadata separator; adjacent IDs and descriptors retain technical identity."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/discovery.rs",
+      "literal": "Alias",
+      "context": "<div><dt>\"Alias\"</dt><dd><code>{entry.alias_of.unwrap_or(tool::TOKEN_ORIGINAL)}</code></dd></div>",
+      "reason": "CSS/design-token alias terminology in the fixed English developer tool."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/token_sample.rs",
+      "literal": "Ánh đèn cuối sân khấu",
+      "context": "<p lang=\"vi-VN\" data-preview-fixture=\"vietnamese\" class=\"cui-token-specimen\">\"Ánh đèn cuối sân khấu\"<br/>\"Nguyễn Thị Ánh Nguyệt vẫn nhớ lời hẹn ấy.\"</p>",
+      "reason": "Preserved Vietnamese typography specimen under lang=vi-VN; not preview tool copy."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/token_sample.rs",
+      "literal": "Nguyễn Thị Ánh Nguyệt vẫn nhớ lời hẹn ấy.",
+      "context": "<p lang=\"vi-VN\" data-preview-fixture=\"vietnamese\" class=\"cui-token-specimen\">\"Ánh đèn cuối sân khấu\"<br/>\"Nguyễn Thị Ánh Nguyệt vẫn nhớ lời hẹn ấy.\"</p>",
+      "reason": "Preserved Vietnamese typography specimen under lang=vi-VN; not preview tool copy."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Lưu bản nháp mẫu",
+      "context": "\"Lưu bản nháp mẫu\"",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Tạo giọng đọc mẫu",
+      "context": "<Button id=\"gallery-tonal\" variant=ButtonVariant::Tonal icon=IconName::Mic state=action_state on_press=press>\"Tạo giọng đọc mẫu\"</Button>",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Đồng bộ bản nháp mẫu",
+      "context": "<Button id=\"gallery-secondary\" variant=ButtonVariant::Secondary icon=IconName::CloudSync state=action_state on_press=press>\"Đồng bộ bản nháp mẫu\"</Button>",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Thử lại mẫu",
+      "context": "<Button id=\"gallery-text\" variant=ButtonVariant::Text icon=IconName::Refresh state=action_state on_press=press>\"Thử lại mẫu\"</Button>",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Xóa bản nháp mẫu",
+      "context": "<Button id=\"gallery-danger\" variant=ButtonVariant::Danger icon=IconName::DeleteOutline state=action_state on_press=press>\"Xóa bản nháp mẫu\"</Button>",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Một lời hẹn dưới chân Thanh Vân Sơn — hộp thoại mẫu",
+      "context": "<div lang=\"vi-VN\" data-preview-fixture=\"vietnamese\"><Dialog id=\"gallery-dialog\" title=\"Một lời hẹn dưới chân Thanh Vân Sơn — hộp thoại mẫu\"",
+      "reason": "Preserved Vietnamese interactive typography specimen inside the Vietnamese fixture region; tool shell is separately English."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview.html",
+      "literal": "The Leptos component gallery requires JavaScript.",
+      "context": "<noscript>The Leptos component gallery requires JavaScript.</noscript>",
+      "reason": "Static noscript fallback follows the fixed English preview tool policy; no runtime catalog can execute without JavaScript."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "Cantos Studio",
+      "context": "<header class=\"forge-heading\"><div><p class=\"forge-brand\">\"Cantos Studio\"</p><h1>{move ||text(Key::Title,english.get())}</h1><p>{move ||text(Key::Intro,english.get())}</p></div></header>",
+      "reason": "Product proper name; retained untranslated in both locales."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "library",
+      "context": "{[(\"library\",Pane::Library,Key::Library,IconName::MenuBook),(\"editor\",Pane::Editor,Key::Editor,IconName::Mic),(\"settings\",Pane::Settings,Key::Settings,IconName::Settings)].into_iter().map(|(id,target,key,icon)|view!{",
+      "reason": "Forge navigation/choice protocol value; visible label is provided by messages/forge.rs."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "editor",
+      "context": "{[(\"library\",Pane::Library,Key::Library,IconName::MenuBook),(\"editor\",Pane::Editor,Key::Editor,IconName::Mic),(\"settings\",Pane::Settings,Key::Settings,IconName::Settings)].into_iter().map(|(id,target,key,icon)|view!{",
+      "reason": "Forge navigation/choice protocol value; visible label is provided by messages/forge.rs."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "settings",
+      "context": "{[(\"library\",Pane::Library,Key::Library,IconName::MenuBook),(\"editor\",Pane::Editor,Key::Editor,IconName::Mic),(\"settings\",Pane::Settings,Key::Settings,IconName::Settings)].into_iter().map(|(id,target,key,icon)|view!{",
+      "reason": "Forge navigation/choice protocol value; visible label is provided by messages/forge.rs."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": " · ",
+      "context": "view! {<li><div><p class=\"forge-eyebrow\" lang=\"vi-VN\">{draft.work}<span>\" · \"</span>{draft.chapter}</p><h3 lang=\"vi-VN\">{draft.title}</h3></div>",
+      "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "{} · {}",
+      "context": "<p class=\"forge-eyebrow\" lang=\"vi-VN\">{move ||model.with(|m|m.current.as_ref().map(|d|format!(\"{} · {}\",d.work,d.chapter)))}</p>",
+      "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "{} · r{} · {}",
+      "context": "<p class=\"forge-revision\" role=\"status\">{move ||format!(\"{} · r{} · {}\",text(Key::Revision,english.get()),model.with(|m|m.current.as_ref().and_then(|d|d.revisions.last().map(|r|r.number)).unwrap_or(0)),text(if unsaved.get(){Key::Dirty}else{Key::Saved},english.get()))}</p>",
+      "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "unavailable",
+      "context": "on_change=Callback::new(move |v: String|match v.as_str(){\"connected\"=>on_intent.run(Intent::SetConnection(ConnectionState::Connected)),\"unavailable\"=>on_intent.run(Intent::SetConnection(ConnectionState::Unavailable)),_=>{}})/>",
+      "reason": "Forge navigation/choice protocol value; visible label is provided by messages/forge.rs."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "{} {id} · r{}",
+      "context": "<h4>{move ||format!(\"{} {id} · r{}\",text(Key::Take,english.get()),take.with(|t|t.as_ref().map(|t|t.revision).unwrap_or(0)))}</h4>",
+      "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
+    },
+    {
+      "path": "apps/cantos-studio/web/src/forge/view.rs",
+      "literal": "{}: {}",
+      "context": "<p>{move ||format!(\"{}: {}\",text(Key::Storage,english.get()),text(if take.with(|t|t.as_ref().is_some_and(|t|t.storage==StorageState::Retained)){Key::RetainedStorage}else{Key::FailedStorage},english.get()))}</p>",
+      "reason": "Punctuation/revision notation joins existing localized labels and immutable draft/take/attempt identity; no raw API prose."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Button intents: {} · Filter: {} · State: {}",
+      "context": "{move || format!(\"Button intents: {} · Filter: {} · State: {}\", action_count.get(), if selected_chip.get() { \"selected\" } else { \"unselected\" }, action_mode.get())}",
+      "reason": "Fixed English developer event diagnostics, separately lang=en; counts/protocol states/raw input observations test the Vietnamese specimen and are not app copy."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "selected",
+      "context": "{move || format!(\"Button intents: {} · Filter: {} · State: {}\", action_count.get(), if selected_chip.get() { \"selected\" } else { \"unselected\" }, action_mode.get())}",
+      "reason": "Fixed English developer event diagnostics, separately lang=en; counts/protocol states/raw input observations test the Vietnamese specimen and are not app copy."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "unselected",
+      "context": "{move || format!(\"Button intents: {} · Filter: {} · State: {}\", action_count.get(), if selected_chip.get() { \"selected\" } else { \"unselected\" }, action_mode.get())}",
+      "reason": "Fixed English developer event diagnostics, separately lang=en; counts/protocol states/raw input observations test the Vietnamese specimen and are not app copy."
+    },
+    {
+      "path": "packages/ui-system/leptos/preview/main.rs",
+      "literal": "Input events: {} · Selection events: {}\nNumber = {:?} · Range = {:?} · Select = {}\nCheckbox = {} · Switch = {} · Radio = {}\nIME composing = {} · compositionend count = {}\nCurrent title: {}",
+      "context": "{move || format!(\"Input events: {} · Selection events: {}\\nNumber = {:?} · Range = {:?} · Select = {}\\nCheckbox = {} · Switch = {} · Radio = {}\\nIME composing = {} · compositionend count = {}\\nCurrent title: {}\", input_count.get(), selection_count.get(), number_value.get(), range_value.get(), select_value.get(), checkbox_value.get(), switch_value.get(), radio_value.get(), composition_active.get(), composition_count.get(), title_value.get())}",
+      "reason": "Fixed English developer event diagnostics, separately lang=en; counts/protocol states/raw input observations test the Vietnamese specimen and are not app copy."
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/ComponentWorkbench.kt",
+      "literal": "Intent",
+      "context": "FieldHelp(events.joinToString(\" → \") { it::class.simpleName ?: \"Intent\" }.ifEmpty { PreviewToolCopy.NoIntents })",
+      "reason": "Developer event type-name fallback in a diagnostic FieldHelp dump; not a product action label."
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/DesignInventoryView.kt",
+      "literal": "${it.name} · ${it.id}",
+      "context": "Select(PreviewToolCopy.Specimen, specimens.map { SelectOption(it.id, \"${it.name} · ${it.id}\") }, selected?.id, onSelect,",
+      "reason": "Canonical component registry display name plus stable technical ID; punctuation and IDs remain verbatim."
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewApp.kt",
+      "literal": "Lưu · ${variant.name}",
+      "context": "Text(vietnameseSpecimenText(\"Lưu · ${variant.name}\"))",
+      "reason": "Preserved Vietnamese Button typography/accessibility specimen plus technical variant name; independent from fixed English preview tool shell."
+    },
+    {
+      "path": "packages/ui-system/cmp/src/commonMain/kotlin/com/cantos/ui/preview/PreviewApp.kt",
+      "literal": "Lưu · ${variant.name}",
+      "context": "Button(\"Lưu · ${variant.name}\", onPress, state = buttonState, variant = variant, icon = \"save\",",
+      "reason": "Preserved Vietnamese Button typography/accessibility specimen plus technical variant name; independent from fixed English preview tool shell."
+    }
+  ]
+}

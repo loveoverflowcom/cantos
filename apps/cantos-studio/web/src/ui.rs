@@ -10,15 +10,70 @@ use crate::messages::{
     workspace::{text, Key},
 };
 
+/// Authored content keeps its declared language; this adapter has no interface-locale input.
+#[component]
+pub fn ContentText(language: Signal<Option<String>>, text: Signal<String>) -> impl IntoView {
+    view! { <span lang=move ||language.get()>{move ||text.get()}</span> }
+}
+
+#[cfg(test)]
+mod content_text_tests {
+    use super::*;
+    use crate::authoring::{Document, Field, Target};
+
+    #[test]
+    fn english_document_keeps_vietnamese_title_and_its_tag_when_interface_locale_changes() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let baseline = Document::parse(include_str!(
+                "../../../../packages/contracts/fixtures/script-ir/0.1.0/accept/two-scenes.json"
+            )).unwrap();
+            let document = baseline.clone()
+                .set(&Target::Adaptation, Field::Language, "en").unwrap()
+                .set(&Target::Work, Field::Title, "Lời hẹn {time}").unwrap();
+            let source = document.to_json();
+            let baseline = RwSignal::new(baseline);
+            let document = RwSignal::new(document);
+            let english = RwSignal::new(false);
+            for en in [false, true] {
+                english.set(en);
+                let html = view! {
+                    <h3>{move ||crate::messages::copy(english.get()).theme}</h3>
+                    <ContentText language=Signal::derive(move ||Some(baseline.get().metadata().language))
+                        text=Signal::derive(move ||baseline.get().metadata().work_title)/>
+                    <ContentText language=Signal::derive(move ||Some(document.get().metadata().language))
+                        text=Signal::derive(move ||document.get().metadata().work_title)/>
+                }.to_html();
+                assert!(html.contains("<span lang=\"en\">Lời hẹn {time}</span>"), "{html}");
+                assert!(html.contains("<span lang=\"vi-VN\">Ánh đèn cuối sân khấu</span>"), "{html}");
+                assert!(html.contains(if en { "Appearance" } else { "Giao diện" }), "{html}");
+                assert_eq!(document.get_untracked().to_json(), source);
+            }
+        });
+    }
+}
+
 /// App-owned options share the exact value used by the CreateWork DTO.
 #[component]
-pub fn WorkKindOptions(value: RwSignal<String>) -> impl IntoView {
-    view! { <option value="novel" selected=move || value.get()=="novel">"novel"</option><option value="story" selected=move || value.get()=="story">"story"</option><option value="podcast" selected=move || value.get()=="podcast">"podcast"</option> }
+pub fn WorkKindOptions(value: RwSignal<String>, english: Signal<bool>) -> impl IntoView {
+    view! { <option value="novel" selected=move || value.get()=="novel">{move || crate::live::copy::work_kind("novel", english.get())}</option><option value="story" selected=move || value.get()=="story">{move || crate::live::copy::work_kind("story", english.get())}</option><option value="podcast" selected=move || value.get()=="podcast">{move || crate::live::copy::work_kind("podcast", english.get())}</option> }
 }
 
 #[cfg(test)]
 mod work_kind_tests {
     use super::*;
+    #[test]
+    fn work_kind_options_display_vietnamese_labels_instead_of_protocol_values() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let kind = RwSignal::new(crate::live::DEFAULT_WORK_KIND.to_owned());
+            let html =
+                view! { <WorkKindOptions value=kind english=Signal::derive(|| false)/> }.to_html();
+            assert!(html.contains(">Tiểu thuyết</option>"), "{html}");
+            assert!(html.contains(">Truyện</option>"), "{html}");
+        });
+    }
+
     #[test]
     fn work_kind_display_and_payload_agree_for_default_changes_and_reset() {
         let owner = Owner::new();
@@ -32,10 +87,16 @@ mod work_kind_tests {
                 crate::live::DEFAULT_WORK_KIND,
             ] {
                 kind.set(value.to_owned());
-                let html = view! { <WorkKindOptions value=kind/> }.to_html();
-                let chosen = format!("value=\"{value}\" selected");
-                assert!(html.contains(&chosen), "{html}");
-                assert_eq!(html.matches(" selected").count(), 1, "{html}");
+                let english = RwSignal::new(false);
+                for (locale, expected) in [(false, ["Tiểu thuyết", "Truyện", "Podcast"]), (true, ["Novel", "Story", "Podcast"])] {
+                    english.set(locale);
+                    let html = view! { <WorkKindOptions value=kind english=Signal::derive(move || english.get())/> }.to_html();
+                    let chosen = format!("value=\"{value}\" selected");
+                    assert!(html.contains(&chosen), "{html}");
+                    assert_eq!(html.matches(" selected").count(), 1, "{html}");
+                    for label in expected { assert!(html.contains(label), "{html}"); }
+                    assert_eq!(kind.get_untracked(), value);
+                }
                 assert_eq!(kind.get_untracked(), value);
                 let mut request: cantos_contracts::CreateWorkRequest =
                     serde_json::from_str(include_str!(

@@ -1142,6 +1142,14 @@ def check():
     errors += check_api_architecture(ROOT)
     errors += check_theatre_architecture(ROOT)
 
+    # Added UI copy is checked against exact reviewed owners and exceptions.
+    # Full catalog parity is independent from the displayed-literal diff.
+    from check_localization import repository_failures as localization_failures
+    try:
+        errors += localization_failures(ROOT)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        errors.append(f"localization: {error}")
+
     # The two diagnostics share one declaration source. Registration never means
     # runtime/design approval; new app imports need fresh evidence on both renderers.
     from ui_preview_catalog import CATALOG, load_design_inventory, outputs, repository_failures, validate
@@ -1163,7 +1171,7 @@ def check():
     skills = len(skill_directories(ROOT))
     print(
         f"Repository checks passed: {checked} text files and {skills} skills; "
-        "local links, JSON syntax, skill structure and API and Theatre architecture valid."
+        "local links, JSON syntax, skill structure, API/Theatre architecture and changed UI localization valid."
     )
     return 0
 

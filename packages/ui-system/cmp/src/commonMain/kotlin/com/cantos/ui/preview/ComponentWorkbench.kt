@@ -68,7 +68,7 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
         initialRecipe ?: (PreviewRecipe.of("button", "enabled", PreviewMode.Isolated) as? PreviewRecipeResult.Accepted)?.recipe
     }
     if (initial == null) {
-        ErrorState("Recipe unavailable", "The canonical button specimen is missing.")
+        ErrorState(PreviewToolCopy.RecipeUnavailable, PreviewToolCopy.MissingButton)
         return
     }
     var recipe by remember { mutableStateOf(initial) }
@@ -76,7 +76,7 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
     var events by remember { mutableStateOf(listOf<ComponentSampleIntent>()) }
     var epoch by remember { mutableStateOf(0L) }
     var payload by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Recipe ready. Only synthetic sample data can be exported.") }
+    var status by remember { mutableStateOf(PreviewToolCopy.RecipeReady) }
     var filter by remember { mutableStateOf("") }
     val scroll = rememberScrollState()
     val changeRecipe: (String, String, PreviewMode, Int, PreviewSettings) -> Unit = { id, state, mode, seed, settings ->
@@ -86,32 +86,32 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
                 sample = ComponentSampleState.initial(next.recipe)
                 events = emptyList()
                 epoch++
-                status = "Selected ${next.recipe.component.id}/$state · seed $seed"
+                status = PreviewToolCopy.selectedRecipe(next.recipe.component.id, state, seed)
             }
-            is PreviewRecipeResult.Rejected -> status = "Recipe rejected: ${next.error}"
+            is PreviewRecipeResult.Rejected -> status = PreviewToolCopy.recipeRejected(next.error)
         }
     }
     val dispatch: (ComponentSampleIntent) -> Unit = { intent ->
-        if (events.size >= MaxRecordedIntents) status = "Event budget reached. Reset before recording more intents."
+        if (events.size >= MaxRecordedIntents) status = PreviewToolCopy.EventBudget
         else when (val next = reduceComponentSample(recipe, sample, intent)) {
             is ComponentSampleResult.Accepted -> { sample = next.state; events = events + intent }
-            is ComponentSampleResult.Rejected -> status = "Intent rejected: ${next.error}"
+            is ComponentSampleResult.Rejected -> status = PreviewToolCopy.intentRejected(next.error.name)
         }
     }
     Column(modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-        Text("Scenario workbench", style = MaterialTheme.typography.titleLarge)
-        FieldHelp("Preview UI · action replay · no network, audio or persistence. Snapshot import never constructs live adapters.")
-        TextField("Filter recipes", filter, { filter = it })
+        Text(PreviewToolCopy.WorkbenchTitle, style = MaterialTheme.typography.titleLarge)
+        FieldHelp(PreviewToolCopy.WorkbenchHelp)
+        TextField(PreviewToolCopy.FilterRecipes, filter, { filter = it })
         val components = PreviewCatalog.components.filter {
             it.id.contains(filter.trim(), ignoreCase = true) || it.name.contains(filter.trim(), ignoreCase = true)
         }
         if (components.isNotEmpty()) {
-            Select("Recipe component", components.map { SelectOption(it.id, it.name) }, recipe.component.id, { id ->
+            Select(PreviewToolCopy.RecipeComponent, components.map { SelectOption(it.id, it.name) }, recipe.component.id, { id ->
                 val selected = components.first { it.id == id }
                 changeRecipe(selected.id, selected.states.first(), recipe.mode, recipe.seed, recipe.settings)
-            }, expandedDescription = "Recipe components open", collapsedDescription = "Recipe components closed",
-                placeholder = "Mounted recipe hidden by filter", emptyDescription = "No matching recipe")
-        } else FieldHelp("No matches. The mounted recipe and field selection are retained.")
+            }, expandedDescription = PreviewToolCopy.RecipesOpen, collapsedDescription = PreviewToolCopy.RecipesClosed,
+                placeholder = PreviewToolCopy.HiddenRecipe, emptyDescription = PreviewToolCopy.NoMatchingRecipe)
+        } else FieldHelp(PreviewToolCopy.NoRecipeMatches)
         val component = PreviewCatalog.components.first { it.id == recipe.component.id }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             component.states.forEach { state ->
@@ -126,7 +126,7 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
                     if (next is PreviewRecipeResult.Accepted) recipe = next.recipe
                 })
             }
-            listOf(0, 1).forEach { seed -> FilterChip("Seed $seed", recipe.seed == seed, {
+            listOf(0, 1).forEach { seed -> FilterChip(PreviewToolCopy.seed(seed), recipe.seed == seed, {
                 changeRecipe(component.id, recipe.stateId, recipe.mode, seed, recipe.settings)
             }) }
         }
@@ -140,33 +140,33 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-            Button("Reset to selected", { sample = ComponentSampleState.initial(recipe); events = emptyList(); epoch++; status = "Reset selected recipe" })
-            Button("Recreate", { epoch++; status = "Recreated mount; detached UI projection retained" }, variant = ButtonVariant.Secondary)
-            Button("Replay intents", {
+            Button(PreviewToolCopy.Reset, { sample = ComponentSampleState.initial(recipe); events = emptyList(); epoch++; status = PreviewToolCopy.ResetStatus })
+            Button(PreviewToolCopy.Recreate, { epoch++; status = PreviewToolCopy.RecreatedStatus }, variant = ButtonVariant.Secondary)
+            Button(PreviewToolCopy.Replay, {
                 when (val next = replayComponentSample(recipe, events)) {
-                    is ComponentSampleResult.Accepted -> { sample = next.state; epoch++; status = "Replayed ${events.size} intents" }
-                    is ComponentSampleResult.Rejected -> status = "Replay rejected: ${next.error}"
+                    is ComponentSampleResult.Accepted -> { sample = next.state; epoch++; status = PreviewToolCopy.replayedIntents(events.size) }
+                    is ComponentSampleResult.Rejected -> status = PreviewToolCopy.replayRejected(next.error.name)
                 }
             }, variant = ButtonVariant.Secondary)
-            Button("Export snapshot", {
+            Button(PreviewToolCopy.Export, {
                 when (val result = PreviewSnapshotCodec.encode(PreviewSnapshot(recipe, sample, events))) {
-                    is SnapshotExportResult.Exported -> { payload = result.payload; status = "Synthetic snapshot exported" }
-                    is SnapshotExportResult.Rejected -> status = "Export rejected: ${result.error}. Reset removes free-form input."
+                    is SnapshotExportResult.Exported -> { payload = result.payload; status = PreviewToolCopy.ExportedStatus }
+                    is SnapshotExportResult.Rejected -> status = PreviewToolCopy.exportRejected(result.error)
                 }
             }, variant = ButtonVariant.Text)
-            Button("Restore snapshot", {
+            Button(PreviewToolCopy.Restore, {
                 when (val result = PreviewSnapshotCodec.decode(payload)) {
                     is SnapshotRestoreResult.Restored -> {
                         recipe = result.snapshot.recipe; sample = result.snapshot.sample; events = result.snapshot.events
-                        epoch++; status = "Restored validated synthetic snapshot"
+                        epoch++; status = PreviewToolCopy.RestoredStatus
                     }
-                    is SnapshotRestoreResult.Rejected -> status = "Restore rejected: ${result.error}"
+                    is SnapshotRestoreResult.Rejected -> status = PreviewToolCopy.restoreRejected(result.error)
                 }
             }, variant = ButtonVariant.Text)
         }
         FieldHelp(status)
-        TextArea("Snapshot payload", payload, { payload = it }, minLines = 2, maxLines = 5,
-            help = "Versioned synthetic values and intents only. Copy/paste explicitly; no filesystem export.")
+        TextArea(PreviewToolCopy.SnapshotPayload, payload, { payload = it }, minLines = 2, maxLines = 5,
+            help = PreviewToolCopy.SnapshotHelp)
         // The fixed frame may be wider than this window. Scroll it instead of silently shrinking it.
         Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
             key(epoch) {
@@ -176,11 +176,11 @@ fun ComponentWorkbench(initialRecipe: PreviewRecipe? = null, systemIsDark: Boole
         }
         SelectionContainer {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                FieldLabel("Read-only projection · epoch $epoch")
-                TextArea("Projection", sample.toString(), {}, state = FieldState.ReadOnly, minLines = 2, maxLines = 5)
-                FieldLabel("Intent log · ${events.size}")
+                FieldLabel(PreviewToolCopy.projection(epoch))
+                TextArea(PreviewToolCopy.Projection, sample.toString(), {}, state = FieldState.ReadOnly, minLines = 2, maxLines = 5)
+                FieldLabel(PreviewToolCopy.intentCount(events.size))
                 // Intent kind only; free-form input never enters the diagnostic log.
-                FieldHelp(events.joinToString(" → ") { it::class.simpleName ?: "Intent" }.ifEmpty { "No intents" })
+                FieldHelp(events.joinToString(" → ") { it::class.simpleName ?: "Intent" }.ifEmpty { PreviewToolCopy.NoIntents })
             }
         }
     }
@@ -192,13 +192,13 @@ private const val MaxRecordedIntents = 256
 @Composable
 private fun RecipeEnvironmentControls(settings: PreviewSettings, onChange: (PreviewSettings) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(tokenDp("space.sm")), verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        ThemeMode.entries.forEach { mode -> FilterChip("Frame ${mode.name}", settings.themeMode == mode, { onChange(settings.copy(themeMode = mode)) }) }
+        ThemeMode.entries.forEach { mode -> FilterChip(PreviewToolCopy.frameMode(mode.name), settings.themeMode == mode, { onChange(settings.copy(themeMode = mode)) }) }
         Density.entries.forEach { density -> FilterChip(density.name, settings.density == density, { onChange(settings.copy(density = density)) }) }
-        PreviewSettings.FONT_SCALES.forEach { scale -> FilterChip("Frame text $scale×", settings.fontScale == scale, { onChange(settings.copy(fontScale = scale)) }) }
-        PreviewLocale.entries.forEach { locale -> FilterChip("Fixture ${locale.name}", settings.locale == locale, { onChange(settings.copy(locale = locale)) }) }
-        FilterChip("Frame reduced motion", settings.reducedMotion, { onChange(settings.copy(reducedMotion = it)) })
+        PreviewSettings.FONT_SCALES.forEach { scale -> FilterChip(PreviewToolCopy.frameScale(scale), settings.fontScale == scale, { onChange(settings.copy(fontScale = scale)) }) }
+        PreviewLocale.entries.forEach { locale -> FilterChip(PreviewToolCopy.fixtureLocale(locale.name), settings.locale == locale, { onChange(settings.copy(locale = locale)) }) }
+        FilterChip(PreviewToolCopy.FrameReducedMotion, settings.reducedMotion, { onChange(settings.copy(reducedMotion = it)) })
         listOf(ViewportPreset.Small, ViewportPreset.Typical, ViewportPreset.Medium, ViewportPreset.Expanded).forEach { preset ->
-            FilterChip("Frame ${preset.label}", settings.constraints.widthDp == preset.widthDp.toInt(), {
+            FilterChip(PreviewToolCopy.frameWidth(preset.label), settings.constraints.widthDp == preset.widthDp.toInt(), {
                 onChange(settings.copy(constraints = ConstraintFrame(preset.widthDp.toInt(), settings.constraints.heightDp)))
             })
         }
@@ -219,23 +219,23 @@ fun RecipeFrame(
     CantosTheme(recipe.settings.preferences(systemIsDark)) {
         Surface(Modifier.requiredSize(frame.widthDp.dp, frame.heightDp.dp).testTag("recipe-frame"), tone = SurfaceTone.Surface) {
             if (validateComponentSample(recipe, sample) is ComponentSampleResult.Rejected) {
-                ErrorState("Invalid sample", "The projection is incompatible with this component state. Select a validated recipe.")
+                ErrorState(PreviewToolCopy.InvalidSample, PreviewToolCopy.InvalidSampleHelp)
                 return@Surface
             }
             Column(Modifier.verticalScroll(rememberScrollState()).padding(tokenDp("space.md")),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
                 val density = LocalDensity.current
-                FieldHelp("Constraint frame ${frame.widthDp}×${frame.heightDp} dp · ${density.density} px/dp · font ${density.fontScale} · ${recipe.settings.locale} · ${recipe.settings.themeMode}")
+                FieldHelp(PreviewToolCopy.constraintFrame(frame.widthDp, frame.heightDp, density.density, density.fontScale, recipe.settings.locale.name, recipe.settings.themeMode.name))
                 if (recipe.mode == PreviewMode.Catalog) {
                     Text(PreviewCatalog.components.first { it.id == recipe.component.id }.name, style = MaterialTheme.typography.titleLarge)
-                    FieldHelp("${recipe.component.id}/${recipe.stateId} · seed ${recipe.seed} · registration is not qualification")
+                    FieldHelp(PreviewToolCopy.recipeIdentity(recipe.component.id, recipe.stateId, recipe.seed))
                 }
                 if (recipe.mode == PreviewMode.StateMatrix) {
-                    FieldHelp("Immutable state matrix. Operate modal and focus journeys in Isolated mode.")
+                    FieldHelp(PreviewToolCopy.MatrixHelp)
                     PreviewCatalog.components.first { it.id == recipe.component.id }.states.forEach { state ->
                         FieldLabel(state)
                         if (recipe.component == com.cantos.ui.PreviewExample.Dialog && state == "open") {
-                            FieldHelp("Open this modal in Isolated mode; an immutable modal would block the matrix controls.")
+                            FieldHelp(PreviewToolCopy.MatrixModalHelp)
                             return@forEach
                         }
                         // State matrix is immutable; the interactive isolated specimen records intents.

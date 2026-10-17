@@ -1,4 +1,5 @@
 //! Debug-only injected composition preview in the existing Studio runtime. No HTTP, auth or storage.
+use super::copy::Key;
 use super::*;
 use crate::messages::Locale;
 use cantos_ui::Theme;
@@ -130,12 +131,21 @@ pub fn Preview(theme: RwSignal<Theme>) -> impl IntoView {
     });
     let locale = RwSignal::new(Locale::default());
     let clear_open = RwSignal::new(false);
+    let label = move |key| copy::text(key, locale.get().is_english());
+    Effect::new(move |_| {
+        if let Some(root) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.document_element())
+        {
+            let _ = root.set_attribute("lang", locale.get().lang());
+        }
+    });
     view! {
-    <main class="studio-workspace"><h1>"studio-artwork · injected preview (debug only)"</h1><p>"Recipe v1 · synthetic fixture · no API/storage. Selecting a scenario explicitly resets its projection; theme and locale retain text."</p>
-        <label for="preview-stage">"Scenario"</label><select id="preview-stage" on:change=move |e|{let value=event_target_value(&e);if let Some((stage,_))=SCENARIOS.iter().find(|(_,s)|*s==value){model.set(fixture(*stage));}}>{SCENARIOS.iter().map(|(_,id)|view!{<option value=*id>{*id}</option>}).collect_view()}</select>
-        <label for="preview-theme">"Theme"</label><select id="preview-theme" on:change=move |e|if let Some(t)=Theme::from_attribute(&event_target_value(&e)){theme.set(t);}>
-            <option value="light">"Light"</option><option value="dark">"Dark"</option></select>
-        <label for="preview-locale">"Locale"</label><select id="preview-locale" on:change=move |e|if let Some(l)=Locale::from_lang(&event_target_value(&e)){locale.set(l);}><option value="vi-VN">"vi-VN"</option><option value="en">"en"</option></select>
+    <main class="studio-workspace" lang=move ||locale.get().lang()><h1>{move ||label(Key::PreviewTitle)}</h1><p>{move ||label(Key::PreviewHelp)}</p>
+        <label for="preview-stage">{move ||label(Key::PreviewScenario)}</label><select id="preview-stage" on:change=move |e|{let value=event_target_value(&e);if let Some((stage,_))=SCENARIOS.iter().find(|(_,s)|*s==value){model.set(fixture(*stage));}}>{SCENARIOS.iter().map(|(stage,id)|{let stage=*stage;view!{<option value=*id>{move ||copy::stage(stage,locale.get().is_english())}</option>}}).collect_view()}</select>
+        <label for="preview-theme">{move ||label(Key::PreviewTheme)}</label><select id="preview-theme" on:change=move |e|if let Some(t)=Theme::from_attribute(&event_target_value(&e)){theme.set(t);}>
+            <option value="light">{move ||label(Key::PreviewLight)}</option><option value="dark">{move ||label(Key::PreviewDark)}</option></select>
+        <label for="preview-locale">{move ||label(Key::PreviewLocale)}</label><select id="preview-locale" on:change=move |e|if let Some(l)=Locale::from_lang(&event_target_value(&e)){locale.set(l);}>{Locale::ALL.map(|l|view!{<option value=l.lang() lang=l.lang()>{l.autonym()}</option>})}</select>
         <form::ArtworkForm model=Signal::derive(move ||model.get()) draft=draft english=Signal::derive(move ||locale.get().is_english()) owner=Signal::derive(||true)
             blocked=Signal::derive(move ||matches!(model.with(|m|m.stage),Stage::Validating|Stage::Preparing|Stage::Uploading|Stage::AwaitingAcknowledgement|Stage::Unknown))
             clear_open=clear_open can_reconcile=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) can_replay=Signal::derive(move ||model.with(|m|m.stage==Stage::Unknown)) on_file=Callback::new(|_|{}) on_intent=Callback::new(move |intent|match intent {

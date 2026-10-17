@@ -1,6 +1,11 @@
 package com.cantos.theatre.demo
 
-import com.cantos.theatre.presentation.model.*
+import com.cantos.theatre.app.DemoShellText
+import com.cantos.theatre.app.MembershipFixtureText
+import com.cantos.theatre.presentation.model.CopyKey
+import com.cantos.theatre.presentation.model.ShellCopy
+import com.cantos.theatre.presentation.model.ShellLocale
+import com.cantos.theatre.presentation.model.clockTime
 import com.cantos.theatre.app.DemoShellCopyOverrides
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,6 +13,18 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DemoCopyTest {
+    @Test
+    fun sandbox_diagnostics_keep_both_locales_in_the_existing_copy_owner() {
+        DemoShellText.entries.forEach { key ->
+            assertTrue(key.vi.isNotBlank(), key.name)
+            assertTrue(key.en.isNotBlank(), key.name)
+        }
+        MembershipFixtureText.entries.forEach { key ->
+            assertTrue(key.vi.isNotBlank(), key.name)
+            assertTrue(key.en.isNotBlank(), key.name)
+        }
+    }
+
     @Test
     fun demo_episode_quantities_retain_sample_wording_for_one_and_other() {
         val english = ShellCopy(ShellLocale.English, DemoShellCopyOverrides)

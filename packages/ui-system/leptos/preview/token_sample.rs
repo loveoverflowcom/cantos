@@ -1,5 +1,6 @@
 //! Read-only specimens bind only generated, canonical CSS-variable names.
 
+use super::messages::tool;
 use super::preview_catalog::TokenRegistration;
 use leptos::prelude::*;
 
@@ -39,18 +40,18 @@ impl SampleKind {
 
     pub const fn caption(self) -> &'static str {
         match self {
-            Self::Color => "Mẫu màu theo theme hiện tại",
-            Self::FontFamily => "Mẫu font; fallback vẫn phụ thuộc font có trên máy",
-            Self::FontSize => "Mẫu cỡ chữ theo vai trò",
-            Self::FontWeight => "Mẫu độ đậm theo vai trò",
-            Self::LineHeight => "Mẫu nhịp hai dòng văn bản",
-            Self::Spacing => "Khoảng cách thực giữa hai dấu mẫu",
-            Self::Shape => "Bo góc theo vai trò trên vùng mẫu tĩnh",
-            Self::Size => "Kích thước thực của vùng mẫu tĩnh",
-            Self::Stroke => "Độ dày thực của nét mẫu",
-            Self::Shadow => "Bóng theo vai trò trên vùng mẫu tĩnh",
-            Self::Opacity => "Lớp màu có độ trong theo vai trò",
-            Self::ValueOnly => "Tham số chỉ đọc; không mô phỏng breakpoint hay motion",
+            Self::Color => tool::TOKEN_CAPTION_COLOR,
+            Self::FontFamily => tool::TOKEN_CAPTION_FONT_FAMILY,
+            Self::FontSize => tool::TOKEN_CAPTION_FONT_SIZE,
+            Self::FontWeight => tool::TOKEN_CAPTION_FONT_WEIGHT,
+            Self::LineHeight => tool::TOKEN_CAPTION_LINE_HEIGHT,
+            Self::Spacing => tool::TOKEN_CAPTION_SPACING,
+            Self::Shape => tool::TOKEN_CAPTION_SHAPE,
+            Self::Size => tool::TOKEN_CAPTION_SIZE,
+            Self::Stroke => tool::TOKEN_CAPTION_STROKE,
+            Self::Shadow => tool::TOKEN_CAPTION_SHADOW,
+            Self::Opacity => tool::TOKEN_CAPTION_OPACITY,
+            Self::ValueOnly => tool::TOKEN_CAPTION_VALUE_ONLY,
         }
     }
 }
@@ -95,13 +96,13 @@ pub fn TokenSample(token: &'static TokenRegistration) -> impl IntoView {
             <figcaption class="cui-gallery-note">{kind.caption()}</figcaption>
             {match kind {
                 SampleKind::FontFamily | SampleKind::FontSize | SampleKind::FontWeight | SampleKind::LineHeight => view! {
-                    <p class="cui-token-specimen">"Ánh đèn cuối sân khấu"<br/>"Nguyễn Thị Ánh Nguyệt vẫn nhớ lời hẹn ấy."</p>
+                    <p lang="vi-VN" data-preview-fixture="vietnamese" class="cui-token-specimen">"Ánh đèn cuối sân khấu"<br/>"Nguyễn Thị Ánh Nguyệt vẫn nhớ lời hẹn ấy."</p>
                 }.into_any(),
                 SampleKind::Spacing => view! {
                     <div class="cui-token-specimen" aria-hidden="true"><span class="cui-token-mark"></span><span class="cui-token-mark"></span></div>
                 }.into_any(),
                 SampleKind::ValueOnly => view! {
-                    <p class="cui-gallery-note">"Giá trị và đơn vị nằm trong bảng bên dưới; không tạo animation hay mô phỏng kích thước màn hình."</p>
+                    <p class="cui-gallery-note">{tool::TOKEN_VALUE_ONLY}</p>
                 }.into_any(),
                 _ => view! {
                     <div class="cui-token-specimen" aria-hidden="true"></div>

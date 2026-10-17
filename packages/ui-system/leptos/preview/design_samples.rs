@@ -1,4 +1,5 @@
 //! Preview-owned v3 workbench. Proposal metadata never creates a shared component API.
+use super::messages::tool;
 use super::{catalog, href, preview_catalog};
 use cantos_ui::{
     Button, ButtonVariant, Grid, GridColumns, Link, Select, Space, Stack, TextField, TextFieldKind,
@@ -18,21 +19,21 @@ pub fn DesignInventory(
             <Stack>
                 <header class="cui-gallery-header">
                     <p class="cui-gallery-eyebrow">"Design v3 · component-first"</p>
-                    <h2 id="gallery-design-heading">"Tìm đúng mẫu trước khi xây màn"</h2>
-                    <p>"Tìm → dùng lại hoặc mở rộng → khai báo và thử mẫu còn thiếu → kiểm tra → admission → dùng trong sản phẩm."</p>
-                    <p class="cui-gallery-note">"Thiết kế đề xuất có owner, consumer, anatomy và trạng thái dự kiến. Registration và qualification runtime được ghi riêng; một mẫu thiết kế không tự tạo public API."</p>
+                    <h2 lang=tool::LANGUAGE_TAG id="gallery-design-heading">{tool::DESIGN_TITLE}</h2>
+                    <p lang=tool::LANGUAGE_TAG>{tool::DESIGN_FLOW}</p>
+                    <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::DESIGN_HELP}</p>
                 </header>
                 <Grid columns=GridColumns::Three>
-                    <TextField id="gallery-design-query" label="Tìm trong design v3" kind=TextFieldKind::Search value=query
-                        placeholder="Ví dụ: mini-player, Studio, focus, color.primary"
+                    <TextField id="gallery-design-query" label=tool::DESIGN_SEARCH kind=TextFieldKind::Search value=query
+                        placeholder=tool::DESIGN_PLACEHOLDER
                         on_input=Callback::new(move |value| query.set(value))/>
-                    <Select id="gallery-design-status" label="Trạng thái thiết kế" value=status on_input=Callback::new(move |value| status.set(value))>
-                        <option value="all">"Tất cả thiết kế"</option>
-                        <option value="existing">"API kế thừa"</option>
-                        <option value="proposed">"Đề xuất — chưa admission"</option>
+                    <Select id="gallery-design-status" label=tool::DESIGN_STATUS value=status on_input=Callback::new(move |value| status.set(value))>
+                        <option value="all">{tool::DESIGN_ALL}</option>
+                        <option value="existing">{tool::DESIGN_EXISTING}</option>
+                        <option value="proposed">{tool::DESIGN_PROPOSED}</option>
                     </Select>
-                    <Select id="gallery-design-scope" label="Phạm vi owner" value=scope on_input=Callback::new(move |value| scope.set(value))>
-                        <option value="all">"Tất cả phạm vi"</option>
+                    <Select id="gallery-design-scope" label=tool::DESIGN_SCOPE value=scope on_input=Callback::new(move |value| scope.set(value))>
+                        <option value="all">{tool::SCOPE_ALL}</option>
                         <option value="shared-primitive">"Shared primitive"</option>
                         <option value="shared-composition">"Shared composition"</option>
                         <option value="app-owned">"App-owned"</option>
@@ -41,17 +42,17 @@ pub fn DesignInventory(
                 </Grid>
                 <Button id="gallery-design-reset" variant=ButtonVariant::Text on_press=Callback::new(move |_| {
                     query.set(String::new()); status.set("all".to_owned()); scope.set("all".to_owned());
-                })>"Xóa bộ lọc thiết kế"</Button>
+                })>{tool::DESIGN_RESET}</Button>
                 <p id="gallery-design-count" class="cui-gallery-note" role="status" aria-live="polite" aria-atomic="true">
-                    {move || format!("{} / {} specimen khớp · {} public APIs · qualification cần evidence riêng",
+                    {move || tool::design_count(
                         preview_catalog::DESIGN_SPECIMENS.iter().filter(|entry| catalog::design_matches(entry, &status.get(), &scope.get(), &query.get())).count(),
                         preview_catalog::DESIGN_SPECIMENS.len(), preview_catalog::COMPONENTS.len())}
                 </p>
                 <p id="gallery-design-empty" hidden=move || preview_catalog::DESIGN_SPECIMENS.iter().any(|entry| catalog::design_matches(entry, &status.get(), &scope.get(), &query.get()))>
-                    "Không có specimen khớp. Xóa bộ lọc để tìm lại."
+                    {tool::DESIGN_EMPTY}
                 </p>
                 <details class="cui-design-list" open=move || !query.get().is_empty() || status.get() != "all" || scope.get() != "all">
-                <summary>"Mở inventory anatomy, states và tokens"</summary>
+                <summary>{tool::DESIGN_DETAILS}</summary>
                 <ul class="cui-design-entries">
                     {preview_catalog::DESIGN_SPECIMENS.iter().map(|entry| {
                         let registration = catalog::specimen_registration(entry);
@@ -63,22 +64,22 @@ pub fn DesignInventory(
                                     <Stack gap=Space::Sm>
                                         <p>{entry.description}</p>
                                         <dl class="cui-catalog-meta">
-                                            <div><dt>"Owner / phạm vi"</dt><dd>{entry.owner}" · "{entry.scope}</dd></div>
-                                            <div><dt>"Consumer dự kiến"</dt><dd>{entry.consumer}</dd></div>
+                                            <div><dt>{tool::DESIGN_OWNER}</dt><dd>{entry.owner}" · "{entry.scope}</dd></div>
+                                            <div><dt>{tool::DESIGN_CONSUMER}</dt><dd>{entry.consumer}</dd></div>
                                             <div><dt>"Anatomy"</dt><dd>{entry.anatomy.join(" → ")}</dd></div>
-                                            <div><dt>"State matrix thiết kế"</dt><dd>{entry.states.join(" · ")}</dd></div>
-                                            <div><dt>"API tái sử dụng"</dt><dd class="cui-design-token-links">{entry.component_ids.iter().filter_map(|id| {
+                                            <div><dt>{tool::DESIGN_MATRIX}</dt><dd>{entry.states.join(" · ")}</dd></div>
+                                            <div><dt>{tool::DESIGN_REUSE}</dt><dd class="cui-design-token-links">{entry.component_ids.iter().filter_map(|id| {
                                                 let api = preview_catalog::COMPONENTS.iter().find(|api| api.id == *id)?;
                                                 let anchor = catalog::sample_anchor(api.family)?;
                                                 Some(view! { <Link id=format!("gallery-design-{}-reuse-{}", entry.id, id) href=href(&format!("#{anchor}"))
                                                     on_press=Callback::new(move |_| on_sample.run(api.family))>{api.name}</Link> })
                                             }).collect_view()}</dd></div>
-                                            <div><dt>"Lý do / admission"</dt><dd>{entry.reason}</dd></div>
+                                            <div><dt>{tool::DESIGN_REASON}</dt><dd>{entry.reason}</dd></div>
                                             <div><dt>"Runtime Leptos / CMP"</dt><dd>{registration.map_or_else(
-                                                || "planned · chưa có public API; chưa qualified".to_owned(),
-                                                |api| format!("{} / {} · qualification cần evidence riêng", api.leptos.status, api.cmp.status))}</dd></div>
+                                                || tool::DESIGN_PENDING.to_owned(),
+                                                |api| tool::renderer_status( api.leptos.status, api.cmp.status))}</dd></div>
                                             {registration.map(|api| view! {
-                                                <div><dt>"Baseline states được giữ"</dt><dd>{api.states.join(" · ")}</dd></div>
+                                                <div><dt>{tool::DESIGN_BASELINE}</dt><dd>{api.states.join(" · ")}</dd></div>
                                             })}
                                         </dl>
                                         <div class="cui-design-token-links">
@@ -89,7 +90,7 @@ pub fn DesignInventory(
                                         </div>
                                         {registration.and_then(|api| catalog::sample_anchor(api.family).map(|anchor| (api.family, anchor))).map(|(family, anchor)| view! {
                                             <Link id=format!("gallery-design-{}-sample", entry.id) href=href(&format!("#{anchor}"))
-                                                on_press=Callback::new(move |_| on_sample.run(family))>"Xem sample API hiện có bên dưới"</Link>
+                                                on_press=Callback::new(move |_| on_sample.run(family))>{tool::DESIGN_SAMPLE}</Link>
                                         })}
                                     </Stack>
                                 </details>
@@ -99,14 +100,14 @@ pub fn DesignInventory(
                 </ul>
                 </details>
                 <details class="cui-design-provenance">
-                    <summary>"Nguồn và giới hạn so sánh"</summary>
-                    <p>"PNG trong handoff là offline static export. Đối chiếu browser cần reference từ HTML cùng viewport/state; ảnh không chứng minh interaction hoặc motion."</p>
+                    <summary>{tool::DESIGN_LIMITS}</summary>
+                    <p lang=tool::LANGUAGE_TAG>{tool::DESIGN_SOURCE_HELP}</p>
                     <dl class="cui-catalog-meta">
                         <div><dt>"Design version"</dt><dd>{preview_catalog::DESIGN_VERSION}</dd></div>
                         <div><dt>"Manifest SHA-256"</dt><dd><code>{preview_catalog::DESIGN_SOURCE_SHA256}</code></dd></div>
                         <div><dt>"Baseline SHA-256"</dt><dd><code>{preview_catalog::DESIGN_BASELINE_SHA256}</code></dd></div>
                     </dl>
-                    <a href=preview_catalog::DESIGN_SOURCE_URL>"Manifest design v3 trên Drive"</a>
+                    <a href=preview_catalog::DESIGN_SOURCE_URL>{tool::DESIGN_MANIFEST}</a>
                 </details>
             </Stack>
         </section>
@@ -127,10 +128,10 @@ pub fn PrototypeCompositions() -> impl IntoView {
     let draft = RwSignal::new("Ánh đèn cuối sân khấu — lời hẹn chưa bao giờ nói ra".to_owned());
     let review = RwSignal::new("empty".to_owned());
     view! {
-        <section id="gallery-compositions" data-preview-scenario="v3-compositions" aria-labelledby="gallery-compositions-heading">
+        <section lang="vi-VN" data-preview-fixture="vietnamese" id="gallery-compositions" data-preview-scenario="v3-compositions" aria-labelledby="gallery-compositions-heading">
             <Stack>
-                <h2 id="gallery-compositions-heading">"Thử composition cho consumer kế tiếp"</h2>
-                <p class="cui-gallery-note">"Fixture đề xuất · planned · chưa qualified. Tái sử dụng Button, RangeField, TextField, Select, Status, Badge, Surface, Grid và Stack; không xuất public API mới."</p>
+                <h2 lang=tool::LANGUAGE_TAG id="gallery-compositions-heading">{tool::PROTOTYPE_TITLE}</h2>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::PROTOTYPE_HELP}</p>
                 <Grid columns=GridColumns::Two>
                     <Surface tone=SurfaceTone::Reading>
                         <article data-prototype="episode-list mini-player" aria-labelledby="gallery-listening-prototype-heading">
@@ -176,7 +177,7 @@ pub fn PrototypeCompositions() -> impl IntoView {
                         </article>
                     </Surface>
                 </Grid>
-                <p class="cui-gallery-note">"Scenario v3-compositions: VI dài · vị trí 0 · empty/loading/error/review · input giữ nguyên khi theme, density hoặc text scale đổi. Prototype không đủ admission để product import."</p>
+                <p lang=tool::LANGUAGE_TAG class="cui-gallery-note">{tool::PROTOTYPE_LIMITS}</p>
             </Stack>
         </section>
     }

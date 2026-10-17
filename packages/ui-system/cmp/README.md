@@ -115,6 +115,20 @@ Preview-local geometry (master pane, nested sample roots, narrow-sample cap, tok
 declared once in `PreviewGeometry` with its unit (dp), scope and reason; it is derived from
 canonical breakpoints and is not a token definition. Shared components read tokens only.
 
+### Preview tool language and specimen language
+
+`preview/PreviewToolCopy.kt` owns the developer tool's fixed English labels, instructions,
+status framing and accessible names. This bounded policy matches the Leptos preview; it adds
+no app catalog import, locale preference or production localization library. Tool copy is
+separate from Vietnamese typography/accessibility specimen labels and synthetic story data in
+`ComponentExample`, `AuthAccountSamples` and `LogoSamples`. Those fixtures deliberately retain
+long names, tone marks and wrapping probes. Generated component/inventory names, states, token
+roles and diagnostic error identifiers are displayed verbatim for inspection.
+
+`PreviewSettings.locale` remains the **synthetic specimen content language**, independent of
+the fixed tool language. It selects a fresh fixture as documented below; it is not an app UI
+locale control. This preview policy does not settle the production catalog decision in #167.
+
 ## Scenario recipes and replay
 
 The **Workbench** tab renders the same `ComponentExample` used by the catalog and Android preview

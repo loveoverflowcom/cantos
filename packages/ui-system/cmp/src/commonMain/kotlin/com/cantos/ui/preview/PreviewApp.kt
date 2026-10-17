@@ -152,7 +152,7 @@ fun PreviewApp(
     var category by remember { mutableStateOf<String?>(null) }
     var selectedId by remember { mutableStateOf("button") }
     var section by remember { mutableStateOf(initialSection) }
-    var event by remember { mutableStateOf("Chưa có thao tác. Các ví dụ chỉ thay đổi dữ liệu tại chỗ.") }
+    var event by remember { mutableStateOf(PreviewToolCopy.NoEvents) }
     val components = filterComponents(query, category)
     val selected = resolvePreviewSelection(components, selectedId)
     // The inventory links back here: reset the filters so the chosen component is actually displayed.
@@ -161,7 +161,7 @@ fun PreviewApp(
         query = ""
         category = null
         section = 0
-        event = "Opened $id from the design inventory. Registration is not qualification."
+        event = PreviewToolCopy.openedComponent(id)
     }
     PreviewRoot(preferences, uiFontFamily, editorialFontFamily) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -177,15 +177,15 @@ fun PreviewApp(
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(tokenDp("space.lg")),
                     verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
                     Column {
-                        Text("Cantos UI System", style = MaterialTheme.typography.headlineMedium)
-                        FieldHelp("CMP · Desktop preview · tokens v${CantosTokens.version}")
+                        Text(PreviewToolCopy.Title, style = MaterialTheme.typography.headlineMedium)
+                        FieldHelp(PreviewToolCopy.rendererVersion(CantosTokens.version))
                     }
-                    Badge("Implemented · runtime unverified", tone = StatusTone.Warning)
+                    Badge(PreviewToolCopy.Unverified, tone = StatusTone.Warning)
                 }
                 ViewportProbe(viewportWidth, viewportHeight, host, preferences)
                 PreviewControls(preferences, themeMode, systemIsDark, { themeMode = it }, { chosen = it }, onWidthPreset)
-                NavTabs(listOf("Components", "Named tokens", "Design v3", "Workbench"), section, { section = it },
-                    groupName = AccessibleName.of("Khu vực phòng mẫu"))
+                NavTabs(listOf(PreviewToolCopy.Components, PreviewToolCopy.Tokens, PreviewToolCopy.Inventory, PreviewToolCopy.Workbench), section, { section = it },
+                    groupName = AccessibleName.of(PreviewToolCopy.SectionsName))
                 // Keep nested panes bounded when large text makes the outer page scroll.
                 val region = if (scrollWholePage) Modifier.height(viewportHeight) else Modifier.weight(1f)
                 if (section == 3) {
@@ -205,15 +205,15 @@ fun PreviewApp(
                         } else {
                             Column(Modifier.verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-                                TextField("Find component", query, { query = it })
+                                TextField(PreviewToolCopy.FindComponent, query, { query = it })
                                 if (components.isEmpty()) {
-                                    EmptyState("Không có kết quả", "Thử tìm theo tên component hoặc nhóm.")
+                                    EmptyState(PreviewToolCopy.NoResults, PreviewToolCopy.SearchHelp)
                                 } else {
-                                    Select("Component", components.map { it.name },
+                                    Select(PreviewToolCopy.Component, components.map { it.name },
                                         components.indexOfFirst { it.id == selected?.id },
                                         { selectedId = components[it].id },
-                                        expandedDescription = "Danh sách component đang mở",
-                                        collapsedDescription = "Danh sách component đang đóng")
+                                        expandedDescription = PreviewToolCopy.ComponentsOpen,
+                                        collapsedDescription = PreviewToolCopy.ComponentsClosed)
                                 }
                                 ComponentDetail(selected, { event = it })
                             }
@@ -222,7 +222,7 @@ fun PreviewApp(
                 }
                 Surface(tone = SurfaceTone.Container) {
                     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
-                        FieldLabel("Event log")
+                        FieldLabel(PreviewToolCopy.EventLog)
                         FieldHelp(event)
                     }
                 }
@@ -254,8 +254,7 @@ private fun PreviewRoot(
 private fun ViewportProbe(width: Dp, height: Dp, host: DisplayDensity, preferences: UiPreferences) {
     val effective = LocalDensity.current.fontScale
     FieldHelp(
-        "Viewport ${width.value.roundToInt()}×${height.value.roundToInt()} dp · ${host.density} px/dp · " +
-            "font scale host ${host.fontScale} × preview ${preferences.textScale} = $effective · fixtures vi-VN",
+        PreviewToolCopy.viewport(width.value.roundToInt(), height.value.roundToInt(), host.density, host.fontScale, preferences.textScale, effective),
     )
 }
 
@@ -273,22 +272,22 @@ private fun PreviewControls(
         ThemeMode.entries.forEach { choice ->
             FilterChip(choice.name, mode == choice, { onMode(choice) })
         }
-        FilterChip("Compact", preferences.density == Density.Compact, { onChange(preferences.copy(density = Density.Compact)) })
-        FilterChip("Comfortable", preferences.density == Density.Comfortable, { onChange(preferences.copy(density = Density.Comfortable)) })
-        FilterChip("Reduced motion", preferences.reducedMotion, { onChange(preferences.copy(reducedMotion = it)) })
+        FilterChip(PreviewToolCopy.Compact, preferences.density == Density.Compact, { onChange(preferences.copy(density = Density.Compact)) })
+        FilterChip(PreviewToolCopy.Comfortable, preferences.density == Density.Comfortable, { onChange(preferences.copy(density = Density.Comfortable)) })
+        FilterChip(PreviewToolCopy.ReducedMotion, preferences.reducedMotion, { onChange(preferences.copy(reducedMotion = it)) })
         listOf(1f, 1.3f, 2f).forEach { scale ->
-            FilterChip("Text ${scale}×", preferences.textScale == scale, { onChange(preferences.copy(textScale = scale)) })
+            FilterChip(PreviewToolCopy.textScale(scale), preferences.textScale == scale, { onChange(preferences.copy(textScale = scale)) })
         }
         // An inert control would mislead in a host that cannot resize its window (Android previews, test roots).
         onWidthPreset?.let { resize ->
             ViewportPreset.entries.forEach { preset ->
-                Button(AccessibleName.of("Set window width to ${preset.label}"), { resize(preset) }, variant = ButtonVariant.Text) {
+                Button(AccessibleName.of(PreviewToolCopy.setWidth(preset.label)), { resize(preset) }, variant = ButtonVariant.Text) {
                     Text(preset.label)
                 }
             }
         }
     }
-    FieldHelp("Theme mode ${mode.name} → ${preferences.theme.tokenName}; host reports ${if (systemIsDark) "dark" else "light"}. Only System follows the host.")
+    FieldHelp(PreviewToolCopy.themeStatus(mode.name, preferences.theme.tokenName, systemIsDark))
 }
 
 @Composable
@@ -304,23 +303,23 @@ private fun ComponentBrowser(
 ) {
     Column(modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-        TextField("Find component", query, onQuery)
-        FieldLabel("${components.size} components")
-        FilterChip("All families", category == null, { onCategory(null) })
+        TextField(PreviewToolCopy.FindComponent, query, onQuery)
+        FieldLabel(PreviewToolCopy.componentCount(components.size))
+        FilterChip(PreviewToolCopy.AllFamilies, category == null, { onCategory(null) })
         PreviewCatalog.components.map { it.category }.distinct().forEach { family ->
             FilterChip(family, family == category, { onCategory(if (it) family else null) })
         }
         components.forEach { component ->
             NavItem(component.name, selected == component.id, { onSelect(component.id) })
         }
-        if (components.isEmpty()) FieldHelp("Không có kết quả")
+        if (components.isEmpty()) FieldHelp(PreviewToolCopy.NoResults)
     }
 }
 
 @Composable
 private fun ComponentDetail(component: PreviewComponent?, onEvent: (String) -> Unit, modifier: Modifier = Modifier) {
     if (component == null) {
-        EmptyState("Chọn component", "Chọn một ví dụ để thử các trạng thái.", modifier)
+        EmptyState(PreviewToolCopy.ChooseComponent, PreviewToolCopy.ChooseComponentHelp, modifier)
         return
     }
     key(component.id) {
@@ -337,11 +336,11 @@ private fun ComponentDetail(component: PreviewComponent?, onEvent: (String) -> U
                     FilterChip(choice, state == choice, { state = choice })
                 }
             }
-            FieldHelp("Focus is real keyboard focus. Use Tab/Shift+Tab, Enter, Space and Escape; no state is a verified badge.")
+            FieldHelp(PreviewToolCopy.FocusHelp)
             Surface(Modifier.fillMaxWidth(), tone = SurfaceTone.Surface) {
                 val example = PreviewExample.fromId(component.id)
                 if (example == null || component.cmpStatus == "unsupported") {
-                    ErrorState("Unsupported", component.cmpReason ?: "No native example has been declared.", "Retry", {})
+                    ErrorState(PreviewToolCopy.Unsupported, component.cmpReason ?: PreviewToolCopy.NoNativeExample, PreviewToolCopy.Retry, {})
                 } else {
                     ComponentExample(example, state, onEvent, Modifier.focusRequester(focusRequester))
                     if (state == "focus") {
@@ -350,10 +349,10 @@ private fun ComponentDetail(component: PreviewComponent?, onEvent: (String) -> U
                 }
             }
             if (component.id == "grid" || component.id == "container") {
-                FieldHelp("The available host width wins. Wide/column presets reflow at named breakpoints; use the width controls to inspect the actual viewport.")
+                FieldHelp(PreviewToolCopy.WidthHelp)
             }
             if (component.id == "error-state" && state == "retry") {
-                FieldHelp("Activate Thử lại to inspect the real retry callback and event count; choosing this preset does not dispatch an action.")
+                FieldHelp(PreviewToolCopy.RetryHelp)
             }
             ParityNotes(component.id)
         }
@@ -363,15 +362,15 @@ private fun ComponentDetail(component: PreviewComponent?, onEvent: (String) -> U
 @Composable
 private fun ParityNotes(id: String) {
     val note = when (id) {
-        "link" -> "Native Link dispatches a URI callback. Browser href, target, download and history are web-only; the preview does not launch a site."
-        "number-field" -> "Native decimal keyboard hint preserves raw text. HTML min/max/step browser validation is platform-specific; the caller owns numeric validation."
-        "field-label" -> "Native labels are composed into each control's semantics. HTML for/id associations do not exist in Compose."
-        "nav-tabs" -> "Native in-place tabs expose selection and a named group; Arrow/Home/End move focus and request selection. Leptos uses navigation links, not ARIA tabs."
-        "select" -> "Stable values survive reordered labels. Empty/missing selection never emits a callback. Unsupported options retain their reason. External input changes close the menu."
-        "dialog" -> "Native modal and return-focus sample; DOM inertness/showModal and Android/iOS Back require their own renderer evidence."
-        "loading-state" -> "Static labelled pending state. No indeterminate animation is presented as reduced-motion verification."
-        "ui-root" -> "Fonts map shared Noto family intent to platform sans/serif fallback. Embedded Noto assets and mobile safe-area/reduced-motion adapters remain unverified."
-        else -> "Common Compose wrapper and callbacks implemented. Desktop build, native pixels, screen-reader operation and Android/iOS parity are not verified here."
+        "link" -> PreviewToolCopy.LinkParity
+        "number-field" -> PreviewToolCopy.NumberFieldParity
+        "field-label" -> PreviewToolCopy.FieldLabelParity
+        "nav-tabs" -> PreviewToolCopy.NavTabsParity
+        "select" -> PreviewToolCopy.SelectParity
+        "dialog" -> PreviewToolCopy.DialogParity
+        "loading-state" -> PreviewToolCopy.LoadingParity
+        "ui-root" -> PreviewToolCopy.UiRootParity
+        else -> PreviewToolCopy.CommonParity
     }
     FieldHelp(note)
 }
@@ -461,8 +460,8 @@ internal fun ComponentExample(
             UiRoot(modifier.height(PreviewGeometry.sampleRoot).fillMaxWidth(), preferences = nested) {
                 Container {
                     Stack {
-                        Text("Ánh đèn cuối sân khấu", style = MaterialTheme.typography.headlineSmall)
-                        Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? · Ỗ, Ữ", style = typeStyle("editor", editorial = true))
+                        Text(vietnameseSpecimenText("Ánh đèn cuối sân khấu"), style = MaterialTheme.typography.headlineSmall)
+                        Text(vietnameseSpecimenText("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? · Ỗ, Ữ"), style = typeStyle("editor", editorial = true))
                         Button("Lưu bản nháp", onPress)
                         if (state == "nested-theme") {
                             UiRoot(
@@ -470,7 +469,7 @@ internal fun ComponentExample(
                                 preferences = nested.copy(theme = Theme.Dark),
                             ) {
                                 Container {
-                                    Text("Theme lồng nhau · cùng cỡ chữ: Ỗ, Ữ")
+                                    Text(PreviewToolCopy.NestedThemeHelp)
                                 }
                             }
                         }
@@ -519,7 +518,7 @@ internal fun ComponentExample(
                             controlModifier = if (variant == ButtonVariant.Primary) modifier else Modifier) {
                             Icon("add")
                             androidx.compose.foundation.layout.Spacer(Modifier.size(tokenDp("space.sm")))
-                            Text("Lưu · ${variant.name}")
+                            Text(vietnameseSpecimenText("Lưu · ${variant.name}"))
                         }
                     } else {
                         Button("Lưu · ${variant.name}", onPress, state = buttonState, variant = variant, icon = "save",
@@ -535,7 +534,7 @@ internal fun ComponentExample(
                 ) {
                     Icon("add")
                     androidx.compose.foundation.layout.Spacer(Modifier.size(tokenDp("space.sm")))
-                    Text("Thêm cảnh · Ỗ, Ữ")
+                    Text(vietnameseSpecimenText("Thêm cảnh · Ỗ, Ữ"))
                 }
             }
             FieldHelp("Callback count: ${sample.presses}")
@@ -677,7 +676,7 @@ internal fun ComponentExample(
             val text = "Ánh đèn cuối sân khấu · Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên dấu tiếng Việt trong lời thoại dài."
             val preferences = LocalUiPreferences.current
             CantosTheme(preferences.copy(textScale = if (state == "large-text") 2f else preferences.textScale)) {
-                Text(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text,
+                Text(vietnameseSpecimenText(if (state == "long-text") List(4) { text }.joinToString("\n\n") else text),
                     style = if (state == "reading") typeStyle("editor", editorial = true) else MaterialTheme.typography.bodyMedium)
             }
         }
@@ -693,20 +692,20 @@ internal fun ComponentExample(
                 Badge("Người dẫn chuyện")
                 Badge("Nguyễn Thị Minh Phương")
                 Badge("Ánh đèn cuối sân khấu · bản nháp chưa xuất bản")
-                if (state == "long-text") Text("Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên ghi chú phát âm và lời thoại tiếng Việt dài, không thu nhỏ chữ để ép nội dung vào một hàng.")
+                if (state == "long-text") Text(vietnameseSpecimenText("Ngày mai, mình có diễn tiếp không? Nguyễn Thị Minh Phương giữ nguyên ghi chú phát âm và lời thoại tiếng Việt dài, không thu nhỏ chữ để ép nội dung vào một hàng."))
             }
         }
         PreviewExample.Grid -> Grid(listOf(
-            { Surface { Text("Ánh đèn cuối sân khấu · cảnh một") } },
-            { Surface(tone = SurfaceTone.Container) { Text("Ngày mai, mình có diễn tiếp không? · cảnh hai") } },
-            { Surface { Text("Nguyễn Thị Minh Phương · lời thoại dài có dấu tiếng Việt") } },
+            { Surface { Text(vietnameseSpecimenText("Ánh đèn cuối sân khấu · cảnh một")) } },
+            { Surface(tone = SurfaceTone.Container) { Text(vietnameseSpecimenText("Ngày mai, mình có diễn tiếp không? · cảnh hai")) } },
+            { Surface { Text(vietnameseSpecimenText("Nguyễn Thị Minh Phương · lời thoại dài có dấu tiếng Việt")) } },
         ), if (state == "narrow") modifier.widthIn(max = PreviewGeometry.narrowSampleMaxWidth) else modifier,
             requestedColumns = when (state) { "one-column", "narrow" -> 1; "three-columns", "wide" -> 3; else -> 2 },
             gap = if (state == "gap-lg") Space.Lg else Space.Md)
         PreviewExample.Container -> Container(if (state == "narrow") modifier.widthIn(max = PreviewGeometry.narrowSampleMaxWidth) else modifier, width = when (state) {
             "wide" -> ContainerWidth.Wide; "fluid" -> ContainerWidth.Fluid; else -> ContainerWidth.Reading
         }, inset = if (state == "inset-none") Space.None else Space.Md) {
-            Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? Ánh đèn cuối sân khấu còn sáng; bản nháp này dùng để thử xuống dòng và tăng cỡ chữ.")
+            Text(vietnameseSpecimenText("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không? Ánh đèn cuối sân khấu còn sáng; bản nháp này dùng để thử xuống dòng và tăng cỡ chữ."))
         }
         PreviewExample.Dialog -> DialogExample(sample, dispatch, onEvent, modifier)
         PreviewExample.Icon -> FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(tokenDp("space.md")),
@@ -757,13 +756,13 @@ private fun DialogExample(sample: ComponentSampleState, dispatch: (ComponentSamp
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
         Button("Mở thông tin bản nháp", { dispatch(ComponentSampleIntent.SetDialogOpen(true)); onEvent("Dialog opened") },
             controlModifier = Modifier.focusRequester(triggerFocus))
-        FieldHelp("Mở, nhấn Tab/Shift+Tab, rồi Escape hoặc Đóng. Kiểm tra focus quay về nút mở; preset không chứng minh kết quả.")
+        FieldHelp(PreviewToolCopy.DialogFocusHelp)
         Dialog(sample.dialogOpen, "Ánh đèn cuối sân khấu · bản nháp", "Đóng", {
             dispatch(ComponentSampleIntent.SetDialogOpen(false))
             onEvent("Dialog dismissed; requested trigger focus restoration")
         }, returnFocus = triggerFocus) {
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
-                Text("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?")
+                Text(vietnameseSpecimenText("Người dẫn chuyện: Ngày mai, mình có diễn tiếp không?"))
                 TextField("Ghi chú bản nháp", sample.dialogNote, { dispatch(ComponentSampleIntent.SetDialogNote(it)) })
             }
         }
@@ -776,8 +775,8 @@ private fun TokenCatalog(preferences: UiPreferences, modifier: Modifier) {
     var query by remember { mutableStateOf("") }
     val entries = CantosTokens.entries.filter { it.name.contains(query.trim(), ignoreCase = true) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.md"))) {
-        TextField("Find named token", query, { query = it })
-        FieldHelp("${entries.size} roles · ${preferences.theme.tokenName} · ${preferences.density.tokenName} · one generated source")
+        TextField(PreviewToolCopy.FindToken, query, { query = it })
+        FieldHelp(PreviewToolCopy.tokenCount(entries.size, preferences.theme.tokenName, preferences.density.tokenName))
         SelectionContainer {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
@@ -791,12 +790,12 @@ private fun TokenCatalog(preferences: UiPreferences, modifier: Modifier) {
                                     CantosTokens.number(entry.name, reducedMotion = true).toInt().toString()
                                 else CantosTokens.raw(entry.name, preferences.theme.tokenName, preferences.density.tokenName)
                                 Text("${entry.kind} · $value", style = MaterialTheme.typography.bodySmall)
-                                entry.aliasOf?.let { FieldHelp("Alias of $it") }
+                                entry.aliasOf?.let { FieldHelp(PreviewToolCopy.alias(it)) }
                             }
                         }
                     }
                 }
-                if (entries.isEmpty()) EmptyState("Không có token", "Thử color.primary, space.md hoặc type.body.size.")
+                if (entries.isEmpty()) EmptyState(PreviewToolCopy.NoTokens, PreviewToolCopy.TokenSearchHelp)
             }
         }
     }
@@ -813,8 +812,8 @@ private fun TokenSample(entry: TokenValue) {
             val editorial = role == "editor" || entry.name == "type.family.editorial"
             val mappedRole = if (role in listOf("body", "title", "headline", "label", "metadata", "editor")) role ?: "body" else "body"
             Column(Modifier.width(PreviewGeometry.tokenSampleColumn)) {
-                Text(reading, style = typeStyle(mappedRole, editorial = editorial))
-                FieldHelp("Platform font fallback · ${if (editorial) "serif" else "sans"}")
+                Text(vietnameseSpecimenText(reading), style = typeStyle(mappedRole, editorial = editorial))
+                FieldHelp(PreviewToolCopy.fontFallback(editorial))
             }
         }
         entry.name.startsWith("shape.") -> Box(
@@ -826,13 +825,13 @@ private fun TokenSample(entry: TokenValue) {
             val bound = PreviewGeometry.tokenBarBound
             Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
                 Box(Modifier.width(minOf(amount, bound)).height(tokenDp("space.sm")).background(tokenColor("color.primary")))
-                if (amount > bound) FieldHelp("Sample clipped; value stays exact")
+                if (amount > bound) FieldHelp(PreviewToolCopy.ClippedSample)
             }
         }
         entry.name.startsWith("state.") -> Box(
             Modifier.size(tokenDp("size.control"))
                 .background(tokenColor("color.primary").copy(alpha = CantosTokens.number(entry.name).toFloat())),
         )
-        entry.kind == "duration" || entry.kind == "cubicBezier" -> FieldHelp("Intent value · motion not demonstrated")
+        entry.kind == "duration" || entry.kind == "cubicBezier" -> FieldHelp(PreviewToolCopy.MotionNotDemonstrated)
     }
 }

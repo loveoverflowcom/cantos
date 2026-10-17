@@ -1,5 +1,6 @@
 //! Preview-owned native editing diagnostics; no new shared Web component API.
 
+use super::messages::tool;
 use cantos_ui::{
     Button, ButtonState, ButtonVariant, Density, FieldHelp, FieldLabel, FieldState, Grid,
     GridColumns, IconName, NumberField, Select, Space, Stack, Surface, SurfaceTone, Switch,
@@ -10,10 +11,10 @@ use leptos::{html, prelude::*};
 /// Browser-only observation owned by the preview composition root, never a shared control.
 #[component]
 pub fn FontReadinessSample() -> impl IntoView {
-    let observation = RwSignal::new("NOT_RUN: chưa kiểm tra font trong browser.".to_owned());
+    let observation = RwSignal::new(tool::FONT_PENDING.to_owned());
     view! {
-        <Stack gap=Space::Sm>
-            <Button id="gallery-font-check" variant=ButtonVariant::Text on_press=Callback::new(move |_| observation.set(font_observation()))>"Kiểm tra bốn font Noto đã tải"</Button>
+        <Stack attr:lang=tool::LANGUAGE_TAG gap=Space::Sm>
+            <Button id="gallery-font-check" variant=ButtonVariant::Text on_press=Callback::new(move |_| observation.set(font_observation()))>{tool::FONT_CHECK}</Button>
             <output id="gallery-font-readiness" role="status">{move || observation.get()}</output>
         </Stack>
     }
@@ -22,7 +23,7 @@ pub fn FontReadinessSample() -> impl IntoView {
 #[cfg(target_arch = "wasm32")]
 fn font_observation() -> String {
     let Some(document) = leptos::web_sys::window().and_then(|window| window.document()) else {
-        return "UNSUPPORTED: browser document không có sẵn.".to_owned();
+        return tool::FONT_NO_DOCUMENT.to_owned();
     };
     use leptos::wasm_bindgen::{closure::Closure, JsCast};
     use std::{cell::RefCell, rc::Rc};
@@ -44,10 +45,10 @@ fn font_observation() -> String {
         .for_each(callback.as_ref().unchecked_ref())
         .is_err()
     {
-        return "UNSUPPORTED: không đọc được FontFaceSet.".to_owned();
+        return tool::FONT_NO_SET.to_owned();
     }
     let Ok(faces) = observed.try_borrow() else {
-        return "UNSUPPORTED: không đọc được font observations.".to_owned();
+        return tool::FONT_NO_OBSERVATIONS.to_owned();
     };
     let mut records = Vec::new();
     for family in ["Noto Sans", "Noto Serif"] {
@@ -57,9 +58,9 @@ fn font_observation() -> String {
                 .find(|(name, face_weight, _)| name == family && face_weight == weight)
             {
                 Some((_, _, FontFaceLoadStatus::Loaded)) => "loaded",
-                Some((_, _, FontFaceLoadStatus::Error)) => "FAIL: font tải lỗi",
-                Some(_) => "NOT_RUN: chưa tải xong",
-                None => "UNSUPPORTED: chưa khai báo face",
+                Some((_, _, FontFaceLoadStatus::Error)) => tool::FONT_LOAD_FAILED,
+                Some(_) => tool::FONT_LOADING,
+                None => tool::FONT_UNDECLARED,
             };
             records.push(format!("{family} {weight}: {result}"));
         }
@@ -69,7 +70,7 @@ fn font_observation() -> String {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn font_observation() -> String {
-    "NOT_RUN: font readiness cần browser thật.".to_owned()
+    tool::FONT_NEEDS_BROWSER.to_owned()
 }
 
 #[component]
@@ -78,7 +79,7 @@ pub fn NestedThemeSample() -> impl IntoView {
     let value = RwSignal::new("Nguyễn Thị Ánh Nguyệt — lời hẹn còn nguyên".to_owned());
     view! {
         <div data-preview-scenario="nested-theme">
-            <Stack gap=Space::Sm>
+            <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
                 <h3>"Theme và mật độ có phạm vi riêng"</h3>
                 <Switch id="gallery-nested-theme-toggle" label="Vùng lồng dùng theme tối"
                     checked=dark on_change=Callback::new(move |next| dark.set(next))/>
@@ -104,7 +105,7 @@ pub fn ComposedButtonSample(#[prop(into)] state: Signal<ButtonState>) -> impl In
     let press = composed_press(state, count);
     view! {
         <div data-preview-scenario="composed-content">
-            <Stack gap=Space::Sm>
+            <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
                 <Button id="gallery-composed-button" variant=ButtonVariant::Tonal state=state on_press=Callback::new(move |_| press.run(())) icon=IconName::MenuBook>
                     <span>"Đọc lời hẹn dưới chân Thanh Vân Sơn"</span>
                 </Button>
@@ -168,7 +169,7 @@ pub fn FieldFoundationSamples(#[prop(into)] state: Signal<FieldState>) -> impl I
     view! {
         <Stack>
             <div data-preview-scenario="blank-error">
-                <Stack gap=Space::Sm>
+                <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
                     <h3>"Lỗi rỗng không làm trường nhập thành invalid"</h3>
                     <Select id="gallery-blank-error-state" label="Nội dung lỗi minh họa"
                         value=error_mode on_input=Callback::new(move |next| error_mode.set(next))>
@@ -188,7 +189,7 @@ pub fn FieldFoundationSamples(#[prop(into)] state: Signal<FieldState>) -> impl I
                 </Stack>
             </div>
             <div data-preview-scenario="selection ime-action">
-                <Stack gap=Space::Sm>
+                <Stack attr:lang="vi-VN" attr:data-preview-fixture="vietnamese" gap=Space::Sm>
                     <h3>"Lựa chọn và hành động bàn phím do bản mẫu quan sát"</h3>
                     <p class="cui-gallery-note">"Các control native dưới đây được ghép bằng FieldLabel/FieldHelp. Không thêm API lựa chọn vào component Web. Sự kiện composition và Enter chỉ ghi nhận trong tab này; không chứng minh IME hệ điều hành."</p>
                     <NativeEditingSample kind=NativeFieldKind::Text state=state/>

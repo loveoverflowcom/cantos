@@ -10,6 +10,7 @@ fn opening_tag<'a>(html: &'a str, id: &str) -> &'a str {
     let start = html
         .find(&attribute)
         .unwrap_or_else(|| panic!("missing {id}"));
+    let start = html[..start].rfind('<').expect("opening tag start");
     let end = html[start..].find('>').expect("complete opening tag") + start;
     &html[start..end]
 }
@@ -149,7 +150,7 @@ fn discovery_is_case_insensitive_conjunctive_and_respects_family_selection() {
     assert!(preview::catalog::component_matches(
         text_field,
         "all",
-        "NHẬP LIỆU TextField"
+        "FIELDS TextField"
     ));
     assert!(preview::catalog::component_matches(
         text_field,
@@ -265,8 +266,8 @@ fn token_catalogue_renders_every_semantic_name_both_themes_and_density_overrides
             "absent-token-family"
         ));
     }
-    assert!(html.contains("Mật độ gọn"));
-    assert!(html.contains("Mật độ thoải mái"));
+    assert!(html.contains("Compact density"));
+    assert!(html.contains("Comfortable density"));
     assert!(html.contains(preview::preview_catalog::TOKEN_VERSION));
 }
 
@@ -640,11 +641,11 @@ fn v3_workbench_renders_anatomy_states_tokens_and_honest_proposal_limits() {
     }
     for text in [
         "Anatomy",
-        "Consumer dự kiến",
-        "Baseline states được giữ",
-        "State matrix thiết kế",
+        "Intended consumer",
+        "Retained baseline states",
+        "Design state matrix",
         "Runtime Leptos / CMP",
-        "planned · chưa có public API; chưa qualified",
+        "planned · no public API; unqualified",
     ] {
         assert!(html.contains(text), "missing {text}");
     }
@@ -763,4 +764,53 @@ fn invalid_scenario_has_visible_fallback_without_echoing_untrusted_query() {
     assert!(html.contains("using the default recipe"));
     assert!(!html.contains("DO_NOT_ECHO"));
     assert!(html.contains("data-scenario-component=\"button\""));
+}
+
+#[test]
+fn preview_tool_shell_has_one_language_and_preserves_tagged_vietnamese_fixtures() {
+    let html = Owner::new().with(|| view! { <preview::Gallery/> }.to_html());
+    assert!(opening_tag(&html, "gallery-main").contains("lang=\"en\""));
+    assert!(opening_tag(&html, "gallery-font-proof").contains("lang=\"vi-VN\""));
+    assert!(opening_tag(&html, "gallery-fields").contains("lang=\"vi-VN\""));
+    assert!(html.contains("Component gallery"));
+    assert!(html.contains("Show sample errors"));
+    assert!(html.contains("Nguyễn Thị Ánh Nguyệt khẽ nói:"));
+    assert!(include_str!("../preview.html").contains("<html lang=\"en\">"));
+}
+
+#[test]
+fn recipe_specimen_resources_render_both_locales_without_translating_tool_controls() {
+    for (locale, label, error, placeholder, back_name) in [
+        (
+            "vi",
+            "Email của bạn",
+            "Kiểm tra địa chỉ email.",
+            "Chọn giao diện",
+            "Về Tài khoản",
+        ),
+        (
+            "en",
+            "Your email",
+            "Check the email address.",
+            "Choose a theme",
+            "Back to Account",
+        ),
+    ] {
+        let query = format!("?v=1&component=auth-tonal&state=error&locale={locale}&mode=matrix");
+        let html = Owner::new()
+            .with(|| view! { <preview::workbench::Workbench initial_query=query/> }.to_html());
+        assert!(html.contains(label), "missing {locale} label");
+        assert!(html.contains(error), "missing {locale} error");
+        assert!(html.contains(placeholder), "missing {locale} placeholder");
+        assert!(html.contains(back_name), "missing {locale} accessible name");
+        assert!(html.contains("Specimen language"));
+        assert!(html.contains("Refresh browser / font facts"));
+        assert!(
+            opening_tag(&html, "recipe-frame-content").contains(if locale == "vi" {
+                "lang=\"vi-VN\""
+            } else {
+                "lang=\"en\""
+            })
+        );
+    }
 }

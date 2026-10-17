@@ -1,5 +1,5 @@
 //! One anonymous JSON discovery read. No identity cookie, credential, write or player effect.
-use crate::application::public_discovery::PublicDiscoveryFailure;
+use crate::application::public_discovery::{PublicDiscoveryFailure, PUBLIC_WORK_PAGE_LIMIT};
 use cantos_contracts::theatre::WorkPage;
 use std::collections::BTreeSet;
 
@@ -28,7 +28,7 @@ pub fn decode_response(
     let page: WorkPage =
         serde_json::from_slice(body).map_err(|_| PublicDiscoveryFailure::Protocol)?;
     let mut ids = BTreeSet::new();
-    if page.items.len() > 20
+    if page.items.len() > PUBLIC_WORK_PAGE_LIMIT
         || (page.items.is_empty() && page.next_cursor.is_some())
         || page.items.iter().any(|work| {
             crate::core::public_ids::PublicWorkId::parse(&work.work_id).is_none()
@@ -51,13 +51,15 @@ pub async fn load() -> Result<WorkPage, PublicDiscoveryFailure> {
     let deadline =
         super::browser::deadline(controller).map_err(|_| PublicDiscoveryFailure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let response = Request::get("/api/v1/theatre/works?limit=20")
-        .credentials(RequestCredentials::Omit)
-        .header("Accept", "application/json")
-        .abort_signal(Some(&signal))
-        .send()
-        .await
-        .map_err(|_| PublicDiscoveryFailure::Unavailable)?;
+    let response = Request::get(&format!(
+        "/api/v1/theatre/works?limit={PUBLIC_WORK_PAGE_LIMIT}"
+    ))
+    .credentials(RequestCredentials::Omit)
+    .header("Accept", "application/json")
+    .abort_signal(Some(&signal))
+    .send()
+    .await
+    .map_err(|_| PublicDiscoveryFailure::Unavailable)?;
     if response.status() != 200 {
         return Err(PublicDiscoveryFailure::Unavailable);
     }

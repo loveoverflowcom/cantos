@@ -152,10 +152,12 @@ fn Settings(ctx: TheatreContext) -> impl IntoView {
 #[component]
 pub(crate) fn Recovery(ctx: TheatreContext, title: Key, help: Key) -> impl IntoView {
     view! {
-        <EmptyState title=messages::text(title, ctx.locale.get_untracked()).to_owned()>
-            <p>{move || ctx.text(help)}</p>
-            <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
-        </EmptyState>
+        {move || view! {
+            <EmptyState title=messages::text(title, ctx.locale.get()).to_owned()>
+                <p>{move || ctx.text(help)}</p>
+                <a class="theatre-text-link" href="#discover">{move || ctx.text(Key::BackDiscover)}</a>
+            </EmptyState>
+        }}
     }
 }
 
@@ -284,6 +286,34 @@ mod tests {
                 "Người giữ tiếng chuông",
             ] {
                 assert!(!html.contains(forbidden), "{forbidden}");
+            }
+        });
+    }
+    #[test]
+    fn locale_projection_keeps_player_snapshot_and_saved_work() {
+        Owner::new().with(|| {
+            let ctx = TheatreContext::new(NodeRef::new());
+            ctx.open_episode(EpisodeId {
+                work: WorkId::River,
+                index: 0,
+            });
+            ctx.playback(crate::core::playback::Event::SeekRequested {
+                position_ms: 30_000,
+            });
+            ctx.set_saved(WorkId::River, true);
+            let before_player = ctx.player.snapshot().unwrap();
+            let before_library = ctx.library.get_untracked();
+            for (locale, action, recovery) in [
+                (Locale::Vietnamese, "Phát mô phỏng", "Chưa chọn tập nghe"),
+                (Locale::English, "Simulate play", "No episode selected"),
+            ] {
+                ctx.locale.set(locale);
+                let html = view! { <TransportAction ctx=ctx/> }.to_html();
+                let empty =
+                    view! { <Recovery ctx title=Key::NoPlayer help=Key::NoPlayerHelp/> }.to_html();
+                assert!(html.contains(action) && empty.contains(recovery));
+                assert_eq!(ctx.player.snapshot().unwrap(), before_player);
+                assert_eq!(ctx.library.get_untracked(), before_library);
             }
         });
     }

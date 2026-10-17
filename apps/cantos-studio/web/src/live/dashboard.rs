@@ -1,5 +1,6 @@
 //! App-owned overview of the existing workspace projection and request authority.
 use super::{
+    copy::work_kind,
     dashboard_copy::{text, Key},
     ClientError, Facts, Reply,
 };
@@ -51,20 +52,11 @@ impl DashboardQuery {
     }
 }
 
-fn work_kind(kind: &str, en: bool) -> &str {
-    match kind {
-        "novel" => text(Key::Novel, en),
-        "story" => text(Key::Story, en),
-        "podcast" => text(Key::Podcast, en),
-        other => other,
-    }
-}
-
 fn lifecycle(value: &str, en: bool) -> &str {
     match value {
         "draft" => text(Key::Draft, en),
         "archived" => text(Key::Archived, en),
-        other => other,
+        _ => text(Key::UnknownLifecycle, en),
     }
 }
 
@@ -111,9 +103,9 @@ pub fn Dashboard(
                 <Surface class="dashboard-resume">
                     <section aria-labelledby="dashboard-resume-title">
                         <p class="dashboard-eyebrow">{move || text(Key::Resume, english.get())}</p>
-                        <h3 id="dashboard-resume-title">{move || facts.with(|f| f.work.as_ref().map(|w| w.details.title.clone()).unwrap_or_else(|| text(Key::NoSelection, english.get()).into()))}</h3>
+                        <h3 id="dashboard-resume-title" lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.work.as_ref().map(|w| w.details.title.clone()).unwrap_or_else(|| text(Key::NoSelection, english.get()).into()))}</h3>
                         <Show when=move || facts.with(|f| f.unit.is_some())>
-                            <p>{move || text(Key::SelectedUnit, english.get())}" · "{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</p>
+                            <p>{move || text(Key::SelectedUnit, english.get())}" · "<span lang=move ||facts.with(|f|f.work.as_ref().map(|w|w.details.language.clone()))>{move || facts.with(|f| f.unit.as_ref().map(|u| u.details.title.clone()).unwrap_or_default())}</span></p>
                         </Show>
                         <Show when=move ||facts.with(|f|f.work.is_some())><ActionButton id="dashboard-continue" english=english blocked=Signal::derive(move || session_pending.get() || facts.with(|f| f.work.is_none())) reason=BlockReason::ContextReady on_press=Callback::new(move |_| on_continue.run(()))>{move || text(Key::Continue, english.get())}</ActionButton></Show>
                     </section>
@@ -140,7 +132,7 @@ pub fn Dashboard(
                                 view! { <li class="dashboard-work-row">
                                     <ActionButton id=format!("dashboard-work-{}", work.id) english=english variant=ButtonVariant::Text
                                         blocked=Signal::derive(move || session_pending.get() || (blocked.get() && facts.with(|f| f.work.as_ref().is_none_or(|w| w.id != selected_id))))
-                                        on_press=Callback::new(move |_| on_pick.run(id.clone()))>{work.details.title}</ActionButton>
+                                        on_press=Callback::new(move |_| on_pick.run(id.clone()))><span lang=work.details.language>{work.details.title}</span></ActionButton>
                                     <p class="dashboard-work-meta">{move || format!("{} · {} · r{}", work_kind(&work.kind, english.get()), lifecycle(&work.lifecycle, english.get()), work.revision)}</p>
                                 </li> }
                             }).collect_view()}
@@ -258,6 +250,35 @@ mod tests {
             assert!(disabled("dashboard-create-work"));
             assert!(disabled("dashboard-refresh"));
             assert_eq!(dispatches.get_untracked(), 0);
+        });
+    }
+
+    #[test]
+    fn locale_projection_preserves_work_title_language_and_unknown_status_is_localized() {
+        let owner = Owner::new();
+        owner.with(|| {
+            let request: CreateWorkRequest = serde_json::from_str(include_str!(
+                "../../../../../packages/contracts/fixtures/catalog/v1/create-story.json"
+            )).unwrap();
+            let mut work = CatalogWork {
+                id: request.id, kind: request.kind, owner_id: "alice".into(), details: request.details,
+                lifecycle: "future_status".into(), revision: 1, created_at: 0, updated_at: 0,
+            };
+            work.details.title = "Lời hẹn {time}".into();
+            work.details.language = "vi-VN".into();
+            let facts = RwSignal::new(Facts { work: Some(work.clone()), works: vec![work.clone()], ..Facts::default() });
+            let english = RwSignal::new(false);
+            let noop = Callback::new(|()| {});
+            for en in [false, true] {
+                english.set(en);
+                let html = view! { <Dashboard facts=facts query=RwSignal::new(DashboardQuery::default())
+                    english=Signal::derive(move ||english.get()) blocked=Signal::derive(||false) session_pending=Signal::derive(||false)
+                    on_new_work=noop on_import=noop on_editor=noop on_continue=noop on_audio=noop on_refresh=noop on_next=noop on_pick=Callback::new(|_:String|{})/> }.to_html();
+                assert!(html.contains("<span lang=\"vi-VN\">Lời hẹn {time}</span>"), "{html}");
+                assert!(html.contains(text(Key::UnknownLifecycle, en)), "{html}");
+                assert!(!html.contains("future_status"), "{html}");
+                assert_eq!(facts.get_untracked().work, Some(work.clone()));
+            }
         });
     }
 }

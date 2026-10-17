@@ -87,14 +87,14 @@ pub(crate) fn Cover(ctx: TheatreContext, id: WorkId) -> impl IntoView {
     match artwork_src(id) {
         Some(src) => view! {
             <div class="theatre-cover" data-work=id.slug() data-art="true" role="img"
-                aria-label=move || format!("{}: {}", ctx.work(id).title, ctx.text(Key::CoverArtPlaceholder))>
+                aria-label=move || ctx.format(Key::CoverArtName, &[("title", ctx.work(id).title.to_owned()), ("description", ctx.text(Key::CoverArtPlaceholder).to_owned())])>
                 <img class="theatre-cover-art" src=src alt="" decoding="async" loading="lazy"/>
             </div>
         }
         .into_any(),
         None => view! {
             <div class="theatre-cover" data-work=id.slug() role="img"
-                aria-label=move || format!("{}: {}", ctx.work(id).title, ctx.text(Key::CoverPlaceholder))>
+                aria-label=move || ctx.format(Key::CoverArtName, &[("title", ctx.work(id).title.to_owned()), ("description", ctx.text(Key::CoverPlaceholder).to_owned())])>
                 <span class="theatre-cover-moon" aria-hidden="true"></span>
                 <span class="theatre-cover-index" aria-hidden="true">"C / "{match id { WorkId::Mountain => "01", WorkId::River => "02", WorkId::Dream => "03" }}</span>
                 <strong lang="vi-VN" aria-hidden="true">{ctx.work(id).title}</strong>

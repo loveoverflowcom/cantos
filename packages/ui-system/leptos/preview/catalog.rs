@@ -1,5 +1,6 @@
 //! Pure preview discovery over the generated shared registrations.
 
+use super::messages::tool;
 use super::preview_catalog::{
     ComponentRegistration, DesignSpecimen, TokenRegistration, COMPONENTS,
 };
@@ -16,49 +17,49 @@ pub struct Family {
 pub const FAMILIES: &[Family] = &[
     Family {
         key: "foundation",
-        label: "Nền tảng",
+        label: tool::FAMILY_FOUNDATION,
         anchor: "gallery-settings",
         icon: IconName::LightMode,
     },
     Family {
         key: "actions",
-        label: "Hành động",
+        label: tool::FAMILY_ACTIONS,
         anchor: "gallery-actions",
         icon: IconName::Add,
     },
     Family {
         key: "navigation",
-        label: "Điều hướng",
+        label: tool::FAMILY_NAVIGATION,
         anchor: "gallery-navigation",
         icon: IconName::MenuBook,
     },
     Family {
         key: "fields",
-        label: "Nhập liệu",
+        label: tool::FAMILY_FIELDS,
         anchor: "gallery-fields",
         icon: IconName::Search,
     },
     Family {
         key: "feedback",
-        label: "Trạng thái",
+        label: tool::FAMILY_FEEDBACK,
         anchor: "gallery-feedback",
         icon: IconName::WarningAmber,
     },
     Family {
         key: "layout",
-        label: "Bố cục",
+        label: tool::FAMILY_LAYOUT,
         anchor: "gallery-layout",
         icon: IconName::MenuBook,
     },
     Family {
         key: "icons",
-        label: "Biểu tượng",
+        label: tool::FAMILY_ICONS,
         anchor: "gallery-icons",
         icon: IconName::Check,
     },
     Family {
         key: "dialog",
-        label: "Hộp thoại",
+        label: tool::FAMILY_DIALOG,
         anchor: "gallery-dialog-samples",
         icon: IconName::Close,
     },

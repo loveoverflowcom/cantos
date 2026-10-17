@@ -59,5 +59,11 @@ Material popup ownership and isolates new auth glyphs in the existing sandbox. C
 both-renderer admission and named Android/iOS accessibility observations before product adoption;
 JVM screenshots/tests and a launched Java process do not supply native acceptance.
 
+For localization, review the [baseline-addressed ownership audit](../evidence/i18n-audit-20261017/README.md)
+and its bounded guard before extending copy. Reuse the current resource owners and keep
+preview tooling separate from Vietnamese specimens. The next architectural outcome remains
+the reviewed #167 catalog/runtime decision; renderer builds and ownership repairs do not
+accept persisted-locale precedence, arbitrary formatting or native screen-reader/IME behavior.
+
 Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
 and leave a short current pointer. Existing source-bound evidence remains at its original path.

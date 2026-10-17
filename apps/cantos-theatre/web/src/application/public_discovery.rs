@@ -1,6 +1,9 @@
 //! Anonymous discovery request ownership; identity lookup never gates public content.
 use cantos_contracts::theatre::WorkPage;
 
+/// The same bound drives the anonymous request, decoder and public page notice.
+pub const PUBLIC_WORK_PAGE_LIMIT: usize = 20;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PublicDiscoveryFailure {
     Unavailable,
