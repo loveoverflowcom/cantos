@@ -90,13 +90,15 @@ async fn post(
     let controller = AbortController::new().map_err(|_| SignupFailure::Unavailable)?;
     let deadline = super::browser::deadline(controller).map_err(|_| SignupFailure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let request = Request::post(path)
-        .credentials(RequestCredentials::SameOrigin)
-        .abort_signal(Some(&signal))
-        .header("Accept", "application/json")
-        .header("Content-Type", "application/json")
-        .body(body)
-        .map_err(|_| SignupFailure::Unavailable)?;
+    let request = Request::post(
+        &crate::api_endpoint::endpoint(path).map_err(|_| SignupFailure::Unavailable)?,
+    )
+    .credentials(RequestCredentials::Include)
+    .abort_signal(Some(&signal))
+    .header("Accept", "application/json")
+    .header("Content-Type", "application/json")
+    .body(body)
+    .map_err(|_| SignupFailure::Unavailable)?;
     let response = request
         .send()
         .await

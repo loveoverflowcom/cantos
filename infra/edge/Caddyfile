@@ -9,11 +9,10 @@
 #
 # Every value comes from /root/cantos-services/config/edge.env; nothing here names a project.
 #
-# The Web bundles live on Firebase Hosting (two separate sites). Firebase cannot proxy to this
-# VPS, so the edge does the reverse: each Web host serves its pages from its Firebase site and
-# its own /api/* from the matching API process. Browser, cookies, OIDC callbacks and CSRF Origin
-# checks therefore stay same-origin; no CORS, no cross-site cookie and no client API origin.
-# Theatre and Studio never share a host, cookie, API process or permission.
+# This file retains ADR 0039's transitional Web/identity proxies. ADR 0041 selects direct
+# Firebase Hosting with explicit client API origin and exact-origin API CORS. Installed files
+# do not change with source; reconcile through the current production runbook before rollout.
+# Theatre and Studio keep independent origin-pinned API processes and permission boundaries.
 
 {
 	# The admin API stays inside the container; reloads use `caddy reload` there.
@@ -124,8 +123,10 @@
 {$CANTOS_API_HOST} {
 	import cantos_security
 	import cantos_errors
-	# The API surface is /api/v1/{studio,theatre,admin}/*; the root serves no content. Studio
-	# cookies are host-only on the Studio host and never reach this name.
+	# Direct Hosting uses this API ingress; each group retains its own origin-pinned process.
+	handle /api/v1/studio/* {
+		import cantos_api cantos-api-studio
+	}
 	import cantos_theatre_api
 	handle {
 		respond "Cantos API" 404

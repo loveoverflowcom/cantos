@@ -23,7 +23,7 @@ NOT_RUN is retained history; an older PASS does not establish current-code or pr
 | Optional incremental platform | [DBSP review](dbsp-platform-review.md); current grouped-count core and forward-only legacy capture retirement, with future-consumer and production gates kept separate |
 | Develop consistency | [Eight-commit review](develop-eight-commit-review-20261016.md); pinned merge-aware scope, receipt-wait expiry repair and independently reported local gates |
 | Localization ownership | [17 October audit](i18n-audit-20261017/README.md); baseline-addressed five-scope inventory, existing-owner repairs, bounded changed-source guard and separate renderer/runtime acceptance |
-| Deployment tooling | [Hosting](issue199-firebase-hosting.md); local adapter tests do not establish a deployed-origin journey |
+| Deployment tooling | [Historical Hosting tool evidence](issue199-firebase-hosting.md); current topology/operations live only in the [production runbook](../deployment/vps-production.md), never a dated deployment diary |
 
 ## Retired backend experiments
 

@@ -44,7 +44,20 @@ impl TheatreIdentity {
         secret: String,
         trust: Option<IssuerTrust>,
     ) -> Result<Self, AuthError> {
+        Self::with_api_origin(issuer, web_origin, secret, trust, None)
+    }
+
+    pub fn with_api_origin(
+        issuer: &str,
+        web_origin: &str,
+        secret: String,
+        trust: Option<IssuerTrust>,
+        api_origin: Option<&str>,
+    ) -> Result<Self, AuthError> {
         let mut config = OidcConfig::theatre_web(issuer, web_origin, secret)?;
+        if let Some(origin) = api_origin {
+            config = config.with_api_callback_origin(origin)?;
+        }
         if let Some(trust) = trust {
             config = config.with_trust(trust)?;
         }
@@ -54,6 +67,9 @@ impl TheatreIdentity {
             admission_slots: tokio::sync::Semaphore::new(3),
             config,
         })
+    }
+    pub(crate) fn web_return_origin(&self) -> &str {
+        self.config.web_return_origin()
     }
     pub fn web_origin(&self) -> &str {
         &self.config.web_origin

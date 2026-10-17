@@ -268,3 +268,16 @@ binding/effect receipts and stores no action/provider/setup secrets. See
 [operator runbook](../../docs/deployment/firebase-enrollment-proof.md) for all explicit inputs,
 privilege/origin gates and unknown-outcome recovery. Local registration-only SQL evidence uses
 `cargo xtask verify postgres --suite theatre-firebase`; full PostgreSQL acceptance remains separate.
+
+## Direct Hosting browser transport
+
+Opt-in `CANTOS_BROWSER_API_SURFACE=studio|theatre` permits exactly `CANTOS_WEB_ORIGIN` on that API
+group through CORS, including bounded preflight and exposed session-fence headers. Other origins,
+surfaces and undeclared preflight methods/headers are refused. Existing CSRF, authorization and
+cookie rules still run. With the optional runtime `CANTOS_API_ORIGIN`, OIDC callbacks are pinned
+to the API host, then return only to the configured Web origin; the unset same-origin contract
+is preserved. This config adds no issuer account, roster, token or registration authority.
+
+See [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md) and the
+[current production runbook](../../docs/deployment/vps-production.md). Browser authentication
+between web.app and DuckDNS remains unaccepted until the domain/gateway gates are met.

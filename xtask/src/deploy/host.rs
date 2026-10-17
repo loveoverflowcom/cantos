@@ -76,6 +76,10 @@ pub trait Host {
     /// Names (never values) of inherited `TRUNK_*` environment variables, which could redirect
     /// the build.
     fn trunk_overrides(&self) -> Vec<String>;
+    /// Nonsecret build input, captured explicitly in the release command and receipt.
+    fn api_origin(&self) -> Result<Option<String>, String> {
+        Ok(None)
+    }
     fn read_config(&mut self) -> Result<ConfigFiles, String>;
     /// First-line versions of the installed Cargo and Trunk, when they report one.
     fn tool_versions(&mut self) -> (Option<String>, Option<String>);
@@ -119,6 +123,14 @@ impl Host for SystemHost {
 
     fn trunk_overrides(&self) -> Vec<String> {
         trunk_override_names(std::env::vars_os().map(|(name, _)| name))
+    }
+
+    fn api_origin(&self) -> Result<Option<String>, String> {
+        match std::env::var("CANTOS_API_ORIGIN") {
+            Ok(value) => checked_api_origin(Some(&value)),
+            Err(std::env::VarError::NotPresent) => Ok(None),
+            Err(_) => Err("invalid CANTOS_API_ORIGIN".into()),
+        }
     }
 
     fn read_config(&mut self) -> Result<ConfigFiles, String> {
@@ -566,5 +578,45 @@ mod tests {
             .starts_with(root.join("artifacts/hosting")));
         assert!(workspace_less.path.join("smoke").is_dir());
         std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+// Hosting is public HTTPS; unlike the local Web proxy, it cannot use loopback HTTP.
+fn checked_api_origin(value: Option<&str>) -> Result<Option<String>, String> {
+    let Some(value) = value else { return Ok(None) };
+    let valid = url::Url::parse(value).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str().is_some()
+            && url.origin().ascii_serialization() == value
+    });
+    if valid {
+        Ok(Some(value.into()))
+    } else {
+        Err("invalid CANTOS_API_ORIGIN".into())
+    }
+}
+#[cfg(test)]
+mod api_origin_tests {
+    use super::checked_api_origin;
+    #[test]
+    fn hosting_api_origin_is_nonsecret_exact_https_or_explicitly_absent() {
+        assert_eq!(checked_api_origin(None), Ok(None));
+        assert_eq!(
+            checked_api_origin(Some("https://api.example.org")),
+            Ok(Some("https://api.example.org".into()))
+        );
+        for value in [
+            "",
+            "http://127.0.0.1:8080",
+            "https://API.example.org",
+            "https://api.example.org/",
+            "https://secret@api.example.org",
+            "https://api.example.org?token=secret",
+        ] {
+            assert_eq!(
+                checked_api_origin(Some(value)),
+                Err("invalid CANTOS_API_ORIGIN".into())
+            );
+        }
     }
 }

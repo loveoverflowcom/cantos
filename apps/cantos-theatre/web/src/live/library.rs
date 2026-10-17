@@ -107,14 +107,16 @@ pub async fn load(expected_session: &str) -> Result<LibraryProjection, AccountFa
         "/api/v1/theatre/library/saved?limit=20",
         "/api/v1/theatre/library/history?limit=20",
     ] {
-        let response = Request::get(path)
-            .credentials(RequestCredentials::SameOrigin)
-            .abort_signal(Some(&signal))
-            .header("Accept", "application/json")
-            .header("X-Cantos-Theatre-Session", expected_session)
-            .send()
-            .await
-            .map_err(|_| AccountFailure::Unavailable)?;
+        let response = Request::get(
+            &crate::api_endpoint::endpoint(path).map_err(|_| AccountFailure::Unavailable)?,
+        )
+        .credentials(RequestCredentials::Include)
+        .abort_signal(Some(&signal))
+        .header("Accept", "application/json")
+        .header("X-Cantos-Theatre-Session", expected_session)
+        .send()
+        .await
+        .map_err(|_| AccountFailure::Unavailable)?;
         check_response(
             response.status(),
             response.headers().get("content-type").as_deref(),

@@ -388,9 +388,19 @@ impl Flow<'_> {
     fn build(&mut self) -> Result<(), Halt> {
         println!("\n==> {}", Stage::Build.label());
         let dist = self.dist();
+        let api_origin = self
+            .ports
+            .host
+            .api_origin()
+            .map_err(|why| self.halt(Stage::Build, Status::Fail, why))?;
         let command = build::release_bundle(self.workspace, self.request.app, &dist);
+        let command = match api_origin.as_deref() {
+            Some(origin) => command.env("CANTOS_API_ORIGIN", origin),
+            None => command,
+        };
         if let Some(receipt) = &mut self.receipt {
             receipt.build = Some(BuildRecord {
+                api_origin,
                 command: command.display(self.workspace.root()),
                 dist: self.workspace.relative(&dist),
             });
@@ -1009,6 +1019,7 @@ mod tests {
         scanned: Vec<PathBuf>,
         config: Result<ConfigFiles, String>,
         overrides: Vec<String>,
+        api_origin: Option<String>,
         identities: VecDeque<Result<SourceIdentity, String>>,
         scans: VecDeque<Result<Scan, String>>,
         hashes: VecDeque<Result<(String, u64), String>>,
@@ -1041,6 +1052,7 @@ mod tests {
                     firebaserc: Some(RC.to_owned()),
                 }),
                 overrides: Vec::new(),
+                api_origin: None,
                 identities: [Ok(identity(false)), Ok(identity(false))].into(),
                 scans: [Ok(good_scan(app)), Ok(good_scan(app))].into(),
                 hashes: VecDeque::new(),
@@ -1068,6 +1080,9 @@ mod tests {
         }
         fn trunk_overrides(&self) -> Vec<String> {
             self.overrides.clone()
+        }
+        fn api_origin(&self) -> Result<Option<String>, String> {
+            Ok(self.api_origin.clone())
         }
         fn read_config(&mut self) -> Result<ConfigFiles, String> {
             self.config.clone()
@@ -2357,5 +2372,20 @@ mod tests {
             assert_eq!(rig.runner.commands.len(), 1);
             assert_eq!(rig.runner.commands[0].program, "trunk");
         }
+    }
+    #[test]
+    fn explicit_api_origin_is_pinned_in_the_build_command_and_receipt() {
+        let mut rig = Rig::preview(HostedApp::CantosTheatre);
+        rig.host.api_origin = Some("https://api.example.org".into());
+        let request = request_of(HostedApp::CantosTheatre, "review");
+        let report = rig.run(&request);
+        assert_eq!(status_of(&report, Stage::Build), Status::Pass);
+        assert!(rig.runner.commands.iter().any(|command| command
+            .env
+            .contains(&("CANTOS_API_ORIGIN".into(), "https://api.example.org".into()))));
+        assert_eq!(
+            rig.host.persisted.last().unwrap()["build"]["api_origin"],
+            "https://api.example.org"
+        );
     }
 }

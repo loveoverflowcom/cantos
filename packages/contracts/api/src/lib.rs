@@ -26,6 +26,7 @@ pub mod admin;
 pub mod protobuf;
 pub mod routes;
 pub mod theatre;
+pub mod web_api;
 pub mod wire;
 
 /// Structural/semantic preview only. Acceptance independently checks access and evidence.

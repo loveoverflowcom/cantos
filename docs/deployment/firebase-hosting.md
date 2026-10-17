@@ -247,15 +247,18 @@ policy, not Hosting's CDN, TLS or propagation.
 
 ## API origin and authentication
 
-Static upload alone cannot connect the clients to an API: they use relative `/api/v1/…` URLs and
-same-origin credentials, and Firebase Hosting rewrites reach only Cloud Functions or Cloud Run.
-[ADR 0039](../decisions/0039-vps-production-runtime.md) records the chosen design: the VPS edge
-serves `cantoss.duckdns.org` and `studio.cantoss.duckdns.org`, fetching each app's pages from its
-Firebase site and routing `/api/*` to the API process pinned to that origin. Cookies, OIDC
-callbacks and CSRF Origin checks therefore stay same-origin, with no CORS or client API setting.
-The raw `*.web.app` URLs remain static-only (their `/api/*` is Hosting's 404). Never expose the
-development API to work around this, and do not add a cross-site API origin without a new decision.
-The [VPS runbook](vps-production.md) covers the edge and API side.
+The [current production topology/runbook](vps-production.md) owns destinations and operations.
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) selects direct Hosting and Cantos API
+addressing. Build with explicit nonsecret `CANTOS_API_ORIGIN`; the default local build keeps
+relative Trunk-proxy paths. Both release bundles and the API's matching exact-origin CORS need an
+explicitly authorized deployment. The Hosting receipt records `build.api_origin` and the explicit build command; bundle hashes
+identify the actual public bytes, not a clean source revision when the build was dirty.
+
+Static Hosting does not proxy to an external VPS. Cross-site web.app/DuckDNS authentication remains
+unaccepted with the retained Strict cookies; supply a reviewed same-site custom-domain/API-alias
+and identity gateway migration. No wildcard CORS, token-in-localStorage or weakened cookie/CSRF
+policy is a substitute. Initial email-action HTML needs no-store/no-referrer on Hosting itself
+before registration activation; VPS-only query protection does not cover a direct Hosting request.
 
 ## Recovery and reconciliation
 
@@ -312,22 +315,13 @@ firebase deploy --only hosting:theatre \
 | `UNKNOWN remote outcome` | [reconcile](#recovery-and-reconciliation) before rerunning |
 | `HTTP smoke … FAIL` after a confirmed release | the release is known; read the named probes, check the URL by hand |
 
-## Acceptance status
+## Acceptance boundary
 
-| Gate | Status |
-| --- | --- |
-| Command contract, plan, request validation, configuration policy, bundle validation, Firebase adapter, receipt, coordinator ordering, redaction | tested with fixtures, fakes and local files (`mock-integration-tested`) |
-| Real release build and validation of both apps | `integration-tested` on a capable host (real Trunk, real files) |
-| Tracked policy under the Hosting emulator (headers, MIME, 404 behavior) | observed locally (emulator, not production Hosting) |
-| One real live deployment per app (project `cantos-a348b`, sites `cantoss-theatre`, `cantoss-studio`) | **ran 2026-10-17**, PASS; see the [deployment record](../evidence/vps-production-deployment.md) |
-| One real preview deployment per app | **`NOT_RUN`** |
-| Firebase CLI response shapes from a real run | live `deploy --json` parsed successfully on 2026-10-17; preview shapes `NOT_RUN` |
-| HTTP smoke against real Hosting (media types, headers, propagation) | PASS on both live sites (xtask smoke, 2026-10-17) |
-| API origin and authentication | same-origin edge ([ADR 0039](../decisions/0039-vps-production-runtime.md)); live sign-in acceptance pending identity provisioning |
-
-The ledger, evidence, owners, prerequisites and exact commands are in
-[the evidence record](../evidence/issue199-firebase-hosting.md). Each unaccepted part is also marked
-at its place in the source with `ACCEPTANCE(NOT_RUN)`.
+A confirmed release and byte/MIME/cache smoke establish static delivery only. User acceptance
+requires the real direct-origin catalog and permitted OIDC/session/authorization flows in the
+[current runbook](vps-production.md). Reconcile current releases read-only; do not reuse a dated
+PASS, account list or old deployment record as current state. Historical tool-design evidence is
+[retained separately](../evidence/issue199-firebase-hosting.md), with its source boundary explicit.
 
 ## Official references
 

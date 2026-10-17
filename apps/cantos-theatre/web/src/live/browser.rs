@@ -20,7 +20,10 @@ pub async fn probe(controller: AbortController) -> ProbePhase {
         return ProbePhase::Failed(Failure::Transport);
     };
     let signal = deadline.controller.signal();
-    let request = Request::get(cantos_contracts::routes::THEATRE_BASE)
+    let Ok(path) = crate::api_endpoint::endpoint(cantos_contracts::routes::THEATRE_BASE) else {
+        return ProbePhase::Failed(Failure::Transport);
+    };
+    let request = Request::get(&path)
         .credentials(RequestCredentials::Omit)
         .header("Accept", "application/json")
         .abort_signal(Some(&signal));

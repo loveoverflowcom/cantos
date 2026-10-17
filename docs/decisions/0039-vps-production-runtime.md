@@ -1,14 +1,14 @@
 # ADR 0039: VPS production runtime and same-origin Firebase Web edge
 
-- Status: accepted and deployed (API, edge, PostgreSQL, Kanidm on the VPS; both Web apps on
-  Firebase Hosting); live sign-in acceptance pending operator identity provisioning
+- Status: accepted runtime foundation; Web/public identity topology superseded by
+  [ADR 0041](0041-direct-hosting-api-boundary.md). The original decision below is historical
+  rationale, not current deployment or sign-in status.
 - Date: 2026-10-17
 - Decision owner: Cantos product owner, with the deployment operator
 - Related: [ADR 0015](0015-api-surface-boundaries.md), [ADR 0021](0021-podman-service-runtime.md),
   [ADR 0024](0024-studio-oidc-bff.md), [ADR 0034](0034-theatre-signup-and-provisioned-studio.md),
   [Firebase Hosting runbook](../deployment/firebase-hosting.md)
-- Runbook: [VPS production deployment](../deployment/vps-production.md);
-  evidence: [VPS production deployment record](../evidence/vps-production-deployment.md)
+- Runbook: [current production topology and operations](../deployment/vps-production.md)
 
 ## Context
 

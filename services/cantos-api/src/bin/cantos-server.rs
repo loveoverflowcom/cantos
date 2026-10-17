@@ -33,11 +33,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Private audio intake enabled: API-only host; serve Studio separately through its Trunk proxy");
     }
     let web_origin = host.web_origin().to_owned();
+    let api_origin = match env::var("CANTOS_API_ORIGIN") {
+        Ok(value) => {
+            cantos_contracts::web_api::ApiOrigin::parse(&value)
+                .map_err(|_| "invalid CANTOS_API_ORIGIN")?;
+            if host.mode() == HostMode::Production && !value.starts_with("https://") {
+                return Err("production CANTOS_API_ORIGIN must be HTTPS".into());
+            }
+            Some(value)
+        }
+        Err(env::VarError::NotPresent) => None,
+        Err(_) => return Err("invalid CANTOS_API_ORIGIN".into()),
+    };
     if let Ok(issuer) = env::var("CANTOS_STUDIO_OIDC_ISSUER") {
         let secret = env::var("CANTOS_STUDIO_OIDC_SECRET")
             .map_err(|_| "OIDC requires an operator-supplied client secret")?;
         let config = OidcConfig::new(&issuer, &web_origin, secret)
             .map_err(|_| "invalid Studio OIDC config")?;
+        let config = match api_origin.as_deref() {
+            Some(origin) => config
+                .with_api_callback_origin(origin)
+                .map_err(|_| "invalid Studio API callback origin")?,
+            None => config,
+        };
         let subjects = env::var("CANTOS_STUDIO_ADMIN_SUBJECTS")
             .map_err(|_| "Studio requires its operator-provisioned administrator subjects")?;
         let subjects = serde_json::from_str::<Vec<String>>(&subjects)
@@ -66,11 +84,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
             None => None,
         };
-        let identity = cantos_api::platform::theatre_identity::TheatreIdentity::with_trust(
+        let identity = cantos_api::platform::theatre_identity::TheatreIdentity::with_api_origin(
             &issuer,
             &web_origin,
             secret,
             trust,
+            api_origin.as_deref(),
         )
         .map_err(|_| "invalid Theatre OIDC configuration")?;
         store = store.with_theatre_identity(identity);
@@ -115,6 +134,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = match host.web_dist() {
         Some(dist) => router(state, dist),
         None => api_router(state),
+    };
+    let app = match env::var("CANTOS_BROWSER_API_SURFACE") {
+        Ok(surface) => {
+            let surface = match surface.as_str() {
+                "studio" => cantos_contracts::web_api::WebSurface::Studio,
+                "theatre" => cantos_contracts::web_api::WebSurface::Theatre,
+                _ => return Err("CANTOS_BROWSER_API_SURFACE must be studio or theatre".into()),
+            };
+            cantos_api::interfaces::http::with_browser_cors(app, host.web_origin(), surface)?
+        }
+        Err(env::VarError::NotPresent) => app,
+        Err(_) => return Err("invalid CANTOS_BROWSER_API_SURFACE".into()),
     };
     let listener = tokio::net::TcpListener::bind(address).await?;
     match host.mode() {

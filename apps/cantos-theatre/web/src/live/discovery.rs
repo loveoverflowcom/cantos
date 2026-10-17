@@ -51,15 +51,17 @@ pub async fn load() -> Result<WorkPage, PublicDiscoveryFailure> {
     let deadline =
         super::browser::deadline(controller).map_err(|_| PublicDiscoveryFailure::Unavailable)?;
     let signal = deadline.controller.signal();
-    let response = Request::get(&format!(
+    let path = crate::api_endpoint::endpoint(&format!(
         "/api/v1/theatre/works?limit={PUBLIC_WORK_PAGE_LIMIT}"
     ))
-    .credentials(RequestCredentials::Omit)
-    .header("Accept", "application/json")
-    .abort_signal(Some(&signal))
-    .send()
-    .await
     .map_err(|_| PublicDiscoveryFailure::Unavailable)?;
+    let response = Request::get(&path)
+        .credentials(RequestCredentials::Omit)
+        .header("Accept", "application/json")
+        .abort_signal(Some(&signal))
+        .send()
+        .await
+        .map_err(|_| PublicDiscoveryFailure::Unavailable)?;
     if response.status() != 200 {
         return Err(PublicDiscoveryFailure::Unavailable);
     }

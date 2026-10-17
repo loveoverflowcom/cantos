@@ -398,3 +398,18 @@ UI primitives, not a new shared component or a native Studio surface.
 See the [implementation/evidence record](../../../docs/evidence/studio-private-artwork-ui.md)
 for browser fixtures, commands and unrun API/storage acceptance. The normal app launcher still
 requires its documented local API; mock-browser observations do not waive that prerequisite.
+
+## Explicit API origin for static Hosting
+
+Build with nonsecret `CANTOS_API_ORIGIN=https://api.cantoss.duckdns.org` through the existing
+`cargo xtask build|app|deploy` command. Unset retains the local Trunk proxy. All live HTTP,
+XHR/private reads and login navigation resolve within this app's own API group; invalid origins
+fail closed. The client never takes an identity-provider URL or provider token as configuration.
+Cookie requests use Include while anonymous/producer-bearer requests retain Omit and existing
+session fences. The server needs its matching exact Web-origin/CORS surface and ingress route.
+
+[ADR 0041](../../../docs/decisions/0041-direct-hosting-api-boundary.md) keeps cross-site web.app
+sessions unaccepted: Strict cookies, CSRF and cross-site login refusal remain. Same-site custom
+domains/API alias, API callback registration and a minimal private-Kanidm gateway are separate
+activation gates. The [current production runbook](../../../docs/deployment/vps-production.md)
+owns destinations; a successful local build is not deployed-user acceptance.

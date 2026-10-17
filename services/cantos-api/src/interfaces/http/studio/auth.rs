@@ -185,7 +185,10 @@ async fn callback(
     {
         // A consumed flow is already unusable. A delayed callback must not expire a newer
         // browser flow cookie shared by another tab; its binder ages out after 300 seconds.
-        Ok(complete) => redirect("/", &[complete.cookie]),
+        Ok(complete) => redirect(
+            &format!("{}/", oidc.web_return_origin()),
+            &[complete.cookie],
+        ),
         Err(e) => error(e),
     }
 }

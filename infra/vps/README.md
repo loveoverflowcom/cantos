@@ -1,6 +1,9 @@
 # VPS production runtime
 
-Tracked, nonsecret assets for the production VPS ([ADR 0039](../../docs/decisions/0039-vps-production-runtime.md)).
+Tracked, nonsecret VPS runtime assets. [ADR 0039](../../docs/decisions/0039-vps-production-runtime.md)
+retains the runtime foundation; [ADR 0041](../../docs/decisions/0041-direct-hosting-api-boundary.md)
+selects direct Hosting. Generated legacy origins/public identity proxy remain transition work;
+source changes do not describe installed state.
 The operator procedure is the [runbook](../../docs/deployment/vps-production.md); the command
 contract is [`cargo xtask deploy vps`](../../xtask/README.md#deploy-vps). Nothing here contains a
 host secret: passwords, the private CA, client secrets and the Kanidm admin credential are

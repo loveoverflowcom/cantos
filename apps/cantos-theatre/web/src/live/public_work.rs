@@ -117,13 +117,15 @@ async fn get(path: &str, limit: usize) -> Result<(u16, Option<String>, Vec<u8>),
     let deadline =
         super::browser::deadline(controller).map_err(|_| CatalogReadError::Unavailable)?;
     let signal = deadline.controller.signal();
-    let response = Request::get(path)
-        .credentials(RequestCredentials::Omit)
-        .header("Accept", "application/json")
-        .abort_signal(Some(&signal))
-        .send()
-        .await
-        .map_err(|_| CatalogReadError::Unavailable)?;
+    let response = Request::get(
+        &crate::api_endpoint::endpoint(path).map_err(|_| CatalogReadError::Unavailable)?,
+    )
+    .credentials(RequestCredentials::Omit)
+    .header("Accept", "application/json")
+    .abort_signal(Some(&signal))
+    .send()
+    .await
+    .map_err(|_| CatalogReadError::Unavailable)?;
     let declared = response
         .headers()
         .get("content-length")

@@ -2,6 +2,8 @@
 #![recursion_limit = "256"]
 
 //! Cantos listener Web: a same-origin account boundary and an explicitly isolated media mock.
+#[cfg(target_arch = "wasm32")]
+mod api_endpoint;
 pub mod app;
 pub mod application;
 pub mod core;

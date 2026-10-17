@@ -1,4 +1,4 @@
-//! Same-origin HTTP transport. Session credential becomes an HttpOnly cookie.
+//! Cantos API HTTP transport. Session credential becomes an HttpOnly cookie.
 use cantos_contracts::protobuf::ProtobufDto;
 use cantos_contracts::{
     AcceptAdaptationRequest, AdaptationReviewResponse, ApiError, ApproveProductionRequest,
@@ -226,7 +226,10 @@ async fn get<T: DeserializeOwned>(api: StudioHttp, path: &str) -> Result<T, ApiE
     };
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let mut request = Request::get(path).abort_signal(Some(&signal));
+    let mut request =
+        Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+            .credentials(web_sys::RequestCredentials::Include)
+            .abort_signal(Some(&signal));
     if let Some(fence) = fence {
         request = request.header(SESSION_HEADER, &fence.header());
     }
@@ -242,7 +245,8 @@ async fn post<T: DeserializeOwned, P: Serialize>(
     let fence = Some(api.required_fence()?);
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::post(path)
+    let request = Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+        .credentials(web_sys::RequestCredentials::Include)
         .header(SESSION_HEADER, &api.required_fence()?.header())
         .abort_signal(Some(&signal))
         .json(body)
@@ -289,7 +293,8 @@ async fn negotiated_get<T: DeserializeOwned + ProtobufDto>(
     let fence = api.required_fence()?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::get(path)
+    let request = Request::get(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+        .credentials(web_sys::RequestCredentials::Include)
         .header(SESSION_HEADER, &fence.header())
         .header("Accept", wire::accept(REVISION_CODEC))
         .abort_signal(Some(&signal))
@@ -307,7 +312,8 @@ async fn negotiated_post<T: DeserializeOwned + ProtobufDto, P: Serialize + Proto
     let bytes = wire::encode_body(REVISION_CODEC, body)?;
     let deadline = RequestDeadline::new()?;
     let signal = deadline.controller.signal();
-    let request = Request::post(path)
+    let request = Request::post(&crate::api_endpoint::endpoint(path).map_err(|_| unavailable())?)
+        .credentials(web_sys::RequestCredentials::Include)
         .header(SESSION_HEADER, &fence.header())
         .header("Content-Type", REVISION_CODEC.media_type())
         .header("Accept", wire::accept(REVISION_CODEC))
@@ -486,16 +492,21 @@ impl StudioHttp {
     }
 
     pub fn original_import_path(&self, id: &str) -> Result<String, ApiError> {
-        Ok(format!(
+        crate::api_endpoint::endpoint(&format!(
             "{}/original?studio_session_id={}",
             import_path(id)?,
             self.required_fence()?.header()
         ))
+        .map_err(|_| unavailable())
     }
     pub async fn login(&self, token: String) -> Result<ObservedSession, ApiError> {
         let deadline = RequestDeadline::new()?;
         let signal = deadline.controller.signal();
-        let mut request = Request::post("/api/v1/studio/session").abort_signal(Some(&signal));
+        let mut request = Request::post(
+            &crate::api_endpoint::endpoint("/api/v1/studio/session").map_err(|_| unavailable())?,
+        )
+        .credentials(web_sys::RequestCredentials::Include)
+        .abort_signal(Some(&signal));
         if let Some(fence) = self.fence() {
             request = request.header(SESSION_HEADER, &fence.header());
         }
@@ -527,11 +538,14 @@ impl StudioHttp {
     pub async fn current_session(&self) -> Result<Option<ObservedSession>, ApiError> {
         let deadline = RequestDeadline::new()?;
         let signal = deadline.controller.signal();
-        let response = Request::get("/api/v1/studio/session")
-            .abort_signal(Some(&signal))
-            .send()
-            .await
-            .map_err(|_| unavailable())?;
+        let response = Request::get(
+            &crate::api_endpoint::endpoint("/api/v1/studio/session").map_err(|_| unavailable())?,
+        )
+        .credentials(web_sys::RequestCredentials::Include)
+        .abort_signal(Some(&signal))
+        .send()
+        .await
+        .map_err(|_| unavailable())?;
         let fence = response
             .headers()
             .get(SESSION_HEADER)
@@ -552,7 +566,11 @@ impl StudioHttp {
     pub async fn logout(&self) -> Result<(), ApiError> {
         let deadline = RequestDeadline::new()?;
         let signal = deadline.controller.signal();
-        let mut request = Request::delete("/api/v1/studio/session").abort_signal(Some(&signal));
+        let mut request = Request::delete(
+            &crate::api_endpoint::endpoint("/api/v1/studio/session").map_err(|_| unavailable())?,
+        )
+        .credentials(web_sys::RequestCredentials::Include)
+        .abort_signal(Some(&signal));
         request = if let Some(fence) = self.fence() {
             request.header(SESSION_HEADER, &fence.header())
         } else {
@@ -586,7 +604,7 @@ impl StudioHttp {
         web_sys::window()
             .ok_or_else(unavailable)?
             .location()
-            .set_href(&path)
+            .set_href(&crate::api_endpoint::endpoint(&path).map_err(|_| unavailable())?)
             .map_err(|_| unavailable())
     }
     pub async fn read(&self, script: &str) -> Result<RevisionResponse, ApiError> {
