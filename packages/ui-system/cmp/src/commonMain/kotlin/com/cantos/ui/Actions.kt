@@ -1,6 +1,7 @@
 package com.cantos.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -14,17 +15,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip as MaterialFilterChip
 import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import com.cantos.ui.generated.CantosIcons
 
 @Composable
 fun Button(
@@ -87,6 +96,8 @@ internal fun ButtonControl(
     icon: String? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
+    // The closed registry rejects unknown names even when pending hides the glyph.
+    icon?.let { CantosIcons.paths(it) }
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val auth = variant.isAuth()
     val shape = if (auth) authActionShape(interactions) else CantosShapes.control
@@ -126,11 +137,8 @@ internal fun ButtonControl(
         contentPadding = contentPadding ?: if (auth) PaddingValues(horizontal = tokenDp("space.lg"), vertical = tokenDp("space.inset"))
             else PaddingValues(horizontal = tokenDp("space.controlInline")),
     ) {
-        if (icon != null) {
+        if (icon != null || state is ButtonState.Loading) {
             ActionIcon(icon, state, variant)
-            Spacer(Modifier.size(tokenDp("space.sm")))
-        } else if (state is ButtonState.Loading) {
-            Icon("expand_more")
             Spacer(Modifier.size(tokenDp("space.sm")))
         }
         content()
@@ -141,16 +149,35 @@ internal fun ButtonControl(
  * Only AuthPrimary uses the contrast-paired circle, including its blocked tonal state.
  */
 @Composable
-private fun ActionIcon(icon: String, state: ButtonState, variant: ButtonVariant) {
+private fun ActionIcon(icon: String?, state: ButtonState, variant: ButtonVariant) {
     if (variant == ButtonVariant.AuthPrimary) {
         val circleRole = if (state.canPress()) "color.onPrimary" else "color.onSurfaceVariant"
         val glyphRole = if (state.canPress()) "color.primary" else "color.surfaceContainer"
         Box(
             Modifier.size(tokenDp("size.authIcon")).background(tokenColor(circleRole), CircleShape),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, tint = tokenColor(glyphRole)) }
+        ) { ActionGlyph(icon, state, tokenColor(glyphRole)) }
     } else {
-        Icon(icon)
+        ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current)
+    }
+}
+
+/** Stationary indeterminate ring; the action's localized state owns the pending announcement.
+ * The fixed arc is decorative, never a completion percentage or a disclosure/check glyph.
+ */
+@Composable
+private fun ActionGlyph(icon: String?, state: ButtonState, tint: Color) {
+    if (state is ButtonState.Loading) {
+        val stroke = tokenDp("size.focusWidth")
+        Canvas(Modifier.size(tokenDp("size.icon")).clearAndSetSemantics { }) {
+            val width = stroke.toPx()
+            drawArc(tint, -90f, 270f, false,
+                topLeft = androidx.compose.ui.geometry.Offset(width / 2, width / 2),
+                size = androidx.compose.ui.geometry.Size(size.width - width, size.height - width),
+                style = Stroke(width))
+        }
+    } else if (icon != null) {
+        Icon(icon, tint = tint)
     }
 }
 
@@ -192,6 +219,7 @@ fun BackButton(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun IconButton(
     name: AccessibleName,
     icon: String,
@@ -200,7 +228,13 @@ fun IconButton(
     state: ButtonState = ButtonState.Enabled,
     controlModifier: Modifier = Modifier,
 ) {
+    CantosIcons.paths(icon)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(tokenDp("space.xs"))) {
+        TooltipBox(
+            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(name.text) } },
+            state = rememberTooltipState(),
+        ) {
         MaterialIconButton(
             onClick = { if (state.canPress()) onPress() },
             enabled = state.canPress(),
@@ -210,7 +244,8 @@ fun IconButton(
                 contentColor = tokenColor("color.onSurfaceVariant"),
                 disabledContentColor = tokenColor("color.onSurfaceVariant"),
             ),
-        ) { Icon(icon) }
+        ) { ActionGlyph(icon, state, androidx.compose.material3.LocalContentColor.current) }
+        }
         state.reason()?.let { FieldHelp(it) }
     }
 }

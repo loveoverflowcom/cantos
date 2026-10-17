@@ -20,6 +20,15 @@ evidence are separately recorded in the
 
 ## Build and run
 
+Development-only Forge mock: in the existing debug Studio runtime, open
+`http://127.0.0.1:8081/?preview=studio-forge` after `cargo xtask app cantos-studio --web`.
+The normal launcher retains its local-API prerequisite; this explicit composition returns
+before live bootstrap and makes no API/provider/storage requests. It is absent from release
+builds and is never a production fallback. Recipe v1, immutable session revisions, separate
+run/storage/take/sync states and remaining acceptance are documented in the
+[Forge mock record](../../../docs/evidence/studio-forge-mock-ui.md). Reload/reset discards mock
+changes. No real keys or audio are accepted by this preview.
+
 The owner-selected Forge workspace is a future section of this app, backed by a separately
 configured producer client; it is not implemented by the relocated producer/worker foundation.
 See [ADR 0022](../../../docs/decisions/0022-cantos-forge-producer-cli.md) and the
@@ -246,6 +255,13 @@ it infers no permissions. FormSubmit keeps native Enter/form submission while ea
 its original guard. Workspace panes remain mounted, preserving session drafts. Explicit revision
 discard uses the controlled native Dialog; Escape/cancel preserve the draft. Other existing
 navigation/discard paths keep their browser confirmations.
+
+`ActionButton` forwards an optional typed `IconName` into the existing shared Button.
+`FormSubmit` accepts an optional caller-owned decorative `ViewFn` slot, wraps it in
+`aria-hidden` icon anatomy and keeps one visible label in its native submit button. The slot
+adds no handler, form guard or submit effect; no interactive view belongs there. New shared
+Icon imports at a consumer site still require admission. The paired VI/EN login fixture
+checks adapter anatomy; it does not establish real browser Enter or auth acceptance.
 
 Buffered authoring/casting fields retain native NodeRefs, IME and commit/undo behavior, using
 shared FieldLabel/FieldError and `cui-field-control` anatomy. Casting Select preserves PR29's

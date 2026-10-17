@@ -40,6 +40,14 @@ and visible reason. Both native disabled and the dispatch guard block repeated a
 reason uses a polite status region. `DisabledReason::new` and `AccessibleName::new` reject blank text.
 The same state is used by IconButton and FilterChip; selected state stays caller-owned.
 
+Button and IconButton replace a decorative action glyph with a stationary indeterminate ring
+while loading, including a Button without an icon. The original label and localized reason stay
+visible; progress is neither a disclosure chevron nor a success marker. IconButton also exposes
+its reactive accessible name as a native title tooltip. Glyphs remain 24 logical units with an
+8-unit label gap through existing tokens; there is one native action target. The
+[shared action map](../shared/icons/material-outlined/README.md#action-semantics-and-consumers)
+owns registry meaning; new app imports still require preview admission.
+
 `FieldState::{Editable, ReadOnly, Disabled(reason), Loading(reason)}` applies to text, textarea and
 number controls. `ChoiceState::{Enabled, Disabled(reason), Loading(reason)}` applies to select,
 checked inputs and range, which have no native readonly state. Render a readable value separately,

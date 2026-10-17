@@ -5,6 +5,73 @@ use cantos_ui::{
 use leptos::prelude::*;
 
 #[test]
+fn pending_actions_replace_decorative_glyphs_with_progress_and_keep_names_and_reasons() {
+    let owner = Owner::new();
+    owner.with(|| {
+        for icon in [None, Some(IconName::Login), Some(IconName::Check)] {
+            let html = view! {
+                <Button id="pending-action" nostrip:icon=icon state=ButtonState::Loading(
+                    DisabledReason::new("Đang chờ phản hồi; không gửi lại.").unwrap()
+                )>"Lưu bản nháp của Nguyễn Thị Ánh Nguyệt"</Button>
+            }
+            .to_html();
+            assert!(html.contains("cui-action-progress"), "{html}");
+            assert!(
+                !html.contains("<svg"),
+                "pending is neither disclosure nor success: {html}"
+            );
+            assert!(html.contains("aria-busy=\"true\""), "{html}");
+            assert!(html.contains("role=\"status\""), "{html}");
+            assert!(html.contains("Lưu bản nháp của Nguyễn Thị Ánh Nguyệt"));
+            assert!(html.contains("Đang chờ phản hồi; không gửi lại."));
+            assert_eq!(html.matches("<button ").count(), 1);
+        }
+        let html = view! {
+            <IconButton id="pending-icon" icon=IconName::Refresh
+                name=AccessibleName::new("Thử lại bản nháp / Retry draft").unwrap()
+                state=ButtonState::Loading(DisabledReason::new("Đang chờ / Waiting").unwrap())/>
+        }
+        .to_html();
+        assert!(html.contains("title=\"Thử lại bản nháp / Retry draft\""));
+        assert!(html.contains("cui-action-progress"));
+        assert!(!html.contains("<svg"));
+    });
+}
+
+#[test]
+fn the_action_registry_is_closed_named_and_every_icon_is_decorative() {
+    let names: Vec<_> = IconName::ALL.iter().map(|icon| icon.as_str()).collect();
+    for expected in [
+        "login",
+        "logout",
+        "home",
+        "mail",
+        "person_add",
+        "save",
+        "refresh",
+        "archive",
+        "delete_outline",
+        "mic",
+        "play_arrow",
+        "pause",
+        "cloud_sync",
+        "settings",
+    ] {
+        assert!(names.contains(&expected), "{expected}");
+    }
+    let mut deduplicated = names.clone();
+    deduplicated.sort();
+    deduplicated.dedup();
+    assert_eq!(names.len(), deduplicated.len());
+    for icon in IconName::ALL {
+        let html = view! { <cantos_ui::Icon name=*icon/> }.to_html();
+        assert!(html.contains("aria-hidden=\"true\""), "{html}");
+        assert!(html.contains("focusable=\"false\""), "{html}");
+        assert!(!html.contains("<title"));
+    }
+}
+
+#[test]
 fn each_action_state_has_one_activation_and_busy_contract() {
     let reason = DisabledReason::new("Đang lưu bản nháp Sơn Hà Ký").unwrap();
     for (state, can_press, busy, description, attribute) in [

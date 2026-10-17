@@ -140,11 +140,12 @@ fun CantosDemoApp(
                 },
                 membershipScreen = ui.membership.screen,
                 accountContent = { loginFocus ->
-                    AccountContent(projection.locale, projection.theme, accountView, onAuth, loginFocus)
+                    AccountContent(projection.locale, projection.theme, accountView, onAuth, loginFocus,
+                        previewActionIcons = true)
                 },
                 authContent = {
-                    if (projection.route == ShellRoute.Register) RegisterScreen(projection.locale, onAuth)
-                    else LoginScreen(projection.locale, accountView, nothingSaved, onAuth)
+                    if (projection.route == ShellRoute.Register) RegisterScreen(projection.locale, onAuth, previewActionIcons = true)
+                    else LoginScreen(projection.locale, accountView, nothingSaved, onAuth, previewActionIcons = true)
                 },
                 authHeader = {
                     AuthHeader(projection.locale, projection.theme, authReturnFor(projection.stack), onAuth)

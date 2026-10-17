@@ -347,6 +347,10 @@ production composition. Its controls explicitly select Guest or synthetic A/B, h
 an old session result, fail or acknowledge logout cleanup, and cancel an auth intent. Fixture
 completion exercises the existing account owner; it never proves provider login or registration.
 No timer or unavailable live response selects these fixtures. Unknown mode values stay live.
+The diagnostic also shows the candidate Material action-icon mapping for
+[#224](https://github.com/loveoverflowcom/cantos/issues/224); live icon adoption awaits shared
+admission. The [phase/action audit](../../../docs/evidence/theatre-web-auth-actions-224.md)
+records the contextual Back, quiet Home escape and proof-specific cancellation behavior.
 The [issue 129 record](../../../docs/evidence/theatre-web-auth-account.md) separates browser
 observations, pure tests, signed-provider mocks and real disposable PostgreSQL evidence.
 

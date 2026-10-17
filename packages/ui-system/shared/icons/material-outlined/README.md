@@ -1,6 +1,6 @@
 # Offline Material Icons Outlined subset
 
-These nine unmodified SVG files come from
+These 25 unmodified SVG files come from
 [Google Material Design Icons](https://github.com/google/material-design-icons/tree/49d4db35df873165d6bd6ba09b063c7dafbac2f4)
 at revision `49d4db35df873165d6bd6ba09b063c7dafbac2f4`. Source paths and SHA256 hashes are in
 [`manifest.json`](manifest.json). Google distributes them under the included
@@ -15,3 +15,30 @@ Add icons only for concrete consumers. Keep an official original, its pinned ups
 and license; extend the closed `IconName` API through generation. Adjacent text or the parent
 control owns the localized accessible name. A standalone meaningful graphic needs a different
 explicit labeled contract; this decorative API must not be used as its sole announcement.
+
+## Action semantics and consumers
+
+The registry is a bounded shared asset source, not product adoption. The generator emits both
+Web `IconName` (including `ALL` and `as_str()`) and CMP `CantosIcons`. CMP rejects unknown
+names even when a pending action temporarily hides its glyph.
+
+| Intent | Glyph | Intended consumer |
+| --- | --- | --- |
+| Sign in / sign out | `login` / `logout` | Studio and Theatre account actions |
+| Create account / verify email | `person_add` / `mail` | Theatre registration |
+| Home / contextual Back | `home` / `arrow_back` | Host-owned navigation |
+| Cancel / choose | `close` / `check` | Explicit cancel or selection |
+| Save / retry | `save` / `refresh` | Draft and recoverable actions |
+| Archive / delete | `archive` / `delete_outline` | Explicit draft management |
+| Generate voice / preview | `mic` / `play_arrow`, `pause` | Forge mock and listening controls |
+| Sync / settings | `cloud_sync` / `settings` | Explicit synchronization and settings |
+
+`arrow_forward` remains progression; `expand_more` remains disclosure. Neither disclosure nor
+a selected/success check represents waiting. Buttons keep the visible action label and localized
+pending reason, with a separate stationary indeterminate ring on both renderers. The ring has no
+numeric progress meaning, independent hit target or motion. AuthPrimary alone keeps its scoped
+paired bubble; regular actions retain their existing shape.
+
+The existing `icon`, `button`/AuthPrimary and `icon-button` previews exercise this registry.
+The Select candidate and its native fallback remain under #221; this asset addition does not
+admit that candidate, add option icons, or migrate preference/auth/Forge consumers.

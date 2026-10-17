@@ -217,13 +217,13 @@ pub fn Gallery(
                                     <option value="loading">"Đang chờ — có giải thích"</option>
                                 </Select>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
-                                    <Button id="gallery-primary" state=action_state on_press=press icon=IconName::Add>
-                                        "Hành động chính mẫu"
+                                    <Button id="gallery-primary" state=action_state on_press=press icon=IconName::Save>
+                                        "Lưu bản nháp mẫu"
                                     </Button>
-                                    <Button id="gallery-tonal" variant=ButtonVariant::Tonal state=action_state on_press=press>"Nút tonal"</Button>
-                                    <Button id="gallery-secondary" variant=ButtonVariant::Secondary state=action_state on_press=press>"Nút phụ có viền"</Button>
-                                    <Button id="gallery-text" variant=ButtonVariant::Text state=action_state on_press=press>"Nút văn bản"</Button>
-                                    <Button id="gallery-danger" variant=ButtonVariant::Danger state=action_state on_press=press>"Hành động nguy hiểm mẫu"</Button>
+                                    <Button id="gallery-tonal" variant=ButtonVariant::Tonal icon=IconName::Mic state=action_state on_press=press>"Tạo giọng đọc mẫu"</Button>
+                                    <Button id="gallery-secondary" variant=ButtonVariant::Secondary icon=IconName::CloudSync state=action_state on_press=press>"Đồng bộ bản nháp mẫu"</Button>
+                                    <Button id="gallery-text" variant=ButtonVariant::Text icon=IconName::Refresh state=action_state on_press=press>"Thử lại mẫu"</Button>
+                                    <Button id="gallery-danger" variant=ButtonVariant::Danger icon=IconName::DeleteOutline state=action_state on_press=press>"Xóa bản nháp mẫu"</Button>
                                 </Stack>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Sm>
                                     <IconButton id="gallery-icon-action" name=name("Tìm trong phòng mẫu") icon=IconName::Search state=action_state on_press=press/>
@@ -430,15 +430,9 @@ pub fn Gallery(
                                 <h2 id="gallery-icons-heading">"Biểu tượng outlined chính thức"</h2>
                                 <p class="cui-gallery-note">"Icon là nội dung trang trí và không tự tạo accessible name; ví dụ luôn có văn bản bên cạnh. Tập offline dùng đúng hình học từ nguồn đã ghi nhận."</p>
                                 <Stack direction=StackDirection::Horizontal gap=Space::Xs class="cui-gallery-icons">
-                                    <span><Icon name=IconName::Add/>"Thêm"</span>
-                                    <span><Icon name=IconName::Check/>"Chọn"</span>
-                                    <span><Icon name=IconName::Close/>"Đóng"</span>
-                                    <span><Icon name=IconName::DarkMode/>"Tối"</span>
-                                    <span><Icon name=IconName::ExpandMore/>"Mở thêm"</span>
-                                    <span><Icon name=IconName::LightMode/>"Sáng"</span>
-                                    <span><Icon name=IconName::MenuBook/>"Đọc"</span>
-                                    <span><Icon name=IconName::Search/>"Tìm"</span>
-                                    <span><Icon name=IconName::WarningAmber/>"Chú ý"</span>
+                                    {IconName::ALL.iter().copied().map(|icon| view! {
+                                        <span><Icon name=icon/>{icon.as_str()}</span>
+                                    }).collect_view()}
                                 </Stack>
                                 <h3>"Avatar chữ"</h3>
                                 <p class="cui-gallery-note">"Một chữ cái mặc định như tài khoản Google/YouTube; màu ổn định theo mã người dùng. Ảnh mẫu là data URI offline; ảnh lỗi trở về chữ cái."</p>

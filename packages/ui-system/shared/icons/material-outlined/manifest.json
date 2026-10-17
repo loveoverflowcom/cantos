@@ -46,6 +46,62 @@
     "arrow_forward": {
       "path": "src/navigation/arrow_forward/materialiconsoutlined/24px.svg",
       "sha256": "c29eb7e21c41d67577daf325415ddbe8c00efb08523ea307b0e4eb1ecd51f938"
+    },
+    "login": {
+      "path": "src/action/login/materialiconsoutlined/24px.svg",
+      "sha256": "90d76e08dabf131d2f9a961625c4b21c8385182e8f9400165ee4fbc6471a751b"
+    },
+    "logout": {
+      "path": "src/action/logout/materialiconsoutlined/24px.svg",
+      "sha256": "dead2fc0cc1a17e01d784e2527d14bad5fa2972dd1d1a3ef62650db975bc53a0"
+    },
+    "home": {
+      "path": "src/action/home/materialiconsoutlined/24px.svg",
+      "sha256": "6f5d2c85c8d60a818c3d6011e7cf1b981bc7c7ba5a7ced3664c6c0b6d42c9d69"
+    },
+    "mail": {
+      "path": "src/content/mail/materialiconsoutlined/24px.svg",
+      "sha256": "ceac2d253c42740aab4197fd8214cf770b91c25009ca0d43ee1649bc49a4b822"
+    },
+    "person_add": {
+      "path": "src/social/person_add/materialiconsoutlined/24px.svg",
+      "sha256": "378b7e04a1027496a830db8bf2b7517b4e848b5c52247e98a012ba269b7161ad"
+    },
+    "save": {
+      "path": "src/content/save/materialiconsoutlined/24px.svg",
+      "sha256": "437ddda2fac357ff81c8afe691d5417e072de27a21ff32ed9b749dfe285ab2cd"
+    },
+    "refresh": {
+      "path": "src/navigation/refresh/materialiconsoutlined/24px.svg",
+      "sha256": "b9b1959396d3635730ce003f1f24bcc8f6d3f64a01b28ac7c156a05460503b52"
+    },
+    "archive": {
+      "path": "src/content/archive/materialiconsoutlined/24px.svg",
+      "sha256": "5c7ab9c878a2a1145b3e34aa4b6b83091a2072073c93b168cebe561dc7676ab0"
+    },
+    "delete_outline": {
+      "path": "src/action/delete_outline/materialiconsoutlined/24px.svg",
+      "sha256": "7b5a961d9057b001389f9e27d8c61f6d30e6b01606e0cffd8f20e3831d5e845b"
+    },
+    "mic": {
+      "path": "src/av/mic/materialiconsoutlined/24px.svg",
+      "sha256": "4dcc2cc04ae82250b4fc6a9d2c2a7a9d3164753b68467f8cc7e2baaacbdf0c7d"
+    },
+    "play_arrow": {
+      "path": "src/av/play_arrow/materialiconsoutlined/24px.svg",
+      "sha256": "d9a74a4c94f74d39adb1b519afe7e3569c59c72eacd56817644f691a9c68449a"
+    },
+    "pause": {
+      "path": "src/av/pause/materialiconsoutlined/24px.svg",
+      "sha256": "777f7140fb9403ece787bdbf37e1ef5d91908bb5c9ed5428949d607e51aec3ae"
+    },
+    "cloud_sync": {
+      "path": "src/file/cloud_sync/materialiconsoutlined/24px.svg",
+      "sha256": "f62436b872deb9a2fd5f9c3de7a393b4be7844ab08c33a8af455c051701029c8"
+    },
+    "settings": {
+      "path": "src/action/settings/materialiconsoutlined/24px.svg",
+      "sha256": "814b7a6eea050c073d4a8d7b1f72512b0bd4f71b33beb584c8063fb0bfa78d41"
     }
   }
 }

@@ -28,6 +28,15 @@ import kotlin.test.assertEquals
 /** State-specific captures of the same preview specimens; no OS-window/device claim. */
 class FoundationCaptureTest {
     @Test
+    fun action_registry_and_pending_glyphs_are_captured_in_both_themes() {
+        Theme.entries.forEach { theme ->
+            capture(PreviewExample.Icon, "decorative", UiPreferences(theme = theme), narrow = true)
+            capture(PreviewExample.Button, "loading", UiPreferences(theme = theme), narrow = true)
+            capture(PreviewExample.IconButton, "loading", UiPreferences(theme = theme), narrow = true)
+        }
+    }
+
+    @Test
     fun composed_action_light_and_dark_specimens_are_captured() {
         Theme.entries.forEach { theme ->
             capture(PreviewExample.Button, "composed-content", UiPreferences(theme = theme))

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox as MaterialCheckbox
@@ -23,6 +25,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -198,6 +202,8 @@ fun Select(
     val text = selectedOption?.label ?: placeholder
     // Any external input change interrupts the menu. Availability recovery cannot reopen it.
     var expanded by remember(effective.canPress(), options.toList(), value) { mutableStateOf(false) }
+    var anchorWidth by remember { mutableStateOf(0) }
+    val menuMinWidth = with(LocalDensity.current) { anchorWidth.toDp() }
     val description = listOf(if (expanded) expandedDescription else collapsedDescription,
         choiceDescription(ButtonState.Enabled, help, error), selectedOption?.state?.reason()).filterNotNull()
         .filter { it.isNotBlank() }.joinToString(". ")
@@ -205,10 +211,19 @@ fun Select(
         FieldLabel(label)
         Box {
             ButtonControl(onPress = { expanded = true }, state = effective,
-                modifier = controlModifier.semantics { error?.takeIf { it.isNotBlank() }?.let { error(it) } },
+                modifier = controlModifier.onSizeChanged { anchorWidth = it.width }
+                    .semantics { error?.takeIf { it.isNotBlank() }?.let { error(it) } },
                 variant = ButtonVariant.Secondary, name = AccessibleName.of("$label: $text"),
-                description = description) { Text(text) }
-            DropdownMenu(expanded = expanded && effective.canPress(), onDismissRequest = { expanded = false }) {
+                description = description) {
+                Text(text, Modifier.weight(1f))
+                // A trailing slot keeps long labels away from the decorative disclosure.
+                // Loading already has the action's pending cue; it must not look expandable.
+                Box(Modifier.padding(start = tokenDp("space.sm")).size(tokenDp("size.icon"))) {
+                    if (effective !is ButtonState.Loading) Icon("expand_more")
+                }
+            }
+            DropdownMenu(expanded = expanded && effective.canPress(), onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = menuMinWidth)) {
                 options.forEach { option ->
                     DropdownMenuItem(text = {
                         Column {
@@ -220,7 +235,11 @@ fun Select(
                         onClick = {
                             if (effective.canPress() && option.state.canPress()) onValueChange(option.value)
                             expanded = false
-                        }, leadingIcon = if (option.value == value) ({ Icon("check") }) else null)
+                        }, trailingIcon = {
+                            Box(Modifier.size(tokenDp("size.icon"))) {
+                                if (option.value == value) Icon("check")
+                            }
+                        })
                 }
             }
         }

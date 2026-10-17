@@ -77,6 +77,7 @@ pub(crate) fn AuthActions(
     scope: &'static str,
     on_login: Callback<()>,
     on_register: Callback<()>,
+    #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
     view! {
         <div class="theatre-auth-actions">
@@ -95,12 +96,13 @@ pub(crate) fn AuthActions(
                 };
                 availability.map(|availability| view! {
                     <Button id=format!("{scope}-login") variant=ButtonVariant::AuthPrimary
-                        icon=IconName::ArrowForward state=availability.clone()
+                        icon=if preview_icons { IconName::Login } else { IconName::ArrowForward } state=availability.clone()
                         focus_on_press=true
                         on_press=Callback::new(move |_| on_login.run(()))>
                         {label(locale, CopyKey::CantosIdLogin)}
                     </Button>
                     <Button id=format!("{scope}-register") variant=ButtonVariant::AuthSecondary
+                        nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
                         state=availability focus_on_press=true
                         on_press=Callback::new(move |_| on_register.run(()))>
                         {label(locale, CopyKey::CreateAccount)}
@@ -118,17 +120,20 @@ pub(crate) fn SessionRecovery(
     scope: &'static str,
     on_refresh: Callback<()>,
     on_logout: Callback<()>,
+    #[prop(optional)] preview_icons: bool,
 ) -> impl IntoView {
     view! {
         <div class="theatre-account-recovery">
             <Show when=move || matches!(state.get().phase(), SessionPhase::Failed(_))>
                 <Button id=format!("{scope}-refresh") variant=ButtonVariant::AuthSecondary
+                    nostrip:icon=preview_icons.then_some(IconName::Refresh)
                     on_press=Callback::new(move |_| on_refresh.run(()))>
                     {move || messages::text(Key::AccountRefresh, locale.get())}
                 </Button>
             </Show>
             <Show when=move || state.get().can_retry_logout()>
                 <Button id=format!("{scope}-logout-retry") variant=ButtonVariant::AuthSecondary
+                    nostrip:icon=preview_icons.then_some(IconName::Refresh)
                     on_press=Callback::new(move |_| on_logout.run(()))>
                     {move || messages::text(Key::AccountLogoutRetry, locale.get())}
                 </Button>
@@ -158,6 +163,10 @@ pub(crate) fn AuthPage(
     on_signup_cancel: Callback<()>,
     on_signup_login: Callback<()>,
     on_signup_setup: Callback<()>,
+    /// Enabled only by the existing explicit auth-preview composition root. This is not
+    /// shared icon admission or a live fallback when a dependency is unavailable.
+    #[prop(optional)]
+    preview_icons: bool,
 ) -> impl IntoView {
     // Success is unavailable until a provider registration receipt exists. In particular a
     // reconstructed completion URL is not a receipt and never opens Membership success actions.
@@ -175,10 +184,12 @@ pub(crate) fn AuthPage(
                     <BackButton id="theatre-auth-back" name=name
                         on_back=Callback::new(move |_| on_back.run(()))/>
                 })}
-                <div class="theatre-auth-brand" aria-hidden="true">
+                <a id="theatre-auth-home" class="theatre-auth-brand" href="#discover"
+                    aria-label=label(locale, CopyKey::ReturnHome)
+                    on:click=move |event| { event.prevent_default(); on_home.run(()); }>
                     <Logo tone=LogoTone::Light class="theatre-logo-light"/>
                     <Logo tone=LogoTone::Dark class="theatre-logo-dark"/>
-                </div>
+                </a>
             </div>
             <div class="theatre-auth-layout">
                 <Surface tone=SurfaceTone::Container variant=SurfaceVariant::Auth inset=Space::None class="theatre-auth-story">
@@ -202,7 +213,7 @@ pub(crate) fn AuthPage(
                     </p>
                     {if is_login {
                         view! {
-                            <AuthActions state locale scope="theatre-auth" on_login on_register/>
+                            <AuthActions state locale scope="theatre-auth" on_login on_register preview_icons/>
                             <p class="theatre-auth-helper theatre-muted">{label(locale, CopyKey::ProviderHelp)}</p>
                             <Show when=move || state.get().phase() == SessionPhase::SignedIn>
                                 <p>{label(locale, CopyKey::SignedInActionHelp)}</p>
@@ -219,6 +230,7 @@ pub(crate) fn AuthPage(
                                     let phase = registration.get().phase();
                                     DisabledReason::new(auth_copy::text(registration_key(phase), locale.get())).ok().map(|reason| view! {
                                     <Button id="theatre-registration-unavailable" variant=ButtonVariant::AuthPrimary
+                                        nostrip:icon=preview_icons.then_some(IconName::PersonAdd)
                                         state=if matches!(phase, RegistrationPhase::Idle | RegistrationPhase::Checking) { ButtonState::Loading(reason) } else { ButtonState::Disabled(reason) }>
                                         {label(locale, CopyKey::CreateAccount)}
                                     </Button>
@@ -226,29 +238,23 @@ pub(crate) fn AuthPage(
                                 </div>
                                 <Show when=move || matches!(registration.get().phase(), RegistrationPhase::Failed(_))>
                                     <Button id="theatre-registration-refresh" variant=ButtonVariant::AuthSecondary
+                                        nostrip:icon=preview_icons.then_some(IconName::Refresh)
                                         on_press=Callback::new(move |_| on_registration_refresh.run(()))>
                                         {label(locale, CopyKey::SignupRetry)}
                                     </Button>
                                 </Show>
-                                <Button id="theatre-register-back" variant=ButtonVariant::AuthSecondary
-                                    on_press=Callback::new(move |_| on_back.run(()))>
-                                    {label(locale, back_key(route))}
-                                </Button>
                             </div>
                                 }>
                                 <SignupPanel state=signup locale on_submit=on_signup_submit on_verify=on_signup_verify
+                                    login_via_back=route.step == AuthStep::Register preview_icons
                                     on_new_request=on_signup_new on_cancel=on_signup_cancel on_login=on_signup_login on_setup=on_signup_setup/>
                             </Show>
                             {(route.step == AuthStep::RegistrationComplete).then(|| view! {
                                 <p role="status">{label(locale, CopyKey::RegistrationUnconfirmed)}</p>
                             })}
-                            <Button id="theatre-register-home" variant=ButtonVariant::Text
-                                on_press=Callback::new(move |_| on_home.run(()))>
-                                {label(locale, CopyKey::ReturnHome)}
-                            </Button>
                         }.into_any()
                     }}
-                    <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout/>
+                    <SessionRecovery state locale scope="theatre-auth" on_refresh on_logout preview_icons/>
                 </div>
             </div>
         </section>
@@ -294,17 +300,151 @@ mod tests {
         language: Locale,
         availability: RegistrationState,
     ) -> String {
+        render_with_signup(
+            route,
+            initial,
+            language,
+            availability,
+            SignupState::default(),
+            false,
+        )
+    }
+
+    fn render_with_signup(
+        route: AuthRoute,
+        initial: AccountViewState,
+        language: Locale,
+        availability: RegistrationState,
+        enrollment: SignupState,
+        preview_icons: bool,
+    ) -> String {
         Owner::new().with(|| {
             let state = RwSignal::new(initial);
             let locale = RwSignal::new(language);
             let registration = RwSignal::new(availability);
-            let signup = RwSignal::new(SignupState::default());
+            let signup = RwSignal::new(enrollment);
             let noop = Callback::new(|()| {});
-            view! { <AuthPage state registration signup locale route on_back=noop on_register=noop on_login=noop
+            view! { <AuthPage state registration signup locale route preview_icons on_back=noop on_register=noop on_login=noop
             on_home=noop on_membership=noop on_refresh=noop on_logout=noop on_registration_refresh=noop
             on_signup_submit=noop on_signup_verify=noop on_signup_new=noop on_signup_cancel=noop on_signup_login=noop on_signup_setup=noop/> }
             .to_html()
         })
+    }
+
+    #[test]
+    fn registration_has_one_contextual_back_and_a_named_home_escape_in_every_origin() {
+        use cantos_contracts::theatre_identity::{Configuration, LoginMethod, Registration};
+        for language in [Locale::Vietnamese, Locale::English] {
+            for origin in [
+                ReturnDestination::Home,
+                ReturnDestination::Account,
+                ReturnDestination::Membership,
+                ReturnDestination::MembershipFromAccount,
+            ] {
+                let mut availability = RegistrationState::default();
+                let issued = availability.begin().unwrap();
+                assert!(availability.finish(
+                    issued,
+                    Ok(Configuration {
+                        login: LoginMethod::Oidc,
+                        registration: Registration::EmailVerification {}
+                    })
+                ));
+                for preview_icons in [false, true] {
+                    let html = render_with_signup(
+                        AuthRoute::register(origin),
+                        guest(),
+                        language,
+                        availability,
+                        SignupState::default(),
+                        preview_icons,
+                    );
+                    assert_eq!(
+                        native_button_name(&html, "theatre-auth-back"),
+                        auth_copy::text(CopyKey::ReturnLogin, language)
+                    );
+                    assert!(html.contains("id=\"theatre-auth-home\""));
+                    assert!(html.contains("href=\"#discover\""));
+                    assert!(html.contains(&format!(
+                        "aria-label=\"{}\"",
+                        auth_copy::text(CopyKey::ReturnHome, language)
+                    )));
+                    for absent in [
+                        "theatre-register-back\"",
+                        "theatre-register-home\"",
+                        "theatre-signup-cancel\"",
+                        "theatre-signup-login\"",
+                    ] {
+                        assert!(!html.contains(absent), "{origin:?}: {absent}");
+                    }
+                    assert_eq!(html.matches("data-variant=\"auth-primary\"").count(), 1);
+                    let submit = html
+                        .split("id=\"theatre-signup-submit\"")
+                        .nth(1)
+                        .unwrap()
+                        .split("</button>")
+                        .next()
+                        .unwrap();
+                    let leading_icons: Vec<_> = submit
+                        .split("<span")
+                        .skip(1)
+                        .filter_map(|markup| markup.split_once('>').map(|(opening, _)| opening))
+                        .filter(|opening| opening.contains("cui-button-icon"))
+                        .collect();
+                    assert_eq!(leading_icons.len(), usize::from(preview_icons));
+                    for opening in leading_icons {
+                        assert!(opening.contains("aria-hidden=\"true\""));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn completed_setup_reuses_register_back_but_completion_origin_keeps_distinct_login() {
+        use crate::application::signup::VerificationToken;
+        use cantos_contracts::theatre_registration::VerificationStatus;
+        let mut enrollment = SignupState::default();
+        enrollment.capture(
+            VerificationToken::from_fragment(&format!(
+                "#register-verify?token={}",
+                "af".repeat(32)
+            ))
+            .unwrap(),
+        );
+        let (issued, _) = enrollment.begin_verify().unwrap();
+        assert!(enrollment.finish_verify(issued, Ok(VerificationStatus::SetupLinkSent)));
+        for language in [Locale::Vietnamese, Locale::English] {
+            for origin in [
+                ReturnDestination::Home,
+                ReturnDestination::Account,
+                ReturnDestination::Membership,
+                ReturnDestination::MembershipFromAccount,
+            ] {
+                for route in [
+                    AuthRoute::register(origin),
+                    AuthRoute::registration_complete(origin),
+                ] {
+                    let html = render_with_signup(
+                        route,
+                        guest(),
+                        language,
+                        RegistrationState::default(),
+                        enrollment.clone(),
+                        false,
+                    );
+                    assert_eq!(
+                        html.contains("id=\"theatre-signup-login\""),
+                        route.step == AuthStep::RegistrationComplete
+                    );
+                    assert_eq!(
+                        native_button_name(&html, "theatre-auth-back"),
+                        auth_copy::text(back_key(route), language)
+                    );
+                    assert!(!html.contains("id=\"theatre-signup-cancel\""));
+                }
+            }
+        }
     }
 
     #[test]
@@ -501,9 +641,12 @@ mod tests {
             let route = AuthRoute::registration_complete(origin);
             assert_eq!(route.back(), expected);
             let html = render(route, guest(), Locale::English);
-            for id in ["theatre-auth-back", "theatre-register-back"] {
-                assert_eq!(native_button_name(&html, id), copy, "{origin:?}: {id}");
-            }
+            assert_eq!(
+                native_button_name(&html, "theatre-auth-back"),
+                copy,
+                "{origin:?}"
+            );
+            assert!(!html.contains("id=\"theatre-register-back\""));
             assert!(html.contains("Account registration has not been confirmed"));
         }
     }

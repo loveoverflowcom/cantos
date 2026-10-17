@@ -187,7 +187,13 @@ private fun ErrorText(text: String) {
 }
 
 @Composable
-fun LoginScreen(locale: ShellLocale, account: AccountView, nothingSaved: Boolean, onIntent: (AuthIntent) -> Unit) {
+fun LoginScreen(
+    locale: ShellLocale,
+    account: AccountView,
+    nothingSaved: Boolean,
+    onIntent: (AuthIntent) -> Unit,
+    previewActionIcons: Boolean = false,
+) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         AuthHeading(copy.text(AuthText.LoginEyebrow), copy.text(AuthText.LoginHeading), copy.text(AuthText.LoginHelp))
@@ -203,25 +209,30 @@ fun LoginScreen(locale: ShellLocale, account: AccountView, nothingSaved: Boolean
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Button(
                 copy.text(AuthText.CantosIdLogin), { onIntent(AuthIntent.BeginLogin) },
-                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy), icon = "arrow_forward",
+                variant = ButtonVariant.AuthPrimary, state = loginState(account, copy),
+                icon = if (previewActionIcons) authActionIcon(AuthIntent.BeginLogin) else "arrow_forward",
                 controlModifier = Modifier.fillMaxWidth().testTag("login-primary"),
             )
             if (account.offersRegistration()) Button(
                 copy.text(AuthText.CreateAccount), { onIntent(AuthIntent.OpenRegister) },
                 variant = ButtonVariant.AuthSecondary,
+                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenRegister) else null,
                 controlModifier = Modifier.fillMaxWidth().testTag("login-create"),
             )
             when (account) {
                 AccountView.Pending -> Button(
                     copy.text(AuthText.CancelLogin), { onIntent(AuthIntent.CancelLogin) },
+                    icon = if (previewActionIcons) authActionIcon(AuthIntent.CancelLogin) else null,
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-cancel"),
                 )
                 AccountView.CleanupRequired -> Button(
                     copy.text(AuthText.RetryCleanup), { onIntent(AuthIntent.RetryCleanup) },
+                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RetryCleanup) else null,
                     variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("auth-retry-cleanup"),
                 )
                 AccountView.SignedOut, is AccountView.Failed -> Button(
                     copy.text(AuthText.RestoreSession), { onIntent(AuthIntent.RestoreSession) },
+                    icon = if (previewActionIcons) authActionIcon(AuthIntent.RestoreSession) else null,
                     variant = ButtonVariant.Text, controlModifier = Modifier.fillMaxWidth().testTag("auth-restore"),
                 )
                 AccountView.SignedIn, AccountView.Unavailable -> Unit
@@ -233,7 +244,7 @@ fun LoginScreen(locale: ShellLocale, account: AccountView, nothingSaved: Boolean
 
 /** Honest registration: the provider has no verified sign-up entry here, so no form and no success. */
 @Composable
-fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit) {
+fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit, previewActionIcons: Boolean = false) {
     val copy = AuthCopy(locale)
     Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.lg"))) {
         AuthHeading(copy.text(AuthText.RegisterEyebrow), copy.text(AuthText.RegisterHeading), copy.text(AuthText.RegisterHelp))
@@ -244,11 +255,13 @@ fun RegisterScreen(locale: ShellLocale, onIntent: (AuthIntent) -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(tokenDp("space.sm"))) {
             Button(
                 copy.text(AuthText.ReturnLogin), { onIntent(AuthIntent.OpenLogin) },
-                variant = ButtonVariant.AuthPrimary, icon = "arrow_back",
+                variant = ButtonVariant.AuthPrimary,
+                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenLogin) else "arrow_back",
                 controlModifier = Modifier.fillMaxWidth().testTag("register-login"),
             )
             Button(
                 copy.text(AuthText.RegisterLater), { onIntent(AuthIntent.OpenHome) },
+                icon = if (previewActionIcons) authActionIcon(AuthIntent.OpenHome) else null,
                 variant = ButtonVariant.AuthOutlined, controlModifier = Modifier.fillMaxWidth().testTag("register-home"),
             )
         }

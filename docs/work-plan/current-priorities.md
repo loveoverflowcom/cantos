@@ -39,5 +39,25 @@ their own decision/acceptance gates; none requires rebuilding the completed foun
 | [#221](https://github.com/loveoverflowcom/cantos/issues/221) → [#222](https://github.com/loveoverflowcom/cantos/issues/222) → [#223](https://github.com/loveoverflowcom/cantos/issues/223) | Complete shared preview admission before consumer migration in the combined PR. Retain existing presentation while the [Select](../evidence/web-select-221.md), [BackButton](../evidence/web-back-button-222.md) and [AuthTonal](../evidence/web-auth-tonal-223.md) candidates lack required design/accessibility/renderer acceptance; then inspect the actual preference, Back and signup flows. Keep component evidence separate |
 | [#175](https://github.com/loveoverflowcom/cantos/issues/175), [#176](https://github.com/loveoverflowcom/cantos/issues/176) | Decide interest-receipt/privacy and read-only plan publication separately; no inferred payment or entitlement implementation |
 
+For the action-icon and Forge UI track, review the shared registry, Button/submit adapters and
+existing previews in [#228](https://github.com/loveoverflowcom/cantos/issues/228) before the
+Studio Forge mock [#227](https://github.com/loveoverflowcom/cantos/issues/227), Theatre Web
+auth/navigation [#224](https://github.com/loveoverflowcom/cantos/issues/224) and native CMP
+actions [#229](https://github.com/loveoverflowcom/cantos/issues/229). Reuse the #225 Select,
+BackButton and AuthTonal candidates; their renderer/admission gates still precede adoption.
+This track changes presentation and explicit mock composition, not live auth/producer authority.
+The [Studio Forge debug mock](../evidence/studio-forge-mock-ui.md) now supplies the isolated
+controller/composition review surface. Inspect its real renderer and reference, including
+raw-text recovery, exact sync identity and dialog focus, before live-client implementation;
+mock receipts do not satisfy the worker's invocation or API-admission gates.
+For Web auth, inspect the [phase/action hierarchy](../evidence/theatre-web-auth-actions-224.md)
+in the existing no-network auth diagnostic and actual consumer flow. Preserve the distinction
+between contextual Back and explicit Firebase cancellation; qualify shared action icons before
+moving the diagnostic icon mapping into live consumers.
+The [CMP action/Select candidate](../evidence/theatre-cmp-action-icons-229.md) retains native
+Material popup ownership and isolates new auth glyphs in the existing sandbox. Complete
+both-renderer admission and named Android/iOS accessibility observations before product adoption;
+JVM screenshots/tests and a launched Java process do not supply native acceptance.
+
 Do not append completed sessions here. Move their dated handoff to [archive](../archive/README.md)
 and leave a short current pointer. Existing source-bound evidence remains at its original path.
