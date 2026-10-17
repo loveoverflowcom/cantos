@@ -181,8 +181,11 @@ Copy each finalized backup off the VPS regularly, keeping **all three siblings**
 verify `sha256sum -c FILE.dump.sha256` before the separate restore drill. Copying only the dump
 loses the metadata required by ordinary restore. The originals live on the same VPS disk.
 Failed dump/checksum creation or unreadable schema metadata stops before retention or deployment.
-An unknown-epoch archive is retained with its metadata for investigation and returns failure;
-it never establishes a usable recovery point. `.partial` files are incomplete evidence,
+`FILE.dump.sha256` is finalized only after recognized schema metadata and a successful checksum.
+An unknown-epoch archive is retained with its metadata and partial checksum for investigation
+and returns failure; it never establishes a usable recovery point. Retention counts only finalized
+checksum manifests, so failed artifacts cannot displace good backups on a later run.
+`.partial` files are incomplete evidence,
 never usable backups. Kanidm keeps its own daily online backup
 (7 versions) in `cantos-kanidm-data`.
 Configuration rollback: the previous bundle stays at `/root/cantos-services/runtime.previous`.

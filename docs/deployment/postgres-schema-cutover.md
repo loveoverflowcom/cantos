@@ -5,7 +5,8 @@
 [#239](https://github.com/loveoverflowcom/cantos/issues/239) remove retired API TTS execution
 and establish one current fresh-install schema. They do not authorize replacing production
 data. [ADR 0018](../decisions/0018-external-audio-production.md) preserves external production;
-[ADR 0039](../decisions/0039-vps-production-runtime.md) owns the VPS and same-origin Web edge.
+[ADR 0039](../decisions/0039-vps-production-runtime.md) owns VPS runtime/durability;
+[ADR 0041](../decisions/0041-direct-hosting-api-boundary.md) owns direct Hosting/API addressing.
 
 ## Supported source and deployment boundary
 
@@ -33,8 +34,10 @@ and that sidecar; a valid sidecar hash alone never authenticates the dump being 
 Copy all three finalized files together for off-host recovery. Dump/checksum failure or unknown
 schema metadata refuses success before retention/deployment, including when the caller captures
 the backup path. An unknown-epoch archive is preserved for investigation, never called usable.
-The current
-restore command requires epoch 2 metadata, a compatible current image and a successful
+Only the finalized `.dump.sha256` manifest commits a usable backup for retention. A failed
+checksum or unknown epoch leaves its checksum manifest `.partial`; later successful backups
+exclude those diagnostic archives from the retention count, preserving known recovery points.
+The current restore command requires epoch 2 metadata, a compatible current image and a successful
 pre-restore schema check; it checks the restored schema again before grants or API restart.
 A rejected post-restore check leaves both APIs stopped for operator recovery. Historical
 backups without that metadata remain historical artifacts: preserve them with their matching

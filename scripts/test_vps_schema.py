@@ -18,14 +18,32 @@ BACKUP_CHECKSUM = "0" * 64 + "  backup.dump\n" + "1" * 64 + "  backup.dump.schem
 
 
 class VpsSchemaTests(unittest.TestCase):
-    def run_shell(self, body, *, files=None):
+    def run_shell(self, body, *, files=None, backup_keep=14):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name, content in (files or {}).items():
+            fixtures = {"config/edge.env": (
+                "CANTOS_API_HOST=api.example.test\n"
+                "CANTOS_THEATRE_WEB_ORIGIN=https://listen.example.test\n"
+                "CANTOS_STUDIO_WEB_ORIGIN=https://studio.example.test\n"
+                "CANTOS_THEATRE_API_ORIGIN=https://api.example.test\n"
+                "CANTOS_STUDIO_API_ORIGIN=https://api.example.test\n"
+                "CANTOS_THEATRE_OIDC_CALLBACK=https://api.example.test/api/v1/theatre/auth/callback\n"
+                "CANTOS_STUDIO_OIDC_CALLBACK=https://api.example.test/api/v1/studio/auth/callback\n")}
+            for surface, web in (("theatre", "listen"), ("studio", "studio")):
+                fixtures[f"config/api-{surface}.env"] = (
+                    "CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\n"
+                    f"CANTOS_BROWSER_API_SURFACE={surface}\n"
+                    f"CANTOS_WEB_ORIGIN=https://{web}.example.test\n"
+                    "CANTOS_API_ORIGIN=https://api.example.test\n")
+            for name, content in (fixtures | (files or {})).items():
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(content)
-            env = dict(os.environ, CANTOS_VPS_ROOT=directory, CANTOS_TEST_EVENTS=str(root / "events"))
+            env = dict(os.environ, CANTOS_VPS_ROOT=directory,
+                       CANTOS_TEST_EVENTS=str(root / "events"), CANTOS_BACKUP_KEEP=str(backup_keep))
+            # Keep the real browser/schema validation together without reading host drop-ins.
+            script = SCRIPT.replace("readonly QUADLET_DIR=/etc/containers/systemd",
+                                    f"readonly QUADLET_DIR={root}/quadlet")
             doubles = """
 event() { printf '%s\\n' "$*" >>"$CANTOS_TEST_EVENTS"; }
 require_root() { :; }
@@ -43,7 +61,7 @@ edge_probe() { event edge-probe; }
 prune_releases() { event prune; }
 systemctl() { event "systemctl $*"; }
 """
-            result = subprocess.run(["bash"], input=SCRIPT + doubles + body,
+            result = subprocess.run(["bash"], input=script + doubles + body,
                                     text=True, capture_output=True, env=env, check=False)
             events = (root / "events").read_text().splitlines() if (root / "events").exists() else []
             return result, events
@@ -62,6 +80,20 @@ systemctl() { event "systemctl $*"; }
         self.assertLess(events.index(f"check {PREVIOUS}"), events.index("backup"))
         self.assertLess(events.index("backup"), events.index("migrate"))
         self.assertLess(events.index("migrate"), events.index(f"switch {CURRENT}"))
+
+    def test_stale_browser_configuration_refuses_before_schema_probes_or_writes(self):
+        for command in (f"deploy {CURRENT}", "rollback"):
+            with self.subTest(command=command):
+                result, events = self.run_shell(command + "\n", files={
+                    "config/api-studio.env": (
+                        "CANTOS_ENV=production\nCANTOS_BIND_ADDRESS=0.0.0.0:8080\n"
+                        "CANTOS_BROWSER_API_SURFACE=studio\n"
+                        "CANTOS_WEB_ORIGIN=https://stale.example.test\n"
+                        "CANTOS_API_ORIGIN=https://api.example.test\n"),
+                    "state/current": CURRENT, "state/previous": PREVIOUS})
+                self.assertEqual(result.returncode, 65, result.stderr)
+                self.assertIn("has stale CANTOS_WEB_ORIGIN", result.stderr)
+                self.assertEqual(events, [])
 
     def test_empty_fresh_database_allows_bootstrap_without_current_schema_check(self):
         result, events = self.run_shell(f"TEST_EMPTY_EXIT=0\ndeploy {CURRENT}\n",
@@ -162,6 +194,30 @@ event "backup-receipt $fixture_dump"
         self.assertNotIn("retention", events)
         self.assertFalse(any(event.startswith("backup-receipt ") for event in events), events)
 
+    def test_failed_archives_never_displace_finalized_recovery_points_on_later_backup(self):
+        backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
+        for failure in ("checksum", "epoch"):
+            with self.subTest(failure=failure):
+                body = backup_function + f"""
+database_schema_epoch() {{ [[ $fixture_failure != epoch ]] || return 1; printf '2\\n'; }}
+sha256sum() {{ [[ $fixture_failure != checksum ]] || return 1; printf 'fixture hashes\\n'; }}
+# Only one valid recovery point exists initially. The next successful backup should keep
+# both good points even when an intervening failed archive is newer than the original.
+touch -t 202001010000 "$BACKUPS/cantos-old.dump" "$BACKUPS/cantos-old.dump.sha256"
+fixture_failure={failure}
+if fixture_dump=$(backup failed); then exit 99; fi
+fixture_failure=none
+fixture_dump=$(backup current)
+[[ -s $BACKUPS/cantos-old.dump && -s $BACKUPS/cantos-old.dump.sha256 &&
+   -s $BACKUPS/cantos-old.dump.schema-epoch && -s $fixture_dump &&
+   -s $fixture_dump.sha256 && -s $fixture_dump.schema-epoch ]]
+"""
+                result, _ = self.run_shell(body, backup_keep=2, files={
+                    "backups/cantos-old.dump": "previous usable archive",
+                    "backups/cantos-old.dump.sha256": "previous verified manifest",
+                    "backups/cantos-old.dump.schema-epoch": "2\n"})
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_unknown_backup_epoch_stops_before_retention_and_deploy_receipt(self):
         backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
         body = backup_function + """
@@ -175,6 +231,24 @@ event "backup-receipt $fixture_dump"
         self.assertEqual(result.returncode, 70, result.stderr)
         self.assertNotIn("retention", events)
         self.assertFalse(any(event.startswith("backup-receipt ") for event in events), events)
+
+    def test_successful_backup_retires_only_old_finalized_siblings(self):
+        backup_function = SCRIPT[SCRIPT.index("backup() {"):SCRIPT.index("\nrestore() {")]
+        result, _ = self.run_shell(backup_function + """
+database_schema_epoch() { printf '2\\n'; }
+sha256sum() { printf 'fixture hashes\\n'; }
+touch -t 202001010000 "$BACKUPS/cantos-old.dump.sha256"
+fixture_dump=$(backup current)
+[[ ! -e $BACKUPS/cantos-old.dump && ! -e $BACKUPS/cantos-old.dump.sha256 &&
+   ! -e $BACKUPS/cantos-old.dump.schema-epoch && -s $fixture_dump.sha256 &&
+   -s $BACKUPS/cantos-failed.dump && -s $BACKUPS/cantos-failed.dump.sha256.partial ]]
+""", backup_keep=1, files={
+            "backups/cantos-old.dump": "previous archive",
+            "backups/cantos-old.dump.sha256": "previous finalized manifest",
+            "backups/cantos-old.dump.schema-epoch": "2\n",
+            "backups/cantos-failed.dump": "diagnostic archive",
+            "backups/cantos-failed.dump.sha256.partial": "incomplete manifest"})
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_manifest_refuses_duplicate_foreign_malformed_or_extra_entries_before_hashing(self):
         dump = "0" * 64 + "  backup.dump\n"
@@ -240,7 +314,8 @@ if fixture_dump=$(backup test); then exit 99; fi
 [[ -z $fixture_dump ]]
 archives=("$BACKUPS"/*.dump)
 [[ ${#archives[@]} -eq 1 && -s ${archives[0]} &&
-   $(<"${archives[0]}.schema-epoch") == unrecognized && -f ${archives[0]}.sha256 ]]
+   $(<"${archives[0]}.schema-epoch") == unrecognized &&
+   -f ${archives[0]}.sha256.partial && ! -e ${archives[0]}.sha256 ]]
 """
         result, events = self.run_shell(body)
         self.assertEqual(result.returncode, 0, result.stderr)

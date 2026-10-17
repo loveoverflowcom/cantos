@@ -407,14 +407,17 @@ backup() {
   mv "$file.schema-epoch.partial" "$file.schema-epoch" || die "cannot finalize backup schema epoch" 70
   (cd "$BACKUPS" && sha256sum "$(basename "$file")" "$(basename "$file").schema-epoch" >"$(basename "$file").sha256.partial") ||
     die "cannot checksum backup; no retention or deployment may proceed" 70
-  mv "$file.sha256.partial" "$file.sha256" || die "cannot finalize backup checksum" 70
   [[ $epoch != unrecognized ]] ||
     die "backup preserved at $file but schema epoch is unknown; no retention or deployment may proceed" 70
+  mv "$file.sha256.partial" "$file.sha256" || die "cannot finalize backup checksum" 70
   log "backup $file ($(du -h "$file" | cut -f1))"
   local old
+  # Only a finalized checksum manifest commits a usable backup. Failed dump/metadata/hash
+  # artifacts stay available for investigation and never displace a known recovery point.
   while IFS= read -r old; do
+    old=${old%.sha256}
     rm -f "$old" "$old.sha256" "$old.schema-epoch"
-  done < <(ls -1t "$BACKUPS"/cantos-*.dump 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)))
+  done < <(ls -1t "$BACKUPS"/cantos-*.dump.sha256 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)))
   printf '%s\n' "$file"
 }
 
