@@ -60,6 +60,7 @@ cargo xtask verify behavior [--capability ID] [--setup] [--conformance] # opt-in
 cargo xtask verify postgres [--keep]
 cargo xtask verify postgres --suite theatre-firebase # narrow Firebase + SMTP registration SQL only
 cargo xtask verify postgres --suite legacy-dbsp      # legacy capture-retirement migrations only
+cargo xtask verify theatre-auth --suite firebase-emulator|firebase-web-e2e [--dry-run]
 cargo xtask verify kani [--harness catalog-revision|image-bounds|wav-payload|submission-window|publication-commit|listener-access|listener-reconcile|byte-range|playback-grant|public-cover|forge-attempt-ledger]...
 
 cargo xtask preflight [--changed-only] [--base REF] [--kani] [--skip GATE]... [--dry-run]
@@ -435,6 +436,28 @@ legacy capture-retirement assertions exercised by that target. Other database co
 media, HTTP hosts and the full restart campaign remain `NOT_RUN`. The full `postgres` gate
 also runs this target; the focused command never replaces full-gate acceptance.
 
+### Isolated Theatre enrollment testing
+
+`cargo xtask verify theatre-auth --suite firebase-emulator` is an explicit local integration
+lane outside ordinary gates, preflight and CI. It uses the existing registration HTTP/application/
+PostgreSQL code and an owned Auth Emulator, with a recording mock Kanidm issuer. It is separate
+from the registration-only SQL gate. The [runbook](../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+owns its source-to-test map, separately installed prerequisites, private recipient handling,
+recovery and acceptance limits.
+
+`--dry-run` prints a pure plan without tool subprocesses, network, fixture creation or receipt
+writes during xtask execution. Missing or incompatible tools produce `UNSUPPORTED`; nothing is
+installed automatically. Runtime requires Linux user/network/PID namespace isolation with
+loopback-only egress, PostgreSQL 17 binaries, Node and the explicitly selected installed `firebase-tools`
+14.2.2 Auth module. It creates only fresh owned fixtures and clears inherited cloud/database/
+proxy configuration. Normal summaries include no proof, setup or session credentials.
+
+`--suite firebase-web-e2e` reports `UNSUPPORTED` because the disposable real Kanidm/PKI/Web
+fixture and complete browser journey are not implemented. It never converts mock onboarding
+or zero selected tests into a successful login. The required setup/OIDC/session/reload/logout
+and separate-browser isolation remain open under #242; live provider and deployed-origin
+acceptance remain separate.
+
 ### Outcome vocabulary
 
 Multi-step commands end with a summary:
@@ -687,6 +710,7 @@ separates the original mock adapter checks from real rendering recorded in the
 | `run.rs`, `process.rs`, `probe.rs` | launch plans, supervised process groups, port ownership and readiness |
 | `seed.rs` | explicit `seed theatre [--reset]` plan; `scripts/seed_theatre.py` owns cluster ownership checks, the seed test run and the record |
 | `preflight/` | Git change collection, the Cargo package graph and pure selection |
+| `theatre_auth.rs` | pure plans and redacted outcomes for explicit isolated enrollment lanes; invokes the owned Python fixture primitive, outside ordinary gates |
 | `doctor.rs` | read-only environment report |
 | `services/` | typed process inventory/config validation, explicit local Podman lifecycle, bounded command boundary |
 | `distribute/` | explicit demo-APK tester distribution: `request` (pure plan), `apk` (output metadata and tool-report validation), `firebase` (CLI argv, destination check, remote-outcome interpretation, redaction), `receipt`, `host` (files, Git, clock) and `flow` (stage ordering and short-circuiting) |

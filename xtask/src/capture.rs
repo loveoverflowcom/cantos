@@ -105,6 +105,7 @@ pub trait Capture {
 /// The real implementation. Owns the interruption flag that Ctrl-C/SIGTERM/SIGHUP set.
 pub struct SystemCapture {
     interrupted: std::sync::Arc<AtomicBool>,
+    cleanup_grace: Duration,
     #[cfg(unix)]
     signals: Vec<signal_hook::SigId>,
 }
@@ -127,9 +128,17 @@ impl SystemCapture {
         }
         Ok(Self {
             interrupted,
+            cleanup_grace: Duration::ZERO,
             #[cfg(unix)]
             signals,
         })
+    }
+
+    /// Allow a local fixture launcher to clean its owned temporary directory on cancellation
+    /// before the existing process-group kill fallback. Remote-write callers keep zero grace.
+    pub fn with_cleanup_grace(mut self, grace: Duration) -> Self {
+        self.cleanup_grace = grace;
+        self
     }
 }
 
@@ -144,15 +153,16 @@ impl Drop for SystemCapture {
 
 impl Capture for SystemCapture {
     fn capture(&mut self, spec: &CommandSpec, timeout: Duration) -> Result<Captured, CaptureError> {
-        capture_command(spec, timeout, &self.interrupted)
+        capture_command_with_grace(spec, timeout, &self.interrupted, self.cleanup_grace)
     }
 }
 
 #[cfg(not(unix))]
-fn capture_command(
+fn capture_command_with_grace(
     _spec: &CommandSpec,
     _timeout: Duration,
     _interrupted: &AtomicBool,
+    _cleanup_grace: Duration,
 ) -> Result<Captured, CaptureError> {
     Err(CaptureError::Plumbing {
         message: "captured execution requires a POSIX host".to_owned(),
@@ -160,11 +170,21 @@ fn capture_command(
     })
 }
 
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 fn capture_command(
     spec: &CommandSpec,
     timeout: Duration,
     interrupted: &AtomicBool,
+) -> Result<Captured, CaptureError> {
+    capture_command_with_grace(spec, timeout, interrupted, Duration::ZERO)
+}
+
+#[cfg(unix)]
+fn capture_command_with_grace(
+    spec: &CommandSpec,
+    timeout: Duration,
+    interrupted: &AtomicBool,
+    cleanup_grace: Duration,
 ) -> Result<Captured, CaptureError> {
     use std::{
         fs::{DirBuilder, File, OpenOptions},
@@ -237,9 +257,36 @@ fn capture_command(
             message: error.kind().to_string(),
         })?;
 
-    struct OwnedChild(std::process::Child);
+    struct OwnedChild(std::process::Child, Duration);
     impl Drop for OwnedChild {
         fn drop(&mut self) {
+            if !self.1.is_zero() {
+                // The launcher handles TERM and deletes only its owned fixture directory.
+                // Descendants remain in the group and its leader stays unreaped throughout.
+                // SAFETY: the negative PID selects only this still-owned process group.
+                unsafe {
+                    libc::kill(-(self.0.id() as i32), libc::SIGTERM);
+                }
+                let deadline = Instant::now() + self.1;
+                while Instant::now() < deadline {
+                    // SAFETY: siginfo_t accepts zero initialization for waitid output.
+                    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+                    // SAFETY: writes this valid output pointer and never reaps the leader.
+                    let result = unsafe {
+                        libc::waitid(
+                            libc::P_PID,
+                            self.0.id(),
+                            &mut info,
+                            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                        )
+                    };
+                    // SAFETY: successful waitid initialized the status fields.
+                    if result == 0 && unsafe { info.si_pid() } != 0 {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(25));
+                }
+            }
             // The leader is deliberately not reaped before the group is signalled, so its ID
             // cannot be reused as another group while descendants are still alive.
             // SAFETY: signals only the process group this function created.
@@ -249,7 +296,7 @@ fn capture_command(
             let _ = self.0.wait();
         }
     }
-    let child = OwnedChild(child);
+    let child = OwnedChild(child, cleanup_grace);
 
     let snapshot = || Partial {
         stdout: read_stream(&stdout),
@@ -425,6 +472,38 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert!(error.may_have_run());
+    }
+
+    #[test]
+    fn a_local_fixture_gets_bounded_cleanup_before_the_group_kill_fallback() {
+        let directory = std::env::temp_dir().join(format!(
+            "cantos-capture-cleanup-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let script = "import pathlib,shutil,signal,sys,time\np=pathlib.Path(sys.argv[1])\ndef stop(*args):\n shutil.rmtree(p)\n sys.exit(0)\nsignal.signal(signal.SIGTERM,stop)\nprint('ready',flush=True)\ntime.sleep(60)";
+        let spec = CommandSpec::new("python3", std::env::temp_dir()).args([
+            "-I",
+            "-c",
+            script,
+            directory.to_str().unwrap(),
+        ]);
+        let error = capture_command_with_grace(
+            &spec,
+            Duration::from_millis(500),
+            &AtomicBool::new(false),
+            Duration::from_secs(3),
+        )
+        .unwrap_err();
+        assert!(matches!(error, CaptureError::TimedOut { .. }));
+        assert!(
+            !directory.exists(),
+            "owned launcher must complete its cleanup before kill fallback"
+        );
     }
 
     #[test]

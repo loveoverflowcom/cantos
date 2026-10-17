@@ -95,6 +95,12 @@ Optional Studio identity operator tools are `cargo xtask kanidm reconcile --dry-
 and `cargo xtask kanidm verify` (explicit read-only discovery/JWKS, never login acceptance).
 They never bootstrap accounts, grants, secrets, Podman or TLS; live steps require operator authority.
 
+The explicit local enrollment lane is `cargo xtask verify theatre-auth --suite firebase-emulator`
+([runbook](docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing));
+`--dry-run` only prints a plan. It is excluded from ordinary gates/preflight/CI and requires
+separately installed tools. Its recording mock issuer does not establish Kanidm/OIDC or browser
+acceptance; the `firebase-web-e2e` lane reports `UNSUPPORTED` until that fixture is implemented.
+
 Synthetic Theatre catalog data for local Web/CMP integration is the explicit
 `cargo xtask seed theatre [--reset]` ([runbook](docs/deployment/theatre-seeded-catalog.md)). It
 writes only a new database in the disposable cluster retained by `verify postgres --keep`, refuses

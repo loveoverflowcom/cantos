@@ -26,6 +26,7 @@ mod run;
 mod run_files;
 mod seed;
 mod services;
+mod theatre_auth;
 mod theatre_demo;
 mod theatre_host;
 mod tools;
@@ -151,6 +152,9 @@ fn dispatch(task: Task) -> Result<ExitCode> {
             theatre_host::execute(&workspace, action, &tools, &mut runner)
         }
         Task::Verify { suite } => {
+            if let cli::VerifySuite::TheatreAuth { suite, dry_run } = suite {
+                return theatre_auth::execute(&workspace, suite, dry_run);
+            }
             let mut steps = gate::steps(&gate::verify_suite(&suite), &workspace);
             if matches!(suite, cli::VerifySuite::Kani { .. }) {
                 if let Err(error) = kani::prepare_configuration(&workspace, &mut steps) {

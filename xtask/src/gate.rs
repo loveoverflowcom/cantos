@@ -434,6 +434,9 @@ pub fn full() -> Vec<Gate> {
 /// The gates behind one `cargo xtask verify <suite>` command.
 pub fn verify_suite(suite: &VerifySuite) -> Vec<Gate> {
     match suite {
+        // Explicit local fixtures have their own bounded executor. They are deliberately
+        // absent from the ordinary gate catalog and cannot become a preflight dependency.
+        VerifySuite::TheatreAuth { .. } => Vec::new(),
         VerifySuite::Behavior {
             capability,
             setup,

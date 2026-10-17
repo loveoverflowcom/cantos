@@ -177,6 +177,14 @@ pub enum Task {
 
 #[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum VerifySuite {
+    /// Explicit local Theatre registration acceptance; never selected by preflight or CI.
+    TheatreAuth {
+        #[arg(long, value_enum)]
+        suite: crate::theatre_auth::Suite,
+        /// Print a pure plan without probing tools or creating resources.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Locked Quint model checks, optionally replayed against the registered pure core.
     Behavior {
         /// Select one stable executable capability from specs/behavior/catalog.json.
@@ -241,6 +249,33 @@ mod tests {
     #[test]
     fn the_command_definition_is_consistent() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn theatre_auth_requires_an_explicit_lane_and_has_a_pure_plan_option() {
+        for (name, expected) in [
+            (
+                "firebase-emulator",
+                crate::theatre_auth::Suite::FirebaseEmulator,
+            ),
+            (
+                "firebase-web-e2e",
+                crate::theatre_auth::Suite::FirebaseWebE2e,
+            ),
+        ] {
+            assert!(matches!(
+                parse(&format!("verify theatre-auth --suite {name} --dry-run")).unwrap(),
+                Task::Verify { suite: VerifySuite::TheatreAuth { suite, dry_run: true } }
+                if suite == expected
+            ));
+        }
+        for line in [
+            "verify theatre-auth",
+            "verify theatre-auth --suite all",
+            "verify theatre-auth --setup",
+        ] {
+            assert!(parse(line).is_err(), "{line}");
+        }
     }
 
     #[test]

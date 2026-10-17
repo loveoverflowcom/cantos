@@ -134,6 +134,9 @@ No background recovery/cleanup is supplied; PII/budget/audit retention needs ope
 
 ## Independent local commands
 
+The explicit isolated lane below is independent of the ordinary unit/SQL gates. Neither a
+passing emulator run nor the existing real-mail record completes the full local Web acceptance.
+
 ```sh
 RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo test --locked -p cantos-api --lib theatre_registration
 RUSTUP_TOOLCHAIN=1.98.1 TMPDIR=/private/tmp cargo xtask verify postgres --suite theatre-firebase
@@ -157,3 +160,82 @@ The installed emulator ignores key-to-project association, lacks realistic OOB e
 sibling resend codes. Its results cannot accept project binding, IAM, delivery, signatures,
 revocation or production resend/expiry semantics. If ID tokens ever become admitted evidence,
 add a separate exact RS256/rotating-key/time/revocation verifier; this flow admits no ID tokens.
+
+## Isolated local enrollment testing
+
+The implementation boundary for [#242](https://github.com/loveoverflowcom/cantos/issues/242)
+is a test-only composition of existing enrollment code. Production configuration, provider
+origins, registration activation and identity/session validation are unchanged. No test route,
+inbox or emulator configuration is added to the shipped server or Web bundle. No new ADR or
+registration service is needed: this exercises ADR0036's existing rules.
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask verify theatre-auth --suite firebase-emulator --dry-run
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask verify theatre-auth --suite firebase-emulator
+RUSTUP_TOOLCHAIN=1.98.1 cargo xtask verify theatre-auth --suite firebase-web-e2e
+```
+
+The dry run prints the plan without probing tools, starting subprocesses, creating fixture
+resources, contacting a network or writing receipts at xtask execution. Cargo may still build
+xtask before executing it. These lanes are opt-in; ordinary build/test/preflight/CI never start
+the emulator or provision identity infrastructure. The Web lane reports `UNSUPPORTED`: the
+owned Kanidm/PKI/Web fixture and complete credential-setup/OIDC browser journey are unfinished.
+This is an implementation gap as well as an acceptance gap, not a skipped successful E2E test.
+
+### Source-to-test map
+
+| Boundary | Actual component / fixture | Evidence limit |
+| --- | --- | --- |
+| Registration HTTP | Existing Theatre registration handlers and router | Generic start response; possession and explicit confirmation remain required |
+| Durable state | Existing `firebase_enrollment::Service` and `PostgresRepository`, current migrations/grants in a fresh disposable cluster | Real SQL and one-winner semantics require the integration lane to run |
+| Firebase bootstrap | Existing `FirebaseBootstrapClient` request construction, signing and response parsers; `cfg(test)` loopback transport and fixed mock access-token source | Does not exercise real OAuth, IAM or signature acceptance; existing signing/OAuth fixture tests remain separate |
+| Email proof | Existing `FirebaseActionClient` against an owned Auth Emulator; inventory delta matches the new action and exact continuation | No real email, template configuration, API-key/project association or realistic provider expiry |
+| Kanidm onboarding | Recording mock of the existing `Issuer` port | A setup-ready response proves neither real credential setup nor OIDC/session authentication |
+| Recipient/browser support | `services/cantos-api/tests/support/theatre-auth/{recipient,browser}.mjs`, outside application routes and bundles | Helper tests use a small HTTP fixture, not the Cantos Web app or a real issuer |
+| Stateful expectations | Existing draft `cantos.identity.theatre-registration` catalog and native application/SQL regressions | No new model or lifecycle promotion; model evidence never establishes adapter conformance |
+
+### Prerequisites and private lifecycle
+
+Prepare PostgreSQL 17's `initdb`, `pg_ctl` and `psql`, the repository Rust toolchain and Node
+separately. Set `CANTOS_TEST_FIREBASE_AUTH_MODULE` to the absolute path of an already installed
+`firebase-tools` **14.2.2** `lib/emulator/auth/server.js`. The internal module is version-sensitive;
+a different globally installed Firebase CLI is not a replacement. The runner installs nothing,
+does not log in and never selects a cloud project or developer ADC/service-account credentials.
+Missing or incompatible prerequisites produce `UNSUPPORTED`, not an empty successful run.
+
+The lane uses a run-owned `demo-*` project, `.test` addresses, literal loopback endpoints and a
+fresh disposable PostgreSQL cluster. It never accepts an inherited production database URL or
+reuses an operator's emulator/project. Runtime egress must be blocked before executing the test;
+the Linux namespace prerequisite and its forbidden-destination checks are part of the runner.
+Other hosts without this isolation report `UNSUPPORTED` rather than weakening it.
+The private browser helper uses Chrome's debugging pipe, a fresh profile and separate browser
+contexts, with an exact-origin proxy/request guard. Its fixture tests can exercise input and
+cookie isolation, but do not demonstrate the actual Cantos UI, local PKI or Kanidm login.
+
+Only owned children and directories are cleaned on normal completion, failure or cancellation.
+No global process killing, shared emulator reset, volume pruning or existing-account deletion
+is allowed. Never recover a failed run by resending a real action, editing verified flags or
+manufacturing a session. After an interrupted run, use only its exact owned resource identity;
+do not guess a cleanup target from a port or process name.
+
+Provider/action/setup/session secrets must remain private transient values. Do not enable
+Firebase debug output, browser URL logs, screenshots, HAR or traces containing those values.
+Normal reports carry statuses/counts/tool/source identity, never proof or setup values. The
+recipient must preserve the exact server-selected `continueUrl` binding and must not navigate
+the emulator's default `oobLink`, which can consume the code before Cantos confirms it.
+
+### Remaining acceptance
+
+Run the integration lane with its pinned tools before claiming actual emulator/PostgreSQL
+coverage. Deterministic existing tests cover purpose/binding failures, provider wait expiry,
+cooldowns, replay/races, cancellation and uncertain create/send/consume/setup outcomes; these
+are separate from emulator observations. Preserve the emulator's sibling-code behavior rather
+than claiming newest-code-only invalidation.
+
+The complete #242 gate still needs an owned real local Kanidm with scoped trust and access,
+actual Theatre Web credential setup and genuine OIDC, API-confirmed anonymous-before-login and
+authenticated-after-login `/session`, reload/logout, and separate-browser A-starts-for-B
+isolation. A mock issuer cannot satisfy these criteria. Assignment is required before accepting
+this remaining fixture work. Native/device, real mail/IAM/action-template/project binding,
+production activation and deployed cross-site Hosting/cookie acceptance stay separately owned
+by #174/#191/#206/#199; this local lane cannot close them.

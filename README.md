@@ -141,6 +141,7 @@ cargo xtask verify rust
 cargo xtask verify contracts
 cargo xtask verify postgres
 cargo xtask verify postgres --suite legacy-dbsp # narrow legacy capture-retirement acceptance
+cargo xtask verify theatre-auth --suite firebase-emulator --dry-run
 cargo xtask build cantos-forge
 cargo xtask web-performance cantos-theatre
 cargo xtask preflight --changed-only
@@ -149,6 +150,10 @@ cargo xtask preflight --changed-only
 These commands require a local checkout with the documented toolchain. CI status and test
 evidence must be reported accurately; removing an obsolete TTS worker does not prove new
 upload/playback features exist.
+
+The opt-in [local enrollment test lane](docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+requires separately prepared tools and sends no real email. Its emulator/PostgreSQL boundary
+uses a mock Kanidm issuer; the full local Web/Kanidm/OIDC journey remains a separate gate.
 
 For local Theatre Web with an operator-supplied, migrated app-role `DATABASE_URL` already
 exported, run `cargo xtask run cantos-theatre --web`. It starts the API on 8080 with the

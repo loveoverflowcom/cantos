@@ -264,3 +264,22 @@ fn all_test_seams_refuse_non_loopback_and_use_only_fixed_prefixes() {
         FirebaseProjectId::parse("demo-cantos-issue206").unwrap()
     );
 }
+
+#[test]
+fn owned_emulator_action_seam_is_demo_project_literal_loopback_only() {
+    for (address, project) in [
+        ("192.0.2.1:9199", "demo-cantos-242"),
+        ("127.0.0.1:0", "demo-cantos-242"),
+        ("127.0.0.1:9199", "real-project"),
+    ] {
+        assert_eq!(
+            FirebaseActionClient::owned_auth_emulator_fixture(
+                address.parse().unwrap(),
+                project,
+                Duration::from_secs(1),
+            )
+            .err(),
+            Some(ActionError::Configuration),
+        );
+    }
+}

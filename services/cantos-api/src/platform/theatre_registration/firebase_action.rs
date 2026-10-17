@@ -361,6 +361,26 @@ impl FirebaseActionClient {
     }
 
     #[cfg(test)]
+    pub(super) fn owned_auth_emulator_fixture(
+        address: std::net::SocketAddr,
+        project: &str,
+        timeout: Duration,
+    ) -> Result<Self, ActionError> {
+        if !address.ip().is_loopback() || address.port() == 0 || !project.starts_with("demo-") {
+            return Err(ActionError::Configuration);
+        }
+        Self::build(
+            Url::parse(&format!(
+                "http://{address}/identitytoolkit.googleapis.com/v1/"
+            ))
+            .map_err(|_| ActionError::Configuration)?,
+            FirebaseProjectId::parse(project)?,
+            ApiKey::parse("synthetic-fixture-key")?,
+            timeout,
+        )
+    }
+
+    #[cfg(test)]
     fn fixture_at(
         address: std::net::SocketAddr,
         timeout: Duration,
@@ -497,4 +517,4 @@ pub(super) async fn decode<T: DeserializeOwned>(mut response: Response) -> Resul
 mod tests;
 
 #[cfg(test)]
-mod emulator_tests;
+pub(crate) mod emulator_tests;

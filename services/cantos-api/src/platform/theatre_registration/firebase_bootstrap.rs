@@ -502,7 +502,7 @@ impl FirebaseBootstrapClient {
         let body = serde_json::to_vec(body)
             .map_err(|_| BootstrapFailure::BeforeDispatch(BootstrapError::Protocol))?;
         let mut endpoint = self.base.clone();
-        endpoint.set_path(&format!("/v1/{method}"));
+        endpoint.set_path(&format!("{}{method}", self.base.path()));
         endpoint
             .query_pairs_mut()
             .append_pair("key", &self.config.api_key);
@@ -552,6 +552,38 @@ impl FirebaseBootstrapClient {
             AccessTokenSource::fixture_seeded(
                 "127.0.0.1:1".parse().unwrap(),
                 AdminAccessToken::parse("synthetic-access-token")?,
+                timeout,
+            )?,
+            timeout,
+        )
+    }
+
+    /// Owned Auth Emulator only. The external OAuth bearer source is replaced by the
+    /// emulator's fixed administrative credential; request bodies, RSA custom-token
+    /// signing and response interpretation remain the production implementation.
+    #[cfg(test)]
+    pub(super) fn auth_emulator_fixture(
+        config: FirebaseBootstrapConfig,
+        address: std::net::SocketAddr,
+        timeout: Duration,
+    ) -> Result<Self, BootstrapError> {
+        if !address.ip().is_loopback()
+            || address.port() == 0
+            || !config.project.starts_with("demo-")
+        {
+            return Err(BootstrapError::Configuration);
+        }
+        Self::build(
+            config,
+            Url::parse(&format!(
+                "http://{address}/identitytoolkit.googleapis.com/v1/"
+            ))
+            .map_err(|_| BootstrapError::Configuration)?,
+            AccessTokenSource::fixture_seeded(
+                "127.0.0.1:1"
+                    .parse()
+                    .map_err(|_| BootstrapError::Configuration)?,
+                AdminAccessToken::parse("owner")?,
                 timeout,
             )?,
             timeout,

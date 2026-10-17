@@ -6,3 +6,6 @@ pub mod postgres;
 pub mod runtime;
 #[cfg(test)]
 pub(crate) mod tests;
+
+#[cfg(test)]
+mod emulator_tests;
