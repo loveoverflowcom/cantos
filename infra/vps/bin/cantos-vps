@@ -132,7 +132,8 @@ ensure_password() {
 }
 
 put_secret() { # NAME VALUE-from-stdin; replaces so a rotated file propagates on next restart
-  podman secret create --replace "$1" - >/dev/null
+  # Podman reads `-` only from a pipe, never from a redirected regular file.
+  cat | podman secret create --replace "$1" - >/dev/null
 }
 
 ensure_internal_ca() {
