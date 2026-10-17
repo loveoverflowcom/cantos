@@ -44,19 +44,21 @@ tls.connect = function () {
 };
 const path = require('node:path');
 const modulePath = process.argv[1];
+const project = process.argv[2];
+if (!/^demo-[a-z0-9-]{1,24}$/.test(project)) process.exit(1);
 const pkg = require(path.resolve(path.dirname(modulePath), '../../../package.json'));
 if (pkg.name !== 'firebase-tools' || pkg.version !== '14.2.2') {
   throw new Error('Review the installed Auth emulator version before running this fixture');
 }
 (async () => {
   const { createApp } = require(modulePath);
-  const app = await createApp('demo-cantos-issue206', 2);
+  const app = await createApp(project, 2);
   const server = app.listen(0, '127.0.0.1');
   server.once('error', () => process.exit(1));
   server.once('listening', () => {
     process.stdout.write(JSON.stringify({
       host: '127.0.0.1', port: server.address().port,
-      project: 'demo-cantos-issue206', version: pkg.version
+      project, version: pkg.version
     }) + '\n');
   });
 })().catch(() => process.exit(1));
@@ -93,9 +95,10 @@ impl Drop for OwnedChild {
     }
 }
 
-struct Emulator {
+pub(crate) struct Emulator {
     _owned: OwnedChild,
-    address: SocketAddr,
+    pub(crate) address: SocketAddr,
+    pub(crate) project: String,
     http: Client,
 }
 
@@ -108,7 +111,17 @@ struct Ready {
 }
 
 impl Emulator {
+    pub(crate) fn directory(&self) -> &std::path::Path {
+        &self._owned.directory
+    }
+
     fn start() -> Self {
+        Self::start_project(PROJECT)
+    }
+
+    pub(crate) fn start_project(project: &str) -> Self {
+        FirebaseProjectId::parse(project).expect("syntactically valid fixture project");
+        assert!(project.starts_with("demo-"), "demo project required");
         let module = std::env::var_os("CANTOS_TEST_FIREBASE_AUTH_MODULE")
             .map(PathBuf::from)
             .expect("set CANTOS_TEST_FIREBASE_AUTH_MODULE to the installed Auth server.js");
@@ -126,10 +139,17 @@ impl Emulator {
         let directory =
             std::env::temp_dir().join(format!("cantos-auth-emulator-{}", Uuid::new_v4()));
         std::fs::create_dir(&directory).expect("create this test's isolated working directory");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))
+                .expect("private emulator working directory");
+        }
         let spawned = Command::new(node)
             .arg("-e")
             .arg(LAUNCHER)
             .arg(module)
+            .arg(project)
             .env_clear()
             .env("XDG_CONFIG_HOME", directory.join("config"))
             .env(
@@ -171,11 +191,12 @@ impl Emulator {
         let ready: Ready = serde_json::from_slice(&line).expect("Auth emulator readiness metadata");
         assert_eq!(ready.host, IpAddr::V4(Ipv4Addr::LOCALHOST));
         assert_ne!(ready.port, 0);
-        assert_eq!(ready.project, PROJECT);
+        assert_eq!(ready.project, project);
         assert_eq!(ready.version, "14.2.2");
         Self {
             _owned: owned,
             address: SocketAddr::new(ready.host, ready.port),
+            project: ready.project,
             http: Client::builder()
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())
@@ -185,7 +206,13 @@ impl Emulator {
         }
     }
 
-    async fn request(&self, method: Method, path: &str, body: Option<Value>, owner: bool) -> Value {
+    pub(crate) async fn request(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        owner: bool,
+    ) -> Value {
         let url = format!("http://{}{}", self.address, path);
         let mut request = self.http.request(method, url);
         if owner {
@@ -206,11 +233,19 @@ impl Emulator {
             StatusCode::OK,
             "fixture request accepted"
         );
-        let bytes = response.bytes().await.expect("fixture response body");
+        let mut response = response;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.expect("fixture response body") {
+            assert!(
+                bytes.len() + chunk.len() <= 262_144,
+                "bounded fixture response"
+            );
+            bytes.extend_from_slice(&chunk);
+        }
         serde_json::from_slice(&bytes).expect("fixture response JSON")
     }
 
-    async fn action(&self, name: &str, body: Value) -> Value {
+    pub(crate) async fn action(&self, name: &str, body: Value) -> Value {
         self.request(
             Method::POST,
             &format!(
@@ -222,10 +257,10 @@ impl Emulator {
         .await
     }
 
-    async fn pending_codes(&self) -> Vec<Value> {
+    pub(crate) async fn pending_codes(&self) -> Vec<Value> {
         self.request(
             Method::GET,
-            &format!("/emulator/v1/projects/{PROJECT}/oobCodes"),
+            &format!("/emulator/v1/projects/{}/oobCodes", self.project),
             None,
             false,
         )

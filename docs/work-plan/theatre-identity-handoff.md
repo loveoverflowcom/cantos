@@ -3,6 +3,9 @@
 Current issues: [#191 — real login activation](https://github.com/loveoverflowcom/cantos/issues/191),
 [#174 — email-verified enrollment](https://github.com/loveoverflowcom/cantos/issues/174) and
 [#206 — Firebase email-proof option](https://github.com/loveoverflowcom/cantos/issues/206).
+The isolated local test follow-up is [#242](https://github.com/loveoverflowcom/cantos/issues/242);
+its [integration/recipient tooling](../deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+does not substitute for the separate real Kanidm/Web journey or production activation.
 The previous PR3/integration/session log is [archived](../archive/handoffs/theatre-identity-2026-10-16.md).
 
 ## Existing boundary

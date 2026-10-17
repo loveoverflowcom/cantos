@@ -646,3 +646,94 @@ async fn lost_send_response_is_uncertain_and_has_no_automatic_replay() {
     let request = task.await.unwrap();
     assert!(request.path.starts_with("/v1/accounts:sendOobCode?"));
 }
+
+fn emulator_config() -> FirebaseBootstrapConfig {
+    let mut account = service_account();
+    account["project_id"] = json!("demo-cantos-242");
+    account["client_email"] = json!("synthetic@demo-cantos-242.iam.gserviceaccount.com");
+    FirebaseBootstrapConfig::parse(
+        "demo-cantos-242",
+        "synthetic-fixture-key",
+        &serde_json::to_vec(&account).unwrap(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn emulator_bootstrap_seam_requires_a_demo_project_and_literal_nonzero_loopback() {
+    for address in ["192.0.2.1:9199", "127.0.0.1:0", "[::]:9199"] {
+        assert_eq!(
+            FirebaseBootstrapClient::auth_emulator_fixture(
+                emulator_config(),
+                address.parse().unwrap(),
+                Duration::from_secs(1),
+            )
+            .err(),
+            Some(BootstrapError::Configuration),
+        );
+    }
+    assert_eq!(
+        FirebaseBootstrapClient::auth_emulator_fixture(
+            config(),
+            "127.0.0.1:9199".parse().unwrap(),
+            Duration::from_secs(1),
+        )
+        .err(),
+        Some(BootstrapError::Configuration),
+    );
+    let production = FirebaseBootstrapClient::new(emulator_config()).unwrap();
+    assert_eq!(production.base.as_str(), PROVIDER_ENDPOINT);
+}
+
+#[tokio::test]
+async fn emulator_transport_reuses_signup_body_parser_and_signed_custom_token() {
+    let identity = identity();
+    let (address, task) = server(vec![
+        ok(json!({"localId":identity.uid(),"email":identity.email().as_str()})),
+        ok(json!({"idToken":"synthetic-id-token","expiresIn":"3600","isNewUser":false})),
+    ])
+    .await;
+    let client = FirebaseBootstrapClient::auth_emulator_fixture(
+        emulator_config(),
+        address,
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let created = client.create_user(&identity).await.unwrap();
+    let _credential = client
+        .credential_exchange(&created, 1_800_000_000)
+        .await
+        .unwrap();
+    let requests = task.await.unwrap();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests[0].path,
+        "/identitytoolkit.googleapis.com/v1/accounts:signUp?key=synthetic-fixture-key"
+    );
+    assert_eq!(requests[0].authorization.as_deref(), Some("Bearer owner"));
+    assert_eq!(
+        requests[0].body,
+        json!({
+            "localId":"dedicated-new-uid", "email":"Victim@example.test",
+            "emailVerified":false, "targetProjectId":"demo-cantos-242",
+        })
+    );
+    assert_eq!(requests[1].path, "/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=synthetic-fixture-key");
+    let token = requests[1].body["token"].as_str().unwrap();
+    assert_eq!(
+        token.split('.').count(),
+        3,
+        "production RSA token construction remains active"
+    );
+    let claims: Value = serde_json::from_slice(
+        &URL_SAFE_NO_PAD
+            .decode(token.split('.').nth(1).unwrap())
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(claims["uid"], "dedicated-new-uid");
+    assert_eq!(
+        claims["iss"],
+        "synthetic@demo-cantos-242.iam.gserviceaccount.com"
+    );
+}

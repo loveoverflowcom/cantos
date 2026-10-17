@@ -268,6 +268,10 @@ binding/effect receipts and stores no action/provider/setup secrets. See
 [operator runbook](../../docs/deployment/firebase-enrollment-proof.md) for all explicit inputs,
 privilege/origin gates and unknown-outcome recovery. Local registration-only SQL evidence uses
 `cargo xtask verify postgres --suite theatre-firebase`; full PostgreSQL acceptance remains separate.
+The explicit `cargo xtask verify theatre-auth --suite firebase-emulator` lane composes the
+existing HTTP handlers, PostgreSQL repository and installed Auth Emulator with a recording
+mock issuer. See the [local test runbook](../../docs/deployment/firebase-enrollment-proof.md#isolated-local-enrollment-testing)
+for prerequisites, isolation and the outstanding real Kanidm/browser acceptance.
 
 ## Direct Hosting browser transport
 
