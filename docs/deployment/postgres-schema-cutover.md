@@ -1,6 +1,7 @@
 # PostgreSQL schema epoch 2 and controlled cutover
 
-**Implemented fresh-schema boundary and narrow legacy cutover; live cutover acceptance is NOT_RUN.** Issues
+**Implemented fresh-schema boundary and narrow legacy cutover.** Production acceptance belongs
+to attributable private run receipts and the owning PR. Issues
 [#238](https://github.com/loveoverflowcom/cantos/issues/238) and
 [#239](https://github.com/loveoverflowcom/cantos/issues/239) remove retired API TTS execution
 and establish one current fresh-install schema. The explicit `--cutover-epoch2` operation below
@@ -146,10 +147,20 @@ present; `pg_stat_activity` does not discover offline clients or future schedule
 locally and executes the two-phase host procedure. Ordinary deploy/rollback retains its epoch
 refusal; this flag is a separate operation, mutually exclusive with `--bootstrap`, `--rollback`
 and `--status`. `--dry-run` prints the plan without building, uploading or changing the host.
+Each execution generates a fresh 32-character lowercase-hex `ATTEMPT_ID` and persists it in
+`artifacts/vps/<stamp>-<revision12>-<attempt>/cutover-attempt` before remote work. The incoming
+tree, recovery archive, off-host acknowledgement and pending journal bind both the full target
+revision and this attempt. A dry run's all-zero planning placeholder is not a recovery identity.
+The local cutover prerequisite includes Python 3 for standard filesystem `fsync`. Before any
+remote work, `persist cutover attempt` synchronizes the attempt file, context/run directories
+and their ancestor entries through the workspace, including freshly created `artifacts/vps`.
 
 The supported source is exactly revision `883e188095227f04fb92cf4dcd29c659ac9de1fe` with 28
 historical migrations. The procedure creates an isolated schema oracle with that retained image
-and compares the live schema and migration checksums against it and the retained manifest.
+and compares the raw live schema and migration checksums against it and the retained manifest.
+It independently dumps/restores the source oracle; restored production copies must match that
+restored oracle exactly. This compares the same PostgreSQL lifecycle on both sides when restore
+reparses CHECK expressions, without rewriting or normalizing the live DDL text.
 The [data guard](../../infra/vps/postgres/epoch2-empty-business-guard.sql) requires expected
 object ownership, no unexpected extensions/prepared transactions/replication, **zero business
 and session rows**, one `catalog_clock` row, two `studio_oidc_flows` rows and three
@@ -161,15 +172,18 @@ The [host helper](../../infra/vps/bin/cantos-epoch2-cutover) performs these stag
 1. Snapshot the exact installed runtime/configuration and existing OIDC clients without
    changing accounts or credentials. Retain the old API image on the host.
 2. Dump the legacy database, restore it to a separate sibling database and repeat the source
-   guards. Create an independent epoch-2 sibling, import only the clock and five flow rows,
+   guards against the independently restored source oracle. Create an independent epoch-2
+   sibling, import only the clock and five flow rows,
    compare their exact values and check the target schema. Constraints stay enabled.
 3. Stop both APIs, refuse unknown remaining clients, freeze legacy connections, take a final
    dump, restore it to another sibling and repeat the guard/import/comparison against frozen
    source. No source database or volume is dropped.
 4. Copy the recovery archive and SHA-256 manifest to the private local
-   `artifacts/vps/<run>/` directory. Verify those exact bytes locally and acknowledge that
-   checksum on the host before commit can proceed. A failed transfer/check stops commit and
-   invokes state-aware recovery; it never becomes an accepted recovery copy.
+   `artifacts/vps/<run>/` directory. Verify those exact bytes locally, then
+   `persist off-host recovery copy` synchronizes `cutover-backup.tar` and its checksum manifest
+   and directory entries through the workspace before acknowledging that checksum on the host.
+   A failed transfer/check/synchronization stops acknowledgement and commit, and invokes
+   state-aware recovery for the same attempt; it never becomes an accepted recovery copy.
 5. Reconcile the staged browser/OIDC inputs, install the candidate runtime, rename the
    databases using their recorded OIDs and health-check the new APIs while runtime database
    access is read-only. Before acceptance, failure restores the matching legacy database,
@@ -183,7 +197,8 @@ observations/digests. It excludes OCI image bytes, Podman secrets, the Kanidm ad
 password and private CA material. The retained old image is a **host-local** recovery
 dependency. An off-host archive alone does not provide complete disaster recovery: separately
 preserve the required image, secrets, identity data, private storage and CA through their
-existing protected recovery procedures.
+existing protected recovery procedures. The synchronization stages use standard filesystem
+`fsync` semantics; they do not establish independent hardware or disaster-recovery acceptance.
 
 Before the operation, stage exactly these six nonsecret assignments in the root-only host file
 `/root/cantos-services/config/epoch2-browser.env`:
@@ -209,11 +224,18 @@ issued. This operation does not accept cross-site browser authentication.
 
 If execution or its response is interrupted, inspect status and the retained pending journal.
 Recover with the **same full target revision and its exact incoming tree**, using the uploaded
-helper rather than an older installed script. With `REVISION` set to that checked 40-hex SHA:
+helper rather than an older installed script. The current primitive is
+`cantos-vps cutover-{prepare,commit,recover} REVISION TREE ATTEMPT_ID`;
+`TREE` must be `/root/cantos-services/incoming/REVISION/ATTEMPT_ID/tree`.
+Use the checked 40-hex `REVISION` and original 32-hex `ATTEMPT_ID` from that run's record:
 
 ```bash
-ssh root@42.96.18.245 "/root/cantos-services/incoming/$REVISION/tree/infra/vps/bin/cantos-vps cutover-recover $REVISION /root/cantos-services/incoming/$REVISION/tree"
+ssh root@42.96.18.245 "/root/cantos-services/incoming/$REVISION/$ATTEMPT_ID/tree/infra/vps/bin/cantos-vps cutover-recover $REVISION /root/cantos-services/incoming/$REVISION/$ATTEMPT_ID/tree $ATTEMPT_ID"
 ```
+
+There is no revision-only fallback. A journal created by an earlier helper protocol must use
+its exact retained bundle and original recorded arguments; never reinterpret it with a newer
+interface or reuse another attempt's archive/acknowledgement.
 
 The pending journal blocks ordinary mutations until recovery resolves it. Recovery verifies
 recorded database identities; unknown state leaves the APIs stopped and retains the journal.
@@ -297,7 +319,9 @@ backups, historical objects or media as part of this PR.
 | Populated legacy conversion | Completed inventory, reviewed general transformer, full backup/restore drill and current behavior/digest comparison on restored representative data; transformer remains unimplemented |
 | Production | Named operator, host/database, approved plan/window, off-host recovery evidence and explicit authority for the state-changing cutover/major upgrade |
 
-This source description records no successful live cutover or PostgreSQL upgrade: production
-cutover acceptance is **NOT_RUN**. Keep executed inventory, recovery and deployment results in
-private attributable run records and the owning PR. Ordinary operations continue to fail closed
-at the legacy boundary; source cleanup alone never crosses it.
+Keep executed inventory, restore/import, off-host recovery, deployment and browser results in
+private attributable run receipts and the owning PR, with the exact source/tool/runtime inputs.
+Command support or a previous successful run does not accept a later operation. The general
+populated-data transformer remains unimplemented and a server-major upgrade remains separate.
+Ordinary operations continue to fail closed at the legacy boundary; source cleanup alone never
+crosses it.

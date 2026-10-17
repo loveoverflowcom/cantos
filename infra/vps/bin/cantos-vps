@@ -816,8 +816,9 @@ main() {
   fi
   case $command in
     cutover-prepare|cutover-commit|cutover-recover)
-      [[ $# -eq 2 && $1 =~ ^[0-9a-f]{40}$ && $2 == "$ROOT/incoming/$1/tree" ]] ||
-        die 'cutover requires REVISION and its exact incoming bundle tree' 64
+      [[ $# -eq 3 && $1 =~ ^[0-9a-f]{40}$ && ${3:-} =~ ^[0-9a-f]{32}$ &&
+         $2 == "$ROOT/incoming/$1/$3/tree" ]] ||
+        die 'cutover requires REVISION, its exact incoming attempt tree and ATTEMPT_ID' 64
       [[ -f $2/REVISION && $(<"$2/REVISION") == "$1" ]] || die 'cutover bundle revision mismatch' 65
       CANTOS_VPS_HELPERS=$2/infra/vps/bin
       source "$CANTOS_VPS_HELPERS/cantos-oidc-reconcile"

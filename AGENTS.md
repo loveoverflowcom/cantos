@@ -22,7 +22,7 @@ policy. Inspect actual code before treating a module, schema, command or API as 
 
 The current user's instructions take priority. The current fresh PostgreSQL schema is epoch 2;
 ordinary deploy/rollback refuses legacy epoch-1 databases. The explicit narrow
-`--cutover-epoch2` lane and its same-revision incoming-tree recovery are owned by the
+`--cutover-epoch2` lane and its same-revision/attempt incoming-tree recovery are owned by the
 [controlled cutover](docs/deployment/postgres-schema-cutover.md); populated-data conversion
 remains unimplemented.
 Retired SQL is auditable through its manifest and original Git history, never silently replayed.

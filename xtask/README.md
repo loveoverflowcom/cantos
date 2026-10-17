@@ -937,7 +937,9 @@ project, other product or `firebase-debug.log` in the checkout can be involved.
    --json`. The preview command refuses `live`, so the two are different commands.
 10. *HTTP smoke*: read-only HTTPS GETs (no redirects, `https` only) to the URL the CLI reported,
     judged on status, media type (notably `application/wasm`), `Cache-Control` and the SHA-256 of the
-    served bytes; plus a missing `.wasm` and an `/api/` path that must answer `404` rather than the
+    served bytes. Curl negotiates transfer compression with `--compressed` and hashes the decoded
+    response against the built bytes; wire compression does not change the bundle identity.
+    A missing `.wasm` and an `/api/` path must answer `404` rather than the
     page. Up to 3 attempts, 5 s apart, while a release propagates; the write is never repeated. Needs
     `curl`; without it the row is `NOT_RUN`. Static delivery only.
 11. *Final receipt*: the observed outcome.
@@ -1006,6 +1008,19 @@ staged browser inputs/existing OIDC clients and switch the database/runtime/imag
 The [cutover runbook](../docs/deployment/postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover)
 owns prerequisites, the precise import boundary and the exact incoming-tree recovery command.
 The general populated-data transformer remains unimplemented; PostgreSQL stays at 17.11.
+Each cutover execution creates a fresh 32-hex attempt ID, persists it in the private
+`artifacts/vps/<stamp>-<revision12>-<attempt>/cutover-attempt` and scopes remote files to
+`/root/cantos-services/incoming/<revision>/<attempt>/`. Prepare, commit and recovery require
+the same `REVISION TREE ATTEMPT_ID`; mismatched attempts cannot select a pending journal,
+archive or acknowledgement. Dry runs show an all-zero planning placeholder only. Retained
+older journals use their exact original bundle/protocol; there is no revision-only fallback.
+Local cutover prerequisites include Python 3. Before any remote work, `persist cutover attempt`
+uses filesystem `fsync` on the attempt file and context/run/ancestor directory entries through
+the workspace. After SHA-256 verification, `persist off-host recovery copy` synchronizes the
+archive, manifest and directory entries before any acknowledgement. Synchronization failure
+reports `FAIL` and leaves acknowledgement/commit `NOT_RUN`; once prepare has been attempted,
+recovery retains the original failure and uses only that invocation's revision/tree/attempt.
+This is filesystem durability, not hardware or complete disaster-recovery acceptance.
 
 Failure after prepare triggers state-aware recovery without hiding the original `FAIL`.
 Before durable `accepted`, recovery restores the matching legacy database/image/runtime and

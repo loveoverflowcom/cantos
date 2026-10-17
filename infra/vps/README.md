@@ -59,10 +59,12 @@ before deploying the current source to an installation using historical migratio
 source/schema/checksum/ownership and zero business/session rows, preserving one clock row and
 two Studio/three Theatre OIDC-flow rows. It retains the old database/image/runtime and refuses
 ordinary mutations while recovery is pending. A general populated-data transformer remains
-unimplemented; live cutover acceptance remains NOT_RUN in this source description.
+unimplemented. Live acceptance belongs to attributable private run receipts and the owning PR;
+the presence of a command or an earlier run does not describe today's installed state.
 
 The verified off-host cutover archive excludes OCI images, Podman secrets, the Kanidm admin
 password and private CA. The exact old image stays on the host; the archive is not complete
 disaster recovery. Keep independent protected image/secret/identity/media/CA recovery. Use the
-same target SHA and exact incoming tree for the runbook's `cutover-recover` invocation. Recovery
+same target SHA, persisted 32-hex attempt ID and exact incoming attempt tree for the runbook's
+`cutover-recover` invocation. A revision alone cannot select another attempt's recovery. Recovery
 before `accepted` restores the matching installation; after `accepted` it finalizes only.

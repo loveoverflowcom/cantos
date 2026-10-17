@@ -16,13 +16,18 @@ epoch2_refuse_pending() {
 }
 
 epoch2_load() {
-  local revision=$1
+  local revision=$1 attempt=$2 journal
   [[ $revision =~ ^[0-9a-f]{40}$ ]] || die "invalid cutover revision" 65
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
   local name
   name=$(<"$STATE/epoch2-cutover.pending")
-  [[ $name =~ ^[0-9a-f]{12}-[0-9]+-[0-9]+$ ]] || die "invalid cutover journal identity" 65
-  EPOCH2_JOURNAL=$STATE/epoch2-cutovers/$name
-  [[ $(config_value "$EPOCH2_JOURNAL/meta" target) == "$revision" ]] || die "another revision owns the cutover journal" 65
+  [[ $name =~ ^[0-9a-f]{12}-[0-9a-f]{32}$ ]] || die "invalid cutover journal identity" 65
+  # Reject a different invocation before opening its journal, even at the same revision.
+  [[ $name == "${revision:0:12}-$attempt" ]] || die "another attempt owns the cutover journal" 75
+  journal=$STATE/epoch2-cutovers/$name
+  [[ $(config_value "$journal/meta" target) == "$revision" &&
+     $(config_value "$journal/meta" attempt) == "$attempt" ]] || die "cutover journal ownership mismatch" 65
+  EPOCH2_JOURNAL=$journal
 }
 
 epoch2_query() {
@@ -232,10 +237,11 @@ epoch2_record_pending() {
 
 epoch2_prepare() (
   set -Eeuo pipefail
-  local revision=$1 tree=$2 journal previous suffix oracle rehearsal target old
+  local revision=$1 tree=$2 attempt=$3 journal previous suffix oracle rehearsal target old
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
   require_root; with_lock cutover
   if epoch2_pending; then
-    epoch2_load "$revision"
+    epoch2_load "$revision" "$attempt"
     die "a cutover journal is pending; recover it before preparing another attempt" 75
   fi
   check_revision "$revision"; require_schema_image "$revision"
@@ -243,17 +249,18 @@ epoch2_prepare() (
   # The reviewed source/image oracle is bounded to the deployed pre-cleanup revision.
   [[ $previous == 883e188095227f04fb92cf4dcd29c659ac9de1fe ]] || die "unsupported legacy source revision" 65
   command -v python3 >/dev/null || die "python3 is required to validate the retained manifest" 69
-  suffix="${revision:0:12}_$(date +%s)_$$"
-  journal=$STATE/epoch2-cutovers/${revision:0:12}-$(date +%s)-$$
-  mkdir -p -m 0700 "$journal"
+  suffix=$attempt
+  journal=$STATE/epoch2-cutovers/${revision:0:12}-$attempt
+  install -d -m 0700 "$STATE/epoch2-cutovers"
+  mkdir -m 0700 "$journal"
   oracle=cantos_e1_oracle_$suffix; rehearsal=cantos_e1_restore_$suffix
   target=cantos_e2_stage_$suffix; old=cantos_e1_retained_$suffix
-  printf 'target=%s\nprevious=%s\noracle=%s\nrehearsal=%s\nstaging=%s\nretained=%s\nold_oid=%s\nold_limit=%s\n' \
-    "$revision" "$previous" "$oracle" "$rehearsal" "$target" "$old" \
+  printf 'target=%s\nattempt=%s\nprevious=%s\noracle=%s\nrehearsal=%s\nstaging=%s\nretained=%s\nold_oid=%s\nold_limit=%s\n' \
+    "$revision" "$attempt" "$previous" "$oracle" "$rehearsal" "$target" "$old" \
     "$(epoch2_database_oid cantos)" "$(epoch2_query postgres "SELECT datconnlimit FROM pg_database WHERE datname='cantos';")" >"$journal/meta"
   epoch2_phase "$journal" initializing
   epoch2_record_pending "$journal"
-  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" "$attempt" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
   epoch2_snapshot_host "$journal" "$tree"
   epoch2_phase "$journal" snapshotted
   epoch2_install_pending_guard "$journal"
@@ -316,8 +323,9 @@ PY
 
 epoch2_commit() (
   set -Eeuo pipefail
-  local revision=$1 tree=$2 journal incoming=${2%/tree} target retained old_oid new_oid
-  require_root; with_lock cutover; epoch2_load "$revision"; journal=$EPOCH2_JOURNAL
+  local revision=$1 tree=$2 attempt=$3 journal incoming=${2%/tree} target retained old_oid new_oid
+  [[ $attempt =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
+  require_root; with_lock cutover; epoch2_load "$revision" "$attempt"; journal=$EPOCH2_JOURNAL
   [[ $(<"$journal/phase") == prepared ]] || die "cutover is not prepared; recover/reconcile before continuing" 75
   [[ -f $incoming/cutover-offhost.sha256 ]] &&
     cmp -s "$incoming/cutover-backup.tar.sha256" "$incoming/cutover-offhost.sha256" || die "verified off-host recovery copy acknowledgement missing" 65
@@ -325,7 +333,7 @@ epoch2_commit() (
   target=$(config_value "$journal/meta" staging); retained=$(config_value "$journal/meta" retained)
   old_oid=$(config_value "$journal/meta" old_oid); new_oid=$(config_value "$journal/meta" new_oid)
   [[ $(epoch2_database_oid cantos) == "$old_oid" && $(epoch2_database_oid "$target") == "$new_oid" ]] || die "prepared database identities changed" 65
-  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
+  trap 'status=$?; trap - EXIT; if ((status != 0)); then epoch2_recover_impl "$revision" "$tree" "$attempt" || log "cutover recovery incomplete; retain journal and inspect"; fi; exit "$status"' EXIT
   epoch2_guard_legacy cantos "$journal" "$tree"
   epoch2_rows cantos "$journal/rows-commit.jsonl"
   cmp -s "$journal/rows-frozen.jsonl" "$journal/rows-commit.jsonl" || die "frozen source changed after off-host copy" 65
@@ -368,9 +376,9 @@ epoch2_commit() (
 )
 
 epoch2_recover_impl() {
-  local revision=$1 tree=$2 journal phase previous target retained old_oid new_oid old_name new_name
+  local revision=$1 tree=$2 attempt=$3 journal phase previous target retained old_oid new_oid old_name new_name
   epoch2_pending || return 0
-  epoch2_load "$revision"; journal=$EPOCH2_JOURNAL; phase=$(<"$journal/phase")
+  epoch2_load "$revision" "$attempt"; journal=$EPOCH2_JOURNAL; phase=$(<"$journal/phase")
   case $phase in
     initializing|snapshotted|freeze-intent|prepared|browser-intent|rename-intent|health-check|accepted|complete|refused|rolled-back) ;;
     *) log "unknown cutover phase; explicit journal investigation required"; return 65 ;;
@@ -432,6 +440,7 @@ epoch2_recover_impl() {
 
 epoch2_recover() (
   set -Eeuo pipefail
+  [[ ${3:-} =~ ^[0-9a-f]{32}$ ]] || die "invalid cutover attempt" 65
   require_root; with_lock cutover
-  epoch2_recover_impl "$1" "$2"
+  epoch2_recover_impl "$1" "$2" "$3"
 )

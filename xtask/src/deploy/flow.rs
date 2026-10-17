@@ -841,7 +841,7 @@ impl Flow<'_> {
                 }
                 // ACCEPTANCE(NOT_RUN): see the API-origin gate in docs/deployment/firebase-hosting.md.
                 notes.push(
-                    "static delivery only: the clients call /api/... on this origin and Hosting serves no API, so sign-in, catalog, library and playback are NOT established; the API origin and authentication contract is a separate gate"
+                    "static delivery only: clients use the API origin recorded in the build receipt; Hosting serves no API, and sign-in, catalog, library and playback require separate runtime acceptance"
                         .to_owned(),
                 );
             }

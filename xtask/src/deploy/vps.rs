@@ -110,6 +110,90 @@ pub struct Step {
 pub const REMOTE_ROOT: &str = "/root/cantos-services";
 pub const HOST_SCRIPT: &str = "/usr/local/sbin/cantos-vps";
 const IMAGE_REPO: &str = "localhost/cantos-api";
+// Standard Unix fsync, including parent directory entries created on a first checkout.
+// A failed file/directory sync is a failed stage, never an accepted recovery copy.
+const DURABLE_LOCAL_COPY: &str = r#"import os,sys
+from pathlib import Path
+mode, boundary, run = sys.argv[1], Path(sys.argv[2]).resolve(strict=True), Path(sys.argv[3]).resolve(strict=True)
+if run == boundary or not run.is_relative_to(boundary):
+    raise ValueError('cutover run must be inside its workspace')
+files = {'attempt': ('cutover-attempt',), 'offhost': ('cutover-backup.tar', 'cutover-backup.tar.sha256')}[mode]
+for name in files:
+    with (run / name).open('rb') as stream:
+        os.fsync(stream.fileno())
+def sync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+if mode == 'attempt':
+    sync_directory(run / 'context')
+directory = run
+while True:
+    sync_directory(directory)
+    if directory == boundary:
+        break
+    directory = directory.parent
+"#;
+
+/// A nonsecret per-invocation identity, independent of the deployed source revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CutoverAttempt([u8; 16]);
+
+impl CutoverAttempt {
+    const PREVIEW: Self = Self([0; 16]);
+
+    fn generate() -> Result<Self> {
+        #[cfg(unix)]
+        {
+            use std::io::Read;
+            let mut bytes = [0; 16];
+            std::fs::File::open("/dev/urandom")
+                .context("could not open the cutover identity source")?
+                .read_exact(&mut bytes)
+                .context("could not read a complete cutover identity")?;
+            Ok(Self(bytes))
+        }
+        #[cfg(not(unix))]
+        bail!("epoch2 cutover identity generation is supported only on Unix")
+    }
+}
+
+impl std::fmt::Display for CutoverAttempt {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in self.0 {
+            write!(formatter, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
+
+fn incoming_directory(request: &Request, revision: &str, attempt: &CutoverAttempt) -> String {
+    if request.operation == Operation::CutoverEpoch2 {
+        format!("{REMOTE_ROOT}/incoming/{revision}/{attempt}")
+    } else {
+        format!("{REMOTE_ROOT}/incoming/{revision}")
+    }
+}
+
+fn durability_step(workspace: &Workspace, run: &Path, mode: &str) -> Step {
+    Step {
+        name: if mode == "attempt" {
+            "persist cutover attempt"
+        } else {
+            "persist off-host recovery copy"
+        },
+        command: CommandSpec::new("python3", workspace.root()).args([
+            "-c".to_owned(),
+            DURABLE_LOCAL_COPY.to_owned(),
+            mode.to_owned(),
+            workspace.root().display().to_string(),
+            run.display().to_string(),
+        ]),
+        remote_write: false,
+    }
+}
 
 pub fn resolve(args: &VpsArgs) -> Result<Request, Refusal> {
     let VpsTarget::CantosApi = args.target;
@@ -188,8 +272,14 @@ fn is_revision(value: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// The ordered steps. Pure: the revision and run directory are inputs, not lookups.
-pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path) -> Vec<Step> {
+/// The ordered steps. Pure: revision, attempt and run directory are inputs, not lookups.
+pub fn plan(
+    workspace: &Workspace,
+    request: &Request,
+    revision: &str,
+    run: &Path,
+    attempt: &CutoverAttempt,
+) -> Vec<Step> {
     let root = workspace.root();
     let local = |name: &'static str, program: &str, args: Vec<String>| Step {
         name,
@@ -207,7 +297,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
         remote_write,
     };
     let path = |name: &str| run.join(name).display().to_string();
-    let incoming = format!("{REMOTE_ROOT}/incoming/{revision}");
+    let incoming = incoming_directory(request, revision, attempt);
     let image = format!("{IMAGE_REPO}:{revision}");
 
     let source = vec![
@@ -274,6 +364,9 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
     let mut steps = Vec::new();
     match request.operation {
         Operation::Deploy | Operation::CutoverEpoch2 => {
+            if request.operation == Operation::CutoverEpoch2 {
+                steps.push(durability_step(workspace, run, "attempt"));
+            }
             steps.extend(source);
             let context = path("context");
             steps.push(local(
@@ -340,7 +433,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
                 let cutover = format!("{incoming}/tree/infra/vps/bin/cantos-vps");
                 steps.push(ssh(
                     "remote cutover prepare",
-                    format!("{cutover} cutover-prepare {revision} {incoming}/tree"),
+                    format!("{cutover} cutover-prepare {revision} {incoming}/tree {attempt}"),
                     true,
                 ));
                 steps.push(Step {
@@ -364,6 +457,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
                     ]),
                     remote_write: false,
                 });
+                steps.push(durability_step(workspace, run, "offhost"));
                 steps.push(Step {
                     name: "acknowledge verified off-host copy",
                     command: CommandSpec::new("scp", root).args([
@@ -377,7 +471,7 @@ pub fn plan(workspace: &Workspace, request: &Request, revision: &str, run: &Path
                 });
                 steps.push(ssh(
                     "remote cutover commit",
-                    format!("{cutover} cutover-commit {revision} {incoming}/tree"),
+                    format!("{cutover} cutover-commit {revision} {incoming}/tree {attempt}"),
                     true,
                 ));
             } else {
@@ -455,6 +549,9 @@ pub fn render_plan(
         ));
     }
     if request.dry_run {
+        if request.operation == Operation::CutoverEpoch2 {
+            text.push_str("Cutover attempt is an all-zero planning placeholder; execution generates a fresh identity.\n");
+        }
         text.push_str("Dry run: nothing was built, uploaded or run.\n");
     }
     text
@@ -470,7 +567,16 @@ const NEEDED: &[(Operation, &[&str])] = &[
     (Operation::Status, &["ssh"]),
     (
         Operation::CutoverEpoch2,
-        &["git", "tar", "podman", "zstd", "ssh", "scp", "sha256sum"],
+        &[
+            "git",
+            "tar",
+            "podman",
+            "zstd",
+            "ssh",
+            "scp",
+            "sha256sum",
+            "python3",
+        ],
     ),
 ];
 
@@ -488,12 +594,22 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
     } else {
         "-".repeat(40)
     };
+    let attempt = if request.operation == Operation::CutoverEpoch2 && !request.dry_run {
+        CutoverAttempt::generate()?
+    } else {
+        CutoverAttempt::PREVIEW
+    };
+    let attempt_suffix = if request.operation == Operation::CutoverEpoch2 {
+        format!("-{attempt}")
+    } else {
+        String::new()
+    };
     let run = workspace.path(&format!(
-        "artifacts/vps/{}-{}",
+        "artifacts/vps/{}-{}{attempt_suffix}",
         utc_stamp(),
         &revision[..12.min(revision.len())]
     ));
-    let steps = plan(workspace, &request, &revision, &run);
+    let steps = plan(workspace, &request, &revision, &run, &attempt);
     print!("{}", render_plan(workspace, &request, &revision, &steps));
     if request.dry_run {
         return Ok(ExitCode::SUCCESS);
@@ -533,7 +649,46 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700))?;
         }
+        if request.operation == Operation::CutoverEpoch2 {
+            use std::io::Write;
+            let mut record = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(run.join("cutover-attempt"))
+                .context("could not create the immutable cutover attempt record")?;
+            record.write_all(format!("{attempt}\n").as_bytes())?;
+            record.sync_all()?;
+            report.note(format!(
+                "cutover attempt: {attempt}; retained for exact recovery"
+            ));
+        }
     }
+    execute_plan(
+        workspace,
+        &request,
+        &revision,
+        &run,
+        &attempt,
+        runner,
+        &mut report,
+    )?;
+    if needs_source {
+        report.note(format!("run directory: {}", workspace.relative(&run)));
+    }
+    report.print();
+    Ok(report.exit_code())
+}
+
+fn execute_plan(
+    workspace: &Workspace,
+    request: &Request,
+    revision: &str,
+    run: &Path,
+    attempt: &CutoverAttempt,
+    runner: &mut dyn Runner,
+    report: &mut Report,
+) -> Result<()> {
+    let steps = plan(workspace, request, revision, run, attempt);
     let mut failed = false;
     let mut cutover_prepare_attempted = false;
     for step in &steps {
@@ -563,21 +718,17 @@ pub fn execute(workspace: &Workspace, args: &VpsArgs, runner: &mut dyn Runner) -
     if failed && cutover_prepare_attempted {
         // Recovery is state-aware: before acceptance it restores the paired legacy DB/image;
         // after acceptance it finalizes only, because the new database may have accepted writes.
-        let incoming = format!("{REMOTE_ROOT}/incoming/{revision}");
+        let incoming = incoming_directory(request, revision, attempt);
         let recovery = CommandSpec::new("ssh", workspace.root()).args([
             "-o".to_owned(), "BatchMode=yes".to_owned(), request.host.clone(),
-            format!("{incoming}/tree/infra/vps/bin/cantos-vps cutover-recover {revision} {incoming}/tree"),
+            format!("{incoming}/tree/infra/vps/bin/cantos-vps cutover-recover {revision} {incoming}/tree {attempt}"),
         ]);
         match runner.run(&recovery) {
             Ok(()) => report.record("remote cutover recovery", Status::Pass, "state-aware recovery completed; original failure remains FAIL"),
             Err(error) => report.record("remote cutover recovery", Status::Fail, format!("{error:#}; stop and inspect the retained cutover journal before another operation")),
         }
     }
-    if needs_source {
-        report.note(format!("run directory: {}", workspace.relative(&run)));
-    }
-    report.print();
-    Ok(report.exit_code())
+    Ok(())
 }
 
 fn head_revision(root: &Path) -> Result<String> {
@@ -637,6 +788,7 @@ mod tests {
     use std::path::PathBuf;
 
     const REV: &str = "0123456789abcdef0123456789abcdef01234567";
+    const ATTEMPT: CutoverAttempt = CutoverAttempt([0x11; 16]);
 
     fn workspace() -> Workspace {
         Workspace::discover().unwrap()
@@ -663,7 +815,7 @@ mod tests {
         let request = resolve(&args(&["--smoke-origin", "https://api.example.org"])).unwrap();
         assert_eq!(request.operation, Operation::Deploy);
         let run = PathBuf::from("/tmp/run");
-        let steps = plan(&workspace(), &request, REV, &run);
+        let steps = plan(&workspace(), &request, REV, &run, &ATTEMPT);
         assert_eq!(
             names(&steps),
             [
@@ -703,7 +855,7 @@ mod tests {
     #[test]
     fn bootstrap_uploads_only_the_host_bundle() {
         let request = resolve(&args(&["--bootstrap"])).unwrap();
-        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"));
+        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"), &ATTEMPT);
         assert!(steps.iter().all(|step| step.command.program != "podman"));
         assert_eq!(
             steps.last().unwrap().command.args.last().unwrap(),
@@ -721,7 +873,13 @@ mod tests {
     fn epoch2_cutover_copies_and_verifies_recovery_off_host_before_commit() {
         let request = resolve(&args(&["--cutover-epoch2"])).unwrap();
         assert_eq!(request.operation, Operation::CutoverEpoch2);
-        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/private-run"));
+        let steps = plan(
+            &workspace(),
+            &request,
+            REV,
+            Path::new("/tmp/private-run"),
+            &ATTEMPT,
+        );
         let names = names(&steps);
         assert!(!names.contains(&"remote install"));
         assert!(!names.contains(&"remote deploy"));
@@ -735,6 +893,7 @@ mod tests {
                 "remote cutover prepare",
                 "off-host recovery copy",
                 "verify off-host recovery copy",
+                "persist off-host recovery copy",
                 "acknowledge verified off-host copy",
                 "remote cutover commit",
             ]
@@ -746,8 +905,17 @@ mod tests {
         assert_eq!(steps[prepare + 2].command.program, "sha256sum");
         assert!(!steps[prepare + 1].remote_write);
         assert!(!steps[prepare + 2].remote_write);
+        assert_eq!(steps.first().unwrap().name, "persist cutover attempt");
+        assert_eq!(steps[prepare + 3].command.program, "python3");
+        assert!(!steps[prepare + 3].remote_write);
+        assert!(NEEDED
+            .iter()
+            .find(|(operation, _)| *operation == Operation::CutoverEpoch2)
+            .unwrap()
+            .1
+            .contains(&"python3"));
         let commit = steps.last().unwrap().command.args.last().unwrap();
-        assert_eq!(commit, &format!("/root/cantos-services/incoming/{REV}/tree/infra/vps/bin/cantos-vps cutover-commit {REV} /root/cantos-services/incoming/{REV}/tree"));
+        assert_eq!(commit, &format!("/root/cantos-services/incoming/{REV}/{ATTEMPT}/tree/infra/vps/bin/cantos-vps cutover-commit {REV} /root/cantos-services/incoming/{REV}/{ATTEMPT}/tree {ATTEMPT}"));
         assert!(steps
             .iter()
             .find(|step| step.name == "host bundle")
@@ -755,6 +923,226 @@ mod tests {
             .command
             .args
             .contains(&"services/cantos-api/schema/legacy-epoch-1-manifest.json".to_owned()));
+    }
+
+    #[test]
+    fn same_revision_cutovers_have_disjoint_remote_archives_acknowledgements_and_commands() {
+        let request = resolve(&args(&["--cutover-epoch2"])).unwrap();
+        let other = CutoverAttempt([0x22; 16]);
+        let first = plan(
+            &workspace(),
+            &request,
+            REV,
+            Path::new("/tmp/first"),
+            &ATTEMPT,
+        );
+        let second = plan(
+            &workspace(),
+            &request,
+            REV,
+            Path::new("/tmp/second"),
+            &other,
+        );
+        for (steps, attempt, foreign) in [(&first, ATTEMPT, other), (&second, other, ATTEMPT)] {
+            let incoming = format!("{REMOTE_ROOT}/incoming/{REV}/{attempt}");
+            let all_arguments = steps
+                .iter()
+                .flat_map(|step| &step.command.args)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(all_arguments.contains(&format!("{incoming}/cutover-backup.tar")));
+            assert!(all_arguments.contains(&format!("{incoming}/cutover-offhost.sha256")));
+            assert!(!all_arguments.contains(&format!("{REMOTE_ROOT}/incoming/{REV}/{foreign}")));
+            for name in ["remote cutover prepare", "remote cutover commit"] {
+                let command = steps
+                    .iter()
+                    .find(|step| step.name == name)
+                    .unwrap()
+                    .command
+                    .args
+                    .last()
+                    .unwrap();
+                assert!(command.ends_with(&format!(" {REV} {incoming}/tree {attempt}")));
+            }
+        }
+        assert_eq!(ATTEMPT.to_string(), "11111111111111111111111111111111");
+    }
+
+    #[cfg(unix)]
+    struct LocalRun {
+        root: PathBuf,
+        workspace: Workspace,
+        run: PathBuf,
+    }
+
+    #[cfg(unix)]
+    impl LocalRun {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "cantos-vps-durability-{}-{}",
+                std::process::id(),
+                CutoverAttempt::generate().unwrap()
+            ));
+            let run = root.join("artifacts/vps/run");
+            std::fs::create_dir_all(run.join("context")).unwrap();
+            std::fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+            for name in [
+                "cutover-attempt",
+                "cutover-backup.tar",
+                "cutover-backup.tar.sha256",
+            ] {
+                std::fs::write(run.join(name), "fixture bytes\n").unwrap();
+            }
+            let workspace = Workspace::fixture(&root).unwrap();
+            Self {
+                root,
+                workspace,
+                run,
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for LocalRun {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn durability_syncs_exact_files_and_the_new_directory_chain_through_workspace() {
+        use std::os::unix::fs::MetadataExt;
+        let fixture = LocalRun::new();
+        let trace = "import json,os,sys\nobserved=[]\noriginal=os.fsync\ndef record(fd):\n s=os.fstat(fd); observed.append([s.st_dev,s.st_ino]); original(fd)\nos.fsync=record\nsource=sys.argv.pop(1)\nexec(source)\nprint(json.dumps(observed))\n";
+        for (mode, files) in [
+            ("attempt", vec!["cutover-attempt", "context"]),
+            (
+                "offhost",
+                vec!["cutover-backup.tar", "cutover-backup.tar.sha256"],
+            ),
+        ] {
+            let output = Command::new("python3")
+                .args(["-c", trace, DURABLE_LOCAL_COPY, mode])
+                .arg(&fixture.root)
+                .arg(&fixture.run)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let observed: Vec<(u64, u64)> = serde_json::from_slice(&output.stdout).unwrap();
+            let mut expected = files
+                .iter()
+                .map(|name| fixture.run.join(name))
+                .collect::<Vec<_>>();
+            let mut directory = fixture.run.as_path();
+            loop {
+                expected.push(directory.to_path_buf());
+                if directory == fixture.root {
+                    break;
+                }
+                directory = directory.parent().unwrap();
+            }
+            let expected = expected
+                .iter()
+                .map(|path| {
+                    let metadata = path.metadata().unwrap();
+                    (metadata.dev(), metadata.ino())
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(observed, expected, "fsync order for {mode}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_durability_blocks_remote_ack_and_recovers_only_the_same_attempt() {
+        #[derive(Default)]
+        struct DurabilityRunner {
+            commands: Vec<CommandSpec>,
+        }
+        impl Runner for DurabilityRunner {
+            fn run(&mut self, command: &CommandSpec) -> Result<()> {
+                self.commands.push(command.clone());
+                if command.program == "python3" && !command.to_command().output()?.status.success()
+                {
+                    bail!("local durability fixture failed");
+                }
+                Ok(())
+            }
+        }
+        for (missing, failed_stage, prepared) in [
+            ("cutover-attempt", "persist cutover attempt", false),
+            (
+                "cutover-backup.tar.sha256",
+                "persist off-host recovery copy",
+                true,
+            ),
+        ] {
+            let fixture = LocalRun::new();
+            std::fs::remove_file(fixture.run.join(missing)).unwrap();
+            let request = resolve(&args(&["--cutover-epoch2"])).unwrap();
+            let mut runner = DurabilityRunner::default();
+            let mut report = Report::new("durability fixture");
+            execute_plan(
+                &fixture.workspace,
+                &request,
+                REV,
+                &fixture.run,
+                &ATTEMPT,
+                &mut runner,
+                &mut report,
+            )
+            .unwrap();
+            assert_eq!(report.exit_code(), ExitCode::FAILURE);
+            assert_eq!(
+                report
+                    .outcomes
+                    .iter()
+                    .find(|row| row.name == failed_stage)
+                    .unwrap()
+                    .status,
+                Status::Fail
+            );
+            for name in [
+                "acknowledge verified off-host copy",
+                "remote cutover commit",
+            ] {
+                assert_eq!(
+                    report
+                        .outcomes
+                        .iter()
+                        .find(|row| row.name == name)
+                        .unwrap()
+                        .status,
+                    Status::NotRun
+                );
+            }
+            let recovery = report
+                .outcomes
+                .iter()
+                .find(|row| row.name == "remote cutover recovery");
+            assert_eq!(
+                recovery.map(|row| row.status),
+                prepared.then_some(Status::Pass)
+            );
+            if prepared {
+                let recovery = runner.commands.last().unwrap().args.last().unwrap();
+                assert!(recovery.ends_with(&format!(
+                    "cutover-recover {REV} {REMOTE_ROOT}/incoming/{REV}/{ATTEMPT}/tree {ATTEMPT}"
+                )));
+                assert!(!recovery.contains(&CutoverAttempt([0x22; 16]).to_string()));
+            } else {
+                assert!(runner
+                    .commands
+                    .iter()
+                    .all(|command| command.program != "ssh" && command.program != "scp"));
+            }
+        }
     }
 
     #[test]
@@ -786,6 +1174,7 @@ mod tests {
             &resolve(&args(&["--rollback"])).unwrap(),
             REV,
             Path::new("/r"),
+            &ATTEMPT,
         );
         assert_eq!(names(&rollback), ["remote rollback"]);
         assert!(rollback[0].remote_write);
@@ -794,6 +1183,7 @@ mod tests {
             &resolve(&args(&["--status"])).unwrap(),
             REV,
             Path::new("/r"),
+            &ATTEMPT,
         );
         assert_eq!(names(&status), ["remote status"]);
         assert!(!status[0].remote_write);
@@ -837,7 +1227,7 @@ mod tests {
     #[test]
     fn dry_run_plan_marks_remote_writes() {
         let request = resolve(&args(&["--dry-run"])).unwrap();
-        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"));
+        let steps = plan(&workspace(), &request, REV, Path::new("/tmp/run"), &ATTEMPT);
         let text = render_plan(&workspace(), &request, REV, &steps);
         assert!(text.contains("[REMOTE WRITE] remote deploy"));
         assert!(text.contains("[local/read] image build"));

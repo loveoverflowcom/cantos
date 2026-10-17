@@ -11,8 +11,9 @@ previous epoch-1 database and images; it cannot convert the deployed installatio
 live host. The separate `--cutover-epoch2` lane supports only the checked legacy
 `883e188`/28-migration installation with empty business/session tables and the specified clock
 and OIDC-flow rows. It rehearses a sibling restore/import and verifies an off-host recovery
-copy before switching. A general populated-data transformer remains unimplemented; live
-cutover acceptance is NOT_RUN in this source description. PostgreSQL 17.11 stays pinned.
+copy before switching. A general populated-data transformer remains unimplemented. Attribute
+each live operation to its private source-bound receipts and owning PR; command support alone
+does not establish deployment acceptance. PostgreSQL 17.11 stays pinned.
 
 ## Destinations and remaining transition
 
@@ -49,6 +50,8 @@ Confirm each running container's image revision label against `state/current`; d
 `origin/develop`. For Web, record the release version/message and match served file SHA-256 values
 to its local receipt. A `+dirty` source cannot honestly be called an exact clean deployed SHA.
 Keep observations in ignored artifacts and the review PR, not a growing deployment-session diary.
+Receipts retain the commit actually built/deployed. Later documentation-only commits do not
+change that identity; report the deployed revision and final PR revision separately.
 
 ## Direct Hosting → API configuration
 
@@ -145,8 +148,8 @@ status/console reconciliation before replay. Never initialize/start/change a loc
 as an audit side effect. CircleCI remains manual; CI is not user acceptance.
 The narrow cutover is a separate operation: preserve its pending journal, incoming source tree
 and private local off-host archive. Its [state-aware recovery command](postgres-schema-cutover.md#implemented-narrow-epoch-1-cutover)
-uses the same full revision and incoming tree; an accepted cutover can only be finalized,
-because returning to legacy data could discard new writes.
+uses the same full revision, persisted attempt ID and exact incoming attempt tree. An accepted
+cutover can only be finalized, because returning to legacy data could discard new writes.
 
 ## Identity: Studio administrator and Theatre sign-in (operator-run)
 
